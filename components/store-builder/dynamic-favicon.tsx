@@ -8,7 +8,7 @@ interface DynamicFaviconProps {
 }
 
 // Platform favicon URL from Supabase storage
-const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 /**
  * DynamicFavicon - Dynamically sets the page favicon

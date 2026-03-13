@@ -24,7 +24,7 @@ import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 // Desktop category bar with icons
 const DEFAULT_CATEGORIES = [
@@ -1007,8 +1007,8 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black sticky top-0")} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
-    <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
+      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black sticky top-0 rounded-b-lg")} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
+    <header className={cn("w-full bg-black rounded-b-lg", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
           className="flex md:h-[81px] items-center justify-between gap-4 pt-[14px] md:pt-[3px] pb-3 md:pb-[3px]"

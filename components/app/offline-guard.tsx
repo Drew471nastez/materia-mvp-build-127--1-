@@ -73,7 +73,7 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
           {/* Logo wordmark / brand */}
           <div className="mb-2">
             <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
               alt="Storelib"
               className="w-8 h-8 mx-auto mb-3"
             />

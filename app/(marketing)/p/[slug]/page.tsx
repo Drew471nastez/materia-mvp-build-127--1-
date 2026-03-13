@@ -162,6 +162,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
         images: [socialImage],
       }),
     },
+    alternates: {
+      canonical: `https://storelib.com/p/${product.slug}`,
+    },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
@@ -1557,6 +1560,83 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const defaultPageBackgroundColor = themeConfig?.colors?.background || productPageConfig?.globalColors?.backgroundColor
   const defaultPageTextColor = themeColors.textColor
 
+  // ---------------------------------------------------------------------------
+  // JSON-LD Structured Data
+  // ---------------------------------------------------------------------------
+  const canonicalUrl = `https://storelib.com/p/${product.slug}`
+  const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
+
+  const primaryCategory = productCategories[0] || null
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.description || undefined,
+    image: product.gallery_urls?.length
+      ? product.gallery_urls
+      : product.thumbnail_url
+        ? [product.thumbnail_url]
+        : undefined,
+    url: canonicalUrl,
+    brand: {
+      "@type": "Brand",
+      name: sellerDisplayName,
+    },
+    ...(reviewsCount > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: reviewsAverage.toFixed(1),
+        reviewCount: reviewsCount,
+      },
+    }),
+    offers: {
+      "@type": "Offer",
+      price: (product.price_cents / 100).toFixed(2),
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock",
+      url: canonicalUrl,
+      seller: {
+        "@type": "Person",
+        name: sellerDisplayName,
+      },
+    },
+  }
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Explore",
+        item: "https://storelib.com/explore",
+      },
+      ...(primaryCategory
+        ? [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: primaryCategory.name,
+              item: `https://storelib.com/explore?category=${primaryCategory.slug}`,
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: product.title,
+            },
+          ]
+        : [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: product.title,
+            },
+          ]),
+    ],
+  }
+
   return (
     <div
       className="min-h-screen w-full"
@@ -1565,6 +1645,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         color: defaultPageTextColor || "var(--foreground)",
       }}
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
       <DynamicFavicon avatarUrl={creatorAvatarUrl} />
 

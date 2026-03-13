@@ -146,7 +146,7 @@ export default function WelcomePage() {
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/5135%20(1).svg?width=70&quality=80"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/Untitled%20(512%20x%20512%20px).svg?width=70&quality=80"
             alt="Storelib"
             width={34}
             height={34}

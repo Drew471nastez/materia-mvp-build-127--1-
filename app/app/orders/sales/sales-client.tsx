@@ -2543,7 +2543,7 @@ export function SalesClient({
       <body>
         <div class="header">
           <div class="header-left">
-            <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="Storelib" class="logo" />
+            <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg" alt="Storelib" class="logo" />
             <h1>Storelib - Sales Report</h1>
           </div>
           <div class="header-right">

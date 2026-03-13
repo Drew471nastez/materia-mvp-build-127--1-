@@ -6,12 +6,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/api/", "/app/", "/auth/"],
+        disallow: ["/admin/", "/api/", "/app/", "/auth/", "/explore?sort=", "/explore?q="],
       },
       {
         userAgent: "Googlebot",
         allow: "/",
-        disallow: ["/admin/", "/api/", "/app/", "/auth/"],
+        disallow: ["/admin/", "/api/", "/app/", "/auth/", "/explore?sort=", "/explore?q="],
       },
     ],
     sitemap: "https://storelib.com/sitemap.xml",

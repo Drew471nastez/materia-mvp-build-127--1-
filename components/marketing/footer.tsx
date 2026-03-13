@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
 import { isNativeApp } from "@/lib/platform-utils"
 
-const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 // Social media icons
 function FacebookIcon({ className }: { className?: string }) {
@@ -91,7 +91,7 @@ export function MarketingFooter() {
 
   return (
     <footer
-      className="bg-[#0f0f0f] text-white"
+      className="bg-[#0f0f0f] text-white rounded-t-lg"
       style={{
         /* Extend dark bg into body's safe-area-inset-bottom padding so
            there is no white strip above the iOS home indicator */

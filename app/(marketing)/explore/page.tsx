@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
   },
   alternates: {
-    canonical: "/explore",
+    canonical: "https://storelib.com/explore",
   },
   robots: {
     index: true,
@@ -147,6 +147,20 @@ export default async function ExplorePage({
 
   return (
     <main className="min-h-screen bg-white" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* JSON-LD structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            "name": "Discover Digital Products",
+            "description": "Discover premium digital products from independent creators.",
+            "url": "https://storelib.com/explore"
+          }),
+        }}
+      />
+
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}

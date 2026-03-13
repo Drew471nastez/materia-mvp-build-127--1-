@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 
-const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 export function DashboardSidebar() {
   const pathname = usePathname()

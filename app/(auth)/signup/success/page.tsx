@@ -268,7 +268,7 @@ function SuccessContent() {
                 {/* Logo container */}
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden shadow-lg bg-white flex items-center justify-center">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
                     alt="Storelib"
                     className="w-full h-full"
                   />

@@ -71,7 +71,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
     <body>
       <div class="header">
         <div class="logo">
-          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="StoreLib" />
+          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg" alt="StoreLib" />
         </div>
         <h1>Products Report</h1>
         <p>Generated on ${today}</p>
@@ -121,7 +121,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
 
       <div class="footer">
         <div class="branding">
-          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="StoreLib" />
+          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg" alt="StoreLib" />
         </div>
         <p>This report contains ${products.length} product(s) • Powered by StoreLib</p>
       </div>

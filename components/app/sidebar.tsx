@@ -682,7 +682,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
               alt="Storelib"
               className="h-8 w-8"
             />
@@ -887,7 +887,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
                 alt="Storelib"
                 className="h-7 w-7"
               />

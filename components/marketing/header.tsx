@@ -20,7 +20,7 @@ export function MarketingHeaderSkeleton() {
   return (
     <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
       {/* Main Header Row */}
-      <header className="border-b border-white/10">
+      <header className="border-b border-white/10 rounded-b-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Skeleton className="h-8 w-32 bg-white/10" />
           <nav className="hidden items-center gap-6 sm:flex">
@@ -89,7 +89,7 @@ export async function MarketingHeader() {
   return (
     <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
       {/* Main Header Row */}
-      <header className="border-b border-white/10">
+      <header className="border-b border-white/10 rounded-b-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link href="/explore" className="flex items-center gap-2 shrink-0">
             <span className="text-[2rem] font-bold tracking-tight leading-none text-white">Storelib</span>
