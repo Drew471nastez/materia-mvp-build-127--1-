@@ -123,7 +123,17 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
 
     if (res.ok) {
       const saved = await res.json()
-      setPost(p => ({ ...p, ...saved, content: Array.isArray(saved.content) ? saved.content : p.content }))
+      setPost(p => ({
+        ...p,
+        ...saved,
+        author: saved.author_name || saved.author || p.author,
+        seo_title: saved.seo_title ?? p.seo_title ?? "",
+        seo_description: saved.seo_description ?? p.seo_description ?? "",
+        seo_keywords: saved.seo_keywords ?? p.seo_keywords ?? "",
+        excerpt: saved.excerpt ?? p.excerpt ?? "",
+        cover_image_url: saved.cover_image_url ?? p.cover_image_url ?? "",
+        content: Array.isArray(saved.content) ? saved.content : p.content,
+      }))
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
       if (mode === "new") {

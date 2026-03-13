@@ -98,17 +98,17 @@ export default function BlogListing({
                   <Link key={post.id} href={`/blog/${post.slug}`} className="group block">
                     <article>
                       {/* Cover image */}
-                      <div className="aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 mb-5">
+                      <div className="aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 mb-5 group-hover:scale-[1.005] transition-transform duration-500 ease-out">
                         {post.cover_image_url ? (
                           <Image
                             src={post.cover_image_url}
                             alt={post.title}
                             width={680}
                             height={425}
-                            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700 ease-out"
                           />
                         ) : (
-                          <div className={`w-full h-full bg-gradient-to-br ${post.gradient || "from-neutral-800 to-neutral-900"} flex items-center justify-center`}>
+                          <div className={`w-full h-full bg-gradient-to-br ${post.gradient || "from-neutral-800 to-neutral-900"} flex items-center justify-center group-hover:scale-[1.02] transition-transform duration-700 ease-out`}>
                             <span className="text-white/20 text-6xl font-bold select-none">
                               {post.title.charAt(0)}
                             </span>
@@ -124,8 +124,10 @@ export default function BlogListing({
                       )}
 
                       {/* Title */}
-                      <h2 className="text-[22px] font-bold text-neutral-900 leading-snug mb-2 group-hover:text-neutral-600 transition-colors">
-                        {post.title}
+                      <h2 className="text-[22px] font-bold text-neutral-900 leading-snug mb-2 transition-colors duration-300">
+                        <span className="bg-[length:0%_1.5px] bg-[position:0_100%] bg-no-repeat bg-gradient-to-r from-neutral-900 to-neutral-900 group-hover:bg-[length:100%_1.5px] transition-[background-size] duration-500 ease-in-out pb-[2px]">
+                          {post.title}
+                        </span>
                       </h2>
 
                       {/* Excerpt */}
