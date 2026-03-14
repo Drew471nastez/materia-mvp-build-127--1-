@@ -1207,6 +1207,32 @@ html.capacitor .creator-quick-nav {
   display: none !important;
 }
 
+/* ── Touch device: suppress hover-flash on cards ──────────────────────────────
+   On iOS/Android the :hover pseudo-class fires on tap and lingers until the
+   next tap. This causes card shadow/border/scale animations to briefly flash
+   when a finger touches a card — visually jarring and unintended for touch.
+   @media (hover: none) targets touch-only devices (no mouse pointer).          */
+@media (hover: none) {
+  /* Remove shadow and border transitions that create the flash */
+  [class*="hover:shadow"],
+  [class*="hover:border"] {
+    transition-duration: 0ms !important;
+  }
+  [class*="hover:shadow"]:hover {
+    box-shadow: none !important;
+  }
+  /* Remove image/element scale-on-hover inside group cards */
+  [class*="group-hover:scale"] {
+    transition-property: none !important;
+    transform: none !important;
+  }
+  /* Remove opacity hover effects */
+  [class*="hover:opacity"]:hover {
+    opacity: inherit !important;
+    transition-duration: 0ms !important;
+  }
+}
+
 /* Welcome page: safe-area shield matches the page background so no black bar
    appears at the top. Also lock scroll since the page is fixed/full-screen. */
 html.capacitor:has([data-page="welcome"])::before {

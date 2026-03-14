@@ -968,17 +968,17 @@ export function PlatformHeaderClient() {
     [shouldForceCanonicalNav, navigateToCanonical, router],
   )
 
-  // Navigate to an /explore category URL. When already on /explore, use
-  // router.push() for smooth client-side transition instead of navigateReliably()
-  // which uses window.location.href on Capacitor (full page reload → white flash).
+  // Navigate to an /explore category URL using router.push() for smooth client-side
+  // transition regardless of current page — avoids full page reload / white flash on
+  // Capacitor. Seller subdomains use canonical storelib.com URL instead.
   const navigateToExploreCategory = useCallback((url: string) => {
-    if (pathname.startsWith('/explore')) {
-      startNavigationLoading()
-      router.push(url, { scroll: false })
+    startNavigationLoading()
+    if (shouldForceCanonicalNav) {
+      navigateToCanonical(url)
     } else {
-      navigateReliably(url)
+      router.push(url, { scroll: false })
     }
-  }, [pathname, router, navigateReliably])
+  }, [router, shouldForceCanonicalNav, navigateToCanonical])
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
