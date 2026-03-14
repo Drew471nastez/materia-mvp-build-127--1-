@@ -1,10 +1,25 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+
+/**
+ * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
+ * Same bg-black + sticky positioning as the real header so the layout doesn't shift.
+ */
+function HeaderPlaceholder() {
+  return (
+    <div
+      id="platform-header-root"
+      className="sticky top-0 z-40 w-full bg-black"
+      style={{ minHeight: "57px" }}
+      aria-hidden
+    />
+  )
+}
 
 /** Paths that are always platform pages (never custom-domain seller pages). */
 function isKnownPlatformPath(p: string): boolean {
@@ -73,5 +88,14 @@ export function ConditionalHeader() {
     setShowPlatformHeader(pathname === "/" || isKnownPlatformPath(pathname))
   }, [pathname])
 
-  return showPlatformHeader ? <PlatformHeaderClient /> : null
+  if (!showPlatformHeader) return null
+
+  // PlatformHeaderClient calls useSearchParams(), which requires a Suspense boundary
+  // for SSR streaming (Next.js 16 build requirement).  The black-bar fallback keeps
+  // the layout stable — no gap above content while the client hydrates.
+  return (
+    <Suspense fallback={<HeaderPlaceholder />}>
+      <PlatformHeaderClient />
+    </Suspense>
+  )
 }
