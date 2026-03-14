@@ -2394,6 +2394,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <a
                     href="/help"
                     target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (isNativeApp()) {
+                        e.preventDefault()
+                        openExternal(`https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`)
+                      }
+                    }}
                     className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">

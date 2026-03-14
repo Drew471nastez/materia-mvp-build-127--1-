@@ -41,6 +41,7 @@ import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
+const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -178,7 +179,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const profileDropdownItems = [
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
-    { href: "/help", label: "Help", icon: HelpCircle },
+    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
     { href: "/library", label: "Library", icon: Library },
   ]
@@ -824,12 +825,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
+                  const isHelp = item.href === "/help"
+                  const isExploreItem = item.href === "/explore"
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-                      onClick={() => setHeaderProfileOpen(false)}
+                      onClick={(e) => {
+                        if (isHelp && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(HELP_FULL_URL)
+                        } else if (isExploreItem && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(EXPLORE_FULL_URL)
+                        }
+                        setHeaderProfileOpen(false)
+                      }}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
@@ -1161,12 +1173,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
                   const isExplore = item.href === "/explore"
+                  const isHelp = item.href === "/help"
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
+                      {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
                       onClick={(e) => {
-                        if (isExplore && isNativeApp()) {
+                        if (isHelp && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(HELP_FULL_URL)
+                        } else if (isExplore && isNativeApp()) {
                           e.preventDefault()
                           openExternal(EXPLORE_FULL_URL)
                         }

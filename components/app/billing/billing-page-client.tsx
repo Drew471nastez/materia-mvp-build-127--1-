@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
@@ -711,7 +712,13 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 const response = await fetch("/api/billing/subscription/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: showUpgradeModal.planId }) })
                 if (!response.ok) { const error = await response.json(); throw new Error(error.error || "Failed to create checkout session") }
                 const { checkoutUrl } = await response.json()
-                if (checkoutUrl) window.location.href = checkoutUrl
+                if (checkoutUrl) {
+                  if (isNativeApp()) {
+                    openExternal(checkoutUrl)
+                  } else {
+                    window.open(checkoutUrl, "_blank", "noopener,noreferrer")
+                  }
+                }
               }
             } catch (error: any) {
               setShowUpgradeModal(null)

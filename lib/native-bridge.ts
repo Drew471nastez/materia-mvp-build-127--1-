@@ -308,12 +308,15 @@ export async function nativeLogout(
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
-    import("@capacitor/browser")
-      .then(({ Browser }) => Browser.open({ url }))
-      .catch(() => {
-        // Fallback: custom URL scheme handled by native shell
-        window.location.href = "storelib://external?url=" + encodeURIComponent(url)
-      })
+    // '_system' tells Capacitor to open in the device's default browser
+    // (Safari on iOS, Chrome on Android) rather than an in-app
+    // SFSafariViewController or Chrome Custom Tab.
+    try {
+      window.open(url, "_system")
+    } catch {
+      // Fallback: custom URL scheme handled by native shell
+      window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+    }
   } else {
     window.open(url, "_blank", "noopener,noreferrer")
   }

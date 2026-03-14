@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
@@ -82,7 +83,11 @@ export function UpgradePageClient({
         }
         const { checkoutUrl } = await response.json()
         if (checkoutUrl) {
-          window.location.href = checkoutUrl
+          if (isNativeApp()) {
+            openExternal(checkoutUrl)
+          } else {
+            window.open(checkoutUrl, "_blank", "noopener,noreferrer")
+          }
         }
       }
     } catch (err: any) {

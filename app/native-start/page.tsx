@@ -150,13 +150,20 @@ export default function NativeStartPage() {
   return (
     <>
       <style>{`
-        @keyframes ns-spin { to { transform: rotate(360deg); } }
+        @keyframes ns-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
         .ns-spinner {
-          width: 26px; height: 26px;
-          border: 2.5px solid rgba(0,0,0,.10);
-          border-top-color: rgba(0,0,0,.30);
+          width: 28px; height: 28px;
+          border: 2.5px solid rgba(0,0,0,.08);
+          border-top-color: rgba(0,0,0,.35);
           border-radius: 50%;
           animation: ns-spin 0.75s linear infinite;
+          will-change: transform;
+          transform-origin: 50% 50%;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
         }
       `}</style>
       <div
@@ -167,6 +174,7 @@ export default function NativeStartPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          paddingBottom: "72px",
         }}
       >
         <div className="ns-spinner" />

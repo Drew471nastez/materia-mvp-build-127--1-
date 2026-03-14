@@ -1056,6 +1056,8 @@ html.native-auth-lock .auth-card input {
    the dark #111111 body at the top or white main background at the bottom. */
 .app-content-scroll {
   overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch; /* momentum scroll on iOS WKWebView */
+  touch-action: pan-y;               /* enable vertical touch scroll */
 }
 
 /* Dashboard inner scroll container.

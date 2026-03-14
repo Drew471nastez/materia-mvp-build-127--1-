@@ -768,12 +768,8 @@ function QuickAccessBottomSheet({
               }}
               onOpen={() => {
                 if (isOnePageReady) {
-                  const url = navOnePageUrl || onePageUrl
-                  if (isNativeApp()) {
-                    window.location.href = url
-                  } else {
-                    window.open(onePageUrl || url, "_blank", "noopener,noreferrer")
-                  }
+                  const url = onePageUrl || navOnePageUrl
+                  openExternal(url)
                 } else {
                   onSetupOnePage()
                 }
@@ -789,12 +785,8 @@ function QuickAccessBottomSheet({
               isCopied={isStoreCopied}
               onAction={onCopyStore}
               onOpen={() => {
-                const url = navStoreUrl || storeUrl
-                if (isNativeApp()) {
-                  window.location.href = url
-                } else {
-                  window.open(storeUrl || url, "_blank", "noopener,noreferrer")
-                }
+                const url = storeUrl || navStoreUrl
+                openExternal(url)
                 handleClose()
               }}
               icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
