@@ -16,9 +16,7 @@ export default function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
-      <Suspense fallback={null}>
-        <ConditionalHeader />
-      </Suspense>
+      <ConditionalHeader />
 
       <main className="flex-1 [overflow-x:clip]">{children}</main>
 
