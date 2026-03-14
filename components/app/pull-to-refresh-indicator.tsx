@@ -10,23 +10,19 @@ interface Props {
 }
 
 /**
- * Small, native-iOS-style pull-to-refresh indicator.
+ * Native iOS UIActivityIndicatorView-style pull-to-refresh indicator.
  *
- * Mimics the UIActivityIndicatorView spinner from the reference screenshot:
- * a compact light-gray spinner, no container pill, no shadow — just the
- * spinner itself appearing above the content.
+ * Uses 12 rounded blades arranged in a clock pattern, each fading with a
+ * staggered delay — exactly matching iOS's native activity spinner.
  *
  * Visual states:
- *   pulling    → partial arc rotates with pull progress (light gray)
- *   ready      → full arc (darker gray, ready to release)
- *   refreshing → continuous spin (light gray, iOS-style)
- *   idle       → fades out and slides up, extremely smooth
+ *   pulling    → static blades fade in (gradient opacity) as you pull
+ *   ready      → static blades at full opacity (ready to release)
+ *   refreshing → animated blade fade cycling (iOS spinner animation)
+ *   idle       → fades out and slides up off-screen
  */
 export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72 }: Props) {
   const progress = Math.min(pullDistance / threshold, 1)
-
-  // Spinner size — small like iOS native (20×20)
-  const size = 20
 
   // Vertical position follows pull; pinned when refreshing; off-screen when idle
   const translateY =
@@ -36,29 +32,17 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72 }: 
         ? -30
         : Math.max(pullDistance - 28, -30)
 
-  const opacity =
+  const containerOpacity =
     phase === "refreshing"
       ? 1
       : phase === "idle"
         ? 0
         : Math.min(progress * 1.5, 1)
 
-  // Use a very smooth spring-like easing for the return/pin transitions
   const hasTransition = phase === "idle" || phase === "refreshing"
 
-  // SVG arc
-  const r = 7.5
-  const circumference = 2 * Math.PI * r
-  const dashOffset = circumference * (1 - progress)
-
-  // Light gray palette matching iOS UIActivityIndicatorView
-  const trackColor = "transparent"
-  const arcColor =
-    phase === "refreshing"
-      ? "#9ca3af" // gray-400 — spinning
-      : progress >= 1
-        ? "#6b7280" // gray-500 — ready
-        : "#d1d5db" // gray-300 — pulling
+  // Blade color — matches iOS UIActivityIndicatorView default gray
+  const bladeColor = "#69717d"
 
   return (
     <div
@@ -67,44 +51,52 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72 }: 
       style={{
         top: 0,
         transform: `translateY(${translateY}px)`,
-        opacity,
+        opacity: containerOpacity,
         transition: hasTransition
           ? "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease-out"
           : "none",
         willChange: "transform, opacity",
       }}
     >
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 20 20"
-        fill="none"
-        style={
-          phase === "refreshing"
-            ? { animation: "ptr-spin 0.65s linear infinite" }
-            : { transform: `rotate(${progress * 270 - 90}deg)` }
-        }
-      >
-        <circle cx="10" cy="10" r={r} stroke={trackColor} strokeWidth="2" />
-        <circle
-          cx="10"
-          cy="10"
-          r={r}
-          stroke={arcColor}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={
-            phase === "refreshing" ? circumference * 0.72 : dashOffset
-          }
-          transform="rotate(-90 10 10)"
-        />
+      {/* 24×24 viewBox scaled from the canonical 48×48 iOS spinner geometry */}
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        {Array.from({ length: 12 }, (_, i) => {
+          const rotation = i * 30
+          const delay = i * 0.083
+
+          // Static (non-animating) opacity: blade 0 is brightest, fading around
+          const staticOpacity =
+            phase === "refreshing"
+              ? undefined // let CSS animation handle opacity
+              : ((12 - i) / 12) * 0.9 * (phase === "ready" ? 1 : progress) + 0.08 * progress
+
+          return (
+            <rect
+              key={i}
+              // Blade centred horizontally (x = 12 − width/2 = 11.1)
+              // placed at the bottom of the viewBox (y = 24 − height = 17.35)
+              x="11.1"
+              y="17.35"
+              width="1.78"
+              height="6.65"
+              rx="1.33"
+              fill={bladeColor}
+              style={{
+                transformOrigin: "12px 12px",
+                transform: `rotate(${rotation}deg)`,
+                ...(phase === "refreshing"
+                  ? { animation: `ptr-blade-fade 1s ${delay}s infinite linear` }
+                  : { opacity: staticOpacity }),
+              }}
+            />
+          )
+        })}
       </svg>
 
       <style>{`
-        @keyframes ptr-spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
+        @keyframes ptr-blade-fade {
+          0%   { opacity: 1; }
+          100% { opacity: 0.15; }
         }
       `}</style>
     </div>

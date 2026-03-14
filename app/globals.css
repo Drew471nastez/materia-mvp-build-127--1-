@@ -1244,9 +1244,15 @@ html.capacitor body {
 html.capacitor [data-discover-breadcrumb] {
   display: flex !important;
 }
-/* Also visible on web when the product is opened from a discover/recommended URL */
+/* Also visible on web when the product is opened from a discover/recommended URL,
+   but only on mobile — hidden on desktop (≥768px) where browser back exists */
 [data-discover-breadcrumb="web"] {
   display: flex !important;
+}
+@media (min-width: 768px) {
+  [data-discover-breadcrumb="web"] {
+    display: none !important;
+  }
 }
 
 /* ── Search top sheet: push content below the safe-area shield ────────────────

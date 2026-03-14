@@ -43,9 +43,11 @@ export function DiscoverBackBreadcrumb({ showOnWeb = false }: { showOnWeb?: bool
     } catch { /* ignore */ }
 
     if (!ref.current) return
-    // JS backup: force visibility with !important so this overrides any CSS rule
+    // JS backup: force visibility with !important so this overrides any CSS rule.
+    // Skip forcing visibility on desktop (≥768px) — the browser back button covers it.
     const isNative = document.documentElement.classList.contains("capacitor")
-    if (isNative || showOnWeb) {
+    const isDesktop = window.innerWidth >= 768
+    if ((isNative || showOnWeb) && !isDesktop) {
       ref.current.style.setProperty("display", "flex", "important")
     }
   }, [showOnWeb])
