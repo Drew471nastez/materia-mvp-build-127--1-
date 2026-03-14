@@ -1109,17 +1109,13 @@ html.capacitor {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Platform header safe-area padding ────────────────────────────────────────
-   Applied via a CSS class (not JS isNativePlatform()) so the same style is
-   rendered on SSR and the client — zero React hydration mismatch.
+/* ── Platform header safe-area padding (web / desktop) ───────────────────────
+   Applied via a CSS class (not JS isNativePlatform()) — same style on SSR and
+   client, zero React hydration mismatch.
 
-   env(safe-area-inset-top) is 0px on all desktop/web browsers (no visual
-   change there) and ~44px on iOS Capacitor (notch / Dynamic Island).
-
-   Mobile:  max(env(safe-area-inset-top, 0px), 14px)
-            → web:    max(0px, 14px) = 14px   (same as old pt-[14px] class)
-            → native: max(44px, 14px) = 44px  (clears Dynamic Island / notch)
-   Desktop: 3px  (matches existing md:pt-[3px]) */
+   env(safe-area-inset-top) = 0px on web browsers → no visual change there.
+   Mobile:  max(0px, 14px) = 14px  (same as old pt-[14px] class)
+   Desktop: 3px media-query override (matches old md:pt-[3px]) */
 .platform-header-row {
   padding-top: max(env(safe-area-inset-top, 0px), 14px);
 }
@@ -1129,13 +1125,43 @@ html.capacitor {
   }
 }
 
-/* On native Capacitor: keep the platform header sticky on ALL pages,
-   including /p/ product pages where the JSX omits sticky top-0.
-   Uses html.capacitor (set by JS very early, before first paint) so it
-   has zero effect on web — product pages there correctly scroll away. */
+/* ── Native Capacitor: match AppSidebar header exactly ────────────────────────
+   AppSidebar uses position:fixed + height:calc(68px+safe-area) + marginTop on
+   the inner row. We replicate the same pattern here for PlatformHeaderClient:
+
+   1. FIXED (not sticky) — header never moves during iOS rubber-band overscroll.
+   2. Explicit height = 68px content row + env(safe-area-inset-top) status zone.
+   3. Inner <header> pushed below status bar via margin-top (mirrors AppSidebar).
+   4. Icons centered in 68px → badge (-top-0.5) at ~54px from screen top,
+      well above the 44px ::before safe-area shield — no clipping.
+
+   html.capacitor is set before first paint in Capacitor so these rules apply
+   without any visible layout shift. */
 html.capacitor #platform-header-root {
-  position: sticky;
+  position: fixed !important;
   top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: calc(68px + env(safe-area-inset-top, 0px));
+}
+html.capacitor #platform-header-root > header {
+  margin-top: env(safe-area-inset-top, 0px);
+  height: 68px;
+}
+/* Zero out CSS padding on native — height is explicit above. */
+html.capacitor .platform-header-row {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  height: 68px;
+}
+/* Push ALL marketing layout content (category bar, search, main) below the
+   fixed header on native. Applied to the outermost flex wrapper so the
+   category bar, concave transition, and main content all start at y=112px.
+   :has() ensures the padding only applies when the header is in the DOM.
+   On web the header is sticky (in flow) so no wrapper padding is needed. */
+html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
+  padding-top: calc(68px + env(safe-area-inset-top, 0px));
 }
 
 /* Prevent the white body flash during page transitions in Capacitor.
