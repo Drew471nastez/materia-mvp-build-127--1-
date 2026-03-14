@@ -1140,10 +1140,13 @@ html.capacitor::before {
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;
-  /* When iOS rubber-band overscroll exposes the html background above the page,
-     black (matching the header) hides any gap instead of showing white / grey. */
-  background-color: #111111;
-  /* Prevent rubber-band bounce at the root element level in addition to body. */
+  /* When iOS rubber-band overscroll exposes the html background, this colour
+     fills the gap. #f5f5f5 matches the explore/marketing page background so
+     no stripe is visible. App pages override this via html.app-layout (#111111).
+     CapacitorBounceGuard (JS) also prevents rubber-band from firing in WKWebView. */
+  background-color: #f5f5f5;
+  /* Prevent rubber-band bounce at the root element level in addition to body.
+     overscroll-behavior: none works on iOS 16+; for older iOS the JS guard handles it. */
   overscroll-behavior: none;
 }
 
@@ -1203,14 +1206,15 @@ html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
 }
 
 /* Prevent the white body flash during page transitions in Capacitor.
-   When Next.js swaps routes the bare <body> is briefly visible; setting its
-   background to the app's neutral colour (#f2f2f2) instead of white means
-   any mid-transition gap looks like the loading skeleton, not a jarring flash.
+   When Next.js swaps routes the bare <body> is briefly visible; #f5f5f5
+   matches the explore/marketing skeleton background so the transition is
+   invisible instead of flashing a different shade.
    Pages that need white use their own wrapper elements on top of this. */
 html.capacitor body {
-  background-color: #f2f2f2;
+  background-color: #f5f5f5;
   /* Prevent pull-to-refresh and overscroll bounce in Capacitor WebView.
-     The native app handles refresh natively; browser overscroll is unwanted. */
+     The native app handles refresh natively; browser overscroll is unwanted.
+     overscroll-behavior: none works on iOS 16+; JS guard covers older iOS. */
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch; /* smooth momentum scrolling on iOS */
 }

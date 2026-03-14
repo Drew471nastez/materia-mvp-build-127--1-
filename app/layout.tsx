@@ -10,6 +10,7 @@ import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
+import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -143,6 +144,7 @@ export default function RootLayout({
         <PrefetchLinks />
         <BodyScrollRestorer />
         <NativeCookieKillSwitch />
+        <CapacitorBounceGuard />
         <CookieConsentBanner />
         <NativeAuthHandler />
         <NativeOAuthBridge />
