@@ -1,11 +1,14 @@
 "use client"
 
 import { Suspense, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { NavigationLoadingBar } from "./navigation-loading-bar"
 import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
   // Hide html-level scrollbar on /app pages
   useEffect(() => {
     document.documentElement.classList.add("app-layout")
@@ -13,6 +16,17 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.remove("app-layout")
     }
   }, [])
+
+  // Reset the shared scroll container to the top on every navigation.
+  // Without this, navigating from a scrolled page (e.g. dashboard) to a new
+  // page (e.g. Upgrade to Pro) leaves the scroll position mid-way, making
+  // elements appear to overlap under the fixed header.
+  useEffect(() => {
+    const scrollEl = document.querySelector(".app-content-scroll") as HTMLElement | null
+    if (scrollEl) {
+      scrollEl.scrollTop = 0
+    }
+  }, [pathname])
 
   // Set --sat/--sab CSS custom properties for safe-area insets in Capacitor.
   // The CSS rule `html.capacitor { --sat: env(...) }` handles this declaratively,

@@ -76,9 +76,18 @@ export function CapacitorBounceGuard() {
           if (canScrollX) return
         }
         if (oy === "auto" || oy === "scroll") {
+          const htmlEl = el as HTMLElement
+          // Skip elements that have overflow-y:auto computed (often due to CSS spec
+          // forcing auto when overflow-x:hidden is set) but aren't actually scrollable.
+          // Without this check, e.g. the settings form root div (overflow-x:hidden →
+          // implicit overflow-y:auto, scrollHeight==clientHeight) would block ALL scroll.
+          const canScrollY = htmlEl.scrollHeight > htmlEl.clientHeight + 1
+          if (!canScrollY) {
+            el = el.parentElement
+            continue
+          }
           // Nested scroll container — only prevent at its own boundaries
           // so scroll-chaining into the document (which rubber-bands) is blocked
-          const htmlEl = el as HTMLElement
           const atTop = htmlEl.scrollTop <= 0
           const atBottom =
             htmlEl.scrollTop + htmlEl.clientHeight >= htmlEl.scrollHeight - 1
