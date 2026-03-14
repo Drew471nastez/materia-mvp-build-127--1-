@@ -80,7 +80,7 @@ export default async function LibraryLayout({
             // Mobile: full-viewport-height scroll container so that overscroll-behavior
             // is honoured on the container itself and iOS rubber-band is suppressed.
             // The content is pushed below the fixed header via padding-top.
-            "h-svh overflow-y-auto",
+            "h-svh overflow-y-auto bg-[#fafafa]",
             // Desktop: revert to natural document flow
             "md:h-auto md:overflow-y-visible md:min-h-svh",
             // Mobile top padding accounts for the fixed header (3.5rem) + status bar

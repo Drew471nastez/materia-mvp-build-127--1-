@@ -1022,18 +1022,8 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
 
   const handlePlanAction = (planId: string) => {
-    if (planId === currentPlan.id || loading) return
-    const plan = plans.find((p: any) => p.id === planId)
-    if (!plan) return
-
-    // Free = cancel subscription
-    if (planId === "free") {
-      onUpgradeClick(planId, "Free", 0)
-      return
-    }
-
-    // Show confirmation modal for all plan changes
-    onUpgradeClick(planId, plan.name, plan.price_cents)
+    // Navigate directly to the upgrade page for all plan actions
+    router.push("/app/settings/billing/upgrade")
   }
 
   const descriptions: Record<string, string> = {

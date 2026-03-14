@@ -1588,7 +1588,7 @@ export function DashboardClient({
                   <span className="hidden md:inline"> — {t("dashboard.proSubtitle")}</span>
                 </span>
                 <Link
-                  href="/upgrade"
+                  href="/app/settings/billing/upgrade"
                   className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
                 >
                   <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
@@ -1624,7 +1624,7 @@ export function DashboardClient({
                   <span className="hidden md:inline"> — {t("dashboard.connectPayoutsDesc")}</span>
                 </span>
                 <Link
-                  href="/app/payouts"
+                  href="/app/settings?tab=payments"
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
@@ -2130,12 +2130,18 @@ export function DashboardClient({
                     >
                       Upgrade
                     </Link>
-                    <Link
-                      href="/features"
-                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
+                    <button
+                      onClick={() => {
+                        if (isNativeApp()) {
+                          openExternal("https://storelib.com/features")
+                        } else {
+                          window.open("/features", "_blank", "noopener,noreferrer")
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors cursor-pointer"
                     >
                       Features
-                    </Link>
+                    </button>
                   </div>
                 </>
               )}
