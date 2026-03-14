@@ -314,16 +314,21 @@ html.capacitor body {
 
   /* Library layout on mobile: lock document-level scroll so the fixed mobile
      header cannot be scrolled by swiping on it (same behaviour as /app).
-     Only on mobile (<768px) — desktop library uses natural document flow. */
+     Only on mobile (<768px) — desktop library uses natural document flow.
+     Both the CSS :has() rule and the JS .library-layout class are used so
+     neither mechanism is a single point of failure. */
   @media (max-width: 767px) {
-    html:has([data-page="library"]) {
+    html:has([data-page="library"]),
+    html.library-layout {
       overflow: hidden;
       scrollbar-width: none;
     }
-    html:has([data-page="library"])::-webkit-scrollbar {
+    html:has([data-page="library"])::-webkit-scrollbar,
+    html.library-layout::-webkit-scrollbar {
       display: none;
     }
-    html:has([data-page="library"]) body {
+    html:has([data-page="library"]) body,
+    html.library-layout body {
       overflow: hidden;
     }
   }
@@ -1318,6 +1323,17 @@ html.capacitor:has([data-page="library"])::before {
    CSS-only — applies before JS hydration, so no flash on first paint. */
 html.capacitor:has([data-page="library"]) {
   background-color: #fafafa;
+}
+
+/* JS-driven counterpart: LibraryBgFix adds .library-layout to <html> and
+   re-applies it on every resize (device rotation). These rules mirror the
+   :has([data-page="library"]) versions above so that the fix is active via
+   BOTH mechanisms — neither is a single point of failure on rotation. */
+html.capacitor.library-layout {
+  background-color: #fafafa;
+}
+html.capacitor.library-layout::before {
+  background-color: #ffffff;
 }
 
 /* Hide the floating creator quick-nav button on iOS/Android — native apps

@@ -9,18 +9,39 @@ import { useEffect } from "react"
  * edge-to-edge with viewport-fit:cover, even when WKWebView's contentInset
  * pushes the `body` below that zone).
  *
- * The library uses a light (#fafafa) background, so we override the html
- * background-color for the duration the user is inside /library and restore
- * it on unmount (navigation away).  This prevents the black bar that appears
- * at the top of the screen — especially visible when the device is in
- * landscape orientation where the safe-area layout shifts.
+ * The library uses a light (#fafafa) background, so we:
+ *  1. Override html background-color to #fafafa via inline style (highest
+ *     priority, beats CSS class rules). Re-applied on every `resize` event
+ *     so that device rotation — which fires `resize` — cannot cause a black
+ *     flash even if iOS briefly reverts the inline style during the rotation
+ *     animation.
+ *  2. Add a `library-layout` CSS class to <html> so the CSS scroll-lock rules
+ *     in globals.css (html.library-layout) apply via JS in addition to the
+ *     CSS :has([data-page="library"]) rule — belt-and-suspenders so neither
+ *     mechanism alone is a single point of failure.
  */
 export function LibraryBgFix() {
   useEffect(() => {
-    const prev = document.documentElement.style.backgroundColor
-    document.documentElement.style.backgroundColor = "#fafafa"
+    const html = document.documentElement
+    const prevBg = html.style.backgroundColor
+
+    function applyBg() {
+      html.style.backgroundColor = "#fafafa"
+    }
+
+    applyBg()
+    // Re-apply after every resize (covers device rotation on iOS/Android where
+    // the WKWebView rotation animation may briefly revert the inline style).
+    window.addEventListener("resize", applyBg, { passive: true })
+
+    // Belt-and-suspenders class: mirrors the CSS :has([data-page="library"])
+    // overflow-lock so the lock is active even before :has() is evaluated.
+    html.classList.add("library-layout")
+
     return () => {
-      document.documentElement.style.backgroundColor = prev
+      html.style.backgroundColor = prevBg
+      window.removeEventListener("resize", applyBg)
+      html.classList.remove("library-layout")
     }
   }, [])
 
