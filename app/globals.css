@@ -1107,10 +1107,11 @@ html.capacitor::before {
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;
-  /* When iOS rubber-band overscroll pulls the viewport DOWN it exposes the html
-     element's background above the page content. Setting it to black (matching
-     the header) hides any gap instead of showing white / grey. */
+  /* When iOS rubber-band overscroll exposes the html background above the page,
+     black (matching the header) hides any gap instead of showing white / grey. */
   background-color: #111111;
+  /* Prevent rubber-band bounce at the root element level in addition to body. */
+  overscroll-behavior: none;
 }
 
 /* ── Platform header safe-area padding (web / desktop) ───────────────────────
@@ -1189,19 +1190,6 @@ html.capacitor body {
    visible. The non-scrollable handle-bar at the bottom is unaffected. */
 html.capacitor .mobile-top-sheet-scroll {
   padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* ── Discover back breadcrumb: hidden on web unless discover URL ──────────────
-   display:none by default → CSS show on Capacitor (html.capacitor class is set
-   synchronously before first paint so no layout shift).
-   On web with ?layout=discover&recommended=1 the .show-on-web class is added
-   server-side, making it visible on desktop too. */
-.discover-back-breadcrumb {
-  display: none;
-}
-html.capacitor .discover-back-breadcrumb,
-.discover-back-breadcrumb.show-on-web {
-  display: flex;
 }
 
 /* On pages with a white header (checkout, library, auth) the fixed black

@@ -66,16 +66,17 @@ export function SmartLink({
   const resolvedHref = inApp && href ? toInternalHref(href) : href
   const router = useRouter()
 
-  // In Capacitor, ALWAYS use window.location.href for root-relative paths to
-  // prevent URL mixing. Next.js <Link> / router.push can resolve paths relative
-  // to the current route in some Capacitor WebView contexts — e.g. clicking a
-  // seller link on /p/slug would produce /p/slug/u/seller instead of /u/seller.
-  // window.location.href with a leading "/" is always root-relative.
-  // NativeAuthGate handles session restore on reload.
-  // Exception: useClientNav=true forces router.push() for smooth same-layout
-  // transitions (e.g. /explore → /p/slug) without a full page reload/white flash.
+  // In Capacitor, use router.push() for same-layout paths (smooth, no white flash).
+  // Cross-layout routes (/app, /store-builder, /library) and explicit
+  // useClientNav=false still use window.location.href (full reload for auth context).
+  // window.location.href remains the safe fallback for truly cross-context nav.
   if (inApp && resolvedHref?.startsWith("/")) {
     const { target, rel, onClick, ...linkSafeProps } = props
+    const needsHardNav =
+      useClientNav === false ||
+      resolvedHref.startsWith("/app") ||
+      resolvedHref.startsWith("/store-builder") ||
+      resolvedHref.startsWith("/library")
     return (
       <a
         {...linkSafeProps}
@@ -83,10 +84,10 @@ export function SmartLink({
         onClick={(e) => {
           e.preventDefault()
           if (typeof onClick === "function") onClick(e as any)
-          if (useClientNav) {
-            router.push(resolvedHref)
-          } else {
+          if (needsHardNav) {
             window.location.href = resolvedHref
+          } else {
+            router.push(resolvedHref)
           }
         }}
         style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
