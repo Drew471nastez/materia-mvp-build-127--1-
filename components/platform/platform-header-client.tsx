@@ -311,7 +311,10 @@ function MobileTopSheet({
         ref={sheetRef}
         className="absolute top-0 left-0 right-0 bg-white rounded-b-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(-100%)",
+          // Use 'none' instead of translateY(0px) when fully open — CSS transforms
+          // create a new containing block on iOS which can offset touch coordinates,
+          // causing taps to register on the wrong list item.
+          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(-100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '75vh',
         }}
@@ -449,7 +452,10 @@ function MobileBottomSheet({
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          // Use 'none' instead of translateY(0px) when fully open — CSS transforms
+          // create a new containing block on iOS which can offset touch coordinates,
+          // causing taps to register on the wrong list item.
+          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '74vh',
         }}
@@ -889,7 +895,7 @@ export function PlatformHeaderClient() {
 
   const onCategoryClick = (cat: string) => {
     const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
-    navigateReliably(url)
+    navigateToExploreCategory(url)
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
@@ -961,6 +967,18 @@ export function PlatformHeaderClient() {
     },
     [shouldForceCanonicalNav, navigateToCanonical, router],
   )
+
+  // Navigate to an /explore category URL. When already on /explore, use
+  // router.push() for smooth client-side transition instead of navigateReliably()
+  // which uses window.location.href on Capacitor (full page reload → white flash).
+  const navigateToExploreCategory = useCallback((url: string) => {
+    if (pathname.startsWith('/explore')) {
+      startNavigationLoading()
+      router.push(url, { scroll: false })
+    } else {
+      navigateReliably(url)
+    }
+  }, [pathname, router, navigateReliably])
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
@@ -1235,7 +1253,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    navigateReliably(cat.href + '&scroll=recommended')
+                                    navigateToExploreCategory(cat.href + '&scroll=recommended')
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1683,7 +1701,7 @@ export function PlatformHeaderClient() {
                       key={cat.label}
                       type="button"
                       onClick={() => {
-                        navigateReliably(cat.href + '&scroll=recommended')
+                        navigateToExploreCategory(cat.href + '&scroll=recommended')
                         setSearchModalOpen(false)
                       }}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
@@ -1946,7 +1964,7 @@ export function PlatformHeaderClient() {
                     <button
                       type="button"
                       onClick={() => {
-                        navigateReliably(cat.href + '&scroll=recommended')
+                        navigateToExploreCategory(cat.href + '&scroll=recommended')
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
                       }}
@@ -1961,7 +1979,7 @@ export function PlatformHeaderClient() {
                           key={sub.label}
                           type="button"
                           onClick={() => {
-                            navigateReliably(sub.href + '&scroll=recommended')
+                            navigateToExploreCategory(sub.href + '&scroll=recommended')
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
@@ -1989,7 +2007,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      navigateReliably(cat.href + '&scroll=recommended')
+                      navigateToExploreCategory(cat.href + '&scroll=recommended')
                       setMobileMenuOpen(false)
                     }
                   }

@@ -1319,20 +1319,22 @@ export function ExplorePageClient({
   }, [])
 
   // Handle scroll target from URL (set by header, hamburger, search bar, featured categories)
-  // Only fires on client-side navigation, never on initial page load/reload
+  // Always honours scroll=recommended — on client-side nav (already mounted) uses a short
+  // delay; on initial page load (navigated from another page) waits longer for content.
   useEffect(() => {
-    if (!hasMountedRef.current) return
     const scrollTarget = searchParams.get("scroll")
     const currentUrl = window.location.href
     if (scrollTarget === "recommended" && scrollTargetHandledRef.current !== currentUrl) {
       scrollTargetHandledRef.current = currentUrl
-      setTimeout(() => {
+      const delay = hasMountedRef.current ? 200 : 800
+      const timer = setTimeout(() => {
         scrollRecommendedSectionWithRetry()
         // Clean up scroll param without triggering re-render
         const url = new URL(window.location.href)
         url.searchParams.delete("scroll")
         window.history.replaceState({}, '', url.pathname + url.search)
-      }, 200)
+      }, delay)
+      return () => clearTimeout(timer)
     }
   }, [searchParams, scrollRecommendedSectionWithRetry])
 
