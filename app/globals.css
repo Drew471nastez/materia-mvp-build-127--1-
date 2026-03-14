@@ -312,6 +312,22 @@ html.capacitor body {
     overflow: hidden;
   }
 
+  /* Library layout on mobile: lock document-level scroll so the fixed mobile
+     header cannot be scrolled by swiping on it (same behaviour as /app).
+     Only on mobile (<768px) — desktop library uses natural document flow. */
+  @media (max-width: 767px) {
+    html:has([data-page="library"]) {
+      overflow: hidden;
+      scrollbar-width: none;
+    }
+    html:has([data-page="library"])::-webkit-scrollbar {
+      display: none;
+    }
+    html:has([data-page="library"]) body {
+      overflow: hidden;
+    }
+  }
+
 }
 
 /* Utility classes for responsive layouts */
@@ -1294,6 +1310,14 @@ html.capacitor:has([data-page="auth"]) body {
    The ::before shield must also be white so no black bar appears above it. */
 html.capacitor:has([data-page="library"])::before {
   background-color: #ffffff;
+}
+
+/* Library pages: override html.capacitor's black background (#000) to the
+   light library background. This prevents any black bleeding through in the
+   safe-area zones in both portrait (top) and landscape (left/right) on iOS.
+   CSS-only — applies before JS hydration, so no flash on first paint. */
+html.capacitor:has([data-page="library"]) {
+  background-color: #fafafa;
 }
 
 /* Hide the floating creator quick-nav button on iOS/Android — native apps
