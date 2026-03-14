@@ -96,7 +96,7 @@ export default async function LibraryLayout({
             touchAction: "pan-y",
           }}
         >
-          <div className="px-4 py-6 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="px-4 pt-2 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
             {children}
           </div>
         </main>

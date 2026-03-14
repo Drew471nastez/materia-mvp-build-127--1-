@@ -113,7 +113,7 @@ export function UpgradePageClient({
     <div className="relative bg-white min-h-full">
       {/* Smooth close overlay — absolute so it stays within the scroll container */}
       {closing && (
-        <div className="absolute inset-0 z-[10] bg-white/90 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
+        <div className="fixed inset-0 z-[200] bg-white/95 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 text-[#7c3aed] animate-spin" />
             <p className="text-[13px] text-[#6b7280] font-medium">Going back...</p>

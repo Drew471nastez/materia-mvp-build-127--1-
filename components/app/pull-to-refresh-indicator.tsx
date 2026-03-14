@@ -7,6 +7,12 @@ interface Props {
   phase: PullPhase
   /** Same threshold used in usePullToRefresh (default: 72) */
   threshold?: number
+  /**
+   * Pixels from the top of the scroll container to anchor the indicator.
+   * Use this to push the indicator below a fixed bar (e.g. announcement bar)
+   * so it never overlaps it. Default: 0.
+   */
+  topOffset?: number
 }
 
 /**
@@ -18,16 +24,25 @@ interface Props {
  *   refreshing → smooth continuous rotation
  *   idle       → fades out and slides up off-screen
  */
-export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72 }: Props) {
+export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72, topOffset = 0 }: Props) {
   const progress = Math.min(pullDistance / threshold, 1)
+
+  // Ring geometry (declared early so offScreen can use `size`)
+  const size = 22
+  const strokeWidth = 2
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+
+  // Fully hidden above the topOffset anchor so it never peeks through
+  const offScreen = -(size + 8)
 
   // Vertical position follows pull; pinned when refreshing; off-screen when idle
   const translateY =
     phase === "refreshing"
-      ? 16
+      ? 10
       : phase === "idle"
-        ? -36
-        : Math.max(pullDistance - 26, -36)
+        ? offScreen
+        : Math.max(pullDistance - (size / 2 + 4), offScreen)
 
   const containerOpacity =
     phase === "refreshing"
@@ -45,13 +60,6 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72 }: 
 
   const hasTransition = phase === "idle" || phase === "refreshing"
 
-  // Ring geometry
-  const size = 28
-  const strokeWidth = 2.2
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-
-  // Track arc (full circle, very light)
   // Progress arc (fills as you pull)
   const progressDash =
     phase === "refreshing"
@@ -63,7 +71,7 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72 }: 
       aria-hidden
       className="absolute left-0 right-0 flex justify-center pointer-events-none z-20"
       style={{
-        top: 0,
+        top: topOffset,
         transform: `translateY(${translateY}px) scale(${scale})`,
         opacity: containerOpacity,
         transition: hasTransition
