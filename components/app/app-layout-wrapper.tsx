@@ -31,6 +31,43 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Track software keyboard height via VisualViewport API.
+  // When the keyboard opens on iOS/Android (Capacitor or mobile browser):
+  //   - vv.height shrinks by the keyboard height
+  //   - vv.offsetTop may increase as iOS shifts the viewport up to reveal the focused input
+  // We set --keyboard-inset-height so CSS can shrink the scroll container,
+  // and call window.scrollTo(0,0) to counteract any iOS upward viewport shift
+  // that would push content under the fixed app header.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return
+
+    const vv = window.visualViewport
+    const root = document.documentElement
+
+    function onViewportChange() {
+      // Keyboard height = total window height minus visible-viewport height minus any scroll offset
+      const kbHeight = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
+      root.style.setProperty("--keyboard-inset-height", `${kbHeight}px`)
+
+      // iOS WKWebView scrolls the visual viewport up when the keyboard opens so
+      // the focused input stays in view. On /app pages html has overflow:hidden,
+      // so document scroll is locked — but the visual-viewport offset can still
+      // change, pushing content behind the fixed app header. Reset it.
+      if (vv.offsetTop > 0) {
+        window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+      }
+    }
+
+    vv.addEventListener("resize", onViewportChange)
+    vv.addEventListener("scroll", onViewportChange)
+
+    return () => {
+      vv.removeEventListener("resize", onViewportChange)
+      vv.removeEventListener("scroll", onViewportChange)
+      root.style.removeProperty("--keyboard-inset-height")
+    }
+  }, [])
+
   return (
     <LanguageProvider>
       <Suspense fallback={null}>

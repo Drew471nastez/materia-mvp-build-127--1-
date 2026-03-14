@@ -46,6 +46,9 @@
      env() values in html.capacitor (set by NativeCookieKillSwitch on native) */
   --sat: 0px;
   --sab: 0px;
+  /* Software keyboard height — updated by AppLayoutWrapper via VisualViewport API.
+     0px default means no layout change when keyboard is closed. */
+  --keyboard-inset-height: 0px;
 }
 
 /* Native Capacitor: activate real safe-area env() values.
@@ -1067,6 +1070,36 @@ html.native-auth-lock .auth-card input {
 
 html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Keyboard-aware scroll container height ──────────────────────────────────
+ *
+ * When the software keyboard opens on iOS/Android (Capacitor or mobile browser),
+ * AppLayoutWrapper sets --keyboard-inset-height via the VisualViewport API.
+ * This shrinks the scroll container so its bottom edge is above the keyboard,
+ * keeping all content reachable without the fixed app header being overlapped.
+ *
+ * The !important overrides the Tailwind h-[calc(...)] utility on the element.
+ * Mobile (< 768px): header is 68px.  Desktop (≥ 768px): header is 58px.
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.app-layout .app-content-scroll {
+  height: calc(
+    100svh
+    - 68px
+    - env(safe-area-inset-top, 0px)
+    - var(--keyboard-inset-height, 0px)
+  ) !important;
+}
+
+@media (min-width: 768px) {
+  html.app-layout .app-content-scroll {
+    height: calc(
+      100svh
+      - 58px
+      - env(safe-area-inset-top, 0px)
+      - var(--keyboard-inset-height, 0px)
+    ) !important;
+  }
 }
 
 /* Any element explicitly marked as needing bottom clearance */
