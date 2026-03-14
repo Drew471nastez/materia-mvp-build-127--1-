@@ -319,7 +319,7 @@ function MobileTopSheet({
           maxHeight: '75vh',
         }}
       >
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
+        <div className="mobile-top-sheet-scroll overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
           {children}
         </div>
         {/* Handle bar at bottom — the ONLY drag target */}
@@ -956,11 +956,15 @@ export function PlatformHeaderClient() {
         return
       }
       if (isNativePlatform()) {
-        // Always use window.location.href in Capacitor so paths starting with "/"
-        // are always resolved against the root, never against the current pathname.
-        // router.push() can produce URL mixing (e.g. /u/seller/explore?category=…)
-        // in some Capacitor WebView contexts. NativeAuthGate handles session restore.
-        window.location.href = targetPath
+        // Cross-layout routes (/app, /store-builder, /library) load a completely
+        // different layout and auth context — use full reload to ensure clean state.
+        // ALL other same-layout paths (/explore, /p/, /u/, /l/, /wishlist, etc.)
+        // use router.push() for smooth client-side transition, no white flash.
+        if (isCrossLayoutPath(targetPath)) {
+          window.location.href = targetPath
+          return
+        }
+        router.push(targetPath)
         return
       }
       router.push(targetPath)

@@ -1688,7 +1688,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       {/* ✅ Mobile wider (px-3), desktop unchanged */}
       <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 pb-24 lg:pb-12">
-        {showDiscoverBreadcrumb && <DiscoverBackBreadcrumb />}
+        {/* CSS shows on Capacitor native always; on web only for discover URL */}
+        <DiscoverBackBreadcrumb showOnWeb={showDiscoverBreadcrumb} />
         {AlertsBlock}
         {MainProductContent}
       </div>
