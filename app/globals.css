@@ -1109,6 +1109,35 @@ html.capacitor {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Platform header safe-area padding ────────────────────────────────────────
+   Applied via a CSS class (not JS isNativePlatform()) so the same style is
+   rendered on SSR and the client — zero React hydration mismatch.
+
+   env(safe-area-inset-top) is 0px on all desktop/web browsers (no visual
+   change there) and ~44px on iOS Capacitor (notch / Dynamic Island).
+
+   Mobile:  max(env(safe-area-inset-top, 0px), 14px)
+            → web:    max(0px, 14px) = 14px   (same as old pt-[14px] class)
+            → native: max(44px, 14px) = 44px  (clears Dynamic Island / notch)
+   Desktop: 3px  (matches existing md:pt-[3px]) */
+.platform-header-row {
+  padding-top: max(env(safe-area-inset-top, 0px), 14px);
+}
+@media (min-width: 768px) {
+  .platform-header-row {
+    padding-top: 3px;
+  }
+}
+
+/* On native Capacitor: keep the platform header sticky on ALL pages,
+   including /p/ product pages where the JSX omits sticky top-0.
+   Uses html.capacitor (set by JS very early, before first paint) so it
+   has zero effect on web — product pages there correctly scroll away. */
+html.capacitor #platform-header-root {
+  position: sticky;
+  top: 0;
+}
+
 /* Prevent the white body flash during page transitions in Capacitor.
    When Next.js swaps routes the bare <body> is briefly visible; setting its
    background to the app's neutral colour (#f2f2f2) instead of white means
