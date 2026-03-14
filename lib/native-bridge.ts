@@ -302,13 +302,18 @@ export async function nativeLogout(
  * open in the device's default browser rather than the in-app WebView so
  * the user gets the full browser experience (address bar, sharing, etc).
  *
- * The native shell interprets the `storelib://external?url=…` deep-link
- * and launches an Intent / SFSafariViewController accordingly.
+ * Uses @capacitor/browser (SFSafariViewController on iOS, Chrome Custom Tab
+ * on Android) with a fallback to the storelib:// custom URL scheme.
  */
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
-    window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+    import("@capacitor/browser")
+      .then(({ Browser }) => Browser.open({ url }))
+      .catch(() => {
+        // Fallback: custom URL scheme handled by native shell
+        window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+      })
   } else {
     window.open(url, "_blank", "noopener,noreferrer")
   }

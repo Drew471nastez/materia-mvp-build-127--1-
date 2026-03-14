@@ -4413,7 +4413,7 @@ function UnifiedMoreFromSellerSection({
           return (
             <SmartLink
               key={product.id}
-              href={getProductHref(product)}
+              href={product.slug ? `/p/${product.slug}?recommended=1` : "#"}
               className={cn(
                 "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
                 !cardBgColor && "bg-card border-border",

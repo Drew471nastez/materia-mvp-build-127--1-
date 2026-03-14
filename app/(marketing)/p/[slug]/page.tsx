@@ -178,7 +178,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { slug } = await params
   const { purchase, already_owned, src, layout, recommended } = await searchParams
-  const showDiscoverBreadcrumb = layout === "discover" && recommended === "1"
+  const showDiscoverBreadcrumb = recommended === "1"
   const supabase = await createClient()
 
   // First, try to find product by current slug
@@ -904,6 +904,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const MainProductContent = (
     <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full">
       <div className="lg:col-span-3 min-w-0 w-full">
+        {/* Back button above product cover image — always visible on Capacitor native,
+            on web only when ?recommended=1 (e.g. clicked from More From Seller section) */}
+        <DiscoverBackBreadcrumb showOnWeb={showDiscoverBreadcrumb} />
         {galleryImages.length > 0 || videoFileUrl || youtubeUrls.length > 0 ? (
           <ProductGallery
             images={galleryImages}
@@ -1688,8 +1691,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       {/* ✅ Mobile wider (px-3), desktop unchanged */}
       <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 pb-24 lg:pb-12">
-        {/* CSS shows on Capacitor native always; on web only for discover URL */}
-        <DiscoverBackBreadcrumb showOnWeb={showDiscoverBreadcrumb} />
         {AlertsBlock}
         {MainProductContent}
       </div>

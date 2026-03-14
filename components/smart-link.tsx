@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
+import { openExternal } from "@/lib/native-bridge"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -70,31 +71,58 @@ export function SmartLink({
   // Cross-layout routes (/app, /store-builder, /library) and explicit
   // useClientNav=false still use window.location.href (full reload for auth context).
   // window.location.href remains the safe fallback for truly cross-context nav.
-  if (inApp && resolvedHref?.startsWith("/")) {
+  // target="_blank" on native always opens in the external system browser.
+  if (inApp) {
     const { target, rel, onClick, ...linkSafeProps } = props
-    const needsHardNav =
-      useClientNav === false ||
-      resolvedHref.startsWith("/app") ||
-      resolvedHref.startsWith("/store-builder") ||
-      resolvedHref.startsWith("/library")
-    return (
-      <a
-        {...linkSafeProps}
-        href={resolvedHref}
-        onClick={(e) => {
-          e.preventDefault()
-          if (typeof onClick === "function") onClick(e as any)
-          if (needsHardNav) {
-            window.location.href = resolvedHref
-          } else {
-            router.push(resolvedHref)
-          }
-        }}
-        style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
-      >
-        {children}
-      </a>
-    )
+
+    // target="_blank" → open in external browser (SFSafariViewController / Chrome Custom Tab)
+    if (target === "_blank") {
+      const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+      const externalUrl =
+        href?.startsWith("/")
+          ? `https://${mainDomain}${href}`
+          : (href ?? "")
+      return (
+        <a
+          {...linkSafeProps}
+          href={href}
+          onClick={(e) => {
+            e.preventDefault()
+            if (typeof onClick === "function") onClick(e as any)
+            if (externalUrl) openExternal(externalUrl)
+          }}
+          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+        >
+          {children}
+        </a>
+      )
+    }
+
+    if (resolvedHref?.startsWith("/")) {
+      const needsHardNav =
+        useClientNav === false ||
+        resolvedHref.startsWith("/app") ||
+        resolvedHref.startsWith("/store-builder") ||
+        resolvedHref.startsWith("/library")
+      return (
+        <a
+          {...linkSafeProps}
+          href={resolvedHref}
+          onClick={(e) => {
+            e.preventDefault()
+            if (typeof onClick === "function") onClick(e as any)
+            if (needsHardNav) {
+              window.location.href = resolvedHref
+            } else {
+              router.push(resolvedHref)
+            }
+          }}
+          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+        >
+          {children}
+        </a>
+      )
+    }
   }
 
   return (

@@ -40,6 +40,8 @@ import { useLanguage } from "@/lib/i18n"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
+const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
+
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
   const strokeWidth = 3
@@ -347,12 +349,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
           {profileDropdownItems.map((item) => {
             const Icon = item.icon
+            const isExplore = item.href === "/explore"
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-                onClick={() => {
+                onClick={(e) => {
+                  if (isExplore && isNativeApp()) {
+                    e.preventDefault()
+                    openExternal(EXPLORE_FULL_URL)
+                  }
                   setProfileDropdownOpen(false)
                   onItemClick?.()
                 }}
@@ -678,7 +685,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="flex items-center justify-between">
           <Link
             href="/explore"
-            onClick={onItemClick}
+            onClick={(e) => {
+              if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+              onItemClick?.()
+            }}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
@@ -691,7 +701,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <div className="flex items-center gap-1.5">
             <Link
               href="/explore"
-              onClick={onItemClick}
+              onClick={(e) => {
+                if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+                onItemClick?.()
+              }}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
               <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
@@ -861,6 +874,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="flex items-center gap-1.5">
               <Link
                 href="/explore"
+                onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Discover"
               >
@@ -961,9 +975,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                       key={item.href}
                       onClick={() => {
                         setSearchOpen(false)
-                        // In Capacitor, always use router.push to preserve auth session
-                        // On web, use window.location.href for cross-layout routes
-                        if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
+                        // /explore always opens in external browser on native
+                        if (isNativeApp() && item.href === "/explore") {
+                          openExternal(EXPLORE_FULL_URL)
+                        } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
                           router.push(item.href)
@@ -1001,9 +1016,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                             key={item.href + item.label}
                             onClick={() => {
                               setSearchOpen(false)
-                              // In Capacitor, always use router.push to preserve auth session
-                              // On web, use window.location.href for cross-layout routes
-                              if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
+                              // /explore always opens in external browser on native
+                              if (isNativeApp() && item.href === "/explore") {
+                                openExternal(EXPLORE_FULL_URL)
+                              } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
                                 router.push(item.href)
@@ -1144,11 +1160,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
+                  const isExplore = item.href === "/explore"
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      onClick={() => setMobileProfileDropdownOpen(false)}
+                      onClick={(e) => {
+                        if (isExplore && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(EXPLORE_FULL_URL)
+                        }
+                        setMobileProfileDropdownOpen(false)
+                      }}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
