@@ -6,6 +6,7 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
+import { LibraryBgFix } from "./library-bg-fix"
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -67,6 +68,7 @@ export default async function LibraryLayout({
   return (
     <NativeAuthGate>
     <div className="bg-[#fafafa] min-h-svh" data-page="library">
+      <LibraryBgFix />
       <PurchaseSyncProvider />
       <DashboardSidebar />
 
@@ -96,6 +98,13 @@ export default async function LibraryLayout({
             // rubber-band bounce on some iOS versions.
             overscrollBehavior: "none",
             touchAction: "pan-y",
+            // In landscape mode, account for left/right safe areas (notch on left,
+            // home indicator on right). On mobile the sidebar is not present, so
+            // both insets must be respected. On desktop (md+) the sidebar covers
+            // the left safe area and the ml-64 class handles the offset, so only
+            // the right inset needs to be added via padding.
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+            paddingRight: "env(safe-area-inset-right, 0px)",
           }}
         >
           <div className="px-4 pt-2 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">

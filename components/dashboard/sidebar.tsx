@@ -170,7 +170,14 @@ export function DashboardSidebar() {
   return (
     <>
       {/* Mobile header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background md:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <header
+        className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background md:hidden"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
+          paddingRight: "env(safe-area-inset-right, 0px)",
+        }}
+      >
         <div className="flex h-14 items-center justify-between px-4">
         <Link href="/library" className="flex items-center gap-2">
           <Image
@@ -228,6 +235,7 @@ export function DashboardSidebar() {
         style={{
           transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
           paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
         }}
         role="dialog"
         aria-modal="true"
@@ -241,7 +249,7 @@ export function DashboardSidebar() {
       {/* Desktop sidebar — pt-[env(safe-area-inset-top)] pushes the logo
           row below the iOS/iPadOS status bar in Capacitor.
           In a browser env() = 0 so layout is unchanged. */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex pt-[env(safe-area-inset-top,_0px)]">
+      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex pt-[env(safe-area-inset-top,_0px)] pl-[env(safe-area-inset-left,_0px)]">
         <SidebarContent />
       </aside>
     </>
