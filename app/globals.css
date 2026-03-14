@@ -1117,14 +1117,13 @@ html.capacitor [data-safe-bottom] {
  * on Android — our :active styles replace it.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/* Fixed black shield that covers the safe-area-inset-top zone.
-   The platform header is position:relative so during iOS rubber-band bounce
-   it moves down with the page, revealing the white body background above it.
-   This ::before creates a native-level fixed bar (black, matching the header)
-   that stays locked to the top of the screen and blocks any white bleed-through
-   in the status-bar / Dynamic Island area. Height = env(safe-area-inset-top)
-   which is the exact distance from screen edge to the readable content area.
-   On browser this is always 0px so it has zero visual effect. */
+/* Fixed black shield that covers the safe-area-inset-top zone (the iOS notch /
+   status-bar area). Together with the html.capacitor { background-color:#000000 }
+   rule below, this ensures NO visible gap above the platform header:
+   - ::before (z-9999) covers the notch zone with solid black at all times.
+   - html background (#000000) is visible during any rubber-band overscroll bounce,
+     matching the black header so the gap is invisible.
+   On browser env(safe-area-inset-top) = 0px → zero visual effect. */
 html.capacitor::before {
   content: '';
   position: fixed;
@@ -1140,11 +1139,12 @@ html.capacitor::before {
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;
-  /* When iOS rubber-band overscroll exposes the html background, this colour
-     fills the gap. #f5f5f5 matches the explore/marketing page background so
-     no stripe is visible. App pages override this via html.app-layout (#111111).
+  /* When iOS rubber-band overscroll exposes the html background, use black so
+     it matches the platform header. Any bounce gap above the header is invisible
+     since both the header and the html canvas are black. Body pages use their own
+     bg-* classes for content; the html background only shows during overscroll.
      CapacitorBounceGuard (JS) also prevents rubber-band from firing in WKWebView. */
-  background-color: #f5f5f5;
+  background-color: #000000;
   /* Prevent rubber-band bounce at the root element level in addition to body.
      overscroll-behavior: none works on iOS 16+; for older iOS the JS guard handles it. */
   overscroll-behavior: none;
@@ -1234,9 +1234,11 @@ html.capacitor body {
    html.capacitor is set synchronously before first paint so these rules
    activate immediately — no hydration timing race.                           */
 
-/* Hidden by default on all non-Capacitor pages and non-discover web URLs */
+/* Hidden by default on all non-Capacitor pages and non-discover web URLs.
+   NOT !important so the JS backup (style.setProperty with important flag) can
+   always override it, even if html.capacitor class is applied late. */
 [data-discover-breadcrumb] {
-  display: none !important;
+  display: none;
 }
 /* Always visible in the native Capacitor app (iOS + Android) */
 html.capacitor [data-discover-breadcrumb] {

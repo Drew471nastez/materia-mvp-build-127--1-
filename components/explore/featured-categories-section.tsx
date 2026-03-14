@@ -165,7 +165,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
                 <div key={category.id} className="flex-shrink-0 w-[70%] snap-center">
                   <Link
                     href={`/explore?category=${category.slug}&scroll=recommended`}
-                    className="group relative overflow-hidden rounded-2xl aspect-[4/3] bg-neutral-100 block transition-all duration-300 ease-out hover:shadow-lg"
+                    className="group relative overflow-hidden rounded-2xl aspect-[4/3] bg-neutral-100 block transition-all duration-300 ease-out [@media(hover:hover)]:hover:shadow-lg"
                   >
                     {category.coverImage ? (
                       <Image
@@ -173,7 +173,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
                         alt={category.name}
                         fill
                         sizes="70vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="object-cover transition-transform duration-500 [@media(hover:hover)]:group-hover:scale-105"
                       />
                     ) : (
                       <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient}`} />
@@ -249,7 +249,7 @@ function CategoryCard({ category, size }: CategoryCardProps) {
         ${isLarge ? "aspect-[4/5] sm:aspect-[3/4]" : "aspect-[4/3]"}
         bg-neutral-100
         transition-all duration-300 ease-out
-        hover:-translate-y-1 hover:shadow-xl
+        [@media(hover:hover)]:hover:-translate-y-1 [@media(hover:hover)]:hover:shadow-xl
       `}
     >
       {/* Background image or gradient */}
@@ -259,7 +259,7 @@ function CategoryCard({ category, size }: CategoryCardProps) {
           alt={category.name}
           fill
           sizes={isLarge ? "(max-width: 640px) 100vw, 33vw" : "(max-width: 640px) 50vw, 16vw"}
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          className="object-cover transition-transform duration-500 [@media(hover:hover)]:group-hover:scale-105"
         />
       ) : (
         <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient}`} />

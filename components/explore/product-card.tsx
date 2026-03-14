@@ -76,25 +76,31 @@ interface ProductCardProps {
 }
 
 export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false }: ProductCardProps) {
-  // Scroll guard: track touch movement to cancel accidental clicks during scroll.
+  // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const touchStartY = useRef(0)
+  const touchStartX = useRef(0)
   const didScroll = useRef(false)
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0
+    touchStartX.current = e.touches[0]?.clientX ?? 0
     didScroll.current = false
   }, [])
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
-    const delta = Math.abs((e.touches[0]?.clientY ?? 0) - touchStartY.current)
-    if (delta > 8) didScroll.current = true
+    const deltaY = Math.abs((e.touches[0]?.clientY ?? 0) - touchStartY.current)
+    const deltaX = Math.abs((e.touches[0]?.clientX ?? 0) - touchStartX.current)
+    // Lower threshold (5px) and check both axes so diagonal/horizontal scrolls
+    // don't trigger accidental card clicks on touch devices.
+    if (deltaY > 5 || deltaX > 5) didScroll.current = true
   }, [])
 
   const onClickCapture = useCallback((e: React.MouseEvent) => {
     if (didScroll.current) {
       e.preventDefault()
       e.stopPropagation()
+      didScroll.current = false
     }
   }, [])
 
@@ -123,7 +129,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
 
   return (
     <div
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}
@@ -135,7 +141,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             alt={product.title || "Product"}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03]"
             priority={priority}
             loading={priority ? undefined : "lazy"}
           />

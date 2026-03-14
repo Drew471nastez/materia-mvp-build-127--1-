@@ -26,13 +26,11 @@ export function DiscoverBackBreadcrumb({ showOnWeb = false }: { showOnWeb?: bool
 
   useEffect(() => {
     if (!ref.current) return
-    // JS backup: if the html.capacitor CSS rule didn't show the breadcrumb,
-    // force it visible directly. This handles any timing or specificity edge cases.
+    // JS backup: force visibility with !important so this overrides any CSS rule
+    // (including !important stylesheet rules, which regular inline styles cannot beat).
     const isNative = document.documentElement.classList.contains("capacitor")
-    if (isNative) {
-      ref.current.style.display = "flex"
-    } else if (showOnWeb) {
-      ref.current.style.display = "flex"
+    if (isNative || showOnWeb) {
+      ref.current.style.setProperty("display", "flex", "important")
     }
   }, [showOnWeb])
 

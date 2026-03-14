@@ -1067,7 +1067,7 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", !pathname.startsWith("/p/") && "sticky top-0")}>
+      <div id="platform-header-root" className="z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black sticky top-0">
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div

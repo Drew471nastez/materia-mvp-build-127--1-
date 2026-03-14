@@ -2554,7 +2554,7 @@ function UnifiedFeaturedProductsSection({
                         src={product.thumbnail_url || "/placeholder.svg"}
                         alt={product.title}
                         fill
-                        className="object-cover transition-all duration-500 group-hover:scale-105"
+                        className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105"
                         ref={el => { if (el && !(el as any).complete) (el as any).style.opacity = "0" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
@@ -2612,7 +2612,7 @@ function UnifiedFeaturedProductsSection({
                   <div
                     key={product.id}
                     className={cn(
-                      "group overflow-hidden rounded-lg border transition-all hover:shadow-lg cursor-pointer",
+                      "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg cursor-pointer",
                       !cardBgColor && "bg-card border-border",
                     )}
                     style={{
@@ -2633,7 +2633,7 @@ function UnifiedFeaturedProductsSection({
                   key={product.id}
                   href={getProductHref(product)}
                   className={cn(
-                    "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
+                    "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
                     !cardBgColor && "bg-card border-border",
                   )}
                   style={{
@@ -4150,7 +4150,7 @@ export function UnifiedProductsGrid({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
-                    className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                    className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
                         ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
@@ -4327,7 +4327,7 @@ function UnifiedMoreFromSellerSection({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
-                    className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                    className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
                         ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
@@ -4394,7 +4394,7 @@ function UnifiedMoreFromSellerSection({
               <div
                 key={product.id}
                 className={cn(
-                  "group overflow-hidden rounded-lg border transition-all hover:shadow-lg cursor-pointer",
+                  "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg cursor-pointer",
                   !cardBgColor && "bg-card border-border",
                 )}
                 style={{
@@ -4415,7 +4415,7 @@ function UnifiedMoreFromSellerSection({
               key={product.id}
               href={getProductHref(product)}
               className={cn(
-                "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
+                "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
                 !cardBgColor && "bg-card border-border",
               )}
               style={{
