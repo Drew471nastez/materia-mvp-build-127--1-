@@ -550,6 +550,7 @@ function TimeframeBottomSheet({
 
   return (
     <div
+      data-dashboard-sheet
       className="fixed inset-0 z-[100] md:hidden"
       style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
       onTouchStart={handleTouchStart}
@@ -708,6 +709,7 @@ function QuickAccessBottomSheet({
 
   return (
     <div
+      data-dashboard-sheet
       className="fixed inset-0 z-[110] md:hidden"
       style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
     >

@@ -67,6 +67,11 @@ export function usePullToRefresh(
     if (!el) return
 
     const onTouchStart = (e: TouchEvent) => {
+      // Don't intercept if the touch started inside an overlay sheet.
+      // Sheet overlays are children of the scroll container (required for iOS
+      // position:fixed), so their touch events bubble up here — we must ignore them.
+      if ((e.target as Element | null)?.closest("[data-dashboard-sheet]")) return
+
       // Only start tracking when at the very top and not already refreshing
       if (el.scrollTop === 0 && phaseRef.current === "idle") {
         startYRef.current = e.touches[0].clientY
