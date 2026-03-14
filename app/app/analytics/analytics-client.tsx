@@ -2382,7 +2382,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
           {/* KPI Metric Tabs */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
             {analyticsMode === "store" ? (
               <>
                 {/* Views */}
@@ -3141,7 +3141,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {displayCountryData.length > 0 ? (
               <>
                 {/* Country Table */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[#e5e7eb]">

@@ -31,14 +31,18 @@ export function CapacitorBounceGuard() {
     if (!document.documentElement.classList.contains("capacitor")) return
 
     let lastTouchY = 0
+    let lastTouchX = 0
 
     function onTouchStart(e: TouchEvent) {
       lastTouchY = e.touches[0]?.clientY ?? 0
+      lastTouchX = e.touches[0]?.clientX ?? 0
     }
 
     function onTouchMove(e: TouchEvent) {
       const touchY = e.touches[0]?.clientY ?? 0
+      const touchX = e.touches[0]?.clientX ?? 0
       const deltaY = touchY - lastTouchY
+      const deltaX = touchX - lastTouchX
 
       // Never interfere with mobile sheet portals — they handle their own
       // drag-to-dismiss gesture. Calling preventDefault here would block the
@@ -51,11 +55,26 @@ export function CapacitorBounceGuard() {
         return
       }
 
+      // Only intercept primarily vertical gestures — horizontal swipes (e.g.
+      // KPI metric tab carousels, analytics tables) must scroll freely without
+      // interference. Allow a small bias so diagonal gestures that are mostly
+      // vertical are still caught.
+      if (Math.abs(deltaX) > Math.abs(deltaY) * 0.5 && Math.abs(deltaX) > 4) {
+        return
+      }
+
       // Walk the DOM upward from the touch target to find a scrollable ancestor
       let el: Element | null = e.target as Element
       while (el && el !== document.documentElement) {
         const style = window.getComputedStyle(el)
         const oy = style.overflowY
+        const ox = style.overflowX
+        // If element scrolls horizontally, let the browser handle it
+        if (ox === "auto" || ox === "scroll") {
+          const htmlEl = el as HTMLElement
+          const canScrollX = htmlEl.scrollWidth > htmlEl.clientWidth + 1
+          if (canScrollX) return
+        }
         if (oy === "auto" || oy === "scroll") {
           // Nested scroll container — only prevent at its own boundaries
           // so scroll-chaining into the document (which rubber-bands) is blocked
@@ -71,14 +90,31 @@ export function CapacitorBounceGuard() {
         el = el.parentElement
       }
 
-      // No scrollable ancestor — check document-level boundaries
+      // No scrollable ancestor — check document-level boundaries.
+      // Use documentElement as the reliable scroll root (works in Capacitor
+      // WKWebView where html has overflow-y: auto on mobile).
       const scrollEl =
         (document.scrollingElement as HTMLElement) || document.documentElement
-      const atTop = scrollEl.scrollTop <= 0
-      const atBottom =
-        scrollEl.scrollTop + window.innerHeight >= scrollEl.scrollHeight - 1
-      if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
-        e.preventDefault()
+      const scrollTop = Math.max(
+        scrollEl.scrollTop,
+        document.documentElement.scrollTop,
+        document.body.scrollTop,
+      )
+      const scrollHeight = Math.max(
+        scrollEl.scrollHeight,
+        document.documentElement.scrollHeight,
+      )
+      const atTop = scrollTop <= 0
+      const atBottom = scrollTop + window.innerHeight >= scrollHeight - 1
+      // Only prevent if page is actually taller than the viewport (has something to scroll)
+      const isScrollable = scrollHeight > window.innerHeight + 1
+      if (isScrollable) {
+        if ((deltaY > 0 && atTop) || (deltaY < 0 && atBottom)) {
+          e.preventDefault()
+        }
+      } else {
+        // Page fits on screen — prevent rubber-band in both directions
+        if (deltaY !== 0) e.preventDefault()
       }
     }
 

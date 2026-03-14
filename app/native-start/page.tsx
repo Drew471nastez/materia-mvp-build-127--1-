@@ -150,20 +150,9 @@ export default function NativeStartPage() {
   return (
     <>
       <style>{`
-        @keyframes ns-spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .ns-spinner {
-          width: 28px; height: 28px;
-          border: 2.5px solid rgba(0,0,0,.08);
-          border-top-color: rgba(0,0,0,.35);
-          border-radius: 50%;
-          animation: ns-spin 0.75s linear infinite;
-          will-change: transform;
-          transform-origin: 50% 50%;
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
+        @keyframes ns-blade-fade {
+          0%   { opacity: 1; }
+          100% { opacity: 0.15; }
         }
       `}</style>
       <div
@@ -172,12 +161,46 @@ export default function NativeStartPage() {
           inset: 0,
           background: "#f2f2f2",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          paddingBottom: "72px",
+          /* Shift spinner slightly above center so it breathes away from the
+             iOS home-indicator / navigation bar area at the bottom. */
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          gap: "0px",
         }}
       >
-        <div className="ns-spinner" />
+        {/* iOS UIActivityIndicatorView — 12 rounded blades with staggered fade */}
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 36 36"
+          fill="none"
+          aria-hidden="true"
+          style={{ display: "block", marginBottom: "env(safe-area-inset-bottom, 24px)" }}
+        >
+          {Array.from({ length: 12 }, (_, i) => {
+            const rotation = i * 30
+            const delay = (i * (1 / 12)).toFixed(3)
+            return (
+              <rect
+                key={i}
+                x="16.6"
+                y="22.5"
+                width="2.8"
+                height="9.5"
+                rx="1.77"
+                fill="#8e8e93"
+                style={{
+                  transformOrigin: "18px 18px",
+                  transform: `rotate(${rotation}deg)`,
+                  animation: `ns-blade-fade 1s ${delay}s infinite linear`,
+                  willChange: "opacity",
+                }}
+              />
+            )
+          })}
+        </svg>
       </div>
     </>
   )

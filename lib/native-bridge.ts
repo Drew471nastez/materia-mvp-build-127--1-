@@ -308,15 +308,23 @@ export async function nativeLogout(
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
-    // '_system' tells Capacitor to open in the device's default browser
-    // (Safari on iOS, Chrome on Android) rather than an in-app
-    // SFSafariViewController or Chrome Custom Tab.
-    try {
-      window.open(url, "_system")
-    } catch {
-      // Fallback: custom URL scheme handled by native shell
-      window.location.href = "storelib://external?url=" + encodeURIComponent(url)
-    }
+    // Use @capacitor/browser to open URLs in a real browser context.
+    // On iOS this presents SFSafariViewController (trusted in-app Safari,
+    // shares cookies, supports Stripe / payment flows without popup-blocker issues).
+    // On Android it opens a Chrome Custom Tab.
+    // This is more reliable than window.open("_system") which Capacitor's WKWebView
+    // may silently drop if the popup-block heuristic fires.
+    import("@capacitor/browser")
+      .then(({ Browser }) => Browser.open({ url, toolbarColor: "#ffffff" }))
+      .catch(() => {
+        // Fallback: try _system target, then deep-link scheme
+        try {
+          const w = window.open(url, "_system")
+          if (!w) throw new Error("blocked")
+        } catch {
+          window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+        }
+      })
   } else {
     window.open(url, "_blank", "noopener,noreferrer")
   }

@@ -66,21 +66,35 @@ export default async function LibraryLayout({
 
   return (
     <NativeAuthGate>
-    <div className="min-h-svh bg-[#fafafa]" data-page="library">
+    <div className="bg-[#fafafa]" data-page="library">
       <PurchaseSyncProvider />
       <DashboardSidebar />
 
       {/* Main content column — sits next to sidebar on desktop */}
-      <div className="flex min-h-svh flex-col md:ml-64">
-        {/* Content area — body scrolls naturally (no internal scroll container) */}
-        {/* Mobile: 3.5 rem header height + status-bar safe area.
-            Desktop: no fixed header above content, but the sidebar starts at
-            top-0 with its own pt-[env(safe-area-inset-top)]. The main content
-            must also clear the status bar, so we add env(safe-area-inset-top)
-            as desktop top-padding. In a browser env() = 0 → md:pt-0. */}
+      <div className="flex flex-col md:ml-64 md:min-h-svh">
+        {/* Mobile: fixed-height scroll container so overscroll-behavior is honoured
+            and iOS rubber-band bounce is fully suppressed.
+            Desktop: natural document flow (sidebar owns the full-height layout). */}
         <main
-          className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-[env(safe-area-inset-top,_0px)]"
-          style={{ WebkitOverflowScrolling: "touch" }}
+          className={[
+            // Mobile: full-viewport-height scroll container so that overscroll-behavior
+            // is honoured on the container itself and iOS rubber-band is suppressed.
+            // The content is pushed below the fixed header via padding-top.
+            "h-svh overflow-y-auto",
+            // Desktop: revert to natural document flow
+            "md:h-auto md:overflow-y-visible md:min-h-svh",
+            // Mobile top padding accounts for the fixed header (3.5rem) + status bar
+            "pt-[calc(3.5rem+env(safe-area-inset-top,_0px))]",
+            "md:pt-[env(safe-area-inset-top,_0px)]",
+          ].join(" ")}
+          style={{
+            // Prevent iOS rubber-band overscroll bounce on the scroll container.
+            // CSS overscroll-behavior works on iOS 16+; CapacitorBounceGuard
+            // in the root layout handles older versions via touchmove preventDefault.
+            overscrollBehavior: "none",
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-y",
+          }}
         >
           <div className="px-4 py-6 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
             {children}

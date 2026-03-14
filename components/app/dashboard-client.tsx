@@ -1909,7 +1909,7 @@ export function DashboardClient({
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
             {/* Views */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
