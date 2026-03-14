@@ -1126,23 +1126,36 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         return
       }
       if (data?.url) {
-        // Open Stripe Connect in a popup window (like Stan.store)
-        const w = 1100
-        const h = 700
-        const left = window.screenX + (window.outerWidth - w) / 2
-        const top = window.screenY + (window.outerHeight - h) / 2
-        const popup = window.open(data.url, "stripe-connect", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
-        // Poll for popup close, then refresh status
-        if (popup) {
-          const pollTimer = setInterval(() => {
-            if (popup.closed) {
-              clearInterval(pollTimer)
-              loadStripeStatus()
-            }
-          }, 1000)
+        if (isNativeApp()) {
+          // On native: open in SFSafariViewController (iOS) / Chrome Custom Tab (Android)
+          openExternal(data.url)
+          // Refresh Stripe status when the user returns to the app
+          try {
+            const { App } = await import("@capacitor/app")
+            const handle = await App.addListener("appStateChange", ({ isActive }) => {
+              if (isActive) {
+                handle.remove()
+                loadStripeStatus()
+              }
+            })
+          } catch { /* @capacitor/app not available */ }
         } else {
-          // Popup blocked - fall back to redirect
-          window.location.href = data.url
+          // Web: open in a popup window so the user stays on the settings page
+          const w = 1100
+          const h = 700
+          const left = window.screenX + (window.outerWidth - w) / 2
+          const top = window.screenY + (window.outerHeight - h) / 2
+          const popup = window.open(data.url, "stripe-connect", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
+          if (popup) {
+            const pollTimer = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(pollTimer)
+                loadStripeStatus()
+              }
+            }, 1000)
+          } else {
+            window.location.href = data.url
+          }
         }
       } else {
         setError("No onboarding URL returned. Please try again.")
@@ -1169,22 +1182,34 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || "Failed to open account settings")
       if (data?.url) {
-        // Open in popup so user stays on settings page, refresh data when they return
-        const w = 1100, h = 700
-        const left = window.screenX + (window.outerWidth - w) / 2
-        const top = window.screenY + (window.outerHeight - h) / 2
-        const popup = window.open(data.url, "stripe-manage", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
-        if (popup) {
-          const pollTimer = setInterval(() => {
-            if (popup.closed) {
-              clearInterval(pollTimer)
-              loadStripeStatus()
-              loadStripeBankInfo()
-            }
-          }, 1000)
+        if (isNativeApp()) {
+          openExternal(data.url)
+          try {
+            const { App } = await import("@capacitor/app")
+            const handle = await App.addListener("appStateChange", ({ isActive }) => {
+              if (isActive) {
+                handle.remove()
+                loadStripeStatus()
+                loadStripeBankInfo()
+              }
+            })
+          } catch { /* @capacitor/app not available */ }
         } else {
-          // Popup blocked — redirect
-          window.location.href = data.url
+          const w = 1100, h = 700
+          const left = window.screenX + (window.outerWidth - w) / 2
+          const top = window.screenY + (window.outerHeight - h) / 2
+          const popup = window.open(data.url, "stripe-manage", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
+          if (popup) {
+            const pollTimer = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(pollTimer)
+                loadStripeStatus()
+                loadStripeBankInfo()
+              }
+            }, 1000)
+          } else {
+            window.location.href = data.url
+          }
         }
       }
     } catch (err: any) {
@@ -1863,7 +1888,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
       </div>
 
-      <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
+      <div className="overflow-x-hidden bg-[#fafafa]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
         {/* Header with Handle pill */}
         <div className="mb-6 flex items-start justify-between gap-3">

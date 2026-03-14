@@ -13,6 +13,7 @@ import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/def
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
+import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 
 export const dynamic = "force-dynamic"
 
@@ -552,6 +553,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       />
       <div className="min-h-screen bg-background overflow-x-hidden">
         <DynamicFavicon avatarUrl={profile.avatar_url} />
+        <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
 
       {defaultSubscribeSettings.visible && <SubscribeBar settings={defaultSubscribeSettings} creatorId={creator.id} />}

@@ -777,6 +777,11 @@ export function CategoryPageClient({
   const availableSubcategories = categoryInfo?.subcategories || []
   const categoryDescription = categoryInfo?.description || ""
 
+  // Store back-label so product pages can show "< Design" / "< Marketing" etc.
+  useEffect(() => {
+    try { sessionStorage.setItem("backPageName", categoryLabel) } catch { /* ignore */ }
+  }, [categoryLabel])
+
   // Read subcategory from URL
   useEffect(() => {
     const subParam = searchParams.get("sub")

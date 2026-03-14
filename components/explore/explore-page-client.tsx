@@ -959,6 +959,11 @@ export function ExplorePageClient({
     document.body.style.removeProperty("--scroll-y")
   }, [])
 
+  // Store back-label so product pages can show "< Explore" in their breadcrumb
+  useEffect(() => {
+    try { sessionStorage.setItem("backPageName", "Explore") } catch { /* ignore */ }
+  }, [])
+
   // Search states
   const [searchOpen, setSearchOpen] = useState(false)
   const [localSearchQuery, setLocalSearchQuery] = useState("")

@@ -26,7 +26,8 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { getLinksUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { openExternal } from "@/lib/native-bridge"
 import {
   Dialog,
   DialogContent,
@@ -685,7 +686,8 @@ function EditorLayout() {
     )
   }
 
-  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksUrl(onepage.slug)
+  // Always use the external (shareable) URL so the format is always username.storelib.com/links
+  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksShareUrl(onepage.slug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -694,7 +696,7 @@ function EditorLayout() {
   }
 
   const viewLive = () => {
-    window.open(pageUrl, "_blank")
+    openExternal(pageUrl)
   }
 
   const tabs = [

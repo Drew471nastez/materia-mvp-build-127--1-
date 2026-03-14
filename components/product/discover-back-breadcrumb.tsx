@@ -1,8 +1,20 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
+
+/**
+ * Drop this into any page that links to product pages so the back breadcrumb
+ * on the product page shows that page's name (e.g. "< John's Store").
+ * Renders nothing visible.
+ */
+export function BackLabelSetter({ label }: { label: string }) {
+  useEffect(() => {
+    try { sessionStorage.setItem("backPageName", label) } catch { /* ignore */ }
+  }, [label])
+  return null
+}
 
 /**
  * Back breadcrumb rendered above product content.
@@ -15,19 +27,23 @@ import { ChevronLeft } from "lucide-react"
  *     rule fails to apply (e.g. specificity conflict or late class application).
  *  2. Web/desktop — only shown when showOnWeb=true (URL has ?layout=discover&recommended=1).
  *
- * Visibility is controlled by CSS in globals.css:
- *   [data-discover-breadcrumb]                → display: none  (default)
- *   html.capacitor [data-discover-breadcrumb] → display: flex  (native: always show)
- *   [data-discover-breadcrumb="web"]           → display: flex  (web discover URL)
+ * The back label is read from sessionStorage key "backPageName" set by explore/
+ * category/store pages before navigating to a product. Falls back to "Back".
  */
 export function DiscoverBackBreadcrumb({ showOnWeb = false }: { showOnWeb?: boolean }) {
   const router = useRouter()
   const ref = useRef<HTMLButtonElement>(null)
+  const [backLabel, setBackLabel] = useState("Back")
 
   useEffect(() => {
+    // Read dynamic back label stored by the previous page
+    try {
+      const stored = sessionStorage.getItem("backPageName")
+      if (stored) setBackLabel(stored)
+    } catch { /* ignore */ }
+
     if (!ref.current) return
     // JS backup: force visibility with !important so this overrides any CSS rule
-    // (including !important stylesheet rules, which regular inline styles cannot beat).
     const isNative = document.documentElement.classList.contains("capacitor")
     if (isNative || showOnWeb) {
       ref.current.style.setProperty("display", "flex", "important")
@@ -43,7 +59,7 @@ export function DiscoverBackBreadcrumb({ showOnWeb = false }: { showOnWeb?: bool
       className="items-center gap-1.5 mb-5 cursor-pointer text-[#9ca3af] hover:text-[#6b7280] transition-colors"
     >
       <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-      <span className="text-[14px]">← Back</span>
+      <span className="text-[14px]">{backLabel}</span>
     </button>
   )
 }
