@@ -71,7 +71,7 @@ export default async function LibraryLayout({
       <DashboardSidebar />
 
       {/* Main content column — sits next to sidebar on desktop */}
-      <div className="flex flex-col md:ml-64 md:min-h-svh">
+      <div className="flex flex-col md:ml-64 md:min-h-svh bg-[#fafafa]">
         {/* Mobile: fixed-height scroll container so overscroll-behavior is honoured
             and iOS rubber-band bounce is fully suppressed.
             Desktop: natural document flow (sidebar owns the full-height layout). */}
@@ -91,8 +91,10 @@ export default async function LibraryLayout({
             // Prevent iOS rubber-band overscroll bounce on the scroll container.
             // CSS overscroll-behavior works on iOS 16+; CapacitorBounceGuard
             // in the root layout handles older versions via touchmove preventDefault.
+            // NOTE: WebkitOverflowScrolling is intentionally omitted — that legacy
+            // property conflicts with overscroll-behavior:none and can re-enable
+            // rubber-band bounce on some iOS versions.
             overscrollBehavior: "none",
-            WebkitOverflowScrolling: "touch",
             touchAction: "pan-y",
           }}
         >

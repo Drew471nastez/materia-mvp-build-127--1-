@@ -28,7 +28,8 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72, to
   const progress = Math.min(pullDistance / threshold, 1)
 
   // Ring geometry (declared early so offScreen can use `size`)
-  const size = 22
+  // 15% smaller than the original 22px
+  const size = 19
   const strokeWidth = 2
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius

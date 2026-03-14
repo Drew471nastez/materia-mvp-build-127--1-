@@ -1563,8 +1563,10 @@ export function DashboardClient({
       className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container relative"
     >
       {/* Pull-to-refresh indicator floats above content */}
-      {/* topOffset=40 keeps the indicator below the purple announcement bar (40px tall) */}
-      <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} topOffset={40} />
+      {/* topOffset=0 positions the indicator in the gap between the fixed header
+          and the announcement bar — the bar slides down with content on pull,
+          revealing that gap, and the indicator appears perfectly centred within it */}
+      <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} topOffset={0} />
 
       {/* Content wrapper that slides down during pull */}
       <div
