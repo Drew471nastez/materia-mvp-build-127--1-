@@ -1031,15 +1031,20 @@ export function PlatformHeaderClient() {
         navigateToCanonical(targetPath) // window.location.assign("https://storelib.com/path")
         return
       }
-      // In Capacitor on the main storelib.com domain: use router.push for
-      // In Capacitor always use window.location.href to prevent URL mixing.
+      // In Capacitor: mirror navigateReliably — use router.push() for same-layout
+      // paths so the transition is smooth (loading.tsx skeleton shows, no white flash).
+      // Only cross-layout paths (/app, /store-builder, /library) need window.location.href.
       if (isNativePlatform()) {
         e.preventDefault()
-        window.location.href = targetPath
+        if (isCrossLayoutPath(targetPath)) {
+          window.location.href = targetPath
+          return
+        }
+        router.push(targetPath)
         return
       }
     },
-    [navigateToCanonical, shouldForceCanonicalNav],
+    [navigateToCanonical, shouldForceCanonicalNav, router],
   )
 
   const getCanonicalOrRelativePath = useCallback((targetPath: string) => {

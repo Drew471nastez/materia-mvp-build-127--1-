@@ -1185,6 +1185,15 @@ html.capacitor #platform-header-root {
   right: 0;
   z-index: 50;
   height: calc(68px + env(safe-area-inset-top, 0px));
+  /* Force GPU compositing layer — prevents WKWebView from visually jumping
+     the header during the native UIScrollView rubber-band bounce animation.
+     Without this, WKWebView re-composites position:fixed elements on the CPU
+     during overscroll, causing a brief gap above the header.              */
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 html.capacitor #platform-header-root > header {
   margin-top: env(safe-area-inset-top, 0px);
@@ -1317,18 +1326,23 @@ html.capacitor .creator-quick-nav {
     background-color: transparent !important;
   }
 
-  /* Product card group: suppress all hover transitions on the outer card
-     to prevent the border+shadow combo from flashing on tap. */
+  /* Product card group: kill transitions entirely on touch.
+     The outer .group div has `transition-all duration-300` which triggers
+     a fade-out animation when :hover is released after a tap — the finger
+     lifts, :hover drops, and the border+shadow smoothly fades away.
+     Suppressing transition-property on the element itself (not just :hover)
+     prevents both the fade-in AND the fade-out on touch devices.           */
+  .group {
+    transition-property: none !important;
+  }
+  /* Also kill transitions on all descendants that use group-hover utilities */
+  .group * {
+    transition-property: none !important;
+    transform: none !important;
+  }
   .group:hover {
     box-shadow: none !important;
     border-color: inherit !important;
-    transition-duration: 0ms !important;
-  }
-  /* Suppress scale on any child of a group */
-  .group:hover [class*="group-hover:scale"],
-  .group:hover [class*="scale"] {
-    transform: none !important;
-    transition-property: none !important;
   }
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useState } from "react"
+import { memo, useState, useRef, useCallback } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -76,6 +76,28 @@ interface ProductCardProps {
 }
 
 export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false }: ProductCardProps) {
+  // Scroll guard: track touch movement to cancel accidental clicks during scroll.
+  // Hooks must be declared before any early return (React rules).
+  const touchStartY = useRef(0)
+  const didScroll = useRef(false)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0]?.clientY ?? 0
+    didScroll.current = false
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const delta = Math.abs((e.touches[0]?.clientY ?? 0) - touchStartY.current)
+    if (delta > 8) didScroll.current = true
+  }, [])
+
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (didScroll.current) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }, [])
+
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
@@ -100,7 +122,12 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const reviewsAverage = product.reviews_average ?? 0
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]">
+    <div
+      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onClickCapture={onClickCapture}
+    >
       <SmartLink href={productUrl} useClientNav={clientNav} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image
