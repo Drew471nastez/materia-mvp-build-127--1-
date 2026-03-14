@@ -1411,3 +1411,42 @@ html.capacitor [tabindex="0"]:active {
 .blog-fade-up {
   animation: blog-fade-up 0.45s ease-out both;
 }
+
+/* ── Native app: portrait-only orientation lock ───────────────────────────────
+   The Android layer sets screenOrientation="portrait" on MainActivity.
+   This CSS layer adds a full-screen overlay as a secondary enforcement for
+   iOS (where the web layer cannot call the native lock API directly) and as
+   a failsafe on Android. Only activates inside html.capacitor (native shell).
+   ──────────────────────────────────────────────────────────────────────────── */
+@media screen and (orientation: landscape) {
+  html.capacitor body {
+    overflow: hidden !important;
+  }
+  html.capacitor body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 999998;
+    background-color: #000000;
+    pointer-events: all;
+  }
+  html.capacitor body::after {
+    content: "Please rotate your device to portrait mode";
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 15px;
+    font-family: system-ui, -apple-system, sans-serif;
+    text-align: center;
+    padding: 24px;
+    pointer-events: none;
+    /* Vertical centering via padding since ::after content can't use flexbox in all browsers */
+    padding-top: 40vh;
+    box-sizing: border-box;
+    line-height: 1.5;
+  }
+}

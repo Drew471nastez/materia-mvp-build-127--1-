@@ -136,10 +136,10 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       {/* Back nav */}
       <Link
         href="/library/my-downloads"
-        className="mb-5 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
+        className="mb-5 inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Back to downloads
+        <ArrowLeft className="h-3.5 w-3.5" />
+        My Downloads
       </Link>
 
       {/* Product card — side-by-side on desktop, stacked on mobile */}

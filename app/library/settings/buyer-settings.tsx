@@ -141,18 +141,26 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
 
   return (
     <div className="max-w-2xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          href="/library"
-          className="mb-4 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to library
-        </Link>
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Settings</h1>
-        <p className="mt-1 text-sm text-neutral-500">Manage your account preferences</p>
-      </div>
+      {/* Page header card — matches library main page visual language */}
+      <section className="mb-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+        <div className="h-16 sm:h-20 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900" />
+        <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+          <div className="flex items-end justify-between -mt-6 sm:-mt-7 mb-3">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm shrink-0">
+              <User className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-600" />
+            </div>
+            <Link
+              href="/library"
+              className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-8 sm:mt-0"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Library
+            </Link>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Settings</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">Manage your account preferences</p>
+        </div>
+      </section>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
