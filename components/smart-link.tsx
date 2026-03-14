@@ -33,9 +33,6 @@ function toInternalHref(href: string): string {
     // sellername.storelib.com/ -> /u/sellername
     if (path === "/" || path === "") return `/u/${username}`
 
-    // sellername.storelib.com/p/slug -> /p/slug
-    if (path.startsWith("/p/")) return path
-
     // sellername.storelib.com/links -> /l/username
     if (path === "/links" || path === "/links/") return `/l/${username}`
 
@@ -116,6 +113,28 @@ export function SmartLink({
             } else {
               router.push(resolvedHref)
             }
+          }}
+          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+        >
+          {children}
+        </a>
+      )
+    }
+
+    // Absolute URL that toInternalHref could not convert to an internal path
+    // (e.g. a product page on a creator's subdomain store, or any external URL
+    // the app cannot route to). Open in the in-app browser (SFSafariViewController
+    // on iOS / Chrome Custom Tab on Android) so the user stays within the app
+    // shell rather than being sent to the system browser.
+    if (resolvedHref) {
+      return (
+        <a
+          {...linkSafeProps}
+          href={resolvedHref}
+          onClick={(e) => {
+            e.preventDefault()
+            if (typeof onClick === "function") onClick(e as any)
+            openExternal(resolvedHref)
           }}
           style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
         >

@@ -1317,6 +1317,21 @@ html.capacitor:has([data-page="library"])::before {
   background-color: #ffffff;
 }
 
+/* /app layout: the mobile header background is #111111. The default ::before
+   shield is #000000 (pure black), which creates a visually distinct "black band"
+   above the dark-gray header content after rotating to portrait. Match the header
+   colour exactly so the safe-area zone is seamlessly the same shade. */
+html.capacitor.app-layout::before {
+  background-color: #111111;
+}
+
+/* Capacitor native: hide elements that are irrelevant or disruptive in the
+   native app context (e.g. announcement / promotional banners).
+   html.capacitor is set synchronously before first paint so no visible flash. */
+html.capacitor .native-hidden {
+  display: none !important;
+}
+
 /* Library pages: override html.capacitor's black background (#000) to the
    light library background. This prevents any black bleeding through in the
    safe-area zones in both portrait (top) and landscape (left/right) on iOS.

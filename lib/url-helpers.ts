@@ -104,10 +104,6 @@ export function getLinksUrl(username: string): string {
 export function getProductUrl(username: string, productSlug: string): string {
   if (!productSlug) return getStoreUrl(username)
 
-  if (isNativeApp()) {
-    return `/p/${productSlug}`
-  }
-
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
 

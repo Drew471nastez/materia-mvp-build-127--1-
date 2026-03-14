@@ -1577,7 +1577,8 @@ export function DashboardClient({
         }}
       >
       {/* Announcement Bar - positioned normally in document flow */}
-      <div className="bg-[#8b5cf6] text-white">
+      {/* native-hidden: hidden on iOS/Android Capacitor via globals.css html.capacitor .native-hidden */}
+      <div className="bg-[#8b5cf6] text-white native-hidden">
         <div className="py-2 px-4 md:py-2.5">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${

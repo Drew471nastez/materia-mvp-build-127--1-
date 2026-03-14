@@ -7,7 +7,8 @@
  */
 export function AnnouncementBarMobile({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full bg-[#8b5cf6] text-white">
+    // native-hidden: hidden on iOS/Android Capacitor via globals.css html.capacitor .native-hidden
+    <div className="w-full bg-[#8b5cf6] text-white native-hidden">
       <div className="h-[40px] md:h-[42px] flex items-center justify-center px-4">
         {children}
       </div>

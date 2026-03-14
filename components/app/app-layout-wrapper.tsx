@@ -52,13 +52,36 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   // We set --keyboard-inset-height so CSS can shrink the scroll container,
   // and call window.scrollTo(0,0) to counteract any iOS upward viewport shift
   // that would push content under the fixed app header.
+  //
+  // Device ROTATION also fires vv.resize. During the rotation transition on iOS,
+  // window.innerHeight and vv.height can be out-of-sync for one or two frames,
+  // producing a spurious non-zero keyboard height. We distinguish rotation from
+  // keyboard by tracking window.innerWidth: keyboard events never change the
+  // width, rotation always does. On rotation we reset kbHeight to 0 immediately
+  // and skip the window.scrollTo call (which can cause a jarring viewport jump
+  // during the rotation animation and leave a black bar above the header).
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return
 
     const vv = window.visualViewport
     const root = document.documentElement
+    let lastInnerWidth = window.innerWidth
 
     function onViewportChange() {
+      const currentWidth = window.innerWidth
+      const isOrientationChange = currentWidth !== lastInnerWidth
+      lastInnerWidth = currentWidth
+
+      if (isOrientationChange) {
+        // Orientation change — keyboard is not open, reset keyboard inset to 0.
+        // Do NOT call window.scrollTo here: it can create a visible viewport
+        // shift during the iOS rotation animation, showing a black gap above
+        // the fixed header.
+        root.style.setProperty("--keyboard-inset-height", "0px")
+        return
+      }
+
+      // Keyboard appearance / disappearance (width unchanged).
       // Keyboard height = total window height minus visible-viewport height minus any scroll offset
       const kbHeight = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
       root.style.setProperty("--keyboard-inset-height", `${kbHeight}px`)
