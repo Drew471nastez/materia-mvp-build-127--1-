@@ -10,6 +10,7 @@ import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
 import { ProductGallery } from "@/components/product/product-gallery"
+import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-breadcrumb"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { DownloadButton } from "@/components/download-button"
 import { TrackView } from "@/components/analytics/track-view"
@@ -62,7 +63,7 @@ export const dynamic = "force-dynamic"
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ purchase?: string; already_owned?: string; src?: string }>
+  searchParams: Promise<{ purchase?: string; already_owned?: string; src?: string; layout?: string; recommended?: string }>
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
@@ -176,7 +177,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { slug } = await params
-  const { purchase, already_owned, src } = await searchParams
+  const { purchase, already_owned, src, layout, recommended } = await searchParams
+  const showDiscoverBreadcrumb = layout === "discover" && recommended === "1"
   const supabase = await createClient()
 
   // First, try to find product by current slug
@@ -1686,6 +1688,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       {/* ✅ Mobile wider (px-3), desktop unchanged */}
       <div className="mx-auto w-full max-w-[1100px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 pb-24 lg:pb-12">
+        {showDiscoverBreadcrumb && <DiscoverBackBreadcrumb />}
         {AlertsBlock}
         {MainProductContent}
       </div>

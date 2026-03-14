@@ -71,9 +71,11 @@ interface ProductCardProps {
   srcParam?: string
   /** Set to true for above-the-fold images for faster LCP */
   priority?: boolean
+  /** Use router.push() on native instead of window.location.href to avoid white flash */
+  clientNav?: boolean
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false }: ProductCardProps) {
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
@@ -99,7 +101,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]">
-      <SmartLink href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
+      <SmartLink href={productUrl} useClientNav={clientNav} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image
             src={product.thumbnail_url}
@@ -149,7 +151,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           )}
         </div>
 
-        <SmartLink href={productUrl} className="flex-1 flex flex-col">
+        <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-[17px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs capitalize">

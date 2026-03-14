@@ -1319,22 +1319,29 @@ export function ExplorePageClient({
   }, [])
 
   // Handle scroll target from URL (set by header, hamburger, search bar, featured categories)
-  // Always honours scroll=recommended — on client-side nav (already mounted) uses a short
-  // delay; on initial page load (navigated from another page) waits longer for content.
+  // For client-side nav (already mounted): delegate to pendingCategoryAutoScrollRef so scroll
+  // fires only after content finishes loading — avoids scroll being interrupted by skeleton→real
+  // content swap. For initial page load: wait 800ms for content to render then scroll.
   useEffect(() => {
     const scrollTarget = searchParams.get("scroll")
     const currentUrl = window.location.href
     if (scrollTarget === "recommended" && scrollTargetHandledRef.current !== currentUrl) {
       scrollTargetHandledRef.current = currentUrl
-      const delay = hasMountedRef.current ? 200 : 800
-      const timer = setTimeout(() => {
-        scrollRecommendedSectionWithRetry()
-        // Clean up scroll param without triggering re-render
-        const url = new URL(window.location.href)
-        url.searchParams.delete("scroll")
-        window.history.replaceState({}, '', url.pathname + url.search)
-      }, delay)
-      return () => clearTimeout(timer)
+      // Clean up scroll param immediately so it doesn't re-fire
+      const url = new URL(window.location.href)
+      url.searchParams.delete("scroll")
+      window.history.replaceState({}, '', url.pathname + url.search)
+      if (hasMountedRef.current) {
+        // Client-side nav: queue scroll to fire after isLoadingCategory becomes false
+        // This ensures content is stable before the smooth scroll animation starts
+        pendingCategoryAutoScrollRef.current = true
+      } else {
+        // Initial page load: content needs time to render from server
+        const timer = setTimeout(() => {
+          scrollRecommendedSectionWithRetry()
+        }, 800)
+        return () => clearTimeout(timer)
+      }
     }
   }, [searchParams, scrollRecommendedSectionWithRetry])
 
@@ -1655,6 +1662,7 @@ export function ExplorePageClient({
                     product={product}
                     srcParam="?src=platform"
                     priority={index < 3}
+                    clientNav
                   />
                 ))}
               </div>
@@ -1817,6 +1825,7 @@ export function ExplorePageClient({
                 product={product}
                 srcParam="?src=platform"
                 priority={index < 3}
+                clientNav
               />
             ))}
           </div>
@@ -1854,6 +1863,7 @@ export function ExplorePageClient({
                   product={product}
                   srcParam="?src=platform"
                   priority={index < 3}
+                  clientNav
                 />
               ))}
             </div>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 
 /**
@@ -58,10 +59,12 @@ const TOUCH_STYLES: React.CSSProperties = {
 export function SmartLink({
   href,
   children,
+  useClientNav,
   ...props
-}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+}: React.AnchorHTMLAttributes<HTMLAnchorElement> & { useClientNav?: boolean }) {
   const inApp = isNativeApp()
   const resolvedHref = inApp && href ? toInternalHref(href) : href
+  const router = useRouter()
 
   // In Capacitor, ALWAYS use window.location.href for root-relative paths to
   // prevent URL mixing. Next.js <Link> / router.push can resolve paths relative
@@ -69,6 +72,8 @@ export function SmartLink({
   // seller link on /p/slug would produce /p/slug/u/seller instead of /u/seller.
   // window.location.href with a leading "/" is always root-relative.
   // NativeAuthGate handles session restore on reload.
+  // Exception: useClientNav=true forces router.push() for smooth same-layout
+  // transitions (e.g. /explore → /p/slug) without a full page reload/white flash.
   if (inApp && resolvedHref?.startsWith("/")) {
     const { target, rel, onClick, ...linkSafeProps } = props
     return (
@@ -78,7 +83,11 @@ export function SmartLink({
         onClick={(e) => {
           e.preventDefault()
           if (typeof onClick === "function") onClick(e as any)
-          window.location.href = resolvedHref
+          if (useClientNav) {
+            router.push(resolvedHref)
+          } else {
+            window.location.href = resolvedHref
+          }
         }}
         style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
       >
