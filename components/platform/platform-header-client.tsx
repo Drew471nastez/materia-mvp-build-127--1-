@@ -362,6 +362,7 @@ function MobileBottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -405,11 +406,17 @@ function MobileBottomSheet({
     }, 400)
   }
 
-  // ── Handle-bar-only drag handlers ──────────────────────────────────────
-  // Touch handlers are ONLY on the handle bar, NOT on the full overlay.
-  // This guarantees that touches on category buttons, subcategory links,
-  // search results, and any other interactive content inside the sheet
-  // are NEVER intercepted by the drag logic.
+  // ── Shared drag finisher ────────────────────────────────────────────────
+  const finishDrag = () => {
+    setIsDragging(false)
+    if (dragY > 80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  // ── Handle-bar drag (always active on handle) ───────────────────────────
   const handleHandleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY
     setIsDragging(true)
@@ -425,12 +432,34 @@ function MobileBottomSheet({
     }
   }
 
-  const handleHandleTouchEnd = () => {
+  // ── Full-sheet drag (active when scroll content is at the very top) ─────
+  // This lets users swipe down from anywhere in the sheet to dismiss it,
+  // not just from the narrow handle bar. Only activates when the scroll
+  // container is at scrollTop ≤ 2 px so normal upward scrolling is unaffected.
+  const handleSheetTouchStart = (e: React.TouchEvent) => {
+    const scrollEl = scrollRef.current
+    if (scrollEl && scrollEl.scrollTop > 2) return // content is scrolled — don't start drag
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+
+  const handleSheetTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) {
-      handleClose()
+    const scrollEl = scrollRef.current
+    if (scrollEl && scrollEl.scrollTop > 2) {
+      // Content scrolled away from top mid-gesture — cancel drag, let scroll run
+      setIsDragging(false)
+      setDragY(0)
+      return
+    }
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      e.preventDefault()
+      setDragY(diff * 0.8)
     } else {
+      // Moving upward — cancel drag so scroll container takes over
+      setIsDragging(false)
       setDragY(0)
     }
   }
@@ -447,10 +476,13 @@ function MobileBottomSheet({
         style={{ transitionDuration: '400ms' }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet */}
+      {/* Bottom Sheet — full-sheet drag active when scroll is at top */}
       <div
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        onTouchStart={handleSheetTouchStart}
+        onTouchMove={handleSheetTouchMove}
+        onTouchEnd={finishDrag}
         style={{
           // Use 'none' instead of translateY(0px) when fully open — CSS transforms
           // create a new containing block on iOS which can offset touch coordinates,
@@ -460,12 +492,12 @@ function MobileBottomSheet({
           maxHeight: '74vh',
         }}
       >
-        {/* Handle bar — the ONLY drag target */}
+        {/* Handle bar — always a drag target regardless of scroll position */}
         <div
           className="pt-3 pb-2 touch-none"
           onTouchStart={handleHandleTouchStart}
           onTouchMove={handleHandleTouchMove}
-          onTouchEnd={handleHandleTouchEnd}
+          onTouchEnd={finishDrag}
         >
           <button
             onClick={handleClose}
@@ -483,6 +515,7 @@ function MobileBottomSheet({
             Without this, expanding a category while scrolled down makes the subcategory
             view appear blank because the scroll position is past the shorter content. */}
         <div
+          ref={scrollRef}
           key={contentKey ?? 'default'}
           className="overflow-y-auto overscroll-contain"
           style={{ maxHeight: 'calc(74vh - 80px)' }}

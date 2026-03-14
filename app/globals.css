@@ -1219,6 +1219,25 @@ html.capacitor body {
   -webkit-overflow-scrolling: touch; /* smooth momentum scrolling on iOS */
 }
 
+/* ── Discover back breadcrumb visibility ─────────────────────────────────────
+   The DiscoverBackBreadcrumb button is always rendered in the DOM (no JS
+   useEffect gating) and uses data-discover-breadcrumb to control display.
+   html.capacitor is set synchronously before first paint so these rules
+   activate immediately — no hydration timing race.                           */
+
+/* Hidden by default on all non-Capacitor pages and non-discover web URLs */
+[data-discover-breadcrumb] {
+  display: none !important;
+}
+/* Always visible in the native Capacitor app (iOS + Android) */
+html.capacitor [data-discover-breadcrumb] {
+  display: flex !important;
+}
+/* Also visible on web when the product is opened from a discover/recommended URL */
+[data-discover-breadcrumb="web"] {
+  display: flex !important;
+}
+
 /* ── Search top sheet: push content below the safe-area shield ────────────────
    The MobileTopSheet portal sits at z=100 (above the header at z=50) but the
    html::before safe-area shield at z=9999 covers the top env(safe-area-inset-top)
@@ -1260,10 +1279,11 @@ html.capacitor .creator-quick-nav {
   display: none !important;
 }
 
-/* ── Touch device: suppress hover-flash on cards ──────────────────────────────
+/* ── Touch device: suppress hover-flash on cards and sheet menu items ─────────
    On iOS/Android the :hover pseudo-class fires on tap and lingers until the
-   next tap. This causes card shadow/border/scale animations to briefly flash
-   when a finger touches a card — visually jarring and unintended for touch.
+   next tap. This causes card shadow/border/scale animations and sheet-row
+   background-color highlights to briefly flash when a finger touches — visually
+   jarring and unintended for touch.
    @media (hover: none) targets touch-only devices (no mouse pointer).          */
 @media (hover: none) {
   /* Remove shadow and border transitions that create the flash */
@@ -1283,6 +1303,32 @@ html.capacitor .creator-quick-nav {
   [class*="hover:opacity"]:hover {
     opacity: inherit !important;
     transition-duration: 0ms !important;
+  }
+
+  /* ── Sheet menu items: no full-row background flash on touch ─────────────
+     The mobile bottom/top sheets have menu items with hover:bg-gray-100.
+     On touch, :hover fires on tap and lights up the whole row — jarring.
+     Suppress all :hover background-color on tappable elements inside sheets.
+     active: state still works (provides sub-50ms tap confirmation). */
+  [data-mobile-bottom-sheet] button:hover,
+  [data-mobile-bottom-sheet] a:hover,
+  [data-mobile-top-sheet] button:hover,
+  [data-mobile-top-sheet] a:hover {
+    background-color: transparent !important;
+  }
+
+  /* Product card group: suppress all hover transitions on the outer card
+     to prevent the border+shadow combo from flashing on tap. */
+  .group:hover {
+    box-shadow: none !important;
+    border-color: inherit !important;
+    transition-duration: 0ms !important;
+  }
+  /* Suppress scale on any child of a group */
+  .group:hover [class*="group-hover:scale"],
+  .group:hover [class*="scale"] {
+    transform: none !important;
+    transition-property: none !important;
   }
 }
 

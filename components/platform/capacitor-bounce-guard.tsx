@@ -40,6 +40,17 @@ export function CapacitorBounceGuard() {
       const touchY = e.touches[0]?.clientY ?? 0
       const deltaY = touchY - lastTouchY
 
+      // Never interfere with mobile sheet portals — they handle their own
+      // drag-to-dismiss gesture. Calling preventDefault here would block the
+      // sheet's handle-bar from being dragged down to close.
+      const target = e.target as Element | null
+      if (
+        target?.closest("[data-mobile-bottom-sheet]") ||
+        target?.closest("[data-mobile-top-sheet]")
+      ) {
+        return
+      }
+
       // Walk the DOM upward from the touch target to find a scrollable ancestor
       let el: Element | null = e.target as Element
       while (el && el !== document.documentElement) {
