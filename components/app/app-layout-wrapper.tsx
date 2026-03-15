@@ -87,12 +87,19 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
         rotationCooldown = true
         setTimeout(() => {
           rotationCooldown = false
-          // After rotation settles, reset any lingering viewport offset
-          // that iOS may have left behind.
-          if (vv.offsetTop > 0) {
+          // After rotation settles, reset any lingering visual-viewport offset
+          // that iOS may have left behind. On /app pages html has overflow:hidden
+          // (via .app-layout), which makes window.scrollTo a no-op at the CSS
+          // level. We temporarily override with an inline style so the WKWebView
+          // UIScrollView can reset to (0,0), then remove the inline style before
+          // the next paint — the override is invisible because there is no
+          // out-of-bounds content to show during that single frame.
+          if (vv.offsetTop > 0 || window.pageYOffset > 0) {
+            root.style.overflow = 'auto'
             window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+            requestAnimationFrame(() => { root.style.removeProperty('overflow') })
           }
-        }, 600)
+        }, 800)
         return
       }
 

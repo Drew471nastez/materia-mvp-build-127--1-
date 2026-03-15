@@ -164,7 +164,7 @@ export default async function AppLayout({
     <OfflineGuard>
     <NativeBackHandler />
     <AppLayoutWrapper>
-      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
+      <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
           creatorSlug={creator.slug}
           username={profile?.username || creator.slug}

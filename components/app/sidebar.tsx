@@ -1067,7 +1067,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
       <header className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
-        style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', touchAction: 'none', overscrollBehavior: 'none' }}>
+        style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', touchAction: 'none', overscrollBehavior: 'none', willChange: 'transform', WebkitTransform: 'translateZ(0)', transform: 'translateZ(0)', WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}>
         <div className="flex h-[68px] items-center justify-between px-4 py-[10px]"
           style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
           {/* Left side: Hamburger */}

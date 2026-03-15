@@ -1099,6 +1099,15 @@ html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Prevent rubber-band scroll-chaining from the inner scroll container to the
+   document on both Capacitor and /app web. CSS overscroll-behavior does not
+   inherit, so it must be set on the scrollable element directly.
+   CapacitorBounceGuard (JS) is the primary guard; this is belt-and-suspenders. */
+html.app-layout .app-content-scroll,
+html.capacitor .app-content-scroll {
+  overscroll-behavior: none;
+}
+
 /* ── Keyboard-aware scroll container height ──────────────────────────────────
  *
  * When the software keyboard opens on iOS/Android (Capacitor or mobile browser),
@@ -1323,6 +1332,19 @@ html.capacitor:has([data-page="library"])::before {
    colour exactly so the safe-area zone is seamlessly the same shade. */
 html.capacitor.app-layout::before {
   background-color: #111111;
+}
+
+/* AppSidebar mobile header: GPU-composite the fixed element so WKWebView
+   renders it on the GPU compositor thread. Without this, WKWebView repaints
+   position:fixed elements on the CPU during native UIScrollView rubber-band
+   bounce and during the iOS rotation animation, causing a brief black gap
+   above the header. Mirrors the same treatment applied to #platform-header-root. */
+html.capacitor.app-layout header.fixed {
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Capacitor native: hide elements that are irrelevant or disruptive in the
