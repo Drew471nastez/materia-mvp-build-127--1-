@@ -1334,6 +1334,17 @@ html.capacitor.app-layout::before {
   background-color: #111111;
 }
 
+/* On /app pages in Capacitor, html.capacitor { background-color:#000000 } (line
+   above) overrides the html.app-layout { background-color:#111111 } rule because
+   it appears later in the file and has equal specificity. This means any transient
+   gap between the visual viewport top and the fixed header after a landscape→portrait
+   rotation shows pure black (#000) rather than the dark-gray header colour (#111111).
+   Override back to #111111 so any brief viewport-offset gap is visually invisible —
+   it blends into the header background instead of appearing as a jarring black bar. */
+html.capacitor.app-layout {
+  background-color: #111111;
+}
+
 /* AppSidebar mobile header: GPU-composite the fixed element so WKWebView
    renders it on the GPU compositor thread. Without this, WKWebView repaints
    position:fixed elements on the CPU during native UIScrollView rubber-band

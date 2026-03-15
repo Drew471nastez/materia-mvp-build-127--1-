@@ -94,11 +94,26 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
           // UIScrollView can reset to (0,0), then remove the inline style before
           // the next paint — the override is invisible because there is no
           // out-of-bounds content to show during that single frame.
-          if (vv.offsetTop > 0 || window.pageYOffset > 0) {
+          // Retry up to 4 more times (100 ms apart) in case the first attempt
+          // doesn't fully reset the WKWebView UIScrollView content offset —
+          // some iOS versions require multiple frames to honour scrollTo(0,0).
+          let retries = 4
+          function tryResetOffset() {
+            if (vv.offsetTop <= 0 && window.pageYOffset <= 0) return
             root.style.overflow = 'auto'
             window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-            requestAnimationFrame(() => { root.style.removeProperty('overflow') })
+            // Belt-and-suspenders: also directly zero the element scroll offsets
+            // which some WKWebView versions respond to when scrollTo is ignored.
+            document.documentElement.scrollTop = 0
+            document.body.scrollTop = 0
+            requestAnimationFrame(() => {
+              root.style.removeProperty('overflow')
+              if (retries-- > 0 && (vv.offsetTop > 0 || window.pageYOffset > 0)) {
+                setTimeout(tryResetOffset, 100)
+              }
+            })
           }
+          tryResetOffset()
         }, 800)
         return
       }
