@@ -66,6 +66,7 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
     const vv = window.visualViewport
     const root = document.documentElement
     let lastInnerWidth = window.innerWidth
+    let rotationCooldown = false
 
     function onViewportChange() {
       const currentWidth = window.innerWidth
@@ -78,8 +79,25 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
         // shift during the iOS rotation animation, showing a black gap above
         // the fixed header.
         root.style.setProperty("--keyboard-inset-height", "0px")
+        // Set a cooldown to ignore subsequent viewport events during the
+        // rotation animation. iOS fires multiple vv.resize events while the
+        // dimensions settle; without a cooldown the code below mis-detects
+        // the temporary dimension mismatch as a keyboard and calls scrollTo,
+        // which creates the black bar above the header.
+        rotationCooldown = true
+        setTimeout(() => {
+          rotationCooldown = false
+          // After rotation settles, reset any lingering viewport offset
+          // that iOS may have left behind.
+          if (vv.offsetTop > 0) {
+            window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+          }
+        }, 600)
         return
       }
+
+      // Still within the rotation transition — ignore spurious events.
+      if (rotationCooldown) return
 
       // Keyboard appearance / disappearance (width unchanged).
       // Keyboard height = total window height minus visible-viewport height minus any scroll offset
