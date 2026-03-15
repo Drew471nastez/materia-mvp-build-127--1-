@@ -11,6 +11,7 @@ import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
+import { RotationGuard } from "@/components/platform/rotation-guard"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -145,6 +146,7 @@ export default function RootLayout({
         <BodyScrollRestorer />
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
+        <RotationGuard />
         <CookieConsentBanner />
         <NativeAuthHandler />
         <NativeOAuthBridge />

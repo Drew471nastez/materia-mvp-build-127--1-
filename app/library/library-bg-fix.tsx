@@ -33,6 +33,11 @@ export function LibraryBgFix() {
     // Re-apply after every resize (covers device rotation on iOS/Android where
     // the WKWebView rotation animation may briefly revert the inline style).
     window.addEventListener("resize", applyBg, { passive: true })
+    // Also re-apply on orientationchange, which fires before resize, so the
+    // inline style is set as early as possible during the rotation animation.
+    // RotationGuard covers the visual gap, but this ensures the html background
+    // is correct the moment the guard overlay hides.
+    window.addEventListener("orientationchange", applyBg, { passive: true })
 
     // Belt-and-suspenders class: mirrors the CSS :has([data-page="library"])
     // overflow-lock so the lock is active even before :has() is evaluated.
@@ -41,6 +46,7 @@ export function LibraryBgFix() {
     return () => {
       html.style.backgroundColor = prevBg
       window.removeEventListener("resize", applyBg)
+      window.removeEventListener("orientationchange", applyBg)
       html.classList.remove("library-layout")
     }
   }, [])

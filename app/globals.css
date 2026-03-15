@@ -1538,3 +1538,42 @@ html.capacitor [tabindex="0"]:active {
     line-height: 1.5;
   }
 }
+
+/* ── RotationGuard: full-screen overlay during device rotation ───────────────
+   Covers the screen while the page re-layouts after an orientation change,
+   preventing visual artifacts (black bars, colour flashes, layout jumps).
+   The overlay is shown/hidden exclusively by RotationGuard's JS listeners;
+   its colour is matched to each page's background so hiding it causes no
+   visible contrast jump. z-index 999997 sits below the landscape CSS overlay
+   (body::before at z-index 999998) so both coexist without conflict.
+   ──────────────────────────────────────────────────────────────────────────── */
+.rotation-guard-overlay {
+  /* Default hidden; JS sets display:block when rotation is detected */
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999997;
+  /* Default: match the Capacitor html background (dark app theme) */
+  background-color: #000000;
+  pointer-events: none;
+}
+
+/* /app pages: header is #111111, so match to avoid contrast jump on hide */
+html.capacitor.app-layout .rotation-guard-overlay {
+  background-color: #111111;
+}
+
+/* Library pages: light background — match so the overlay hides cleanly */
+html.capacitor:has([data-page="library"]) .rotation-guard-overlay,
+html.capacitor.library-layout .rotation-guard-overlay {
+  background-color: #fafafa;
+}
+
+/* Auth / checkout pages: white background */
+html.capacitor:has([data-page="checkout"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="login"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="signup"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="reset-password"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
+  background-color: #ffffff;
+}

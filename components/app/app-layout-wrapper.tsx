@@ -31,15 +31,23 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   // Set --sat/--sab CSS custom properties for safe-area insets in Capacitor.
   // The CSS rule `html.capacitor { --sat: env(...) }` handles this declaratively,
   // but some WebView versions need the values set imperatively as well.
+  // Re-apply on orientationchange because some iOS versions reset inline styles
+  // during the rotation animation, causing --sat to revert to its CSS value
+  // briefly — which may differ from the post-rotation safe-area inset.
   useEffect(() => {
     const isNative =
       typeof window !== "undefined" &&
       !!(window as any).Capacitor?.isNativePlatform?.()
     if (!isNative) return
     const root = document.documentElement
-    root.style.setProperty("--sat", "env(safe-area-inset-top)")
-    root.style.setProperty("--sab", "env(safe-area-inset-bottom)")
+    function applyInsets() {
+      root.style.setProperty("--sat", "env(safe-area-inset-top)")
+      root.style.setProperty("--sab", "env(safe-area-inset-bottom)")
+    }
+    applyInsets()
+    window.addEventListener("orientationchange", applyInsets, { passive: true })
     return () => {
+      window.removeEventListener("orientationchange", applyInsets)
       root.style.removeProperty("--sat")
       root.style.removeProperty("--sab")
     }
