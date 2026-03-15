@@ -1534,6 +1534,15 @@ html.capacitor [tabindex="0"]:active {
     touch-action: none;
     -webkit-overflow-scrolling: auto;
   }
+  /* Lock every inner scroll container too — WKWebView UIScrollView ignores
+     inherited touch-action:none on elements with their own overflow:auto/scroll,
+     allowing them to rubber-band independently even when html/body are locked. */
+  html.capacitor .app-content-scroll,
+  html.capacitor .dashboard-scroll-container {
+    overflow: hidden !important;
+    touch-action: none !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
   html.capacitor body::before {
     content: "";
     position: fixed;

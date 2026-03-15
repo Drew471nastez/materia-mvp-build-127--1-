@@ -44,6 +44,15 @@ export function CapacitorBounceGuard() {
       const deltaY = touchY - lastTouchY
       const deltaX = touchX - lastTouchX
 
+      // In landscape orientation the full-screen "rotate device" overlay covers
+      // all content. Prevent every gesture so the WKWebView UIScrollView cannot
+      // rubber-band on any inner scroll container — CSS touch-action:none on
+      // html/body is not always honoured by nested overflow:auto/scroll elements.
+      if (window.innerWidth > window.innerHeight) {
+        e.preventDefault()
+        return
+      }
+
       // Never interfere with mobile sheet portals — they handle their own
       // drag-to-dismiss gesture. Calling preventDefault here would block the
       // sheet's handle-bar from being dragged down to close.
