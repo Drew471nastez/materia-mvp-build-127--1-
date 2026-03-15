@@ -57,7 +57,7 @@ export function RotationGuard() {
     // before CSS media queries update and before vv.resize fires. Showing
     // the overlay here guarantees zero-gap coverage from frame 0.
     function onOrientationChange() {
-      showFor(1200) // safety timeout; vv.resize resets this to 900 ms
+      showFor(2000) // safety timeout; vv.resize resets this to 1600 ms
     }
 
     window.addEventListener("orientationchange", onOrientationChange)
@@ -77,7 +77,10 @@ export function RotationGuard() {
       const w = window.innerWidth
       if (w !== lastWidth) {
         lastWidth = w
-        showFor(900) // resets the 1200 ms safety timer to a tighter window
+        showFor(1600) // resets the 2000 ms safety timer to a tighter window;
+                      // must exceed AppLayoutWrapper's cooldown (500 ms) +
+                      // max tryResetOffset duration (8 retries × 100 ms = 800 ms)
+                      // to guarantee the overlay outlasts the scroll-offset reset.
       }
     }
 

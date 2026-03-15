@@ -102,10 +102,13 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
           // UIScrollView can reset to (0,0), then remove the inline style before
           // the next paint — the override is invisible because there is no
           // out-of-bounds content to show during that single frame.
-          // Retry up to 4 more times (100 ms apart) in case the first attempt
+          // Retry up to 8 more times (100 ms apart) in case the first attempt
           // doesn't fully reset the WKWebView UIScrollView content offset —
           // some iOS versions require multiple frames to honour scrollTo(0,0).
-          let retries = 4
+          // Starting at 500 ms (down from 800 ms) gives the retries up to
+          // 500+800=1300 ms to complete, well inside the RotationGuard overlay
+          // window (1600 ms) so no black bar is ever visible on hide.
+          let retries = 8
           function tryResetOffset() {
             if (vv.offsetTop <= 0 && window.pageYOffset <= 0) return
             root.style.overflow = 'auto'
@@ -122,7 +125,7 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
             })
           }
           tryResetOffset()
-        }, 800)
+        }, 500)
         return
       }
 
