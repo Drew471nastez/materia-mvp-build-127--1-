@@ -4718,10 +4718,7 @@ export function PayoutsClient({
                   <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
                 </div>
                 <button
-                  onClick={() => {
-                    const card = document.querySelector("[data-payout-card]");
-                    if (card) (card.querySelector("button") as HTMLElement)?.click();
-                  }}
+                  onClick={() => openAccountLink("update")}
                   className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
                 >
                   Update bank
