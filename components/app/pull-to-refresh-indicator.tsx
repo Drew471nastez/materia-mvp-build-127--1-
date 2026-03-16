@@ -37,13 +37,15 @@ export function PullToRefreshIndicator({ pullDistance, phase, threshold = 72, to
   // Fully hidden above the topOffset anchor so it never peeks through
   const offScreen = -(size + 8)
 
-  // Vertical position follows pull; pinned when refreshing; off-screen when idle
+  // Vertical position follows pull; pinned when refreshing; off-screen when idle.
+  // During pulling/ready, center the indicator in the revealed gap (0 → pullDistance)
+  // so it never overlaps the announcement bar that starts at y=pullDistance.
   const translateY =
     phase === "refreshing"
       ? 10
       : phase === "idle"
         ? offScreen
-        : Math.max(pullDistance - (size / 2 + 4), offScreen)
+        : Math.max((pullDistance - size) / 2, offScreen)
 
   const containerOpacity =
     phase === "refreshing"

@@ -1577,8 +1577,8 @@ export function DashboardClient({
         }}
       >
       {/* Announcement Bar - positioned normally in document flow */}
-      {/* native-hidden: hidden on iOS/Android Capacitor via globals.css html.capacitor .native-hidden */}
-      <div className="bg-[#8b5cf6] text-white native-hidden">
+      {/* Visible on all platforms including iOS/Android Capacitor */}
+      <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
@@ -2009,7 +2009,7 @@ export function DashboardClient({
                 </div>
               ) : (
                 <div className="relative">
-                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} pointer-events-none md:pointer-events-auto`}>
+                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
                   <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>
