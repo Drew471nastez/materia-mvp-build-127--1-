@@ -147,7 +147,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // Calculate notification count (respecting dismissed notifications)
   let notificationCount = 0
-  if ((!stripeConnected || stripeStatus !== "enabled") && !dismissedNotifications.includes("payment-setup")) notificationCount++
+  if ((!stripeConnected || (stripeStatus !== "enabled" && stripeStatus !== "connected")) && !dismissedNotifications.includes("payment-setup")) notificationCount++
   if (!onePagePublished && !dismissedNotifications.includes("onepage-setup")) notificationCount++
 
   const handleSignOut = async () => {

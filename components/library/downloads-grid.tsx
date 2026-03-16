@@ -47,6 +47,7 @@ function FilePickerOverlay({
   onDownload: (id: string) => void
 }) {
   const [animateIn, setAnimateIn] = useState(false)
+  const [isClosingInProgress, setIsClosingInProgress] = useState(false)
 
   // Double-rAF: guarantees the browser has painted opacity:0 / translateY(100%)
   // BEFORE we flip to the final state, so the CSS transition actually fires.
@@ -57,6 +58,15 @@ function FilePickerOverlay({
       })
     })
   }, [])
+
+  const handleClose = useCallback(() => {
+    if (isClosingInProgress) return
+    setIsClosingInProgress(true)
+    setAnimateIn(false)
+    setTimeout(() => {
+      onClose()
+    }, 360)
+  }, [onClose, isClosingInProgress])
 
   // Lock body scroll while open
   useEffect(() => {
@@ -70,11 +80,11 @@ function FilePickerOverlay({
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      if (e.key === "Escape") handleClose()
     }
     document.addEventListener("keydown", handler)
     return () => document.removeEventListener("keydown", handler)
-  }, [onClose])
+  }, [handleClose])
 
   const fileList = (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -162,7 +172,7 @@ function FilePickerOverlay({
     <>
       {/* ─── Backdrop ─── dark overlay covering ENTIRE viewport */}
       <div
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
         style={{
           position: "fixed",
@@ -179,7 +189,7 @@ function FilePickerOverlay({
 
       {/* ─── Desktop modal (≥768px) ─── */}
       <div
-        onClick={onClose}
+        onClick={handleClose}
         className="hidden md:flex"
         style={{
           position: "fixed",
@@ -232,7 +242,7 @@ function FilePickerOverlay({
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Close"
               style={{
                 display: "flex",
@@ -326,7 +336,7 @@ function FilePickerOverlay({
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Close"
               style={{
                 display: "flex",

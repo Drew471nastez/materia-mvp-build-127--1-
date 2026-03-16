@@ -152,7 +152,7 @@ export function NotificationsModal({
     }
 
     // Payment setup notification - only show if not connected AND not dismissed
-    if ((!stripeConnected || stripeStatus !== "enabled") && !dismissedIds.includes("payment-setup")) {
+    if ((!stripeConnected || (stripeStatus !== "enabled" && stripeStatus !== "connected")) && !dismissedIds.includes("payment-setup")) {
       generatedNotifications.push({
         id: "payment-setup",
         type: "action",

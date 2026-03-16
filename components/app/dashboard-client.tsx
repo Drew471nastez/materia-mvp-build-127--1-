@@ -2009,7 +2009,7 @@ export function DashboardClient({
                 </div>
               ) : (
                 <div className="relative">
-                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} pointer-events-none md:pointer-events-auto`}>
                   <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>

@@ -145,12 +145,7 @@ export function DashboardSidebar() {
         <Link
           href="/library/settings"
           onClick={onItemClick}
-          className={cn(
-            "mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium transition-colors active:scale-[0.98]",
-            pathname === "/library/settings"
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-          )}
+          className="mb-1 flex items-center gap-3 px-3 py-3 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground transition-colors active:scale-[0.98]"
         >
           <Settings className="h-5 w-5 shrink-0" />
           <span className="truncate">Settings</span>
