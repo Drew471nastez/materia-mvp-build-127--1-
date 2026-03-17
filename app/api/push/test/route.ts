@@ -20,6 +20,7 @@ export async function POST() {
   await sendPushToUser(user.id, {
     title: "Test push",
     body: "Storelib push is working",
+    sound: "cash",
   })
 
   return NextResponse.json({ ok: true })
