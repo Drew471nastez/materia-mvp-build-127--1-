@@ -27,7 +27,6 @@ import {
   X,
   Store,
   Search,
-  Layers,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -173,7 +172,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
     { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
-    { href: "/app/website-builder", label: "Website Builder", icon: Layers },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
