@@ -319,21 +319,21 @@ export async function POST(request: Request) {
     try {
       const { notifySale } = await import("@/lib/push/notifications")
       const creatorUserId = (product.creator as any).user_id as string | null
-      console.log("[push] creator.id:", product.creator.id, "creator.user_id:", creatorUserId)
+      console.error("[push-debug] creatorUserId =", creatorUserId)
       if (creatorUserId) {
-        console.log("[push] about to call notifySale")
+        console.error("[push-debug] ABOUT TO CALL NOTIFYSALE")
         await notifySale(creatorUserId, {
           productName: product.title,
           amountCents: basePriceCents,
           orderId: order.id,
           productId: product.id,
         })
-        console.log("[push] notifySale finished OK")
+        console.error("[push-debug] NOTIFYSALE FINISHED OK")
       } else {
         console.log("[push] No user_id on creator — skipping push")
       }
-    } catch (pushErr) {
-      console.error("[push] notifySale error:", pushErr)
+    } catch (error) {
+      console.error("[push-debug] NOTIFYSALE ERROR", error)
     }
 
     // Trigger email flows for purchase
