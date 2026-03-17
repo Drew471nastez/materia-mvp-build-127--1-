@@ -9,6 +9,13 @@ import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provid
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
+  // Register for push notifications once the authenticated app shell mounts
+  useEffect(() => {
+    import("@/lib/push/client").then(({ initPushNotifications }) => {
+      initPushNotifications().catch(() => {})
+    })
+  }, [])
+
   // Hide html-level scrollbar on /app pages
   useEffect(() => {
     document.documentElement.classList.add("app-layout")
