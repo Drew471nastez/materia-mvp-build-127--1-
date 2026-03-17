@@ -1,8 +1,7 @@
 "use client"
 
-import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
+import { SplashInit } from "@/components/splash-init"
 
 export function LibrarySplashInit() {
-  useHideNativeSplash()
-  return null
+  return <SplashInit />
 }
