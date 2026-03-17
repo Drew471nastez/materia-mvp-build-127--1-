@@ -302,6 +302,26 @@ export async function POST(request: Request) {
 
     console.log("[checkout/process] Email results:", emailResults)
 
+    // Push notification to seller — non-fatal
+    try {
+      const { notifySale } = await import("@/lib/push/notifications")
+      const creatorUserId = (product.creator as any).user_id as string | null
+      if (creatorUserId) {
+        console.log("[push] Sending sale notification to creator user:", creatorUserId)
+        await notifySale(creatorUserId, {
+          productName: product.title,
+          amountCents: basePriceCents,
+          orderId: order.id,
+          productId: product.id,
+        })
+        console.log("[push] Push send result: OK")
+      } else {
+        console.log("[push] No user_id on creator — skipping push")
+      }
+    } catch (pushErr) {
+      console.error("[push] Sale notification error (non-fatal):", pushErr)
+    }
+
     // Trigger email flows for purchase
     try {
       await triggerEmailFlows(admin, {

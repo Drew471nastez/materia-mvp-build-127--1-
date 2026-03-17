@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This product is not free" }, { status: 400 })
     }
 
-    const { data: creator } = await admin.from("creators").select("id").eq("id", product.creator_id).single()
+    const { data: creator } = await admin.from("creators").select("id, user_id").eq("id", product.creator_id).single()
 
     if (!creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
@@ -226,6 +226,26 @@ export async function POST(request: Request) {
     })
 
     console.log("[free] Email results:", emailResults)
+
+    // Push notification to seller — non-fatal
+    try {
+      const { notifySale } = await import("@/lib/push/notifications")
+      const creatorUserId = (creator as any).user_id as string | null
+      if (creatorUserId) {
+        console.log("[push] Sending sale notification to creator user:", creatorUserId)
+        await notifySale(creatorUserId, {
+          productName: product.title,
+          amountCents: 0,
+          orderId: order.id,
+          productId: product.id,
+        })
+        console.log("[push] Push send result: OK")
+      } else {
+        console.log("[push] No user_id on creator — skipping push")
+      }
+    } catch (pushErr) {
+      console.error("[push] Sale notification error (non-fatal):", pushErr)
+    }
 
     // Redirect to receipt page
     return NextResponse.json({
