@@ -21,12 +21,11 @@ export async function initPushNotifications(): Promise<void> {
     console.log("[push] Permission not granted — aborting registration")
     return
   }
-  console.log("[push] Permission granted — calling PushNotifications.register()")
+  console.log("[push] Permission granted — attaching listeners before register()")
 
-  // ── 2. Register with APNs / FCM ───────────────────────────────────────────
-  await PushNotifications.register()
-
-  // ── 3. Listeners ──────────────────────────────────────────────────────────
+  // ── 2. Listeners (must be attached BEFORE register() so the token event
+  //       is not missed on iOS) ───────────────────────────────────────────────
+  console.log("[push] Attaching listeners")
 
   PushNotifications.addListener("registration", async ({ value: token }) => {
     const platform = Capacitor.getPlatform() as "ios" | "android"
@@ -71,4 +70,8 @@ export async function initPushNotifications(): Promise<void> {
       window.location.href = "/app/payouts"
     }
   })
+
+  // ── 3. Register with APNs / FCM (after listeners are in place) ───────────
+  console.log("[push] About to call register()")
+  await PushNotifications.register()
 }
