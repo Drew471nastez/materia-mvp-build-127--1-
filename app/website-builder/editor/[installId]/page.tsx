@@ -8,7 +8,9 @@ import {
   Copy, Settings, Check, Layers, Palette, X, RotateCcw,
   Layout, AlignLeft, Image, ShoppingBag, MessageSquare,
   HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid,
-  DollarSign, LayoutTemplate,
+  DollarSign, LayoutTemplate, Video, Users, MapPin, Mail,
+  Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield,
+  Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -173,6 +175,99 @@ function FieldEditor({
     )
   }
 
+  if (field.type === "header") {
+    return (
+      <div className="pt-2 pb-1 border-t border-neutral-200 mt-1">
+        <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-widest">{field.label}</span>
+        {field.info && <p className="text-[11px] text-neutral-400 mt-0.5">{field.info}</p>}
+      </div>
+    )
+  }
+
+  if (field.type === "paragraph") {
+    return (
+      <p className="text-[12px] text-neutral-500 leading-relaxed">{field.info ?? field.label}</p>
+    )
+  }
+
+  if (field.type === "video") {
+    return (
+      <div className="space-y-1.5">
+        {typeof raw === "string" && raw && (
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100">
+            <video src={raw} className="w-full h-full object-cover" muted />
+            <button
+              className="absolute top-1 right-1 h-6 w-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center"
+              onClick={() => onChange("")}
+            >
+              <X className="h-3 w-3 text-white" />
+            </button>
+          </div>
+        )}
+        <input
+          type="text"
+          className="w-full h-8 px-2.5 text-[13px] border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900"
+          placeholder="Paste video URL..."
+          value={typeof raw === "string" ? raw : ""}
+          onChange={e => onChange(e.target.value)}
+        />
+      </div>
+    )
+  }
+
+  if (field.type === "font") {
+    return (
+      <select
+        className="w-full h-8 px-2.5 text-[13px] border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900 appearance-none"
+        value={typeof raw === "string" ? raw : String(field.default ?? "")}
+        onChange={e => onChange(e.target.value)}
+        style={{ fontFamily: typeof raw === "string" ? raw : String(field.default ?? "") }}
+      >
+        {(field.options ?? [
+          { label: "Inter", value: "Inter" },
+          { label: "Poppins", value: "Poppins" },
+          { label: "Playfair Display", value: "Playfair Display" },
+          { label: "Merriweather", value: "Merriweather" },
+          { label: "Raleway", value: "Raleway" },
+          { label: "Montserrat", value: "Montserrat" },
+          { label: "Lora", value: "Lora" },
+          { label: "DM Sans", value: "DM Sans" },
+          { label: "Space Grotesk", value: "Space Grotesk" },
+          { label: "Cormorant Garamond", value: "Cormorant Garamond" },
+          { label: "Bebas Neue", value: "Bebas Neue" },
+          { label: "Oswald", value: "Oswald" },
+        ]).map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    )
+  }
+
+  if (field.type === "radio") {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {field.options?.map(opt => {
+          const isSelected = (typeof raw === "string" ? raw : String(field.default ?? "")) === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                "px-2.5 py-1 text-[12px] rounded-md border transition-colors",
+                isSelected
+                  ? "bg-neutral-900 text-white border-neutral-900"
+                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400"
+              )}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   // Fallback
   return (
     <input
@@ -200,6 +295,31 @@ const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string; st
   logo_bar: Award,
   gallery: LayoutGrid,
   pricing: DollarSign,
+  video_hero: Video,
+  split_content: Columns,
+  slideshow: Play,
+  team_members: Users,
+  countdown_timer: Timer,
+  trust_badges: Shield,
+  newsletter: Mail,
+  social_feed: Rss,
+  contact_form: Mail,
+  video_embed: Video,
+  timeline: Clock,
+  tabs_content: SlidersHorizontal,
+  custom_html: Code,
+  announcement_banner: Bell,
+  press_mentions: Award,
+  process_steps: ChevronRight,
+  comparison_table: Grid,
+  ebook_showcase: BookOpen,
+  author_bio: Users,
+  chapter_preview: BookOpen,
+  lookbook: Image,
+  size_guide: Shirt,
+  collection_banner: Package,
+  map_embed: MapPin,
+  sticky_bar: Bell,
 }
 
 function SectionIcon({ type, className }: { type: string; className?: string }) {
@@ -534,15 +654,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div className="p-4 space-y-4">
                 {schema.fields.map(field => (
                   <div key={field.id}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[12px] font-medium text-neutral-700">{field.label}</label>
-                    </div>
+                    {field.type !== "header" && field.type !== "paragraph" && (
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[12px] font-medium text-neutral-700">{field.label}</label>
+                      </div>
+                    )}
                     <FieldEditor
                       field={field}
                       value={section.settings[field.id]}
                       onChange={val => updateSectionSetting(section.id, field.id, val)}
                     />
-                    {field.info && <p className="text-[11px] text-neutral-400 mt-1">{field.info}</p>}
+                    {field.type !== "header" && field.type !== "paragraph" && field.info && (
+                      <p className="text-[11px] text-neutral-400 mt-1">{field.info}</p>
+                    )}
                   </div>
                 ))}
               </div>

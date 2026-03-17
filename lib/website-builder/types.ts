@@ -156,6 +156,11 @@ export type SchemaFieldType =
   | "icon"
   | "alignment"
   | "spacing"
+  | "header"
+  | "paragraph"
+  | "video"
+  | "font"
+  | "radio"
 
 export interface SelectOption {
   label: string
