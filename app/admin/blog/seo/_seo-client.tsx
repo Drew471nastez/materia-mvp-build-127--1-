@@ -9,8 +9,12 @@ interface Creator {
   username: string
   display_name: string | null
   avatar_url: string | null
+  joined_at: string | null
+  country: string | null
   product_count: number
   has_published_products: boolean
+  onepage_slug: string | null
+  onepage_title: string | null
 }
 
 interface BlogPost {
@@ -105,6 +109,7 @@ export default function SeoAdminClient() {
   const [activeTab, setActiveTab] = useState<"overview" | "creators" | "pages" | "infra" | "blog">("overview")
 
   const [creatorSearch, setCreatorSearch] = useState("")
+  const [creatorSort, setCreatorSort] = useState<"newest" | "oldest" | "products" | "az">("newest")
   const [editingCreator, setEditingCreator] = useState<string | null>(null)
   const [creatorEdits, setCreatorEdits] = useState<Record<string, { seo_title: string; seo_description: string }>>({})
   const [savingCreator, setSavingCreator] = useState<string | null>(null)
@@ -227,9 +232,17 @@ export default function SeoAdminClient() {
     setTimeout(() => setSavedPosts(s => { const n = new Set(s); n.delete(post.id); return n }), 3000)
   }
 
-  const filteredCreators = (metrics?.creators || []).filter(c =>
-    !creatorSearch || c.username?.toLowerCase().includes(creatorSearch.toLowerCase()) || c.display_name?.toLowerCase().includes(creatorSearch.toLowerCase())
-  )
+  const filteredCreators = (metrics?.creators || [])
+    .filter(c =>
+      !creatorSearch || c.username?.toLowerCase().includes(creatorSearch.toLowerCase()) || c.display_name?.toLowerCase().includes(creatorSearch.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (creatorSort === "newest") return new Date(b.joined_at ?? 0).getTime() - new Date(a.joined_at ?? 0).getTime()
+      if (creatorSort === "oldest") return new Date(a.joined_at ?? 0).getTime() - new Date(b.joined_at ?? 0).getTime()
+      if (creatorSort === "products") return b.product_count - a.product_count
+      if (creatorSort === "az") return (a.display_name || a.username || "").localeCompare(b.display_name || b.username || "")
+      return 0
+    })
 
   const filteredPosts = (metrics?.recentPosts || []).filter(p =>
     !postSearch || p.title?.toLowerCase().includes(postSearch.toLowerCase()) || p.slug?.toLowerCase().includes(postSearch.toLowerCase())
@@ -351,14 +364,23 @@ export default function SeoAdminClient() {
         {/* ── CREATORS ─────────────────────────────────────────── */}
         {activeTab === "creators" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-neutral-900">{loading ? "…" : filteredCreators.length} creator storefronts</h2>
                 <p className="text-xs text-neutral-400 mt-0.5">Each storefront has ProfilePage + BreadcrumbList schema and subdomain canonical</p>
               </div>
-              <div className="relative">
-                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input value={creatorSearch} onChange={e => setCreatorSearch(e.target.value)} placeholder="Search creators…" className="pl-7 pr-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-200 w-52" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <select value={creatorSort} onChange={e => setCreatorSort(e.target.value as typeof creatorSort)}
+                  className="px-2.5 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer">
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="products">Most products</option>
+                  <option value="az">A → Z</option>
+                </select>
+                <div className="relative">
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input value={creatorSearch} onChange={e => setCreatorSearch(e.target.value)} placeholder="Search creators…" className="pl-7 pr-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-200 w-52" />
+                </div>
               </div>
             </div>
 
@@ -397,14 +419,28 @@ export default function SeoAdminClient() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-semibold text-neutral-900">{creator.display_name || creator.username}</span>
                             <code className="text-[10px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded">@{creator.username}</code>
+                            {creator.country && (
+                              <span className="text-[10px] bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-medium">{creator.country}</span>
+                            )}
                             <ScorePill score={score} />
                             {savedCreators.has(creator.username || "") && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">Saved ✓</span>}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                             <span className="text-xs text-neutral-400">{creator.product_count} published products</span>
+                            {creator.joined_at && (
+                              <span className="text-[10px] text-neutral-400" title={new Date(creator.joined_at).toLocaleString()}>
+                                Joined {new Date(creator.joined_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </span>
+                            )}
                             <a href={`https://${creator.username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-purple-500 hover:underline">{creator.username}.storelib.com ↗</a>
+                            {creator.onepage_slug && (
+                              <a href={`https://storelib.com/l/${creator.onepage_slug}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline">
+                                /l/{creator.onepage_slug} ↗
+                              </a>
+                            )}
                             <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">ProfilePage</span>
                             <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">BreadcrumbList</span>
+                            {creator.onepage_slug && <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded">OnePage ✓</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">

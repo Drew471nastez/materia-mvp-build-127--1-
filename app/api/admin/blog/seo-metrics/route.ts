@@ -18,6 +18,7 @@ export async function GET() {
     { data: creatorProfiles },
     { data: productCounts },
     { data: blogPosts },
+    { data: onepages },
   ] = await Promise.all([
     supabase.from("products").select("*", { count: "exact", head: true }),
     supabase.from("products").select("*", { count: "exact", head: true }).eq("status", "published"),
@@ -26,10 +27,10 @@ export async function GET() {
     supabase.from("profiles").select("*", { count: "exact", head: true }).not("username", "is", null),
     supabase
       .from("profiles")
-      .select("id, username, display_name, avatar_url")
+      .select("id, username, display_name, avatar_url, created_at, country")
       .not("username", "is", null)
       .order("created_at", { ascending: false })
-      .limit(100),
+      .limit(500),
     supabase
       .from("products")
       .select("creator_id, status")
@@ -39,6 +40,9 @@ export async function GET() {
       .select("id, slug, title, seo_title, seo_description, is_published, published_at, views")
       .order("published_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("onepages")
+      .select("owner_id, slug, title"),
   ])
 
   const countByCreator: Record<string, number> = {}
@@ -48,14 +52,29 @@ export async function GET() {
     }
   }
 
-  const creators = (creatorProfiles ?? []).map((profile) => ({
-    id: profile.id,
-    username: profile.username,
-    display_name: profile.display_name,
-    avatar_url: profile.avatar_url,
-    product_count: countByCreator[profile.id] ?? 0,
-    has_published_products: (countByCreator[profile.id] ?? 0) > 0,
-  }))
+  // Map owner_id → onepage slug
+  const onepageByOwner: Record<string, { slug: string; title: string | null }> = {}
+  for (const op of onepages ?? []) {
+    if (op.owner_id && !onepageByOwner[op.owner_id]) {
+      onepageByOwner[op.owner_id] = { slug: op.slug, title: op.title }
+    }
+  }
+
+  const creators = (creatorProfiles ?? []).map((profile) => {
+    const op = onepageByOwner[profile.id]
+    return {
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
+      joined_at: profile.created_at,
+      country: (profile as Record<string, unknown>).country as string | null ?? null,
+      product_count: countByCreator[profile.id] ?? 0,
+      has_published_products: (countByCreator[profile.id] ?? 0) > 0,
+      onepage_slug: op?.slug ?? null,
+      onepage_title: op?.title ?? null,
+    }
+  })
 
   const categories = 14
   const staticPages = 5
