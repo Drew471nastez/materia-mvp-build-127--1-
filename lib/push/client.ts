@@ -16,10 +16,12 @@ export async function initPushNotifications(): Promise<void> {
 
   // ── 1. Request permission ──────────────────────────────────────────────────
   const permResult = await PushNotifications.requestPermissions()
+  console.log("[push] Permission result:", permResult.receive)
   if (permResult.receive !== "granted") {
-    console.log("[push] Permission not granted")
+    console.log("[push] Permission not granted — aborting registration")
     return
   }
+  console.log("[push] Permission granted — calling PushNotifications.register()")
 
   // ── 2. Register with APNs / FCM ───────────────────────────────────────────
   await PushNotifications.register()
@@ -28,17 +30,25 @@ export async function initPushNotifications(): Promise<void> {
 
   PushNotifications.addListener("registration", async ({ value: token }) => {
     const platform = Capacitor.getPlatform() as "ios" | "android"
-    console.log(`[push] Got ${platform} token: ${token.slice(0, 12)}...`)
+    console.log(`[push] Token received — platform: ${platform}, token (first 20 chars): ${token.slice(0, 20)}...`)
 
+    console.log("[push] Calling POST /api/push/register ...")
     try {
-      await fetch("/api/push/register", {
+      const res = await fetch("/api/push/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ token, platform }),
       })
-      console.log("[push] Token registered with backend")
+      const json = await res.json().catch(() => null)
+      console.log(`[push] POST /api/push/register → status ${res.status}`, json)
+      if (!res.ok) {
+        console.error("[push] Backend returned non-OK status:", res.status, json)
+      } else {
+        console.log("[push] Token successfully registered with backend")
+      }
     } catch (err) {
-      console.error("[push] Failed to register token with backend", err)
+      console.error("[push] Failed to reach /api/push/register:", err)
     }
   })
 
