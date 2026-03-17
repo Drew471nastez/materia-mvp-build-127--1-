@@ -10,7 +10,10 @@ import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
+console.log("[checkout/process] NEW PUSH BUILD ACTIVE")
+
 export async function POST(request: Request) {
+  console.log("[checkout/process] handler entered")
   try {
     const supabase = await createClient()
     const admin = createAdminClient()
@@ -23,10 +26,12 @@ export async function POST(request: Request) {
     console.log("[checkout/process] Variant ID:", variantId || "none")
 
     if (!productId || !firstName || !lastName || !email) {
+      console.log("[checkout/process] RETURN: missing required fields")
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
     if (!email.includes("@") || !email.includes(".")) {
+      console.log("[checkout/process] RETURN: invalid email")
       return NextResponse.json({ error: "Valid email address is required" }, { status: 400 })
     }
 
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
       .single()
 
     if (productError || !product) {
-      console.error("[checkout/process] Product not found:", productError)
+      console.error("[checkout/process] RETURN: product not found:", productError)
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
@@ -75,7 +80,7 @@ export async function POST(request: Request) {
     console.log("[checkout/process] basePriceCents:", basePriceCents, "tipCents:", tipCents, "total:", total, "— isFree:", total === 0)
 
     if (total > 0) {
-      console.log("[checkout/process] EARLY RETURN: total > 0, not a free product")
+      console.log("[checkout/process] RETURN: total > 0 (" + total + "), redirecting to Stripe")
       return NextResponse.json({ error: "Paid products must use Stripe checkout" }, { status: 400 })
     }
 
@@ -191,8 +196,7 @@ export async function POST(request: Request) {
     }
 
     if (orderError || !order) {
-      console.error("[checkout/process] All order creation strategies failed:", orderError)
-      // Return detailed error for debugging
+      console.error("[checkout/process] RETURN: all order creation strategies failed:", orderError)
       return NextResponse.json(
         {
           error: "Failed to create order",
@@ -347,7 +351,7 @@ export async function POST(request: Request) {
       console.error("[checkout/process] Email flow trigger error (non-fatal):", flowErr)
     }
 
-    console.log("[checkout/process] ✅ Checkout complete, redirecting to receipt")
+    console.log("[checkout/process] RETURN: success — checkout complete, order:", order.id)
 
     return NextResponse.json({
       success: true,
@@ -357,7 +361,7 @@ export async function POST(request: Request) {
       emailSent: emailResults.buyerSuccess,
     })
   } catch (error) {
-    console.error("[checkout/process] ❌ Checkout error:", error)
+    console.error("[checkout/process] RETURN: caught top-level error:", error)
     return NextResponse.json(
       {
         error: "Checkout failed",
