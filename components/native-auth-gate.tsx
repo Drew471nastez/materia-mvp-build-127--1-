@@ -110,38 +110,12 @@ export function NativeAuthGate({
   // painted the content — not just after React scheduled the render.
   // nativeAppReadyForce() bypasses the nativeAuthInProgress guard because
   // at this point the session is confirmed and content is ready to show.
-  // useEffect(() => {
-  //   if (blocked || !authChecked) return
-  //   requestAnimationFrame(() => {
-  //     nativeAppReadyForce()
-  //   })
-  // }, [blocked, authChecked])
-useEffect(() => {
-  if (blocked || !authChecked) return
-
-  requestAnimationFrame(() => {
-    nativeAppReadyForce()
-  })
-
-  //Enabling push notifications only if there's an active session
-  import("@/lib/supabase/client").then(({ createClient }) => {
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        console.log("[push] No session — skipping push init")
-        return
-      }
-      console.log("[push] initiating push notifcations")
-      import("@/lib/push/client")
-        .then(({ initPushNotifications }) => initPushNotifications())
-        .catch((err) => console.error("[push] initPushNotifications failed:", err))
-
-      console.log("[push] ended calling initPushNotifications")
-      
+  useEffect(() => {
+    if (blocked || !authChecked) return
+    requestAnimationFrame(() => {
+      nativeAppReadyForce()
     })
-  })
-}, [blocked, authChecked])
-
+  }, [blocked, authChecked])
 
   // Poll for flag removal + safety timeout (mode 1 only)
   useEffect(() => {

@@ -12,6 +12,7 @@ import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
+import { NativePushInit } from "@/components/native-push-init"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -147,6 +148,7 @@ export default function RootLayout({
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
         <RotationGuard />
+        <NativePushInit /> 
         <CookieConsentBanner />
         <NativeAuthHandler />
         <NativeOAuthBridge />
