@@ -69,7 +69,7 @@ export default function StorelibLanding() {
       <SplitFeaturesSection />
 
       {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
-      <CarouselSection />
+      {/* <CarouselSection /> */}
 
       {/* TOOL STACK COMPARISON */}
       <ToolStackSection />

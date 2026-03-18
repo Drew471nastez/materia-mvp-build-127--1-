@@ -347,9 +347,20 @@ export default async function PublicOnePageRoute({ params }: Props) {
     }
   }
 
+  // Fetch profile display_name as a fallback for when no OnePage title is set
+  let profileDisplayName: string | null = null
+  if (onepage.owner_id) {
+    const { data: ownerProfile } = await adminSupabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", onepage.owner_id)
+      .maybeSingle()
+    profileDisplayName = ownerProfile?.display_name || null
+  }
+
   const transformedOnepage = {
     id: onepage.id,
-    title: publishedProfile?.title || onepage.title || "",
+    title: publishedProfile?.title || onepage.title || profileDisplayName || "",
     bio: publishedProfile?.bio || onepage.bio || "",
     slug: onepage.slug,
     avatar_url: publishedProfile?.avatar_url || onepage.avatar_url || null,

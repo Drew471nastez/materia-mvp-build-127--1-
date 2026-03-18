@@ -38,6 +38,32 @@ export interface SocialLinksConfig {
   spotify: SocialMediaLink
 }
 
+// Navigation link for header
+export interface NavLink {
+  id: string
+  label: string
+  url: string
+}
+
+// Footer column types
+export type FooterColumnType = "navigation" | "newsletter" | "social" | "custom-text"
+
+// Footer settings
+export interface FooterSettings {
+  footerType: "simple" | "columns"
+  columns: FooterColumnType[]
+  // Advanced
+  colorScheme?: string
+  headingSize?: "h1" | "h2" | "h3" | "h4"
+  textFontSize?: "large" | "medium" | "small"
+  showPaymentIcons?: boolean
+  showPoweredBy?: boolean
+  sectionHeight?: number
+  // Colors
+  backgroundColor?: string
+  textColor?: string
+}
+
 // Spacing configuration
 export interface SpacingConfig {
   paddingTop?: number
@@ -345,6 +371,13 @@ export interface ShopHeaderSettings {
   socialMediaIconStyle?: "default" | "filled" | "outlined" // Icon style: default, filled circle, or outlined
   socialLinks?: SocialLinksConfig
   faviconUrl?: string
+  // Logo settings
+  logoUrl?: string
+  logoHeight?: number
+  useMobileLogo?: boolean
+  mobileLogoUrl?: string
+  // Navigation links
+  navLinks?: NavLink[]
   colors: ColorConfig
   spacing: SpacingConfig
   // Subscribe bar settings embedded in header for shop pages
@@ -487,6 +520,8 @@ export interface GlobalStoreSettings {
     border: string
   }
   themeBorderRadius?: number // Global border radius for buttons, cards, etc.
+  // Footer settings
+  footerSettings?: FooterSettings
 }
 
 export interface ProductTemplate {
