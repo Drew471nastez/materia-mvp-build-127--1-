@@ -561,11 +561,21 @@ function ShareButton({
   const [avatarImgLoaded, setAvatarImgLoaded] = useState(false)
   const [avatarImgError, setAvatarImgError] = useState(false)
 
+  // Returns true if a hex color is near-white (all channels > 200)
+  const isNearWhite = (hex: string): boolean => {
+    const m = hex.match(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/)
+    if (!m) return false
+    let h = m[1]
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("")
+    return parseInt(h.slice(0, 2), 16) > 200 && parseInt(h.slice(2, 4), 16) > 200 && parseInt(h.slice(4, 6), 16) > 200
+  }
+
   // Compute contrast text color (white or dark) for a given background
   const getContrastTextColor = (bg: string): "white" | "dark" => {
     // For gradients, extract the first hex color to approximate
     const hexMatch = bg.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/)
-    if (!hexMatch) return "white"
+    // Default to "dark" when we can't parse the color — dark text is always readable on unknown/light backgrounds
+    if (!hexMatch) return "dark"
     let hex = hexMatch[1]
     if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("")
     const r = parseInt(hex.slice(0, 2), 16)
@@ -588,8 +598,11 @@ function ShareButton({
     if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
       return themeBackgroundColor
     }
-    // For image/video or white backgrounds, use accent color or default
-    return accentColor || "#8B5CF6"
+    // Use accent color only if it's not near-white (white accent on white bg = invisible text)
+    if (accentColor && !isNearWhite(accentColor)) {
+      return accentColor
+    }
+    return "#8B5CF6"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
