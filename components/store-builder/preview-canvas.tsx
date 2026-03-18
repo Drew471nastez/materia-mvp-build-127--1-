@@ -409,7 +409,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     // Product page skeleton
     if (currentPageType === "product") {
       return (
-        <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
+        <div className={cn("min-h-full flex items-start justify-center bg-white dark:bg-zinc-950", isMobile ? "p-2" : "p-4 sm:p-6")}>
           <div
             className={cn(
               "shadow-xl overflow-hidden",
@@ -486,7 +486,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
     // Shop page skeleton (default)
     return (
-      <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
+      <div className={cn("min-h-full flex items-start justify-center bg-white dark:bg-zinc-950", isMobile ? "p-2" : "p-4 sm:p-6")}>
         <div
           className={cn(
             "shadow-xl overflow-hidden",
@@ -566,7 +566,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   }
 
   return (
-    <div className={cn("min-h-full flex items-start justify-center bg-muted/30", isMobile ? "p-2" : "p-4 sm:p-6")}>
+    <div className={cn("min-h-full flex items-start justify-center bg-white dark:bg-zinc-950", isMobile ? "p-2" : "p-4 sm:p-6")}>
       {/* Canvas - NO internal scrolling, corners preserved */}
       <div
         ref={canvasRef}

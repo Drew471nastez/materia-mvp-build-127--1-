@@ -1146,6 +1146,15 @@ export const defaultGlobalStoreSettings: GlobalStoreSettings = {
   verifiedBadgeEnabled: false,
   verifiedBadgeType: "verified_creator",
   themePreset: "default",
+  footerSettings: {
+    footerType: "simple",
+    columns: ["navigation"],
+    showPaymentIcons: false,
+    showPoweredBy: true,
+    sectionHeight: 80,
+    headingSize: "h3",
+    textFontSize: "medium",
+  },
 }
 
 // Button text presets for subscribe bar
