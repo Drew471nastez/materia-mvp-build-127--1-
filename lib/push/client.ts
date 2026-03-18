@@ -126,6 +126,10 @@ export async function initPushNotifications(): Promise<void> {
       { once: true },
     )
     console.log("[push] iOS: registered 'fcmTokenReady' window event listener for FCM token")
+
+    // Signal native to fetch + dispatch the FCM token
+    window.dispatchEvent(new CustomEvent("pushPermissionGranted"))
+    console.log("[push] iOS: dispatched pushPermissionGranted to native")
   }
 
   // ── Log that all listeners are attached before register() is called ────────
