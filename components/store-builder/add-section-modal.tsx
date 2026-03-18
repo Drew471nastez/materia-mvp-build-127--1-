@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useState } from "react"
 
 import { useStoreBuilder } from "./store-builder-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -22,10 +23,25 @@ const sectionIconsMap: Record<string, React.ReactNode> = {
   "featured-products": <Grid className="h-5 w-5" />,
   "more-from-seller": <Package className="h-5 w-5" />,
   reviews: <CheckCircle className="h-5 w-5" />,
+  "subscribe-bar": <Star className="h-5 w-5" />,
+  about: <Users className="h-5 w-5" />,
+  faq: <ListChecks className="h-5 w-5" />,
+}
+
+// Category definitions for store builder sections
+const STORE_SECTION_CATEGORIES: Record<string, { label: string; types: string[] }> = {
+  saved: { label: "Saved Sections", types: [] },
+  "image-text": { label: "Image With Text", types: ["image-text"] },
+  media: { label: "Gallery", types: [] },
+  content: { label: "Content", types: ["text-block", "benefits"] },
+  marketing: { label: "Marketing", types: ["announcement-bar", "subscribe-bar"] },
+  commerce: { label: "Products", types: ["featured-products", "more-from-seller"] },
+  info: { label: "Information", types: ["about", "faq", "reviews"] },
 }
 
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
   const { draftConfig, addSection } = useStoreBuilder()
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
   const handleAddSection = (libraryItem: SectionLibraryItem) => {
     const newSection = createSectionFromLibrary(libraryItem, draftConfig.sections.length)
@@ -33,52 +49,98 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
     onOpenChange(false)
   }
 
+  // Filter out locked sections
+  const availableSections = sectionLibrary.filter(
+    (item) => item.type !== "featured-products" && item.type !== "reviews"
+  )
+
+  // Filter by category if one is selected
+  const filteredSections = activeCategory
+    ? availableSections.filter(item => {
+        const cat = STORE_SECTION_CATEGORIES[activeCategory]
+        return cat?.types.includes(item.type)
+      })
+    : availableSections
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          // Mobile: near full screen
           "w-[calc(100vw-24px)] h-[85vh]",
-          // Desktop: constrained size
-          "sm:w-full sm:max-w-2xl sm:h-auto sm:max-h-[80vh]",
+          "sm:w-full sm:max-w-4xl sm:h-auto sm:max-h-[80vh]",
         )}
       >
-        {/* Header - fixed */}
-        <DialogHeader className="px-5 py-4 border-b border-border shrink-0 bg-background">
-          <DialogTitle className="text-lg font-semibold">Add Section</DialogTitle>
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-background">
+          <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
         </DialogHeader>
 
-        {/* Content - scrollable */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/30">
-          <div className="p-4 sm:p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Filter out featured-products (automatically added and locked) and reviews (product page only) */}
-              {sectionLibrary
-                .filter((item) => item.type !== "featured-products" && item.type !== "reviews")
-                .map((item) => (
-                <button
-                  key={item.type}
-                  onClick={() => handleAddSection(item)}
-                  className="flex flex-col items-start rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-purple-400 hover:shadow-md hover:scale-[1.02] group focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 cursor-pointer"
-                >
-                  {/* Section Preview */}
-                  <div className="w-full aspect-[16/9] rounded-lg bg-muted mb-2.5 flex items-center justify-center overflow-hidden border border-border/50">
-                    <RealSectionPreview type={item.type} />
-                  </div>
-                  {/* Section Info */}
-                  <div className="flex items-center gap-2.5 w-full">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-purple-100 group-hover:text-purple-600 dark:group-hover:bg-purple-900 dark:group-hover:text-purple-400 shrink-0 transition-colors">
-                      {sectionIconsMap[item.type]}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+        {/* Content with categories sidebar and preview grid */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left: Categories */}
+          <div className="w-[180px] sm:w-[200px] border-r border-border bg-muted/30 overflow-y-auto shrink-0 py-2">
+            <button
+              className={cn(
+                "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                !activeCategory
+                  ? "text-purple-600 font-semibold bg-purple-50 border-l-2 border-purple-600"
+                  : "text-foreground hover:bg-muted"
+              )}
+              onClick={() => setActiveCategory(null)}
+            >
+              All Sections
+            </button>
+            {Object.entries(STORE_SECTION_CATEGORIES).map(([key, cat]) => (
+              <button
+                key={key}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 text-sm transition-colors",
+                  activeCategory === key
+                    ? "text-purple-600 font-semibold bg-purple-50 border-l-2 border-purple-600"
+                    : "text-foreground hover:bg-muted"
+                )}
+                onClick={() => setActiveCategory(key)}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Right: Section previews */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/10">
+            <div className="p-4 sm:p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredSections.map((item) => (
+                  <button
+                    key={item.type}
+                    onClick={() => handleAddSection(item)}
+                    className="flex flex-col items-start rounded-xl border border-border bg-background overflow-hidden text-left transition-all hover:border-purple-400 hover:shadow-lg hover:scale-[1.01] group focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 cursor-pointer"
+                  >
+                    {/* Section Preview */}
+                    <div className="w-full aspect-[16/9] bg-muted flex items-center justify-center overflow-hidden border-b border-border/50">
+                      <RealSectionPreview type={item.type} />
                     </div>
-                  </div>
-                </button>
-              ))}
+                    {/* Section Info */}
+                    <div className="flex items-center gap-2.5 w-full p-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-purple-100 group-hover:text-purple-600 dark:group-hover:bg-purple-900 dark:group-hover:text-purple-400 shrink-0 transition-colors">
+                        {sectionIconsMap[item.type]}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate">{item.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {filteredSections.length === 0 && (
+                <div className="py-12 text-center text-muted-foreground">
+                  <p className="text-sm">No sections in this category</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -92,13 +154,13 @@ function RealSectionPreview({ type }: { type: string }) {
     case "image-text":
       return (
         <div className="w-full h-full p-2.5 flex gap-3 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          {/* Image side - more realistic with layered gradient */}
+          {/* Image side */}
           <div className="flex-1 bg-gradient-to-br from-purple-100 via-blue-50 to-emerald-100 dark:from-purple-900/30 dark:via-blue-900/30 dark:to-emerald-900/30 rounded-lg flex items-center justify-center shadow-sm">
             <div className="w-8 h-8 rounded-lg bg-white/60 dark:bg-white/10 backdrop-blur-sm flex items-center justify-center">
               <ImageIcon className="h-4 w-4 text-slate-400" />
             </div>
           </div>
-          {/* Text side - more realistic content structure */}
+          {/* Text side */}
           <div className="flex-1 flex flex-col gap-1.5 justify-center py-1">
             <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-4/5" />
             <div className="space-y-1 mt-1">
@@ -229,6 +291,42 @@ function RealSectionPreview({ type }: { type: string }) {
               </div>
             ))}
           </div>
+        </div>
+      )
+
+    case "subscribe-bar":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center gap-2 p-4">
+          <div className="h-2 bg-white/80 rounded w-2/5" />
+          <div className="flex gap-1 w-3/5">
+            <div className="flex-1 h-5 bg-white/20 rounded" />
+            <div className="h-5 w-14 bg-white rounded text-[6px] font-bold text-blue-600 flex items-center justify-center">Subscribe</div>
+          </div>
+        </div>
+      )
+
+    case "about":
+      return (
+        <div className="w-full h-full p-3 flex gap-3 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 shrink-0 mt-1" />
+          <div className="flex-1 flex flex-col gap-1.5 justify-center">
+            <div className="h-2 bg-slate-800 dark:bg-white rounded-sm w-1/3" />
+            <div className="h-1.5 bg-slate-300 rounded-sm w-full" />
+            <div className="h-1.5 bg-slate-200 rounded-sm w-4/5" />
+          </div>
+        </div>
+      )
+
+    case "faq":
+      return (
+        <div className="w-full h-full bg-white p-3 flex flex-col gap-1.5">
+          <div className="h-2 bg-slate-800 rounded w-1/4 mx-auto mb-1" />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex items-center justify-between px-2 py-1.5 border border-slate-200 rounded-md">
+              <div className="h-1.5 bg-slate-600 rounded w-2/3" />
+              <CheckCircle className="h-2.5 w-2.5 text-slate-400" />
+            </div>
+          ))}
         </div>
       )
 
