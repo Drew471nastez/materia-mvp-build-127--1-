@@ -558,6 +558,27 @@ function ShareButton({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [avatarImgLoaded, setAvatarImgLoaded] = useState(false)
+  const [avatarImgError, setAvatarImgError] = useState(false)
+
+  // Compute contrast text color (white or dark) for a given background
+  const getContrastTextColor = (bg: string): "white" | "dark" => {
+    // For gradients, extract the first hex color to approximate
+    const hexMatch = bg.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/)
+    if (!hexMatch) return "white"
+    let hex = hexMatch[1]
+    if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("")
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    // Relative luminance (WCAG)
+    const toLinear = (c: number) => {
+      const s = c / 255
+      return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    }
+    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+    return L > 0.35 ? "dark" : "white"
+  }
 
   // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
   const getPopupHeaderBackground = () => {
@@ -572,6 +593,11 @@ function ShareButton({
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
+  const headerTextColor = getContrastTextColor(popupHeaderBackground)
+  const headerTextClass = headerTextColor === "white" ? "text-white" : "text-gray-900"
+  const headerSubTextClass = headerTextColor === "white" ? "text-white/80" : "text-gray-600"
+  const headerCloseClass = headerTextColor === "white" ? "bg-white/20 hover:bg-white/30" : "bg-black/10 hover:bg-black/20"
+  const headerCloseIconClass = headerTextColor === "white" ? "text-white" : "text-gray-700"
 
   const styles = {
     glass: {
@@ -605,9 +631,30 @@ function ShareButton({
   const s = styles[style as keyof typeof styles] || styles.glass
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(pageUrl)
+    try {
+      await navigator.clipboard.writeText(pageUrl)
+    } catch {
+      // Fallback for older browsers/Capacitor
+      const el = document.createElement("textarea")
+      el.value = pageUrl
+      el.style.position = "fixed"
+      el.style.opacity = "0"
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand("copy")
+      document.body.removeChild(el)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const openExternalUrl = async (url: string) => {
+    if (isNativeApp()) {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url })
+    } else {
+      window.open(url, "_blank")
+    }
   }
 
   const shareOptions = [
@@ -622,9 +669,8 @@ function ShareButton({
       iconType: "x" as const,
       color: "#000000",
       action: () =>
-        window.open(
+        openExternalUrl(
           `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
-          "_blank",
         ),
     },
     {
@@ -632,13 +678,13 @@ function ShareButton({
       iconType: "facebook" as const,
       color: "#1877F2",
       action: () =>
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`, "_blank"),
+        openExternalUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`),
     },
     {
       name: "WhatsApp",
       iconType: "whatsapp" as const,
       color: "#25D366",
-      action: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${pageTitle} ${pageUrl}`)}`, "_blank"),
+      action: () => openExternalUrl(`https://wa.me/?text=${encodeURIComponent(`${pageTitle} ${pageUrl}`)}`),
     },
   ]
 
@@ -781,9 +827,9 @@ function ShareButton({
           {/* Close button */}
           <button
             onClick={() => setIsOpen(false)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all cursor-pointer z-10"
+            className={cn("absolute top-4 right-4 p-2 rounded-full backdrop-blur-sm transition-all cursor-pointer z-10", headerCloseClass)}
           >
-            <X className="w-4 h-4 text-white" />
+            <X className={cn("w-4 h-4", headerCloseIconClass)} />
           </button>
 
           <div className="text-center">
@@ -796,15 +842,23 @@ function ShareButton({
                 />
               ) : avatarUrl ? (
                 <>
-                  <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                  <span className="text-3xl font-bold text-white absolute inset-0 flex items-center justify-center">{pageTitle.charAt(0).toUpperCase()}</span>
+                  <img
+                    src={avatarUrl}
+                    alt={pageTitle}
+                    className="w-full h-full object-cover"
+                    onLoad={() => setAvatarImgLoaded(true)}
+                    onError={() => { setAvatarImgError(true); setAvatarImgLoaded(false) }}
+                  />
+                  {(!avatarImgLoaded || avatarImgError) && (
+                    <span className={cn("text-3xl font-bold absolute inset-0 flex items-center justify-center", headerTextClass)}>{pageTitle.charAt(0).toUpperCase()}</span>
+                  )}
                 </>
               ) : (
-                <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
+                <span className={cn("text-3xl font-bold", headerTextClass)}>{pageTitle.charAt(0).toUpperCase()}</span>
               )}
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">{pageTitle}</h3>
-            <p className="text-white/80 text-sm truncate max-w-[200px] mx-auto">
+            <h3 className={cn("text-xl font-bold mb-1", headerTextClass)}>{pageTitle}</h3>
+            <p className={cn("text-sm truncate max-w-[200px] mx-auto", headerSubTextClass)}>
               {pageUrl.replace(/^https?:\/\//, "")}
             </p>
           </div>
@@ -831,7 +885,10 @@ function ShareButton({
           )}
         </div>
         <div className="px-5 pb-6 relative z-10">
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <div
+            className="bg-gray-50 rounded-2xl p-4 border border-gray-100 cursor-pointer"
+            onClick={() => openExternalUrl("https://storelib.com")}
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden">
                 <img
@@ -845,7 +902,7 @@ function ShareButton({
                 <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>
               </div>
               <button
-                onClick={() => window.open("https://storelib.com", "_blank")}
+                onClick={(e) => { e.stopPropagation(); openExternalUrl("https://storelib.com") }}
                 className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95 cursor-pointer"
               >
                 Join
