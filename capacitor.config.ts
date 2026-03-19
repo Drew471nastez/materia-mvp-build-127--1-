@@ -60,6 +60,10 @@ const config: CapacitorConfig = {
       // the first stable paint, so the user never sees a loading flash.
       launchAutoHide: false,
     },
+    Camera: {
+      // Present the photo picker correctly on iPad (popover, not crash)
+      // saveToGallery is off by default — only save when user requests it
+    },
   },
 };
 
