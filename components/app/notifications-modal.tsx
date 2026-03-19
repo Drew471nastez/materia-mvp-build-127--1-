@@ -279,12 +279,12 @@ export function NotificationsModal({
     </div>
   )
 
-  // Mobile: Custom GPU-accelerated bottom sheet with swipe-to-dismiss
+  // Mobile: Centered popup modal
   if (isMobile) {
     return (
-      <MobileNotificationSheet open={open} onClose={() => onOpenChange(false)}>
+      <MobileNotificationPopup open={open} onClose={() => onOpenChange(false)}>
         <NotificationsContent />
-      </MobileNotificationSheet>
+      </MobileNotificationPopup>
     )
   }
 
@@ -315,7 +315,7 @@ export function NotificationsModal({
   )
 }
 
-function MobileNotificationSheet({
+function MobileNotificationPopup({
   open,
   onClose,
   children,
@@ -326,20 +326,11 @@ function MobileNotificationSheet({
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startYRef = useRef(0)
-  const lastYRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const velocityRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = "none"
-      document.body.style.overscrollBehavior = "none"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -348,123 +339,66 @@ function MobileNotificationSheet({
     } else if (!open && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
       const timer = setTimeout(() => {
         setIsVisible(false)
-        setDragY(0)
-      }, 400)
+      }, 260)
       return () => clearTimeout(timer)
     }
     return () => {
       document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
     }
   }, [open, isVisible])
 
   const handleClose = () => {
     setIsAnimating(false)
-    setIsDragging(false)
-    setDragY(0)
-    velocityRef.current = 0
     setTimeout(() => {
       onClose()
-    }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startYRef.current
-    if (diff > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - lastTimeRef.current)
-      velocityRef.current = (currentY - lastYRef.current) / dt
-      lastYRef.current = currentY
-      lastTimeRef.current = now
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-      setDragY(resisted)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 92 || velocityRef.current > 0.55) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
+    }, 260)
   }
 
   if (!isVisible) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[100] md:hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="fixed inset-0 z-[100]">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/40"
         style={{
           opacity: isAnimating ? 1 : 0,
-          transition: isDragging ? "none" : "opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)",
+          transition: "opacity 260ms ease",
         }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet */}
+      {/* Centered popup */}
       <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
-        style={{
-          height: "68dvh",
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
-          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-        }}
+        className="absolute inset-0 flex items-center justify-center p-4"
+        onClick={handleClose}
       >
-        {/* Handle bar */}
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none shrink-0">
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-full max-w-[380px]"
+          style={{
+            maxHeight: "70dvh",
+            opacity: isAnimating ? 1 : 0,
+            transform: isAnimating ? "scale(1) translateY(0)" : "scale(0.96) translateY(14px)",
+            transition: "opacity 260ms cubic-bezier(0.16,1,0.3,1), transform 260ms cubic-bezier(0.16,1,0.3,1)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-neutral-200/60 flex items-center justify-between shrink-0">
+            <h3 className="text-[16px] font-semibold text-neutral-900">Notifications</h3>
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
+            >
+              <X className="w-5 h-5 text-neutral-500" />
+            </button>
+          </div>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+            {children}
+          </div>
         </div>
-        {/* Header */}
-        <div className="px-4 py-2.5 border-b border-neutral-200/60 flex items-center justify-between shrink-0">
-          <h3 className="text-[16px] font-semibold text-neutral-900">Notifications</h3>
-          <button
-            onClick={handleClose}
-            className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center"
-          >
-            <X className="w-5 h-5 text-neutral-500" />
-          </button>
-        </div>
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
-          {children}
-        </div>
-        {/* Safe area padding */}
-        <div className="h-[env(safe-area-inset-bottom)] shrink-0" />
       </div>
     </div>
   )
