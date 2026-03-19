@@ -23,6 +23,27 @@ export function KeyboardGuard() {
     const root = document.documentElement
     let lastInnerWidth = window.innerWidth
 
+    function clampScrollContainers() {
+      // After the keyboard closes the browser re-layouts (padding-bottom is
+      // restored on .library-scroll-content / body) which can increase
+      // scrollHeight. If the container's scrollTop now exceeds the new max,
+      // clamp it so no blank space is visible at the bottom.
+      const clamp = (el: Element) => {
+        const h = el as HTMLElement
+        const max = h.scrollHeight - h.clientHeight
+        if (h.scrollTop > max) h.scrollTop = Math.max(0, max)
+      }
+
+      // Clamp the library scroll container and any other overflow-y-auto mains
+      document.querySelectorAll("main, .app-content-scroll").forEach(clamp)
+
+      // Also clamp the window itself (for pages that scroll at document level)
+      const maxWin = document.documentElement.scrollHeight - window.innerHeight
+      if (window.scrollY > maxWin) {
+        window.scrollTo({ top: Math.max(0, maxWin), behavior: "instant" as ScrollBehavior })
+      }
+    }
+
     function onViewportChange() {
       // Ignore orientation changes — they are not keyboard events
       const currentWidth = window.innerWidth
@@ -35,7 +56,14 @@ export function KeyboardGuard() {
       if (kbHeight > 0) {
         root.classList.add("keyboard-open")
       } else {
+        const wasOpen = root.classList.contains("keyboard-open")
         root.classList.remove("keyboard-open")
+        if (wasOpen) {
+          // Wait two frames: first for the CSS class removal to trigger a
+          // layout recalculation (padding-bottom restored), second to read
+          // the updated scrollHeight and clamp safely.
+          requestAnimationFrame(() => requestAnimationFrame(clampScrollContainers))
+        }
       }
     }
 
