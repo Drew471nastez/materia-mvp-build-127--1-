@@ -673,7 +673,10 @@ function ShareButton({
   /**
    * On native: first try to open the native app via its URL scheme (App.openUrl).
    * If the app is not installed the OS throws — fall back to Browser.open.
-   * On web: open the web fallback URL in a new tab.
+   * On web: if a native scheme is provided (e.g. whatsapp://) try it via
+   * window.location.href so the OS opens the app directly without a new tab.
+   * If the app is not installed the page stays visible — after 1.5 s we fall
+   * back to the web URL opened in the same way.
    */
   const openShareTarget = async (nativeScheme: string | null, webUrl: string) => {
     if (isNativeApp()) {
@@ -688,6 +691,23 @@ function ShareButton({
       }
       const { Browser } = await import("@capacitor/browser")
       await Browser.open({ url: webUrl })
+    } else if (nativeScheme) {
+      // Try to open the installed app without opening a new browser tab.
+      // When the OS hands off to the app the page becomes hidden; we use that
+      // as a signal that the handoff succeeded and cancel the fallback.
+      let appOpened = false
+      const onVisibilityChange = () => {
+        if (document.hidden) appOpened = true
+      }
+      document.addEventListener("visibilitychange", onVisibilityChange)
+      window.location.href = nativeScheme
+      setTimeout(() => {
+        document.removeEventListener("visibilitychange", onVisibilityChange)
+        if (!appOpened) {
+          // App not installed — open the web URL as fallback
+          window.open(webUrl, "_blank")
+        }
+      }, 1500)
     } else {
       window.open(webUrl, "_blank")
     }
