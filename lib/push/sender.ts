@@ -32,7 +32,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     return
   }
 
-  const sound = payload.sound ?? "cash"
+  const sound = payload.sound ?? "default"
   const invalidIds: string[] = []
 
   await Promise.all(
@@ -49,7 +49,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
               apns: {
                 payload: {
                   aps: {
-                    sound: `${sound}.wav`,
+                    sound: sound === "default" ? "default" : `${sound}.wav`,
                     badge: 1,
                   },
                 },
