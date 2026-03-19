@@ -1021,6 +1021,14 @@ html.keyboard-open .app-content-scroll {
   padding-bottom: 0 !important;
 }
 
+/* Zero the library layout's inner content padding-bottom while keyboard is
+   open — env(safe-area-inset-bottom) does not drop to 0 in Capacitor WKWebView
+   when the keyboard appears, so the ~34px safe-area padding becomes visible
+   as white blank space at the bottom of the settings/library pages. */
+html.keyboard-open .library-scroll-content {
+  padding-bottom: 0 !important;
+}
+
 /* ─── Auth pages: mobile layout centering ────────────────────────
    Improves visual balance on small screens for login, signup, and
    verify-code. Does NOT affect sm+ (640px+) or desktop layout.

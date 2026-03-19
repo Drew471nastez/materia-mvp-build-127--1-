@@ -107,7 +107,7 @@ export default async function LibraryLayout({
             paddingRight: "env(safe-area-inset-right, 0px)",
           }}
         >
-          <div className="px-4 pt-2 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="px-4 pt-2 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))] library-scroll-content">
             {children}
           </div>
         </main>
