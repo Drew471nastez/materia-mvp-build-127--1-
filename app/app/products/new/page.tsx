@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getProductUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -3333,10 +3334,12 @@ export default function NewProductPage() {
   const handleRedirectToProduct = () => {
     if (slug && creator) {
       const sellerSubdomain = creator.username || creator.slug || 'store'
-      const productUrl = getProductUrl(sellerSubdomain, slug)
       if (isNativeApp()) {
-        window.location.href = productUrl
+        // In Capacitor, open in external browser (not inside the app)
+        const fullUrl = `https://${sellerSubdomain}.storelib.com/p/${slug}`
+        openExternal(fullUrl)
       } else {
+        const productUrl = getProductUrl(sellerSubdomain, slug)
         window.open(productUrl, "_blank")
       }
     }
