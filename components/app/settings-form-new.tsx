@@ -2636,7 +2636,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                           </div>
                         </div>
                         <p className="text-[12px] text-[#6b7280]">
-                          We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm.
+                          We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm. Please also check your spam or junk folder.
                         </p>
                         {deleteError && <p className="text-[12px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
                         <div className="flex gap-2">
@@ -2660,7 +2660,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     ) : (
                       <>
                         <p className="text-[12px] text-[#6b7280]">
-                          Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
+                          Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>. Don&apos;t see it? Check your spam or junk folder.
                         </p>
                         <div className="flex justify-center gap-1.5">
                           {deleteVerificationCode.map((digit, index) => (
@@ -3877,7 +3877,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </div>
             </div>
             <p className="text-[13px] text-[#6b7280]">
-              We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm this action.
+              We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm this action. Please also check your spam or junk folder.
             </p>
             {deleteError && <p className="text-[13px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
             <div className="flex gap-3">
@@ -3911,7 +3911,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         ) : (
           <div className="space-y-4">
             <p className="text-[13px] text-[#6b7280]">
-              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
+              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>. Don&apos;t see it? Check your spam or junk folder.
             </p>
             <div className="flex justify-center gap-2">
               {deleteVerificationCode.map((digit, index) => (

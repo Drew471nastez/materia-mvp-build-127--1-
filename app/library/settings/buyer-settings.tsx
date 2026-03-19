@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera, Trash2 } from "lucide-react"
+import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -99,6 +99,60 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const [deleteVerifying, setDeleteVerifying] = useState(false)
   const [deleteCode, setDeleteCode] = useState("")
   const [deleteError, setDeleteError] = useState("")
+
+  // Viewport detection for mobile bottom-sheet vs desktop modal
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [modalVisible, setModalVisible] = useState(false)
+  const [modalAnimating, setModalAnimating] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobileViewport(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // Desktop modal animation & body scroll lock
+  useEffect(() => {
+    if (isMobileViewport) return
+    const isOpen = deleteStep !== "idle"
+    if (isOpen && !modalVisible) {
+      setModalVisible(true)
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+      document.body.style.overflow = "hidden"
+      document.body.style.paddingRight = `${scrollbarWidth}px`
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setModalAnimating(true))
+      })
+    } else if (!isOpen && modalVisible) {
+      setModalAnimating(false)
+      const timer = setTimeout(() => {
+        document.body.style.overflow = ""
+        document.body.style.paddingRight = ""
+        setModalVisible(false)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+      document.body.style.paddingRight = ""
+    }
+  }, [deleteStep, modalVisible, isMobileViewport])
+
+  const handleCloseDeleteModal = useCallback(() => {
+    if (isMobileViewport) {
+      setDeleteStep("idle")
+      setDeleteCode("")
+      setDeleteError("")
+      return
+    }
+    setModalAnimating(false)
+    setTimeout(() => {
+      setDeleteStep("idle")
+      setDeleteCode("")
+      setDeleteError("")
+    }, 400)
+  }, [isMobileViewport])
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true)
@@ -447,67 +501,154 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
 
           {/* Delete account card */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-neutral-200">
-            <h3 className="text-[15px] font-semibold text-neutral-900 mb-2">Delete Account</h3>
-            <p className="text-sm text-neutral-500 mb-4">
-              Permanently delete your account and all associated data. This action cannot be undone.
-            </p>
-            <Button
-              onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
-              variant="outline"
-              className="h-11 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 text-sm font-medium"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Account
-            </Button>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-[15px] font-semibold text-neutral-900 mb-1">Delete Account</h3>
+                <p className="text-sm text-neutral-500">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+              </div>
+              {(!isMobileViewport || deleteStep === "idle") && (
+                <Button
+                  onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
+                  variant="outline"
+                  className="h-10 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 text-sm font-medium shrink-0"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Account
+                </Button>
+              )}
+            </div>
+
+            {/* Mobile inline delete confirmation — appears in-place within the card */}
+            {isMobileViewport && deleteStep !== "idle" && (
+              <div className="mt-4 space-y-3">
+                {deleteStep === "confirm" ? (
+                  <>
+                    <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3.5 space-y-2">
+                      <p className="text-sm font-medium text-neutral-800">What will be deleted:</p>
+                      <ul className="text-sm text-neutral-600 space-y-1">
+                        <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />Your account and profile</li>
+                        <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />All purchases and download history</li>
+                        <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />All associated data permanently</li>
+                      </ul>
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      A verification code will be sent to <span className="font-medium text-neutral-700">{email}</span>. Please also check your spam or junk folder.
+                    </p>
+                    {deleteError && (
+                      <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                        <p className="text-sm text-red-700">{deleteError}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleCloseDeleteModal}
+                        variant="outline"
+                        className="flex-1 h-10 rounded-xl border-neutral-200 text-sm font-medium"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSendDeleteCode}
+                        disabled={deleteSending}
+                        className="flex-1 h-10 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
+                      >
+                        {deleteSending ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
+                        ) : (
+                          "Send Code"
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-neutral-600">
+                      Enter the 6-digit code sent to <span className="font-medium text-neutral-700">{email}</span>. Don&apos;t see it? Check your spam or junk folder.
+                    </p>
+                    <div className="flex justify-center">
+                      <Input
+                        value={deleteCode}
+                        onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="000000"
+                        maxLength={6}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        className="h-12 border-neutral-200 rounded-xl text-xl tracking-[0.5em] text-center w-44 font-mono"
+                        onKeyDown={(e) => e.key === "Enter" && handleVerifyDeleteCode()}
+                      />
+                    </div>
+                    {deleteError && (
+                      <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                        <p className="text-sm text-red-700">{deleteError}</p>
+                      </div>
+                    )}
+                    <Button
+                      onClick={handleVerifyDeleteCode}
+                      disabled={deleteVerifying || deleteCode.length < 6}
+                      className="w-full h-10 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium disabled:opacity-40"
+                    >
+                      {deleteVerifying ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>
+                      ) : (
+                        "Confirm & Delete"
+                      )}
+                    </Button>
+                    <button
+                      onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
+                      className="w-full text-xs text-neutral-500 hover:text-neutral-700 py-1 cursor-pointer"
+                    >
+                      Go back
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Delete Account Modal — centered popup on all screen sizes */}
-      {deleteStep !== "idle" && (
-        <>
-          {/* Backdrop */}
+      {/* Delete Account Modal — desktop only; mobile uses the inline form in the Delete Card */}
+      {!isMobileViewport && modalVisible && (
+        <div className="fixed inset-0 z-[100]">
           <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200"
-            onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
+            className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
+              modalAnimating ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={handleCloseDeleteModal}
           />
-
-          {/* Panel */}
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 pt-[15vh] sm:pt-4 overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
+          <div className="flex fixed inset-0 items-center justify-center p-4">
             <div
-              className="bg-white w-full rounded-2xl max-w-md shadow-2xl overflow-hidden shrink-0"
-              onClick={(e) => e.stopPropagation()}
+              className={`relative bg-white rounded-2xl w-full max-w-md shadow-xl transition-all duration-400 ${
+                modalAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
+              }`}
+              style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)" }}
             >
-              <div className="px-6 pt-5 pb-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                      <Trash2 className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-[15px] font-semibold text-neutral-900">Delete Account</h2>
-                      <p className="text-xs text-neutral-500 mt-0.5">
-                        {deleteStep === "confirm" ? "Confirm your decision" : "Enter verification code"}
-                      </p>
-                    </div>
+              <div className="flex items-center justify-between p-4 border-b border-neutral-200">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                    <Trash2 className="h-4 w-4 text-red-600" />
                   </div>
-                  <button
-                    onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
-                    className="h-8 w-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors text-neutral-500 hover:text-neutral-700 shrink-0"
-                    aria-label="Close"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-                    </svg>
-                  </button>
+                  <h2 className="text-[17px] font-semibold text-neutral-900">
+                    {deleteStep === "confirm" ? "Delete Account" : "Verify Deletion"}
+                  </h2>
                 </div>
-
+                <button
+                  onClick={handleCloseDeleteModal}
+                  className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 hover:text-neutral-700 transition-colors cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">
                 {/* Error */}
                 {deleteError && (
-                  <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3 flex items-center gap-2 mb-4">
-                    <AlertCircle className="h-4 w-4 text-neutral-600 shrink-0" />
-                    <p className="text-sm text-neutral-700">{deleteError}</p>
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2 mb-4">
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                    <p className="text-sm text-red-700">{deleteError}</p>
                   </div>
                 )}
 
@@ -526,9 +667,9 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                       A 6-digit verification code will be sent to <span className="font-medium text-neutral-700">{email}</span>.
                       {" "}Please also check your spam or junk folder if you don&apos;t see it in your inbox.
                     </p>
-                    <div className="flex flex-row gap-2 pt-1">
+                    <div className="flex gap-2 pt-1">
                       <Button
-                        onClick={() => { setDeleteStep("idle"); setDeleteError("") }}
+                        onClick={handleCloseDeleteModal}
                         variant="outline"
                         className="h-11 flex-1 rounded-xl border-neutral-200 text-sm font-medium"
                       >
@@ -568,9 +709,9 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                         autoFocus
                       />
                     </div>
-                    <div className="flex flex-row gap-2 pt-1">
+                    <div className="flex gap-2 pt-1">
                       <Button
-                        onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
+                        onClick={handleCloseDeleteModal}
                         variant="outline"
                         className="h-11 flex-1 rounded-xl border-neutral-200 text-sm font-medium"
                       >
@@ -593,7 +734,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )
