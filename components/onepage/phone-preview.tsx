@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
-import { getLinksUrl } from "@/lib/url-helpers"
+import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -501,6 +501,29 @@ function ShareButtonPreview({
     }
   }
 
+  /**
+   * On native: first try to open the native app via its URL scheme (App.openUrl).
+   * If the app is not installed the OS throws — fall back to Browser.open.
+   * On web: open the web fallback URL in a new tab.
+   */
+  const openShareTarget = async (nativeScheme: string | null, webUrl: string) => {
+    if (isNativeApp()) {
+      if (nativeScheme) {
+        try {
+          const { App } = await import("@capacitor/app")
+          await App.openUrl({ url: nativeScheme })
+          return
+        } catch {
+          // App not installed — fall through to in-app browser
+        }
+      }
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url: webUrl })
+    } else {
+      window.open(webUrl, "_blank")
+    }
+  }
+
   // REMOVED: LinkedIn from share options - only 4 icons in a row
   const shareOptions = [
     { name: "Copy", icon: copied ? "✓" : "🔗", color: copied ? "#22c55e" : "#6b7280", action: copyLink },
@@ -508,19 +531,30 @@ function ShareButtonPreview({
       name: "X",
       icon: "𝕏",
       color: "#000000",
-      action: () => openExternalUrl(`https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(sellerName)}`),
+      action: () => openShareTarget(
+        `twitter://post?message=${encodeURIComponent(`${sellerName} ${pageUrl}`)}`,
+        `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(sellerName)}`,
+      ),
     },
     {
       name: "Facebook",
       icon: "f",
       color: "#1877F2",
-      action: () => openExternalUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`),
+      // Facebook removed reliable external sharing via URL scheme; use web URL
+      // and let iOS Universal Links redirect to the FB app if installed.
+      action: () => openShareTarget(
+        null,
+        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`,
+      ),
     },
     {
       name: "WhatsApp",
       icon: "💬",
       color: "#25D366",
-      action: () => openExternalUrl(`https://wa.me/?text=${encodeURIComponent(`${sellerName} ${pageUrl}`)}`),
+      action: () => openShareTarget(
+        `whatsapp://send?text=${encodeURIComponent(`${sellerName} ${pageUrl}`)}`,
+        `https://wa.me/?text=${encodeURIComponent(`${sellerName} ${pageUrl}`)}`,
+      ),
     },
   ]
 
@@ -1627,7 +1661,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 sellerName={sellerName}
                 avatarUrl={avatar_url}
                 avatarVideoUrl={avatar_video_url}
-                pageUrl={getLinksUrl((onepage as any).slug || "preview")}
+                pageUrl={getLinksShareUrl((onepage as any).slug || "preview")}
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}
