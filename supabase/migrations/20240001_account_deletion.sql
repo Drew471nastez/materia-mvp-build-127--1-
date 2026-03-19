@@ -54,10 +54,10 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'onepages' AND table_schema = 'public') THEN
     ALTER TABLE public.onepages
-      DROP CONSTRAINT IF EXISTS onepages_user_id_fkey;
+      DROP CONSTRAINT IF EXISTS onepages_owner_id_fkey;
     ALTER TABLE public.onepages
-      ADD CONSTRAINT onepages_user_id_fkey
-      FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+      ADD CONSTRAINT onepages_owner_id_fkey
+      FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
   END IF;
 END $$;
 
@@ -135,7 +135,7 @@ BEGIN
   DELETE FROM public.orders       WHERE buyer_id  = v_user_id;
   DELETE FROM public.library_items WHERE user_id  = v_user_id;
   DELETE FROM public.push_tokens  WHERE user_id   = v_user_id;
-  DELETE FROM public.onepages     WHERE user_id   = v_user_id;
+  DELETE FROM public.onepages     WHERE owner_id  = v_user_id;
 
   -- Creator-owned data
   IF v_creator_id IS NOT NULL THEN
