@@ -228,6 +228,10 @@ interface SettingsFormProps {
 }
 
 // Mobile Bottom Sheet Component
+// On desktop (≥640px): renders as a centered modal overlay.
+// On mobile (<640px): renders inline in the document flow — no overlay,
+// no backdrop, no body scroll lock. Content appears where the component
+// sits in the DOM tree so the user can scroll to it without any popup.
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -239,22 +243,25 @@ function MobileBottomSheet({
   title: string
   children: React.ReactNode
 }) {
+  const [isMobileScreen, setIsMobileScreen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    const check = () => setIsMobileScreen(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // Desktop modal animation & body scroll lock
+  useEffect(() => {
+    if (isMobileScreen) return
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      // Prevent layout shift by compensating for scrollbar
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = "hidden"
       document.body.style.paddingRight = `${scrollbarWidth}px`
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -265,55 +272,49 @@ function MobileBottomSheet({
       const timer = setTimeout(() => {
         document.body.style.overflow = ""
         document.body.style.paddingRight = ""
-        document.documentElement.style.overscrollBehavior = ''
-        document.body.style.overscrollBehavior = ''
         setIsVisible(false)
-        setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
     return () => {
       document.body.style.overflow = ""
       document.body.style.paddingRight = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
     }
-  }, [isOpen, isVisible])
+  }, [isOpen, isVisible, isMobileScreen])
 
   const handleClose = () => {
+    if (isMobileScreen) {
+      onClose()
+      return
+    }
     setIsAnimating(false)
-    setDragY(0)
     setTimeout(() => {
       onClose()
     }, 400)
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    startY.current = touch.clientY
-    setIsDragging(true)
+  // ── Mobile: inline card (no overlay, no scroll lock) ──────────────
+  if (isMobileScreen) {
+    if (!isOpen) return null
+    return (
+      <div className="mt-4 rounded-2xl border border-[#e5e7eb] bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
+          <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{title}</h3>
+          <button
+            onClick={handleClose}
+            className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4 max-h-[60vh] overflow-y-auto overscroll-contain">
+          {children}
+        </div>
+      </div>
+    )
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      e.preventDefault()
-      setDragY(diff * 0.8)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) {
-      handleClose()
-    } else {
-      setDragY(0)
-    }
-  }
-
+  // ── Desktop: centered modal overlay ──────────────────────────────
   if (!isVisible) return null
 
   return (
@@ -324,8 +325,7 @@ function MobileBottomSheet({
         }`}
         onClick={handleClose}
       />
-      {/* Desktop Modal */}
-      <div className="hidden sm:flex fixed inset-0 items-center justify-center p-4">
+      <div className="flex fixed inset-0 items-center justify-center p-4">
         <div
           className={`relative bg-white rounded-2xl w-full max-w-md shadow-xl transition-all duration-400 ${
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
@@ -343,35 +343,6 @@ function MobileBottomSheet({
           </div>
           <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{children}</div>
         </div>
-      </div>
-      {/* Mobile Bottom Sheet */}
-      <div
-        ref={sheetRef}
-        className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-hidden"
-        style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
-        }}
-      >
-        {/* Handle bar — drag target only, touch events restricted here so content buttons work */}
-        <div
-          className="pt-3 pb-2"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <button
-            onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer touch-none"
-          >
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{title}</h3>
-          {children}
-        </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
       </div>
     </div>
   )
@@ -1900,10 +1871,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <button
               type="button"
               onClick={() => {
-                if (isMobileViewport) {
-                  setIsQuickAccessOpen(true)
-                  return
-                }
                 setIsQuickAccessOpen((v) => !v)
               }}
               className="relative inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] sm:text-[14px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
@@ -1916,7 +1883,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </span>
             </button>
 
-            {!isMobileViewport && isQuickAccessOpen && (
+            {isQuickAccessOpen && (
               <div className="absolute right-0 top-full mt-2 w-[280px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200">
                 <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
                 <button
@@ -1946,24 +1913,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           </div>
         </div>
 
-        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
-          <div className="space-y-2">
-            <button type="button" onClick={() => {
-              setIsQuickAccessOpen(false)
-              openExternal(onepageUrl || navOnepageUrl)
-            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
-              <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
-            </button>
-            <button type="button" onClick={() => {
-              setIsQuickAccessOpen(false)
-              openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
-            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Store</p>
-              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
-            </button>
-          </div>
-        </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -2209,6 +2158,85 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         Change
                       </button>
                     </div>
+                    {/* Mobile inline email change form — appears in-place below the email field */}
+                    {isMobileViewport && showEmailChangeModal && (
+                      <div className="mt-3 rounded-xl border border-[#e5e7eb] bg-[#fafafa] p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[13px] font-semibold text-[#1a1a2e]">
+                            {emailChangeStep === "input" ? "Change Email Address" : "Verify Your New Email"}
+                          </p>
+                          <button type="button" onClick={closeEmailChangeModal} className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] cursor-pointer">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {emailChangeSuccess ? (
+                          <div className="text-center py-4">
+                            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                              <Check className="h-6 w-6 text-emerald-600" />
+                            </div>
+                            <p className="text-[14px] font-semibold text-[#1a1a2e]">Email Updated!</p>
+                            <p className="text-[12px] text-[#6b7280] mt-1">Your email has been successfully changed.</p>
+                          </div>
+                        ) : emailChangeStep === "input" ? (
+                          <div className="space-y-3">
+                            <p className="text-[12px] text-[#6b7280]">Enter your new email address. We&apos;ll send a verification code to confirm.</p>
+                            <Input
+                              type="email"
+                              value={newEmail}
+                              onChange={(e) => setNewEmail(e.target.value)}
+                              placeholder="Enter new email address"
+                              className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                            />
+                            {emailChangeError && <p className="text-[12px] text-red-600 bg-red-50 p-2.5 rounded-xl">{emailChangeError}</p>}
+                            <button
+                              type="button"
+                              onClick={handleSendEmailChangeCode}
+                              disabled={emailChangeLoading || !newEmail}
+                              className="w-full h-10 text-[13px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+                            >
+                              {emailChangeLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Sending...</> : "Send Verification Code"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-[12px] text-[#6b7280]">
+                              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{newEmail}</span>
+                            </p>
+                            <div className="flex justify-center gap-1.5">
+                              {verificationCode.map((digit, index) => (
+                                <input
+                                  key={index}
+                                  ref={(el) => { codeInputRefs.current[index] = el }}
+                                  type="text"
+                                  inputMode="numeric"
+                                  maxLength={1}
+                                  value={digit}
+                                  onChange={(e) => handleCodeInput(index, e.target.value)}
+                                  onKeyDown={(e) => handleCodeKeyDown(index, e)}
+                                  className="w-9 h-11 text-center text-lg font-bold border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                                />
+                              ))}
+                            </div>
+                            {emailChangeError && <p className="text-[12px] text-red-600 bg-red-50 p-2.5 rounded-xl text-center">{emailChangeError}</p>}
+                            <button
+                              type="button"
+                              onClick={handleVerifyEmailChange}
+                              disabled={emailChangeLoading || verificationCode.join("").length !== 6}
+                              className="w-full h-10 text-[13px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center justify-center gap-2"
+                            >
+                              {emailChangeLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Verifying...</> : "Verify & Change Email"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setEmailChangeStep("input"); setEmailChangeError(null) }}
+                              className="w-full text-[12px] text-[#6b7280] hover:text-[#374151] py-1.5 cursor-pointer"
+                            >
+                              Use a different email
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="supportEmailProfile" className="text-[13px] font-medium text-[#374151]">
@@ -2246,12 +2274,32 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <p className="text-[13px] text-[#6b7280] mb-4">Choose your preferred language for the dashboard</p>
                 <button
                   type="button"
-                  onClick={() => setShowLanguageModal(true)}
+                  onClick={() => isMobileViewport ? setShowLanguageModal((v) => !v) : setShowLanguageModal(true)}
                   className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                 >
                   <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English (US)"}</span>
-                  <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
+                  <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform ${isMobileViewport && showLanguageModal ? "rotate-180" : ""}`} />
                 </button>
+                {/* Mobile inline language picker */}
+                {isMobileViewport && showLanguageModal && (
+                  <div className="mt-2 border border-[#e5e7eb] rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                    {LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => { setSelectedLanguage(lang.code); setShowLanguageModal(false) }}
+                        className={`w-full text-left px-3 py-3 text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer border-b border-[#f3f4f6] last:border-0 ${
+                          selectedLanguage === lang.code
+                            ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                            : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                        }`}
+                      >
+                        <span>{lang.name}</span>
+                        {selectedLanguage === lang.code && <Check className="h-4 w-4 text-[#8b5cf6]" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Timezone Card */}
@@ -2262,7 +2310,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <p className="text-[13px] text-[#6b7280] mb-4">Used for analytics, product launches, scheduled emails, and sales timestamps</p>
                 <button
                   type="button"
-                  onClick={() => setShowTimezoneModal(true)}
+                  onClick={() => isMobileViewport ? setShowTimezoneModal((v) => !v) : setShowTimezoneModal(true)}
                   className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <span className="text-[#1a1a2e] truncate min-w-0 flex-1">
@@ -2271,8 +2319,31 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       ({TIMEZONES.find(tz => tz.code === selectedTimezone)?.offset || ""})
                     </span>
                   </span>
-                  <ChevronRight className="h-4 w-4 text-[#9ca3af] shrink-0" />
+                  <ChevronDown className={`h-4 w-4 text-[#9ca3af] shrink-0 transition-transform ${isMobileViewport && showTimezoneModal ? "rotate-180" : ""}`} />
                 </button>
+                {/* Mobile inline timezone picker */}
+                {isMobileViewport && showTimezoneModal && (
+                  <div className="mt-2 border border-[#e5e7eb] rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                    {TIMEZONES.map((tz) => (
+                      <button
+                        key={tz.code}
+                        type="button"
+                        onClick={() => { setSelectedTimezone(tz.code); setShowTimezoneModal(false) }}
+                        className={`w-full text-left px-3 py-3 text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer border-b border-[#f3f4f6] last:border-0 ${
+                          selectedTimezone === tz.code
+                            ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                            : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                        }`}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{tz.name}</span>
+                          <span className="text-[12px] text-[#9ca3af]">{tz.offset}</span>
+                        </div>
+                        {selectedTimezone === tz.code && <Check className="h-4 w-4 text-[#8b5cf6] shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Address Card */}
@@ -2347,12 +2418,32 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </Label>
                     <button
                       type="button"
-                      onClick={() => setShowCountryModal(true)}
+                      onClick={() => isMobileViewport ? setShowCountryModal((v) => !v) : setShowCountryModal(true)}
                       className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                     >
                       <span className={country ? "text-[#1a1a2e]" : "text-[#9ca3af]"}>{country || "Select country"}</span>
-                      <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
+                      <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform ${isMobileViewport && showCountryModal ? "rotate-180" : ""}`} />
                     </button>
+                    {/* Mobile inline country picker */}
+                    {isMobileViewport && showCountryModal && (
+                      <div className="border border-[#e5e7eb] rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                        {COUNTRIES.map((c) => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => { setCountry(c.name); setShowCountryModal(false) }}
+                            className={`w-full text-left px-3 py-2.5 text-[14px] transition-colors flex items-center justify-between cursor-pointer border-b border-[#f3f4f6] last:border-0 ${
+                              country === c.name
+                                ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium"
+                                : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                            }`}
+                          >
+                            <span>{c.name}</span>
+                            {country === c.name && <Check className="h-4 w-4 text-[#8b5cf6]" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2516,14 +2607,96 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       Account created on {new Date(profile.created_at || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteModal(true)}
-                    className="px-4 h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] text-white rounded-xl transition-colors cursor-pointer shrink-0"
-                  >
-                    Delete Account
-                  </button>
+                  {!isMobileViewport || !showDeleteModal ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteModal(true)}
+                      className="px-4 h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] text-white rounded-xl transition-colors cursor-pointer shrink-0"
+                    >
+                      Delete Account
+                    </button>
+                  ) : null}
                 </div>
+                {/* Mobile inline delete confirmation — appears in-place within the card */}
+                {isMobileViewport && showDeleteModal && (
+                  <div className="mt-4 space-y-3">
+                    {deleteStep === "confirm" ? (
+                      <>
+                        <div className="bg-[#1a1a2e] rounded-xl p-3.5">
+                          <div className="flex items-start gap-3">
+                            <div className="w-9 h-9 bg-[#2d2d44] rounded-full flex items-center justify-center shrink-0">
+                              <Trash2 className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-white text-[13px]">This action cannot be undone</p>
+                              <p className="text-[12px] text-[#9ca3af] mt-0.5">
+                                Deleting your account will permanently remove all your data, including products, customers, and sales history.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[12px] text-[#6b7280]">
+                          We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm.
+                        </p>
+                        {deleteError && <p className="text-[12px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { setShowDeleteModal(false); setDeleteError(null) }}
+                            className="flex-1 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSendDeleteCode}
+                            disabled={deleteLoading}
+                            className="flex-1 h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] disabled:bg-[#6b7280] text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            {deleteLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Sending...</> : "Send Code"}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[12px] text-[#6b7280]">
+                          Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
+                        </p>
+                        <div className="flex justify-center gap-1.5">
+                          {deleteVerificationCode.map((digit, index) => (
+                            <input
+                              key={index}
+                              ref={(el) => { deleteCodeInputRefs.current[index] = el }}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={digit}
+                              onChange={(e) => handleDeleteCodeInput(index, e.target.value)}
+                              onKeyDown={(e) => handleDeleteCodeKeyDown(index, e)}
+                              className="w-9 h-11 text-center text-lg font-bold border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a1a2e] focus:border-[#1a1a2e]"
+                            />
+                          ))}
+                        </div>
+                        {deleteError && <p className="text-[12px] text-white bg-[#1a1a2e] p-3 rounded-xl text-center">{deleteError}</p>}
+                        <button
+                          type="button"
+                          onClick={handleConfirmDelete}
+                          disabled={deleteLoading || deleteVerificationCode.join("").length !== 6}
+                          className="w-full h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] disabled:bg-[#6b7280] text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {deleteLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Deleting...</> : "Permanently Delete Account"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setDeleteStep("confirm"); setDeleteError(null) }}
+                          className="w-full text-[12px] text-[#6b7280] hover:text-[#374151] py-1.5 cursor-pointer"
+                        >
+                          Go back
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -3525,10 +3698,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       />
 
       {/* Country Selector Modal */}
-      <CountrySelectorModal isOpen={showCountryModal} onClose={() => setShowCountryModal(false)} selectedCountry={country} onSelect={setCountry} />
+      {/* Country modal — desktop only; mobile uses the inline picker in the Address Card */}
+      <CountrySelectorModal isOpen={!isMobileViewport && showCountryModal} onClose={() => setShowCountryModal(false)} selectedCountry={country} onSelect={setCountry} />
 
-      {/* Email Change Modal */}
-      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title={emailChangeStep === "input" ? "Change Email Address" : "Verify Your New Email"}>
+      {/* Email Change Modal — desktop only; mobile uses the inline form in the Emails section */}
+      <MobileBottomSheet isOpen={!isMobileViewport && showEmailChangeModal} onClose={closeEmailChangeModal} title={emailChangeStep === "input" ? "Change Email Address" : "Verify Your New Email"}>
         {emailChangeSuccess ? (
           <div className="text-center py-6">
             <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -3623,8 +3797,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         )}
       </MobileBottomSheet>
 
-      {/* Language Selector Modal */}
-      <MobileBottomSheet isOpen={showLanguageModal} onClose={() => setShowLanguageModal(false)} title="Select Language">
+      {/* Language Selector Modal — desktop only; mobile uses the inline picker in the Language Card */}
+      <MobileBottomSheet isOpen={!isMobileViewport && showLanguageModal} onClose={() => setShowLanguageModal(false)} title="Select Language">
         <div className="space-y-1 max-h-[60vh] overflow-y-auto">
           {LANGUAGES.map((lang) => (
             <button
@@ -3648,8 +3822,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
       </MobileBottomSheet>
 
-      {/* Timezone Selector Modal */}
-      <MobileBottomSheet isOpen={showTimezoneModal} onClose={() => setShowTimezoneModal(false)} title="Select Timezone">
+      {/* Timezone Selector Modal — desktop only; mobile uses the inline picker in the Timezone Card */}
+      <MobileBottomSheet isOpen={!isMobileViewport && showTimezoneModal} onClose={() => setShowTimezoneModal(false)} title="Select Timezone">
         <div className="space-y-1 max-h-[60vh] overflow-y-auto">
           {TIMEZONES.map((tz) => (
             <button
@@ -3676,9 +3850,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
       </MobileBottomSheet>
 
-      {/* Delete Account Modal */}
+      {/* Delete Account Modal — desktop only; mobile uses the inline form in the Delete Card */}
       <MobileBottomSheet
-        isOpen={showDeleteModal}
+        isOpen={!isMobileViewport && showDeleteModal}
         onClose={() => {
           setShowDeleteModal(false)
           setDeleteStep("confirm")

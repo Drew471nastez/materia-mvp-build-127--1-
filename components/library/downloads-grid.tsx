@@ -26,14 +26,10 @@ type DownloadItem = {
 
 /* ────────────────────────────────────────────────────────────────
    File picker overlay — rendered via createPortal to document.body
-   so it always covers the ENTIRE viewport (sidebar, header, etc.)
-   regardless of parent CSS transforms, contain, or stacking context.
+   for desktop (≥768px) only.
 
-   Uses INLINE styles for critical backdrop/animation properties to
-   guarantee visibility regardless of CSS compilation.
-
-   Desktop ≥ 768 px → centered modal card
-   Mobile  < 768 px → bottom sheet
+   On mobile (<768px) the file list expands inline within the card
+   instead — no overlay, no sheet, no body scroll lock.
    ──────────────────────────────────────────────────────────────── */
 function FilePickerOverlay({
   item,
@@ -49,8 +45,8 @@ function FilePickerOverlay({
   const [animateIn, setAnimateIn] = useState(false)
   const [isClosingInProgress, setIsClosingInProgress] = useState(false)
 
-  // Double-rAF: guarantees the browser has painted opacity:0 / translateY(100%)
-  // BEFORE we flip to the final state, so the CSS transition actually fires.
+  // Double-rAF: guarantees the browser has painted before flipping to
+  // the animated state so the CSS transition actually fires.
   useEffect(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -67,15 +63,6 @@ function FilePickerOverlay({
       onClose()
     }, 360)
   }, [onClose, isClosingInProgress])
-
-  // Lock body scroll while open
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [])
 
   // Close on Escape
   useEffect(() => {
@@ -170,7 +157,7 @@ function FilePickerOverlay({
 
   return createPortal(
     <>
-      {/* ─── Backdrop ─── dark overlay covering ENTIRE viewport */}
+      {/* ─── Backdrop ─── */}
       <div
         onClick={handleClose}
         aria-hidden="true"
@@ -190,7 +177,6 @@ function FilePickerOverlay({
       {/* ─── Desktop modal (≥768px) ─── */}
       <div
         onClick={handleClose}
-        className="hidden md:flex"
         style={{
           position: "fixed",
           top: 0,
@@ -198,6 +184,7 @@ function FilePickerOverlay({
           right: 0,
           bottom: 0,
           zIndex: 99999,
+          display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: 24,
@@ -280,99 +267,6 @@ function FilePickerOverlay({
           </div>
         </div>
       </div>
-
-      {/* ─── Mobile bottom sheet (<768px) ─── */}
-      <div
-        className="md:hidden"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 99999,
-        }}
-      >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Choose a file to download"
-          style={{
-            borderRadius: "16px 16px 0 0",
-            backgroundColor: "#fff",
-            boxShadow: "0 -10px 40px -8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
-            transform: animateIn ? "translateY(0)" : "translateY(100%)",
-            transition: "transform 350ms cubic-bezier(0.32, 0.72, 0, 1)",
-            maxHeight: "85dvh",
-            paddingBottom: "env(safe-area-inset-bottom)",
-            display: "flex",
-            flexDirection: "column" as const,
-          }}
-        >
-          {/* Drag handle */}
-          <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, paddingBottom: 8 }}>
-            <div style={{ height: 4, width: 36, borderRadius: 9999, backgroundColor: "#d4d4d4" }} />
-          </div>
-
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px 12px 20px" }}>
-            <div style={{ minWidth: 0, paddingRight: 12 }}>
-              <h2
-                style={{
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: "#171717",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap" as const,
-                  margin: 0,
-                }}
-              >
-                {item.title}
-              </h2>
-              <p style={{ marginTop: 2, fontSize: 13, color: "#737373" }}>
-                {item.files.length} file{item.files.length !== 1 ? "s" : ""} available
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              aria-label="Close"
-              style={{
-                display: "flex",
-                height: 32,
-                width: 32,
-                flexShrink: 0,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 9999,
-                border: "none",
-                backgroundColor: "#f5f5f5",
-                color: "#737373",
-                cursor: "pointer",
-              }}
-            >
-              <X style={{ height: 16, width: 16 }} />
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div style={{ margin: "0 20px", borderTop: "1px solid #f5f5f5" }} />
-
-          {/* File list */}
-          <div
-            style={{
-              padding: "16px 20px",
-              maxHeight: "calc(85dvh - 110px)",
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
-              overscrollBehavior: "contain",
-            }}
-          >
-            {fileList}
-          </div>
-        </div>
-      </div>
     </>,
     document.body
   )
@@ -380,7 +274,16 @@ function FilePickerOverlay({
 
 export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
   const [activeItem, setActiveItem] = useState<DownloadItem | null>(null)
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
 
   const closePicker = useCallback(() => setActiveItem(null), [])
 
@@ -390,80 +293,155 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
     setDownloadingFileId(null)
   }
 
+  const handleChooseFile = (item: DownloadItem) => {
+    if (isMobile) {
+      // Mobile: expand inline within the card
+      setExpandedItemId((prev) => (prev === item.id ? null : item.id))
+    } else {
+      // Desktop: open portal modal
+      setActiveItem(item)
+    }
+  }
+
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${
-              item.highlight ? "border-violet-300 ring-2 ring-violet-100" : "border-neutral-200"
-            }`}
-          >
-            <Link href={`/library/products/${item.productId}`} className="block">
-              <div className="relative aspect-video overflow-hidden bg-neutral-100">
-                {item.thumbnailUrl ? (
-                  <Image
-                    src={item.thumbnailUrl || "/placeholder.svg"}
-                    alt={item.title}
-                    fill
-                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
-                  />
+        {items.map((item) => {
+          const isExpanded = expandedItemId === item.id
+          return (
+            <div
+              key={item.id}
+              className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-md ${
+                item.highlight ? "border-violet-300 ring-2 ring-violet-100" : "border-neutral-200"
+              }`}
+            >
+              <Link href={`/library/products/${item.productId}`} className="block">
+                <div className="relative aspect-video overflow-hidden bg-neutral-100">
+                  {item.thumbnailUrl ? (
+                    <Image
+                      src={item.thumbnailUrl || "/placeholder.svg"}
+                      alt={item.title}
+                      fill
+                      className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Package className="h-8 w-8 text-neutral-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-neutral-900 group-hover:text-violet-700">{item.title}</h3>
+                  <p className="mt-1 text-sm text-neutral-500">by {item.creatorName}</p>
+                  <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500">
+                    <Calendar className="h-3 w-3" />
+                    <span>Purchased {item.purchasedAtLabel}</span>
+                  </div>
+                </div>
+              </Link>
+
+              <div className="border-t border-neutral-200">
+                {item.files.length === 1 ? (
+                  <div className="p-3">
+                    <Button
+                      className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black overflow-hidden"
+                      onClick={() => handleDownload(item.files[0].id)}
+                      disabled={downloadingFileId === item.files[0].id}
+                    >
+                      {downloadingFileId === item.files[0].id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+                          <span className="truncate">Downloading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="mr-2 h-4 w-4 shrink-0" />
+                          <span className="truncate">Download File</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : item.files.length > 1 ? (
+                  <>
+                    {/* Collapsed: show the "Choose file" button */}
+                    {!isExpanded && (
+                      <div className="p-3">
+                        <Button
+                          className="w-full h-12 cursor-pointer"
+                          variant="outline"
+                          onClick={() => handleChooseFile(item)}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          Choose file ({item.files.length})
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Mobile inline file list — expands in place, no overlay */}
+                    {isExpanded && (
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs font-medium text-neutral-500">
+                            {item.files.length} files available
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedItemId(null)}
+                            className="h-6 w-6 flex items-center justify-center rounded-full bg-neutral-100 text-neutral-500 hover:bg-neutral-200 transition-colors cursor-pointer"
+                            aria-label="Collapse"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {item.files.map((file) => (
+                          <button
+                            key={file.id}
+                            type="button"
+                            onClick={() => {
+                              handleDownload(file.id)
+                              setExpandedItemId(null)
+                            }}
+                            disabled={downloadingFileId === file.id}
+                            className="w-full flex items-center justify-between p-3 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 active:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-60"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-neutral-100">
+                                <FileText className="h-4 w-4 text-neutral-500" />
+                              </div>
+                              <span className="text-sm font-medium text-neutral-800 truncate">
+                                {file.fileName || "File"}
+                              </span>
+                            </div>
+                            <div className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full bg-neutral-900 text-white">
+                              {downloadingFileId === file.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Download className="h-3.5 w-3.5" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Package className="h-8 w-8 text-neutral-400" />
+                  <div className="p-3">
+                    <Button size="sm" variant="outline" className="w-full bg-transparent cursor-pointer" asChild>
+                      <Link href={`/library/products/${item.productId}`}>
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                        View Details
+                      </Link>
+                    </Button>
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-neutral-900 group-hover:text-violet-700">{item.title}</h3>
-                <p className="mt-1 text-sm text-neutral-500">by {item.creatorName}</p>
-                <div className="mt-2 flex items-center gap-1 text-xs text-neutral-500">
-                  <Calendar className="h-3 w-3" />
-                  <span>Purchased {item.purchasedAtLabel}</span>
-                </div>
-              </div>
-            </Link>
-
-            <div className="border-t border-neutral-200 p-3">
-              {item.files.length === 1 ? (
-                <Button
-                  className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black overflow-hidden"
-                  onClick={() => handleDownload(item.files[0].id)}
-                  disabled={downloadingFileId === item.files[0].id}
-                >
-                  {downloadingFileId === item.files[0].id ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
-                      <span className="truncate">Downloading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4 shrink-0" />
-                      <span className="truncate">Download File</span>
-                    </>
-                  )}
-                </Button>
-              ) : item.files.length > 1 ? (
-                <Button className="w-full h-12 cursor-pointer" variant="outline" onClick={() => setActiveItem(item)}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Choose file ({item.files.length})
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" className="w-full bg-transparent cursor-pointer" asChild>
-                  <Link href={`/library/products/${item.productId}`}>
-                    <ArrowRight className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </Button>
-              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      {/* File picker — portaled to document.body for proper full-viewport overlay */}
-      {activeItem && (
+      {/* File picker portal — desktop only (not shown on mobile) */}
+      {!isMobile && activeItem && (
         <FilePickerOverlay
           item={activeItem}
           onClose={closePicker}

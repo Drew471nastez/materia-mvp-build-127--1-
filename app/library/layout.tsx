@@ -85,8 +85,8 @@ export default async function LibraryLayout({
             "h-svh overflow-y-auto bg-[#fafafa]",
             // Desktop: revert to natural document flow
             "md:h-auto md:overflow-y-visible md:min-h-svh",
-            // Mobile top padding accounts for the fixed header (3.5rem) + status bar
-            "pt-[calc(3.5rem+env(safe-area-inset-top,_0px))]",
+            // Mobile top padding accounts for the fixed header (3.5rem) + 1px border-b + status bar
+            "pt-[calc(3.5rem+1px+env(safe-area-inset-top,_0px))]",
             "md:pt-[env(safe-area-inset-top,_0px)]",
           ].join(" ")}
           style={{
