@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera } from "lucide-react"
+import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -92,6 +92,13 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
 
   // Sign out state
   const [signingOut, setSigningOut] = useState(false)
+
+  // Delete account state
+  const [deleteStep, setDeleteStep] = useState<"idle" | "confirm" | "code">("idle")
+  const [deleteSending, setDeleteSending] = useState(false)
+  const [deleteVerifying, setDeleteVerifying] = useState(false)
+  const [deleteCode, setDeleteCode] = useState("")
+  const [deleteError, setDeleteError] = useState("")
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true)
@@ -189,6 +196,51 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
       router.push("/")
     }
   }, [router])
+
+  const handleSendDeleteCode = useCallback(async () => {
+    setDeleteSending(true)
+    setDeleteError("")
+    try {
+      const res = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send-code" }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to send code")
+      setDeleteStep("code")
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to send code. Please try again.")
+    } finally {
+      setDeleteSending(false)
+    }
+  }, [])
+
+  const handleVerifyDeleteCode = useCallback(async () => {
+    if (!deleteCode.trim()) {
+      setDeleteError("Please enter the verification code.")
+      return
+    }
+    setDeleteVerifying(true)
+    setDeleteError("")
+    try {
+      const res = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", code: deleteCode.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Invalid code")
+      // Account deleted — sign out and redirect
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push("/")
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete account. Please try again.")
+    } finally {
+      setDeleteVerifying(false)
+    }
+  }, [deleteCode, router])
 
   const joinDate = new Date(createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
 
@@ -391,6 +443,97 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
               <p>Email: <span className="text-neutral-900">{email}</span></p>
               <p>Member since: <span className="text-neutral-900">{joinDate}</span></p>
             </div>
+          </div>
+
+          {/* Delete account card */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-red-200">
+            <h3 className="text-[15px] font-semibold text-red-700 mb-2">Delete Account</h3>
+            <p className="text-sm text-neutral-500 mb-4">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+
+            {deleteError && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2 mb-3">
+                <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                <p className="text-sm text-red-700">{deleteError}</p>
+              </div>
+            )}
+
+            {deleteStep === "idle" && (
+              <Button
+                onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
+                variant="outline"
+                className="h-11 rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 text-sm font-medium"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Account
+              </Button>
+            )}
+
+            {deleteStep === "confirm" && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-4 space-y-3">
+                <p className="text-sm font-medium text-red-800">Are you sure?</p>
+                <p className="text-sm text-red-700">
+                  This will permanently delete your account, all purchases, and your download history. A verification code will be sent to <strong>{email}</strong>.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    onClick={handleSendDeleteCode}
+                    disabled={deleteSending}
+                    className="h-10 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
+                  >
+                    {deleteSending ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
+                    ) : (
+                      "Send Verification Code"
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => { setDeleteStep("idle"); setDeleteError("") }}
+                    variant="outline"
+                    className="h-10 rounded-xl border-neutral-200 text-sm font-medium"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === "code" && (
+              <div className="space-y-3">
+                <p className="text-sm text-neutral-600">
+                  Enter the 6-digit code sent to <strong>{email}</strong>.
+                </p>
+                <Input
+                  value={deleteCode}
+                  onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="h-11 border-neutral-200 rounded-xl text-sm tracking-widest text-center w-36 font-mono"
+                  onKeyDown={(e) => e.key === "Enter" && handleVerifyDeleteCode()}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleVerifyDeleteCode}
+                    disabled={deleteVerifying || deleteCode.length < 6}
+                    className="h-10 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
+                  >
+                    {deleteVerifying ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>
+                    ) : (
+                      "Confirm Deletion"
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
+                    variant="outline"
+                    className="h-10 rounded-xl border-neutral-200 text-sm font-medium"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
