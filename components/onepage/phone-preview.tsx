@@ -2383,7 +2383,7 @@ export function MobilePreviewContent() {
             sellerName={sellerName}
             avatarUrl={avatar_url}
             avatarVideoUrl={avatar_video_url}
-            pageUrl={getLinksUrl((onepage as any).slug || "preview")}
+            pageUrl={getLinksShareUrl((onepage as any).slug || "preview")}
             scale="normal"
             style={(settings as any)?.share_style || "white"}
             showSubscribe={settings?.subscribe_enabled !== false}

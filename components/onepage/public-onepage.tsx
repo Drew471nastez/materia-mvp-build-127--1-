@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
-import { getLinksUrl } from "@/lib/url-helpers"
+import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -670,6 +670,31 @@ function ShareButton({
     }
   }
 
+  /**
+   * On native: first try to open the native app via its URL scheme (App.openUrl).
+   * If the app is not installed the OS throws — fall back to Browser.open.
+   * On web: open the web fallback URL in a new tab.
+   */
+  const openShareTarget = async (nativeScheme: string | null, webUrl: string) => {
+    if (isNativeApp()) {
+      if (nativeScheme) {
+        try {
+          const { App } = await import("@capacitor/app")
+          await App.openUrl({ url: nativeScheme })
+          return
+        } catch {
+          // App not installed — fall through to in-app browser
+        }
+      }
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url: webUrl })
+    } else {
+      window.open(webUrl, "_blank")
+    }
+  }
+
+  const shareText = `${pageTitle} ${pageUrl}`
+
   const shareOptions = [
     {
       name: "Copy link",
@@ -682,7 +707,8 @@ function ShareButton({
       iconType: "x" as const,
       color: "#000000",
       action: () =>
-        openExternalUrl(
+        openShareTarget(
+          `twitter://post?message=${encodeURIComponent(shareText)}`,
           `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
         ),
     },
@@ -690,14 +716,22 @@ function ShareButton({
       name: "Facebook",
       iconType: "facebook" as const,
       color: "#1877F2",
+      // Facebook dropped reliable URL-scheme sharing; web URL lets iOS Universal Links redirect to FB app if installed
       action: () =>
-        openExternalUrl(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`),
+        openShareTarget(
+          null,
+          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`,
+        ),
     },
     {
       name: "WhatsApp",
       iconType: "whatsapp" as const,
       color: "#25D366",
-      action: () => openExternalUrl(`https://wa.me/?text=${encodeURIComponent(`${pageTitle} ${pageUrl}`)}`),
+      action: () =>
+        openShareTarget(
+          `whatsapp://send?text=${encodeURIComponent(shareText)}`,
+          `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+        ),
     },
   ]
 
@@ -1888,7 +1922,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return patterns[patternType] || null
   }
 
-  const pageUrl = getLinksUrl(onepage.slug)
+  const pageUrl = getLinksShareUrl(onepage.slug)
 
   // Page content component
   const PageContent = ({ isDesktop = false }: { isDesktop?: boolean }) => (
