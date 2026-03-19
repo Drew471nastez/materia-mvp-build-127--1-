@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera } from "lucide-react"
+import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -92,6 +92,14 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
 
   // Sign out state
   const [signingOut, setSigningOut] = useState(false)
+
+  // Delete account state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteStep, setDeleteStep] = useState<"confirm" | "verify">("confirm")
+  const [deleteVerificationCode, setDeleteVerificationCode] = useState(["", "", "", "", "", ""])
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteCodeInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true)
@@ -189,6 +197,78 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
       router.push("/")
     }
   }, [router])
+
+  const handleSendDeleteCode = useCallback(async () => {
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      const response = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send-code" }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setDeleteStep("verify")
+        setDeleteVerificationCode(["", "", "", "", "", ""])
+      } else {
+        setDeleteError(data.error || "Failed to send verification code")
+      }
+    } catch {
+      setDeleteError("An error occurred. Please try again.")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }, [])
+
+  const handleDeleteCodeInput = useCallback((index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return
+    const newCode = [...deleteVerificationCode]
+    newCode[index] = value.slice(-1)
+    setDeleteVerificationCode(newCode)
+    if (value && index < 5) {
+      deleteCodeInputRefs.current[index + 1]?.focus()
+    }
+  }, [deleteVerificationCode])
+
+  const handleDeleteCodeKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !deleteVerificationCode[index] && index > 0) {
+      deleteCodeInputRefs.current[index - 1]?.focus()
+    }
+  }, [deleteVerificationCode])
+
+  const handleConfirmDelete = useCallback(async () => {
+    const code = deleteVerificationCode.join("")
+    if (code.length !== 6) {
+      setDeleteError("Please enter the complete verification code")
+      return
+    }
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      const response = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", code }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        const supabase = createClient()
+        await supabase.auth.signOut()
+        if (isNativePlatform()) {
+          nativeLogOut()
+        } else {
+          router.push("/")
+        }
+      } else {
+        setDeleteError(data.error || "Invalid verification code")
+      }
+    } catch {
+      setDeleteError("An error occurred. Please try again.")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }, [deleteVerificationCode, router])
 
   const joinDate = new Date(createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
 
@@ -390,6 +470,148 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
             <div className="space-y-2 text-sm text-neutral-500">
               <p>Email: <span className="text-neutral-900">{email}</span></p>
               <p>Member since: <span className="text-neutral-900">{joinDate}</span></p>
+            </div>
+          </div>
+
+          {/* Delete Account card */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-red-100">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-[15px] font-semibold text-red-600 mb-1">Delete Account</h3>
+                <p className="text-sm text-neutral-500">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                <p className="text-xs text-neutral-400 mt-1.5">Member since {joinDate}</p>
+              </div>
+              <Button
+                onClick={() => { setShowDeleteModal(true); setDeleteStep("confirm"); setDeleteError(null); setDeleteVerificationCode(["", "", "", "", "", ""]) }}
+                variant="outline"
+                className="h-10 rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 text-sm font-medium shrink-0"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            onClick={() => { if (!deleteLoading) { setShowDeleteModal(false); setDeleteStep("confirm") } }}
+          />
+          <div className="relative bg-white rounded-t-[24px] sm:rounded-2xl w-full sm:max-w-md shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-neutral-100">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </div>
+                <h2 className="text-[16px] font-semibold text-neutral-900">
+                  {deleteStep === "confirm" ? "Delete Account" : "Verify Deletion"}
+                </h2>
+              </div>
+              <button
+                onClick={() => { if (!deleteLoading) { setShowDeleteModal(false); setDeleteStep("confirm") } }}
+                disabled={deleteLoading}
+                className="h-8 w-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              {deleteStep === "confirm" ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-red-50 border border-red-100 p-4">
+                    <p className="text-sm font-medium text-red-700 mb-1">This will permanently:</p>
+                    <ul className="text-sm text-red-600 space-y-1 list-disc list-inside">
+                      <li>Delete your account and profile</li>
+                      <li>Remove all your purchases and library items</li>
+                      <li>This action cannot be undone</li>
+                    </ul>
+                  </div>
+                  <p className="text-sm text-neutral-500">
+                    A verification code will be sent to <span className="font-medium text-neutral-900">{email}</span> to confirm deletion.
+                  </p>
+                  {deleteError && (
+                    <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                      <p className="text-sm text-red-700">{deleteError}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-1">
+                    <Button
+                      onClick={() => { setShowDeleteModal(false); setDeleteStep("confirm") }}
+                      disabled={deleteLoading}
+                      variant="outline"
+                      className="flex-1 h-11 rounded-xl border-neutral-200 text-sm font-medium"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSendDeleteCode}
+                      disabled={deleteLoading}
+                      className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
+                    >
+                      {deleteLoading ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
+                      ) : (
+                        "Send Code"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-neutral-500">
+                    Enter the 6-digit code sent to <span className="font-medium text-neutral-900">{email}</span>.
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    {deleteVerificationCode.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => { deleteCodeInputRefs.current[i] = el }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleDeleteCodeInput(i, e.target.value)}
+                        onKeyDown={(e) => handleDeleteCodeKeyDown(i, e)}
+                        className="w-11 h-12 text-center text-lg font-semibold border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 bg-neutral-50"
+                      />
+                    ))}
+                  </div>
+                  {deleteError && (
+                    <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                      <p className="text-sm text-red-700">{deleteError}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-1">
+                    <Button
+                      onClick={() => { setDeleteStep("confirm"); setDeleteError(null) }}
+                      disabled={deleteLoading}
+                      variant="outline"
+                      className="flex-1 h-11 rounded-xl border-neutral-200 text-sm font-medium"
+                    >
+                      Go Back
+                    </Button>
+                    <Button
+                      onClick={handleConfirmDelete}
+                      disabled={deleteLoading || deleteVerificationCode.join("").length !== 6}
+                      className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-50"
+                    >
+                      {deleteLoading ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting...</>
+                      ) : (
+                        "Delete Account"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

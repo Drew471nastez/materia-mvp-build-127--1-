@@ -243,18 +243,29 @@ function MobileBottomSheet({
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const handleBarRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  // Refs for native non-passive touch handlers (avoids stale closures)
+  const isDraggingRef = useRef(false)
+  const startYRef = useRef(0)
+  const dragYRef = useRef(0)
+  const scrollYRef = useRef(0)
 
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      // Prevent layout shift by compensating for scrollbar
+      // Save scroll position before locking (needed to restore on iOS)
+      scrollYRef.current = window.scrollY
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+      // Use position:fixed trick — more reliable than overflow:hidden alone on iOS Safari
       document.body.style.overflow = "hidden"
+      document.body.style.position = "fixed"
+      document.body.style.top = `-${scrollYRef.current}px`
+      document.body.style.width = "100%"
       document.body.style.paddingRight = `${scrollbarWidth}px`
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
+      document.documentElement.style.overscrollBehavior = "none"
+      document.body.style.overscrollBehavior = "none"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -263,62 +274,94 @@ function MobileBottomSheet({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       const timer = setTimeout(() => {
+        const sy = scrollYRef.current
         document.body.style.overflow = ""
+        document.body.style.position = ""
+        document.body.style.top = ""
+        document.body.style.width = ""
         document.body.style.paddingRight = ""
-        document.documentElement.style.overscrollBehavior = ''
-        document.body.style.overscrollBehavior = ''
+        document.documentElement.style.overscrollBehavior = ""
+        document.body.style.overscrollBehavior = ""
+        window.scrollTo(0, sy)
         setIsVisible(false)
         setDragY(0)
+        dragYRef.current = 0
       }, 400)
       return () => clearTimeout(timer)
     }
     return () => {
+      const sy = scrollYRef.current
       document.body.style.overflow = ""
+      document.body.style.position = ""
+      document.body.style.top = ""
+      document.body.style.width = ""
       document.body.style.paddingRight = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      document.documentElement.style.overscrollBehavior = ""
+      document.body.style.overscrollBehavior = ""
+      if (sy) window.scrollTo(0, sy)
     }
   }, [isOpen, isVisible])
+
+  // Attach non-passive touchmove on the handle bar so preventDefault() actually works
+  useEffect(() => {
+    const handle = handleBarRef.current
+    if (!handle || !isVisible) return
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDraggingRef.current) return
+      const diff = e.touches[0].clientY - startYRef.current
+      if (diff > 0) {
+        e.preventDefault()
+        const newDrag = diff * 0.8
+        dragYRef.current = newDrag
+        setDragY(newDrag)
+      }
+    }
+    handle.addEventListener("touchmove", onTouchMove, { passive: false })
+    return () => handle.removeEventListener("touchmove", onTouchMove)
+  }, [isVisible])
+
+  // Prevent the backdrop overlay from letting touch events reach the page below
+  useEffect(() => {
+    const overlay = overlayRef.current
+    if (!overlay || !isVisible) return
+    const prevent = (e: TouchEvent) => e.preventDefault()
+    overlay.addEventListener("touchmove", prevent, { passive: false })
+    return () => overlay.removeEventListener("touchmove", prevent)
+  }, [isVisible])
 
   const handleClose = () => {
     setIsAnimating(false)
     setDragY(0)
+    dragYRef.current = 0
     setTimeout(() => {
       onClose()
     }, 400)
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    startY.current = touch.clientY
+    startYRef.current = e.touches[0].clientY
+    isDraggingRef.current = true
     setIsDragging(true)
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      e.preventDefault()
-      setDragY(diff * 0.8)
-    }
-  }
-
   const handleTouchEnd = () => {
-    if (!isDragging) return
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
     setIsDragging(false)
-    if (dragY > 80) {
+    if (dragYRef.current > 80) {
       handleClose()
     } else {
       setDragY(0)
+      dragYRef.current = 0
     }
   }
 
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" style={{ touchAction: "none" }}>
       <div
+        ref={overlayRef}
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
           isAnimating ? "opacity-100" : "opacity-0"
         }`}
@@ -330,7 +373,7 @@ function MobileBottomSheet({
           className={`relative bg-white rounded-2xl w-full max-w-md shadow-xl transition-all duration-400 ${
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
           }`}
-          style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)" }}
+          style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)", touchAction: "auto" }}
         >
           <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
             <h2 className="text-[18px] font-semibold text-[#1a1a2e]">{title}</h2>
@@ -341,7 +384,7 @@ function MobileBottomSheet({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{children}</div>
+          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>{children}</div>
         </div>
       </div>
       {/* Mobile Bottom Sheet */}
@@ -351,14 +394,16 @@ function MobileBottomSheet({
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
+          touchAction: "none",
         }}
       >
-        {/* Handle bar — drag target only, touch events restricted here so content buttons work */}
+        {/* Handle bar — drag target; native non-passive listener handles move */}
         <div
+          ref={handleBarRef}
           className="pt-3 pb-2"
           onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          style={{ touchAction: "none" }}
         >
           <button
             onClick={handleClose}
@@ -367,7 +412,7 @@ function MobileBottomSheet({
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
-        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]">
+        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]" style={{ touchAction: "pan-y" }}>
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{title}</h3>
           {children}
         </div>
