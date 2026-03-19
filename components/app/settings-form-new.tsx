@@ -228,10 +228,6 @@ interface SettingsFormProps {
 }
 
 // Mobile Bottom Sheet Component
-// On desktop (≥640px): renders as a centered modal overlay.
-// On mobile (<640px): renders inline in the document flow — no overlay,
-// no backdrop, no body scroll lock. Content appears where the component
-// sits in the DOM tree so the user can scroll to it without any popup.
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -253,11 +249,12 @@ function MobileBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
+      // Prevent layout shift by compensating for scrollbar
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = "hidden"
       document.body.style.paddingRight = `${scrollbarWidth}px`
-      document.documentElement.style.overscrollBehavior = "none"
-      document.body.style.overscrollBehavior = "none"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -268,8 +265,8 @@ function MobileBottomSheet({
       const timer = setTimeout(() => {
         document.body.style.overflow = ""
         document.body.style.paddingRight = ""
-        document.documentElement.style.overscrollBehavior = ""
-        document.body.style.overscrollBehavior = ""
+        document.documentElement.style.overscrollBehavior = ''
+        document.body.style.overscrollBehavior = ''
         setIsVisible(false)
         setDragY(0)
       }, 400)
@@ -278,8 +275,8 @@ function MobileBottomSheet({
     return () => {
       document.body.style.overflow = ""
       document.body.style.paddingRight = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 
@@ -356,7 +353,7 @@ function MobileBottomSheet({
           transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
-        {/* Handle bar — drag target only */}
+        {/* Handle bar — drag target only, touch events restricted here so content buttons work */}
         <div
           className="pt-3 pb-2"
           onTouchStart={handleTouchStart}
@@ -1903,6 +1900,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <button
               type="button"
               onClick={() => {
+                if (isMobileViewport) {
+                  setIsQuickAccessOpen(true)
+                  return
+                }
                 setIsQuickAccessOpen((v) => !v)
               }}
               className="relative inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] sm:text-[14px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
@@ -1915,7 +1916,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </span>
             </button>
 
-            {isQuickAccessOpen && (
+            {!isMobileViewport && isQuickAccessOpen && (
               <div className="absolute right-0 top-full mt-2 w-[280px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200">
                 <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
                 <button
@@ -1945,6 +1946,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           </div>
         </div>
 
+        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
+          <div className="space-y-2">
+            <button type="button" onClick={() => {
+              setIsQuickAccessOpen(false)
+              openExternal(onepageUrl || navOnepageUrl)
+            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
+            </button>
+            <button type="button" onClick={() => {
+              setIsQuickAccessOpen(false)
+              openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
+            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Store</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
+            </button>
+          </div>
+        </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -2231,7 +2250,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                 >
                   <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English (US)"}</span>
-                  <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+                  <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                 </button>
               </div>
 
@@ -2252,7 +2271,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       ({TIMEZONES.find(tz => tz.code === selectedTimezone)?.offset || ""})
                     </span>
                   </span>
-                  <ChevronDown className="h-4 w-4 text-[#9ca3af] shrink-0" />
+                  <ChevronRight className="h-4 w-4 text-[#9ca3af] shrink-0" />
                 </button>
               </div>
 
@@ -2332,7 +2351,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                     >
                       <span className={country ? "text-[#1a1a2e]" : "text-[#9ca3af]"}>{country || "Select country"}</span>
-                      <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+                      <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                     </button>
                   </div>
                 </div>
@@ -2845,8 +2864,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               </div>
 
+              {showCurrencyPicker && !isMobileViewport && (
+                <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
+                  <div className="w-full max-w-[420px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
+                    <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
+                    <div className="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
+                      {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
+                        <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${payoutCurrency === currency ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f3f4f6]"}`}>
+                          {currency}
+                          {payoutCurrency === currency && <Check className="h-4 w-4" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <MobileBottomSheet
-                isOpen={showCurrencyPicker}
+                isOpen={showCurrencyPicker && isMobileViewport}
                 onClose={() => setShowCurrencyPicker(false)}
                 title="Select payout currency"
               >
