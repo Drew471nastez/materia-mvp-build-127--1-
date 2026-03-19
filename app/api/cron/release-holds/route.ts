@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { notifyPayoutAvailable } from "@/lib/push/notifications"
 
 /**
  * GET /api/cron/release-holds
@@ -109,6 +110,13 @@ export async function GET(request: Request) {
           .from("ledger_events")
           .update({ released_at: now.toISOString() })
           .in("id", eventIds)
+
+        // Notify seller that funds are available for cashout (fire-and-forget)
+        if (toAvailable > 0) {
+          notifyPayoutAvailable(creatorId, toAvailable).catch((err) =>
+            console.error(`[Release Holds] Push notification failed for ${creatorId}:`, err),
+          )
+        }
 
         totalReleased += releaseAmount
         creatorsProcessed++
