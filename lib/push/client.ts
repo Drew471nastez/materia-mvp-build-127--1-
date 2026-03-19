@@ -86,10 +86,10 @@ export async function initPushNotifications(): Promise<void> {
       // Firebase Admin requires an FCM registration token, so we must NOT send this to the
       // backend. The FCM token arrives separately via the 'fcmTokenReady' window event
       // dispatched by AppDelegate's MessagingDelegate callback.
-      console.log(`[push] APNs token received: ${token.slice(0, 20)}... (not sent to backend — waiting for FCM token)`)
+      console.log(`[push] APNs token received (not sent to backend — waiting for FCM token)`)
     } else {
       // On Android @capacitor/push-notifications returns the FCM registration token directly.
-      console.log(`[push] FCM token received: ${token.slice(0, 20)}...`)
+      console.log(`[push] FCM token received`)
       registerToken(token)
     }
   })
@@ -120,7 +120,7 @@ export async function initPushNotifications(): Promise<void> {
       "fcmTokenReady",
       (event) => {
         const fcmToken = (event as CustomEvent<string>).detail
-        console.log(`[push] FCM token received: ${fcmToken.slice(0, 20)}...`)
+        console.log(`[push] FCM token received`)
         registerToken(fcmToken)
       },
       { once: true },

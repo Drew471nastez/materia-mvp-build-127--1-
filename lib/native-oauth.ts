@@ -229,8 +229,7 @@ function isRecoveryCallback(url: string): boolean {
  */
 async function handleRecoveryCallback(rawUrl: string): Promise<void> {
   console.log(`${TAG} ▶ Recovery deep link detected`)
-  console.log(`${TAG}   raw URL : "${rawUrl.slice(0, 120)}"`)
-  showToast(`Recovery deep link\n${rawUrl.slice(0, 120)}`, "info")
+  showToast(`Recovery deep link received`, "info")
 
   notifyNativeAuthStart()
 
@@ -257,8 +256,7 @@ async function handleRecoveryCallback(rawUrl: string): Promise<void> {
  */
 async function handleHttpsResetPasswordLink(rawUrl: string): Promise<void> {
   console.log(`${TAG} ▶ HTTPS reset-password App Link detected`)
-  console.log(`${TAG}   raw URL : "${rawUrl.slice(0, 150)}"`)
-  showToast(`HTTPS reset link\n${rawUrl.slice(0, 120)}`, "info")
+  showToast(`HTTPS reset link received`, "info")
 
   notifyNativeAuthStart()
   try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
@@ -303,7 +301,6 @@ async function handleHttpsResetPasswordLink(rawUrl: string): Promise<void> {
 export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   // ── LOG 1: appUrlOpen fired ────────────────────────────────────────────────
   console.log(`${TAG} ▶ appUrlOpen fired`)
-  console.log(`${TAG}   raw URL : "${rawUrl}"`)
   console.log(`${TAG}   isOAuthCallback: ${isOAuthCallback(rawUrl)}`)
   showToast(`appUrlOpen fired\n${rawUrl.slice(0, 120)}`, "info")
 
@@ -346,7 +343,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     const oauthErrDesc = u.searchParams.get("error_description")
 
     console.log(`${TAG} URL params:`)
-    console.log(`${TAG}   code  : ${code ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
+    console.log(`${TAG}   code  : ${code ? "present" : "MISSING"}`)
     console.log(`${TAG}   error : ${oauthErr ?? "none"}`)
 
     // ── Handle OAuth errors (user cancelled, etc.) ───────────────────────────
@@ -541,7 +538,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     // AND HTTPS App Links / Universal Links (https://storelib.com/reset-password#...)
     console.log(`${TAG} Registering App.addListener("appUrlOpen")…`)
     const appHandle = await App.addListener("appUrlOpen", ({ url }) => {
-      console.log(`${TAG} ← appUrlOpen event received, url="${url}"`)
+      console.log(`${TAG} ← appUrlOpen event received`)
 
       // Bridge-code reset links (storelib://reset-password?code=XXX)
       if (isBridgeCodeResetLink(url)) {
@@ -567,7 +564,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     try {
       const launchResult = await App.getLaunchUrl()
       if (launchResult?.url) {
-        console.log(`${TAG}   Launch URL detected: "${launchResult.url.slice(0, 120)}"`)
+        console.log(`${TAG}   Launch URL detected`)
         if (isBridgeCodeResetLink(launchResult.url)) {
           console.log(`${TAG}   Cold-start: processing bridge-code reset launch URL`)
           handleBridgeCodeResetLink(launchResult.url)

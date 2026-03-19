@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     console.error("[push/register] Failed to parse JSON body:", e)
     return null
   })
-  console.log("[push/register] Request body:", body)
+  console.log("[push/register] Request body received, platform:", (body as { platform?: string })?.platform)
 
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient()
 
-  console.log(`[push/register] Upserting ${platform} token (first 20 chars): ${token.slice(0, 20)}... for user ${user.id.slice(0, 8)}...`)
+  console.log(`[push/register] Upserting ${platform} token for user ${user.id.slice(0, 8)}...`)
 
   const { data: upsertData, error } = await admin
     .from("push_tokens")
@@ -65,6 +65,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to save token" }, { status: 500 })
   }
 
-  console.log(`[push/register] Insert/upsert SUCCESS — rows:`, upsertData)
+  console.log(`[push/register] Insert/upsert SUCCESS`)
   return NextResponse.json({ ok: true })
 }

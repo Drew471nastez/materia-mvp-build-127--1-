@@ -67,9 +67,9 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 
       try {
         await admin.messaging().send(message)
-        console.log(`[push] ✓ Sent to ${platform} ${token.slice(0, 12)}...`)
+        console.log(`[push] ✓ Sent to ${platform} device`)
       } catch (err: any) {
-        console.error(`[push] ✗ Failed ${token.slice(0, 12)}... — ${err.code ?? err.message}`)
+        console.error(`[push] ✗ Failed to send to ${platform} device — ${err.code ?? err.message}`)
         if (
           err.code === "messaging/invalid-registration-token" ||
           err.code === "messaging/registration-token-not-registered"
