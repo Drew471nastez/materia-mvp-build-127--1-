@@ -249,8 +249,8 @@ function VerifyContent() {
               </button>
             </div>
 
-            <p className="text-[13px] text-neutral-400 text-center">
-              Check your spam folder if you don&apos;t see the email
+            <p className="text-[13px] text-neutral-500 text-center">
+              Can&apos;t find the email? Check your <span className="font-medium">spam or junk folder</span>.
             </p>
 
             <div className="pt-4 border-t border-neutral-100">
