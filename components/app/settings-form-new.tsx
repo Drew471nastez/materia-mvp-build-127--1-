@@ -243,25 +243,21 @@ function MobileBottomSheet({
   title: string
   children: React.ReactNode
 }) {
-  const [isMobileScreen, setIsMobileScreen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const check = () => setIsMobileScreen(window.innerWidth < 640)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  // Desktop modal animation & body scroll lock
-  useEffect(() => {
-    if (isMobileScreen) return
     if (isOpen && !isVisible) {
       setIsVisible(true)
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = "hidden"
       document.body.style.paddingRight = `${scrollbarWidth}px`
+      document.documentElement.style.overscrollBehavior = "none"
+      document.body.style.overscrollBehavior = "none"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -272,60 +268,67 @@ function MobileBottomSheet({
       const timer = setTimeout(() => {
         document.body.style.overflow = ""
         document.body.style.paddingRight = ""
+        document.documentElement.style.overscrollBehavior = ""
+        document.body.style.overscrollBehavior = ""
         setIsVisible(false)
+        setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
     return () => {
       document.body.style.overflow = ""
       document.body.style.paddingRight = ""
+      document.documentElement.style.overscrollBehavior = ""
+      document.body.style.overscrollBehavior = ""
     }
-  }, [isOpen, isVisible, isMobileScreen])
+  }, [isOpen, isVisible])
 
   const handleClose = () => {
-    if (isMobileScreen) {
-      onClose()
-      return
-    }
     setIsAnimating(false)
+    setDragY(0)
     setTimeout(() => {
       onClose()
     }, 400)
   }
 
-  // ── Mobile: inline card (no overlay, no scroll lock) ──────────────
-  if (isMobileScreen) {
-    if (!isOpen) return null
-    return (
-      <div className="mt-4 rounded-2xl border border-[#e5e7eb] bg-white shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
-          <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{title}</h3>
-          <button
-            onClick={handleClose}
-            className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="p-4 max-h-[60vh] overflow-y-auto overscroll-contain">
-          {children}
-        </div>
-      </div>
-    )
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    startY.current = touch.clientY
+    setIsDragging(true)
   }
 
-  // ── Desktop: centered modal overlay ──────────────────────────────
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      e.preventDefault()
+      setDragY(diff * 0.8)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]" style={{ height: "100dvh" }}>
+    <div className="fixed inset-0 z-[100]">
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
           isAnimating ? "opacity-100" : "opacity-0"
         }`}
         onClick={handleClose}
       />
-      <div className="flex absolute inset-0 items-center justify-center p-4" style={{ height: "100dvh" }}>
+      {/* Desktop Modal */}
+      <div className="hidden sm:flex fixed inset-0 items-center justify-center p-4">
         <div
           className={`relative bg-white rounded-2xl w-full max-w-md shadow-xl transition-all duration-400 ${
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
@@ -341,8 +344,37 @@ function MobileBottomSheet({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="p-4 max-h-[70dvh] overflow-y-auto overscroll-contain">{children}</div>
+          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{children}</div>
         </div>
+      </div>
+      {/* Mobile Bottom Sheet */}
+      <div
+        ref={sheetRef}
+        className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-hidden"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
+      >
+        {/* Handle bar — drag target only */}
+        <div
+          className="pt-3 pb-2"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <button
+            onClick={handleClose}
+            className="w-full flex justify-center py-2 cursor-pointer touch-none"
+          >
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{title}</h3>
+          {children}
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
       </div>
     </div>
   )
