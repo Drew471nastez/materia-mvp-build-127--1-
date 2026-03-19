@@ -188,7 +188,7 @@ If you didn't request this, please ignore this email and secure your account imm
         await adminSupabase.from("push_tokens").delete().eq("user_id", user.id)
 
         // 7. Onepages ─────────────────────────────────────────────────────────
-        await adminSupabase.from("onepages").delete().eq("user_id", user.id)
+        await adminSupabase.from("onepages").delete().eq("owner_id", user.id)
 
         // 8. Creator-specific data ────────────────────────────────────────────
         if (creatorId) {
