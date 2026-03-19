@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
-      console.log("[v0] Order not found for token:", receiptToken)
+      console.log("[v0] Order not found for provided receipt token")
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 

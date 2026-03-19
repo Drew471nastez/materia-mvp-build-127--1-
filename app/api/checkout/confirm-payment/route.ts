@@ -326,7 +326,7 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log("[confirm-payment] Complete. Receipt:", order.receipt_token)
+    console.log("[confirm-payment] Complete. Order confirmed, receipt token present:", !!order.receipt_token)
 
     return NextResponse.json({
       success: true,
