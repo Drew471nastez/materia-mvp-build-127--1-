@@ -451,148 +451,107 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
             <p className="text-sm text-neutral-500 mb-4">
               Permanently delete your account and all associated data. This action cannot be undone.
             </p>
-            <Button
-              onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
-              variant="outline"
-              className="h-11 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 text-sm font-medium"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Account
-            </Button>
+
+            {deleteStep === "idle" && (
+              <Button
+                onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
+                variant="outline"
+                className="h-11 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 text-sm font-medium"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Account
+              </Button>
+            )}
+
+            {deleteStep === "confirm" && (
+              <div className="space-y-4">
+                {deleteError && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                    <p className="text-sm text-red-700">{deleteError}</p>
+                  </div>
+                )}
+                <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-4 space-y-2">
+                  <p className="text-sm font-medium text-neutral-800">What will be deleted:</p>
+                  <ul className="text-sm text-neutral-600 space-y-1">
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />Your account and profile</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />All purchases and download history</li>
+                    <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />All associated data permanently</li>
+                  </ul>
+                </div>
+                <p className="text-sm text-neutral-500">
+                  A 6-digit verification code will be sent to <span className="font-medium text-neutral-700">{email}</span>.
+                </p>
+                <div className="flex flex-row gap-2">
+                  <Button
+                    onClick={() => { setDeleteStep("idle"); setDeleteError("") }}
+                    variant="outline"
+                    className="h-11 flex-1 rounded-xl border-neutral-200 text-sm font-medium"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendDeleteCode}
+                    disabled={deleteSending}
+                    className="h-11 flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
+                  >
+                    {deleteSending ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending Code...</>
+                    ) : (
+                      "Send Verification Code"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === "code" && (
+              <div className="space-y-4">
+                {deleteError && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                    <p className="text-sm text-red-700">{deleteError}</p>
+                  </div>
+                )}
+                <p className="text-sm text-neutral-600">
+                  Enter the 6-digit code sent to <span className="font-medium text-neutral-700">{email}</span>.
+                </p>
+                <div className="flex justify-center">
+                  <Input
+                    value={deleteCode}
+                    onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    className="h-14 border-neutral-200 rounded-xl text-2xl tracking-[0.5em] text-center w-48 font-mono"
+                    onKeyDown={(e) => e.key === "Enter" && handleVerifyDeleteCode()}
+                  />
+                </div>
+                <div className="flex flex-row gap-2">
+                  <Button
+                    onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
+                    variant="outline"
+                    className="h-11 flex-1 rounded-xl border-neutral-200 text-sm font-medium"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleVerifyDeleteCode}
+                    disabled={deleteVerifying || deleteCode.length < 6}
+                    className="h-11 flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium disabled:opacity-40"
+                  >
+                    {deleteVerifying ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting Account...</>
+                    ) : (
+                      "Confirm & Delete"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Delete Account Modal — centered popup on all screen sizes */}
-      {deleteStep !== "idle" && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200"
-            onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
-          />
-
-          {/* Panel */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in-0 zoom-in-95 duration-200">
-            <div
-              className="bg-white w-full rounded-2xl max-w-md shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-6 pt-5 pb-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                      <Trash2 className="h-5 w-5 text-red-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-[15px] font-semibold text-neutral-900">Delete Account</h2>
-                      <p className="text-xs text-neutral-500 mt-0.5">
-                        {deleteStep === "confirm" ? "Confirm your decision" : "Enter verification code"}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
-                    className="h-8 w-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors text-neutral-500 hover:text-neutral-700 shrink-0"
-                    aria-label="Close"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Error */}
-                {deleteError && (
-                  <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3 flex items-center gap-2 mb-4">
-                    <AlertCircle className="h-4 w-4 text-neutral-600 shrink-0" />
-                    <p className="text-sm text-neutral-700">{deleteError}</p>
-                  </div>
-                )}
-
-                {/* Step: confirm */}
-                {deleteStep === "confirm" && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-4 space-y-2">
-                      <p className="text-sm font-medium text-neutral-800">What will be deleted:</p>
-                      <ul className="text-sm text-neutral-600 space-y-1">
-                        <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />Your account and profile</li>
-                        <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />All purchases and download history</li>
-                        <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0" />All associated data permanently</li>
-                      </ul>
-                    </div>
-                    <p className="text-sm text-neutral-500">
-                      A 6-digit verification code will be sent to <span className="font-medium text-neutral-700">{email}</span>.
-                    </p>
-                    <div className="flex flex-row gap-2 pt-1">
-                      <Button
-                        onClick={() => { setDeleteStep("idle"); setDeleteError("") }}
-                        variant="outline"
-                        className="h-11 flex-1 rounded-xl border-neutral-200 text-sm font-medium"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleSendDeleteCode}
-                        disabled={deleteSending}
-                        className="h-11 flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
-                      >
-                        {deleteSending ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending Code...</>
-                        ) : (
-                          "Send Verification Code"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Step: code */}
-                {deleteStep === "code" && (
-                  <div className="space-y-4">
-                    <p className="text-sm text-neutral-600">
-                      Enter the 6-digit code sent to <span className="font-medium text-neutral-700">{email}</span>.
-                    </p>
-                    <div className="flex justify-center">
-                      <Input
-                        value={deleteCode}
-                        onChange={(e) => setDeleteCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="000000"
-                        maxLength={6}
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        className="h-14 border-neutral-200 rounded-xl text-2xl tracking-[0.5em] text-center w-48 font-mono"
-                        onKeyDown={(e) => e.key === "Enter" && handleVerifyDeleteCode()}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="flex flex-row gap-2 pt-1">
-                      <Button
-                        onClick={() => { setDeleteStep("idle"); setDeleteCode(""); setDeleteError("") }}
-                        variant="outline"
-                        className="h-11 flex-1 rounded-xl border-neutral-200 text-sm font-medium"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleVerifyDeleteCode}
-                        disabled={deleteVerifying || deleteCode.length < 6}
-                        className="h-11 flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium disabled:opacity-40"
-                      >
-                        {deleteVerifying ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting Account...</>
-                        ) : (
-                          "Confirm & Delete"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
       )}
     </div>
   )
