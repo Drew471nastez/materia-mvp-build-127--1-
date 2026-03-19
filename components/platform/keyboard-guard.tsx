@@ -55,9 +55,15 @@ export function KeyboardGuard() {
       const kbHeight = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
       if (kbHeight > 0) {
         root.classList.add("keyboard-open")
+        // Expose the visual viewport height (visible area above the keyboard)
+        // as a CSS variable so scroll containers can be clamped to exactly that
+        // height, preventing them from extending into the blank area below the
+        // keyboard and eliminating the rubber-band / blank-space effect.
+        root.style.setProperty("--vvh", `${Math.round(vv.height)}px`)
       } else {
         const wasOpen = root.classList.contains("keyboard-open")
         root.classList.remove("keyboard-open")
+        root.style.removeProperty("--vvh")
         if (wasOpen) {
           // Wait two frames: first for the CSS class removal to trigger a
           // layout recalculation (padding-bottom restored), second to read
@@ -74,6 +80,7 @@ export function KeyboardGuard() {
       vv.removeEventListener("resize", onViewportChange)
       vv.removeEventListener("scroll", onViewportChange)
       root.classList.remove("keyboard-open")
+      root.style.removeProperty("--vvh")
     }
   }, [])
 

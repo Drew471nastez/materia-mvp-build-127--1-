@@ -1029,6 +1029,29 @@ html.keyboard-open .library-scroll-content {
   padding-bottom: 0 !important;
 }
 
+/* ── Keyboard-open: clamp scroll containers to the visual viewport height ────
+ *
+ * On iOS Capacitor/WKWebView, `h-svh` on <main> does not shrink when the
+ * software keyboard opens — the layout viewport stays at full screen height
+ * while only the visual viewport (the area above the keyboard) shrinks.
+ *
+ * This means the <main> scroll container extends below the keyboard into an
+ * invisible region. iOS lets the user rubber-band / overscroll into that region,
+ * which appears as blank space at the bottom while the keyboard is visible.
+ *
+ * KeyboardGuard sets --vvh to visualViewport.height (px) whenever the keyboard
+ * is open. Clamping <main> and .app-content-scroll to that height makes the
+ * scroll container exactly as tall as the visible area, eliminating the blank
+ * space entirely.
+ *
+ * Safe on desktop — `keyboard-open` is never added there (kbHeight is always 0).
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.keyboard-open main,
+html.keyboard-open .app-content-scroll {
+  height: var(--vvh, 100svh) !important;
+  max-height: var(--vvh, 100svh) !important;
+}
+
 /* ─── Auth pages: mobile layout centering ────────────────────────
    Improves visual balance on small screens for login, signup, and
    verify-code. Does NOT affect sm+ (640px+) or desktop layout.
