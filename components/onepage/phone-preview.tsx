@@ -505,36 +505,32 @@ function ShareButtonPreview({
    * Open a share target.
    *
    * Native (Capacitor iOS / Android):
-   *   1. Try the OS URL scheme (e.g. whatsapp://) via App.openUrl.
-   *      App.openUrl returns { completed: boolean } — it does NOT throw on
-   *      failure, so we MUST check the flag rather than rely on try/catch.
-   *   2. If completed === false (app not installed) fall back to Browser.open
-   *      with the web URL so the user still ends up in the right place.
+   *   window.open(scheme, '_system') is called SYNCHRONOUSLY while we are
+   *   still inside the user-gesture. Capacitor intercepts '_system' and
+   *   routes custom schemes (whatsapp://, twitter://, …) straight to
+   *   UIApplication.shared.open() on iOS and Intent.ACTION_VIEW on Android —
+   *   the target app opens instantly with no in-app browser.
+   *   If no native scheme exists (e.g. Facebook) we fall back to Browser.open
+   *   so the web URL opens in the Capacitor in-app browser.
    *
    * Web (mobile / desktop browser):
-   *   1. If a native scheme is available, navigate the current page to it via
-   *      window.location.href — the OS intercepts this and opens the app
-   *      directly, with NO new browser tab.
-   *   2. A visibilitychange listener detects the hand-off (page becomes hidden).
-   *      If the page stays visible after 1.5 s the app is not installed, so we
-   *      open the web fallback URL in a new tab instead.
+   *   window.location.href = nativeScheme lets the OS intercept the custom
+   *   URL scheme and open the app without creating a new browser tab.
+   *   A visibilitychange listener detects a successful hand-off; if the page
+   *   stays visible after 1.5 s (app not installed) we open the wa.me web
+   *   fallback in a new tab instead.
    */
   const openShareTarget = async (nativeScheme: string | null, webUrl: string) => {
     if (isNativeApp()) {
       if (nativeScheme) {
-        try {
-          const { App } = await import("@capacitor/app")
-          const { completed } = await App.openUrl({ url: nativeScheme })
-          if (completed) return
-          // completed === false → target app not installed, fall through
-        } catch {
-          // Scheme not allowed / unexpected error — fall through
-        }
+        // Synchronous — keeps user-gesture context so the OS accepts the call.
+        window.open(nativeScheme, "_system")
+      } else {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: webUrl })
       }
-      const { Browser } = await import("@capacitor/browser")
-      await Browser.open({ url: webUrl })
     } else if (nativeScheme) {
-      // Web: navigate to the native scheme — OS opens the app without a new tab.
+      // Web: navigate current page to native scheme — opens app, no new tab.
       let appOpened = false
       const onVisibilityChange = () => {
         if (document.hidden) appOpened = true
@@ -543,9 +539,7 @@ function ShareButtonPreview({
       window.location.href = nativeScheme
       setTimeout(() => {
         document.removeEventListener("visibilitychange", onVisibilityChange)
-        if (!appOpened) {
-          window.open(webUrl, "_blank")
-        }
+        if (!appOpened) window.open(webUrl, "_blank")
       }, 1500)
     } else {
       window.open(webUrl, "_blank")
