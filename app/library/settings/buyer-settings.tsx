@@ -473,9 +473,9 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
           />
 
           {/* Panel */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in-0 zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 pt-[15vh] sm:pt-4 overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-200">
             <div
-              className="bg-white w-full rounded-2xl max-w-md shadow-2xl overflow-hidden"
+              className="bg-white w-full rounded-2xl max-w-md shadow-2xl overflow-hidden shrink-0"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-6 pt-5 pb-6">
@@ -524,6 +524,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                     </div>
                     <p className="text-sm text-neutral-500">
                       A 6-digit verification code will be sent to <span className="font-medium text-neutral-700">{email}</span>.
+                      {" "}Please also check your spam or junk folder if you don&apos;t see it in your inbox.
                     </p>
                     <div className="flex flex-row gap-2 pt-1">
                       <Button
@@ -552,7 +553,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                 {deleteStep === "code" && (
                   <div className="space-y-4">
                     <p className="text-sm text-neutral-600">
-                      Enter the 6-digit code sent to <span className="font-medium text-neutral-700">{email}</span>.
+                      Enter the 6-digit code sent to <span className="font-medium text-neutral-700">{email}</span>. Don&apos;t see it? Check your spam or junk folder.
                     </p>
                     <div className="flex justify-center">
                       <Input
