@@ -10,6 +10,55 @@ import { Label } from "@/components/ui/label"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
 
+/**
+ * Compresses an image using canvas to fit within 2MB.
+ * Tries progressively lower quality/dimensions until the size fits.
+ */
+async function compressImageToLimit(file: File | Blob, maxBytes = 2 * 1024 * 1024): Promise<Blob> {
+  const attempts = [
+    { maxDim: 1200, quality: 0.85 },
+    { maxDim: 900, quality: 0.80 },
+    { maxDim: 700, quality: 0.75 },
+    { maxDim: 500, quality: 0.70 },
+  ]
+
+  const loadImage = (src: string): Promise<HTMLImageElement> =>
+    new Promise((res, rej) => {
+      const img = new Image()
+      img.onload = () => res(img)
+      img.onerror = rej
+      img.src = src
+    })
+
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await loadImage(url)
+    for (const { maxDim, quality } of attempts) {
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) {
+          height = Math.round((height * maxDim) / width)
+          width = maxDim
+        } else {
+          width = Math.round((width * maxDim) / height)
+          height = maxDim
+        }
+      }
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext("2d")!.drawImage(img, 0, 0, width, height)
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", quality))
+      if (blob && blob.size <= maxBytes) return blob
+    }
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+
+  // Return the file as-is if all attempts failed; caller checks size
+  return file
+}
+
 interface BuyerSettingsProps {
   userId: string
   email: string
@@ -69,21 +118,30 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      setSaveError("Image must be under 2MB")
-      return
-    }
 
     setUploadingAvatar(true)
     setSaveError("")
     try {
+      // Auto-compress images that exceed 2MB (common with camera captures)
+      let uploadBlob: Blob = file
+      let ext = file.name.split(".").pop() || "jpg"
+
+      if (file.size > 2 * 1024 * 1024) {
+        uploadBlob = await compressImageToLimit(file)
+        ext = "jpg"
+        if (uploadBlob.size > 2 * 1024 * 1024) {
+          setSaveError("Image must be under 2MB")
+          setUploadingAvatar(false)
+          return
+        }
+      }
+
       const supabase = createClient()
-      const ext = file.name.split(".").pop()
       const path = `avatars/${userId}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true })
+        .upload(path, uploadBlob, { upsert: true, contentType: uploadBlob.type || "image/jpeg" })
 
       if (uploadError) throw uploadError
 
@@ -212,7 +270,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
               </div>
               <div>
                 <p className="text-sm font-medium text-neutral-900">{name || "Your name"}</p>
-                <p className="text-xs text-neutral-500">JPG, PNG or GIF. Max 2MB.</p>
+                <p className="text-xs text-neutral-500">JPG, PNG or GIF. Auto-compressed if needed.</p>
               </div>
             </div>
           </div>
