@@ -995,6 +995,32 @@ html.capacitor body {
   }
 }
 
+/* ── Keyboard-open: zero out body + scroll-container bottom padding ──────────
+ *
+ * On iOS Capacitor, env(safe-area-inset-bottom) does NOT automatically drop
+ * to 0 when the software keyboard opens (unlike Safari where the home indicator
+ * disappears). This means:
+ *   • body { padding-bottom: env(safe-area-inset-bottom) } adds ~34 px that
+ *     becomes visible as whitespace when the .app-content-scroll shrinks
+ *     (keyboard height is subtracted via --keyboard-inset-height).
+ *   • html.capacitor .app-content-scroll { padding-bottom: env(...) } adds
+ *     internal padding that also shows as whitespace inside the scroll area.
+ *
+ * KeyboardGuard (components/platform/keyboard-guard.tsx) adds `keyboard-open`
+ * to <html> via the VisualViewport API whenever the keyboard is open, and
+ * removes it when the keyboard closes. Never fires on desktop/browser where
+ * visualViewport.height === window.innerHeight.
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.keyboard-open body {
+  padding-bottom: 0 !important;
+}
+
+/* Also zero the scroll-container's own safe-area padding while keyboard is
+   open — prevents internal whitespace at the bottom of the scrollable area. */
+html.keyboard-open .app-content-scroll {
+  padding-bottom: 0 !important;
+}
+
 /* ─── Auth pages: mobile layout centering ────────────────────────
    Improves visual balance on small screens for login, signup, and
    verify-code. Does NOT affect sm+ (640px+) or desktop layout.

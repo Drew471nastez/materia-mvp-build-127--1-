@@ -11,6 +11,7 @@ import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
+import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
 import { NativePushInit } from "@/components/native-push-init"
 
@@ -147,6 +148,7 @@ export default function RootLayout({
         <BodyScrollRestorer />
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
+        <KeyboardGuard />
         <RotationGuard />
         <NativePushInit /> 
         <CookieConsentBanner />
