@@ -58,6 +58,15 @@
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 
+	<!-- ── Queryable URL schemes (required for App.openUrl / canOpenURL) ── -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>whatsapp</string>
+		<string>twitter</string>
+		<string>fb</string>
+		<string>fbauth2</string>
+	</array>
+
 	<!-- ── Deep linking / OAuth callback ────────────────────────────────── -->
 	<key>CFBundleURLTypes</key>
 	<array>
