@@ -454,7 +454,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
             <Button
               onClick={() => { setDeleteStep("confirm"); setDeleteError("") }}
               variant="outline"
-              className="h-11 rounded-xl border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 text-sm font-medium"
+              className="h-11 rounded-xl border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 text-sm font-medium"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Account
@@ -483,12 +483,12 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                 <div className="w-10 h-1 rounded-full bg-neutral-200" />
               </div>
 
-              <div className="px-6 pb-8 pt-4 sm:p-6">
+              <div className="px-6 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] sm:p-6">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-neutral-100 flex items-center justify-center shrink-0">
-                      <Trash2 className="h-5 w-5 text-neutral-700" />
+                    <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                      <Trash2 className="h-5 w-5 text-red-600" />
                     </div>
                     <div>
                       <h2 className="text-[15px] font-semibold text-neutral-900">Delete Account</h2>
@@ -534,7 +534,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                       <Button
                         onClick={handleSendDeleteCode}
                         disabled={deleteSending}
-                        className="h-11 w-full sm:flex-1 rounded-xl bg-neutral-900 text-white hover:bg-black text-sm font-medium order-1 sm:order-2"
+                        className="h-11 w-full sm:flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium order-1 sm:order-2"
                       >
                         {deleteSending ? (
                           <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending Code...</>
@@ -576,7 +576,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                       <Button
                         onClick={handleVerifyDeleteCode}
                         disabled={deleteVerifying || deleteCode.length < 6}
-                        className="h-11 w-full sm:flex-1 rounded-xl bg-neutral-900 text-white hover:bg-black text-sm font-medium disabled:opacity-40 order-1 sm:order-2"
+                        className="h-11 w-full sm:flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-medium disabled:opacity-40 order-1 sm:order-2"
                       >
                         {deleteVerifying ? (
                           <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting Account...</>
