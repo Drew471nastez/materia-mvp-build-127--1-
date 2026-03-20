@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
   Eye, Code2, Settings2, Globe, Palette, MoreHorizontal,
@@ -47,8 +47,29 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-// ── Realistic theme preview using actual theme settings ───────
-function ThemePreview({ install, size = "large" }: { install: ThemeInstall; size?: "large" | "small" }) {
+// ── Theme preview using actual screenshot (thum.io) with mock fallback ─────
+function ThemePreview({
+  install,
+  size = "large",
+  username,
+  screenshotTimestamp,
+}: {
+  install: ThemeInstall
+  size?: "large" | "small"
+  username?: string
+  screenshotTimestamp?: number
+}) {
+  const [imgError, setImgError] = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const isSmall = size === "small"
+  const isPublished = install.status === "published"
+
+  // Only show screenshot for the published (live) theme
+  const screenshotUrl = isPublished && username && !imgError
+    ? `https://image.thum.io/get/width/800/crop/${isSmall ? "300" : "500"}/${encodeURIComponent(`https://materia.so/u/${username}`)}?t=${screenshotTimestamp ?? 0}`
+    : null
+
+  // Mock preview using theme colors (fallback)
   const s = install.settings?.draft_settings ?? install.settings?.settings ?? {}
   const primaryColor = (s.primary_color as string) ?? "#6366f1"
   const bgColor = (s.background_color as string) ?? "#ffffff"
@@ -58,100 +79,76 @@ function ThemePreview({ install, size = "large" }: { install: ThemeInstall; size
   const fontHeading = (s.font_heading as string) ?? "Inter"
   const buttonStyle = (s.button_style as string) ?? "rounded"
   const btnRadius = buttonStyle === "pill" ? "9999px" : buttonStyle === "square" ? "4px" : "8px"
-
-  // Get hero settings from sections if available
   const heroSection = install.pages?.find((p: any) => p.page_key === "home")
-  const sections = heroSection?.draft_sections ?? heroSection?.sections ?? []
-  const hero = Array.isArray(sections) ? sections.find((sec: any) => sec.type === "hero") : null
-  const heroHeading = String(hero?.settings?.heading ?? "Discover Amazing Digital Products")
-  const heroSubheading = String(hero?.settings?.subheading ?? "High-quality digital downloads, courses, and resources created just for you.")
+  const pageSections = heroSection?.draft_sections ?? heroSection?.sections ?? []
+  const hero = Array.isArray(pageSections) ? pageSections.find((sec: any) => sec.type === "hero") : null
   const heroBg = String(hero?.settings?.bg_color ?? "#0f172a")
   const heroTextColor = String(hero?.settings?.text_color ?? "#ffffff")
+  const heroHeading = String(hero?.settings?.heading ?? "Discover Amazing Digital Products")
   const heroCta = String(hero?.settings?.cta_text ?? "Shop Now")
-
-  const isSmall = size === "small"
 
   return (
     <div
       className={cn(
-        "w-full overflow-hidden border border-neutral-200/60",
+        "w-full overflow-hidden border border-neutral-200/60 relative",
         isSmall ? "aspect-[4/3] rounded-lg" : "aspect-[16/10] rounded-xl",
       )}
       style={{ background: bgColor }}
     >
-      <div className="relative h-full flex flex-col" style={{ transform: "scale(1)", transformOrigin: "top left" }}>
-        {/* Header bar */}
-        <div
-          className="flex items-center justify-between px-3 py-1.5 border-b shrink-0"
-          style={{ background: bgColor, borderColor: surfaceColor }}
-        >
-          <span
-            className={cn("font-bold truncate", isSmall ? "text-[8px]" : "text-[10px]")}
-            style={{ color: textColor, fontFamily: fontHeading }}
-          >
-            {brandName}
-          </span>
-          <div className="flex gap-1 items-center">
+      {/* Screenshot image */}
+      {screenshotUrl && (
+        <>
+          {!imgLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 z-10">
+              <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+            </div>
+          )}
+          <img
+            src={screenshotUrl}
+            alt="Live site preview"
+            className={cn("absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300", imgLoaded ? "opacity-100" : "opacity-0")}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+          />
+        </>
+      )}
+
+      {/* Mock fallback (always rendered, hidden when screenshot loaded) */}
+      {(!screenshotUrl || imgError) && (
+        <div className="relative h-full flex flex-col">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0" style={{ background: bgColor, borderColor: surfaceColor }}>
+            <span className={cn("font-bold truncate", isSmall ? "text-[8px]" : "text-[10px]")} style={{ color: textColor, fontFamily: fontHeading }}>
+              {brandName}
+            </span>
             {!isSmall && (
-              <>
+              <div className="flex gap-1">
                 <span className="text-[7px] opacity-50" style={{ color: textColor }}>Shop</span>
                 <span className="text-[7px] opacity-50" style={{ color: textColor }}>About</span>
-                <span className="text-[7px] opacity-50" style={{ color: textColor }}>Contact</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Hero section */}
-        <div
-          className="flex-1 flex flex-col items-center justify-center gap-1 px-3 min-h-0"
-          style={{ background: heroBg }}
-        >
-          <p
-            className={cn(
-              "font-bold text-center leading-tight max-w-[90%]",
-              isSmall ? "text-[8px]" : "text-[11px]",
-            )}
-            style={{ color: heroTextColor, fontFamily: fontHeading }}
-          >
-            {heroHeading}
-          </p>
-          {!isSmall && (
-            <p
-              className="text-[7px] text-center opacity-70 max-w-[80%] leading-tight"
-              style={{ color: heroTextColor }}
-            >
-              {heroSubheading}
-            </p>
-          )}
-          <div
-            className={cn(
-              "text-white font-semibold mt-0.5",
-              isSmall ? "text-[6px] px-2 py-0.5" : "text-[7px] px-3 py-1",
-            )}
-            style={{ background: primaryColor, borderRadius: btnRadius }}
-          >
-            {heroCta}
-          </div>
-        </div>
-
-        {/* Products section hint */}
-        <div className="px-2 py-1.5 shrink-0" style={{ background: bgColor }}>
-          <div className="flex gap-1">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex-1 rounded overflow-hidden" style={{ border: `1px solid ${surfaceColor}` }}>
-                <div className={cn("bg-gradient-to-br from-neutral-200 to-neutral-100", isSmall ? "h-3" : "h-5")} />
-                <div className="p-0.5">
-                  <div className={cn("rounded", isSmall ? "h-0.5 w-3/4" : "h-1 w-3/4")} style={{ background: textColor, opacity: 0.15 }} />
-                  {!isSmall && (
-                    <div className="h-0.5 w-1/2 rounded mt-0.5" style={{ background: primaryColor, opacity: 0.4 }} />
-                  )}
-                </div>
               </div>
-            ))}
+            )}
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 px-3 min-h-0" style={{ background: heroBg }}>
+            <p className={cn("font-bold text-center leading-tight max-w-[90%]", isSmall ? "text-[8px]" : "text-[11px]")} style={{ color: heroTextColor, fontFamily: fontHeading }}>
+              {heroHeading}
+            </p>
+            <div className={cn("text-white font-semibold mt-0.5", isSmall ? "text-[6px] px-2 py-0.5" : "text-[7px] px-3 py-1")} style={{ background: primaryColor, borderRadius: btnRadius }}>
+              {heroCta}
+            </div>
+          </div>
+          <div className="px-2 py-1.5 shrink-0" style={{ background: bgColor }}>
+            <div className="flex gap-1">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex-1 rounded overflow-hidden" style={{ border: `1px solid ${surfaceColor}` }}>
+                  <div className={cn("bg-gradient-to-br from-neutral-200 to-neutral-100", isSmall ? "h-3" : "h-5")} />
+                  <div className="p-0.5">
+                    <div className={cn("rounded", isSmall ? "h-0.5 w-3/4" : "h-1 w-3/4")} style={{ background: textColor, opacity: 0.15 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -243,12 +240,14 @@ function LiveThemeCard({
   onEdit,
   onCode,
   onAction,
+  screenshotTimestamp,
 }: {
   install: ThemeInstall
   username: string
   onEdit: () => void
   onCode: () => void
   onAction: (action: string, install: ThemeInstall) => void
+  screenshotTimestamp?: number
 }) {
   const websiteUrl = username ? getWebsiteShareUrl(username) : ""
   const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
@@ -256,7 +255,7 @@ function LiveThemeCard({
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
       <div className="relative">
-        <ThemePreview install={install} size="large" />
+        <ThemePreview install={install} size="large" username={username} screenshotTimestamp={screenshotTimestamp} />
         <div className="absolute top-3 left-3">
           <StatusBadge status={install.status} />
         </div>
@@ -328,16 +327,20 @@ function ThemeGridCard({
   install,
   onEdit,
   onAction,
+  username,
+  screenshotTimestamp,
 }: {
   install: ThemeInstall
   onEdit: () => void
   onAction: (action: string, install: ThemeInstall) => void
+  username?: string
+  screenshotTimestamp?: number
 }) {
   return (
     <div className="group rounded-xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-300 hover:shadow-md transition-all">
       {/* Preview */}
       <div className="relative cursor-pointer" onClick={onEdit}>
-        <ThemePreview install={install} size="small" />
+        <ThemePreview install={install} size="small" username={username} screenshotTimestamp={screenshotTimestamp} />
         <div className="absolute top-2 left-2">
           <StatusBadge status={install.status} />
         </div>
@@ -407,6 +410,7 @@ export default function WebsiteBuilderPage() {
   const [deleteInstall, setDeleteInstall] = useState<ThemeInstall | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [username, setUsername] = useState("")
+  const [screenshotTimestamp, setScreenshotTimestamp] = useState(() => Date.now())
 
   const loadInstalls = useCallback(async () => {
     const res = await fetch("/api/website-builder/themes")
@@ -474,6 +478,7 @@ export default function WebsiteBuilderPage() {
       setActionLoading(null)
       if (res.ok) {
         toast({ title: `"${install.name}" is now live` })
+        setScreenshotTimestamp(Date.now())
         await loadInstalls()
       } else {
         const d = await res.json()
@@ -583,6 +588,7 @@ export default function WebsiteBuilderPage() {
             onEdit={() => goToEditor(liveTheme.id)}
             onCode={() => goToCode(liveTheme.id)}
             onAction={handleAction}
+            screenshotTimestamp={screenshotTimestamp}
           />
         ) : (
           <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
@@ -626,6 +632,8 @@ export default function WebsiteBuilderPage() {
                   install={install}
                   onEdit={() => goToEditor(install.id)}
                   onAction={handleAction}
+                  username={username}
+                  screenshotTimestamp={screenshotTimestamp}
                 />
               </div>
             ))}

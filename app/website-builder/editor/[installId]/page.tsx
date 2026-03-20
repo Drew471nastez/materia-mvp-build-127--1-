@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, use } from "react"
+import { useEffect, useState, useCallback, useRef, use } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Monitor, Smartphone, Loader2, Globe, Save,
@@ -13,6 +13,23 @@ import {
   Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package,
   Menu, Undo2, Redo2, PanelLeft, ExternalLink, Link2,
 } from "lucide-react"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -827,11 +844,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [isDirty, setIsDirty] = useState(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>("branding")
   const [addSectionOpen, setAddSectionOpen] = useState(false)
-  const [previewMode, setPreviewMode] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(300)
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true)
   const [username, setUsername] = useState("")
+  const [hasPublished, setHasPublished] = useState(false)
+  const canvasRef = useRef<HTMLDivElement>(null)
+
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  // Scroll to a section in the canvas
+  const scrollToSection = useCallback((sectionId: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(`wb-section-${sectionId}`)
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 80)
+  }, [])
+
+  // Drag end — reorder body sections (keep header/footer pinned)
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setSections(prev => {
+      const header = prev.find(s => s.type === "header")
+      const footer = prev.find(s => s.type === "footer")
+      const body = prev.filter(s => s.type !== "header" && s.type !== "footer")
+      const oldIdx = body.findIndex(s => s.id === active.id)
+      const newIdx = body.findIndex(s => s.id === over.id)
+      if (oldIdx === -1 || newIdx === -1) return prev
+      const newBody = arrayMove(body, oldIdx, newIdx)
+      return [
+        ...(header ? [header] : []),
+        ...newBody,
+        ...(footer ? [footer] : []),
+      ]
+    })
+    setIsDirty(true)
+  }, [])
 
   // Load install data
   const loadData = useCallback(async () => {
@@ -971,6 +1024,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(next)
     setSelectedPanel({ type: "section", sectionId: newSection.id })
     setIsDirty(true)
+    scrollToSection(newSection.id)
   }
 
   const saveDraft = async () => {
@@ -1027,8 +1081,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       setIsDirty(false)
+      setHasPublished(true)
       toast.success("Published and live!")
-      await loadData()
     } catch {
       toast.error("Failed to publish")
     }
@@ -1068,7 +1122,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <SidebarSectionRow
                   section={header}
                   isSelected={selectedSectionId === header.id}
-                  onSelect={() => setSelectedPanel({ type: "section", sectionId: header.id })}
+                  onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); scrollToSection(header.id) }}
                   onToggleHide={() => toggleSectionHidden(header.id)}
                   onDuplicate={() => duplicateSection(header.id)}
                   onRemove={() => removeSection(header.id)}
@@ -1080,13 +1134,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             {/* Template sections */}
             <div>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 mb-1 mt-3">Template</p>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-1">
                 {bodySection.map(section => (
-                  <SidebarSectionRow
+                  <SortableSectionRow
                     key={section.id}
                     section={section}
                     isSelected={selectedSectionId === section.id}
-                    onSelect={() => setSelectedPanel({ type: "section", sectionId: section.id })}
+                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
                     onToggleHide={() => toggleSectionHidden(section.id)}
                     onDuplicate={() => duplicateSection(section.id)}
                     onRemove={() => removeSection(section.id)}
@@ -1100,6 +1156,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   Add section
                 </button>
               </div>
+                </SortableContext>
+              </DndContext>
             </div>
 
             {/* Footer */}
@@ -1109,7 +1167,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <SidebarSectionRow
                   section={footer}
                   isSelected={selectedSectionId === footer.id}
-                  onSelect={() => setSelectedPanel({ type: "section", sectionId: footer.id })}
+                  onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); scrollToSection(footer.id) }}
                   onToggleHide={() => toggleSectionHidden(footer.id)}
                   onDuplicate={() => duplicateSection(footer.id)}
                   onRemove={() => removeSection(footer.id)}
@@ -1333,32 +1391,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     )
   }
 
-  // ── Preview mode ───────────────────────────────────────────
-  if (previewMode) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background">
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-          <span className="text-sm font-medium">Preview Mode</span>
-          <Button size="sm" onClick={() => setPreviewMode(false)} className="bg-purple-600 hover:bg-purple-700 text-white">
-            Exit Preview
-          </Button>
-        </div>
-        <div className="flex-1 overflow-auto flex items-start justify-center p-6 bg-muted/50">
-          <div className={cn("bg-white rounded-xl shadow-lg overflow-hidden", device === "mobile" ? "w-[390px]" : "w-full max-w-5xl")} style={{ minHeight: "600px" }}>
-            {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
-              <div className="w-full py-2 text-center text-sm font-medium" style={{ background: String(settingsDraft.announcement_bar_bg ?? "#6366f1"), color: String(settingsDraft.announcement_bar_color ?? "#ffffff") }}>
-                {String(settingsDraft.announcement_bar_text)}
-              </div>
-            )}
-            {sections.map(section => (
-              <SectionRenderer key={section.id} section={section} theme={activeThemeSettings} />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── Website URL display ────────────────────────────────────
   const websiteUrl = username ? getWebsiteShareUrl(username) : ""
   const websiteUrlDisplay = username ? getWebsiteUrlDisplay(username) : ""
@@ -1483,9 +1515,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </DropdownMenu>
 
           {/* Preview */}
-          <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer" onClick={() => setPreviewMode(true)}>
+          <Button
+            size="sm"
+            className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer gap-1.5"
+            onClick={() => {
+              if (!websiteUrl) return
+              const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
+              window.open(urlWithPreview, "_blank", "noopener,noreferrer")
+            }}
+          >
             <span className="hidden sm:inline">Preview</span>
-            <Monitor className="h-4 w-4 sm:hidden" />
+            <ExternalLink className="h-4 w-4" />
           </Button>
 
           {/* Save Draft button */}
@@ -1519,7 +1559,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             size="sm"
             className="h-9 cursor-pointer gap-1.5 bg-purple-600 text-white hover:bg-purple-700"
             onClick={publishChanges}
-            disabled={publishing}
+            disabled={publishing || (hasPublished && !isDirty)}
           >
             {publishing ? (
               <>
@@ -1592,14 +1632,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
             {/* Sections */}
             {sections.map(section => (
-              <SectionRenderer
-                key={section.id}
-                section={section}
-                theme={activeThemeSettings}
-                isEditing={true}
-                isSelected={selectedSectionId === section.id}
-                onClick={() => setSelectedPanel({ type: "section", sectionId: section.id })}
-              />
+              <div key={section.id} id={`wb-section-${section.id}`}>
+                <SectionRenderer
+                  section={section}
+                  theme={activeThemeSettings}
+                  isEditing={true}
+                  isSelected={selectedSectionId === section.id}
+                  onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                />
+              </div>
             ))}
 
             {sections.length === 0 && (
@@ -1630,6 +1671,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
 }
 
+// ── Sortable wrapper for drag-and-drop ───────────────────────
+function SortableSectionRow(props: Parameters<typeof SidebarSectionRow>[0]) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.section.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <SidebarSectionRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  )
+}
+
 // ── Sidebar section row ──────────────────────────────────────
 function SidebarSectionRow({
   section,
@@ -1639,6 +1696,7 @@ function SidebarSectionRow({
   onDuplicate,
   onRemove,
   isStructure = false,
+  dragHandleProps,
 }: {
   section: SectionInstance
   isSelected: boolean
@@ -1647,6 +1705,7 @@ function SidebarSectionRow({
   onDuplicate: () => void
   onRemove: () => void
   isStructure?: boolean
+  dragHandleProps?: Record<string, unknown>
 }) {
   return (
     <div
@@ -1658,7 +1717,13 @@ function SidebarSectionRow({
       onClick={onSelect}
     >
       {!isStructure && (
-        <GripVertical className={cn("h-3.5 w-3.5 shrink-0 opacity-30", isSelected && "opacity-60")} />
+        <span
+          {...(dragHandleProps ?? {})}
+          className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+          onClick={e => e.stopPropagation()}
+        >
+          <GripVertical className={cn("h-3.5 w-3.5 opacity-30", isSelected && "opacity-60")} />
+        </span>
       )}
       <SectionIcon type={section.type} className={isSelected ? "text-white" : "text-muted-foreground"} />
       <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
