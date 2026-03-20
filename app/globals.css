@@ -1029,6 +1029,18 @@ html.keyboard-open .library-scroll-content {
   padding-bottom: 0 !important;
 }
 
+/* When the keyboard is open on library pages (settings, etc.), collapse any
+   minimum-height constraints and extra bottom padding/margin on child content
+   so the scroll container doesn't extend past the visual viewport, which would
+   leave blank space at the bottom on mobile. */
+html.keyboard-open .library-scroll-content > * {
+  min-height: 0 !important;
+}
+
+html.keyboard-open [data-page="library"] main {
+  overflow-anchor: auto;
+}
+
 /* ── Keyboard-open: clamp scroll containers to the visual viewport height ────
  *
  * On iOS Capacitor/WKWebView, `h-svh` on <main> does not shrink when the

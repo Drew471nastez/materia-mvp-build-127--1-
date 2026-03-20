@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, KeyRound, Camera, Trash2 } from "lucide-react"
@@ -99,6 +99,33 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const deleteCodeInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const deleteCardRef = useRef<HTMLDivElement>(null)
+
+  // Scroll the delete-account card into view when the keyboard opens so the
+  // verification-code inputs stay visible and the page doesn't leave blank
+  // space at the bottom.  The VisualViewport resize fires when the keyboard
+  // opens/closes; we only scroll when the card contains the focused element.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return
+    const vv = window.visualViewport
+
+    function onResize() {
+      const kbHeight = Math.max(0, window.innerHeight - vv!.offsetTop - vv!.height)
+      if (kbHeight > 0 && deleteCardRef.current) {
+        const active = document.activeElement as HTMLElement | null
+        if (active && deleteCardRef.current.contains(active)) {
+          // Use requestAnimationFrame so the browser finishes the viewport
+          // resize before we measure and scroll.
+          requestAnimationFrame(() => {
+            active.scrollIntoView({ block: "center", behavior: "smooth" })
+          })
+        }
+      }
+    }
+
+    vv.addEventListener("resize", onResize)
+    return () => vv.removeEventListener("resize", onResize)
+  }, [])
 
   const handleSaveProfile = useCallback(async () => {
     setSaving(true)
@@ -473,7 +500,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
           </div>
 
           {/* Delete Account card — fully inline, no modal */}
-          <div className="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
+          <div ref={deleteCardRef} className="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
             {/* Always-visible header row */}
             <div className="flex items-start justify-between gap-4 p-5 sm:p-6">
               <div>
@@ -555,6 +582,15 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                       value={digit}
                       onChange={(e) => handleDeleteCodeInput(i, e.target.value)}
                       onKeyDown={(e) => handleDeleteCodeKeyDown(i, e)}
+                      onFocus={(e) => {
+                        // On mobile, delay scrollIntoView until after the
+                        // keyboard has finished animating open so the element
+                        // ends up centred in the visible area, not hidden
+                        // behind the keyboard.
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ block: "center", behavior: "smooth" })
+                        }, 300)
+                      }}
                       className="flex-1 min-w-0 h-12 text-center text-lg font-semibold border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 bg-neutral-50"
                     />
                   ))}
