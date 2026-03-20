@@ -99,26 +99,44 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const deleteCodeInputRefs = useRef<(HTMLInputElement | null)[]>([])
-  const deleteCardRef = useRef<HTMLDivElement>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
 
-  // Scroll the delete-account card into view when the keyboard opens so the
-  // verification-code inputs stay visible and the page doesn't leave blank
-  // space at the bottom.  The VisualViewport resize fires when the keyboard
-  // opens/closes; we only scroll when the card contains the focused element.
+  // When the software keyboard opens on mobile, the visual viewport shrinks
+  // but the layout viewport stays the same.  This causes:
+  //   1. Blank space at the bottom (scroll container is taller than visible area)
+  //   2. Content overlapping under the fixed header (browser auto-scrolls the
+  //      viewport to reveal the input, shifting everything up)
+  //
+  // Fix: listen to VisualViewport resize and, when the keyboard is visible,
+  // scroll the focused input into the visible area within the <main> scroll
+  // container (not the document), so the header stays in place and no blank
+  // space appears at the bottom.
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return
     const vv = window.visualViewport
+    let prevHeight = vv.height
 
     function onResize() {
       const kbHeight = Math.max(0, window.innerHeight - vv!.offsetTop - vv!.height)
-      if (kbHeight > 0 && deleteCardRef.current) {
+      const heightChanged = Math.abs(vv!.height - prevHeight) > 50
+      prevHeight = vv!.height
+
+      if (kbHeight > 0 && heightChanged) {
         const active = document.activeElement as HTMLElement | null
-        if (active && deleteCardRef.current.contains(active)) {
-          // Use requestAnimationFrame so the browser finishes the viewport
-          // resize before we measure and scroll.
-          requestAnimationFrame(() => {
-            active.scrollIntoView({ block: "center", behavior: "smooth" })
-          })
+        if (active && pageRef.current?.contains(active)) {
+          // Find the <main> scroll container and scroll within IT, not the
+          // document.  This keeps the fixed header in place.
+          const scrollContainer = pageRef.current.closest("main")
+          if (scrollContainer) {
+            requestAnimationFrame(() => {
+              const containerRect = scrollContainer.getBoundingClientRect()
+              const activeRect = active.getBoundingClientRect()
+              // Calculate where the element is relative to the scroll container
+              const relativeTop = activeRect.top - containerRect.top
+              const targetScroll = scrollContainer.scrollTop + relativeTop - containerRect.height / 3
+              scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: "smooth" })
+            })
+          }
         }
       }
     }
@@ -304,7 +322,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   ]
 
   return (
-    <div className="max-w-2xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
+    <div ref={pageRef} className="max-w-2xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
       {/* Page header card — matches library main page visual language */}
       <section className="mb-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="h-16 sm:h-20 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900" />
@@ -500,7 +518,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
           </div>
 
           {/* Delete Account card — fully inline, no modal */}
-          <div ref={deleteCardRef} className="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
             {/* Always-visible header row */}
             <div className="flex items-start justify-between gap-4 p-5 sm:p-6">
               <div>
@@ -583,12 +601,16 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                       onChange={(e) => handleDeleteCodeInput(i, e.target.value)}
                       onKeyDown={(e) => handleDeleteCodeKeyDown(i, e)}
                       onFocus={(e) => {
-                        // On mobile, delay scrollIntoView until after the
-                        // keyboard has finished animating open so the element
-                        // ends up centred in the visible area, not hidden
-                        // behind the keyboard.
+                        // Scroll within the <main> scroll container (not the
+                        // document) so the fixed header stays in place.
+                        const target = e.target
                         setTimeout(() => {
-                          e.target.scrollIntoView({ block: "center", behavior: "smooth" })
+                          const main = target.closest("main")
+                          if (!main) return
+                          const mainRect = main.getBoundingClientRect()
+                          const elRect = target.getBoundingClientRect()
+                          const relTop = elRect.top - mainRect.top
+                          main.scrollTo({ top: main.scrollTop + relTop - mainRect.height / 3, behavior: "smooth" })
                         }, 300)
                       }}
                       className="flex-1 min-w-0 h-12 text-center text-lg font-semibold border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 bg-neutral-50"

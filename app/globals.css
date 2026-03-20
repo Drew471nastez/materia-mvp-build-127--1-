@@ -1030,13 +1030,22 @@ html.keyboard-open .library-scroll-content {
 }
 
 /* When the keyboard is open on library pages (settings, etc.), collapse any
-   minimum-height constraints and extra bottom padding/margin on child content
+   minimum-height constraints and extra bottom/top margin on child content
    so the scroll container doesn't extend past the visual viewport, which would
    leave blank space at the bottom on mobile. */
 html.keyboard-open .library-scroll-content > * {
   min-height: 0 !important;
 }
 
+/* Prevent the parent flex column from forcing min-height on mobile when
+   keyboard is open — this eliminates the blank gap below the scroll area. */
+html.keyboard-open [data-page="library"] > div {
+  min-height: 0 !important;
+}
+
+/* Ensure the <main> scroll container uses overflow-anchor so the browser
+   doesn't jump the scroll position when elements resize during keyboard
+   open/close transitions. */
 html.keyboard-open [data-page="library"] main {
   overflow-anchor: auto;
 }

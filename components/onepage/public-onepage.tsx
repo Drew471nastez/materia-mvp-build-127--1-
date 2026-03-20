@@ -689,11 +689,32 @@ function ShareButton({
    *   stays visible after 1.5 s (app not installed) we open the wa.me web
    *   fallback in a new tab instead.
    */
-  const openShareTarget = async (nativeScheme: string | null, webUrl: string) => {
+  /**
+   * Open a share target — app-first with browser fallback.
+   *
+   * @param nativeScheme  Custom URL scheme (twitter://, whatsapp://, etc.)
+   *                      Pass null to skip app-scheme and go straight to web.
+   * @param webUrl        HTTPS fallback URL (opens if app is not installed).
+   * @param preferSystem  If true, open webUrl via system browser (_system) on
+   *                      Capacitor instead of the in-app browser.  This lets
+   *                      iOS Universal Links / Android App Links redirect to
+   *                      the native app (e.g. Facebook, whose custom scheme
+   *                      is unreliable but whose Universal Links work).
+   */
+  const openShareTarget = async (
+    nativeScheme: string | null,
+    webUrl: string,
+    preferSystem = false,
+  ) => {
     if (isNativeApp()) {
       if (nativeScheme) {
         // Synchronous — keeps user-gesture context so the OS accepts the call.
         window.open(nativeScheme, "_system")
+      } else if (preferSystem) {
+        // Open via the system browser so Universal Links / App Links can
+        // redirect to the native app (e.g. Facebook).  Falls back to the
+        // browser if the app is not installed.
+        window.open(webUrl, "_system")
       } else {
         const { Browser } = await import("@capacitor/browser")
         await Browser.open({ url: webUrl })
@@ -716,6 +737,7 @@ function ShareButton({
   }
 
   const shareText = `${pageTitle} ${pageUrl}`
+  const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}&quote=${encodeURIComponent(pageTitle)}`
 
   const shareOptions = [
     {
@@ -738,11 +760,10 @@ function ShareButton({
       name: "Facebook",
       iconType: "facebook" as const,
       color: "#1877F2",
-      action: () =>
-        openShareTarget(
-          `fb://facewebmodal/f?href=${encodeURIComponent(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`)}`,
-          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`,
-        ),
+      // Use system browser on Capacitor so iOS Universal Links / Android App
+      // Links redirect to the Facebook app.  Falls back to browser if not
+      // installed.  The fb:// scheme is unreliable on modern iOS/Android.
+      action: () => openShareTarget(null, fbShareUrl, true),
     },
     {
       name: "WhatsApp",
