@@ -5,7 +5,7 @@ import { useState } from "react"
 
 import { useStoreBuilder } from "./store-builder-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ListChecks, Type, Megaphone, Grid, ImageIcon, Package, CheckCircle, X, Star, Users, ShoppingBag } from "lucide-react"
+import { ListChecks, Type, Megaphone, Grid, ImageIcon, Package, CheckCircle, X, Star } from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
 import type { SectionLibraryItem } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
@@ -21,22 +21,16 @@ const sectionIconsMap: Record<string, React.ReactNode> = {
   "text-block": <Type className="h-5 w-5" />,
   "announcement-bar": <Megaphone className="h-5 w-5" />,
   "featured-products": <Grid className="h-5 w-5" />,
-  "more-from-seller": <Package className="h-5 w-5" />,
-  reviews: <CheckCircle className="h-5 w-5" />,
-  "subscribe-bar": <Star className="h-5 w-5" />,
-  about: <Users className="h-5 w-5" />,
-  faq: <ListChecks className="h-5 w-5" />,
+  reviews: <Star className="h-5 w-5" />,
 }
 
 // Category definitions for store builder sections
 const STORE_SECTION_CATEGORIES: Record<string, { label: string; types: string[] }> = {
-  saved: { label: "Saved Sections", types: [] },
   "image-text": { label: "Image With Text", types: ["image-text"] },
-  media: { label: "Gallery", types: [] },
   content: { label: "Content", types: ["text-block", "benefits"] },
-  marketing: { label: "Marketing", types: ["announcement-bar", "subscribe-bar"] },
-  commerce: { label: "Products", types: ["featured-products", "more-from-seller"] },
-  info: { label: "Information", types: ["about", "faq", "reviews"] },
+  marketing: { label: "Marketing", types: ["announcement-bar"] },
+  commerce: { label: "Products", types: ["featured-products"] },
+  info: { label: "Information", types: ["reviews"] },
 }
 
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
@@ -49,18 +43,13 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
     onOpenChange(false)
   }
 
-  // Filter out locked sections
-  const availableSections = sectionLibrary.filter(
-    (item) => item.type !== "featured-products" && item.type !== "reviews"
-  )
-
   // Filter by category if one is selected
   const filteredSections = activeCategory
-    ? availableSections.filter(item => {
+    ? sectionLibrary.filter(item => {
         const cat = STORE_SECTION_CATEGORIES[activeCategory]
         return cat?.types.includes(item.type)
       })
-    : availableSections
+    : sectionLibrary
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -268,65 +257,6 @@ function RealSectionPreview({ type }: { type: string }) {
               </div>
             ))}
           </div>
-        </div>
-      )
-
-    case "more-from-seller":
-      return (
-        <div className="w-full h-full p-2.5 flex flex-col gap-2 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="flex items-center gap-1.5">
-            <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-1/4" />
-            <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 shadow-sm" />
-          </div>
-          <div className="flex-1 grid grid-cols-4 gap-1.5">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white dark:bg-slate-800 rounded-md flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex-1 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center aspect-square">
-                  <ShoppingBag className="h-3 w-3 text-slate-400/60" />
-                </div>
-                <div className="p-1 space-y-0.5">
-                  <div className="h-1 bg-slate-600 dark:bg-slate-300 rounded-sm w-full" />
-                  <div className="h-1 bg-emerald-500 rounded-sm w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-
-    case "subscribe-bar":
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center gap-2 p-4">
-          <div className="h-2 bg-white/80 rounded w-2/5" />
-          <div className="flex gap-1 w-3/5">
-            <div className="flex-1 h-5 bg-white/20 rounded" />
-            <div className="h-5 w-14 bg-white rounded text-[6px] font-bold text-blue-600 flex items-center justify-center">Subscribe</div>
-          </div>
-        </div>
-      )
-
-    case "about":
-      return (
-        <div className="w-full h-full p-3 flex gap-3 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 shrink-0 mt-1" />
-          <div className="flex-1 flex flex-col gap-1.5 justify-center">
-            <div className="h-2 bg-slate-800 dark:bg-white rounded-sm w-1/3" />
-            <div className="h-1.5 bg-slate-300 rounded-sm w-full" />
-            <div className="h-1.5 bg-slate-200 rounded-sm w-4/5" />
-          </div>
-        </div>
-      )
-
-    case "faq":
-      return (
-        <div className="w-full h-full bg-white p-3 flex flex-col gap-1.5">
-          <div className="h-2 bg-slate-800 rounded w-1/4 mx-auto mb-1" />
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex items-center justify-between px-2 py-1.5 border border-slate-200 rounded-md">
-              <div className="h-1.5 bg-slate-600 rounded w-2/3" />
-              <CheckCircle className="h-2.5 w-2.5 text-slate-400" />
-            </div>
-          ))}
         </div>
       )
 
