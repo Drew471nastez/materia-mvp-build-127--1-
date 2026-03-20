@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Download, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DownloadsGrid } from "@/components/library/downloads-grid"
 import { getLibraryDownloads } from "@/lib/library/get-library-downloads"
+import { HideOnIOS } from "@/components/hide-on-ios"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -66,11 +67,13 @@ export default async function MyDownloadsPage() {
           <p className="mt-1 text-sm text-neutral-500 max-w-sm mx-auto">
             Digital products you purchase will appear here for instant download.
           </p>
-          <Button asChild className="mt-4 bg-neutral-900 text-white hover:bg-black">
-            <Link href="/explore">
-              Explore products <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <HideOnIOS>
+            <Button asChild className="mt-4 bg-neutral-900 text-white hover:bg-black">
+              <Link href="/explore">
+                Explore products <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </HideOnIOS>
         </div>
       )}
     </div>

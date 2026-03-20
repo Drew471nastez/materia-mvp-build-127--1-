@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DownloadsGrid } from "@/components/library/downloads-grid"
 import { getLibraryDownloads } from "@/lib/library/get-library-downloads"
 import { LibrarySplashInit } from "@/components/library/splash-init"
+import { HideOnIOS } from "@/components/hide-on-ios"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -126,19 +127,22 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           <p className="text-xs text-neutral-500 mt-0.5">Wishlist</p>
         </Link>
 
-        <Link
-          href="/explore"
-          className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 transition-all hover:border-neutral-300 hover:shadow-sm group col-span-2 sm:col-span-1"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="h-9 w-9 rounded-xl bg-neutral-100 flex items-center justify-center group-hover:bg-neutral-200 transition-colors">
-              <ShoppingBag className="h-4 w-4 text-neutral-600" />
+        {/* Explore tab — hidden on iOS (App Store Guideline 3.1.1) */}
+        <HideOnIOS>
+          <Link
+            href="/explore"
+            className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 transition-all hover:border-neutral-300 hover:shadow-sm group col-span-2 sm:col-span-1"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="h-9 w-9 rounded-xl bg-neutral-100 flex items-center justify-center group-hover:bg-neutral-200 transition-colors">
+                <ShoppingBag className="h-4 w-4 text-neutral-600" />
+              </div>
+              <ArrowRight className="h-4 w-4 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <ArrowRight className="h-4 w-4 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-          <p className="text-sm font-semibold text-neutral-900">Explore</p>
-          <p className="text-xs text-neutral-500 mt-0.5">Discover products</p>
-        </Link>
+            <p className="text-sm font-semibold text-neutral-900">Explore</p>
+            <p className="text-xs text-neutral-500 mt-0.5">Discover products</p>
+          </Link>
+        </HideOnIOS>
       </section>
 
       {/* Recent downloads */}
@@ -169,11 +173,13 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           <p className="mt-1 text-sm text-neutral-500 max-w-sm mx-auto">
             Explore creators and discover digital products you&apos;ll love.
           </p>
-          <Button asChild className="mt-4 bg-neutral-900 text-white hover:bg-black">
-            <Link href="/explore">
-              Explore products <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <HideOnIOS>
+            <Button asChild className="mt-4 bg-neutral-900 text-white hover:bg-black">
+              <Link href="/explore">
+                Explore products <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </HideOnIOS>
         </div>
       )}
     </div>
