@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, openExternal, isIOS } from "@/lib/native-bridge"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
@@ -38,6 +38,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
+  // iOS App Store compliance (Guideline 3.1.1): hide all purchase/upgrade CTAs
+  // on iOS native builds. Plan info and billing history remain visible.
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string; visible: boolean } | null>(null)
   const notifTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
@@ -375,37 +379,39 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   )}
                 </ul>
 
-                {/* Buttons */}
-                <div className="flex flex-wrap gap-3">
-                  {/* Free plan -> Upgrade link */}
-                  {currentPlan.id === "free" && (
-                    <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      Upgrade
-                    </Link>
-                  )}
-                  {/* Growth plan -> Upgrade to Pro */}
-                  {currentPlan.id === "growth" && nextUpgradePlan && (
-                    <button
-                      onClick={() => openUpgradeModal(nextUpgradePlan.id, nextUpgradePlan.name, nextUpgradePlan.price_cents)}
-                      className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
-                    >
-                      Upgrade to {nextUpgradePlan.name}
-                    </button>
-                  )}
-                  {/* If cancel_at_period_end, show upgrade option to reactivate */}
-                  {isSubscribed && subscription.cancel_at_period_end && (
-                    <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      Upgrade
-                    </Link>
-                  )}
-                  {/* Always show Manage Subscription for any active paid plan */}
-                  {isSubscribed && (
-                    <button onClick={openCustomerPortal} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                      Manage Subscription
-                    </button>
-                  )}
-                </div>
+                {/* Buttons — all purchase/manage CTAs are hidden on iOS */}
+                {!isIOSApp && (
+                  <div className="flex flex-wrap gap-3">
+                    {/* Free plan -> Upgrade link */}
+                    {currentPlan.id === "free" && (
+                      <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
+                        Upgrade
+                      </Link>
+                    )}
+                    {/* Growth plan -> Upgrade to Pro */}
+                    {currentPlan.id === "growth" && nextUpgradePlan && (
+                      <button
+                        onClick={() => openUpgradeModal(nextUpgradePlan.id, nextUpgradePlan.name, nextUpgradePlan.price_cents)}
+                        className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
+                      >
+                        Upgrade to {nextUpgradePlan.name}
+                      </button>
+                    )}
+                    {/* If cancel_at_period_end, show upgrade option to reactivate */}
+                    {isSubscribed && subscription.cancel_at_period_end && (
+                      <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
+                        Upgrade
+                      </Link>
+                    )}
+                    {/* Always show Manage Subscription for any active paid plan */}
+                    {isSubscribed && (
+                      <button onClick={openCustomerPortal} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
+                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                        Manage Subscription
+                      </button>
+                    )}
+                  </div>
+                )}
                 {/* Cancel-at-period-end notice — subscription active but will expire */}
                 {isSubscribed && subscription.cancel_at_period_end && (
                   <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl mt-3">
@@ -430,9 +436,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                           : `Your paid plan has been canceled.`}{" "}
                         You are now on the Free plan.
                       </p>
-                      <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
-                        Reactivate a plan
-                      </Link>
+                      {!isIOSApp && (
+                        <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
+                          Reactivate a plan
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )}
@@ -466,26 +474,32 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                         </div>
                       </div>
                     </div>
-                    <TrustBadges />
-                    <div className="flex gap-3">
-                      <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
-                        Edit Payment
-                      </button>
-                    </div>
+                    {!isIOSApp && <TrustBadges />}
+                    {!isIOSApp && (
+                      <div className="flex gap-3">
+                        <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
+                          {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+                          Edit Payment
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="bg-[#f9fafb] rounded-xl p-6 text-center">
                       <CreditCard className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
                       <p className="text-[13px] text-[#6b7280] mb-1">No payment method on file</p>
-                      <p className="text-[12px] text-[#9ca3af]">Add a payment method to subscribe to paid plans</p>
+                      <p className="text-[12px] text-[#9ca3af]">
+                        {isIOSApp ? "Manage billing at storelib.com" : "Add a payment method to subscribe to paid plans"}
+                      </p>
                     </div>
-                    <TrustBadges />
-                    <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                      Add Payment Method
-                    </button>
+                    {!isIOSApp && <TrustBadges />}
+                    {!isIOSApp && (
+                      <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
+                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                        Add Payment Method
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -496,7 +510,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
-              {liveInvoices.length > 0 && (
+              {liveInvoices.length > 0 && !isIOSApp && (
                 <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
                   <ExternalLink className="h-3.5 w-3.5" />
                   View All
@@ -530,7 +544,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                 <p className="text-[13px] text-red-700">
                   Your subscription has been canceled.{" "}
-                  <Link href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</Link>
+                  {!isIOSApp && (
+                    <Link href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</Link>
+                  )}
                 </p>
               </div>
             )}
@@ -624,25 +640,27 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             )}
           </div>
 
-          {/* ---- SECTION 3: Pricing Tiers ---- */}
-          <PricingTiers
-            plans={initialData.plans}
-            currentPlan={currentPlan}
-            subscription={subscription}
-            loading={loading}
-            setLoading={setLoading}
-            showNotification={showNotification}
-            router={router}
-            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
-            pendingPlanId={pendingPlanId}
-          />
+          {/* ---- SECTION 3: Pricing Tiers — hidden on iOS (no upgrade CTAs allowed) ---- */}
+          {!isIOSApp && (
+            <PricingTiers
+              plans={initialData.plans}
+              currentPlan={currentPlan}
+              subscription={subscription}
+              loading={loading}
+              setLoading={setLoading}
+              showNotification={showNotification}
+              router={router}
+              onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
+              pendingPlanId={pendingPlanId}
+            />
+          )}
         </div>
       </div>
 
       {/* Invoice Detail Modal (Desktop) */}
       {selectedInvoice && (
         <div className="hidden sm:block">
-          <InvoiceModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
+          <InvoiceModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} isIOSApp={isIOSApp} />
         </div>
       )}
 
@@ -650,7 +668,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       {selectedInvoice && (
         <div className="sm:hidden">
           <MobileBottomSheet isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title="Invoice Details">
-            <InvoiceContent invoice={selectedInvoice} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
+            <InvoiceContent invoice={selectedInvoice} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} isIOSApp={isIOSApp} />
           </MobileBottomSheet>
         </div>
       )}
@@ -675,7 +693,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
         </div>
       )}
 
-      {showUpgradeModal && (
+      {showUpgradeModal && !isIOSApp && (
         <UpgradeConfirmModal
           planId={showUpgradeModal.planId}
           planName={showUpgradeModal.planName}
@@ -790,7 +808,7 @@ function TrustBadges() {
 /* ============================================================
    Invoice Detail Modal (Desktop)
    ============================================================ */
-function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBadge, currentPlan }: any) {
+function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBadge, currentPlan, isIOSApp }: any) {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -812,7 +830,7 @@ function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBad
           </button>
         </div>
         <div className="p-5">
-          <InvoiceContent invoice={invoice} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
+          <InvoiceContent invoice={invoice} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} isIOSApp={isIOSApp} />
         </div>
       </div>
     </div>
@@ -822,7 +840,7 @@ function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBad
 /* ============================================================
    Invoice Content (shared between modal and bottom sheet)
    ============================================================ */
-function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, currentPlan }: any) {
+function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, currentPlan, isIOSApp }: any) {
   return (
     <div className="space-y-4">
       {/* Header row */}
@@ -866,7 +884,7 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
         <p className="mt-1">For billing questions, contact support@storelib.com.</p>
       </div>
 
-      {/* Actions */}
+      {/* Actions — "View on Stripe" opens Stripe portal, hidden on iOS */}
       <div className="flex gap-3">
         {invoice.invoice_pdf_url && (
           <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" className="flex-1 h-10 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center justify-center gap-2 cursor-pointer">
@@ -874,7 +892,7 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
             Download PDF
           </a>
         )}
-        {invoice.hosted_invoice_url && (
+        {invoice.hosted_invoice_url && !isIOSApp && (
           <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="flex-1 h-10 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] transition-colors flex items-center justify-center gap-2 cursor-pointer">
             <ExternalLink className="h-3.5 w-3.5" />
             View on Stripe

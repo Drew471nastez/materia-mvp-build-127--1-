@@ -37,7 +37,7 @@ import { createPortal } from "react-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
-import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut, openExternal, isIOS } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
@@ -104,6 +104,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
@@ -178,7 +180,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const profileDropdownItems = [
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
-    { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
+    // Billing page links are hidden on iOS (App Store Guideline 3.1.1)
+    ...(!isIOSApp ? [{ href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard }] : []),
     { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
     { href: "/library", label: "Library", icon: Library },
@@ -396,6 +399,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const [headerProfileOpen, setHeaderProfileOpen] = useState(false)
 
   // Search shortcut items (pill buttons in modal)
+  // Billing/upgrade shortcuts are hidden on iOS (App Store Guideline 3.1.1)
   const searchShortcuts = [
     { label: "Dashboard", href: "/app", icon: LayoutDashboard },
     { label: "Products", href: "/app/products", icon: Package },
@@ -405,11 +409,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Settings", href: "/app/settings", icon: Settings },
     { label: "Emails", href: "/app/emails", icon: Mail },
     { label: "OnePage", href: "/app/onepage", icon: Link2 },
-    { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
-    { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
+    ...(!isIOSApp ? [
+      { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
+      { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
+    ] : []),
   ]
 
   // All searchable items
+  // Billing/upgrade items are hidden on iOS (App Store Guideline 3.1.1)
   const allSearchItems = [
     { label: "Dashboard", href: "/app", icon: LayoutDashboard, category: "Pages" },
     { label: "Products", href: "/app/products", icon: Package, category: "Pages" },
@@ -421,8 +428,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
-    { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
-    { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    ...(!isIOSApp ? [
+      { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+      { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    ] : []),
     { label: "Profile Settings", href: "/app/settings", icon: Settings, category: "Settings" },
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Data" },
     { label: "Customers", href: "/app/orders", icon: ShoppingCart, category: "Data" },
@@ -439,7 +448,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
     { label: "Library", href: "/library", icon: Library, category: "Other" },
     { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
-    { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
+    ...(!isIOSApp ? [
+      { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
+    ] : []),
   ]
 
   // Search handler
@@ -577,19 +588,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/* pb accounts for iOS home indicator / Android gesture-nav bar in Capacitor.
           env() = 0px in browsers — no layout change there. */}
       <div className="px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))] space-y-2">
-        <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
-            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
-          </div>
-        </Link>
+        {/* Upgrade to Pro widget hidden on iOS (App Store Guideline 3.1.1) */}
+        {!isIOSApp && (
+          <Link
+            href="/app/settings/billing/upgrade"
+            onClick={onItemClick}
+            className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
+          >
+            <div>
+              <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
+              <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
+            </div>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
+              <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
+            </div>
+          </Link>
+        )}
 
         <Link
           href="/app/settings"
@@ -663,21 +677,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3">
-        <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
-            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
-          </div>
-        </Link>
-      </div>
+      {/* Upgrade to Pro widget hidden on iOS (App Store Guideline 3.1.1) */}
+      {!isIOSApp && (
+        <div className="px-3 pb-3">
+          <Link
+            href="/app/settings/billing/upgrade"
+            onClick={onItemClick}
+            className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
+          >
+            <div>
+              <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
+              <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
+            </div>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
+              <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* pt keeps existing 15px spacing; pb adds safe-area bottom so the branding
           bar clears the iOS home indicator / Android gesture nav in Capacitor.
