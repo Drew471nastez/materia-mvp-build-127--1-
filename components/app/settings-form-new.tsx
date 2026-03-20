@@ -255,15 +255,14 @@ function MobileBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      // Save scroll position before locking (needed to restore on iOS)
       scrollYRef.current = window.scrollY
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
-      // Use position:fixed trick — more reliable than overflow:hidden alone on iOS Safari
+      // Lock scroll without position:fixed to prevent layout shifts on iOS Capacitor.
+      // position:fixed on body causes the sticky black platform header to jump and
+      // create extra black space above it. overflow:hidden is sufficient here because
+      // the sheet overlay already blocks all touch-through, and CapacitorBounceGuard
+      // handles rubber-band prevention at the document level.
+      document.documentElement.style.overflow = "hidden"
       document.body.style.overflow = "hidden"
-      document.body.style.position = "fixed"
-      document.body.style.top = `-${scrollYRef.current}px`
-      document.body.style.width = "100%"
-      document.body.style.paddingRight = `${scrollbarWidth}px`
       document.documentElement.style.overscrollBehavior = "none"
       document.body.style.overscrollBehavior = "none"
       requestAnimationFrame(() => {
@@ -274,15 +273,10 @@ function MobileBottomSheet({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       const timer = setTimeout(() => {
-        const sy = scrollYRef.current
+        document.documentElement.style.overflow = ""
         document.body.style.overflow = ""
-        document.body.style.position = ""
-        document.body.style.top = ""
-        document.body.style.width = ""
-        document.body.style.paddingRight = ""
         document.documentElement.style.overscrollBehavior = ""
         document.body.style.overscrollBehavior = ""
-        window.scrollTo(0, sy)
         setIsVisible(false)
         setDragY(0)
         dragYRef.current = 0
@@ -290,15 +284,10 @@ function MobileBottomSheet({
       return () => clearTimeout(timer)
     }
     return () => {
-      const sy = scrollYRef.current
+      document.documentElement.style.overflow = ""
       document.body.style.overflow = ""
-      document.body.style.position = ""
-      document.body.style.top = ""
-      document.body.style.width = ""
-      document.body.style.paddingRight = ""
       document.documentElement.style.overscrollBehavior = ""
       document.body.style.overscrollBehavior = ""
-      if (sy) window.scrollTo(0, sy)
     }
   }, [isOpen, isVisible])
 

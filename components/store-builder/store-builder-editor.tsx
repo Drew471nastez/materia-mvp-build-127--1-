@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { StoreBuilderProvider, useStoreBuilder } from "./store-builder-context"
 import { EditorTopbar } from "./editor-topbar"
-import { IOSReviewNotice } from "@/components/ios-review-notice"
 import { SectionsSidebar } from "./sections-sidebar"
 import { PreviewCanvas } from "./preview-canvas"
 import { AddSectionModal } from "./add-section-modal"
@@ -229,7 +228,6 @@ function EditorLayout({
           onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
           isMobile
         />
-        <IOSReviewNotice />
 
         {/* Main Content Area */}
         <div className="relative flex-1 min-h-0">
@@ -277,7 +275,6 @@ function EditorLayout({
     <div className="fixed inset-0 flex flex-col bg-white dark:bg-zinc-950 overflow-hidden pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
       {/* Top Bar - fixed height */}
       <EditorTopbar creatorSlug={creatorSlug} onPreview={() => setPreviewMode(true)} />
-      <IOSReviewNotice />
 
       {/* Main Editor Area - fills remaining space */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
