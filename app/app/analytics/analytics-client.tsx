@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 
 // Custom Spotify Icon (brand SVG)
@@ -2266,6 +2267,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <div className="relative timeframe-dropdown">
               <button
                 onClick={() => {
+                  triggerHaptic("light")
                   if (isMobile) {
                     setIsTimeframeSheetOpen(true)
                   } else {

@@ -292,6 +292,25 @@ export async function nativeLogout(
   isNative() ? window.location.replace("/welcome") : router.replace("/login")
 }
 
+// ── Haptic feedback ──────────────────────────────────────────────────────────
+
+/**
+ * Trigger a short haptic impact on iOS/Android via @capacitor/haptics.
+ * No-op on web or SSR. Dynamically imported so it never bloats the web bundle.
+ *
+ * @param style - "light" | "medium" | "heavy" (default: "light")
+ */
+export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light"): Promise<void> {
+  if (typeof window === "undefined") return
+  const cap = (window as any).Capacitor
+  if (!cap?.isNativePlatform?.()) return
+  try {
+    const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
+    const styleMap = { light: ImpactStyle.Light, medium: ImpactStyle.Medium, heavy: ImpactStyle.Heavy }
+    await Haptics.impact({ style: styleMap[style] })
+  } catch { /* plugin unavailable or permission denied — silent no-op */ }
+}
+
 // ── External link handling ──────────────────────────────────────────────────
 
 /**
