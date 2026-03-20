@@ -550,19 +550,9 @@ function ShareButtonPreview({
         const { Browser } = await import("@capacitor/browser")
         await Browser.open({ url: webUrl })
       }
-    } else if (nativeScheme) {
-      // Web: navigate current page to native scheme — opens app, no new tab.
-      let appOpened = false
-      const onVisibilityChange = () => {
-        if (document.hidden) appOpened = true
-      }
-      document.addEventListener("visibilitychange", onVisibilityChange)
-      window.location.href = nativeScheme
-      setTimeout(() => {
-        document.removeEventListener("visibilitychange", onVisibilityChange)
-        if (!appOpened) window.open(webUrl, "_blank")
-      }, 1500)
     } else {
+      // Web: always open the web URL directly in a new tab.
+      // (Skipping native scheme on web to avoid navigating the editor page away.)
       window.open(webUrl, "_blank")
     }
   }

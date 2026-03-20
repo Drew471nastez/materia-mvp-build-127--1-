@@ -319,6 +319,14 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
         <div className="space-y-6">
 
+          {/* iOS: plan management notice (no upgrade links on iOS per App Store Guideline 3.1.1) */}
+          {isIOSApp && (
+            <div className="flex items-center gap-3 rounded-2xl bg-[#f3f4f6] border border-[#e5e7eb] px-4 sm:px-5 py-3 sm:py-3.5">
+              <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
+              <p className="text-[13px] text-[#6b7280]">Plan changes are managed on the web dashboard.</p>
+            </div>
+          )}
+
           {/* ---- SECTION 1: Subscription Overview ---- */}
           <div>
             <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Subscription Overview</h2>
