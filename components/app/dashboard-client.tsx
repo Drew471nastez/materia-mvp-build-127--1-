@@ -2136,8 +2136,14 @@ export function DashboardClient({
                     </Link>
                   </div>
                 </>
+              ) : isIOSApp ? (
+                /* Free plan banner — iOS: no upgrade links (App Store Guideline 3.1.1) */
+                <>
+                  <p className="text-[14px] sm:text-[16px] font-medium text-white mb-1">Scale faster with Growth features</p>
+                  <p className="text-[13px] sm:text-[14px] text-white/80">Plan changes are managed on the web dashboard.</p>
+                </>
               ) : (
-                /* Free plan banner */
+                /* Free plan banner — web */
                 <>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[13px] sm:text-[15px] font-semibold text-white">Unlock Growth features</span>
