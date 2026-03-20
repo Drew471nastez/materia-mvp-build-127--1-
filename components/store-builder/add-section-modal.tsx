@@ -23,6 +23,8 @@ import {
   X,
   Check,
   ShoppingBag,
+  CheckCircle,
+  Zap,
 } from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
 import type { SectionLibraryItem } from "@/lib/store-builder/types"
@@ -320,8 +322,9 @@ function MobileSectionCard({
 
 // ────────────────────────────────────────────────────────────────────────────
 // Section preview thumbnails
-// These faithfully represent the actual layout of each section type as it
-// appears in the store editor — same structure, proportions, and color cues.
+// Each preview is a faithful pixel-scaled replica of the actual section layout —
+// same structure, proportions, visual hierarchy, and color palette as the real
+// rendered section, scaled to fit the thumbnail frame.
 // ────────────────────────────────────────────────────────────────────────────
 export function SectionPreview({ type }: { type: string }) {
   switch (type) {
@@ -347,33 +350,39 @@ export function SectionPreview({ type }: { type: string }) {
 }
 
 // ── Image + Text ─────────────────────────────────────────────────────────────
-// Mirrors the actual layout: left image area | right headline + body + button
+// Mirrors the actual section: left image (aspect-video, rounded-lg) | right text column
+// with headline, body paragraph lines, and a CTA button.
 function ImageTextPreview() {
   return (
-    <div className="w-full h-full flex items-stretch bg-white dark:bg-neutral-950">
-      {/* Image block */}
-      <div className="w-[42%] relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-neutral-100 via-neutral-150 to-neutral-200 dark:from-neutral-800 dark:to-neutral-700" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-8 h-8 rounded-lg bg-white/50 dark:bg-black/30 backdrop-blur-sm flex items-center justify-center">
-            <ImageIcon className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
+    <div className="w-full h-full flex items-center bg-white dark:bg-neutral-950 px-3 py-2.5 gap-3">
+      {/* Image block — aspect-video, rounded-lg */}
+      <div className="shrink-0 w-[44%] h-[72px] rounded-md overflow-hidden relative bg-gradient-to-br from-slate-100 via-slate-150 to-slate-200 dark:from-neutral-800 dark:to-neutral-700 flex items-center justify-center">
+        {/* Subtle landscape illustration */}
+        <div className="absolute inset-0 opacity-30" style={{
+          background: "linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 40%, #94a3b8 100%)"
+        }} />
+        <div className="relative z-10 flex flex-col items-center gap-0.5">
+          <div className="w-8 h-5 rounded bg-white/60 dark:bg-black/30 flex items-center justify-center">
+            <ImageIcon className="h-3 w-3 text-slate-400" />
           </div>
         </div>
       </div>
 
-      {/* Text block */}
-      <div className="flex-1 flex flex-col justify-center px-3 py-3 gap-1.5">
-        {/* Headline */}
-        <div className="h-2.5 bg-neutral-900 dark:bg-white rounded-full w-4/5" />
-        {/* Body copy lines */}
-        <div className="space-y-1 mt-0.5">
-          <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
-          <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[90%]" />
-          <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-3/4" />
+      {/* Text column */}
+      <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
+        {/* Headline — bold, dark */}
+        <div className="h-2.5 rounded-full bg-neutral-900 dark:bg-white w-[88%]" />
+        {/* Sub-headline or second line */}
+        <div className="h-2 rounded-full bg-neutral-700 dark:bg-neutral-200 w-[65%]" />
+        {/* Body paragraph lines */}
+        <div className="flex flex-col gap-[3px] mt-0.5">
+          <div className="h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-600 w-full" />
+          <div className="h-1.5 rounded-full bg-neutral-250 dark:bg-neutral-650 w-[92%]" />
+          <div className="h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-700 w-[78%]" />
         </div>
         {/* CTA button */}
         <div
-          className="h-5 rounded-md mt-2 w-2/5"
+          className="mt-1 h-[18px] rounded-md w-[42%]"
           style={{ backgroundColor: "#2563eb" }}
         />
       </div>
@@ -382,33 +391,38 @@ function ImageTextPreview() {
 }
 
 // ── Benefits ─────────────────────────────────────────────────────────────────
-// Centered heading + 3-column grid of icon / title / description
+// Mirrors the actual section: centered heading + 3-column grid, each column having
+// a circular icon (bg-primary/10 with icon), bold title, and 2 description lines.
 function BenefitsPreview() {
   const items = [
-    { bg: "#dcfce7", color: "#16a34a" },
-    { bg: "#dbeafe", color: "#2563eb" },
-    { bg: "#ede9fe", color: "#7c3aed" },
+    { bg: "#ede9fe", iconColor: "#7c3aed", Icon: CheckCircle },
+    { bg: "#dbeafe", iconColor: "#2563eb", Icon: Zap },
+    { bg: "#dcfce7", iconColor: "#16a34a", Icon: Check },
   ]
   return (
-    <div className="w-full h-full flex flex-col items-center bg-white dark:bg-neutral-950 px-3 py-2.5">
-      {/* Section heading */}
-      <div className="h-2 bg-neutral-800 dark:bg-white rounded-full w-[38%] mb-2.5" />
+    <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-950 px-3 py-2">
+      {/* Section headline — centered, bold */}
+      <div className="h-2.5 bg-neutral-900 dark:bg-white rounded-full w-[45%] mb-3" />
 
-      {/* 3-column grid */}
-      <div className="flex-1 flex items-start justify-center gap-2.5 w-full">
+      {/* 3-column benefits grid */}
+      <div className="flex items-start justify-center gap-2 w-full">
         {items.map((item, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            {/* Circular icon container — h-14 w-14 scaled down */}
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center"
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
               style={{ backgroundColor: item.bg }}
             >
-              <Check className="w-3.5 h-3.5" style={{ color: item.color }} />
+              <item.Icon
+                className="w-4 h-4"
+                style={{ color: item.iconColor }}
+              />
             </div>
-            {/* Item title */}
-            <div className="h-1.5 bg-neutral-700 dark:bg-neutral-300 rounded-full w-full" />
-            {/* Item description lines */}
-            <div className="h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full w-[85%]" />
-            <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[70%]" />
+            {/* Title */}
+            <div className="h-1.5 bg-neutral-800 dark:bg-neutral-200 rounded-full w-[80%]" />
+            {/* Description lines */}
+            <div className="h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
+            <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[75%]" />
           </div>
         ))}
       </div>
@@ -417,39 +431,45 @@ function BenefitsPreview() {
 }
 
 // ── Text Block ────────────────────────────────────────────────────────────────
-// Centered heading + body paragraph lines
+// Mirrors the actual section: optional headline, body text paragraphs, left-aligned.
 function TextBlockPreview() {
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-950 px-4 py-3 gap-1.5">
-      {/* Heading */}
-      <div className="h-2.5 bg-neutral-900 dark:bg-white rounded-full w-[40%]" />
-      {/* Thin accent line */}
-      <div className="w-8 h-px bg-neutral-300 dark:bg-neutral-600 my-0.5" />
-      {/* Body lines */}
-      <div className="space-y-1.5 w-full max-w-[82%]">
+    <div className="w-full h-full flex flex-col justify-center bg-white dark:bg-neutral-950 px-4 py-3 gap-1.5">
+      {/* Headline — bold, foreground */}
+      <div className="h-2.5 bg-neutral-900 dark:bg-white rounded-full w-[55%]" />
+      {/* Body text lines — muted, varying widths */}
+      <div className="flex flex-col gap-[4px] mt-1">
+        <div className="h-1.5 bg-neutral-400 dark:bg-neutral-500 rounded-full w-full" />
+        <div className="h-1.5 bg-neutral-350 dark:bg-neutral-550 rounded-full w-[96%]" />
         <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
-        <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[92%]" />
-        <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-full" />
-        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-[80%]" />
+        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-[88%]" />
+        <div className="h-1.5 bg-neutral-250 dark:bg-neutral-650 rounded-full w-[72%]" />
       </div>
     </div>
   )
 }
 
 // ── Announcement Bar ──────────────────────────────────────────────────────────
-// Full-width dark banner with centered text — matches the actual renderer exactly
+// Mirrors the actual section: full-width solid background banner with centered text.
+// The banner itself occupies most of the preview frame, with a small neutral surround.
 function AnnouncementBarPreview() {
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-[#f5f5f5] dark:bg-[#111] px-3 gap-1.5">
-      {/* The bar itself */}
-      <div className="w-full bg-neutral-900 dark:bg-neutral-100 rounded-md flex items-center px-3 py-2.5 gap-2">
-        <Megaphone className="h-3 w-3 text-white/70 dark:text-neutral-600 shrink-0" />
-        <div className="flex-1">
-          <div className="h-1.5 bg-white/80 dark:bg-neutral-700 rounded-full w-3/5" />
+    <div className="w-full h-full flex flex-col items-center justify-center bg-[#f5f5f5] dark:bg-[#111] px-2.5 py-2.5 gap-2">
+      {/* The announcement bar itself */}
+      <div
+        className="w-full rounded-sm flex items-center justify-center px-3 py-3 gap-2"
+        style={{ backgroundColor: "#111111" }}
+      >
+        <Megaphone className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.6)" }} />
+        <div className="flex flex-col items-center gap-1 flex-1">
+          {/* Main text line */}
+          <div className="h-1.5 rounded-full w-[62%]" style={{ backgroundColor: "rgba(255,255,255,0.85)" }} />
+          {/* Optional second shorter line */}
+          <div className="h-1 rounded-full w-[40%]" style={{ backgroundColor: "rgba(255,255,255,0.4)" }} />
         </div>
-        <X className="h-2.5 w-2.5 text-white/30 dark:text-neutral-500 shrink-0" />
       </div>
-      <span className="text-[9px] font-medium text-neutral-400 dark:text-neutral-500 tracking-wide uppercase">
+      {/* Label */}
+      <span className="text-[8px] font-medium text-neutral-400 dark:text-neutral-500 tracking-wide uppercase">
         Full-width banner
       </span>
     </div>
@@ -457,28 +477,35 @@ function AnnouncementBarPreview() {
 }
 
 // ── Featured Products ─────────────────────────────────────────────────────────
-// Section heading + row of 3 product cards (image + title + price)
+// Mirrors the actual section: section heading + product grid with cards
+// Each card has an image area (bg-muted, ShoppingBag icon), title bar, and price.
 function FeaturedProductsPreview() {
   return (
-    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-950 px-3 py-2.5">
-      {/* Section heading */}
-      <div className="h-2 bg-neutral-800 dark:bg-white rounded-full w-[32%] mb-2.5" />
+    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-950 px-3 py-2.5 gap-2">
+      {/* Section heading row: title + sort button */}
+      <div className="flex items-center justify-between shrink-0">
+        <div className="h-2 bg-neutral-900 dark:bg-white rounded-full w-[35%]" />
+        <div className="h-[14px] w-[18%] rounded bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center gap-0.5 px-1">
+          <div className="h-1 w-1 rounded-full bg-neutral-400 dark:bg-neutral-500" />
+          <div className="h-1 w-[14px] rounded-full bg-neutral-300 dark:bg-neutral-600" />
+        </div>
+      </div>
 
-      {/* Product cards row */}
-      <div className="flex-1 grid grid-cols-3 gap-2">
+      {/* Product cards row — 3 columns */}
+      <div className="flex-1 grid grid-cols-3 gap-1.5">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
             className="flex flex-col bg-white dark:bg-neutral-900 rounded-lg overflow-hidden border border-neutral-100 dark:border-neutral-800 shadow-sm"
           >
-            {/* Product image area */}
-            <div className="flex-1 bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-              <ShoppingBag className="h-3 w-3 text-neutral-400 dark:text-neutral-500" />
+            {/* Product image */}
+            <div className="flex-1 min-h-0 bg-gradient-to-br from-neutral-100 to-neutral-150 dark:from-neutral-800 dark:to-neutral-750 flex items-center justify-center">
+              <ShoppingBag className="h-3 w-3 text-neutral-300 dark:text-neutral-600" />
             </div>
             {/* Product info */}
-            <div className="px-1.5 py-1.5 space-y-1">
-              <div className="h-1 bg-neutral-600 dark:bg-neutral-300 rounded-full w-full" />
-              <div className="h-1.5 bg-emerald-500/80 rounded-full w-[55%]" />
+            <div className="px-1.5 py-1.5 flex flex-col gap-1">
+              <div className="h-1 bg-neutral-700 dark:bg-neutral-300 rounded-full w-full" />
+              <div className="h-1.5 rounded-full w-[55%]" style={{ backgroundColor: "#10b981" }} />
             </div>
           </div>
         ))}
@@ -488,44 +515,50 @@ function FeaturedProductsPreview() {
 }
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
-// Heading + overall rating + 2 review cards with avatar / stars / text
+// Mirrors the actual section: overall rating row (title + 5 stars + count) + 2 review
+// cards, each with avatar circle, reviewer name, star rating, and text lines.
 function ReviewsPreview() {
   return (
-    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-950 px-3 py-2.5 gap-1.5">
-      {/* Header row: title + stars + count */}
+    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-950 px-3 py-2 gap-1.5">
+      {/* Header row: Reviews title + stars + average + count */}
       <div className="flex items-center gap-1.5 shrink-0">
-        <div className="h-2 bg-neutral-800 dark:bg-white rounded-full w-[22%]" />
-        <div className="flex gap-0.5">
+        <div className="h-2 bg-neutral-900 dark:bg-white rounded-full w-[24%]" />
+        <div className="flex gap-[2px]">
           {[0, 1, 2, 3, 4].map((s) => (
-            <Star key={s} className="w-2 h-2 fill-amber-400 text-amber-400" />
+            <Star key={s} className="w-[9px] h-[9px] fill-amber-400 text-amber-400" />
           ))}
         </div>
-        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-8 ml-0.5" />
+        <div className="h-1.5 bg-neutral-800 dark:bg-neutral-200 rounded-full w-[12px]" />
+        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-[24px] ml-auto" />
       </div>
 
       {/* Review cards */}
       <div className="flex flex-col gap-1.5 flex-1">
-        {[0, 1].map((i) => (
+        {[
+          { avatarFrom: "#a78bfa", avatarTo: "#7c3aed" },
+          { avatarFrom: "#6ee7b7", avatarTo: "#059669" },
+        ].map((card, i) => (
           <div
             key={i}
-            className="bg-neutral-50 dark:bg-neutral-900 rounded-lg p-2 border border-neutral-100 dark:border-neutral-800"
+            className="bg-neutral-50 dark:bg-neutral-900 rounded-lg p-1.5 border border-neutral-100 dark:border-neutral-800 flex-1"
           >
-            {/* Reviewer row */}
+            {/* Reviewer row: avatar + name + stars */}
             <div className="flex items-center gap-1.5 mb-1">
               <div
-                className="w-4 h-4 rounded-full shrink-0 bg-gradient-to-br from-violet-400 to-violet-600"
+                className="w-[14px] h-[14px] rounded-full shrink-0"
+                style={{ background: `linear-gradient(135deg, ${card.avatarFrom}, ${card.avatarTo})` }}
               />
-              <div className="h-1.5 bg-neutral-600 dark:bg-neutral-300 rounded-full w-1/4" />
-              <div className="flex gap-0.5 ml-auto">
+              <div className="h-1.5 bg-neutral-600 dark:bg-neutral-300 rounded-full w-[22%]" />
+              <div className="flex gap-[2px] ml-auto">
                 {[0, 1, 2, 3, 4].map((s) => (
-                  <Star key={s} className="w-1.5 h-1.5 fill-amber-400 text-amber-400" />
+                  <Star key={s} className="w-[7px] h-[7px] fill-amber-400 text-amber-400" />
                 ))}
               </div>
             </div>
             {/* Review text lines */}
-            <div className="space-y-0.5">
+            <div className="flex flex-col gap-[3px]">
               <div className="h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
-              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[85%]" />
+              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[80%]" />
             </div>
           </div>
         ))}
