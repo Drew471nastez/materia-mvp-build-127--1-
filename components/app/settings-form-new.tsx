@@ -3030,6 +3030,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {!isTabLoading && activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
 
+              {/* iOS: plan management notice (no upgrade links on iOS per App Store Guideline 3.1.1) */}
+              {isIOSApp && (
+                <div className="flex items-center gap-3 rounded-2xl bg-[#f3f4f6] border border-[#e5e7eb] px-4 sm:px-5 py-3 sm:py-3.5">
+                  <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
+                  <p className="text-[13px] text-[#6b7280]">Plan changes are managed on the web dashboard.</p>
+                </div>
+              )}
+
               {/* Upgrade banner — only shown for free/null plan on non-iOS, nothing while loading or paid */}
               {/* iOS: hidden for App Store compliance (Guideline 3.1.1) */}
               {!isIOSApp && !planLoading && (userPlan === "free" || userPlan === null) ? (
