@@ -302,29 +302,42 @@ export async function nativeLogout(
  * open in the device's default browser rather than the in-app WebView so
  * the user gets the full browser experience (address bar, sharing, etc).
  *
- * Uses @capacitor/browser (SFSafariViewController on iOS, Chrome Custom Tab
- * on Android) with a fallback to the storelib:// custom URL scheme.
+ * iOS:  Uses window.open("_system") to launch the URL in Safari.app — fully
+ *       external to the app. This satisfies App Store Guideline 3.1.1 because
+ *       no purchase flow is ever presented inside the app or any in-app browser
+ *       (SFSafariViewController). Apple reviewers will see product pages open
+ *       in the user's default Safari browser, completely outside the app.
+ *
+ * Android: Uses @capacitor/browser (Chrome Custom Tab) with a _system fallback.
  */
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
-    // Use @capacitor/browser to open URLs in a real browser context.
-    // On iOS this presents SFSafariViewController (trusted in-app Safari,
-    // shares cookies, supports Stripe / payment flows without popup-blocker issues).
-    // On Android it opens a Chrome Custom Tab.
-    // This is more reliable than window.open("_system") which Capacitor's WKWebView
-    // may silently drop if the popup-block heuristic fires.
-    import("@capacitor/browser")
-      .then(({ Browser }) => Browser.open({ url, toolbarColor: "#ffffff" }))
-      .catch(() => {
-        // Fallback: try _system target, then deep-link scheme
-        try {
-          const w = window.open(url, "_system")
-          if (!w) throw new Error("blocked")
-        } catch {
-          window.location.href = "storelib://external?url=" + encodeURIComponent(url)
-        }
-      })
+    if (isIOS()) {
+      // On iOS, open in the actual Safari browser (fully external).
+      // window.open("_system") in Capacitor's WKWebView delegates the URL to
+      // iOS's openURL, which launches Safari.app — never SFSafariViewController.
+      // This guarantees no checkout/payment UI ever appears inside the app,
+      // satisfying App Store Guideline 3.1.1.
+      try {
+        const w = window.open(url, "_system")
+        if (w) return
+      } catch { /* ignore */ }
+      // Fallback: deep-link scheme handled by the native layer
+      window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+    } else {
+      // Android: Chrome Custom Tab via @capacitor/browser, with _system fallback.
+      import("@capacitor/browser")
+        .then(({ Browser }) => Browser.open({ url, toolbarColor: "#ffffff" }))
+        .catch(() => {
+          try {
+            const w = window.open(url, "_system")
+            if (!w) throw new Error("blocked")
+          } catch {
+            window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+          }
+        })
+    }
   } else {
     window.open(url, "_blank", "noopener,noreferrer")
   }
