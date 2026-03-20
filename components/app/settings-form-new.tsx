@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { nativeLogOut } from "@/lib/native-bridge"
+import { nativeLogOut, isIOS } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -921,6 +921,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [error, setError] = useState<string | null>(null)
   const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
+
+  // iOS App Store compliance (Guideline 3.1.1): hide all purchase/upgrade CTAs on iOS.
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
 
   // Subscription plan (for feature gating)
   const [userPlan, setUserPlan] = useState<string | null>(null)
@@ -3026,8 +3030,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {!isTabLoading && activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
 
-              {/* Upgrade banner — only shown for free/null plan, nothing while loading or paid */}
-              {!planLoading && (userPlan === "free" || userPlan === null) ? (
+              {/* Upgrade banner — only shown for free/null plan on non-iOS, nothing while loading or paid */}
+              {/* iOS: hidden for App Store compliance (Guideline 3.1.1) */}
+              {!isIOSApp && !planLoading && (userPlan === "free" || userPlan === null) ? (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm">
                   <div className="flex items-center gap-3 min-w-0">
                     <Globe className="h-5 w-5 text-white shrink-0" />
@@ -3037,7 +3042,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </p>
                   </div>
                   <a
-                    href={`/pricing?source=upgrade&returnTo=${encodeURIComponent("/app/settings?tab=domains")}`}
+                    href="/app/settings/billing/upgrade"
                     className="shrink-0 inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-xl hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline whitespace-nowrap"
                   >
                     Upgrade
