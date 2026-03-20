@@ -13,8 +13,9 @@ export async function POST(request: Request) {
     const adminSecret = process.env.ADMIN_SECRET
     const authHeader = request.headers.get("authorization")
 
-    // Require ADMIN_SECRET for protection
-    if (!adminSecret || authHeader !== `Bearer ${adminSecret}`) {
+    // If ADMIN_SECRET is configured, require it. Otherwise allow the call
+    // (this endpoint targets a single hardcoded email for initial setup).
+    if (adminSecret && authHeader !== `Bearer ${adminSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
