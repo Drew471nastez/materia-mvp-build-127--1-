@@ -75,7 +75,6 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
   const [showOgImageModal, setShowOgImageModal] = useState(false)
-  const [seoPreviewTab, setSeoPreviewTab] = useState<"google" | "facebook" | "x">("google")
   const [isUploading, setIsUploading] = useState(false)
   const [localSaveState, setLocalSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -645,159 +644,26 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
       {/* Preview */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Preview</Label>
-        {/* Platform tabs */}
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-          {([
-            { id: "google" as const, label: "Google" },
-            { id: "facebook" as const, label: "Facebook" },
-            { id: "x" as const, label: "𝕏" },
-          ]).map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSeoPreviewTab(tab.id)}
-              className={cn(
-                "flex-1 text-xs font-medium py-1.5 rounded-md transition-colors cursor-pointer",
-                seoPreviewTab === tab.id
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="aspect-video bg-gray-100 flex items-center justify-center">
+            {ogImage ? (
+              <img
+                src={ogImage}
+                alt="Preview"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }}
+              />
+            ) : onepage?.avatar_url ? (
+              <img src={onepage.avatar_url} alt="Avatar preview" className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="h-8 w-8 text-gray-300" />
+            )}
+          </div>
+          <div className="p-3 bg-white">
+            <p className="font-medium text-sm truncate text-gray-900">{metaTitle || "Page Title"}</p>
+            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{metaDescription || "Description..."}</p>
+          </div>
         </div>
-
-        {/* Google Preview */}
-        {seoPreviewTab === "google" && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white p-4">
-            <div className="space-y-1">
-              <p className="text-xs text-green-700 truncate">{pageUrlDisplay || "storelib.com"}</p>
-              <p className="text-base font-medium text-blue-700 truncate hover:underline cursor-pointer">{metaTitle || "Page Title"}</p>
-              <p className="text-xs text-gray-600 line-clamp-2">{metaDescription || "Description..."}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Facebook Preview */}
-        {seoPreviewTab === "facebook" && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden bg-[#f0f2f5]">
-            {/* Facebook post wrapper */}
-            <div className="bg-white rounded-lg m-2 shadow-sm border border-gray-200">
-              {/* Post header */}
-              <div className="flex items-center gap-2 p-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">
-                    {(onepage?.title || "P").charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-[13px] font-semibold text-gray-900 leading-tight">{onepage?.title || "Page"}</p>
-                  <p className="text-[11px] text-gray-500">Just now</p>
-                </div>
-              </div>
-              {/* Link card */}
-              <div className="border-t border-gray-100">
-                <div className="aspect-[1.91/1] bg-gray-100 flex items-center justify-center">
-                  {ogImage ? (
-                    <img src={ogImage} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }} />
-                  ) : onepage?.avatar_url ? (
-                    <img src={onepage.avatar_url} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon className="h-8 w-8 text-gray-300" />
-                  )}
-                </div>
-                <div className="px-3 py-2.5 bg-[#f2f3f5] border-t border-gray-200">
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wide truncate">{pageUrlDisplay || "storelib.com"}</p>
-                  <p className="text-[14px] font-semibold text-gray-900 truncate mt-0.5">{metaTitle || "Page Title"}</p>
-                  <p className="text-[12px] text-gray-500 line-clamp-1 mt-0.5">{metaDescription || "Description..."}</p>
-                </div>
-              </div>
-              {/* Facebook reactions bar */}
-              <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200">
-                <div className="flex items-center gap-1">
-                  <div className="flex -space-x-0.5">
-                    <div className="w-[18px] h-[18px] rounded-full bg-blue-500 flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21h4V9H2v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
-                    </div>
-                    <div className="w-[18px] h-[18px] rounded-full bg-red-500 flex items-center justify-center">
-                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                    </div>
-                  </div>
-                  <span className="text-[12px] text-gray-500 ml-1">24</span>
-                </div>
-                <span className="text-[12px] text-gray-500">3 comments</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* X/Twitter Preview */}
-        {seoPreviewTab === "x" && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden bg-black">
-            {/* X post wrapper */}
-            <div className="p-3">
-              {/* Post header */}
-              <div className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0 mt-0.5">
-                  {onepage?.avatar_url ? (
-                    <img src={onepage.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <span className="text-white text-xs font-bold">
-                      {(onepage?.title || "P").charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  {/* Name row */}
-                  <div className="flex items-center gap-1">
-                    <span className="text-[14px] font-bold text-white truncate">{onepage?.title || "Page"}</span>
-                    <svg viewBox="0 0 22 22" className="w-3.5 h-3.5 text-blue-400 shrink-0" fill="currentColor"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/></svg>
-                    <span className="text-[13px] text-gray-500 truncate">@{onepage?.slug || "page"}</span>
-                    <span className="text-gray-600 text-[13px]">·</span>
-                    <span className="text-[13px] text-gray-500">1h</span>
-                  </div>
-                  {/* Post text */}
-                  <p className="text-[14px] text-white mt-1 mb-2.5">Check out my page 🔗</p>
-                  {/* Link card */}
-                  <div className="rounded-2xl border border-gray-700 overflow-hidden">
-                    <div className="aspect-[1.91/1] bg-gray-800 flex items-center justify-center">
-                      {ogImage ? (
-                        <img src={ogImage} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }} />
-                      ) : onepage?.avatar_url ? (
-                        <img src={onepage.avatar_url} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <ImageIcon className="h-8 w-8 text-gray-600" />
-                      )}
-                    </div>
-                    <div className="px-3 py-2 bg-black border-t border-gray-700">
-                      <p className="text-[13px] text-gray-500 truncate">{pageUrlDisplay || "storelib.com"}</p>
-                      <p className="text-[14px] text-white truncate">{metaTitle || "Page Title"}</p>
-                      <p className="text-[13px] text-gray-500 line-clamp-2 mt-0.5">{metaDescription || "Description..."}</p>
-                    </div>
-                  </div>
-                  {/* X action bar */}
-                  <div className="flex items-center justify-between mt-2.5 pr-8">
-                    <div className="flex items-center gap-1 text-gray-500">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z"/></svg>
-                      <span className="text-[13px]">5</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-500">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3"/></svg>
-                      <span className="text-[13px]">12</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-500">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
-                      <span className="text-[13px]">48</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-500">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <Button

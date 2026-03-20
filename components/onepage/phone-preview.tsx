@@ -555,17 +555,15 @@ function ShareButtonPreview({
       color: "#000000",
       action: () => openShareTarget(
         `twitter://post?message=${encodeURIComponent(`${sellerName} ${pageUrl}`)}`,
-        `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(sellerName)}`,
+        `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(sellerName)}`,
       ),
     },
     {
       name: "Facebook",
       icon: "f",
       color: "#1877F2",
-      // Facebook removed reliable external sharing via URL scheme; use web URL
-      // and let iOS Universal Links redirect to the FB app if installed.
       action: () => openShareTarget(
-        null,
+        `fb://facewebmodal/f?href=${encodeURIComponent(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`)}`,
         `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`,
       ),
     },

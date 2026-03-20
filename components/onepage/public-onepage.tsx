@@ -731,17 +731,16 @@ function ShareButton({
       action: () =>
         openShareTarget(
           `twitter://post?message=${encodeURIComponent(shareText)}`,
-          `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
+          `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
         ),
     },
     {
       name: "Facebook",
       iconType: "facebook" as const,
       color: "#1877F2",
-      // Facebook dropped reliable URL-scheme sharing; web URL lets iOS Universal Links redirect to FB app if installed
       action: () =>
         openShareTarget(
-          null,
+          `fb://facewebmodal/f?href=${encodeURIComponent(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`)}`,
           `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`,
         ),
     },
