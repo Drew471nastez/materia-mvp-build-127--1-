@@ -451,10 +451,18 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Preview Button - icon only on mobile */}
-        <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer" onClick={onPreview}>
+        {/* Preview Button - opens live preview in new tab */}
+        <Button
+          size="sm"
+          className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer gap-1.5"
+          onClick={() => {
+            const previewUrl = getLiveStoreUrl()
+            const urlWithPreview = `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
+            window.open(urlWithPreview, "_blank", "noopener,noreferrer")
+          }}
+        >
           <span className="hidden sm:inline">Preview</span>
-          <Monitor className="h-4 w-4 sm:hidden" />
+          <ExternalLink className="h-4 w-4" />
         </Button>
 
         {renderActionButton()}

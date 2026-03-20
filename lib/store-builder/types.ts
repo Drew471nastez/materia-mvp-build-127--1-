@@ -489,6 +489,23 @@ export type ThemePreset = "default" | "air" | "astrid" | "bubble" | "pink" | "cr
 // Verified badge type options
 export type VerifiedBadgeType = "verified_creator" | "verified_brand" | "verified_business" | "official_page" | "verified_artist"
 
+// Theme Library Entry - a saved theme in the library (like Shopify theme library)
+export interface ThemeLibraryEntry {
+  id: string
+  name: string
+  themePreset: ThemePreset
+  customColors?: {
+    primary?: string
+    secondary?: string
+    accent?: string
+    background?: string
+    foreground?: string
+  }
+  themeBorderRadius?: number
+  createdAt: string
+  isPublished: boolean // true if this is the currently published/live theme
+}
+
 // Global store settings
 export interface GlobalStoreSettings {
   // Basic Info
@@ -522,6 +539,8 @@ export interface GlobalStoreSettings {
   themeBorderRadius?: number // Global border radius for buttons, cards, etc.
   // Footer settings
   footerSettings?: FooterSettings
+  // Theme Library (like Shopify: saved themes you can edit and publish)
+  themeLibrary?: ThemeLibraryEntry[]
 }
 
 export interface ProductTemplate {

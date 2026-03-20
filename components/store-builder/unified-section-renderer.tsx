@@ -1186,6 +1186,7 @@ export function UnifiedSectionRenderer({
 
   return (
     <div
+      id={`section-${section.id}`}
       onClick={onSelect}
       className={cn(
         "transition-all relative",
