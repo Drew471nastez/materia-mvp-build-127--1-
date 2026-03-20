@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import type { ThemeInstall } from "@/lib/website-builder/types"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 
 // ── Status badge ─────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
@@ -46,66 +47,109 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-// ── Theme preview placeholder ─────────────────────────────────
+// ── Realistic theme preview using actual theme settings ───────
 function ThemePreview({ install, size = "large" }: { install: ThemeInstall; size?: "large" | "small" }) {
-  const bg = (install.settings?.settings?.primary_color as string) ?? "#6366f1"
-  const bg2 = (install.settings?.settings?.background_color as string) ?? "#f8fafc"
-  const text = (install.settings?.settings?.text_color as string) ?? "#0f172a"
+  const s = install.settings?.draft_settings ?? install.settings?.settings ?? {}
+  const primaryColor = (s.primary_color as string) ?? "#6366f1"
+  const bgColor = (s.background_color as string) ?? "#ffffff"
+  const textColor = (s.text_color as string) ?? "#0f172a"
+  const surfaceColor = (s.surface_color as string) ?? "#f8fafc"
+  const brandName = (s.brand_name as string) ?? install.name ?? "My Store"
+  const fontHeading = (s.font_heading as string) ?? "Inter"
+  const buttonStyle = (s.button_style as string) ?? "rounded"
+  const btnRadius = buttonStyle === "pill" ? "9999px" : buttonStyle === "square" ? "4px" : "8px"
 
-  const gradients: Record<string, string> = {
-    "storelib-default": "from-indigo-500 via-purple-500 to-violet-600",
-    "creator-minimal": "from-neutral-700 via-neutral-800 to-neutral-900",
-    "digital-wave": "from-violet-600 via-fuchsia-600 to-pink-600",
-  }
+  // Get hero settings from sections if available
+  const heroSection = install.pages?.find((p: any) => p.page_key === "home")
+  const sections = heroSection?.draft_sections ?? heroSection?.sections ?? []
+  const hero = Array.isArray(sections) ? sections.find((sec: any) => sec.type === "hero") : null
+  const heroHeading = String(hero?.settings?.heading ?? "Discover Amazing Digital Products")
+  const heroSubheading = String(hero?.settings?.subheading ?? "High-quality digital downloads, courses, and resources created just for you.")
+  const heroBg = String(hero?.settings?.bg_color ?? "#0f172a")
+  const heroTextColor = String(hero?.settings?.text_color ?? "#ffffff")
+  const heroCta = String(hero?.settings?.cta_text ?? "Shop Now")
 
-  const themeSlug = install.theme?.slug ?? ""
-  const gradient = gradients[themeSlug]
+  const isSmall = size === "small"
 
   return (
     <div
       className={cn(
-        "w-full overflow-hidden rounded-lg",
-        size === "large" ? "aspect-[16/9]" : "aspect-[4/3]",
+        "w-full overflow-hidden border border-neutral-200/60",
+        isSmall ? "aspect-[4/3] rounded-lg" : "aspect-[16/10] rounded-xl",
       )}
-      style={{ background: bg2 }}
+      style={{ background: bgColor }}
     >
-      {/* Simulated page preview */}
-      <div className="relative h-full flex flex-col">
+      <div className="relative h-full flex flex-col" style={{ transform: "scale(1)", transformOrigin: "top left" }}>
         {/* Header bar */}
         <div
-          className="flex items-center justify-between px-4 py-2 border-b"
-          style={{ background: "#fff", borderColor: "#e5e7eb" }}
+          className="flex items-center justify-between px-3 py-1.5 border-b shrink-0"
+          style={{ background: bgColor, borderColor: surfaceColor }}
         >
-          <div className="h-2 w-16 rounded" style={{ background: bg, opacity: 0.8 }} />
-          <div className="flex gap-1.5">
-            <div className="h-1.5 w-8 rounded-full" style={{ background: text, opacity: 0.2 }} />
-            <div className="h-1.5 w-8 rounded-full" style={{ background: text, opacity: 0.2 }} />
-            <div className="h-4 w-10 rounded" style={{ background: bg, opacity: 0.9 }} />
+          <span
+            className={cn("font-bold truncate", isSmall ? "text-[8px]" : "text-[10px]")}
+            style={{ color: textColor, fontFamily: fontHeading }}
+          >
+            {brandName}
+          </span>
+          <div className="flex gap-1 items-center">
+            {!isSmall && (
+              <>
+                <span className="text-[7px] opacity-50" style={{ color: textColor }}>Shop</span>
+                <span className="text-[7px] opacity-50" style={{ color: textColor }}>About</span>
+                <span className="text-[7px] opacity-50" style={{ color: textColor }}>Contact</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Hero area */}
+        {/* Hero section */}
         <div
-          className={cn(
-            "flex-1 flex flex-col items-center justify-center gap-2 px-4",
-            gradient ? `bg-gradient-to-br ${gradient}` : "",
-          )}
-          style={!gradient ? { background: bg } : undefined}
+          className="flex-1 flex flex-col items-center justify-center gap-1 px-3 min-h-0"
+          style={{ background: heroBg }}
         >
-          <div className="h-3 w-3/5 rounded" style={{ background: "#fff", opacity: 0.9 }} />
-          <div className="h-1.5 w-2/5 rounded" style={{ background: "#fff", opacity: 0.5 }} />
-          <div className="h-5 w-20 rounded-md mt-1" style={{ background: "#fff", opacity: 0.9 }} />
+          <p
+            className={cn(
+              "font-bold text-center leading-tight max-w-[90%]",
+              isSmall ? "text-[8px]" : "text-[11px]",
+            )}
+            style={{ color: heroTextColor, fontFamily: fontHeading }}
+          >
+            {heroHeading}
+          </p>
+          {!isSmall && (
+            <p
+              className="text-[7px] text-center opacity-70 max-w-[80%] leading-tight"
+              style={{ color: heroTextColor }}
+            >
+              {heroSubheading}
+            </p>
+          )}
+          <div
+            className={cn(
+              "text-white font-semibold mt-0.5",
+              isSmall ? "text-[6px] px-2 py-0.5" : "text-[7px] px-3 py-1",
+            )}
+            style={{ background: primaryColor, borderRadius: btnRadius }}
+          >
+            {heroCta}
+          </div>
         </div>
 
-        {/* Sections row */}
-        <div className="flex gap-2 px-3 py-2" style={{ background: bg2 }}>
-          {[60, 80, 50, 70].map((w, i) => (
-            <div
-              key={i}
-              className="h-8 rounded flex-1"
-              style={{ background: text, opacity: 0.06, maxWidth: `${w}%` }}
-            />
-          ))}
+        {/* Products section hint */}
+        <div className="px-2 py-1.5 shrink-0" style={{ background: bgColor }}>
+          <div className="flex gap-1">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex-1 rounded overflow-hidden" style={{ border: `1px solid ${surfaceColor}` }}>
+                <div className={cn("bg-gradient-to-br from-neutral-200 to-neutral-100", isSmall ? "h-3" : "h-5")} />
+                <div className="p-0.5">
+                  <div className={cn("rounded", isSmall ? "h-0.5 w-3/4" : "h-1 w-3/4")} style={{ background: textColor, opacity: 0.15 }} />
+                  {!isSmall && (
+                    <div className="h-0.5 w-1/2 rounded mt-0.5" style={{ background: primaryColor, opacity: 0.4 }} />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -192,18 +236,23 @@ function DeleteDialog({
   )
 }
 
-// ── Live theme hero card ─────────────────────────────────────
+// ── Live theme hero card (Current theme — larger) ────────────
 function LiveThemeCard({
   install,
+  username,
   onEdit,
   onCode,
   onAction,
 }: {
   install: ThemeInstall
+  username: string
   onEdit: () => void
   onCode: () => void
   onAction: (action: string, install: ThemeInstall) => void
 }) {
+  const websiteUrl = username ? getWebsiteShareUrl(username) : ""
+  const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
+
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
       <div className="relative">
@@ -212,34 +261,123 @@ function LiveThemeCard({
           <StatusBadge status={install.status} />
         </div>
       </div>
-      <div className="p-5 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[17px] font-semibold text-neutral-900 truncate">{install.name}</h2>
+      <div className="p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[17px] font-semibold text-neutral-900 truncate">{install.name}</h2>
+            </div>
+            <p className="text-sm text-neutral-500 mt-0.5">
+              {install.theme?.author ?? "Storelib"} · v{install.theme?.version ?? "1.0.0"}
+            </p>
           </div>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {install.theme?.author ?? "Storelib"} · v{install.theme?.version ?? "1.0.0"}
-          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" variant="outline" onClick={onCode} className="gap-1.5">
+              <Code2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Edit code</span>
+            </Button>
+            <Button size="sm" onClick={onEdit} className="gap-1.5 bg-neutral-900 hover:bg-neutral-800 text-white">
+              <Palette className="h-3.5 w-3.5" />
+              Edit theme
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                {websiteUrl && (
+                  <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")}>
+                    <ExternalLink className="h-4 w-4 mr-2" />View live site
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => onAction("duplicate", install)}>
+                  <Copy className="h-4 w-4 mr-2" />Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAction("rename", install)}>
+                  <Pencil className="h-4 w-4 mr-2" />Rename
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onAction("unpublish", install)} className="text-amber-600">
+                  <EyeOff className="h-4 w-4 mr-2" />Unpublish
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button size="sm" variant="outline" onClick={onCode} className="gap-1.5">
-            <Code2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Edit code</span>
-          </Button>
-          <Button size="sm" onClick={onEdit} className="gap-1.5 bg-neutral-900 hover:bg-neutral-800 text-white">
-            <Palette className="h-3.5 w-3.5" />
-            Edit theme
-          </Button>
+        {websiteUrl && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-neutral-500 bg-neutral-50 rounded-lg px-3 py-2">
+            <Globe className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{websiteDisplay}</span>
+            <button
+              className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0"
+              onClick={() => { navigator.clipboard.writeText(websiteUrl); }}
+            >
+              Copy
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Theme card (grid card — 3 per row) ───────────────────────
+function ThemeGridCard({
+  install,
+  onEdit,
+  onAction,
+}: {
+  install: ThemeInstall
+  onEdit: () => void
+  onAction: (action: string, install: ThemeInstall) => void
+}) {
+  return (
+    <div className="group rounded-xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-300 hover:shadow-md transition-all">
+      {/* Preview */}
+      <div className="relative cursor-pointer" onClick={onEdit}>
+        <ThemePreview install={install} size="small" />
+        <div className="absolute top-2 left-2">
+          <StatusBadge status={install.status} />
+        </div>
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button size="sm" className="bg-white text-neutral-900 hover:bg-neutral-100 shadow-lg gap-1.5">
+              <Palette className="h-3.5 w-3.5" />
+              Customize
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Info + actions */}
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-neutral-900 truncate">{install.name}</p>
+            <p className="text-xs text-neutral-500 truncate mt-0.5">
+              {install.theme?.author ?? "Storelib"}
+            </p>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0">
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => onAction("view", install)}>
-                <Globe className="h-4 w-4 mr-2" />View site
+              <DropdownMenuItem onClick={() => onAction("publish", install)}>
+                <Globe className="h-4 w-4 mr-2" />Publish
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAction("edit", install)}>
+                <Palette className="h-4 w-4 mr-2" />Edit theme
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAction("code", install)}>
+                <Code2 className="h-4 w-4 mr-2" />Edit code
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onAction("duplicate", install)}>
                 <Copy className="h-4 w-4 mr-2" />Duplicate
               </DropdownMenuItem>
@@ -247,95 +385,12 @@ function LiveThemeCard({
                 <Pencil className="h-4 w-4 mr-2" />Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onAction("unpublish", install)} className="text-amber-600">
-                <EyeOff className="h-4 w-4 mr-2" />Unpublish
+              <DropdownMenuItem onClick={() => onAction("delete", install)} className="text-red-600">
+                <Trash2 className="h-4 w-4 mr-2" />Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Library theme card (list row) ────────────────────────────
-function LibraryThemeCard({
-  install,
-  onEdit,
-  onCode,
-  onAction,
-}: {
-  install: ThemeInstall
-  onEdit: () => void
-  onCode: () => void
-  onAction: (action: string, install: ThemeInstall) => void
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 hover:border-neutral-300 transition-colors">
-      {/* Mini preview */}
-      <div className="w-[120px] shrink-0 hidden sm:block">
-        <ThemePreview install={install} size="small" />
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[15px] font-medium text-neutral-900">{install.name}</span>
-          <StatusBadge status={install.status} />
-        </div>
-        <p className="text-sm text-neutral-500 mt-0.5 truncate">
-          {install.theme?.description ?? "A Storelib theme"}
-        </p>
-        {install.theme?.tags?.length ? (
-          <div className="flex gap-1 mt-1.5 flex-wrap">
-            {install.theme.tags.slice(0, 3).map(tag => (
-              <span key={tag} className="text-[11px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded">
-                {tag}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
-        <Button size="sm" variant="outline" onClick={onCode} className="gap-1.5 hidden sm:flex">
-          <Code2 className="h-3.5 w-3.5" />
-          <span>Edit code</span>
-        </Button>
-        <Button size="sm" variant="outline" onClick={onEdit} className="gap-1.5">
-          <Settings2 className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Customize</span>
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => onAction("publish", install)}>
-              <Globe className="h-4 w-4 mr-2" />Publish
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction("edit", install)}>
-              <Palette className="h-4 w-4 mr-2" />Edit theme
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction("code", install)}>
-              <Code2 className="h-4 w-4 mr-2" />Edit code
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onAction("duplicate", install)}>
-              <Copy className="h-4 w-4 mr-2" />Duplicate
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onAction("rename", install)}>
-              <Pencil className="h-4 w-4 mr-2" />Rename
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onAction("delete", install)} className="text-red-600">
-              <Trash2 className="h-4 w-4 mr-2" />Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   )
@@ -351,21 +406,26 @@ export default function WebsiteBuilderPage() {
   const [renameInstall, setRenameInstall] = useState<ThemeInstall | null>(null)
   const [deleteInstall, setDeleteInstall] = useState<ThemeInstall | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [username, setUsername] = useState("")
 
   const loadInstalls = useCallback(async () => {
     const res = await fetch("/api/website-builder/themes")
     if (!res.ok) return
     const data = await res.json()
     setInstalls(data.installs ?? [])
+    // Derive username from the first install's brand_name or creator slug
+    if (data.username) {
+      setUsername(data.username)
+    }
   }, [])
 
   useEffect(() => {
     async function init() {
       setLoading(true)
-      // Initialize if first time
       const res = await fetch("/api/website-builder/themes")
       if (!res.ok) { setLoading(false); return }
       const data = await res.json()
+      if (data.username) setUsername(data.username)
       if ((data.installs ?? []).length === 0) {
         setInitializing(true)
         await fetch("/api/website-builder/initialize", { method: "POST" })
@@ -399,7 +459,9 @@ export default function WebsiteBuilderPage() {
     if (action === "delete") { setDeleteInstall(install); return }
 
     if (action === "view") {
-      window.open(`/store`, "_blank"); return
+      const url = username ? getWebsiteShareUrl(username) : ""
+      if (url) window.open(url, "_blank")
+      return
     }
 
     if (action === "publish") {
@@ -493,7 +555,7 @@ export default function WebsiteBuilderPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-5 py-8">
+    <div className="max-w-5xl mx-auto px-5 py-8">
       {/* ── Page header ── */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -510,13 +572,14 @@ export default function WebsiteBuilderPage() {
       </div>
 
       {/* ── Current live theme ── */}
-      <section className="mb-8">
+      <section className="mb-10">
         <h2 className="text-[13px] font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Current theme
         </h2>
         {liveTheme ? (
           <LiveThemeCard
             install={liveTheme}
+            username={username}
             onEdit={() => goToEditor(liveTheme.id)}
             onCode={() => goToCode(liveTheme.id)}
             onAction={handleAction}
@@ -529,9 +592,9 @@ export default function WebsiteBuilderPage() {
         )}
       </section>
 
-      {/* ── Theme library ── */}
+      {/* ── Theme library (3 per row grid) ── */}
       <section>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-[13px] font-semibold text-neutral-500 uppercase tracking-wider">
             Theme library
           </h2>
@@ -545,23 +608,23 @@ export default function WebsiteBuilderPage() {
           </Button>
         </div>
 
-        {libraryThemes.length === 0 ? (
+        {libraryThemes.length === 0 && !liveTheme ? (
           <div className="rounded-xl border border-dashed border-neutral-200 p-8 text-center">
-            <p className="text-neutral-400 text-sm">No other themes installed.</p>
+            <p className="text-neutral-400 text-sm">No themes installed yet.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {libraryThemes.map(install => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Show all themes including live in the grid */}
+            {installs.map(install => (
               <div key={install.id} className="relative">
                 {actionLoading?.startsWith(install.id) && (
                   <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
                     <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
                   </div>
                 )}
-                <LibraryThemeCard
+                <ThemeGridCard
                   install={install}
                   onEdit={() => goToEditor(install.id)}
-                  onCode={() => goToCode(install.id)}
                   onAction={handleAction}
                 />
               </div>
@@ -570,7 +633,7 @@ export default function WebsiteBuilderPage() {
         )}
 
         {/* Free themes info box */}
-        <div className="mt-4 rounded-xl bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-500 flex items-start gap-3">
+        <div className="mt-6 rounded-xl bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-500 flex items-start gap-3">
           <Check className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
           <div>
             <span className="font-medium text-neutral-700">3 free themes included</span>

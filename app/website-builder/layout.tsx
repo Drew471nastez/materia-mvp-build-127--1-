@@ -15,7 +15,7 @@ export default async function WebsiteBuilderEditorLayout({
   if (!user) redirect("/login")
 
   return (
-    <div className="h-svh overflow-hidden bg-[#111111]">
+    <div className="h-svh overflow-hidden bg-background">
       {children}
       <Toaster position="bottom-right" />
     </div>

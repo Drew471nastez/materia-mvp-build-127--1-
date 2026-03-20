@@ -841,6 +841,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const data = await res.json()
     const inst: ThemeInstall = data.install
     setInstall(inst)
+    if (data.username) setUsername(data.username)
 
     // Load settings
     const settings = inst.settings
@@ -860,13 +861,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Derive username from theme settings brand name or keep empty
-  useEffect(() => {
-    const brandName = settingsDraft.brand_name
-    if (typeof brandName === "string" && brandName) {
-      setUsername(brandName.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, ""))
-    }
-  }, [settingsDraft.brand_name])
+  // Username is loaded from API in loadData
 
   // Check mobile view
   useEffect(() => {
@@ -1004,10 +999,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const publishChanges = async () => {
     setPublishing(true)
     try {
+      // Save current state first (both settings and sections)
       await fetch(`/api/website-builder/themes/${installId}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: settingsDraft, mode: "publish" }),
+        body: JSON.stringify({ settings: settingsDraft, draft_settings: settingsDraft, mode: "publish" }),
       })
 
       await fetch(`/api/website-builder/themes/${installId}/sections`, {
@@ -1016,11 +1012,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         body: JSON.stringify({ page_key: currentPage, sections, mode: "publish" }),
       })
 
-      await fetch(`/api/website-builder/themes/${installId}/publish`, {
+      // Then publish
+      const res = await fetch(`/api/website-builder/themes/${installId}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "publish" }),
       })
+
+      if (!res.ok) {
+        const d = await res.json()
+        toast.error(d.error ?? "Failed to publish")
+        setPublishing(false)
+        return
+      }
 
       setIsDirty(false)
       toast.success("Published and live!")
@@ -1033,7 +1037,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const handleSave = async () => {
     await saveDraft()
-    await publishChanges()
   }
 
   const activeThemeSettings: ThemeSettingsValues = settingsDraft
@@ -1381,10 +1384,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 z-[100]">
-              <DropdownMenuItem onClick={() => router.push("/app/website-builder")} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => {
+                if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+                router.push("/app/website-builder")
+              }} className="cursor-pointer">
                 Back to Website Builder
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/app")} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => {
+                if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+                router.push("/app")
+              }} className="cursor-pointer">
                 Back to Dashboard
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -1479,32 +1488,48 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <Monitor className="h-4 w-4 sm:hidden" />
           </Button>
 
-          {/* Save/Publish button */}
+          {/* Save Draft button */}
           <Button
             size="sm"
-            className={cn(
-              "h-9 cursor-pointer",
-              isDirty
-                ? "bg-purple-600 text-white hover:bg-purple-700"
-                : "bg-purple-600 text-white hover:bg-purple-600 cursor-default pointer-events-none"
-            )}
+            variant="outline"
+            className="h-9 cursor-pointer gap-1.5"
             onClick={handleSave}
-            disabled={saving || publishing || !isDirty}
+            disabled={saving || !isDirty}
           >
-            {saving || publishing ? (
+            {saving ? (
               <>
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="hidden sm:inline">Saving...</span>
               </>
             ) : isDirty ? (
               <>
-                <Save className="mr-1.5 h-4 w-4" />
+                <Save className="h-4 w-4" />
                 <span className="hidden sm:inline">Save</span>
               </>
             ) : (
               <>
-                <Check className="mr-1.5 h-4 w-4" />
+                <Check className="h-4 w-4" />
                 <span className="hidden sm:inline">Saved</span>
+              </>
+            )}
+          </Button>
+
+          {/* Publish button */}
+          <Button
+            size="sm"
+            className="h-9 cursor-pointer gap-1.5 bg-purple-600 text-white hover:bg-purple-700"
+            onClick={publishChanges}
+            disabled={publishing}
+          >
+            {publishing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="hidden sm:inline">Publishing...</span>
+              </>
+            ) : (
+              <>
+                <Globe className="h-4 w-4" />
+                <span className="hidden sm:inline">Publish</span>
               </>
             )}
           </Button>

@@ -30,10 +30,10 @@ async function getCreatorAndInstall(installId: string) {
 }
 
 // GET /api/website-builder/themes/[installId]
-// Returns full install data with settings and pages
+// Returns full install data with settings, pages, and username
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, install } = await getCreatorAndInstall(installId)
+  const { error, status, supabase, install, creator } = await getCreatorAndInstall(installId)
   if (error) return NextResponse.json({ error }, { status })
 
   const { data, error: fetchError } = await supabase!
@@ -48,7 +48,24 @@ export async function GET(_req: Request, { params }: Params) {
     .single()
 
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
-  return NextResponse.json({ install: data })
+
+  // Get username for URL display
+  const { data: { user } } = await supabase!.auth.getUser()
+  const { data: profile } = await supabase!
+    .from("profiles")
+    .select("username")
+    .eq("id", user!.id)
+    .maybeSingle()
+
+  const { data: creatorData } = await supabase!
+    .from("creators")
+    .select("slug")
+    .eq("id", creator!.id)
+    .maybeSingle()
+
+  const username = profile?.username || creatorData?.slug || ""
+
+  return NextResponse.json({ install: data, username })
 }
 
 // PATCH /api/website-builder/themes/[installId]
