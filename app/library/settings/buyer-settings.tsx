@@ -102,43 +102,64 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const pageRef = useRef<HTMLDivElement>(null)
 
   // When the software keyboard opens on mobile, the visual viewport shrinks
-  // but the layout viewport stays the same.  This causes:
-  //   1. Blank space at the bottom (scroll container is taller than visible area)
-  //   2. Content overlapping under the fixed header (browser auto-scrolls the
-  //      viewport to reveal the input, shifting everything up)
+  // but the layout viewport stays the same. This causes:
+  //   1. Blank space at the bottom (scroll container extends past visual viewport)
+  //   2. Content sliding under the fixed header (browser auto-scroll overshoots)
   //
-  // Fix: listen to VisualViewport resize and, when the keyboard is visible,
-  // scroll the focused input into the visible area within the <main> scroll
-  // container (not the document), so the header stays in place and no blank
-  // space appears at the bottom.
+  // Fix strategy:
+  //   a) Clamp <main>.scrollTop after every keyboard-height change so no blank
+  //      space is visible while the keyboard is open.
+  //   b) Scroll the focused element into the visible area within <main> (not the
+  //      document) so the header stays fixed. The CSS scroll-margin-top on
+  //      inputs (globals.css) handles the browser's built-in scroll hint;
+  //      this JS handler catches any residual offset after CSS applies.
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return
     const vv = window.visualViewport
     let prevHeight = vv.height
 
     function onResize() {
-      const kbHeight = Math.max(0, window.innerHeight - vv!.offsetTop - vv!.height)
+      // Ignore orientation changes — width change means rotation, not keyboard
       const heightChanged = Math.abs(vv!.height - prevHeight) > 50
       prevHeight = vv!.height
+      if (!heightChanged) return
 
-      if (kbHeight > 0 && heightChanged) {
-        const active = document.activeElement as HTMLElement | null
-        if (active && pageRef.current?.contains(active)) {
-          // Find the <main> scroll container and scroll within IT, not the
-          // document.  This keeps the fixed header in place.
-          const scrollContainer = pageRef.current.closest("main")
-          if (scrollContainer) {
-            requestAnimationFrame(() => {
-              const containerRect = scrollContainer.getBoundingClientRect()
-              const activeRect = active.getBoundingClientRect()
-              // Calculate where the element is relative to the scroll container
-              const relativeTop = activeRect.top - containerRect.top
-              const targetScroll = scrollContainer.scrollTop + relativeTop - containerRect.height / 3
-              scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: "smooth" })
-            })
+      const kbHeight = Math.max(0, window.innerHeight - vv!.offsetTop - vv!.height)
+
+      // Two rAFs: first for KeyboardGuard's CSS (height: var(--vvh)) to apply,
+      // second to read the updated clientHeight and act on correct geometry.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const scrollContainer = pageRef.current?.closest("main") as HTMLElement | null
+        if (!scrollContainer) return
+
+        // (a) Clamp scrollTop so no blank space shows at the bottom
+        const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight
+        if (scrollContainer.scrollTop > maxScroll) {
+          scrollContainer.scrollTop = Math.max(0, maxScroll)
+        }
+
+        // (b) If keyboard is open, ensure the focused element is visible below
+        // the fixed header and above the keyboard edge
+        if (kbHeight > 0) {
+          const active = document.activeElement as HTMLElement | null
+          if (!active || !pageRef.current?.contains(active)) return
+
+          const containerRect = scrollContainer.getBoundingClientRect()
+          const activeRect = active.getBoundingClientRect()
+
+          // Header height matches the pt-[calc(3.5rem+1px+...)] on <main>
+          const headerH = containerRect.top // <main> top is just below the header
+          const visibleTop = headerH + 8 // small breathing room below header
+          const visibleBottom = containerRect.top + scrollContainer.clientHeight - 8
+
+          if (activeRect.top < visibleTop || activeRect.bottom > visibleBottom) {
+            // Scroll so the active element lands in the upper third of the visible area
+            const relativeTop = activeRect.top - containerRect.top + scrollContainer.scrollTop
+            const targetScroll = relativeTop - scrollContainer.clientHeight / 3
+            scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: "smooth" })
           }
         }
-      }
+      }))
     }
 
     vv.addEventListener("resize", onResize)
@@ -601,17 +622,22 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
                       onChange={(e) => handleDeleteCodeInput(i, e.target.value)}
                       onKeyDown={(e) => handleDeleteCodeKeyDown(i, e)}
                       onFocus={(e) => {
-                        // Scroll within the <main> scroll container (not the
-                        // document) so the fixed header stays in place.
+                        // Scroll the focused OTP box into the visible area
+                        // within <main> (not the document) once the keyboard
+                        // is fully open (VisualViewport settles after ~350 ms).
                         const target = e.target
+                        const delay = window.visualViewport ? 380 : 100
                         setTimeout(() => {
-                          const main = target.closest("main")
+                          const main = target.closest("main") as HTMLElement | null
                           if (!main) return
                           const mainRect = main.getBoundingClientRect()
                           const elRect = target.getBoundingClientRect()
-                          const relTop = elRect.top - mainRect.top
-                          main.scrollTo({ top: main.scrollTop + relTop - mainRect.height / 3, behavior: "smooth" })
-                        }, 300)
+                          // Only scroll if element is outside the visible area
+                          if (elRect.top < mainRect.top + 8 || elRect.bottom > mainRect.bottom - 8) {
+                            const relTop = elRect.top - mainRect.top + main.scrollTop
+                            main.scrollTo({ top: Math.max(0, relTop - main.clientHeight / 3), behavior: "smooth" })
+                          }
+                        }, delay)
                       }}
                       className="flex-1 min-w-0 h-12 text-center text-lg font-semibold border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 bg-neutral-50"
                     />

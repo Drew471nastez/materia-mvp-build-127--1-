@@ -60,6 +60,11 @@ export function KeyboardGuard() {
         // height, preventing them from extending into the blank area below the
         // keyboard and eliminating the rubber-band / blank-space effect.
         root.style.setProperty("--vvh", `${Math.round(vv.height)}px`)
+        // Clamp scroll positions immediately after the CSS variable is set so
+        // no blank space is visible at the bottom while the keyboard is open.
+        // Two frames: first for the browser to apply the new height via CSS,
+        // second to read the updated clientHeight and clamp safely.
+        requestAnimationFrame(() => requestAnimationFrame(clampScrollContainers))
       } else {
         const wasOpen = root.classList.contains("keyboard-open")
         root.classList.remove("keyboard-open")

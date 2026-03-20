@@ -1050,6 +1050,27 @@ html.keyboard-open [data-page="library"] main {
   overflow-anchor: auto;
 }
 
+/* ── Scroll-margin for inputs: prevent content sliding under the fixed header ──
+ *
+ * On mobile (iOS/Android), focusing an input triggers the browser's built-in
+ * scroll-into-view logic. Without a scroll-margin-top hint, the browser can
+ * scroll the focused element flush to the top of the viewport, hiding it
+ * behind the fixed library header (3.5 rem + 1 px border + safe-area-inset-top).
+ *
+ * scroll-margin-top tells the browser's scroll-into-view algorithm to leave
+ * at least this much space above the element, so it lands below the header.
+ * scroll-margin-bottom reserves space above the keyboard (prevents the input
+ * from sitting right at the keyboard edge with no breathing room).
+ *
+ * Applied only inside [data-page="library"] so it has no effect on other pages.
+ * ──────────────────────────────────────────────────────────────────────────── */
+[data-page="library"] input,
+[data-page="library"] textarea,
+[data-page="library"] select {
+  scroll-margin-top: calc(3.5rem + 1px + env(safe-area-inset-top, 0px));
+  scroll-margin-bottom: 1rem;
+}
+
 /* ── Keyboard-open: clamp scroll containers to the visual viewport height ────
  *
  * On iOS Capacitor/WKWebView, `h-svh` on <main> does not shrink when the
