@@ -12,15 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
-import {
-  ListChecks,
-  Type,
-  Megaphone,
-  Grid,
-  ImageIcon,
-  Star,
-  X,
-} from "lucide-react"
+import { X } from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
 import type { SectionLibraryItem, SectionSettings, Section } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
@@ -29,15 +21,6 @@ import { UnifiedSectionRenderer } from "./unified-section-renderer"
 interface AddSectionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-const sectionIconsMap: Record<string, React.ReactNode> = {
-  "image-text": <ImageIcon className="h-4 w-4" />,
-  benefits: <ListChecks className="h-4 w-4" />,
-  "text-block": <Type className="h-4 w-4" />,
-  "announcement-bar": <Megaphone className="h-4 w-4" />,
-  "featured-products": <Grid className="h-4 w-4" />,
-  reviews: <Star className="h-4 w-4" />,
 }
 
 const SECTION_CATEGORIES = [
@@ -244,22 +227,12 @@ function DesktopSectionCard({
       )}
     >
       {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[220px] shrink-0 h-[110px] overflow-hidden border-r border-border/40 bg-background">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={220} />
+      <div className="w-[280px] shrink-0 h-[140px] overflow-hidden border-r border-border/40 bg-background">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={280} />
       </div>
 
       {/* Info — right panel */}
-      <div className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0">
-        <span
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-            "bg-muted text-muted-foreground",
-            "group-hover:bg-foreground/8 group-hover:text-foreground",
-            "transition-colors duration-200"
-          )}
-        >
-          {sectionIconsMap[item.type]}
-        </span>
+      <div className="flex items-center px-4 py-3 flex-1 min-w-0">
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{item.description}</p>
@@ -291,20 +264,12 @@ function MobileSectionCard({
       )}
     >
       {/* Preview — fixed width thumbnail */}
-      <div className="w-[136px] h-[86px] shrink-0 bg-background border-r border-border/40 overflow-hidden">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={136} />
+      <div className="w-[150px] h-[95px] shrink-0 bg-background border-r border-border/40 overflow-hidden">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={150} />
       </div>
 
       {/* Info */}
-      <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5">
-        <span
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-            "bg-muted text-muted-foreground"
-          )}
-        >
-          {sectionIconsMap[item.type]}
-        </span>
+      <div className="flex-1 flex items-center px-3.5 py-2.5">
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
@@ -330,7 +295,7 @@ export function SectionPreview({
   settings: SectionSettings
   containerWidth?: number
 }) {
-  const RENDER_WIDTH = 800
+  const RENDER_WIDTH = 700
   const scale = containerWidth / RENDER_WIDTH
 
   const section: Section = {
