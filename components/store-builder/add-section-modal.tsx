@@ -200,9 +200,9 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
             ))}
           </nav>
 
-          {/* Right: 2-column grid */}
+          {/* Right: single-column list */}
           <div className="flex-1 overflow-y-auto overscroll-contain p-5">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-3">
               {filteredSections.map((item) => (
                 <DesktopSectionCard
                   key={item.type}
@@ -237,7 +237,7 @@ function DesktopSectionCard({
     <button
       onClick={() => onAdd(item)}
       className={cn(
-        "flex flex-col rounded-xl border border-border bg-background overflow-hidden text-left",
+        "flex flex-row items-stretch w-full rounded-xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out will-change-transform",
         "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5",
         "active:scale-[0.99] active:shadow-sm",
@@ -245,16 +245,16 @@ function DesktopSectionCard({
         "group cursor-pointer"
       )}
     >
-      {/* Preview thumbnail */}
-      <div className="w-full aspect-[16/7] overflow-hidden border-b border-border/40 bg-[#f8f8f8] dark:bg-[#111]">
+      {/* Preview thumbnail — landscape left panel */}
+      <div className="w-[220px] shrink-0 h-[110px] overflow-hidden border-r border-border/40 bg-[#f8f8f8] dark:bg-[#111]">
         <SectionPreview type={item.type} />
       </div>
 
-      {/* Info row */}
-      <div className="flex items-center gap-2.5 p-3">
+      {/* Info — right panel */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0">
         <span
           className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
             "bg-muted text-muted-foreground",
             "group-hover:bg-foreground/8 group-hover:text-foreground",
             "transition-colors duration-200"
@@ -264,7 +264,7 @@ function DesktopSectionCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{item.description}</p>
         </div>
       </div>
     </button>
