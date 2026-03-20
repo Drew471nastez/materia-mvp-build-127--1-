@@ -71,10 +71,6 @@ import {
   ToggleLeft,
   ToggleRight,
   RefreshCw,
-  Loader2,
-  BookOpen,
-  Users,
-  ArrowLeft,
 } from "lucide-react"
 import type {
   Section,
@@ -101,7 +97,6 @@ import type {
   FAQSettings,
   FAQItem,
   ThemePreset,
-  ThemeLibraryEntry,
   VerifiedBadgeType,
   NavLink,
   FooterSettings,
@@ -140,7 +135,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { getStoreShareUrl } from "@/lib/url-helpers"
 import {
   Tooltip,
   TooltipContent,
@@ -539,8 +533,6 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
     setIsEditingProductTemplate,
     products,
     isEditingProductTemplate,
-    lastPublishedTimestamp,
-    saveState,
   } = useStoreBuilder()
 
   const [showProductSelector, setShowProductSelector] = useState(false)
@@ -548,12 +540,6 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
   const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social" | "domain">("basic")
   const [showNichePopup, setShowNichePopup] = useState(false)
   const [nicheSearch, setNicheSearch] = useState("")
-  const [screenshotLoaded, setScreenshotLoaded] = useState(false)
-  const [screenshotError, setScreenshotError] = useState(false)
-  const [showAddThemeLibrary, setShowAddThemeLibrary] = useState(false)
-  const [newThemeName, setNewThemeName] = useState("")
-  // Previous screenshot loaded flag to reset on new publish
-  const prevPublishedTimestampRef = useRef(0)
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -1173,190 +1159,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             {/* Theme Content */}
             {settingsTab === "theme" && (
               <>
-              {/* ── Live Site Preview ──────────────────────────────── */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Live Site Preview</Label>
-                  <span className="text-[10px] text-muted-foreground">Updates on publish</span>
-                </div>
-                {(() => {
-                  const storeUrl = getStoreShareUrl(profile?.username || "")
-                  const screenshotUrl = storeUrl
-                    ? `https://image.thum.io/get/width/800/crop/500/${encodeURIComponent(storeUrl)}?t=${lastPublishedTimestamp}`
-                    : null
-                  return screenshotUrl ? (
-                    <div className="relative w-full rounded-xl overflow-hidden border border-border bg-muted" style={{ aspectRatio: '16/10' }}>
-                      {!screenshotLoaded && !screenshotError && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted">
-                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          <p className="text-[10px] text-muted-foreground">Loading preview…</p>
-                        </div>
-                      )}
-                      {screenshotError && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-muted">
-                          <Globe className="h-6 w-6 text-muted-foreground/40" />
-                          <p className="text-[10px] text-muted-foreground">Preview unavailable</p>
-                        </div>
-                      )}
-                      <img
-                        key={lastPublishedTimestamp}
-                        src={screenshotUrl}
-                        alt="Live site preview"
-                        className={cn("w-full h-full object-cover object-top transition-opacity duration-300", screenshotLoaded ? "opacity-100" : "opacity-0")}
-                        onLoad={() => { setScreenshotLoaded(true); setScreenshotError(false) }}
-                        onError={() => { setScreenshotError(true); setScreenshotLoaded(false) }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full rounded-xl border border-border bg-muted flex items-center justify-center" style={{ aspectRatio: '16/10' }}>
-                      <p className="text-xs text-muted-foreground">No store URL available</p>
-                    </div>
-                  )
-                })()}
-              </div>
-
-              {/* ── Theme Library (Shopify-style) ────────────────────── */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Theme Library</Label>
-                  <button
-                    onClick={() => setShowAddThemeLibrary(!showAddThemeLibrary)}
-                    className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 font-medium"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add to Library
-                  </button>
-                </div>
+                <Label>Theme Preset</Label>
                 <p className="text-xs text-muted-foreground">
-                  Save and manage themes like Shopify — edit in library, then publish when ready.
-                </p>
-
-                {/* Add to library form */}
-                {showAddThemeLibrary && (
-                  <div className="rounded-xl border border-purple-200 bg-purple-50 p-3 space-y-2">
-                    <Label className="text-xs font-medium text-purple-800">Save current theme as:</Label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newThemeName}
-                        onChange={(e) => setNewThemeName(e.target.value)}
-                        placeholder="e.g. Dark Minimal, Summer Vibe..."
-                        className="flex-1 h-8 text-sm px-3 rounded-lg border border-purple-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                      />
-                      <button
-                        onClick={() => {
-                          if (!newThemeName.trim()) return
-                          const entry: ThemeLibraryEntry = {
-                            id: `theme_${Date.now()}`,
-                            name: newThemeName.trim(),
-                            themePreset: globalSettings.themePreset,
-                            themeBorderRadius: globalSettings.themeBorderRadius,
-                            createdAt: new Date().toISOString(),
-                            isPublished: false,
-                          }
-                          const existing = globalSettings.themeLibrary || []
-                          updateGlobalSettings({ themeLibrary: [...existing, entry] })
-                          setNewThemeName("")
-                          setShowAddThemeLibrary(false)
-                        }}
-                        disabled={!newThemeName.trim()}
-                        className="h-8 px-3 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Published theme card */}
-                <div className="rounded-xl border-2 border-green-400 bg-green-50 p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-                      style={{
-                        backgroundColor: (() => {
-                          const t = themePresets[globalSettings.themePreset]
-                          return t?.colors.background.includes("gradient") ? "#8b5cf6" : t?.colors.background || "#ffffff"
-                        })(),
-                      }}
-                    >
-                      <Check className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-green-800">{themePresets[globalSettings.themePreset]?.name || globalSettings.themePreset}</p>
-                      <p className="text-[10px] text-green-600 font-medium">● Published (Live)</p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] bg-green-500 text-white rounded-full px-2 py-0.5 font-medium">Active</span>
-                </div>
-
-                {/* Library themes */}
-                {(globalSettings.themeLibrary || []).length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Library</p>
-                    {(globalSettings.themeLibrary || []).map((entry) => (
-                      <div key={entry.id} className="rounded-xl border border-border bg-card p-3 flex items-center justify-between group">
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 border border-border"
-                            style={{
-                              backgroundColor: (() => {
-                                const t = themePresets[entry.themePreset]
-                                return t?.colors.background.includes("gradient") ? "#8b5cf6" : t?.colors.background || "#ffffff"
-                              })(),
-                            }}
-                          >
-                            <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{entry.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{themePresets[entry.themePreset]?.name || entry.themePreset}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => applyTheme(entry.themePreset)}
-                            className="h-7 px-2 text-[11px] font-medium rounded-lg border border-border hover:bg-muted"
-                            title="Preview this theme"
-                          >
-                            Preview
-                          </button>
-                          <button
-                            onClick={() => {
-                              applyTheme(entry.themePreset)
-                              // Mark as published in library
-                              const updated = (globalSettings.themeLibrary || []).map(e =>
-                                e.id === entry.id ? { ...e, isPublished: true } : { ...e, isPublished: false }
-                              )
-                              updateGlobalSettings({ themeLibrary: updated })
-                            }}
-                            className="h-7 px-2 text-[11px] font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700"
-                          >
-                            Publish
-                          </button>
-                          <button
-                            onClick={() => {
-                              const updated = (globalSettings.themeLibrary || []).filter(e => e.id !== entry.id)
-                              updateGlobalSettings({ themeLibrary: updated })
-                            }}
-                            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* ── Theme Presets ─────────────────────────────────────── */}
-              <div className="space-y-2">
-                <Label>Theme Presets</Label>
-                <p className="text-xs text-muted-foreground">
-                  Choose a color theme to apply across your entire store
+                  Choose a theme to change colors across your entire store
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {(Object.keys(themePresets) as ThemePreset[]).map((preset) => {
                   const theme = themePresets[preset]
                   const isSelected = globalSettings.themePreset === preset
@@ -1386,14 +1196,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     >
                       {/* Selected checkmark badge */}
                       {isSelected && (
-                        <div className="absolute top-1 right-1 z-10 h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center shadow-md">
-                          <Check className="h-2.5 w-2.5 text-white" />
+                        <div className="absolute top-1.5 right-1.5 z-10 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center shadow-md">
+                          <Check className="h-3 w-3 text-white" />
                         </div>
                       )}
 
-                      {/* Theme thumbnail preview */}
+                      {/* Theme thumbnail preview - Onepage style */}
                       <div
-                        className="aspect-[3/2] flex flex-col items-center justify-center p-2"
+                        className="aspect-[4/5] flex flex-col items-center justify-center p-3"
                         style={{
                           background: isGradient ? theme.colors.background : undefined,
                           backgroundColor: !isGradient ? theme.colors.background : undefined,
@@ -1401,34 +1211,46 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       >
                         {/* Avatar circle */}
                         <div
-                          className="w-5 h-5 rounded-full mb-1.5"
+                          className="w-8 h-8 rounded-full mb-2"
                           style={{
                             backgroundColor: isDarkOrGradientTheme
                               ? "rgba(255,255,255,0.2)"
                               : "rgba(0,0,0,0.1)"
                           }}
                         />
+
                         {/* Text lines */}
                         <div
-                          className="w-10 h-1 rounded-full mb-0.5"
-                          style={{ backgroundColor: isDarkOrGradientTheme ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.2)" }}
+                          className="w-12 h-1.5 rounded-full mb-1"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.4)"
+                              : "rgba(0,0,0,0.2)"
+                          }}
                         />
                         <div
-                          className="w-7 h-0.5 rounded-full mb-2"
-                          style={{ backgroundColor: isDarkOrGradientTheme ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.1)" }}
+                          className="w-8 h-1 rounded-full mb-3"
+                          style={{
+                            backgroundColor: isDarkOrGradientTheme
+                              ? "rgba(255,255,255,0.25)"
+                              : "rgba(0,0,0,0.1)"
+                          }}
                         />
+
                         {/* Button preview */}
                         <div
-                          className="w-12 h-3 rounded"
+                          className="w-14 h-4 rounded flex items-center justify-center"
                           style={{
+                            // For Bubble theme, use purple in thumbnail since white button is not visible on white background
+                            // For Blacks theme, use light gray in thumbnail since the actual button is white on the black subscribe bar
                             backgroundColor: preset === "bubble" ? "#8b5cf6" : preset === "blacks" ? "#9ca3af" : theme.subscribeBar.buttonColor,
-                            borderRadius: `${Math.min(theme.buttonBorderRadius || theme.borderRadius, 8)}px`
+                            borderRadius: `${Math.min(theme.buttonBorderRadius || theme.borderRadius, 12)}px`
                           }}
                         />
                       </div>
 
-                      {/* Theme name */}
-                      <div className="py-1 text-center text-[9px] font-medium text-foreground bg-muted/50 border-t border-border">
+                      {/* Theme name below preview thumbnail */}
+                      <div className="py-1.5 text-center text-[10px] font-medium text-foreground bg-muted/50 border-t border-border">
                         {theme.name}
                       </div>
                     </button>
@@ -1436,7 +1258,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 })}
               </div>
 
-              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 mt-2">
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 mt-4">
                 <div className="flex gap-2">
                   <Info className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
                   <div className="text-xs text-purple-800">
@@ -1628,45 +1450,22 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             <Home className="h-3.5 w-3.5" />
             <span className="uppercase tracking-wider">{pageTitle}</span>
           </div>
-          {/* Quick action buttons */}
-          <div className="flex items-center gap-1">
-            {/* Store Style button */}
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      openGlobalSettings()
-                      // Open on theme tab
-                      setTimeout(() => setSettingsTab("theme"), 50)
-                    }}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    <Palette className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Store Style</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {/* Settings Button - icon only with tooltip and animation */}
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={openGlobalSettings}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    <Settings className="h-4 w-4 settings-gear-animated" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>General Settings</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          {/* Settings Button - icon only with tooltip and animation */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={openGlobalSettings}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <Settings className="h-4 w-4 settings-gear-animated" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>General Settings</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {/* Product page: show product name with switcher button */}
         {currentPageType === "product" ? (
@@ -1752,60 +1551,6 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* ── Product Page Info Panels ─────────────────────────── */}
-      {currentPageType === "product" && (
-        <div className="px-3 pt-3 pb-0 space-y-2 shrink-0">
-          {/* Editing Single Page info */}
-          {isEditingProductTemplate && selectedProductId ? (
-            <div className="rounded-xl border border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:border-sky-800 p-3">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-sky-800 dark:text-sky-300">Editing Single Page</p>
-                  <p className="text-xs text-sky-700 dark:text-sky-400 mt-0.5 truncate">
-                    You&apos;re currently editing a single product page
-                  </p>
-                  <p className="text-xs font-medium text-sky-900 dark:text-sky-200 mt-0.5 truncate">
-                    &quot;{products.find((p: any) => p.id === selectedProductId)?.title || "Product"}&quot;
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsEditingProductTemplate(false)
-                  setSelectedProductId(null)
-                  router.replace("/store-builder?pageType=product", { scroll: false })
-                }}
-                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium h-8 rounded-lg border border-sky-300 bg-white dark:bg-sky-900 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-800 transition-colors"
-              >
-                <Users className="h-3.5 w-3.5" />
-                Edit All Product Pages
-              </button>
-            </div>
-          ) : (
-            /* Editing All Product Pages mode */
-            <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 p-3">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">Editing All Product Pages</p>
-                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5 leading-relaxed">
-                    Changes here apply to <strong>all</strong> your product pages at once.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowProductSelector(true)}
-                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium h-8 rounded-lg border border-blue-300 bg-white dark:bg-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-800 transition-colors"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Go back to editing individual page
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-3 space-y-1">

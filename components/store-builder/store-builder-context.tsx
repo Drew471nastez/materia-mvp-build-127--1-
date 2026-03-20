@@ -49,7 +49,6 @@ interface StoreBuilderContextType {
   products: Array<{ id: string; title: string; thumbnail_url?: string }>
   saveState: SaveState
   hasEverBeenPublished: boolean
-  lastPublishedTimestamp: number
 
   // Product templates
   templates: ProductTemplate[]
@@ -229,7 +228,6 @@ export function StoreBuilderProvider({
 
   const [saveState, setSaveState] = useState<SaveState>("published")
   const [hasEverBeenPublished, setHasEverBeenPublished] = useState(false)
-  const [lastPublishedTimestamp, setLastPublishedTimestamp] = useState<number>(Date.now())
 
   const [templates, setTemplates] = useState<ProductTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -645,10 +643,6 @@ export function StoreBuilderProvider({
       markUnsaved()
       setSelectedSectionId(section.id)
       setSidebarMode("settings")
-      // Dispatch scroll event so preview canvas scrolls to the newly added section
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("storebuilder-scroll-to-section", { detail: { sectionId: section.id } }))
-      }, 150)
     },
     [addToHistory, markUnsaved, currentPageType],
   )
@@ -2039,7 +2033,6 @@ export function StoreBuilderProvider({
 
       setPublishedConfig(draftConfig)
       setHasEverBeenPublished(true)
-      setLastPublishedTimestamp(Date.now())
       await new Promise((resolve) => setTimeout(resolve, 500))
       setSaveState("published")
     } catch (error) {
@@ -2085,10 +2078,6 @@ export function StoreBuilderProvider({
     setSelectedSectionId(id)
     if (id) {
       setSidebarMode("settings")
-      // Dispatch scroll event so preview canvas smoothly scrolls to the section
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("storebuilder-scroll-to-section", { detail: { sectionId: id } }))
-      }, 50)
     }
   }, [])
 
@@ -2165,7 +2154,6 @@ export function StoreBuilderProvider({
         products,
         saveState,
         hasEverBeenPublished,
-        lastPublishedTimestamp,
         templates,
         selectedTemplateId,
         isEditingProductTemplate,

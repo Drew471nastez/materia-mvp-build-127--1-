@@ -1155,7 +1155,6 @@ export const defaultGlobalStoreSettings: GlobalStoreSettings = {
     headingSize: "h3",
     textFontSize: "medium",
   },
-  themeLibrary: [],
 }
 
 // Button text presets for subscribe bar

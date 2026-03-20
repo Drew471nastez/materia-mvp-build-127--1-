@@ -106,29 +106,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     return () => window.removeEventListener("storebuilder-navigation-loading", handleNavigationLoading as EventListener)
   }, [])
 
-  // Auto-scroll to a section when selected from the sidebar
-  useEffect(() => {
-    const handleScrollToSection = (event: Event) => {
-      const customEvent = event as CustomEvent<{ sectionId: string }>
-      const sectionId = customEvent.detail?.sectionId
-      if (!sectionId) return
-
-      // Try section element by ID (for dynamic sections)
-      const sectionEl = document.getElementById(`section-${sectionId}`)
-
-      // For special sections (header, subscribe-bar, creator-bar, etc.) use data attributes
-      const specialEl = document.querySelector(`[data-special-section="${sectionId}"]`) as HTMLElement | null
-
-      const target = sectionEl || specialEl
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" })
-      }
-    }
-
-    window.addEventListener("storebuilder-scroll-to-section", handleScrollToSection as EventListener)
-    return () => window.removeEventListener("storebuilder-scroll-to-section", handleScrollToSection as EventListener)
-  }, [])
-
   const handleAvatarEdit = () => {
     setSelectedSectionId("header")
     setSidebarMode("settings")
@@ -604,7 +581,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
       >
         {currentPageType === "product" && selectedProduct ? (
           <>
-            <div data-special-section="creator-bar">
             <ProductCreatorBar
               settings={
                 (draftConfig.headerSettings as ProductHeaderSettings).creatorBar || defaultProductCreatorBarSettings
@@ -617,9 +593,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               isSelected={isEditorMode && selectedSectionId === "creator-bar"}
               onSelect={() => handleSelectSection("creator-bar")}
             />
-            </div>
 
-            <div data-special-section="product-content">
             <UnifiedProductPage
               settings={draftConfig.headerSettings as ProductHeaderSettings}
               product={localProductData || selectedProduct}
@@ -643,7 +617,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               onDescriptionChange={handleDescriptionChange}
               faqSettings={draftConfig.sections.find((s) => s.type === "faq")?.settings as { customFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }>; allFaqs?: Array<{ id: string; question: string; answer: string; isDefault?: boolean }> } | undefined}
             />
-            </div>
 
             {draftConfig.sections
               .filter((s) => s.settings.visible)
@@ -711,7 +684,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             {/* Subscribe Bar - Always render inside canvas when visible
                 Uses CSS sticky positioning which works within the scrollable canvas */}
             {subscribeBarSettings?.visible && (
-              <div data-special-section="subscribe-bar">
               <EditorSubscribeBar
                 settings={
                   {
@@ -733,10 +705,8 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                 onSelect={() => handleSelectSection("subscribe-bar")}
                 scrollContainerRef={scrollParentRef}
               />
-              </div>
             )}
 
-            <div data-special-section="header">
             <UnifiedShopHeader
               settings={draftConfig.headerSettings as ShopHeaderSettings}
               creator={creator}
@@ -752,7 +722,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               onBioEdit={handleBioEdit}
               globalSettings={draftConfig.globalSettings}
             />
-            </div>
 
             {(() => {
               // Filter out announcement bar at position 0 (already rendered at top)
