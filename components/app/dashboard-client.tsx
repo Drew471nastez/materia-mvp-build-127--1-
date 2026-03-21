@@ -43,15 +43,16 @@ import dynamic from "next/dynamic"
 // Dynamic import keeps it out of the initial JS bundle for faster dashboard load.
 const LazyAreaChart = dynamic(
   () => import("recharts").then(m => {
-    const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = m
+    const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } = m
     // Return a wrapper component that passes all recharts components via render prop
     return {
       default: ({ data, children }: { data: any[]; children: (components: {
         AreaChart: typeof AreaChart; Area: typeof Area; XAxis: typeof XAxis;
         YAxis: typeof YAxis; CartesianGrid: typeof CartesianGrid;
         Tooltip: typeof Tooltip; ResponsiveContainer: typeof ResponsiveContainer;
+        ReferenceLine: typeof ReferenceLine;
       }) => ReactNode }) =>
-        <>{children({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer })}</>,
+        <>{children({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine })}</>,
     }
   }),
   { ssr: false, loading: () => <div className="w-full h-[200px] bg-neutral-50 animate-pulse rounded-xl" /> },
@@ -237,7 +238,7 @@ function ChartWithLongPressTooltip({
       } as React.CSSProperties}
     >
       <LazyAreaChart data={displayChartData}>
-        {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
+        {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine }) => (
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={displayChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
               <defs>
@@ -283,6 +284,16 @@ function ChartWithLongPressTooltip({
                   }}
                 />
               )}
+              {/* Vertical crosshair line at active touch point */}
+              {tooltipActive && activePoint && (
+                <ReferenceLine
+                  x={activePoint.label}
+                  stroke="#c4b5fd"
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  ifOverflow="extendDomain"
+                />
+              )}
               <Area
                 type="monotone"
                 dataKey="value"
@@ -290,11 +301,27 @@ function ChartWithLongPressTooltip({
                 strokeWidth={2}
                 fill="url(#kpiGrad)"
                 dot={(props: any) => {
-                  // Show dot only on last data point
-                  if (props.index === lastDotIndex) {
-                    return <circle cx={props.cx} cy={props.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} key={props.index} />
+                  const isActive = tooltipActive && props.index === activeIndex
+                  const isLast = props.index === lastDotIndex && !tooltipActive
+                  if (isActive) {
+                    // Large active dot on the line while swiping
+                    return (
+                      <circle
+                        key={`dot-${props.index}`}
+                        cx={props.cx}
+                        cy={props.cy}
+                        r={6}
+                        fill="#8b5cf6"
+                        stroke="#fff"
+                        strokeWidth={2.5}
+                        style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }}
+                      />
+                    )
                   }
-                  return <circle key={props.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                  if (isLast) {
+                    return <circle key={`dot-${props.index}`} cx={props.cx} cy={props.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} />
+                  }
+                  return <circle key={`dot-${props.index}`} r={0} cx={0} cy={0} fill="none" stroke="none" />
                 }}
                 activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false}
                 isAnimationActive={shouldAnimate}
