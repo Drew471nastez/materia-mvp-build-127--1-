@@ -1208,6 +1208,51 @@ html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── Prevent text selection & copy in /app dashboard and analytics ────────
+ * On Capacitor (iOS/Android) disable selection entirely so users don't
+ * accidentally trigger the copy/paste callout when scrolling or interacting
+ * with charts, KPI cards, and other dashboard UI elements.
+ * On mobile web we also disable it for a cleaner touch experience.
+ * Input fields and textareas are excluded so users can still type/select. */
+html.capacitor .app-content-scroll {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Re-enable selection for inputs, textareas, and contenteditable fields */
+html.capacitor .app-content-scroll input,
+html.capacitor .app-content-scroll textarea,
+html.capacitor .app-content-scroll [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* On mobile web (non-Capacitor), also prevent selection in dashboard areas */
+@media (max-width: 767px) {
+  html.app-layout .app-content-scroll {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  html.app-layout .app-content-scroll input,
+  html.app-layout .app-content-scroll textarea,
+  html.app-layout .app-content-scroll [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+}
+
 /* Prevent rubber-band scroll-chaining from the inner scroll container to the
    document on both Capacitor and /app web. CSS overscroll-behavior does not
    inherit, so it must be set on the scrollable element directly.
