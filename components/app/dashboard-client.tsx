@@ -86,6 +86,7 @@ type KPIType = "views" | "orders" | "revenue" | "conversion" | null
  * - 250ms long-press to activate
  * - Custom tooltip positioned inside chart area at fixed top
  * - requestAnimationFrame-driven updates for 120fps smoothness
+ * - Smooth animation when switching between KPI modals
  * - Desktop hover works normally via Recharts default
  */
 function ChartWithLongPressTooltip({
@@ -98,6 +99,7 @@ function ChartWithLongPressTooltip({
   t: (key: string) => string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipActiveRef = useRef(false)
   const [tooltipActive, setTooltipActive] = useState(false)
@@ -105,8 +107,8 @@ function ChartWithLongPressTooltip({
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
-  // Track if initial animation has played so we don't replay it
-  const hasAnimatedRef = useRef(false)
+  // Animation state — true means "play the animation now"
+  const [shouldAnimate, setShouldAnimate] = useState(true)
 
   useEffect(() => {
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
@@ -116,13 +118,12 @@ function ChartWithLongPressTooltip({
     }
   }, [])
 
-  // Mark animation as done after first render with data
+  // When KPI modal changes or data changes, play animation once then stop
   useEffect(() => {
-    if (displayChartData.length > 0 && !hasAnimatedRef.current) {
-      const timer = setTimeout(() => { hasAnimatedRef.current = true }, 900)
-      return () => clearTimeout(timer)
-    }
-  }, [displayChartData.length])
+    setShouldAnimate(true)
+    const timer = setTimeout(() => setShouldAnimate(false), 900)
+    return () => clearTimeout(timer)
+  }, [openKPIModal, displayChartData])
 
   const getIndexFromTouch = useCallback((clientX: number) => {
     const el = containerRef.current
@@ -206,8 +207,19 @@ function ChartWithLongPressTooltip({
   const tooltipLeftPercent = activeIndex != null && displayChartData.length > 1
     ? (activeIndex / (displayChartData.length - 1)) * 100 : 50
 
-  // Clamp tooltip so it doesn't overflow container edges
-  const tooltipLeft = Math.max(15, Math.min(85, tooltipLeftPercent))
+  // Dynamic clamping based on actual tooltip width
+  const getClampedLeft = () => {
+    const tooltipEl = tooltipRef.current
+    const containerEl = containerRef.current
+    if (!tooltipEl || !containerEl) return Math.max(12, Math.min(88, tooltipLeftPercent))
+    const tooltipWidth = tooltipEl.offsetWidth
+    const containerWidth = containerEl.offsetWidth
+    const halfTooltipPct = (tooltipWidth / 2 / containerWidth) * 100
+    return Math.max(halfTooltipPct + 2, Math.min(100 - halfTooltipPct - 2, tooltipLeftPercent))
+  }
+
+  // Show a dot on the last data point
+  const lastDotIndex = displayChartData.length - 1
 
   return (
     <div
@@ -277,11 +289,17 @@ function ChartWithLongPressTooltip({
                 stroke="#8b5cf6"
                 strokeWidth={2}
                 fill="url(#kpiGrad)"
-                dot={false}
+                dot={(props: any) => {
+                  // Show dot only on last data point
+                  if (props.index === lastDotIndex) {
+                    return <circle cx={props.cx} cy={props.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} key={props.index} />
+                  }
+                  return <circle key={props.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                }}
                 activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false}
-                isAnimationActive={!hasAnimatedRef.current}
-                animationDuration={800}
-                animationEasing="ease-in-out"
+                isAnimationActive={shouldAnimate}
+                animationDuration={600}
+                animationEasing="ease-out"
                 animationBegin={0}
               />
             </AreaChart>
@@ -292,10 +310,11 @@ function ChartWithLongPressTooltip({
       {/* Custom tooltip for touch — inside the chart area, at fixed top position */}
       {tooltipActive && activePoint && (
         <div
+          ref={tooltipRef}
           style={{
             position: "absolute",
             top: 8,
-            left: `${tooltipLeft}%`,
+            left: `${getClampedLeft()}%`,
             transform: "translateX(-50%)",
             background: "#1a1a2e",
             borderRadius: "8px",
