@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 import { useStoreBuilder } from "./store-builder-context"
 import {
@@ -214,6 +214,21 @@ function DesktopSectionCard({
   onAdd: (item: SectionLibraryItem) => void
   products: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [measuredWidth, setMeasuredWidth] = useState(0)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const obs = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setMeasuredWidth(entry.contentRect.width)
+      }
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   return (
     <button
       onClick={() => onAdd(item)}
@@ -232,13 +247,15 @@ function DesktopSectionCard({
       </div>
 
       {/* Full-width section preview — shows the complete section */}
-      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
-        <SectionPreview
-          type={item.type}
-          settings={item.defaultSettings}
-          containerWidth={780}
-          products={products}
-        />
+      <div ref={containerRef} className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
+        {measuredWidth > 0 && (
+          <SectionPreview
+            type={item.type}
+            settings={item.defaultSettings}
+            containerWidth={measuredWidth}
+            products={products}
+          />
+        )}
       </div>
     </button>
   )
@@ -256,6 +273,21 @@ function MobileSectionCard({
   onAdd: (item: SectionLibraryItem) => void
   products: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [measuredWidth, setMeasuredWidth] = useState(0)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const obs = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setMeasuredWidth(entry.contentRect.width)
+      }
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   return (
     <button
       onClick={() => onAdd(item)}
@@ -273,13 +305,15 @@ function MobileSectionCard({
       </div>
 
       {/* Full-width section preview */}
-      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
-        <SectionPreview
-          type={item.type}
-          settings={item.defaultSettings}
-          containerWidth={340}
-          products={products}
-        />
+      <div ref={containerRef} className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
+        {measuredWidth > 0 && (
+          <SectionPreview
+            type={item.type}
+            settings={item.defaultSettings}
+            containerWidth={measuredWidth}
+            products={products}
+          />
+        )}
       </div>
     </button>
   )
