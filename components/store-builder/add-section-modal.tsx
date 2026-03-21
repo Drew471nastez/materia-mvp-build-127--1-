@@ -152,7 +152,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "!w-[1363px] !max-w-[1363px] min-w-[1363px]",
+          "w-[min(1363px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]",
           "max-h-[82vh]"
         )}
       >
@@ -167,7 +167,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         {/* Body: sidebar + grid */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left categories sidebar */}
-          <nav className="w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
+          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
             {SECTION_CATEGORIES.map((cat) => (
               <button
                 key={cat.key}
@@ -233,7 +233,7 @@ function DesktopSectionCard({
       )}
     >
       {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[437px] shrink-0 h-[218px] overflow-hidden border-r border-border/40 bg-muted/10 relative isolate" style={{ contain: "paint" }}>
+      <div className="w-[clamp(200px,35%,437px)] shrink-0 h-[218px] overflow-hidden border-r border-border/40 bg-muted/10 relative isolate" style={{ contain: "paint" }}>
         <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={437} containerHeight={218} products={products} />
         {/* Bottom fade gradient */}
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
