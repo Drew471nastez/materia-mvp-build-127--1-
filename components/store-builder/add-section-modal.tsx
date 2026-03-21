@@ -12,7 +12,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { X } from "lucide-react"
+import {
+  ListChecks,
+  Type,
+  Megaphone,
+  Grid,
+  ImageIcon,
+  Package,
+  Star,
+  X,
+  Check,
+  ShoppingBag,
+} from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
 import type { SectionLibraryItem, SectionSettings, Section } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
@@ -21,6 +32,15 @@ import { UnifiedSectionRenderer } from "./unified-section-renderer"
 interface AddSectionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+const sectionIconsMap: Record<string, React.ReactNode> = {
+  "image-text": <ImageIcon className="h-4 w-4" />,
+  benefits: <ListChecks className="h-4 w-4" />,
+  "text-block": <Type className="h-4 w-4" />,
+  "announcement-bar": <Megaphone className="h-4 w-4" />,
+  "featured-products": <Grid className="h-4 w-4" />,
+  reviews: <Star className="h-4 w-4" />,
 }
 
 const SECTION_CATEGORIES = [
@@ -152,7 +172,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[min(1363px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]",
+          "w-full max-w-4xl",
           "max-h-[82vh]"
         )}
       >
@@ -167,7 +187,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         {/* Body: sidebar + grid */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left categories sidebar */}
-          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
+          <nav className="w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
             {SECTION_CATEGORIES.map((cat) => (
               <button
                 key={cat.key}
@@ -184,15 +204,14 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
             ))}
           </nav>
 
-          {/* Right: single-column list */}
+          {/* Right: 2-column grid */}
           <div className="flex-1 overflow-y-auto overscroll-contain p-5">
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {filteredSections.map((item) => (
                 <DesktopSectionCard
                   key={item.type}
                   item={item}
                   onAdd={handleAddSection}
-                  products={products}
                 />
               ))}
             </div>
@@ -209,22 +228,20 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Desktop section card — preview on left, info on right
+// Desktop section card — preview on top, info below (original design)
 // ────────────────────────────────────────────────────────────────────────────
 function DesktopSectionCard({
   item,
   onAdd,
-  products,
 }: {
   item: SectionLibraryItem
   onAdd: (item: SectionLibraryItem) => void
-  products: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
   return (
     <button
       onClick={() => onAdd(item)}
       className={cn(
-        "flex flex-row items-stretch w-full rounded-xl border border-border bg-background overflow-hidden text-left",
+        "flex flex-col rounded-xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out will-change-transform",
         "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5",
         "active:scale-[0.99] active:shadow-sm",
@@ -232,18 +249,26 @@ function DesktopSectionCard({
         "group cursor-pointer"
       )}
     >
-      {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[clamp(200px,35%,437px)] shrink-0 h-[218px] overflow-hidden border-r border-border/40 bg-muted/10 relative isolate" style={{ contain: "paint" }}>
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={437} containerHeight={218} products={products} />
-        {/* Bottom fade gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
+      {/* Preview thumbnail */}
+      <div className="w-full aspect-[16/7] overflow-hidden border-b border-border/40 bg-[#f8f8f8] dark:bg-[#111]">
+        <SectionPreviewSimple type={item.type} />
       </div>
 
-      {/* Info — right panel */}
-      <div className="flex items-center px-4 py-3 flex-1 min-w-0">
+      {/* Info row */}
+      <div className="flex items-center gap-2.5 p-3">
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+            "bg-muted text-muted-foreground",
+            "group-hover:bg-foreground/8 group-hover:text-foreground",
+            "transition-colors duration-200"
+          )}
+        >
+          {sectionIconsMap[item.type]}
+        </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{item.description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{item.description}</p>
         </div>
       </div>
     </button>
@@ -251,7 +276,7 @@ function DesktopSectionCard({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Mobile section card — preview top, info below
+// Mobile section card — preview left, info right
 // ────────────────────────────────────────────────────────────────────────────
 function MobileSectionCard({
   item,
@@ -273,7 +298,7 @@ function MobileSectionCard({
         "group cursor-pointer shadow-sm"
       )}
     >
-      {/* Preview — landscape left panel, matching desktop style */}
+      {/* Preview — landscape left panel */}
       <div className="w-[200px] shrink-0 h-[110px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
         <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={200} containerHeight={110} products={products} />
         {/* Bottom fade gradient */}
@@ -295,7 +320,7 @@ function MobileSectionCard({
 
 // ────────────────────────────────────────────────────────────────────────────
 // Products placeholder preview — rendered inline without needing real product data
-// Shows a 2×2 grid of product cards with real thumbnails or gray placeholders
+// Shows a 2x2 grid of product cards with real thumbnails or gray placeholders
 // ────────────────────────────────────────────────────────────────────────────
 function ProductsPlaceholderPreview({
   containerWidth = 220,
@@ -307,7 +332,6 @@ function ProductsPlaceholderPreview({
   const RENDER_WIDTH = 700
   const scale = containerWidth / RENDER_WIDTH
   const hasProducts = products.length > 0
-  const displayItems = hasProducts ? products.slice(0, 4) : [0, 1, 2, 3]
 
   return (
     <div
@@ -333,7 +357,7 @@ function ProductsPlaceholderPreview({
         }}
       />
 
-      {/* 2×2 product grid */}
+      {/* 2x2 product grid */}
       <div
         style={{
           display: "grid",
@@ -408,10 +432,8 @@ function ProductsPlaceholderPreview({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Section preview thumbnails
-// Renders the actual UnifiedSectionRenderer scaled down to thumbnail size so the
-// preview is a pixel-perfect match of what the section looks like on the canvas.
-// For featured-products, renders a dedicated placeholder that doesn't need real data.
+// Section preview thumbnails (used by mobile cards)
+// Renders the actual UnifiedSectionRenderer scaled down to thumbnail size
 // ────────────────────────────────────────────────────────────────────────────
 export function SectionPreview({
   type,
@@ -426,7 +448,6 @@ export function SectionPreview({
   containerHeight?: number
   products?: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
-  // Products section needs special handling — full renderer returns null with no products
   if (type === "featured-products") {
     return <ProductsPlaceholderPreview containerWidth={containerWidth} products={products} />
   }
@@ -442,7 +463,6 @@ export function SectionPreview({
     locked: false,
   }
 
-  // Announcement bar: render centered vertically in the preview container
   if (type === "announcement-bar") {
     const scaledHeight = containerHeight / scale
     return (
@@ -495,6 +515,194 @@ export function SectionPreview({
         isMobile={false}
         products={[]}
       />
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Simple section preview thumbnails (used by desktop cards)
+// These faithfully represent the actual layout of each section type as it
+// appears in the store editor — same structure, proportions, and color cues.
+// ────────────────────────────────────────────────────────────────────────────
+function SectionPreviewSimple({ type }: { type: string }) {
+  switch (type) {
+    case "image-text":
+      return <ImageTextPreview />
+    case "benefits":
+      return <BenefitsPreview />
+    case "text-block":
+      return <TextBlockPreview />
+    case "announcement-bar":
+      return <AnnouncementBarPreview />
+    case "featured-products":
+      return <FeaturedProductsPreview />
+    case "reviews":
+      return <ReviewsPreview />
+    default:
+      return (
+        <div className="w-full h-full flex items-center justify-center">
+          <Package className="h-8 w-8 text-muted-foreground/20" />
+        </div>
+      )
+  }
+}
+
+// ── Image + Text ─────────────────────────────────────────────────────────────
+function ImageTextPreview() {
+  return (
+    <div className="w-full h-full flex items-stretch bg-white dark:bg-neutral-950">
+      {/* Image block */}
+      <div className="w-[42%] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-neutral-100 via-neutral-150 to-neutral-200 dark:from-neutral-800 dark:to-neutral-700" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-white/50 dark:bg-black/30 backdrop-blur-sm flex items-center justify-center">
+            <ImageIcon className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Text block */}
+      <div className="flex-1 flex flex-col justify-center px-3 py-3 gap-1.5">
+        <div className="h-2.5 bg-neutral-900 dark:bg-white rounded-full w-4/5" />
+        <div className="space-y-1 mt-0.5">
+          <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
+          <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[90%]" />
+          <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-3/4" />
+        </div>
+        <div
+          className="h-5 rounded-md mt-2 w-2/5"
+          style={{ backgroundColor: "#2563eb" }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Benefits ─────────────────────────────────────────────────────────────────
+function BenefitsPreview() {
+  const items = [
+    { bg: "#dcfce7", color: "#16a34a" },
+    { bg: "#dbeafe", color: "#2563eb" },
+    { bg: "#ede9fe", color: "#7c3aed" },
+  ]
+  return (
+    <div className="w-full h-full flex flex-col items-center bg-white dark:bg-neutral-950 px-3 py-2.5">
+      <div className="h-2 bg-neutral-800 dark:bg-white rounded-full w-[38%] mb-2.5" />
+      <div className="flex-1 flex items-start justify-center gap-2.5 w-full">
+        {items.map((item, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: item.bg }}
+            >
+              <Check className="w-3.5 h-3.5" style={{ color: item.color }} />
+            </div>
+            <div className="h-1.5 bg-neutral-700 dark:bg-neutral-300 rounded-full w-full" />
+            <div className="h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full w-[85%]" />
+            <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[70%]" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Text Block ────────────────────────────────────────────────────────────────
+function TextBlockPreview() {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-white dark:bg-neutral-950 px-4 py-3 gap-1.5">
+      <div className="h-2.5 bg-neutral-900 dark:bg-white rounded-full w-[40%]" />
+      <div className="w-8 h-px bg-neutral-300 dark:bg-neutral-600 my-0.5" />
+      <div className="space-y-1.5 w-full max-w-[82%]">
+        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
+        <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[92%]" />
+        <div className="h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full w-full" />
+        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-[80%]" />
+      </div>
+    </div>
+  )
+}
+
+// ── Announcement Bar ──────────────────────────────────────────────────────────
+function AnnouncementBarPreview() {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-[#f5f5f5] dark:bg-[#111] px-3 gap-1.5">
+      <div className="w-full bg-neutral-900 dark:bg-neutral-100 rounded-md flex items-center px-3 py-2.5 gap-2">
+        <Megaphone className="h-3 w-3 text-white/70 dark:text-neutral-600 shrink-0" />
+        <div className="flex-1">
+          <div className="h-1.5 bg-white/80 dark:bg-neutral-700 rounded-full w-3/5" />
+        </div>
+        <X className="h-2.5 w-2.5 text-white/30 dark:text-neutral-500 shrink-0" />
+      </div>
+      <span className="text-[9px] font-medium text-neutral-400 dark:text-neutral-500 tracking-wide uppercase">
+        Full-width banner
+      </span>
+    </div>
+  )
+}
+
+// ── Featured Products ─────────────────────────────────────────────────────────
+function FeaturedProductsPreview() {
+  return (
+    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-950 px-3 py-2.5">
+      <div className="h-2 bg-neutral-800 dark:bg-white rounded-full w-[32%] mb-2.5" />
+      <div className="flex-1 grid grid-cols-3 gap-2">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="flex flex-col bg-white dark:bg-neutral-900 rounded-lg overflow-hidden border border-neutral-100 dark:border-neutral-800 shadow-sm"
+          >
+            <div className="flex-1 bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+              <ShoppingBag className="h-3 w-3 text-neutral-400 dark:text-neutral-500" />
+            </div>
+            <div className="px-1.5 py-1.5 space-y-1">
+              <div className="h-1 bg-neutral-600 dark:bg-neutral-300 rounded-full w-full" />
+              <div className="h-1.5 bg-emerald-500/80 rounded-full w-[55%]" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+function ReviewsPreview() {
+  return (
+    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-950 px-3 py-2.5 gap-1.5">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <div className="h-2 bg-neutral-800 dark:bg-white rounded-full w-[22%]" />
+        <div className="flex gap-0.5">
+          {[0, 1, 2, 3, 4].map((s) => (
+            <Star key={s} className="w-2 h-2 fill-amber-400 text-amber-400" />
+          ))}
+        </div>
+        <div className="h-1.5 bg-neutral-300 dark:bg-neutral-600 rounded-full w-8 ml-0.5" />
+      </div>
+      <div className="flex flex-col gap-1.5 flex-1">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            className="bg-neutral-50 dark:bg-neutral-900 rounded-lg p-2 border border-neutral-100 dark:border-neutral-800"
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <div
+                className="w-4 h-4 rounded-full shrink-0 bg-gradient-to-br from-violet-400 to-violet-600"
+              />
+              <div className="h-1.5 bg-neutral-600 dark:bg-neutral-300 rounded-full w-1/4" />
+              <div className="flex gap-0.5 ml-auto">
+                {[0, 1, 2, 3, 4].map((s) => (
+                  <Star key={s} className="w-1.5 h-1.5 fill-amber-400 text-amber-400" />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full w-full" />
+              <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full w-[85%]" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
