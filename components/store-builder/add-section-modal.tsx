@@ -148,7 +148,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[min(1050px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
+          "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
           "max-h-[88vh]"
         )}
       >
