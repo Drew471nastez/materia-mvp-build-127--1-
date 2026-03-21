@@ -82,9 +82,11 @@ interface ChartDataPoint {
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 
 /**
- * Chart wrapper that requires a long-press (1s) on mobile to activate tooltip.
- * After activation, user can slide left/right to explore data points.
- * Prevents accidental tooltip triggers while scrolling.
+ * Chart wrapper with smooth long-press tooltip for mobile.
+ * - 250ms long-press to activate
+ * - Custom tooltip positioned at fixed height (never under finger)
+ * - requestAnimationFrame-driven updates for 120fps smoothness
+ * - Desktop hover works normally via Recharts default
  */
 function ChartWithLongPressTooltip({
   displayChartData,
@@ -100,28 +102,43 @@ function ChartWithLongPressTooltip({
   const [tooltipActive, setTooltipActive] = useState(false)
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+  // Custom tooltip state driven by touch position
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const rafRef = useRef<number | null>(null)
 
-  // Detect touch device on mount
   useEffect(() => {
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
     return () => {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
   }, [])
+
+  const getIndexFromTouch = useCallback((clientX: number) => {
+    const el = containerRef.current
+    if (!el || !displayChartData.length) return null
+    const rect = el.getBoundingClientRect()
+    // Account for chart margins (left: ~40px for YAxis, right: ~4px)
+    const chartLeft = rect.left + 40
+    const chartRight = rect.right - 4
+    const chartWidth = chartRight - chartLeft
+    const x = clientX - chartLeft
+    const ratio = Math.max(0, Math.min(1, x / chartWidth))
+    return Math.round(ratio * (displayChartData.length - 1))
+  }, [displayChartData.length])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
-
-    // Start long-press timer (300ms — easy to trigger)
     longPressTimerRef.current = setTimeout(() => {
       setTooltipActive(true)
-      // Provide haptic feedback if available
+      const idx = getIndexFromTouch(touch.clientX)
+      setActiveIndex(idx)
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate(20)
+        navigator.vibrate(15)
       }
-    }, 300)
-  }, [])
+    }, 250)
+  }, [getIndexFromTouch])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!touchStartPosRef.current) return
@@ -130,25 +147,54 @@ function ChartWithLongPressTooltip({
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
 
     if (tooltipActive) {
-      // Once active, prevent page scroll so user can slide through chart
       e.preventDefault()
-    } else if (dx > 8 || dy > 8) {
-      // User is scrolling, cancel long-press
+      // Use rAF for buttery smooth 120fps updates
+      const clientX = touch.clientX
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(() => {
+        const idx = getIndexFromTouch(clientX)
+        setActiveIndex(idx)
+      })
+    } else if (dx > 6 || dy > 6) {
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current)
         longPressTimerRef.current = null
       }
     }
-  }, [tooltipActive])
+  }, [tooltipActive, getIndexFromTouch])
 
   const handleTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
     }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     touchStartPosRef.current = null
     setTooltipActive(false)
+    setActiveIndex(null)
   }, [])
+
+  // Get the active data point for the custom tooltip
+  const activePoint = activeIndex != null && activeIndex >= 0 && activeIndex < displayChartData.length
+    ? displayChartData[activeIndex] : null
+
+  const formatValue = (val: number) => {
+    if (openKPIModal === "revenue") return `$${val.toFixed(2)}`
+    if (openKPIModal === "conversion") return `${val}%`
+    return val.toLocaleString()
+  }
+
+  const metricLabel = openKPIModal === "views" ? t("dashboard.views")
+    : openKPIModal === "orders" ? t("dashboard.orders")
+    : openKPIModal === "revenue" ? t("dashboard.revenue")
+    : t("dashboard.conversionRate")
+
+  // Calculate tooltip horizontal position as percentage
+  const tooltipLeftPercent = activeIndex != null && displayChartData.length > 1
+    ? (activeIndex / (displayChartData.length - 1)) * 100 : 50
 
   return (
     <div
@@ -162,8 +208,38 @@ function ChartWithLongPressTooltip({
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
+        position: "relative",
       } as React.CSSProperties}
     >
+      {/* Custom fixed-position tooltip for touch — always above chart, never under finger */}
+      {tooltipActive && activePoint && (
+        <div
+          style={{
+            position: "absolute",
+            top: -6,
+            left: `${tooltipLeftPercent}%`,
+            transform: "translate(-50%, -100%)",
+            background: "#1a1a2e",
+            borderRadius: "8px",
+            fontSize: "12px",
+            color: "#fff",
+            padding: "6px 12px",
+            pointerEvents: "none",
+            zIndex: 50,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            willChange: "left",
+            transition: "left 60ms linear",
+          }}
+        >
+          <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px", margin: 0 }}>{activePoint.label}</p>
+          <p style={{ fontWeight: 600, margin: 0 }}>{metricLabel}: {formatValue(activePoint.value)}</p>
+          {openKPIModal === "orders" && activePoint.refunds != null && activePoint.refunds > 0 && (
+            <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px", margin: 0 }}>{activePoint.refunds} refunded</p>
+          )}
+        </div>
+      )}
+
       <LazyAreaChart data={displayChartData}>
         {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
           <ResponsiveContainer width="100%" height={200}>
@@ -190,37 +266,35 @@ function ChartWithLongPressTooltip({
                 width={40}
                 tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
               />
-              <Tooltip
-                active={isTouchDevice ? (tooltipActive ? undefined : false) : undefined}
-                cursor={isTouchDevice && !tooltipActive ? false : { stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
-                isAnimationActive={false}
-                content={({ active, payload, label }) => {
-                  if (isTouchDevice && !tooltipActive) return null
-                  if (!active || !payload?.length) return null
-                  const point = payload[0]?.payload as ChartDataPoint
-                  const val = point?.value ?? 0
-                  const displayVal = openKPIModal === "revenue" ? `$${val.toFixed(2)}` : openKPIModal === "conversion" ? `${val}%` : val.toLocaleString()
-                  const metricLabel = openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
-                  return (
-                    <div style={{
-                      background: "#1a1a2e",
-                      border: "none",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                      color: "#fff",
-                      padding: "8px 12px",
-                      pointerEvents: "none",
-                      willChange: "transform",
-                    }}>
-                      <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
-                      <p style={{ fontWeight: 500 }}>{metricLabel}: {displayVal}</p>
-                      {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
-                        <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
-                      )}
-                    </div>
-                  )
-                }}
-              />
+              {/* Desktop-only Recharts tooltip — hidden on touch devices */}
+              {!isTouchDevice && (
+                <Tooltip
+                  cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
+                  isAnimationActive={false}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    const point = payload[0]?.payload as ChartDataPoint
+                    const val = point?.value ?? 0
+                    return (
+                      <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px", pointerEvents: "none" }}>
+                        <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
+                        <p style={{ fontWeight: 500 }}>{metricLabel}: {formatValue(val)}</p>
+                        {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
+                          <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
+                        )}
+                      </div>
+                    )
+                  }}
+                />
+              )}
+              {/* On touch: use a hidden Tooltip just for the vertical cursor line */}
+              {isTouchDevice && tooltipActive && (
+                <Tooltip
+                  cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
+                  isAnimationActive={false}
+                  content={() => null}
+                />
+              )}
               <Area
                 type="monotone"
                 dataKey="value"

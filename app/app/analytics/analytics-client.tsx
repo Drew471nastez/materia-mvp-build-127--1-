@@ -770,6 +770,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [chartTooltipActive, setChartTooltipActive] = useState(false)
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const chartTouchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const [chartActiveIndex, setChartActiveIndex] = useState<number | null>(null)
+  const chartRafRef = useRef<number | null>(null)
+  const chartContainerRef = useRef<HTMLDivElement>(null)
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -800,6 +803,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     return () => {
       window.removeEventListener("resize", checkMobile)
       if (chartLongPressTimerRef.current) clearTimeout(chartLongPressTimerRef.current)
+      if (chartRafRef.current) cancelAnimationFrame(chartRafRef.current)
     }
   }, [])
 
@@ -2526,42 +2530,123 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {(
               <div className="relative">
                 <div
+                  ref={chartContainerRef}
                   className={`transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}
                   style={{
                     touchAction: chartTooltipActive ? "none" : "pan-y",
                     userSelect: "none",
                     WebkitUserSelect: "none",
                     WebkitTouchCallout: "none",
+                    position: "relative",
                   } as React.CSSProperties}
                   onTouchStart={(e) => {
                     const touch = e.touches[0]
                     chartTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
                     chartLongPressTimerRef.current = setTimeout(() => {
                       setChartTooltipActive(true)
-                      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(20)
-                    }, 300)
+                      // Set initial index
+                      const el = chartContainerRef.current
+                      if (el && chartDisplayData.length) {
+                        const rect = el.getBoundingClientRect()
+                        const chartLeft = rect.left + 40
+                        const chartWidth = rect.right - 4 - chartLeft
+                        const ratio = Math.max(0, Math.min(1, (touch.clientX - chartLeft) / chartWidth))
+                        setChartActiveIndex(Math.round(ratio * (chartDisplayData.length - 1)))
+                      }
+                      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15)
+                    }, 250)
                   }}
                   onTouchMove={(e) => {
                     if (!chartTouchStartRef.current) return
                     const touch = e.touches[0]
                     const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
                     const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
-                    if (chartTooltipActive) { e.preventDefault() }
-                    else if (dx > 8 || dy > 8) {
+                    if (chartTooltipActive) {
+                      e.preventDefault()
+                      const clientX = touch.clientX
+                      if (chartRafRef.current) cancelAnimationFrame(chartRafRef.current)
+                      chartRafRef.current = requestAnimationFrame(() => {
+                        const el = chartContainerRef.current
+                        if (el && chartDisplayData.length) {
+                          const rect = el.getBoundingClientRect()
+                          const chartLeft = rect.left + 40
+                          const chartWidth = rect.right - 4 - chartLeft
+                          const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
+                          setChartActiveIndex(Math.round(ratio * (chartDisplayData.length - 1)))
+                        }
+                      })
+                    } else if (dx > 6 || dy > 6) {
                       if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
                     }
                   }}
                   onTouchEnd={() => {
                     if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+                    if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
                     chartTouchStartRef.current = null
                     setChartTooltipActive(false)
+                    setChartActiveIndex(null)
                   }}
                   onTouchCancel={() => {
                     if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+                    if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
                     chartTouchStartRef.current = null
                     setChartTooltipActive(false)
+                    setChartActiveIndex(null)
                   }}
                 >
+              {/* Custom fixed-position tooltip for touch — always above chart, never under finger */}
+              {chartTooltipActive && chartActiveIndex != null && chartActiveIndex >= 0 && chartActiveIndex < chartDisplayData.length && (() => {
+                const pt = chartDisplayData[chartActiveIndex]
+                const leftPct = chartDisplayData.length > 1 ? (chartActiveIndex / (chartDisplayData.length - 1)) * 100 : 50
+                const metricLabels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR", refunds: "Refunds" }
+                const lines: { label: string; value: string; isRefund?: boolean }[] = []
+                const addLine = (key: string, val: number | undefined) => {
+                  if (val == null) return
+                  const displayLabel = metricLabels[key] || key
+                  let displayVal: string
+                  if (key === "revenue") displayVal = formatPrice(val)
+                  else if (key === "conversion" || key === "ctr") displayVal = `${val}%`
+                  else displayVal = val.toLocaleString()
+                  lines.push({ label: displayLabel, value: displayVal, isRefund: key === "refunds" })
+                }
+                // Show metrics based on current filter
+                if (analyticsMode === "store") {
+                  if (chartMetricFilter === "all" || chartMetricFilter === "views") addLine("views", pt.views)
+                  if (chartMetricFilter === "all" || chartMetricFilter === "orders") addLine("sales", pt.sales)
+                  if ((chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && pt.refunds) addLine("refunds", pt.refunds)
+                  if (chartMetricFilter === "all" || chartMetricFilter === "revenue") addLine("revenue", pt.revenue)
+                  if (chartMetricFilter === "conversion") addLine("conversion", (pt as any).conversion)
+                } else {
+                  if (onePageChartFilter === "all" || onePageChartFilter === "views") addLine("views", pt.views)
+                  if (onePageChartFilter === "all" || onePageChartFilter === "clicks") addLine("clicks", pt.clicks)
+                  if (onePageChartFilter === "all" || onePageChartFilter === "subscribers") addLine("subscribers", pt.subscribers)
+                  if (onePageChartFilter === "ctr") addLine("ctr", (pt as any).ctr)
+                }
+                return (
+                  <div style={{
+                    position: "absolute",
+                    top: -6,
+                    left: `${leftPct}%`,
+                    transform: "translate(-50%, -100%)",
+                    background: "#1a1a2e",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "#fff",
+                    padding: "6px 12px",
+                    pointerEvents: "none",
+                    zIndex: 50,
+                    whiteSpace: "nowrap",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    willChange: "left",
+                    transition: "left 60ms linear",
+                  }}>
+                    <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{pt.date}</p>
+                    {lines.map((l, i) => (
+                      <p key={i} style={{ fontWeight: 500, margin: 0, color: l.isRefund ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
+                    ))}
+                  </div>
+                )
+              })()}
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
@@ -2603,36 +2688,40 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} domain={[0, "auto"]} width={40}
                     tickFormatter={(v) => (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") ? `${v}%` : v.toLocaleString()}
                   />
-                  <Tooltip
-                    active={isTouchDevice ? (chartTooltipActive ? undefined : false) : undefined}
-                    cursor={isTouchDevice && !chartTooltipActive ? false : { stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
-                    isAnimationActive={false}
-                    content={({ active, payload, label }) => {
-                      if (isTouchDevice && !chartTooltipActive) return null
-                      if (!active || !payload?.length) return null
-                      const point = payload[0]?.payload as TrendData
-                      const lines: { label: string; value: string; color?: string }[] = []
-                      payload.forEach((p: any) => {
-                        const name = p.dataKey as string
-                        const val = p.value as number
-                        const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR", refunds: "Refunds" }
-                        const displayLabel = labels[name] || name
-                        let displayVal: string
-                        if (name === "revenue") displayVal = formatPrice(val)
-                        else if (name === "conversion" || name === "ctr") displayVal = `${val}%`
-                        else displayVal = val.toLocaleString()
-                        lines.push({ label: displayLabel, value: displayVal })
-                      })
-                      return (
-                        <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px", pointerEvents: "none", willChange: "transform" }}>
-                          <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
-                          {lines.map((l, i) => (
-                            <p key={i} style={{ fontWeight: 500, color: l.label === "Refunds" ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
-                          ))}
-                        </div>
-                      )
-                    }}
-                  />
+                  {/* Desktop-only Recharts tooltip — hidden on touch devices */}
+                  {!isTouchDevice && (
+                    <Tooltip
+                      cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
+                      isAnimationActive={false}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null
+                        const lines: { label: string; value: string; color?: string }[] = []
+                        payload.forEach((p: any) => {
+                          const name = p.dataKey as string
+                          const val = p.value as number
+                          const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR", refunds: "Refunds" }
+                          const displayLabel = labels[name] || name
+                          let displayVal: string
+                          if (name === "revenue") displayVal = formatPrice(val)
+                          else if (name === "conversion" || name === "ctr") displayVal = `${val}%`
+                          else displayVal = val.toLocaleString()
+                          lines.push({ label: displayLabel, value: displayVal })
+                        })
+                        return (
+                          <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px", pointerEvents: "none" }}>
+                            <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
+                            {lines.map((l, i) => (
+                              <p key={i} style={{ fontWeight: 500, color: l.label === "Refunds" ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
+                            ))}
+                          </div>
+                        )
+                      }}
+                    />
+                  )}
+                  {/* On touch: just show the vertical cursor line, no Recharts tooltip content */}
+                  {isTouchDevice && chartTooltipActive && (
+                    <Tooltip cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }} isAnimationActive={false} content={() => null} />
+                  )}
                   {/* Store areas */}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
                     <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} />
