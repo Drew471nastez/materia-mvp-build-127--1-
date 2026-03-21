@@ -152,7 +152,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-full max-w-[1185px]",
+          "!w-[1363px] !max-w-[1363px] min-w-[1363px]",
           "max-h-[82vh]"
         )}
       >
@@ -233,8 +233,8 @@ function DesktopSectionCard({
       )}
     >
       {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[380px] shrink-0 h-[190px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={380} containerHeight={190} products={products} />
+      <div className="w-[437px] shrink-0 h-[218px] overflow-hidden border-r border-border/40 bg-muted/10 relative isolate" style={{ contain: "paint" }}>
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={437} containerHeight={218} products={products} />
         {/* Bottom fade gradient */}
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
       </div>
@@ -473,16 +473,20 @@ export function SectionPreview({
     )
   }
 
+  const scaledHeight = containerHeight / scale
+
   return (
     <div
       style={{
         width: RENDER_WIDTH,
+        height: scaledHeight,
         maxWidth: RENDER_WIDTH,
         overflow: "hidden",
         transformOrigin: "top left",
         transform: `scale(${scale})`,
         pointerEvents: "none",
         userSelect: "none",
+        flexShrink: 0,
       }}
     >
       <UnifiedSectionRenderer
