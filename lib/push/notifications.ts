@@ -16,19 +16,14 @@ interface SaleOptions {
 }
 
 export async function notifySale(userId: string, opts: SaleOptions): Promise<void> {
-  const isFree = opts.amountCents === 0
   const amount = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(opts.amountCents / 100)
 
-  const body = isFree
-    ? `Someone just got ${opts.productName} (free)`
-    : `You sold ${opts.productName} for ${amount}`
-
   return sendPushToUser(userId, {
     title: "🎉 You made a sale!",
-    body,
+    body: `You sold ${opts.productName} for ${amount}`,
     data: {
       type: "sale",
       orderId: opts.orderId,
