@@ -75,8 +75,10 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         <SheetContent
           side="bottom"
           hideCloseButton
+          enableDragToClose
+          onDragClose={() => onOpenChange(false)}
           className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
-          style={{ height: "92dvh" }}
+          style={{ height: "74dvh" }}
         >
           {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-0 shrink-0">
@@ -256,20 +258,20 @@ function MobileSectionCard({
     <button
       onClick={() => onAdd(item)}
       className={cn(
-        "flex flex-row items-stretch rounded-2xl border border-border bg-background overflow-hidden text-left",
+        "flex flex-col w-full rounded-2xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out",
         "active:scale-[0.98] active:opacity-80",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
         "group cursor-pointer shadow-sm"
       )}
     >
-      {/* Preview — fixed width thumbnail */}
-      <div className="w-[150px] h-[95px] shrink-0 bg-background border-r border-border/40 overflow-hidden">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={150} />
+      {/* Preview — full width top */}
+      <div className="w-full h-[130px] bg-background border-b border-border/40 overflow-hidden">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={340} />
       </div>
 
       {/* Info */}
-      <div className="flex-1 flex items-center px-3.5 py-2.5">
+      <div className="flex items-center px-3.5 py-2.5">
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">

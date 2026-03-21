@@ -50,14 +50,113 @@ function SheetContent({
   side = 'right',
   hideCloseButton = false,
   overlayClassName,
+  enableDragToClose = false,
+  onDragClose,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left'
   hideCloseButton?: boolean
   overlayClassName?: string
+  enableDragToClose?: boolean
+  onDragClose?: () => void
 }) {
   const contentRef = React.useRef<HTMLDivElement>(null)
   const portalRef = React.useRef<HTMLDivElement>(null)
+  const onDragCloseRef = React.useRef(onDragClose)
+  onDragCloseRef.current = onDragClose
+
+  // Drag-to-close for bottom sheets
+  React.useEffect(() => {
+    if (!enableDragToClose || side !== 'bottom') return
+    const content = contentRef.current
+    if (!content) return
+
+    let startY = 0
+    let currentDelta = 0
+    let isDragging = false
+    let isClosing = false
+
+    const canStartDrag = (target: HTMLElement): boolean => {
+      let el: HTMLElement | null = target
+      while (el && el !== content) {
+        const style = window.getComputedStyle(el)
+        const isScrollable =
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight
+        if (isScrollable && el.scrollTop > 0) return false
+        el = el.parentElement
+      }
+      return true
+    }
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (isClosing) return
+      if (!canStartDrag(e.target as HTMLElement)) return
+      startY = e.touches[0].clientY
+      currentDelta = 0
+      isDragging = true
+      content.style.transition = 'none'
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging || isClosing) return
+      currentDelta = e.touches[0].clientY - startY
+      if (currentDelta < 0) currentDelta = 0
+
+      content.style.transform = `translateY(${currentDelta}px)`
+
+      const overlay = portalRef.current?.querySelector('[data-slot="sheet-overlay"]') as HTMLElement
+      if (overlay) {
+        overlay.style.transition = 'none'
+        overlay.style.opacity = String(Math.max(0, 1 - currentDelta / 400))
+      }
+    }
+
+    const handleTouchEnd = () => {
+      if (!isDragging || isClosing) return
+      isDragging = false
+
+      const easing = 'cubic-bezier(0.32, 0.72, 0, 1)'
+      const overlay = portalRef.current?.querySelector('[data-slot="sheet-overlay"]') as HTMLElement
+
+      if (currentDelta > 80) {
+        isClosing = true
+        content.style.transition = `transform 0.3s ${easing}`
+        content.style.transform = 'translateY(100%)'
+        if (overlay) {
+          overlay.style.transition = `opacity 0.3s ${easing}`
+          overlay.style.opacity = '0'
+        }
+        setTimeout(() => {
+          onDragCloseRef.current?.()
+          isClosing = false
+          content.style.transition = ''
+          content.style.transform = ''
+          if (overlay) {
+            overlay.style.transition = ''
+            overlay.style.opacity = ''
+          }
+        }, 300)
+      } else {
+        content.style.transition = `transform 0.3s ${easing}`
+        content.style.transform = 'translateY(0)'
+        if (overlay) {
+          overlay.style.transition = `opacity 0.3s ${easing}`
+          overlay.style.opacity = '1'
+        }
+      }
+    }
+
+    content.addEventListener('touchstart', handleTouchStart, { passive: true })
+    content.addEventListener('touchmove', handleTouchMove, { passive: true })
+    content.addEventListener('touchend', handleTouchEnd, { passive: true })
+
+    return () => {
+      content.removeEventListener('touchstart', handleTouchStart)
+      content.removeEventListener('touchmove', handleTouchMove)
+      content.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [enableDragToClose, side])
 
   // Prevent pull-to-refresh ONLY inside the sheet portal (never blocks normal page interactions)
   React.useEffect(() => {
