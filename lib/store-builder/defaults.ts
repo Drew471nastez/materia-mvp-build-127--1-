@@ -1309,7 +1309,7 @@ export const defaultImageTextSettings: ImageTextSettings = {
   headline: "Welcome to my store",
   body: "Discover my amazing collection of digital products, crafted with care.",
   imageUrl: "",
-  imagePosition: "right",
+  imagePosition: "left",
   buttonText: "Browse Products",
   buttonUrl: "#products",
   showButton: true,

@@ -152,7 +152,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-full max-w-4xl",
+          "w-full max-w-[1030px]",
           "max-h-[82vh]"
         )}
       >
@@ -233,8 +233,8 @@ function DesktopSectionCard({
       )}
     >
       {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[280px] shrink-0 h-[140px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={280} containerHeight={140} products={products} />
+      <div className="w-[322px] shrink-0 h-[161px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={322} containerHeight={161} products={products} />
         {/* Bottom fade gradient */}
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
       </div>

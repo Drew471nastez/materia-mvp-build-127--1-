@@ -143,6 +143,18 @@ function SheetContent({
       const easing = 'cubic-bezier(0.32, 0.72, 0, 1)'
       const overlay = portalRef.current?.querySelector('[data-slot="sheet-overlay"]') as HTMLElement
 
+      // If no movement (just a tap), clear inline styles immediately so Radix
+      // close animation plays without interference
+      if (currentDelta === 0) {
+        content.style.transition = ''
+        content.style.transform = ''
+        if (overlay) {
+          overlay.style.transition = ''
+          overlay.style.opacity = ''
+        }
+        return
+      }
+
       // Velocity-based close: px/ms — flick gesture threshold
       const elapsed = Math.max(Date.now() - lastTime, 1)
       const deltaFromLast = lastY - startY

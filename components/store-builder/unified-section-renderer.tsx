@@ -1318,8 +1318,13 @@ function UnifiedImageTextSection({
     <SectionContainer isMobile={isMobile}>
       <div
         className={cn(
-          isMobile ? "flex flex-col gap-4" : "flex flex-col gap-8 items-center md:flex-row",
-          !isMobile && (settings.imagePosition === "left" ? "md:flex-row" : "md:flex-row-reverse"),
+          isMobile
+            ? "flex flex-col gap-4"
+            : isPreviewMode
+              ? "flex flex-row gap-8 items-center"
+              : "flex flex-col gap-8 items-center md:flex-row",
+          !isMobile && isPreviewMode && (settings.imagePosition === "left" ? "flex-row" : "flex-row-reverse"),
+          !isMobile && !isPreviewMode && (settings.imagePosition === "left" ? "md:flex-row" : "md:flex-row-reverse"),
         )}
         style={{
           paddingTop: spacing.paddingTop,
