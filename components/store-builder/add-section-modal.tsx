@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 
 import { useStoreBuilder } from "./store-builder-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -39,9 +40,27 @@ const STORE_SECTION_CATEGORIES: Record<string, { label: string; types: string[] 
   info: { label: "Information", types: ["about", "faq", "reviews"] },
 }
 
+// Mobile filter pill categories (simplified for horizontal layout)
+const MOBILE_FILTER_CATEGORIES: { key: string | null; label: string }[] = [
+  { key: null, label: "All" },
+  { key: "image-text", label: "Image + Text" },
+  { key: "content", label: "Content" },
+  { key: "marketing", label: "Marketing" },
+  { key: "commerce", label: "Products" },
+  { key: "info", label: "Information" },
+]
+
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
   const { draftConfig, addSection } = useStoreBuilder()
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [isMobileScreen, setIsMobileScreen] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobileScreen(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
 
   const handleAddSection = (libraryItem: SectionLibraryItem) => {
     const newSection = createSectionFromLibrary(libraryItem, draftConfig.sections.length)
@@ -62,12 +81,26 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       })
     : availableSections
 
+  // ── Mobile: bottom sheet with swipe-to-close ──────────────────────
+  if (isMobileScreen) {
+    return (
+      <MobileAddSectionSheet
+        open={open}
+        onClose={() => onOpenChange(false)}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
+        sections={filteredSections}
+        onAddSection={handleAddSection}
+      />
+    )
+  }
+
+  // ── Desktop: Dialog modal ─────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[calc(100vw-24px)] h-[85vh]",
           "sm:w-full sm:max-w-4xl sm:h-auto sm:max-h-[80vh]",
         )}
       >
@@ -80,7 +113,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         {/* Content with categories sidebar and preview grid */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left: Categories */}
-          <div className="w-[180px] sm:w-[200px] border-r border-border bg-muted/30 overflow-y-auto shrink-0 py-2">
+          <div className="w-[200px] border-r border-border bg-muted/30 overflow-y-auto shrink-0 py-2">
             <button
               className={cn(
                 "w-full text-left px-4 py-2.5 text-sm transition-colors",
@@ -110,7 +143,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
 
           {/* Right: Section previews */}
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/10">
-            <div className="p-4 sm:p-5">
+            <div className="p-5">
               <div className="grid grid-cols-1 gap-4">
                 {filteredSections.map((item) => (
                   <button
@@ -146,6 +179,225 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Mobile Bottom Sheet for Add Section ────────────────────────────────────
+function MobileAddSectionSheet({
+  open,
+  onClose,
+  activeCategory,
+  onCategoryChange,
+  sections,
+  onAddSection,
+}: {
+  open: boolean
+  onClose: () => void
+  activeCategory: string | null
+  onCategoryChange: (cat: string | null) => void
+  sections: SectionLibraryItem[]
+  onAddSection: (item: SectionLibraryItem) => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => { setIsMounted(true) }, [])
+
+  useEffect(() => {
+    if (open && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = "none"
+      document.body.style.overscrollBehavior = "none"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsAnimating(true))
+      })
+    } else if (!open && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ""
+      document.body.style.overscrollBehavior = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ""
+      document.body.style.overscrollBehavior = ""
+    }
+  }, [open, isVisible])
+
+  const handleClose = useCallback(() => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => onClose(), 400)
+  }, [onClose])
+
+  // ── Shared drag finisher ──────────────────────────────────────────
+  const finishDrag = useCallback(() => {
+    setIsDragging(false)
+    if (dragY > 80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }, [dragY, handleClose])
+
+  // ── Handle-bar drag (always active) ───────────────────────────────
+  const handleHandleTouchStart = useCallback((e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }, [])
+
+  const handleHandleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) {
+      e.preventDefault()
+      setDragY(diff * 0.8)
+    }
+  }, [isDragging])
+
+  // ── Full-sheet drag (active when scroll at top) ───────────────────
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollEl = scrollRef.current
+    if (scrollEl && scrollEl.scrollTop > 2) return
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }, [])
+
+  const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return
+    const scrollEl = scrollRef.current
+    if (scrollEl && scrollEl.scrollTop > 2) {
+      setIsDragging(false)
+      setDragY(0)
+      return
+    }
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) {
+      e.preventDefault()
+      setDragY(diff * 0.8)
+    } else {
+      setIsDragging(false)
+      setDragY(0)
+    }
+  }, [isDragging])
+
+  if (!isVisible || !isMounted) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-[2147483638]">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
+          isAnimating ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ transitionDuration: "400ms" }}
+        onClick={handleClose}
+      />
+      {/* Bottom Sheet */}
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[20px] shadow-2xl flex flex-col"
+        onTouchStart={handleSheetTouchStart}
+        onTouchMove={handleSheetTouchMove}
+        onTouchEnd={finishDrag}
+        style={{
+          transform: isAnimating
+            ? dragY !== 0 ? `translateY(${dragY}px)` : "none"
+            : "translateY(100%)",
+          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
+          maxHeight: "68vh",
+        }}
+      >
+        {/* Handle bar */}
+        <div
+          className="pt-2.5 pb-1 touch-none shrink-0"
+          onTouchStart={handleHandleTouchStart}
+          onTouchMove={handleHandleTouchMove}
+          onTouchEnd={finishDrag}
+        >
+          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
+        </div>
+
+        {/* Header */}
+        <div className="px-4 pt-1 pb-3 flex items-start justify-between shrink-0">
+          <div>
+            <h2 className="text-[17px] font-bold text-gray-900">Add Section</h2>
+            <p className="text-[13px] text-gray-500 mt-0.5">Choose a section type</p>
+          </div>
+          <button
+            onClick={handleClose}
+            className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer shrink-0 mt-0.5"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Filter pills */}
+        <div className="px-4 pb-3 shrink-0">
+          <div className="flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {MOBILE_FILTER_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key ?? "all"}
+                onClick={() => onCategoryChange(cat.key)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors cursor-pointer shrink-0",
+                  activeCategory === cat.key
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Section list */}
+        <div
+          ref={scrollRef}
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-6"
+        >
+          <div className="space-y-3">
+            {sections.map((item) => (
+              <button
+                key={item.type}
+                onClick={() => onAddSection(item)}
+                className="flex items-center gap-3 w-full rounded-xl border border-gray-200 bg-white overflow-hidden text-left transition-all active:scale-[0.98] cursor-pointer"
+              >
+                {/* Preview thumbnail */}
+                <div className="w-[110px] h-[80px] bg-gray-50 flex items-center justify-center overflow-hidden shrink-0 border-r border-gray-100">
+                  <RealSectionPreview type={item.type} />
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0 py-2.5 pr-3">
+                  <p className="font-semibold text-[14px] text-gray-900 truncate">{item.name}</p>
+                  <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {sections.length === 0 && (
+            <div className="py-12 text-center text-gray-400">
+              <p className="text-sm">No sections in this category</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
