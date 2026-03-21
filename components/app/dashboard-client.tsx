@@ -84,7 +84,7 @@ type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 /**
  * Chart wrapper with smooth long-press tooltip for mobile.
  * - 250ms long-press to activate
- * - Custom tooltip positioned at fixed height (never under finger)
+ * - Custom tooltip positioned inside chart area at fixed top
  * - requestAnimationFrame-driven updates for 120fps smoothness
  * - Desktop hover works normally via Recharts default
  */
@@ -99,12 +99,14 @@ function ChartWithLongPressTooltip({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tooltipActiveRef = useRef(false)
   const [tooltipActive, setTooltipActive] = useState(false)
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
-  // Custom tooltip state driven by touch position
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
+  // Track if initial animation has played so we don't replay it
+  const hasAnimatedRef = useRef(false)
 
   useEffect(() => {
     setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
@@ -114,11 +116,18 @@ function ChartWithLongPressTooltip({
     }
   }, [])
 
+  // Mark animation as done after first render with data
+  useEffect(() => {
+    if (displayChartData.length > 0 && !hasAnimatedRef.current) {
+      const timer = setTimeout(() => { hasAnimatedRef.current = true }, 900)
+      return () => clearTimeout(timer)
+    }
+  }, [displayChartData.length])
+
   const getIndexFromTouch = useCallback((clientX: number) => {
     const el = containerRef.current
     if (!el || !displayChartData.length) return null
     const rect = el.getBoundingClientRect()
-    // Account for chart margins (left: ~40px for YAxis, right: ~4px)
     const chartLeft = rect.left + 40
     const chartRight = rect.right - 4
     const chartWidth = chartRight - chartLeft
@@ -131,6 +140,7 @@ function ChartWithLongPressTooltip({
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
     longPressTimerRef.current = setTimeout(() => {
+      tooltipActiveRef.current = true
       setTooltipActive(true)
       const idx = getIndexFromTouch(touch.clientX)
       setActiveIndex(idx)
@@ -143,25 +153,26 @@ function ChartWithLongPressTooltip({
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!touchStartPosRef.current) return
     const touch = e.touches[0]
-    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
-    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
 
-    if (tooltipActive) {
+    if (tooltipActiveRef.current) {
       e.preventDefault()
-      // Use rAF for buttery smooth 120fps updates
       const clientX = touch.clientX
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
         const idx = getIndexFromTouch(clientX)
         setActiveIndex(idx)
       })
-    } else if (dx > 6 || dy > 6) {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current)
-        longPressTimerRef.current = null
+    } else {
+      const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
+      const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
+      if (dx > 6 || dy > 6) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current)
+          longPressTimerRef.current = null
+        }
       }
     }
-  }, [tooltipActive, getIndexFromTouch])
+  }, [getIndexFromTouch])
 
   const handleTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -173,11 +184,11 @@ function ChartWithLongPressTooltip({
       rafRef.current = null
     }
     touchStartPosRef.current = null
+    tooltipActiveRef.current = false
     setTooltipActive(false)
     setActiveIndex(null)
   }, [])
 
-  // Get the active data point for the custom tooltip
   const activePoint = activeIndex != null && activeIndex >= 0 && activeIndex < displayChartData.length
     ? displayChartData[activeIndex] : null
 
@@ -192,9 +203,11 @@ function ChartWithLongPressTooltip({
     : openKPIModal === "revenue" ? t("dashboard.revenue")
     : t("dashboard.conversionRate")
 
-  // Calculate tooltip horizontal position as percentage
   const tooltipLeftPercent = activeIndex != null && displayChartData.length > 1
     ? (activeIndex / (displayChartData.length - 1)) * 100 : 50
+
+  // Clamp tooltip so it doesn't overflow container edges
+  const tooltipLeft = Math.max(15, Math.min(85, tooltipLeftPercent))
 
   return (
     <div
@@ -211,35 +224,6 @@ function ChartWithLongPressTooltip({
         position: "relative",
       } as React.CSSProperties}
     >
-      {/* Custom fixed-position tooltip for touch — always above chart, never under finger */}
-      {tooltipActive && activePoint && (
-        <div
-          style={{
-            position: "absolute",
-            top: -6,
-            left: `${tooltipLeftPercent}%`,
-            transform: "translate(-50%, -100%)",
-            background: "#1a1a2e",
-            borderRadius: "8px",
-            fontSize: "12px",
-            color: "#fff",
-            padding: "6px 12px",
-            pointerEvents: "none",
-            zIndex: 50,
-            whiteSpace: "nowrap",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            willChange: "left",
-            transition: "left 60ms linear",
-          }}
-        >
-          <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px", margin: 0 }}>{activePoint.label}</p>
-          <p style={{ fontWeight: 600, margin: 0 }}>{metricLabel}: {formatValue(activePoint.value)}</p>
-          {openKPIModal === "orders" && activePoint.refunds != null && activePoint.refunds > 0 && (
-            <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px", margin: 0 }}>{activePoint.refunds} refunded</p>
-          )}
-        </div>
-      )}
-
       <LazyAreaChart data={displayChartData}>
         {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
           <ResponsiveContainer width="100%" height={200}>
@@ -266,7 +250,7 @@ function ChartWithLongPressTooltip({
                 width={40}
                 tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
               />
-              {/* Desktop-only Recharts tooltip — hidden on touch devices */}
+              {/* Desktop-only Recharts tooltip */}
               {!isTouchDevice && (
                 <Tooltip
                   cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
@@ -287,14 +271,6 @@ function ChartWithLongPressTooltip({
                   }}
                 />
               )}
-              {/* On touch: use a hidden Tooltip just for the vertical cursor line */}
-              {isTouchDevice && tooltipActive && (
-                <Tooltip
-                  cursor={{ stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
-                  isAnimationActive={false}
-                  content={() => null}
-                />
-              )}
               <Area
                 type="monotone"
                 dataKey="value"
@@ -302,7 +278,8 @@ function ChartWithLongPressTooltip({
                 strokeWidth={2}
                 fill="url(#kpiGrad)"
                 dot={false}
-                activeDot={isTouchDevice && !tooltipActive ? false : { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 }}
+                activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false}
+                isAnimationActive={!hasAnimatedRef.current}
                 animationDuration={800}
                 animationEasing="ease-in-out"
                 animationBegin={0}
@@ -311,6 +288,35 @@ function ChartWithLongPressTooltip({
           </ResponsiveContainer>
         )}
       </LazyAreaChart>
+
+      {/* Custom tooltip for touch — inside the chart area, at fixed top position */}
+      {tooltipActive && activePoint && (
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: `${tooltipLeft}%`,
+            transform: "translateX(-50%)",
+            background: "#1a1a2e",
+            borderRadius: "8px",
+            fontSize: "12px",
+            color: "#fff",
+            padding: "6px 12px",
+            pointerEvents: "none",
+            zIndex: 10,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            willChange: "left",
+            transition: "left 50ms linear",
+          }}
+        >
+          <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{activePoint.label}</p>
+          <p style={{ fontWeight: 600, margin: 0 }}>{metricLabel}: {formatValue(activePoint.value)}</p>
+          {openKPIModal === "orders" && activePoint.refunds != null && activePoint.refunds > 0 && (
+            <p style={{ fontSize: "10px", color: "#f59e0b", margin: 0, marginTop: "2px" }}>{activePoint.refunds} refunded</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
