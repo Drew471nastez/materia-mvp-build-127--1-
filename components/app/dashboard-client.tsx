@@ -2321,7 +2321,7 @@ export function DashboardClient({
                 </div>
               ) : (
                 <div className="relative">
-                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                  <div className={`transition-all duration-500 ease-out ${isChartLoading ? "opacity-40 blur-[1px]" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100 blur-0"}`}>
                   <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
                   </div>
                   {!hasRealData && (
