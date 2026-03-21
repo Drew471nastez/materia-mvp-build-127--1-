@@ -152,7 +152,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             </span>
           </div>
         )}
-        {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+        {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
           <Badge variant="destructive" className="absolute left-2 top-2 text-xs">
             {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
           </Badge>
@@ -193,7 +193,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           </div>
           <div className="mt-auto pt-4">
             <span className="font-semibold">{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
-            {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+            {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
               <span className="ml-2 text-sm text-muted-foreground line-through">
                 {formatPrice(product.compare_at_cents)}
               </span>

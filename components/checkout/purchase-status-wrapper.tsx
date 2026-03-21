@@ -332,7 +332,7 @@ export function PurchaseStatusWrapper({
           >
             {currentPrice === 0 ? "Free" : formatPrice(currentPrice)}
           </div>
-          {effectiveCompareAtPrice && effectiveCompareAtPrice > currentPrice && (
+          {!!effectiveCompareAtPrice && effectiveCompareAtPrice > currentPrice && (
             <div className="mt-1 flex items-center gap-2">
               <span
                 className="text-base sm:text-lg line-through"

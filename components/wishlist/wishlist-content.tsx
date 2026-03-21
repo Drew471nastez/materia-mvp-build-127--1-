@@ -250,7 +250,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                     <span className="font-semibold text-neutral-900 text-sm">
                       {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                     </span>
-                    {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                    {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                       <span className="text-xs text-neutral-400 line-through">
                         {formatPrice(product.compare_at_cents)}
                       </span>

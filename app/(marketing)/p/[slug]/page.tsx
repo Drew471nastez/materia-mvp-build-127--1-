@@ -1010,7 +1010,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
                   </div>
-                  {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                  {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                     <div className="mt-1 flex items-center gap-2">
                       <span
                         className="text-base line-through"
@@ -1299,7 +1299,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               >
                 {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
               </div>
-              {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+              {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
                 <div className="mt-1 flex items-center gap-2">
                   <span
                     className="text-lg line-through"
