@@ -234,7 +234,7 @@ function DesktopSectionCard({
     >
       {/* Preview thumbnail — landscape left panel */}
       <div className="w-[280px] shrink-0 h-[140px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={280} products={products} />
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={280} containerHeight={140} products={products} />
         {/* Bottom fade gradient */}
         <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
       </div>
@@ -266,25 +266,25 @@ function MobileSectionCard({
     <button
       onClick={() => onAdd(item)}
       className={cn(
-        "flex flex-col w-full rounded-2xl border border-border bg-background overflow-hidden text-left",
+        "flex flex-row items-stretch w-full rounded-2xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out",
         "active:scale-[0.98] active:opacity-80",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
         "group cursor-pointer shadow-sm"
       )}
     >
-      {/* Preview — full width top */}
-      <div className="w-full h-[140px] bg-muted/10 border-b border-border/40 overflow-hidden relative">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={340} products={products} />
-        {/* Bottom fade so clipping looks intentional */}
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none" />
+      {/* Preview — landscape left panel, matching desktop style */}
+      <div className="w-[200px] shrink-0 h-[110px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={200} containerHeight={110} products={products} />
+        {/* Bottom fade gradient */}
+        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
       </div>
 
-      {/* Info */}
-      <div className="flex items-center px-3.5 py-2.5">
+      {/* Info — right panel */}
+      <div className="flex items-center px-3.5 py-3 flex-1 min-w-0">
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed">
             {item.description}
           </p>
         </div>
@@ -415,11 +415,13 @@ export function SectionPreview({
   type,
   settings,
   containerWidth = 220,
+  containerHeight = 140,
   products = [],
 }: {
   type: string
   settings: SectionSettings
   containerWidth?: number
+  containerHeight?: number
   products?: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
   // Products section needs special handling — full renderer returns null with no products
@@ -436,6 +438,35 @@ export function SectionPreview({
     settings: { ...settings, visible: true },
     order: 0,
     locked: false,
+  }
+
+  // Announcement bar: render centered vertically in the preview container
+  if (type === "announcement-bar") {
+    const scaledHeight = containerHeight / scale
+    return (
+      <div
+        style={{
+          width: RENDER_WIDTH,
+          height: scaledHeight,
+          transformOrigin: "top left",
+          transform: `scale(${scale})`,
+          pointerEvents: "none",
+          userSelect: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ width: "100%" }}>
+          <UnifiedSectionRenderer
+            section={section}
+            isPreviewMode={true}
+            isMobile={false}
+            products={[]}
+          />
+        </div>
+      </div>
+    )
   }
 
   return (

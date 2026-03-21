@@ -36,7 +36,7 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-300 data-[state=closed]:duration-[350ms] fixed inset-0 z-50 bg-black/50',
+        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-300 data-[state=closed]:duration-[420ms] fixed inset-0 z-50 bg-black/50',
         className,
       )}
       {...props}
@@ -123,13 +123,13 @@ function SheetContent({
       if (currentDelta < 0) currentDelta = 0
 
       // Slight resistance at the start for natural feel
-      const resistance = currentDelta < 20 ? currentDelta * 0.85 : currentDelta - 3
+      const resistance = currentDelta < 15 ? currentDelta * 0.7 : currentDelta - 4.5
       content.style.transform = `translateY(${Math.max(0, resistance)}px)`
 
       const overlay = portalRef.current?.querySelector('[data-slot="sheet-overlay"]') as HTMLElement
       if (overlay) {
         overlay.style.transition = 'none'
-        overlay.style.opacity = String(Math.max(0, 1 - Math.max(0, resistance) / 350))
+        overlay.style.opacity = String(Math.max(0, 1 - Math.max(0, resistance) / 280))
       }
 
       lastY = touchY
@@ -152,7 +152,7 @@ function SheetContent({
       const avgVelocity = currentDelta / totalElapsed // px/ms
 
       // Close if: dragged far enough OR fast flick (even short distance)
-      const shouldClose = currentDelta > 60 || (avgVelocity > 0.45 && currentDelta > 18)
+      const shouldClose = currentDelta > 45 || (avgVelocity > 0.35 && currentDelta > 12)
 
       if (shouldClose) {
         isClosing = true
@@ -175,11 +175,11 @@ function SheetContent({
           }
         }, closeDuration)
       } else {
-        // Smooth snap back
-        content.style.transition = `transform 0.32s ${easing}`
+        // Smooth snap back with spring-like feel
+        content.style.transition = `transform 0.42s ${easing}`
         content.style.transform = 'translateY(0)'
         if (overlay) {
-          overlay.style.transition = `opacity 0.32s ${easing}`
+          overlay.style.transition = `opacity 0.42s ${easing}`
           overlay.style.opacity = '1'
         }
         // Clean up inline styles after snap
@@ -192,7 +192,7 @@ function SheetContent({
               overlay.style.opacity = ''
             }
           }
-        }, 340)
+        }, 440)
       }
     }
 
@@ -274,7 +274,7 @@ function SheetContent({
           ref={contentRef}
           data-slot="sheet-content"
           className={cn(
-            'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg will-change-transform data-[state=open]:duration-300 data-[state=closed]:duration-[350ms] ease-[cubic-bezier(0.32,0.72,0,1)] overscroll-contain',
+            'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg will-change-transform data-[state=open]:duration-300 data-[state=closed]:duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] overscroll-contain',
             side === 'right' &&
               'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
             side === 'left' &&
