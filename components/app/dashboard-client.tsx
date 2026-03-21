@@ -106,6 +106,7 @@ function ChartWithLongPressTooltip({
   const [tooltipActive, setTooltipActive] = useState(false)
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+  const directionLockRef = useRef<"horizontal" | "vertical" | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const rafRef = useRef<number | null>(null)
   // Animation state — true means "play the animation now"
@@ -141,13 +142,18 @@ function ChartWithLongPressTooltip({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+    directionLockRef.current = null
     longPressTimerRef.current = setTimeout(() => {
-      tooltipActiveRef.current = true
-      setTooltipActive(true)
-      const idx = getIndexFromTouch(touch.clientX)
-      setActiveIndex(idx)
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate(15)
+      // Long press fallback — if no movement detected, activate scrub
+      if (directionLockRef.current === null) {
+        directionLockRef.current = "horizontal"
+        tooltipActiveRef.current = true
+        setTooltipActive(true)
+        const idx = getIndexFromTouch(touch.clientX)
+        setActiveIndex(idx)
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate(15)
+        }
       }
     }, 250)
   }, [getIndexFromTouch])
@@ -159,6 +165,7 @@ function ChartWithLongPressTooltip({
     const touch = e.touches[0]
 
     if (tooltipActiveRef.current) {
+      // Already in scrub mode — prevent scroll and update position
       e.preventDefault()
       e.stopPropagation()
       const clientX = touch.clientX
@@ -167,15 +174,34 @@ function ChartWithLongPressTooltip({
         const idx = getIndexFromTouch(clientX)
         setActiveIndex(idx)
       })
-    } else {
-      const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
-      const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
-      if (dx > 6 || dy > 6) {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current)
-          longPressTimerRef.current = null
-        }
+      return
+    }
+
+    // Direction detection phase — decide horizontal scrub vs vertical scroll
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
+    const totalMove = dx + dy
+
+    if (directionLockRef.current === null && totalMove > 8) {
+      if (dx > dy * 1.2) {
+        // Horizontal intent → activate scrub immediately (no long press needed)
+        directionLockRef.current = "horizontal"
+        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+        tooltipActiveRef.current = true
+        setTooltipActive(true)
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
+        e.preventDefault()
+        e.stopPropagation()
+        const idx = getIndexFromTouch(touch.clientX)
+        setActiveIndex(idx)
+      } else {
+        // Vertical intent → cancel long press, let scroll happen
+        directionLockRef.current = "vertical"
+        if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
       }
+    } else if (directionLockRef.current === "horizontal") {
+      e.preventDefault()
+      e.stopPropagation()
     }
   }, [getIndexFromTouch])
 
@@ -197,6 +223,7 @@ function ChartWithLongPressTooltip({
       rafRef.current = null
     }
     touchStartPosRef.current = null
+    directionLockRef.current = null
     tooltipActiveRef.current = false
     setTooltipActive(false)
     setActiveIndex(null)
@@ -240,7 +267,7 @@ function ChartWithLongPressTooltip({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       style={{
-        touchAction: tooltipActive ? "none" : "pan-y",
+        touchAction: tooltipActive ? "none" : "pan-y pinch-zoom",
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",

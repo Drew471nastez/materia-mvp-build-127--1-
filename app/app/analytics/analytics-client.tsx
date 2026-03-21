@@ -2047,6 +2047,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const chartDataLenRef = useRef(chartDisplayData.length)
   chartDataLenRef.current = chartDisplayData.length
 
+  // Direction lock ref: "horizontal" = scrubbing, "vertical" = scrolling, null = undecided
+  const chartDirectionLockRef = useRef<"horizontal" | "vertical" | null>(null)
+
   // Native non-passive touchmove listener so preventDefault works reliably
   useEffect(() => {
     const el = chartContainerRef.current
@@ -2054,7 +2057,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     const handler = (e: TouchEvent) => {
       if (!chartTouchStartRef.current) return
       const touch = e.touches[0]
+
       if (chartTooltipActiveRef.current) {
+        // Already in scrub mode — prevent scroll and update position
         e.preventDefault()
         e.stopPropagation()
         const clientX = touch.clientX
@@ -2069,12 +2074,44 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             setChartActiveIndex(Math.round(ratio * (chartDataLenRef.current - 1)))
           }
         })
-      } else {
-        const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
-        const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
-        if (dx > 6 || dy > 6) {
+        return
+      }
+
+      // Direction detection phase — decide horizontal scrub vs vertical scroll
+      const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
+      const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
+      const totalMove = dx + dy
+
+      if (chartDirectionLockRef.current === null && totalMove > 8) {
+        // Lock direction based on dominant axis
+        if (dx > dy * 1.2) {
+          // Horizontal intent → activate scrub immediately (no long press needed)
+          chartDirectionLockRef.current = "horizontal"
+          if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+          chartTooltipActiveRef.current = true
+          setChartTooltipActive(true)
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
+          // Set initial position
+          e.preventDefault()
+          e.stopPropagation()
+          const clientX = touch.clientX
+          const container = chartContainerRef.current
+          if (container && chartDataLenRef.current) {
+            const rect = container.getBoundingClientRect()
+            const chartLeft = rect.left + 40
+            const chartWidth = rect.right - 4 - chartLeft
+            const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
+            setChartActiveIndex(Math.round(ratio * (chartDataLenRef.current - 1)))
+          }
+        } else {
+          // Vertical intent → cancel long press, let scroll happen
+          chartDirectionLockRef.current = "vertical"
           if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
         }
+      } else if (chartDirectionLockRef.current === "horizontal") {
+        // Already locked horizontal — keep preventing scroll
+        e.preventDefault()
+        e.stopPropagation()
       }
     }
     el.addEventListener("touchmove", handler, { passive: false })
@@ -2589,7 +2626,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   ref={chartContainerRef}
                   className={`transition-all duration-500 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} ${isRefreshing ? "opacity-30 blur-[2px]" : "blur-0"}`}
                   style={{
-                    touchAction: chartTooltipActive ? "none" : "pan-y",
+                    touchAction: chartTooltipActive ? "none" : "pan-y pinch-zoom",
                     userSelect: "none",
                     WebkitUserSelect: "none",
                     WebkitTouchCallout: "none",
@@ -2598,24 +2635,30 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   onTouchStart={(e) => {
                     const touch = e.touches[0]
                     chartTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+                    chartDirectionLockRef.current = null
                     chartLongPressTimerRef.current = setTimeout(() => {
-                      chartTooltipActiveRef.current = true
-                      setChartTooltipActive(true)
-                      const el = chartContainerRef.current
-                      if (el && chartDisplayData.length) {
-                        const rect = el.getBoundingClientRect()
-                        const chartLeft = rect.left + 40
-                        const chartWidth = rect.right - 4 - chartLeft
-                        const ratio = Math.max(0, Math.min(1, (touch.clientX - chartLeft) / chartWidth))
-                        setChartActiveIndex(Math.round(ratio * (chartDisplayData.length - 1)))
+                      // Long press fallback — if no movement detected, activate scrub
+                      if (chartDirectionLockRef.current === null) {
+                        chartDirectionLockRef.current = "horizontal"
+                        chartTooltipActiveRef.current = true
+                        setChartTooltipActive(true)
+                        const el = chartContainerRef.current
+                        if (el && chartDisplayData.length) {
+                          const rect = el.getBoundingClientRect()
+                          const chartLeft = rect.left + 40
+                          const chartWidth = rect.right - 4 - chartLeft
+                          const ratio = Math.max(0, Math.min(1, (touch.clientX - chartLeft) / chartWidth))
+                          setChartActiveIndex(Math.round(ratio * (chartDisplayData.length - 1)))
+                        }
+                        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15)
                       }
-                      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15)
                     }, 250)
                   }}
                   onTouchEnd={() => {
                     if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
                     if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
                     chartTouchStartRef.current = null
+                    chartDirectionLockRef.current = null
                     chartTooltipActiveRef.current = false
                     setChartTooltipActive(false)
                     setChartActiveIndex(null)
@@ -2624,6 +2667,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
                     if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
                     chartTouchStartRef.current = null
+                    chartDirectionLockRef.current = null
                     chartTooltipActiveRef.current = false
                     setChartTooltipActive(false)
                     setChartActiveIndex(null)
