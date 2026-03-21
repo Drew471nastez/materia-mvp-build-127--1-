@@ -7,7 +7,6 @@ import { useStoreBuilder } from "./store-builder-context"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -78,7 +77,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
           enableDragToClose
           onDragClose={() => onOpenChange(false)}
           className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
-          style={{ height: "74dvh" }}
+          style={{ height: "80dvh" }}
         >
           {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
@@ -89,9 +88,6 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
           <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
             <div>
               <h2 className="text-base font-semibold text-foreground">Add Section</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Choose a section type
-              </p>
             </div>
             <button
               onClick={() => onOpenChange(false)}
@@ -152,16 +148,14 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[min(1363px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)]",
-          "max-h-[82vh]"
+          "w-[min(1500px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
+          "max-h-[88vh]"
         )}
       >
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
           <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Choose a section type to add to your page
-          </DialogDescription>
+          <p className="text-sm text-muted-foreground">Choose a section type to add to your page</p>
         </DialogHeader>
 
         {/* Body: sidebar + grid */}
@@ -184,9 +178,9 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
             ))}
           </nav>
 
-          {/* Right: single-column list */}
+          {/* Right: 2-column grid */}
           <div className="flex-1 overflow-y-auto overscroll-contain p-5">
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {filteredSections.map((item) => (
                 <DesktopSectionCard
                   key={item.type}
@@ -209,7 +203,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Desktop section card — preview on left, info on right
+// Desktop section card — title above, full-width preview below, no description
 // ────────────────────────────────────────────────────────────────────────────
 function DesktopSectionCard({
   item,
@@ -224,7 +218,7 @@ function DesktopSectionCard({
     <button
       onClick={() => onAdd(item)}
       className={cn(
-        "flex flex-row items-stretch w-full rounded-xl border border-border bg-background overflow-hidden text-left",
+        "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out will-change-transform",
         "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5",
         "active:scale-[0.99] active:shadow-sm",
@@ -232,26 +226,26 @@ function DesktopSectionCard({
         "group cursor-pointer"
       )}
     >
-      {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[clamp(200px,35%,437px)] shrink-0 h-[218px] overflow-hidden border-r border-border/40 bg-muted/10 relative isolate" style={{ contain: "paint" }}>
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={437} containerHeight={218} products={products} />
-        {/* Bottom fade gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
+      {/* Title above the preview */}
+      <div className="px-4 pt-3 pb-2.5 shrink-0">
+        <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
       </div>
 
-      {/* Info — right panel */}
-      <div className="flex items-center px-4 py-3 flex-1 min-w-0">
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{item.description}</p>
-        </div>
+      {/* Full-width section preview — shows the complete section */}
+      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
+        <SectionPreview
+          type={item.type}
+          settings={item.defaultSettings}
+          containerWidth={560}
+          products={products}
+        />
       </div>
     </button>
   )
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Mobile section card — preview top, info below
+// Mobile section card — title above, full-width preview below, no description
 // ────────────────────────────────────────────────────────────────────────────
 function MobileSectionCard({
   item,
@@ -266,28 +260,26 @@ function MobileSectionCard({
     <button
       onClick={() => onAdd(item)}
       className={cn(
-        "flex flex-row items-stretch w-full rounded-2xl border border-border bg-background overflow-hidden text-left",
+        "flex flex-col w-full rounded-2xl border border-border bg-background overflow-hidden text-left",
         "transition-all duration-200 ease-out",
         "active:scale-[0.98] active:opacity-80",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
         "group cursor-pointer shadow-sm"
       )}
     >
-      {/* Preview — landscape left panel, matching desktop style */}
-      <div className="w-[200px] shrink-0 h-[110px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={200} containerHeight={110} products={products} />
-        {/* Bottom fade gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
+      {/* Title above the preview */}
+      <div className="px-4 pt-3 pb-2.5 shrink-0">
+        <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
       </div>
 
-      {/* Info — right panel */}
-      <div className="flex items-center px-3.5 py-3 flex-1 min-w-0">
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed">
-            {item.description}
-          </p>
-        </div>
+      {/* Full-width section preview */}
+      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
+        <SectionPreview
+          type={item.type}
+          settings={item.defaultSettings}
+          containerWidth={340}
+          products={products}
+        />
       </div>
     </button>
   )
@@ -307,16 +299,12 @@ function ProductsPlaceholderPreview({
   const RENDER_WIDTH = 700
   const scale = containerWidth / RENDER_WIDTH
   const hasProducts = products.length > 0
-  const displayItems = hasProducts ? products.slice(0, 4) : [0, 1, 2, 3]
 
   return (
     <div
       style={{
         width: RENDER_WIDTH,
-        maxWidth: RENDER_WIDTH,
-        overflow: "hidden",
-        transformOrigin: "top left",
-        transform: `scale(${scale})`,
+        zoom: scale,
         pointerEvents: "none",
         userSelect: "none",
         padding: "44px 28px 28px",
@@ -409,21 +397,19 @@ function ProductsPlaceholderPreview({
 
 // ────────────────────────────────────────────────────────────────────────────
 // Section preview thumbnails
-// Renders the actual UnifiedSectionRenderer scaled down to thumbnail size so the
-// preview is a pixel-perfect match of what the section looks like on the canvas.
-// For featured-products, renders a dedicated placeholder that doesn't need real data.
+// Uses CSS zoom to scale the section so it shows completely without clipping.
+// zoom affects layout (unlike transform: scale), so the section height is
+// naturally correct and the full section is visible.
 // ────────────────────────────────────────────────────────────────────────────
 export function SectionPreview({
   type,
   settings,
   containerWidth = 220,
-  containerHeight = 140,
   products = [],
 }: {
   type: string
   settings: SectionSettings
   containerWidth?: number
-  containerHeight?: number
   products?: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
   // Products section needs special handling — full renderer returns null with no products
@@ -442,26 +428,22 @@ export function SectionPreview({
     locked: false,
   }
 
-  // Announcement bar: render centered vertically in the preview container
+  // Announcement bar: render centered in the preview area
   if (type === "announcement-bar") {
-    const scaledHeight = containerHeight / scale
     return (
       <div
         style={{
           width: RENDER_WIDTH,
-          height: scaledHeight,
-          maxWidth: RENDER_WIDTH,
-          overflow: "hidden",
-          transformOrigin: "top left",
-          transform: `scale(${scale})`,
+          zoom: scale,
           pointerEvents: "none",
           userSelect: "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          minHeight: 80,
         }}
       >
-        <div style={{ width: "100%", overflow: "hidden" }}>
+        <div style={{ width: "100%" }}>
           <UnifiedSectionRenderer
             section={section}
             isPreviewMode={true}
@@ -473,20 +455,15 @@ export function SectionPreview({
     )
   }
 
-  const scaledHeight = containerHeight / scale
-
+  // All other sections: zoom scales both width and height so the full
+  // section is visible without any clipping.
   return (
     <div
       style={{
         width: RENDER_WIDTH,
-        height: scaledHeight,
-        maxWidth: RENDER_WIDTH,
-        overflow: "hidden",
-        transformOrigin: "top left",
-        transform: `scale(${scale})`,
+        zoom: scale,
         pointerEvents: "none",
         userSelect: "none",
-        flexShrink: 0,
       }}
     >
       <UnifiedSectionRenderer
