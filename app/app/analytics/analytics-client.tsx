@@ -2527,14 +2527,19 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className="relative">
                 <div
                   className={`transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}
-                  style={{ touchAction: chartTooltipActive ? "none" : "auto" }}
+                  style={{
+                    touchAction: chartTooltipActive ? "none" : "pan-y",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    WebkitTouchCallout: "none",
+                  } as React.CSSProperties}
                   onTouchStart={(e) => {
                     const touch = e.touches[0]
                     chartTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
                     chartLongPressTimerRef.current = setTimeout(() => {
                       setChartTooltipActive(true)
                       if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(20)
-                    }, 800)
+                    }, 300)
                   }}
                   onTouchMove={(e) => {
                     if (!chartTouchStartRef.current) return

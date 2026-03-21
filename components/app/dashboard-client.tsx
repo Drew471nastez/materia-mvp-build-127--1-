@@ -113,14 +113,14 @@ function ChartWithLongPressTooltip({
     const touch = e.touches[0]
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
 
-    // Start long-press timer (1 second)
+    // Start long-press timer (300ms — easy to trigger)
     longPressTimerRef.current = setTimeout(() => {
       setTooltipActive(true)
       // Provide haptic feedback if available
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         navigator.vibrate(20)
       }
-    }, 800)
+    }, 300)
   }, [])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -157,7 +157,12 @@ function ChartWithLongPressTooltip({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
-      style={{ touchAction: tooltipActive ? "none" : "auto" }}
+      style={{
+        touchAction: tooltipActive ? "none" : "pan-y",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+      } as React.CSSProperties}
     >
       <LazyAreaChart data={displayChartData}>
         {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
