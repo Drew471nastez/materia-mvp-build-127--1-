@@ -2037,6 +2037,44 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     return () => clearTimeout(timer)
   }, [chartDisplayData, chartMetricFilter, onePageChartFilter])
 
+  // Store data length in ref for native listener access
+  const chartDataLenRef = useRef(chartDisplayData.length)
+  chartDataLenRef.current = chartDisplayData.length
+
+  // Native non-passive touchmove listener so preventDefault works reliably
+  useEffect(() => {
+    const el = chartContainerRef.current
+    if (!el) return
+    const handler = (e: TouchEvent) => {
+      if (!chartTouchStartRef.current) return
+      const touch = e.touches[0]
+      if (chartTooltipActiveRef.current) {
+        e.preventDefault()
+        e.stopPropagation()
+        const clientX = touch.clientX
+        if (chartRafRef.current) cancelAnimationFrame(chartRafRef.current)
+        chartRafRef.current = requestAnimationFrame(() => {
+          const container = chartContainerRef.current
+          if (container && chartDataLenRef.current) {
+            const rect = container.getBoundingClientRect()
+            const chartLeft = rect.left + 40
+            const chartWidth = rect.right - 4 - chartLeft
+            const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
+            setChartActiveIndex(Math.round(ratio * (chartDataLenRef.current - 1)))
+          }
+        })
+      } else {
+        const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
+        const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
+        if (dx > 6 || dy > 6) {
+          if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+        }
+      }
+    }
+    el.addEventListener("touchmove", handler, { passive: false })
+    return () => el.removeEventListener("touchmove", handler)
+  }, [])
+
   const SAMPLE_TRAFFIC_SOURCES: TrafficSource[] = [
     { source: "instagram", views: 145, orders: 8, conversionRate: 5.5 },
     { source: "tiktok", views: 98, orders: 4, conversionRate: 4.1 },
@@ -2567,31 +2605,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       }
                       if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15)
                     }, 250)
-                  }}
-                  onTouchMove={(e) => {
-                    if (!chartTouchStartRef.current) return
-                    const touch = e.touches[0]
-                    if (chartTooltipActiveRef.current) {
-                      e.preventDefault()
-                      const clientX = touch.clientX
-                      if (chartRafRef.current) cancelAnimationFrame(chartRafRef.current)
-                      chartRafRef.current = requestAnimationFrame(() => {
-                        const el = chartContainerRef.current
-                        if (el && chartDisplayData.length) {
-                          const rect = el.getBoundingClientRect()
-                          const chartLeft = rect.left + 40
-                          const chartWidth = rect.right - 4 - chartLeft
-                          const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
-                          setChartActiveIndex(Math.round(ratio * (chartDisplayData.length - 1)))
-                        }
-                      })
-                    } else {
-                      const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
-                      const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
-                      if (dx > 6 || dy > 6) {
-                        if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
-                      }
-                    }
                   }}
                   onTouchEnd={() => {
                     if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }

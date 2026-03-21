@@ -152,12 +152,15 @@ function ChartWithLongPressTooltip({
     }, 250)
   }, [getIndexFromTouch])
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  // Use a native event listener for touchmove with { passive: false }
+  // so preventDefault() actually works and swiping doesn't get stuck
+  const touchMoveHandler = useCallback((e: TouchEvent) => {
     if (!touchStartPosRef.current) return
     const touch = e.touches[0]
 
     if (tooltipActiveRef.current) {
       e.preventDefault()
+      e.stopPropagation()
       const clientX = touch.clientX
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(() => {
@@ -175,6 +178,14 @@ function ChartWithLongPressTooltip({
       }
     }
   }, [getIndexFromTouch])
+
+  // Attach non-passive touchmove listener
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    el.addEventListener("touchmove", touchMoveHandler, { passive: false })
+    return () => el.removeEventListener("touchmove", touchMoveHandler)
+  }, [touchMoveHandler])
 
   const handleTouchEnd = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -226,7 +237,6 @@ function ChartWithLongPressTooltip({
     <div
       ref={containerRef}
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       style={{
