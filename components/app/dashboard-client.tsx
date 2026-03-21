@@ -1397,7 +1397,13 @@ export function DashboardClient({
       console.error("Error fetching analytics:", error)
     } finally {
       setIsLoading(false)
-      setIsRefreshing(false)
+      // Delay removing the refresh blur so KPI numbers and charts
+      // settle before the CSS transition fades them back in cleanly
+      if (!isFirstLoadRef.current) {
+        setTimeout(() => setIsRefreshing(false), 300)
+      } else {
+        setIsRefreshing(false)
+      }
       isFirstLoadRef.current = false
     }
   }
@@ -1637,9 +1643,11 @@ export function DashboardClient({
       }
 
       setChartData(points)
+      // Delay removing loading blur so chart lines redraw while still
+      // blurred, then the CSS transition fades in the finished chart cleanly
+      setTimeout(() => setIsChartLoading(false), 350)
     } catch (error) {
       console.error("Error fetching chart data:", error)
-    } finally {
       setIsChartLoading(false)
     }
   }
@@ -2321,7 +2329,7 @@ export function DashboardClient({
                 </div>
               ) : (
                 <div className="relative">
-                  <div className={`transition-all duration-500 ease-out ${isChartLoading ? "opacity-40 blur-[1px]" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100 blur-0"}`}>
+                  <div className={`transition-all duration-500 ease-out ${isChartLoading ? "opacity-30 blur-[2px]" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100 blur-0"}`}>
                   <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
                   </div>
                   {!hasRealData && (

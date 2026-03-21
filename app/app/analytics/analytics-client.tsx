@@ -1682,7 +1682,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       console.error("Error fetching analytics:", error)
     } finally {
       setIsLoading(false)
-      setIsRefreshing(false)
+      // Delay removing the refresh blur so chart lines have time to redraw
+      // while still blurred, then fade in cleanly with the CSS transition
+      if (!isFirstLoadRef.current) {
+        setTimeout(() => setIsRefreshing(false), 350)
+      } else {
+        setIsRefreshing(false)
+      }
       isFirstLoadRef.current = false
     }
   }, [creatorId, userId, getTimeframeDates, selectedProduct, analyticsMode, initialOrders, products, timeframe])
@@ -2581,7 +2587,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className="relative">
                 <div
                   ref={chartContainerRef}
-                  className={`transition-all duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} ${isRefreshing ? "opacity-40 blur-[1px]" : ""}`}
+                  className={`transition-all duration-500 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} ${isRefreshing ? "opacity-30 blur-[2px]" : "blur-0"}`}
                   style={{
                     touchAction: chartTooltipActive ? "none" : "pan-y",
                     userSelect: "none",
@@ -2624,7 +2630,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   }}
                 >
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart key={`${timeframe}-${analyticsMode}-${chartDisplayData.length}`} data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
