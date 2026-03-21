@@ -148,7 +148,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[min(1500px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
+          "w-[min(1050px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
           "max-h-[88vh]"
         )}
       >
@@ -178,9 +178,9 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
             ))}
           </nav>
 
-          {/* Right: 2-column grid */}
+          {/* Right: 1-column grid */}
           <div className="flex-1 overflow-y-auto overscroll-contain p-5">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {filteredSections.map((item) => (
                 <DesktopSectionCard
                   key={item.type}
@@ -236,7 +236,7 @@ function DesktopSectionCard({
         <SectionPreview
           type={item.type}
           settings={item.defaultSettings}
-          containerWidth={560}
+          containerWidth={780}
           products={products}
         />
       </div>
