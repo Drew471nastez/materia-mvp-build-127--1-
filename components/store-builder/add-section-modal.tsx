@@ -41,7 +41,7 @@ const CATEGORY_FILTER: Record<string, string[]> = {
 }
 
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
-  const { draftConfig, addSection } = useStoreBuilder()
+  const { draftConfig, addSection, products } = useStoreBuilder()
   const [activeCategory, setActiveCategory] = useState("all")
   const [isMobileLayout, setIsMobileLayout] = useState(false)
 
@@ -81,12 +81,12 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
           style={{ height: "74dvh" }}
         >
           {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-0 shrink-0">
+          <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
             <div className="w-10 h-1.5 rounded-full bg-foreground/10" />
           </div>
 
           {/* Mobile header */}
-          <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0">
+          <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
             <div>
               <h2 className="text-base font-semibold text-foreground">Add Section</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -131,6 +131,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
                   key={item.type}
                   item={item}
                   onAdd={handleAddSection}
+                  products={products}
                 />
               ))}
             </div>
@@ -191,6 +192,7 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
                   key={item.type}
                   item={item}
                   onAdd={handleAddSection}
+                  products={products}
                 />
               ))}
             </div>
@@ -207,14 +209,16 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Desktop section card — preview on top, info below
+// Desktop section card — preview on left, info on right
 // ────────────────────────────────────────────────────────────────────────────
 function DesktopSectionCard({
   item,
   onAdd,
+  products,
 }: {
   item: SectionLibraryItem
   onAdd: (item: SectionLibraryItem) => void
+  products: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
   return (
     <button
@@ -229,8 +233,10 @@ function DesktopSectionCard({
       )}
     >
       {/* Preview thumbnail — landscape left panel */}
-      <div className="w-[280px] shrink-0 h-[140px] overflow-hidden border-r border-border/40 bg-background">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={280} />
+      <div className="w-[280px] shrink-0 h-[140px] overflow-hidden border-r border-border/40 bg-muted/10 relative">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={280} products={products} />
+        {/* Bottom fade gradient */}
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 to-transparent pointer-events-none" />
       </div>
 
       {/* Info — right panel */}
@@ -245,14 +251,16 @@ function DesktopSectionCard({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Mobile section card — preview left, info right (landscape card)
+// Mobile section card — preview top, info below
 // ────────────────────────────────────────────────────────────────────────────
 function MobileSectionCard({
   item,
   onAdd,
+  products,
 }: {
   item: SectionLibraryItem
   onAdd: (item: SectionLibraryItem) => void
+  products: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
   return (
     <button
@@ -266,8 +274,10 @@ function MobileSectionCard({
       )}
     >
       {/* Preview — full width top */}
-      <div className="w-full h-[130px] bg-background border-b border-border/40 overflow-hidden">
-        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={340} />
+      <div className="w-full h-[140px] bg-muted/10 border-b border-border/40 overflow-hidden relative">
+        <SectionPreview type={item.type} settings={item.defaultSettings} containerWidth={340} products={products} />
+        {/* Bottom fade so clipping looks intentional */}
+        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none" />
       </div>
 
       {/* Info */}
@@ -284,19 +294,139 @@ function MobileSectionCard({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Products placeholder preview — rendered inline without needing real product data
+// Shows a 2×2 grid of product cards with real thumbnails or gray placeholders
+// ────────────────────────────────────────────────────────────────────────────
+function ProductsPlaceholderPreview({
+  containerWidth = 220,
+  products = [],
+}: {
+  containerWidth?: number
+  products?: Array<{ id: string; title: string; thumbnail_url?: string }>
+}) {
+  const RENDER_WIDTH = 700
+  const scale = containerWidth / RENDER_WIDTH
+  const hasProducts = products.length > 0
+  const displayItems = hasProducts ? products.slice(0, 4) : [0, 1, 2, 3]
+
+  return (
+    <div
+      style={{
+        width: RENDER_WIDTH,
+        transformOrigin: "top left",
+        transform: `scale(${scale})`,
+        pointerEvents: "none",
+        userSelect: "none",
+        padding: "44px 28px 28px",
+      }}
+    >
+      {/* Section headline bar */}
+      <div
+        style={{
+          height: 28,
+          width: 210,
+          background: "rgba(0,0,0,0.12)",
+          borderRadius: 7,
+          marginBottom: 32,
+        }}
+      />
+
+      {/* 2×2 product grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: 20,
+        }}
+      >
+        {[0, 1, 2, 3].map((i) => {
+          const product = hasProducts ? (products[i] ?? null) : null
+          return (
+            <div key={i}>
+              {/* Product image */}
+              <div
+                style={{
+                  width: "100%",
+                  paddingBottom: "100%",
+                  position: "relative",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginBottom: 12,
+                  background: product?.thumbnail_url ? undefined : "#f0f0f0",
+                }}
+              >
+                {product?.thumbnail_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={product.thumbnail_url}
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: i % 2 === 0 ? "#e8e8e8" : "#ebebeb",
+                    }}
+                  />
+                )}
+              </div>
+              {/* Title line */}
+              <div
+                style={{
+                  height: 16,
+                  width: product ? "80%" : `${60 + (i % 3) * 10}%`,
+                  background: "#d4d4d4",
+                  borderRadius: 5,
+                  marginBottom: 8,
+                }}
+              />
+              {/* Price line */}
+              <div
+                style={{
+                  height: 14,
+                  width: "42%",
+                  background: "#e8e8e8",
+                  borderRadius: 5,
+                }}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Section preview thumbnails
 // Renders the actual UnifiedSectionRenderer scaled down to thumbnail size so the
 // preview is a pixel-perfect match of what the section looks like on the canvas.
+// For featured-products, renders a dedicated placeholder that doesn't need real data.
 // ────────────────────────────────────────────────────────────────────────────
 export function SectionPreview({
   type,
   settings,
   containerWidth = 220,
+  products = [],
 }: {
   type: string
   settings: SectionSettings
   containerWidth?: number
+  products?: Array<{ id: string; title: string; thumbnail_url?: string }>
 }) {
+  // Products section needs special handling — full renderer returns null with no products
+  if (type === "featured-products") {
+    return <ProductsPlaceholderPreview containerWidth={containerWidth} products={products} />
+  }
+
   const RENDER_WIDTH = 700
   const scale = containerWidth / RENDER_WIDTH
 

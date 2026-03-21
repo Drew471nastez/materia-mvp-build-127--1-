@@ -72,11 +72,25 @@ function SheetContent({
     if (!content) return
 
     let startY = 0
+    let startTime = 0
+    let lastY = 0
+    let lastTime = 0
     let currentDelta = 0
     let isDragging = false
     let isClosing = false
 
+    const isDragHandle = (target: HTMLElement): boolean => {
+      let el: HTMLElement | null = target
+      while (el && el !== content) {
+        if (el.dataset?.dragHandle === 'true') return true
+        el = el.parentElement
+      }
+      return false
+    }
+
     const canStartDrag = (target: HTMLElement): boolean => {
+      // Always allow drag from handle/header area
+      if (isDragHandle(target)) return true
       let el: HTMLElement | null = target
       while (el && el !== content) {
         const style = window.getComputedStyle(el)
@@ -93,6 +107,9 @@ function SheetContent({
       if (isClosing) return
       if (!canStartDrag(e.target as HTMLElement)) return
       startY = e.touches[0].clientY
+      startTime = Date.now()
+      lastY = startY
+      lastTime = startTime
       currentDelta = 0
       isDragging = true
       content.style.transition = 'none'
@@ -100,16 +117,23 @@ function SheetContent({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (!isDragging || isClosing) return
-      currentDelta = e.touches[0].clientY - startY
+      const now = Date.now()
+      const touchY = e.touches[0].clientY
+      currentDelta = touchY - startY
       if (currentDelta < 0) currentDelta = 0
 
-      content.style.transform = `translateY(${currentDelta}px)`
+      // Slight resistance at the start for natural feel
+      const resistance = currentDelta < 20 ? currentDelta * 0.85 : currentDelta - 3
+      content.style.transform = `translateY(${Math.max(0, resistance)}px)`
 
       const overlay = portalRef.current?.querySelector('[data-slot="sheet-overlay"]') as HTMLElement
       if (overlay) {
         overlay.style.transition = 'none'
-        overlay.style.opacity = String(Math.max(0, 1 - currentDelta / 400))
+        overlay.style.opacity = String(Math.max(0, 1 - Math.max(0, resistance) / 350))
       }
+
+      lastY = touchY
+      lastTime = now
     }
 
     const handleTouchEnd = () => {
@@ -119,12 +143,25 @@ function SheetContent({
       const easing = 'cubic-bezier(0.32, 0.72, 0, 1)'
       const overlay = portalRef.current?.querySelector('[data-slot="sheet-overlay"]') as HTMLElement
 
-      if (currentDelta > 80) {
+      // Velocity-based close: px/ms — flick gesture threshold
+      const elapsed = Math.max(Date.now() - lastTime, 1)
+      const deltaFromLast = lastY - startY
+      const velocity = (lastY - (startY + (currentDelta - (lastY - startY)))) / elapsed
+      // Use simpler velocity: total delta / time since start, but weight recent movement
+      const totalElapsed = Math.max(Date.now() - startTime, 1)
+      const avgVelocity = currentDelta / totalElapsed // px/ms
+
+      // Close if: dragged far enough OR fast flick (even short distance)
+      const shouldClose = currentDelta > 60 || (avgVelocity > 0.45 && currentDelta > 18)
+
+      if (shouldClose) {
         isClosing = true
-        content.style.transition = `transform 0.3s ${easing}`
-        content.style.transform = 'translateY(100%)'
+        // Faster close animation for velocity-based closes
+        const closeDuration = avgVelocity > 0.8 ? 220 : 280
+        content.style.transition = `transform ${closeDuration}ms ${easing}`
+        content.style.transform = 'translateY(110%)'
         if (overlay) {
-          overlay.style.transition = `opacity 0.3s ${easing}`
+          overlay.style.transition = `opacity ${closeDuration}ms ${easing}`
           overlay.style.opacity = '0'
         }
         setTimeout(() => {
@@ -136,25 +173,39 @@ function SheetContent({
             overlay.style.transition = ''
             overlay.style.opacity = ''
           }
-        }, 300)
+        }, closeDuration)
       } else {
-        content.style.transition = `transform 0.3s ${easing}`
+        // Smooth snap back
+        content.style.transition = `transform 0.32s ${easing}`
         content.style.transform = 'translateY(0)'
         if (overlay) {
-          overlay.style.transition = `opacity 0.3s ${easing}`
+          overlay.style.transition = `opacity 0.32s ${easing}`
           overlay.style.opacity = '1'
         }
+        // Clean up inline styles after snap
+        setTimeout(() => {
+          if (!isClosing) {
+            content.style.transition = ''
+            content.style.transform = ''
+            if (overlay) {
+              overlay.style.transition = ''
+              overlay.style.opacity = ''
+            }
+          }
+        }, 340)
       }
     }
 
     content.addEventListener('touchstart', handleTouchStart, { passive: true })
     content.addEventListener('touchmove', handleTouchMove, { passive: true })
     content.addEventListener('touchend', handleTouchEnd, { passive: true })
+    content.addEventListener('touchcancel', handleTouchEnd, { passive: true })
 
     return () => {
       content.removeEventListener('touchstart', handleTouchStart)
       content.removeEventListener('touchmove', handleTouchMove)
       content.removeEventListener('touchend', handleTouchEnd)
+      content.removeEventListener('touchcancel', handleTouchEnd)
     }
   }, [enableDragToClose, side])
 
