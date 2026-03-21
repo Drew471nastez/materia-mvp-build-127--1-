@@ -81,6 +81,161 @@ interface ChartDataPoint {
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 
+/**
+ * Chart wrapper that requires a long-press (1s) on mobile to activate tooltip.
+ * After activation, user can slide left/right to explore data points.
+ * Prevents accidental tooltip triggers while scrolling.
+ */
+function ChartWithLongPressTooltip({
+  displayChartData,
+  openKPIModal,
+  t,
+}: {
+  displayChartData: ChartDataPoint[]
+  openKPIModal: KPIType
+  t: (key: string) => string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [tooltipActive, setTooltipActive] = useState(false)
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+
+  // Detect touch device on mount
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+    }
+  }, [])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+
+    // Start long-press timer (1 second)
+    longPressTimerRef.current = setTimeout(() => {
+      setTooltipActive(true)
+      // Provide haptic feedback if available
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(20)
+      }
+    }, 800)
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartPosRef.current) return
+    const touch = e.touches[0]
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x)
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y)
+
+    if (tooltipActive) {
+      // Once active, prevent page scroll so user can slide through chart
+      e.preventDefault()
+    } else if (dx > 8 || dy > 8) {
+      // User is scrolling, cancel long-press
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+    }
+  }, [tooltipActive])
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    touchStartPosRef.current = null
+    setTooltipActive(false)
+  }, [])
+
+  return (
+    <div
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      style={{ touchAction: tooltipActive ? "none" : "auto" }}
+    >
+      <LazyAreaChart data={displayChartData}>
+        {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={displayChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                tickLine={false}
+                axisLine={false}
+                domain={[0, "auto"]}
+                width={40}
+                tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+              />
+              <Tooltip
+                active={isTouchDevice ? (tooltipActive ? undefined : false) : undefined}
+                cursor={isTouchDevice && !tooltipActive ? false : { stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
+                isAnimationActive={false}
+                content={({ active, payload, label }) => {
+                  if (isTouchDevice && !tooltipActive) return null
+                  if (!active || !payload?.length) return null
+                  const point = payload[0]?.payload as ChartDataPoint
+                  const val = point?.value ?? 0
+                  const displayVal = openKPIModal === "revenue" ? `$${val.toFixed(2)}` : openKPIModal === "conversion" ? `${val}%` : val.toLocaleString()
+                  const metricLabel = openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
+                  return (
+                    <div style={{
+                      background: "#1a1a2e",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      color: "#fff",
+                      padding: "8px 12px",
+                      pointerEvents: "none",
+                      willChange: "transform",
+                    }}>
+                      <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
+                      <p style={{ fontWeight: 500 }}>{metricLabel}: {displayVal}</p>
+                      {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
+                        <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
+                      )}
+                    </div>
+                  )
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                fill="url(#kpiGrad)"
+                dot={false}
+                activeDot={isTouchDevice && !tooltipActive ? false : { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 }}
+                animationDuration={800}
+                animationEasing="ease-in-out"
+                animationBegin={0}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </LazyAreaChart>
+    </div>
+  )
+}
+
 // ── Sample data shown when the creator has zero real activity ──────────────
 const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
@@ -2026,67 +2181,7 @@ export function DashboardClient({
               ) : (
                 <div className="relative">
                   <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                  <LazyAreaChart data={displayChartData}>
-                    {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={displayChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                          <XAxis
-                            dataKey="label"
-                            tick={{ fontSize: 11, fill: "#9ca3af" }}
-                            tickLine={false}
-                            axisLine={false}
-                            interval="preserveStartEnd"
-                          />
-                          <YAxis
-                            tick={{ fontSize: 11, fill: "#9ca3af" }}
-                            tickLine={false}
-                            axisLine={false}
-                            domain={[0, "auto"]}
-                            width={40}
-                            tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
-                          />
-                          <Tooltip
-                            cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
-                            content={({ active, payload, label }) => {
-                              if (!active || !payload?.length) return null
-                              const point = payload[0]?.payload as ChartDataPoint
-                              const val = point?.value ?? 0
-                              const displayVal = openKPIModal === "revenue" ? `$${val.toFixed(2)}` : openKPIModal === "conversion" ? `${val}%` : val.toLocaleString()
-                              const metricLabel = openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
-                              return (
-                                <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
-                                  <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
-                                  <p style={{ fontWeight: 500 }}>{metricLabel}: {displayVal}</p>
-                                  {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
-                                    <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
-                                  )}
-                                </div>
-                              )
-                            }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#8b5cf6"
-                            strokeWidth={2}
-                            fill="url(#kpiGrad)"
-                            dot={false}
-                            activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
-                            animationDuration={800}
-                            animationEasing="ease-in-out"
-                            animationBegin={0}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    )}
-                  </LazyAreaChart>
+                  <ChartWithLongPressTooltip displayChartData={displayChartData} openKPIModal={openKPIModal} t={t} />
                   </div>
                   {!hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">

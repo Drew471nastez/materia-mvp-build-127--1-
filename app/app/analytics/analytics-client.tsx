@@ -765,6 +765,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [isTimeframeSheetOpen, setIsTimeframeSheetOpen] = useState(false)
   const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  // Long-press tooltip state for mobile chart
+  const chartLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [chartTooltipActive, setChartTooltipActive] = useState(false)
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+  const chartTouchStartRef = useRef<{ x: number; y: number } | null>(null)
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -791,7 +796,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener("resize", checkMobile)
-    return () => window.removeEventListener("resize", checkMobile)
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
+    return () => {
+      window.removeEventListener("resize", checkMobile)
+      if (chartLongPressTimerRef.current) clearTimeout(chartLongPressTimerRef.current)
+    }
   }, [])
 
   // KPI Modal state
@@ -2516,7 +2525,38 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
             {(
               <div className="relative">
-                <div className={`transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                <div
+                  className={`transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}
+                  style={{ touchAction: chartTooltipActive ? "none" : "auto" }}
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0]
+                    chartTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+                    chartLongPressTimerRef.current = setTimeout(() => {
+                      setChartTooltipActive(true)
+                      if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(20)
+                    }, 800)
+                  }}
+                  onTouchMove={(e) => {
+                    if (!chartTouchStartRef.current) return
+                    const touch = e.touches[0]
+                    const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
+                    const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
+                    if (chartTooltipActive) { e.preventDefault() }
+                    else if (dx > 8 || dy > 8) {
+                      if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+                    chartTouchStartRef.current = null
+                    setChartTooltipActive(false)
+                  }}
+                  onTouchCancel={() => {
+                    if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+                    chartTouchStartRef.current = null
+                    setChartTooltipActive(false)
+                  }}
+                >
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
@@ -2559,8 +2599,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     tickFormatter={(v) => (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") ? `${v}%` : v.toLocaleString()}
                   />
                   <Tooltip
-                    cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                    active={isTouchDevice ? (chartTooltipActive ? undefined : false) : undefined}
+                    cursor={isTouchDevice && !chartTooltipActive ? false : { stroke: "#c4b5fd", strokeWidth: 1, strokeDasharray: "4 2" }}
+                    isAnimationActive={false}
                     content={({ active, payload, label }) => {
+                      if (isTouchDevice && !chartTooltipActive) return null
                       if (!active || !payload?.length) return null
                       const point = payload[0]?.payload as TrendData
                       const lines: { label: string; value: string; color?: string }[] = []
@@ -2576,7 +2619,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                         lines.push({ label: displayLabel, value: displayVal })
                       })
                       return (
-                        <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
+                        <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px", pointerEvents: "none", willChange: "transform" }}>
                           <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
                           {lines.map((l, i) => (
                             <p key={i} style={{ fontWeight: 500, color: l.label === "Refunds" ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
