@@ -2291,13 +2291,14 @@ function SidebarSectionRow({
   isStructure?: boolean
   dragHandleProps?: Record<string, unknown>
 }) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenuOpen, setContextMenuOpen] = useState(false)
+  const rowRef = useRef<HTMLDivElement>(null)
 
   return (
-    <>
+    <div className="relative" ref={rowRef}>
       <div
         className={cn(
-          "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors relative",
+          "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
           isSelected ? "bg-purple-600 text-white" : "hover:bg-muted text-foreground",
           section.hidden && "opacity-50",
         )}
@@ -2305,7 +2306,7 @@ function SidebarSectionRow({
         onContextMenu={e => {
           if (isStructure) return
           e.preventDefault()
-          setContextMenu({ x: e.clientX, y: e.clientY })
+          setContextMenuOpen(true)
         }}
       >
         {!isStructure && (
@@ -2323,7 +2324,7 @@ function SidebarSectionRow({
           <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
         )}
 
-        {/* Hover actions — only eye + trash on hover (no header/footer actions) */}
+        {/* Hover actions — only eye + trash */}
         {!isStructure && (
           <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
             <button
@@ -2344,30 +2345,27 @@ function SidebarSectionRow({
         )}
       </div>
 
-      {/* Right-click context menu */}
-      {contextMenu && (
+      {/* Right-click context menu — positioned below the row */}
+      {contextMenuOpen && (
         <>
-          <div className="fixed inset-0 z-[200]" onClick={() => setContextMenu(null)} onContextMenu={e => { e.preventDefault(); setContextMenu(null) }} />
-          <div
-            className="fixed z-[201] w-48 bg-white rounded-lg shadow-xl border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors" onClick={() => { onDuplicate(); setContextMenu(null) }}>
+          <div className="fixed inset-0 z-[200]" onClick={() => setContextMenuOpen(false)} onContextMenu={e => { e.preventDefault(); setContextMenuOpen(false) }} />
+          <div className="absolute left-2 right-2 top-full mt-1 z-[201] bg-white rounded-lg shadow-xl border border-border py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors rounded-md mx-0" onClick={() => { onDuplicate(); setContextMenuOpen(false) }}>
               <Copy className="h-3.5 w-3.5 text-muted-foreground" />
               Duplicate
             </button>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors" onClick={() => { onToggleHide(); setContextMenu(null) }}>
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors rounded-md" onClick={() => { onToggleHide(); setContextMenuOpen(false) }}>
               {section.hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
               {section.hidden ? "Show" : "Hide"}
             </button>
-            <div className="h-px bg-border my-1" />
-            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors" onClick={() => { onRemove(); setContextMenu(null) }}>
+            <div className="h-px bg-border mx-2 my-1" />
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors rounded-md" onClick={() => { onRemove(); setContextMenuOpen(false) }}>
               <Trash2 className="h-3.5 w-3.5" />
               Delete
             </button>
           </div>
         </>
       )}
-    </>
+    </div>
   )
 }
