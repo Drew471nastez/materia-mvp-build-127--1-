@@ -825,6 +825,39 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
+  const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
+  const [addPageOpen, setAddPageOpen] = useState(false)
+  const [newPageTitle, setNewPageTitle] = useState("")
+  const [addingPage, setAddingPage] = useState(false)
+
+  // Undo / Redo history
+  const [undoStack, setUndoStack] = useState<{ sections: SectionInstance[]; settings: ThemeSettingsValues }[]>([])
+  const [redoStack, setRedoStack] = useState<{ sections: SectionInstance[]; settings: ThemeSettingsValues }[]>([])
+
+  const pushUndo = useCallback(() => {
+    setUndoStack(prev => [...prev.slice(-30), { sections: JSON.parse(JSON.stringify(sections)), settings: JSON.parse(JSON.stringify(settingsDraft)) }])
+    setRedoStack([])
+  }, [sections, settingsDraft])
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return
+    const last = undoStack[undoStack.length - 1]
+    setRedoStack(prev => [...prev, { sections: JSON.parse(JSON.stringify(sections)), settings: JSON.parse(JSON.stringify(settingsDraft)) }])
+    setSections(last.sections)
+    setSettingsDraft(last.settings)
+    setUndoStack(prev => prev.slice(0, -1))
+    setIsDirty(true)
+  }, [undoStack, sections, settingsDraft])
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return
+    const last = redoStack[redoStack.length - 1]
+    setUndoStack(prev => [...prev, { sections: JSON.parse(JSON.stringify(sections)), settings: JSON.parse(JSON.stringify(settingsDraft)) }])
+    setSections(last.sections)
+    setSettingsDraft(last.settings)
+    setRedoStack(prev => prev.slice(0, -1))
+    setIsDirty(true)
+  }, [redoStack, sections, settingsDraft])
 
   // dnd-kit sensors
   const sensors = useSensors(
@@ -884,7 +917,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
     if (!res.ok) return
     const data = await res.json()
-    setSections(data.sections ?? [])
+    let loaded: SectionInstance[] = data.sections ?? []
+
+    // Ensure header and footer exist on every page
+    const hasHeader = loaded.some(s => s.type === "header")
+    const hasFooter = loaded.some(s => s.type === "footer")
+    if (!hasHeader) {
+      const hs = SECTION_SCHEMAS["header"]
+      if (hs) {
+        loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
+      }
+    }
+    if (!hasFooter) {
+      const fs = SECTION_SCHEMAS["footer"]
+      if (fs) {
+        loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
+      }
+    }
+
+    setSections(loaded)
   }, [installId])
 
   useEffect(() => { loadData() }, [loadData])
@@ -959,14 +1010,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSectionsLoading(false)
   }
 
-  // Settings change
+  // Settings change (debounced undo push)
+  const undoPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debouncedPushUndo = useCallback(() => {
+    if (undoPushTimerRef.current) clearTimeout(undoPushTimerRef.current)
+    undoPushTimerRef.current = setTimeout(() => pushUndo(), 500)
+  }, [pushUndo])
+
   const updateSetting = (key: string, value: unknown) => {
+    debouncedPushUndo()
     setSettingsDraft(prev => ({ ...prev, [key]: value }))
     setIsDirty(true)
   }
 
   // Section settings change
   const updateSectionSetting = (sectionId: string, key: string, value: unknown) => {
+    debouncedPushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, settings: { ...s.settings, [key]: value } } : s
     ))
@@ -1006,6 +1065,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const removeSection = (sectionId: string) => {
+    pushUndo()
     setSections(prev => prev.filter(s => s.id !== sectionId))
     if (selectedSectionId === sectionId) {
       setSelectedPanel({ type: "pages" })
@@ -1014,6 +1074,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const duplicateSection = (sectionId: string) => {
+    pushUndo()
     const idx = sections.findIndex(s => s.id === sectionId)
     if (idx === -1) return
     const orig = sections[idx]
@@ -1025,6 +1086,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const addSection = (type: string) => {
+    pushUndo()
     const schema = SECTION_SCHEMAS[type]
     if (!schema) return
     const preset = schema.presets?.[0]
@@ -1046,6 +1108,72 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
     scrollToSection(newSection.id)
   }
+
+  // Add custom page
+  const handleAddCustomPage = async () => {
+    if (!newPageTitle.trim()) return
+    setAddingPage(true)
+    // Create the page key from title
+    const pageKey = newPageTitle.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") as PageKey
+    const newPage = { id: `page-${Date.now()}`, name: newPageTitle.trim(), key: pageKey }
+
+    // Add default header + footer sections for new page
+    const headerSchema = SECTION_SCHEMAS["header"]
+    const footerSchema = SECTION_SCHEMAS["footer"]
+    const defaultSections: SectionInstance[] = []
+    if (headerSchema) {
+      defaultSections.push({
+        id: `header-${Date.now()}`,
+        type: "header",
+        name: headerSchema.name,
+        settings: headerSchema.presets?.[0]?.settings ?? {},
+        blocks: headerSchema.presets?.[0]?.blocks ?? [],
+        hidden: false,
+      })
+    }
+    if (footerSchema) {
+      defaultSections.push({
+        id: `footer-${Date.now() + 1}`,
+        type: "footer",
+        name: footerSchema.name,
+        settings: footerSchema.presets?.[0]?.settings ?? {},
+        blocks: footerSchema.presets?.[0]?.blocks ?? [],
+        hidden: false,
+      })
+    }
+
+    // Save sections for the new page
+    try {
+      await fetch(`/api/website-builder/themes/${installId}/sections`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page_key: pageKey, sections: defaultSections, mode: "draft" }),
+      })
+    } catch {}
+
+    setCustomPages(prev => [...prev, newPage])
+    setAddPageOpen(false)
+    setNewPageTitle("")
+    setAddingPage(false)
+
+    // Navigate to new page
+    setSectionsLoading(true)
+    setCurrentPage(pageKey)
+    setSelectedPanel({ type: "pages" })
+    setPageBrowserOpen(false)
+    setSections(defaultSections)
+    setSectionsLoading(false)
+  }
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndo() }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); handleRedo() }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [handleUndo, handleRedo])
 
   const saveDraft = async () => {
     setSaving(true)
@@ -1110,7 +1238,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const handleSave = async () => {
-    await saveDraft()
+    if (install?.status === "published") {
+      // Auto-publish if already live
+      await publishChanges()
+    } else {
+      await saveDraft()
+    }
   }
 
   const activeThemeSettings: ThemeSettingsValues = settingsDraft
@@ -1126,10 +1259,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const search = pageBrowserSearch.toLowerCase()
     const filteredProducts = products.filter(p => p.title.toLowerCase().includes(search))
     const filteredCollections = collections.filter(c => c.name.toLowerCase().includes(search))
-    const customPages = [
+    const builtInPages = [
       { name: "Home Page", key: "home" as PageKey },
       { name: "About Page", key: "about" as PageKey },
       { name: "Contact Page", key: "contact" as PageKey },
+    ]
+    const allCustomPages = [
+      ...builtInPages,
+      ...customPages.map(p => ({ name: p.name, key: p.key })),
     ].filter(p => p.name.toLowerCase().includes(search))
 
     return (
@@ -1162,16 +1299,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <div className="flex-1 overflow-y-auto px-3 pb-4">
 
           {/* Custom Pages */}
-          {customPages.length > 0 && (
+          {allCustomPages.length > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between px-1 mb-1.5">
                 <p className="text-xs font-bold text-foreground">Custom Pages</p>
-                <button className="text-purple-600 hover:text-purple-700" title="Add page">
+                <button className="text-purple-600 hover:text-purple-700 cursor-pointer" title="Add page" onClick={() => setAddPageOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                 </button>
               </div>
               <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                {customPages.map(p => (
+                {allCustomPages.map(p => (
                   <button
                     key={p.key}
                     className={cn(
@@ -1261,33 +1398,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       } else {
         // Global theme settings
         return (
-          <div className="flex flex-col h-full animate-in fade-in duration-200">
+          <div className="flex flex-col h-full animate-in fade-in duration-150">
             <div className="px-4 py-3 border-b border-border shrink-0">
               <p className="text-sm font-semibold">General Settings</p>
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
-            <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex-1 overflow-y-auto p-2">
               {THEME_SETTINGS_GROUPS.map(group => (
-                <div key={group.key} className="mb-1">
+                <div key={group.key} className="mb-0.5">
                   <button
                     className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                      expandedSettings === group.key ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                      expandedSettings === group.key ? "bg-muted/80 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                     )}
                     onClick={() => setExpandedSettings(expandedSettings === group.key ? null : group.key)}
                   >
                     {group.label}
-                    <ChevronDown className={cn("h-4 w-4 transition-transform", expandedSettings === group.key && "rotate-180")} />
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expandedSettings === group.key && "rotate-180")} />
                   </button>
                   {expandedSettings === group.key && (
-                    <div className="px-3 py-2 space-y-3">
+                    <div className="px-3 py-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
                       {group.fields.map(field => (
-                        <FieldEditor
-                          key={field.id}
-                          field={field}
-                          value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                          onChange={v => updateSetting(field.id, v)}
-                        />
+                        <div key={field.id}>
+                          {field.type !== "header" && field.type !== "paragraph" && (
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                          )}
+                          <FieldEditor
+                            field={field}
+                            value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                            onChange={v => updateSetting(field.id, v)}
+                          />
+                          {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1309,42 +1451,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         : (PAGE_META[currentPage]?.label ?? currentPage)
 
       return (
-        <div className="flex flex-col h-full animate-in fade-in duration-200">
-          {/* Page selector dropdown */}
+        <div className="flex flex-col h-full animate-in fade-in duration-150">
+          {/* Page selector — opens Pages panel */}
           <div className="px-3 py-3 border-b border-border shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium">
-                  <span className="truncate">{pageLabel}</span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground ml-2" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[220px] z-[100]">
-                {(Object.keys(PAGE_META) as PageKey[]).map(key => (
-                  <DropdownMenuItem key={key} onClick={() => handlePageChange(key)} className="cursor-pointer">
-                    {PAGE_META[key].label}
-                    {currentPage === key && !selectedProductPage && <Check className="h-3.5 w-3.5 ml-auto text-purple-600" />}
-                  </DropdownMenuItem>
-                ))}
-                {products.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <p className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Products</p>
-                    {products.slice(0, 5).map(p => (
-                      <DropdownMenuItem key={p.id} onClick={() => handleSelectProductPage(p.title)} className="cursor-pointer">
-                        {p.title}
-                        {selectedProductPage === p.title && <Check className="h-3.5 w-3.5 ml-auto text-purple-600" />}
-                      </DropdownMenuItem>
-                    ))}
-                    {products.length > 5 && (
-                      <DropdownMenuItem onClick={() => setPageBrowserOpen(true)} className="cursor-pointer text-purple-600">
-                        View all pages...
-                      </DropdownMenuItem>
-                    )}
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <button
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium cursor-pointer"
+              onClick={() => setPageBrowserOpen(true)}
+            >
+              <span className="truncate">{pageLabel}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground ml-2" />
+            </button>
           </div>
 
           {/* Skeleton loading when switching pages */}
@@ -1441,7 +1557,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-2 duration-150">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
             <button
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -1671,14 +1787,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   View Live
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => setSidebarMode("settings")} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Theme Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-muted-foreground">
-                Version {install?.theme?.version ?? "1.0.0"}
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
                 router.push("/app")
@@ -1687,6 +1800,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Undo / Redo */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0 ml-1">
+            <button
+              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="h-4 w-4 text-neutral-600" />
+            </button>
+            <div className="w-px h-5 bg-border" />
+            <button
+              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-4 w-4 text-neutral-600" />
+            </button>
+          </div>
         </div>
 
         {/* Center: unsaved indicator */}
@@ -1710,42 +1844,46 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 
           {/* Device Switcher */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 bg-transparent hidden sm:flex cursor-pointer">
-                {device === "desktop" ? <Monitor className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[100]">
-              <DropdownMenuItem onClick={() => setDevice("desktop")} className="cursor-pointer">
-                <Monitor className="mr-2 h-4 w-4" /> Desktop
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDevice("mobile")} className="cursor-pointer">
-                <Smartphone className="mr-2 h-4 w-4" /> Mobile
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="hidden sm:flex items-center border border-border rounded-lg overflow-hidden shrink-0">
+            <button
+              className={cn("h-8 w-8 flex items-center justify-center transition-colors", device === "desktop" ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-muted")}
+              onClick={() => setDevice("desktop")}
+              title="Desktop"
+            >
+              <Monitor className="h-3.5 w-3.5" />
+            </button>
+            <div className="w-px h-5 bg-border" />
+            <button
+              className={cn("h-8 w-8 flex items-center justify-center transition-colors", device === "mobile" ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-muted")}
+              onClick={() => setDevice("mobile")}
+              title="Mobile"
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
           {/* Preview */}
-          <Button
-            size="sm"
-            className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer gap-1.5"
+          <button
+            className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors cursor-pointer"
             onClick={() => {
               if (!websiteUrl) return
               const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
               window.open(urlWithPreview, "_blank", "noopener,noreferrer")
             }}
+            title="Preview"
           >
-            <span className="hidden sm:inline">Preview</span>
-            <ExternalLink className="h-4 w-4" />
-          </Button>
+            <ExternalLink className="h-3.5 w-3.5 text-neutral-600" />
+          </button>
 
-          {/* Save Draft button */}
+          {/* Save button — publishes automatically if theme is live */}
           <Button
             size="sm"
-            variant="outline"
-            className="h-9 cursor-pointer gap-1.5"
+            className={cn(
+              "h-9 cursor-pointer gap-1.5 min-w-[80px] transition-all",
+              isDirty
+                ? "bg-purple-600 text-white hover:bg-purple-700"
+                : "bg-neutral-100 text-neutral-400 border border-border hover:bg-neutral-100"
+            )}
             onClick={handleSave}
             disabled={saving || !isDirty}
           >
@@ -1755,35 +1893,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <span className="hidden sm:inline">Saving...</span>
               </>
             ) : isDirty ? (
-              <>
-                <Save className="h-4 w-4" />
-                <span className="hidden sm:inline">Save</span>
-              </>
+              <span>Save</span>
             ) : (
-              <>
-                <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">Saved</span>
-              </>
-            )}
-          </Button>
-
-          {/* Publish button */}
-          <Button
-            size="sm"
-            className="h-9 cursor-pointer gap-1.5 bg-purple-600 text-white hover:bg-purple-700"
-            onClick={publishChanges}
-            disabled={publishing || (hasPublished && !isDirty)}
-          >
-            {publishing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="hidden sm:inline">Publishing...</span>
-              </>
-            ) : (
-              <>
-                <Globe className="h-4 w-4" />
-                <span className="hidden sm:inline">Publish</span>
-              </>
+              <span>Saved</span>
             )}
           </Button>
         </div>
@@ -1800,8 +1912,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "sections" && !pageBrowserOpen
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
                 )}
                 onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
                 title="Sections"
@@ -1812,8 +1924,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
                   pageBrowserOpen
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
                 )}
                 onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
                 title="Pages"
@@ -1824,8 +1936,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 className={cn(
                   "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
                   sidebarMode === "settings" && !pageBrowserOpen
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
                 )}
                 onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
                 title="General Settings"
@@ -1853,19 +1965,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {/* Mobile icon rail */}
               <div className="w-12 border-r border-border bg-muted/30 flex flex-col items-center py-3 gap-1 shrink-0">
                 <button
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "sections" && !pageBrowserOpen ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}
+                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "sections" && !pageBrowserOpen ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-neutral-100")}
                   onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
                 >
                   <Layers className="h-[18px] w-[18px]" />
                 </button>
                 <button
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", pageBrowserOpen ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}
+                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", pageBrowserOpen ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-neutral-100")}
                   onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
                 >
                   <FileText className="h-[18px] w-[18px]" />
                 </button>
                 <button
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "settings" && !pageBrowserOpen ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}
+                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "settings" && !pageBrowserOpen ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-neutral-100")}
                   onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
                 >
                   <Settings className="h-[18px] w-[18px]" />
@@ -1888,7 +2000,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <div
             className={cn(
               "bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300",
-              device === "mobile" ? "w-[390px]" : "w-full max-w-5xl",
+              device === "mobile" ? "w-[360px]" : "w-full max-w-5xl",
             )}
             style={{ minHeight: "600px" }}
           >
@@ -1942,6 +2054,48 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onOpenChange={setAddSectionOpen}
         onAddSection={addSection}
       />
+
+      {/* ── Add Custom Page Modal ── */}
+      <Dialog open={addPageOpen} onOpenChange={setAddPageOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Add New Custom Page</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Page title</label>
+              <Input
+                placeholder="e.g. FAQ, Shipping, Terms..."
+                value={newPageTitle}
+                onChange={e => setNewPageTitle(e.target.value)}
+                className="h-9"
+                autoFocus
+                onKeyDown={e => { if (e.key === "Enter" && newPageTitle.trim()) handleAddCustomPage() }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => { setAddPageOpen(false); setNewPageTitle("") }} disabled={addingPage}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-purple-600 text-white hover:bg-purple-700 min-w-[70px]"
+              onClick={handleAddCustomPage}
+              disabled={!newPageTitle.trim() || addingPage}
+            >
+              {addingPage ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  Adding...
+                </>
+              ) : (
+                "Add"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit All Product Pages Confirmation Modal ── */}
       <Dialog open={editAllConfirmOpen} onOpenChange={setEditAllConfirmOpen}>
@@ -2035,36 +2189,34 @@ function SidebarSectionRow({
         <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
       )}
 
-      {/* Hover actions */}
-      <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
-        <button
-          className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
-          onClick={e => { e.stopPropagation(); onToggleHide() }}
-          title={section.hidden ? "Show" : "Hide"}
-        >
-          {section.hidden
-            ? <Eye className="h-2.5 w-2.5" />
-            : <EyeOff className="h-2.5 w-2.5" />}
-        </button>
-        {!isStructure && (
-          <>
-            <button
-              className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
-              onClick={e => { e.stopPropagation(); onDuplicate() }}
-              title="Duplicate"
-            >
-              <Copy className="h-2.5 w-2.5" />
-            </button>
-            <button
-              className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
-              onClick={e => { e.stopPropagation(); onRemove() }}
-              title="Remove"
-            >
-              <Trash2 className="h-2.5 w-2.5" />
-            </button>
-          </>
-        )}
-      </div>
+      {/* Hover actions — no hide/duplicate/remove for header/footer */}
+      {!isStructure && (
+        <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
+          <button
+            className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
+            onClick={e => { e.stopPropagation(); onToggleHide() }}
+            title={section.hidden ? "Show" : "Hide"}
+          >
+            {section.hidden
+              ? <Eye className="h-2.5 w-2.5" />
+              : <EyeOff className="h-2.5 w-2.5" />}
+          </button>
+          <button
+            className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
+            onClick={e => { e.stopPropagation(); onDuplicate() }}
+            title="Duplicate"
+          >
+            <Copy className="h-2.5 w-2.5" />
+          </button>
+          <button
+            className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
+            onClick={e => { e.stopPropagation(); onRemove() }}
+            title="Remove"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
