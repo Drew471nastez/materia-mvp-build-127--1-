@@ -265,7 +265,8 @@ function NotificationBell({
   sellerId,
   onepageId,
   style = "glass",
-}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black" }) {
+  isVisible = true,
+}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -404,13 +405,17 @@ function NotificationBell({
 
   // On mobile, hide smoothly when PDF modal is open
   const hideForModal = pdfModalOpen && isMobile
+  // Show when visible OR when panel is open (so it doesn't vanish mid-interaction)
+  const shouldShow = (isVisible || isOpen) && !hideForModal
 
   return (
     <div
-      className={cn(
-        "fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-opacity duration-300 ease-out",
-        hideForModal ? "opacity-0 pointer-events-none" : "opacity-100",
-      )}
+      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-all duration-500 ease-out"
+      style={{
+        opacity: shouldShow ? 1 : 0,
+        transform: shouldShow ? "translateY(0)" : "translateY(-10px)",
+        pointerEvents: shouldShow ? "auto" : "none",
+      }}
     >
       {/* Bell Button */}
       <button
@@ -544,6 +549,7 @@ function ShareButton({
   themeBackgroundType,
   themeBackgroundColor,
   themeBackgroundGradient,
+  isVisible = true,
 }: {
   pageUrl: string
   pageTitle: string
@@ -555,6 +561,7 @@ function ShareButton({
   themeBackgroundType?: "solid" | "gradient" | "image" | "video"
   themeBackgroundColor?: string
   themeBackgroundGradient?: string
+  isVisible?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -849,16 +856,21 @@ function ShareButton({
 
   // On mobile, hide smoothly when PDF modal is open
   const hideForModal = pdfModalOpen && isMobile
-
-  const buttonWrapperClass = cn(
-    "transition-opacity duration-300 ease-out",
-    hideForModal ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto",
-  )
+  // Show when visible OR when share modal is open (don't vanish mid-interaction)
+  const shouldShow = (isVisible || isOpen) && !hideForModal
 
   return (
     <>
-      <div className={positionClass}>
-        <div className={buttonWrapperClass}>
+      <div
+        className={positionClass}
+        style={{
+          transition: "opacity 500ms ease-out, transform 500ms ease-out",
+          opacity: shouldShow ? 1 : 0,
+          transform: shouldShow ? "translateY(0)" : "translateY(-10px)",
+          pointerEvents: shouldShow ? "auto" : "none",
+        }}
+      >
+        <div>
           {/* Share Button - icons 3px smaller on desktop */}
           <button
             onClick={() => setIsOpen(!isOpen)}
@@ -1266,6 +1278,23 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   // Modal visibility state - to hide buttons when fullscreen modals are open
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
+
+  // Scroll-based fade for share/notification buttons (same as editor preview)
+  const [buttonsVisible, setButtonsVisible] = useState(true)
+  const lastScrollY = useRef(0)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const nearTop = currentScrollY < 50
+      const scrollingUp = currentScrollY < lastScrollY.current - 5
+
+      setButtonsVisible(nearTop || scrollingUp)
+      lastScrollY.current = currentScrollY
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   // Spotify modal state - lifted to root level to prevent clipping in groups
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
@@ -2117,6 +2146,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           sellerId={seller_id}
           onepageId={onepage.id}
           style={safeSettings.subscribe_style || "glass"}
+          isVisible={buttonsVisible}
         />
       )}
 
@@ -2133,6 +2163,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           themeBackgroundType={safeTheme.background_type}
           themeBackgroundColor={safeTheme.background_color}
           themeBackgroundGradient={safeTheme.background_gradient}
+          isVisible={buttonsVisible}
         />
       )}
 
