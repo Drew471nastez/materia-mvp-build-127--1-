@@ -389,8 +389,7 @@ function ChartWithLongPressTooltip({
             zIndex: 10,
             whiteSpace: "nowrap",
             boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            willChange: "left",
-            transition: "left 50ms linear",
+            willChange: "transform, left",
           }}
         >
           <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{activePoint.label}</p>
@@ -1980,7 +1979,7 @@ export function DashboardClient({
             }}
           />
         </div>
-      </div>}
+      </div>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {copyNotice && (

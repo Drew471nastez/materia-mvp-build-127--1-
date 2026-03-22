@@ -772,6 +772,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const chartTouchStartRef = useRef<{ x: number; y: number } | null>(null)
   const [chartActiveIndex, setChartActiveIndex] = useState<number | null>(null)
+  const chartActiveIndexRef = useRef<number | null>(null)
   const chartRafRef = useRef<number | null>(null)
   const [chartShouldAnimate, setChartShouldAnimate] = useState(true)
   const chartContainerRef = useRef<HTMLDivElement>(null)
@@ -2056,72 +2057,112 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   // Direction lock ref: "horizontal" = scrubbing, "vertical" = scrolling, null = undecided
   const chartDirectionLockRef = useRef<"horizontal" | "vertical" | null>(null)
 
+  // Helper: compute data-point index from touch X position (uses refs, no stale closures)
+  const getChartIndexFromTouch = useCallback((clientX: number): number | null => {
+    const el = chartContainerRef.current
+    const len = chartDataLenRef.current
+    if (!el || !len) return null
+    const rect = el.getBoundingClientRect()
+    const chartLeft = rect.left + 40
+    const chartRight = rect.right - 4
+    const chartWidth = chartRight - chartLeft
+    const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
+    return Math.round(ratio * (len - 1))
+  }, [])
+
+  // Helper: set active index on both ref and state (ref for RAF, state for React render)
+  const setChartActiveIndexSync = useCallback((idx: number | null) => {
+    chartActiveIndexRef.current = idx
+    setChartActiveIndex(idx)
+  }, [])
+
   // Native non-passive touchmove listener so preventDefault works reliably
+  const chartTouchMoveHandler = useCallback((e: TouchEvent) => {
+    if (!chartTouchStartRef.current) return
+    const touch = e.touches[0]
+
+    if (chartTooltipActiveRef.current) {
+      // Already in scrub mode — prevent scroll and update position
+      e.preventDefault()
+      e.stopPropagation()
+      const clientX = touch.clientX
+      if (chartRafRef.current) cancelAnimationFrame(chartRafRef.current)
+      chartRafRef.current = requestAnimationFrame(() => {
+        const idx = getChartIndexFromTouch(clientX)
+        if (idx !== null && idx !== chartActiveIndexRef.current) {
+          setChartActiveIndexSync(idx)
+        }
+      })
+      return
+    }
+
+    // Direction detection phase — decide horizontal scrub vs vertical scroll
+    const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
+    const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
+    const totalMove = dx + dy
+
+    if (chartDirectionLockRef.current === null && totalMove > 8) {
+      // Lock direction based on dominant axis
+      if (dx > dy * 1.2) {
+        // Horizontal intent → activate scrub immediately (no long press needed)
+        chartDirectionLockRef.current = "horizontal"
+        if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+        chartTooltipActiveRef.current = true
+        setChartTooltipActive(true)
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
+        // Set initial position
+        e.preventDefault()
+        e.stopPropagation()
+        const idx = getChartIndexFromTouch(touch.clientX)
+        if (idx !== null) setChartActiveIndexSync(idx)
+      } else {
+        // Vertical intent → cancel long press, let scroll happen
+        chartDirectionLockRef.current = "vertical"
+        if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+      }
+    } else if (chartDirectionLockRef.current === "horizontal") {
+      // Already locked horizontal — keep preventing scroll
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }, [getChartIndexFromTouch, setChartActiveIndexSync])
+
+  // Attach non-passive touchmove listener
   useEffect(() => {
     const el = chartContainerRef.current
     if (!el) return
-    const handler = (e: TouchEvent) => {
-      if (!chartTouchStartRef.current) return
-      const touch = e.touches[0]
+    el.addEventListener("touchmove", chartTouchMoveHandler, { passive: false })
+    return () => el.removeEventListener("touchmove", chartTouchMoveHandler)
+  }, [chartTouchMoveHandler])
 
-      if (chartTooltipActiveRef.current) {
-        // Already in scrub mode — prevent scroll and update position
-        e.preventDefault()
-        e.stopPropagation()
-        const clientX = touch.clientX
-        if (chartRafRef.current) cancelAnimationFrame(chartRafRef.current)
-        chartRafRef.current = requestAnimationFrame(() => {
-          const container = chartContainerRef.current
-          if (container && chartDataLenRef.current) {
-            const rect = container.getBoundingClientRect()
-            const chartLeft = rect.left + 40
-            const chartWidth = rect.right - 4 - chartLeft
-            const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
-            setChartActiveIndex(Math.round(ratio * (chartDataLenRef.current - 1)))
-          }
-        })
-        return
+  // Chart touch start handler
+  const handleChartTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    chartTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    chartDirectionLockRef.current = null
+    chartLongPressTimerRef.current = setTimeout(() => {
+      // Long press fallback — if no movement detected, activate scrub
+      if (chartDirectionLockRef.current === null) {
+        chartDirectionLockRef.current = "horizontal"
+        chartTooltipActiveRef.current = true
+        setChartTooltipActive(true)
+        const idx = getChartIndexFromTouch(touch.clientX)
+        if (idx !== null) setChartActiveIndexSync(idx)
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15)
       }
+    }, 250)
+  }, [getChartIndexFromTouch, setChartActiveIndexSync])
 
-      // Direction detection phase — decide horizontal scrub vs vertical scroll
-      const dx = Math.abs(touch.clientX - chartTouchStartRef.current.x)
-      const dy = Math.abs(touch.clientY - chartTouchStartRef.current.y)
-      const totalMove = dx + dy
-
-      if (chartDirectionLockRef.current === null && totalMove > 8) {
-        // Lock direction based on dominant axis
-        if (dx > dy * 1.2) {
-          // Horizontal intent → activate scrub immediately (no long press needed)
-          chartDirectionLockRef.current = "horizontal"
-          if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
-          chartTooltipActiveRef.current = true
-          setChartTooltipActive(true)
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
-          // Set initial position
-          e.preventDefault()
-          e.stopPropagation()
-          const clientX = touch.clientX
-          const container = chartContainerRef.current
-          if (container && chartDataLenRef.current) {
-            const rect = container.getBoundingClientRect()
-            const chartLeft = rect.left + 40
-            const chartWidth = rect.right - 4 - chartLeft
-            const ratio = Math.max(0, Math.min(1, (clientX - chartLeft) / chartWidth))
-            setChartActiveIndex(Math.round(ratio * (chartDataLenRef.current - 1)))
-          }
-        } else {
-          // Vertical intent → cancel long press, let scroll happen
-          chartDirectionLockRef.current = "vertical"
-          if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
-        }
-      } else if (chartDirectionLockRef.current === "horizontal") {
-        // Already locked horizontal — keep preventing scroll
-        e.preventDefault()
-        e.stopPropagation()
-      }
-    }
-    el.addEventListener("touchmove", handler, { passive: false })
-    return () => el.removeEventListener("touchmove", handler)
+  // Chart touch end handler
+  const handleChartTouchEnd = useCallback(() => {
+    if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
+    if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
+    chartTouchStartRef.current = null
+    chartDirectionLockRef.current = null
+    chartTooltipActiveRef.current = false
+    chartActiveIndexRef.current = null
+    setChartTooltipActive(false)
+    setChartActiveIndex(null)
   }, [])
 
   const SAMPLE_TRAFFIC_SOURCES: TrafficSource[] = [
@@ -2638,46 +2679,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     WebkitTouchCallout: "none",
                     position: "relative",
                   } as React.CSSProperties}
-                  onTouchStart={(e) => {
-                    const touch = e.touches[0]
-                    chartTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
-                    chartDirectionLockRef.current = null
-                    chartLongPressTimerRef.current = setTimeout(() => {
-                      // Long press fallback — if no movement detected, activate scrub
-                      if (chartDirectionLockRef.current === null) {
-                        chartDirectionLockRef.current = "horizontal"
-                        chartTooltipActiveRef.current = true
-                        setChartTooltipActive(true)
-                        const el = chartContainerRef.current
-                        if (el && chartDisplayData.length) {
-                          const rect = el.getBoundingClientRect()
-                          const chartLeft = rect.left + 40
-                          const chartWidth = rect.right - 4 - chartLeft
-                          const ratio = Math.max(0, Math.min(1, (touch.clientX - chartLeft) / chartWidth))
-                          setChartActiveIndex(Math.round(ratio * (chartDisplayData.length - 1)))
-                        }
-                        if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15)
-                      }
-                    }, 250)
-                  }}
-                  onTouchEnd={() => {
-                    if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
-                    if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
-                    chartTouchStartRef.current = null
-                    chartDirectionLockRef.current = null
-                    chartTooltipActiveRef.current = false
-                    setChartTooltipActive(false)
-                    setChartActiveIndex(null)
-                  }}
-                  onTouchCancel={() => {
-                    if (chartLongPressTimerRef.current) { clearTimeout(chartLongPressTimerRef.current); chartLongPressTimerRef.current = null }
-                    if (chartRafRef.current) { cancelAnimationFrame(chartRafRef.current); chartRafRef.current = null }
-                    chartTouchStartRef.current = null
-                    chartDirectionLockRef.current = null
-                    chartTooltipActiveRef.current = false
-                    setChartTooltipActive(false)
-                    setChartActiveIndex(null)
-                  }}
+                  onTouchStart={handleChartTouchStart}
+                  onTouchEnd={handleChartTouchEnd}
+                  onTouchCancel={handleChartTouchEnd}
                 >
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -2890,8 +2894,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     zIndex: 10,
                     whiteSpace: "nowrap",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    willChange: "left",
-                    transition: "left 50ms linear",
+                    willChange: "transform, left",
                   }}>
                     <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{pt.date}</p>
                     {lines.map((l, i) => (

@@ -2947,7 +2947,7 @@ export function SalesClient({
             style={{ width: `${progressWidth}%` }}
           />
         </div>
-      </div>}
+      </div>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
