@@ -1039,18 +1039,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
 
-    // Fetch sections and product data in parallel
+    // Build fallback product data from the products list immediately
+    const listProduct = products.find(p => p.id === productId)
+    const fallbackData = listProduct ? {
+      title: listProduct.title,
+      description: listProduct.description,
+      price_cents: listProduct.price_cents,
+      compare_at_cents: listProduct.compare_at_cents,
+      thumbnail_url: listProduct.thumbnail_url,
+      gallery_urls: listProduct.gallery_urls,
+      whats_included: listProduct.whats_included,
+      files: [],
+    } : null
+
+    // Fetch sections and full product data in parallel
     const [pageSections, productRes] = await Promise.all([
       fetchPageSections("product"),
-      fetch(`/api/website-builder/products?id=${productId}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`/api/website-builder/products?id=${productId}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null),
     ])
 
-    // Inject real product data into the Product section before setting state
-    const productData = productRes?.product ?? products.find(p => p.id === productId) ?? null
+    // Use API response first, fall back to list data
+    const productData = productRes?.product ?? fallbackData
+
+    // Inject into every product-type section
     if (productData) {
-      for (const s of pageSections) {
-        if (s.type === "product") {
-          s.settings = { ...s.settings, _product_data: productData }
+      for (let i = 0; i < pageSections.length; i++) {
+        if (pageSections[i].type === "product") {
+          pageSections[i] = {
+            ...pageSections[i],
+            settings: { ...pageSections[i].settings, _product_data: productData },
+          }
         }
       }
     }
@@ -2065,7 +2085,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <div
             className={cn(
               "bg-white shadow-lg overflow-hidden transition-all duration-300 flex flex-col rounded-xl",
-              device === "mobile" ? "w-[360px]" : "w-full",
+              device === "mobile" ? "w-[360px]" : "w-full max-w-[1400px]",
             )}
             style={{ minHeight: "calc(100vh - 96px)" }}
           >
