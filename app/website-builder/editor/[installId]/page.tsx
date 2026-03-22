@@ -12,6 +12,7 @@ import {
   Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield,
   Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package,
   Menu, Undo2, Redo2, PanelLeft, ExternalLink, Link2,
+  Search, FileText, ArrowRight, FolderOpen, MoreHorizontal,
 } from "lucide-react"
 import {
   DndContext,
@@ -40,6 +41,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
@@ -805,12 +807,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [isDirty, setIsDirty] = useState(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>("branding")
   const [addSectionOpen, setAddSectionOpen] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(300)
+  const [sidebarWidth, setSidebarWidth] = useState(320)
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true)
   const [username, setUsername] = useState("")
   const [hasPublished, setHasPublished] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
+
+  // ── New: Sidebar mode, page browser, product/collection pages ──
+  const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
+  const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
+  const [pageBrowserSearch, setPageBrowserSearch] = useState("")
+  const [products, setProducts] = useState<{ id: string; title: string; slug: string }[]>([])
+  const [collections, setCollections] = useState<{ id: string; name: string; slug: string }[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
+  const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
+  const [editAllProductPages, setEditAllProductPages] = useState(false)
+  const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
+  const [sectionsLoading, setSectionsLoading] = useState(false)
 
   // dnd-kit sensors
   const sensors = useSensors(
@@ -894,10 +908,55 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.removeEventListener("beforeunload", handler)
   }, [isDirty])
 
+  // Fetch products and collections for page browser
+  const loadProducts = useCallback(async () => {
+    setProductsLoading(true)
+    try {
+      const res = await fetch("/api/products?limit=100")
+      if (res.ok) {
+        const data = await res.json()
+        setProducts((data.products ?? data ?? []).map((p: any) => ({
+          id: p.id,
+          title: p.title || "Untitled Product",
+          slug: p.slug || p.id,
+        })))
+      }
+    } catch {}
+    try {
+      const res = await fetch("/api/collections?limit=100")
+      if (res.ok) {
+        const data = await res.json()
+        setCollections((data.collections ?? data ?? []).map((c: any) => ({
+          id: c.id,
+          name: c.name || "Untitled Collection",
+          slug: c.slug || c.id,
+        })))
+      }
+    } catch {}
+    setProductsLoading(false)
+  }, [])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
+
   const handlePageChange = async (page: PageKey) => {
+    setSectionsLoading(true)
     setCurrentPage(page)
     setSelectedPanel({ type: "pages" })
+    setPageBrowserOpen(false)
+    setSelectedProductPage(null)
+    setEditAllProductPages(false)
     await loadSections(page)
+    setSectionsLoading(false)
+  }
+
+  const handleSelectProductPage = async (productTitle: string) => {
+    setSectionsLoading(true)
+    setSelectedProductPage(productTitle)
+    setCurrentPage("product")
+    setSelectedPanel({ type: "pages" })
+    setPageBrowserOpen(false)
+    await loadSections("product")
+    setSectionsLoading(false)
   }
 
   // Settings change
@@ -1061,93 +1120,333 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
 
   // ── Sidebar panel rendering ─────────────────────────────────
+
+  // Page browser content — shows all pages grouped by type
+  const renderPageBrowser = () => {
+    const search = pageBrowserSearch.toLowerCase()
+    const filteredProducts = products.filter(p => p.title.toLowerCase().includes(search))
+    const filteredCollections = collections.filter(c => c.name.toLowerCase().includes(search))
+    const customPages = [
+      { name: "Home Page", key: "home" as PageKey },
+      { name: "About Page", key: "about" as PageKey },
+      { name: "Contact Page", key: "contact" as PageKey },
+    ].filter(p => p.name.toLowerCase().includes(search))
+
+    return (
+      <div className="flex flex-col h-full">
+        {/* Search */}
+        <div className="px-3 pt-3 pb-2 shrink-0">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search for page..."
+              value={pageBrowserSearch}
+              onChange={e => setPageBrowserSearch(e.target.value)}
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 pb-4">
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 px-1 py-3">
+            <FileText className="h-3.5 w-3.5" />
+            Select page which you'd like to edit
+          </p>
+
+          {/* Custom Pages */}
+          {customPages.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between px-1 mb-1.5">
+                <p className="text-xs font-bold text-foreground">Custom Pages</p>
+                <button className="text-purple-600 hover:text-purple-700" title="Add page">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                {customPages.map(p => (
+                  <button
+                    key={p.key}
+                    className={cn(
+                      "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
+                      currentPage === p.key && !selectedProductPage ? "text-purple-600 font-medium bg-purple-50" : "text-foreground"
+                    )}
+                    onClick={() => handlePageChange(p.key)}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Pages */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between px-1 mb-1.5">
+              <p className="text-xs font-bold text-foreground">Product Pages</p>
+              <button className="text-purple-600 hover:text-purple-700" title="Add product page">
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {productsLoading ? (
+              <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading products...
+              </div>
+            ) : filteredProducts.length > 0 ? (
+              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                {filteredProducts.map(p => (
+                  <button
+                    key={p.id}
+                    className={cn(
+                      "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
+                      selectedProductPage === p.title ? "text-purple-600 font-medium bg-purple-50" : "text-foreground"
+                    )}
+                    onClick={() => handleSelectProductPage(p.title)}
+                  >
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground px-3 py-2">No products found</p>
+            )}
+          </div>
+
+          {/* Collection Pages */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between px-1 mb-1.5">
+              <p className="text-xs font-bold text-foreground">Collection Pages</p>
+            </div>
+            {filteredCollections.length > 0 ? (
+              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                {filteredCollections.map(c => (
+                  <button
+                    key={c.id}
+                    className="w-full text-left px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted/50"
+                    onClick={() => handlePageChange("home")}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground px-3 py-2">No collections found</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const renderSidebarContent = () => {
-    // PAGES panel (default — shows section list)
+    // ── Page browser mode ──
+    if (pageBrowserOpen) return renderPageBrowser()
+
+    // ── General Settings mode ──
+    if (sidebarMode === "settings") {
+      // Show section settings if a section is selected
+      if (selectedPanel.type === "section") {
+        const section = sections.find(s => s.id === (selectedPanel as any).sectionId)
+        if (!section) { setSelectedPanel({ type: "pages" }); return null }
+        const schema = SECTION_SCHEMAS[section.type]
+        // This will fall through to the existing SECTION panel code below
+      } else {
+        // Global theme settings
+        return (
+          <div className="flex flex-col h-full">
+            <div className="px-4 py-3 border-b border-border shrink-0">
+              <button
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+                onClick={() => setSidebarMode("sections")}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
+              </button>
+              <p className="text-sm font-semibold">General Settings</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {THEME_SETTINGS_GROUPS.map(group => (
+                <div key={group.key} className="mb-1">
+                  <button
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                      expandedSettings === group.key ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    )}
+                    onClick={() => setExpandedSettings(expandedSettings === group.key ? null : group.key)}
+                  >
+                    {group.label}
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", expandedSettings === group.key && "rotate-180")} />
+                  </button>
+                  {expandedSettings === group.key && (
+                    <div className="px-3 py-2 space-y-3">
+                      {group.fields.map(field => (
+                        <FieldEditor
+                          key={field.id}
+                          field={field}
+                          value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                          onChange={v => updateSetting(field.id, v)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      }
+    }
+
+    // ── Sections mode — PAGES panel (default — shows section list) ──
     if (selectedPanel.type === "pages") {
       const header = sections.find(s => s.type === "header")
       const footer = sections.find(s => s.type === "footer")
       const bodySection = sections.filter(s => s.type !== "header" && s.type !== "footer")
+      const pageLabel = selectedProductPage
+        ? selectedProductPage
+        : (PAGE_META[currentPage]?.label ?? currentPage)
+      const pageType = selectedProductPage ? "PRODUCT PAGE" : (currentPage === "home" ? "HOME PAGE" : PAGE_META[currentPage]?.label?.toUpperCase())
 
       return (
         <div className="flex flex-col h-full">
+          {/* Page header with settings gear */}
           <div className="px-4 py-3 border-b border-border shrink-0">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Page</p>
-            <p className="text-sm font-semibold mt-0.5">{PAGE_META[currentPage]?.label}</p>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-1">
-            {/* Header */}
-            {header && (
-              <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 mb-1">Header</p>
-                <SidebarSectionRow
-                  section={header}
-                  isSelected={selectedSectionId === header.id}
-                  onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); scrollToSection(header.id) }}
-                  onToggleHide={() => toggleSectionHidden(header.id)}
-                  onDuplicate={() => duplicateSection(header.id)}
-                  onRemove={() => removeSection(header.id)}
-                  isStructure
-                />
-              </div>
-            )}
-
-            {/* Template sections */}
-            <div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 mb-1 mt-3">Template</p>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-1">
-                {bodySection.map(section => (
-                  <SortableSectionRow
-                    key={section.id}
-                    section={section}
-                    isSelected={selectedSectionId === section.id}
-                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
-                    onToggleHide={() => toggleSectionHidden(section.id)}
-                    onDuplicate={() => duplicateSection(section.id)}
-                    onRemove={() => removeSection(section.id)}
-                  />
-                ))}
-                <button
-                  className="w-full flex items-center gap-1.5 px-2.5 py-2.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors font-medium"
-                  onClick={() => setAddSectionOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add section
-                </button>
-              </div>
-                </SortableContext>
-              </DndContext>
-            </div>
-
-            {/* Footer */}
-            {footer && (
-              <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1 mb-1 mt-3">Footer</p>
-                <SidebarSectionRow
-                  section={footer}
-                  isSelected={selectedSectionId === footer.id}
-                  onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); scrollToSection(footer.id) }}
-                  onToggleHide={() => toggleSectionHidden(footer.id)}
-                  onDuplicate={() => duplicateSection(footer.id)}
-                  onRemove={() => removeSection(footer.id)}
-                  isStructure
-                />
-              </div>
-            )}
-
-            {/* Theme settings link */}
-            <div className="mt-4 pt-4 border-t border-border">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{pageType}</p>
               <button
-                className="w-full flex items-center gap-2 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-                onClick={() => setSelectedPanel({ type: "theme_settings" })}
+                className="h-7 w-7 flex items-center justify-center rounded-md border border-border hover:bg-muted transition-colors"
+                onClick={() => setPageBrowserOpen(true)}
+                title="Browse pages"
               >
-                <Palette className="h-4 w-4" />
-                Theme settings
+                <Settings className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </div>
+            <p className="text-base font-semibold mt-0.5">{pageLabel}</p>
           </div>
+
+          {/* Skeleton loading when switching pages */}
+          {sectionsLoading ? (
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {/* Header (global) */}
+              {header && (
+                <div className="border border-border rounded-lg mb-2">
+                  <SidebarSectionRow
+                    section={header}
+                    isSelected={selectedSectionId === header.id}
+                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: header.id }); scrollToSection(header.id) }}
+                    onToggleHide={() => toggleSectionHidden(header.id)}
+                    onDuplicate={() => duplicateSection(header.id)}
+                    onRemove={() => removeSection(header.id)}
+                    isStructure
+                  />
+                </div>
+              )}
+
+              {/* Body sections with left border connector */}
+              <div className="border-l-2 border-border ml-4 pl-0">
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-0.5 -ml-4">
+                      {bodySection.map(section => (
+                        <SortableSectionRow
+                          key={section.id}
+                          section={section}
+                          isSelected={selectedSectionId === section.id}
+                          onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                          onToggleHide={() => toggleSectionHidden(section.id)}
+                          onDuplicate={() => duplicateSection(section.id)}
+                          onRemove={() => removeSection(section.id)}
+                        />
+                      ))}
+                      <button
+                        className="w-full flex items-center gap-2 px-3 py-3 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors font-medium"
+                        onClick={() => setAddSectionOpen(true)}
+                      >
+                        <div className="h-7 w-7 rounded-md border-2 border-dashed border-purple-300 flex items-center justify-center">
+                          <Plus className="h-3.5 w-3.5" />
+                        </div>
+                        Add section
+                      </button>
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+
+              {/* Footer (global) */}
+              {footer && (
+                <div className="border border-border rounded-lg mt-2">
+                  <SidebarSectionRow
+                    section={footer}
+                    isSelected={selectedSectionId === footer.id}
+                    onSelect={() => { setSelectedPanel({ type: "section", sectionId: footer.id }); scrollToSection(footer.id) }}
+                    onToggleHide={() => toggleSectionHidden(footer.id)}
+                    onDuplicate={() => duplicateSection(footer.id)}
+                    onRemove={() => removeSection(footer.id)}
+                    isStructure
+                  />
+                </div>
+              )}
+
+              {/* Editing mode panel */}
+              {currentPage === "product" && (
+                <div className="mt-6 pt-4 border-t border-border space-y-4">
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                      <FileText className="h-3 w-3" />
+                      {editAllProductPages ? "EDITING ALL PRODUCT PAGES" : "EDITING SINGLE PAGE"}
+                    </p>
+                    {editAllProductPages ? (
+                      <>
+                        <p className="text-xs text-muted-foreground mb-2">You're editing all product pages at once</p>
+                        <button
+                          className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+                          onClick={() => setEditAllProductPages(false)}
+                        >
+                          Go back to editing individual page
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          You're currently editing a single product page{selectedProductPage ? ` "${selectedProductPage}"` : ""}
+                        </p>
+                        <button
+                          className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+                          onClick={() => setEditAllConfirmOpen(true)}
+                        >
+                          Edit all product pages at the same time
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                      <Palette className="h-3 w-3" />
+                      STORE STYLE
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">You can change your store colors, fonts etc</p>
+                    <button
+                      className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+                      onClick={() => setSidebarMode("settings")}
+                    >
+                      Change store style
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )
     }
@@ -1360,28 +1659,57 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
       {/* ── Top bar ── */}
-      <header className="h-14 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-30">
-        {/* Left side */}
-        <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+      <header className="h-12 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-30">
+        {/* Left side: Back, theme name, Live badge, 3-dots */}
+        <div className="flex items-center gap-2 min-w-0">
           {isMobileView && (
-            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 bg-transparent" onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}>
-              <PanelLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}>
+              <PanelLeft className="h-4 w-4" />
             </Button>
           )}
 
-          {/* Back menu */}
+          {/* Back button */}
+          <button
+            className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0"
+            onClick={() => {
+              if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+              router.push("/app/website-builder")
+            }}
+            title="Back to Website Builder"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+
+          {/* Theme name + Live badge */}
+          <span className="text-sm font-semibold text-foreground truncate hidden md:block max-w-[180px]">{install?.name}</span>
+          {install?.status === "published" && (
+            <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[10px] font-semibold uppercase tracking-wide shrink-0 px-2 py-0">
+              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Live
+            </Badge>
+          )}
+
+          {/* 3-dots menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 bg-transparent shrink-0 cursor-pointer">
-                <Menu className="h-5 w-5" />
-              </Button>
+              <button className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 z-[100]">
-              <DropdownMenuItem onClick={() => {
-                if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
-                router.push("/app/website-builder")
-              }} className="cursor-pointer">
-                Back to Website Builder
+            <DropdownMenuContent align="start" className="w-52 z-[100]">
+              {websiteUrl && (
+                <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")} className="cursor-pointer">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View Live
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setSidebarMode("settings")} className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                Theme Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer text-muted-foreground">
+                Version {install?.theme?.version ?? "1.0.0"}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
@@ -1389,54 +1717,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               }} className="cursor-pointer">
                 Back to Dashboard
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {websiteUrl && (
-                <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")} className="cursor-pointer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  View Live
-                </DropdownMenuItem>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* Page Switcher */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 border-border bg-background shrink-0 cursor-pointer justify-between gap-1.5 w-[160px] md:w-[200px]">
-                <span className="truncate flex-1 text-left text-sm font-normal">
-                  {PAGE_META[currentPage]?.label ?? currentPage}
-                </span>
-                <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-[100]">
-              {(Object.keys(PAGE_META) as PageKey[]).map(key => (
-                <DropdownMenuItem key={key} onClick={() => handlePageChange(key)} className="cursor-pointer">
-                  {PAGE_META[key].label}
-                  {currentPage === key && <Check className="h-3.5 w-3.5 ml-auto text-purple-600" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Add Section Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5 bg-transparent shrink-0 cursor-pointer"
-            onClick={() => setAddSectionOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add</span>
-          </Button>
         </div>
 
-        {/* Center: theme name + status */}
-        <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
-          <span className="text-sm font-medium text-foreground truncate hidden md:block">{install?.name}</span>
-          {install?.status === "published" && (
-            <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[10px] font-semibold uppercase tracking-wide shrink-0">Live</Badge>
-          )}
+        {/* Center: unsaved indicator */}
+        <div className="flex-1 flex items-center justify-center min-w-0">
           {isDirty && (
             <span className="text-xs text-amber-600 hidden md:inline">Unsaved changes</span>
           )}
@@ -1543,6 +1829,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             className="relative flex-shrink-0 border-r border-border bg-background flex flex-col h-full overflow-hidden"
             style={{ width: sidebarWidth, minWidth: 280 }}
           >
+            {/* Sections / General Settings switcher */}
+            {!pageBrowserOpen && selectedPanel.type !== "section" && (
+              <div className="flex border-b border-border shrink-0">
+                <button
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-semibold tracking-wide text-center transition-colors",
+                    sidebarMode === "sections"
+                      ? "text-foreground border-b-2 border-purple-600"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => { setSidebarMode("sections"); setSelectedPanel({ type: "pages" }) }}
+                >
+                  Sections
+                </button>
+                <button
+                  className={cn(
+                    "flex-1 py-2.5 text-xs font-semibold tracking-wide text-center transition-colors",
+                    sidebarMode === "settings"
+                      ? "text-foreground border-b-2 border-purple-600"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => { setSidebarMode("settings"); setSelectedPanel({ type: "theme_settings" }) }}
+                >
+                  General Settings
+                </button>
+              </div>
+            )}
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               {renderSidebarContent()}
             </div>
@@ -1626,6 +1939,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onOpenChange={setAddSectionOpen}
         onAddSection={addSection}
       />
+
+      {/* ── Edit All Product Pages Confirmation Modal ── */}
+      <Dialog open={editAllConfirmOpen} onOpenChange={setEditAllConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Are you sure?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>Editing all product pages means that you can change all your store product pages at the same time from one place.</p>
+            <p>For example, you can add a slideshow section to all your product pages simultaneously without needing to add it one by one.</p>
+            <p>This is a great way to save a lot of effort while you make bulk changes.</p>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setEditAllConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-purple-600 text-white hover:bg-purple-700"
+              onClick={() => {
+                setEditAllProductPages(true)
+                setEditAllConfirmOpen(false)
+                setSelectedProductPage(null)
+              }}
+            >
+              Start Editing All
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
