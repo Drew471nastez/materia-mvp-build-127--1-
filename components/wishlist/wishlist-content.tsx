@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl, getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
-import { isNativeApp, isIOS } from "@/lib/native-bridge"
+import { isNativeApp } from "@/lib/native-bridge"
 
 interface WishlistItem {
   id: string
@@ -61,9 +61,6 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
   const [items, setItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [removingId, setRemovingId] = useState<string | null>(null)
-  const [isIOSApp, setIsIOSApp] = useState(false)
-  useEffect(() => { setIsIOSApp(isIOS()) }, [])
-
   const fetchWishlist = useCallback(async () => {
     try {
       const res = await fetch("/api/wishlist", {
@@ -154,15 +151,13 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
         <p className="text-neutral-500 text-sm text-center max-w-xs mb-8">
           Products you save will appear here. Start exploring to find something you love.
         </p>
-        {!isIOSApp && (
-          <Link
-            href="/explore"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
-          >
-            Explore Products
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        )}
+        <Link
+          href="/explore"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+        >
+          Explore Products
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
     )
   }

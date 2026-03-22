@@ -5,9 +5,8 @@
 export default function AppDashboardLoading() {
   return (
     <div className="h-full overflow-y-auto dashboard-scroll-container" style={{ background: "#f2f2f2" }}>
-      {/* Announcement bar placeholder removed — the real bar waits for the iOS
-          check before rendering, so showing a purple placeholder here would cause
-          a flash on iOS Capacitor where the bar is hidden. */}
+      {/* Announcement bar placeholder — same height as the real purple bar */}
+      <div className="h-[38px] sm:h-[42px] bg-[#8b5cf6]" />
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto animate-pulse">
         {/* Header skeleton */}

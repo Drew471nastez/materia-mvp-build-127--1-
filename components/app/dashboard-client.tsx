@@ -61,7 +61,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal, isIOS } from "@/lib/native-bridge"
+import { openExternal } from "@/lib/native-bridge"
 import { useToast } from "@/hooks/use-toast"
 
 interface SetupStep {
@@ -1798,22 +1798,6 @@ export function DashboardClient({
   const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
   const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
-  // iOS App Store compliance (Guideline 3.1.1): hide upgrade CTAs on iOS.
-  // Start with "pending" to avoid a purple flash before the iOS check runs.
-  const [isIOSApp, setIsIOSApp] = useState(false)
-  const isIOSRef = useRef(false)
-  const [announcementReady, setAnnouncementReady] = useState(false)
-  useEffect(() => {
-    const ios = isIOS()
-    setIsIOSApp(ios)
-    isIOSRef.current = ios
-    // On iOS, skip straight to the first non-upgrade announcement
-    if (ios) {
-      setAnnouncementType(!allCompleted ? "steps" : hasProducts && !hasPayouts ? "payouts" : "upgrade")
-    }
-    setAnnouncementReady(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Announcement bar state
   const DURATION = 15000 // 15 seconds — matches the CSS transition below
@@ -1835,18 +1819,16 @@ export function DashboardClient({
       setAnnouncementVisible(false)
       setTimeout(() => {
         setAnnouncementType((prev) => {
-          const onIOS = isIOSRef.current
           if (prev === "upgrade") {
             if (!allCompleted) return "steps"
             if (hasProducts && !hasPayouts) return "payouts"
             return "upgrade"
           } else if (prev === "steps") {
             if (hasProducts && !hasPayouts) return "payouts"
-            // On iOS never return "upgrade"
-            return onIOS ? (!allCompleted ? "steps" : "payouts") : "upgrade"
+            return "upgrade"
           } else {
             // was "payouts"
-            return onIOS ? (!allCompleted ? "steps" : "payouts") : "upgrade"
+            return "upgrade"
           }
         })
         setProgressTarget(0)
@@ -1927,8 +1909,8 @@ export function DashboardClient({
           willChange: "transform",
         }}
       >
-      {/* Announcement Bar — hidden until iOS check completes to prevent purple flash; hidden on iOS for upgrade CTA (App Store Guideline 3.1.1) */}
-      {announcementReady && (!isIOSApp || announcementType !== "upgrade") && <div className="bg-[#8b5cf6] text-white">
+      {/* Announcement Bar */}
+      <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
@@ -2410,14 +2392,7 @@ export function DashboardClient({
                     </Link>
                   </div>
                 </>
-              ) : isIOSApp ? (
-                /* Free plan banner — iOS: no upgrade links (App Store Guideline 3.1.1) */
-                <>
-                  <p className="text-[14px] sm:text-[16px] font-medium text-white mb-1">Scale faster with Growth features</p>
-                  <p className="text-[13px] sm:text-[14px] text-white/80">Plan changes are managed on the web dashboard.</p>
-                </>
               ) : (
-                /* Free plan banner — web */
                 <>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[13px] sm:text-[15px] font-semibold text-white">Unlock Growth features</span>

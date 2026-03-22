@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { isNativeApp, nativeLogOut, openExternal, isIOS } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
@@ -20,9 +20,6 @@ export function DashboardSidebar() {
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
-  const [isIOSApp, setIsIOSApp] = useState(false)
-  useEffect(() => { setIsIOSApp(isIOS()) }, [])
-
   // Close on navigation
   useEffect(() => {
     setMobileMenuOpen(false)
@@ -124,9 +121,7 @@ export function DashboardSidebar() {
           <Compass className="h-4 w-4 shrink-0" />
           <span className="truncate">Discover</span>
         </Link>
-        {/* Start Selling button: hidden on iOS — creator onboarding leads to Stripe Connect
-            which is blocked under App Store Guideline 3.1.1 */}
-        {!isCreator && !isIOSApp && (
+        {!isCreator && (
           <Link
             href="/signup/success?action=become-creator"
             onClick={onItemClick}

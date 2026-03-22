@@ -1,21 +1,8 @@
 import { Suspense } from "react"
 import { notFound, redirect } from "next/navigation"
-import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
-
-// iOS App Store compliance (Guideline 3.1.1): block product checkout on iOS.
-// All payment flows (subscriptions and product purchases) must go through
-// Apple IAP — this app uses Stripe instead, so checkout must be unavailable
-// on iOS native builds. Detect Capacitor iOS builds via User-Agent.
-async function isCapacitorIOS(): Promise<boolean> {
-  const headersList = await headers()
-  const ua = headersList.get("user-agent") || ""
-  const isCapacitor = /StorelibApp|Capacitor/.test(ua)
-  const isAndroid = /Android/.test(ua)
-  return isCapacitor && !isAndroid
-}
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string }>
@@ -183,11 +170,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 }
 
 export default async function CheckoutPage(props: CheckoutPageProps) {
-  // iOS App Store compliance: redirect before rendering any payment UI
-  if (await isCapacitorIOS()) {
-    redirect("/library")
-  }
-
   return (
     <Suspense
       fallback={

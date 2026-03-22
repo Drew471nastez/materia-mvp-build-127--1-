@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
-import { isNativeApp, openExternal, isIOS } from "@/lib/native-bridge"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
@@ -27,16 +27,6 @@ export function UpgradePageClient({
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
-  const [isIOSApp, setIsIOSApp] = useState(false)
-
-  useEffect(() => {
-    if (isIOS()) {
-      // iOS App Store compliance: redirect immediately if the server guard was
-      // bypassed by a client-side navigation (e.g. router.push).
-      setIsIOSApp(true)
-      router.replace("/app/settings")
-    }
-  }, [router])
 
   const goBack = () => {
     if (closing) return
@@ -118,9 +108,6 @@ export function UpgradePageClient({
     growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
     pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
   }
-
-  // iOS: show blank while redirect fires (router.replace is async)
-  if (isIOSApp) return null
 
   return (
     <div className="relative bg-white min-h-full">

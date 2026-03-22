@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { isIOS } from "@/lib/native-bridge"
 
 interface BuyButtonProps {
   productId: string
@@ -30,9 +29,6 @@ export function BuyButton({
   customPriceCents,
 }: BuyButtonProps) {
   const [loading, setLoading] = useState(false)
-  const [isIOSApp, setIsIOSApp] = useState(false)
-  useEffect(() => { setIsIOSApp(isIOS()) }, [])
-
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
     return new Intl.NumberFormat("en-US", {
@@ -76,9 +72,6 @@ export function BuyButton({
   const displayPrice = customPriceCents !== null && customPriceCents !== undefined
     ? customPriceCents
     : price
-
-  // iOS App Store compliance (Guideline 3.1.1): hide all purchase CTAs on iOS.
-  if (isIOSApp) return null
 
   return (
     <Button
