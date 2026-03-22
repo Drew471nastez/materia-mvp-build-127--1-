@@ -1133,7 +1133,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     ].filter(p => p.name.toLowerCase().includes(search))
 
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full animate-in fade-in duration-200">
+        {/* Header with back button */}
+        <div className="px-4 py-3 border-b border-border shrink-0">
+          <button
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+            onClick={() => { setPageBrowserOpen(false); setSidebarMode("sections") }}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
+          <p className="text-sm font-semibold">Pages</p>
+        </div>
+
         {/* Search */}
         <div className="px-3 pt-3 pb-2 shrink-0">
           <div className="relative">
@@ -1148,10 +1160,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 px-1 py-3">
-            <FileText className="h-3.5 w-3.5" />
-            Select page which you'd like to edit
-          </p>
 
           {/* Custom Pages */}
           {customPages.length > 0 && (
@@ -1253,15 +1261,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       } else {
         // Global theme settings
         return (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full animate-in fade-in duration-200">
             <div className="px-4 py-3 border-b border-border shrink-0">
-              <button
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-                onClick={() => setSidebarMode("sections")}
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back
-              </button>
               <p className="text-sm font-semibold">General Settings</p>
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
@@ -1306,37 +1307,58 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const pageLabel = selectedProductPage
         ? selectedProductPage
         : (PAGE_META[currentPage]?.label ?? currentPage)
-      const pageType = selectedProductPage ? "PRODUCT PAGE" : (currentPage === "home" ? "HOME PAGE" : PAGE_META[currentPage]?.label?.toUpperCase())
 
       return (
-        <div className="flex flex-col h-full">
-          {/* Page header with settings gear */}
-          <div className="px-4 py-3 border-b border-border shrink-0">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{pageType}</p>
-              <button
-                className="h-7 w-7 flex items-center justify-center rounded-md border border-border hover:bg-muted transition-colors"
-                onClick={() => setPageBrowserOpen(true)}
-                title="Browse pages"
-              >
-                <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            </div>
-            <p className="text-base font-semibold mt-0.5">{pageLabel}</p>
+        <div className="flex flex-col h-full animate-in fade-in duration-200">
+          {/* Page selector dropdown */}
+          <div className="px-3 py-3 border-b border-border shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium">
+                  <span className="truncate">{pageLabel}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground ml-2" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[220px] z-[100]">
+                {(Object.keys(PAGE_META) as PageKey[]).map(key => (
+                  <DropdownMenuItem key={key} onClick={() => handlePageChange(key)} className="cursor-pointer">
+                    {PAGE_META[key].label}
+                    {currentPage === key && !selectedProductPage && <Check className="h-3.5 w-3.5 ml-auto text-purple-600" />}
+                  </DropdownMenuItem>
+                ))}
+                {products.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <p className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Products</p>
+                    {products.slice(0, 5).map(p => (
+                      <DropdownMenuItem key={p.id} onClick={() => handleSelectProductPage(p.title)} className="cursor-pointer">
+                        {p.title}
+                        {selectedProductPage === p.title && <Check className="h-3.5 w-3.5 ml-auto text-purple-600" />}
+                      </DropdownMenuItem>
+                    ))}
+                    {products.length > 5 && (
+                      <DropdownMenuItem onClick={() => setPageBrowserOpen(true)} className="cursor-pointer text-purple-600">
+                        View all pages...
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Skeleton loading when switching pages */}
           {sectionsLoading ? (
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />
+                <div key={i} className="h-12 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
               ))}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+            <div className="flex-1 overflow-y-auto p-3 space-y-0.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
               {/* Header (global) */}
               {header && (
-                <div className="border border-border rounded-lg mb-2">
+                <div className="border border-border rounded-lg mb-3">
                   <SidebarSectionRow
                     section={header}
                     isSelected={selectedSectionId === header.id}
@@ -1349,39 +1371,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </div>
               )}
 
-              {/* Body sections with left border connector */}
-              <div className="border-l-2 border-border ml-4 pl-0">
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-0.5 -ml-4">
-                      {bodySection.map(section => (
-                        <SortableSectionRow
-                          key={section.id}
-                          section={section}
-                          isSelected={selectedSectionId === section.id}
-                          onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
-                          onToggleHide={() => toggleSectionHidden(section.id)}
-                          onDuplicate={() => duplicateSection(section.id)}
-                          onRemove={() => removeSection(section.id)}
-                        />
-                      ))}
-                      <button
-                        className="w-full flex items-center gap-2 px-3 py-3 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors font-medium"
-                        onClick={() => setAddSectionOpen(true)}
-                      >
-                        <div className="h-7 w-7 rounded-md border-2 border-dashed border-purple-300 flex items-center justify-center">
-                          <Plus className="h-3.5 w-3.5" />
-                        </div>
-                        Add section
-                      </button>
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </div>
+              {/* Body sections — no connector line */}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-0.5">
+                    {bodySection.map(section => (
+                      <SortableSectionRow
+                        key={section.id}
+                        section={section}
+                        isSelected={selectedSectionId === section.id}
+                        onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                        onToggleHide={() => toggleSectionHidden(section.id)}
+                        onDuplicate={() => duplicateSection(section.id)}
+                        onRemove={() => removeSection(section.id)}
+                      />
+                    ))}
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-purple-600 hover:bg-purple-50/60 rounded-lg transition-colors font-medium"
+                      onClick={() => setAddSectionOpen(true)}
+                    >
+                      <div className="h-8 w-8 rounded-lg border-2 border-dashed border-purple-300 flex items-center justify-center">
+                        <Plus className="h-4 w-4" />
+                      </div>
+                      Add section
+                    </button>
+                  </div>
+                </SortableContext>
+              </DndContext>
 
               {/* Footer (global) */}
               {footer && (
-                <div className="border border-border rounded-lg mt-2">
+                <div className="border border-border rounded-lg mt-3">
                   <SidebarSectionRow
                     section={footer}
                     isSelected={selectedSectionId === footer.id}
@@ -1391,58 +1411,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     onRemove={() => removeSection(footer.id)}
                     isStructure
                   />
-                </div>
-              )}
-
-              {/* Editing mode panel */}
-              {currentPage === "product" && (
-                <div className="mt-6 pt-4 border-t border-border space-y-4">
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                      <FileText className="h-3 w-3" />
-                      {editAllProductPages ? "EDITING ALL PRODUCT PAGES" : "EDITING SINGLE PAGE"}
-                    </p>
-                    {editAllProductPages ? (
-                      <>
-                        <p className="text-xs text-muted-foreground mb-2">You're editing all product pages at once</p>
-                        <button
-                          className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
-                          onClick={() => setEditAllProductPages(false)}
-                        >
-                          Go back to editing individual page
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          You're currently editing a single product page{selectedProductPage ? ` "${selectedProductPage}"` : ""}
-                        </p>
-                        <button
-                          className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
-                          onClick={() => setEditAllConfirmOpen(true)}
-                        >
-                          Edit all product pages at the same time
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                      <Palette className="h-3 w-3" />
-                      STORE STYLE
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-2">You can change your store colors, fonts etc</p>
-                    <button
-                      className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted transition-colors"
-                      onClick={() => setSidebarMode("settings")}
-                    >
-                      Change store style
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -1825,39 +1793,51 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* ── Left sidebar ── */}
         {!isMobileView ? (
-          <div
-            className="relative flex-shrink-0 border-r border-border bg-background flex flex-col h-full overflow-hidden"
-            style={{ width: sidebarWidth, minWidth: 280 }}
-          >
-            {/* Sections / General Settings switcher */}
-            {!pageBrowserOpen && selectedPanel.type !== "section" && (
-              <div className="flex border-b border-border shrink-0">
-                <button
-                  className={cn(
-                    "flex-1 py-2.5 text-xs font-semibold tracking-wide text-center transition-colors",
-                    sidebarMode === "sections"
-                      ? "text-foreground border-b-2 border-purple-600"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => { setSidebarMode("sections"); setSelectedPanel({ type: "pages" }) }}
-                >
-                  Sections
-                </button>
-                <button
-                  className={cn(
-                    "flex-1 py-2.5 text-xs font-semibold tracking-wide text-center transition-colors",
-                    sidebarMode === "settings"
-                      ? "text-foreground border-b-2 border-purple-600"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => { setSidebarMode("settings"); setSelectedPanel({ type: "theme_settings" }) }}
-                >
-                  General Settings
-                </button>
+          <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-hidden">
+            {/* Vertical icon rail */}
+            <div className="w-12 border-r border-border bg-muted/30 flex flex-col items-center py-3 gap-1 shrink-0">
+              <button
+                className={cn(
+                  "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
+                  sidebarMode === "sections" && !pageBrowserOpen
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+                onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
+                title="Sections"
+              >
+                <Layers className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                className={cn(
+                  "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
+                  pageBrowserOpen
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+                onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
+                title="Pages"
+              >
+                <FileText className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                className={cn(
+                  "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
+                  sidebarMode === "settings" && !pageBrowserOpen
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+                onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
+                title="General Settings"
+              >
+                <Settings className="h-[18px] w-[18px]" />
+              </button>
+            </div>
+            {/* Sidebar content panel */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth - 48, minWidth: 232 }}>
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                {renderSidebarContent()}
               </div>
-            )}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-              {renderSidebarContent()}
             </div>
           </div>
         ) : (
@@ -1865,17 +1845,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             {/* Mobile sidebar overlay */}
             <div
               className={cn(
-                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[320px] bg-background border-r border-border transition-transform duration-300 ease-in-out",
+                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[360px] bg-background border-r border-border transition-transform duration-300 ease-in-out flex",
                 mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
               )}
-              style={{ top: "56px" }}
+              style={{ top: "48px" }}
             >
-              <div className="flex flex-col h-full">
-                {renderSidebarContent()}
+              {/* Mobile icon rail */}
+              <div className="w-12 border-r border-border bg-muted/30 flex flex-col items-center py-3 gap-1 shrink-0">
+                <button
+                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "sections" && !pageBrowserOpen ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}
+                  onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
+                >
+                  <Layers className="h-[18px] w-[18px]" />
+                </button>
+                <button
+                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", pageBrowserOpen ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}
+                  onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
+                >
+                  <FileText className="h-[18px] w-[18px]" />
+                </button>
+                <button
+                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "settings" && !pageBrowserOpen ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted")}
+                  onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
+                >
+                  <Settings className="h-[18px] w-[18px]" />
+                </button>
+              </div>
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                  {renderSidebarContent()}
+                </div>
               </div>
             </div>
             {mobileSidebarOpen && (
-              <div className="absolute inset-0 z-20 bg-black/30" style={{ top: "56px" }} onClick={() => setMobileSidebarOpen(false)} />
+              <div className="absolute inset-0 z-20 bg-black/30" style={{ top: "48px" }} onClick={() => setMobileSidebarOpen(false)} />
             )}
           </>
         )}
