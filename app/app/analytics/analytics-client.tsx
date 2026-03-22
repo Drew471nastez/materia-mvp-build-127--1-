@@ -2035,13 +2035,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const displayOnePageMetrics = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_ONEPAGE : onePageMetrics
   const chartDisplayData = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData
 
-  // Mark chart animation as done after first render so touches don't replay it
-  // Animate chart on data/metric change, then stop so touches don't replay it
+  // Animate chart only when the underlying data changes (timeframe / product
+  // filter), NOT when switching metric KPI cards — that just shows/hides
+  // different Area layers and shouldn't replay the line-draw animation.
   useEffect(() => {
     setChartShouldAnimate(true)
     const timer = setTimeout(() => setChartShouldAnimate(false), 900)
     return () => clearTimeout(timer)
-  }, [chartDisplayData, chartMetricFilter, onePageChartFilter])
+  }, [chartDisplayData])
 
   // Store data length in ref for native listener access
   const chartDataLenRef = useRef(chartDisplayData.length)

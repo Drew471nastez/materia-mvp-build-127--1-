@@ -1799,8 +1799,10 @@ export function DashboardClient({
   const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
   // iOS App Store compliance (Guideline 3.1.1): hide upgrade CTAs on iOS.
+  // Start with "pending" to avoid a purple flash before the iOS check runs.
   const [isIOSApp, setIsIOSApp] = useState(false)
   const isIOSRef = useRef(false)
+  const [announcementReady, setAnnouncementReady] = useState(false)
   useEffect(() => {
     const ios = isIOS()
     setIsIOSApp(ios)
@@ -1809,6 +1811,7 @@ export function DashboardClient({
     if (ios) {
       setAnnouncementType(!allCompleted ? "steps" : hasProducts && !hasPayouts ? "payouts" : "upgrade")
     }
+    setAnnouncementReady(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1924,8 +1927,8 @@ export function DashboardClient({
           willChange: "transform",
         }}
       >
-      {/* Announcement Bar — hidden on iOS when showing upgrade CTA (App Store Guideline 3.1.1) */}
-      {(!isIOSApp || announcementType !== "upgrade") && <div className="bg-[#8b5cf6] text-white">
+      {/* Announcement Bar — hidden until iOS check completes to prevent purple flash; hidden on iOS for upgrade CTA (App Store Guideline 3.1.1) */}
+      {announcementReady && (!isIOSApp || announcementType !== "upgrade") && <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${

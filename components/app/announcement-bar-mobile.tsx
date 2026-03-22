@@ -13,10 +13,13 @@ import { isIOS } from "@/lib/native-bridge"
  * Shown normally on Android and all web browsers.
  */
 export function AnnouncementBarMobile({ children }: { children: React.ReactNode }) {
-  const [isIOSApp, setIsIOSApp] = useState(false)
-  useEffect(() => { setIsIOSApp(isIOS()) }, [])
+  // Start hidden to prevent a purple flash on iOS Capacitor before the
+  // useEffect check runs.  The bar fades in on non-iOS platforms once
+  // the check completes (~1 frame).
+  const [visibility, setVisibility] = useState<"pending" | "show" | "hide">("pending")
+  useEffect(() => { setVisibility(isIOS() ? "hide" : "show") }, [])
 
-  if (isIOSApp) return null
+  if (visibility !== "show") return null
 
   return (
     <div className="w-full bg-[#8b5cf6] text-white">
