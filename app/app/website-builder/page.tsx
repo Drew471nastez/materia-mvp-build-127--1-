@@ -443,21 +443,24 @@ export default function WebsiteBuilderPage() {
   }
 
   const handleAddTheme = async (catalogTheme: typeof THEME_CATALOG[0]) => {
-    // Check max 3 themes
     if (installs.length >= 3) {
       toast({ title: "Maximum 3 websites allowed. Remove one to add another.", variant: "destructive" })
       return
     }
 
     setActionLoading(catalogTheme.id + "_add")
-    // Initialize themes if needed, then reload — the theme will be auto-created
-    // We need to use the duplicate endpoint from an existing install of same theme, or use initialize
-    // For simplicity: use initialize to ensure theme exists, then reload
-    const res = await fetch("/api/website-builder/initialize", { method: "POST" })
+    const res = await fetch("/api/website-builder/themes/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme_id: catalogTheme.themeId }),
+    })
     setActionLoading(null)
     if (res.ok) {
-      toast({ title: `"${catalogTheme.name}" added to your websites` })
+      toast({ title: `"${catalogTheme.name}" added` })
       await loadInstalls()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast({ title: d.error ?? "Failed to add theme", variant: "destructive" })
     }
   }
 
@@ -500,7 +503,7 @@ export default function WebsiteBuilderPage() {
   const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
 
   return (
-    <div className="max-w-[900px] mx-auto px-5 py-8">
+    <div className="max-w-[810px] mx-auto px-5 py-8">
       {/* ── Page header with View Live + URL ── */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -545,39 +548,26 @@ export default function WebsiteBuilderPage() {
           Current Website
         </h2>
         {liveTheme ? (
-          <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-            {/* Preview in browser-style frame */}
-            <div className="relative bg-neutral-100 p-4 sm:p-6">
-              {/* Browser chrome */}
-              <div className="rounded-xl overflow-hidden shadow-xl shadow-black/8 border border-neutral-200/80 bg-white">
-                {/* Browser toolbar */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
-                  <div className="flex gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/60" />
-                  </div>
-                  <div className="flex-1 mx-3">
-                    <div className="bg-white rounded-md border border-neutral-200 px-3 py-0.5 text-[10px] text-neutral-400 truncate max-w-[260px]">
-                      {websiteDisplay || "storelib.com/yoursite"}
-                    </div>
-                  </div>
-                </div>
-                {/* Actual rendered sections */}
+          <div className="rounded-2xl border border-neutral-200/70 bg-neutral-50 overflow-hidden">
+            {/* Website preview — clean, just the site in a gray container */}
+            <div className="relative px-[8%] pt-6 sm:pt-8">
+              <div className="rounded-t-xl overflow-hidden shadow-2xl shadow-black/10 bg-white border border-neutral-200/60 border-b-0">
                 <ThemePreview install={liveTheme} aspectClass="aspect-[16/9]" />
               </div>
-              <div className="absolute top-6 sm:top-8 left-6 sm:left-8">
-                <StatusBadge status="published" />
-              </div>
+              {/* Bottom fade — natural edge like the screenshot */}
+              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-neutral-50 to-transparent pointer-events-none" />
             </div>
 
             {/* Info bar */}
-            <div className="px-5 py-4">
+            <div className="bg-white border-t border-neutral-200/60 px-5 py-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="text-base font-semibold text-neutral-900 truncate">{liveTheme.name}</h2>
                   <p className="text-xs text-neutral-500 mt-0.5">
                     {liveTheme.theme?.author ?? "Storelib"} · v{liveTheme.theme?.version ?? "1.0.0"}
+                  </p>
+                  <p className="text-[11px] text-neutral-400 mt-1">
+                    Last saved {new Date(liveTheme.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date(liveTheme.updated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
                   </p>
                 </div>
 
@@ -673,7 +663,10 @@ export default function WebsiteBuilderPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-neutral-900 truncate">{install.name}</p>
                         <p className="text-xs text-neutral-500 truncate mt-0.5">
-                          {install.theme?.author ?? "Storelib"}
+                          {install.theme?.author ?? "Storelib"} · v{install.theme?.version ?? "1.0.0"}
+                        </p>
+                        <p className="text-[10px] text-neutral-400 mt-0.5">
+                          Last saved {new Date(install.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
                       <DropdownMenu>
