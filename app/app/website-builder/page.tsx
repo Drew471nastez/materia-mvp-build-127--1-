@@ -582,14 +582,16 @@ export default function WebsiteBuilderPage() {
           Current theme
         </h2>
         {liveTheme ? (
-          <LiveThemeCard
-            install={liveTheme}
-            username={username}
-            onEdit={() => goToEditor(liveTheme.id)}
-            onCode={() => goToCode(liveTheme.id)}
-            onAction={handleAction}
-            screenshotTimestamp={screenshotTimestamp}
-          />
+          <div className="max-w-[50%]">
+            <LiveThemeCard
+              install={liveTheme}
+              username={username}
+              onEdit={() => goToEditor(liveTheme.id)}
+              onCode={() => goToCode(liveTheme.id)}
+              onAction={handleAction}
+              screenshotTimestamp={screenshotTimestamp}
+            />
+          </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
             <Globe className="h-8 w-8 text-neutral-300 mx-auto mb-3" />

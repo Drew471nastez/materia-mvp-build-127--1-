@@ -3,6 +3,7 @@ import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
+import { isSmtpConfigured } from "@/lib/mail"
 import { notifySale } from "@/lib/push/notifications"
 import { v4 as uuidv4 } from "uuid"
 
@@ -253,20 +254,28 @@ async function processPostOrder(
 
   // 5. Send order emails (buyer download + seller notification)
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
-    const emailResults = await sendOrderEmails(admin, {
-      orderId: order.id,
-      buyerEmail,
-      buyerFirstName,
-      buyerLastName,
-      productTitle: product.title,
-      receiptToken,
-      creatorId: creator.id,
-      amountCents: 0,
-      feeCents: 0,
-      baseUrl,
-    })
-    results.push(`Emails: buyer=${emailResults.buyerSuccess}, seller=${emailResults.sellerSuccess}`)
+    if (!isSmtpConfigured()) {
+      results.push("Emails skipped: MAILGUN_API_KEY not configured in environment")
+    } else {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
+      const emailResults = await sendOrderEmails(admin, {
+        orderId: order.id,
+        buyerEmail,
+        buyerFirstName,
+        buyerLastName,
+        productTitle: product.title,
+        receiptToken,
+        creatorId: creator.id,
+        amountCents: 0,
+        feeCents: 0,
+        baseUrl,
+      })
+      if (emailResults.buyerSuccess && emailResults.sellerSuccess) {
+        results.push("Emails sent successfully (buyer + seller)")
+      } else {
+        results.push(`Emails: buyer=${emailResults.buyerSuccess}, seller=${emailResults.sellerSuccess}`)
+      }
+    }
   } catch (e) {
     results.push(`Email failed: ${e}`)
   }

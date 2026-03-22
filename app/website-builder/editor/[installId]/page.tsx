@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -579,6 +580,19 @@ function AddSectionModal({
   onAddSection: (type: string) => void
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [isMobileLayout, setIsMobileLayout] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobileLayout(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // Reset category when modal opens
+  useEffect(() => {
+    if (open) setActiveCategory(null)
+  }, [open])
 
   const byCategory = ADDABLE_SECTIONS.reduce<Record<string, string[]>>((acc, type) => {
     const cat = SECTION_SCHEMAS[type]?.category ?? "content"
@@ -588,73 +602,165 @@ function AddSectionModal({
   }, {})
 
   const categories = Object.keys(byCategory)
-  const visibleCategory = activeCategory ?? categories[0]
   const visibleSections = activeCategory ? byCategory[activeCategory] ?? [] : ADDABLE_SECTIONS
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 gap-0 flex flex-col overflow-hidden rounded-2xl w-[calc(100vw-32px)] max-w-4xl h-[85vh] sm:h-[80vh]">
-        <DialogHeader className="px-6 py-4 border-b border-border shrink-0 bg-background">
-          <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">Choose a section to add to your page</DialogDescription>
-        </DialogHeader>
+  const allCategories = [
+    { key: "all", label: "All" },
+    ...categories.map(cat => ({ key: cat, label: SECTION_CATEGORIES[cat] ?? cat })),
+  ]
 
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Left: Categories */}
-          <div className="w-[200px] border-r border-border bg-muted/30 overflow-y-auto shrink-0 py-2">
-            <button
-              className={cn(
-                "w-full text-left px-4 py-2.5 text-sm transition-colors",
-                !activeCategory ? "text-purple-600 font-semibold bg-purple-50 border-l-2 border-purple-600" : "text-foreground hover:bg-muted"
-              )}
-              onClick={() => setActiveCategory(null)}
-            >
-              All Sections
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                className={cn(
-                  "w-full text-left px-4 py-2.5 text-sm transition-colors",
-                  activeCategory === cat ? "text-purple-600 font-semibold bg-purple-50 border-l-2 border-purple-600" : "text-foreground hover:bg-muted"
-                )}
-                onClick={() => setActiveCategory(cat)}
-              >
-                {SECTION_CATEGORIES[cat] ?? cat}
-              </button>
-            ))}
+  const handleAdd = (type: string) => {
+    onAddSection(type)
+    onOpenChange(false)
+  }
+
+  // ── Section card (shared between mobile & desktop) ──
+  const SectionCard = ({ type, mobile }: { type: string; mobile?: boolean }) => {
+    const schema = SECTION_SCHEMAS[type]
+    if (!schema) return null
+    return (
+      <button
+        onClick={() => handleAdd(type)}
+        className={cn(
+          "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
+          "transition-all duration-200 ease-out will-change-transform",
+          mobile
+            ? "rounded-2xl active:scale-[0.98] active:opacity-80 shadow-sm"
+            : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
+          "group cursor-pointer"
+        )}
+      >
+        {/* Title above the preview */}
+        <div className="px-4 pt-3 pb-2.5 shrink-0">
+          <p className="font-semibold text-sm leading-tight text-foreground">{schema.name}</p>
+        </div>
+        {/* Full-width section preview */}
+        <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative aspect-[16/9]">
+          <SectionPreviewThumbnail type={type} />
+        </div>
+      </button>
+    )
+  }
+
+  // ── Mobile: bottom sheet ──
+  if (isMobileLayout) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          enableDragToClose
+          onDragClose={() => onOpenChange(false)}
+          className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
+          style={{ height: "80dvh" }}
+        >
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
+            <div className="w-10 h-1.5 rounded-full bg-foreground/10" />
           </div>
 
-          {/* Right: Section previews */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {visibleSections.map(type => {
-                const schema = SECTION_SCHEMAS[type]
-                if (!schema) return null
-                return (
-                  <button
-                    key={type}
-                    onClick={() => { onAddSection(type); onOpenChange(false) }}
-                    className="group flex flex-col rounded-xl border border-border bg-background overflow-hidden transition-all hover:border-purple-400 hover:shadow-lg hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer text-left"
-                  >
-                    {/* Preview thumbnail */}
-                    <div className="w-full aspect-[16/9] overflow-hidden border-b border-border/50 bg-muted">
-                      <SectionPreviewThumbnail type={type} />
-                    </div>
-                    {/* Info */}
-                    <div className="p-3 flex items-center gap-2.5">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-purple-100 group-hover:text-purple-600 shrink-0 transition-colors">
-                        <SectionIcon type={type} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm truncate">{schema.name}</p>
-                        {schema.description && <p className="text-xs text-muted-foreground truncate">{schema.description}</p>}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+          {/* Mobile header */}
+          <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Add Section</h2>
             </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Horizontal category pills */}
+          <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex gap-2 w-max">
+              {allCategories.map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
+                    (cat.key === "all" && !activeCategory) || activeCategory === cat.key
+                      ? "bg-foreground text-background shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-border/60 shrink-0" />
+
+          {/* Section list — single column */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-8">
+            <div className="flex flex-col gap-3">
+              {visibleSections.map((type) => (
+                <SectionCard key={type} type={type} mobile />
+              ))}
+            </div>
+            {visibleSections.length === 0 && (
+              <div className="py-16 text-center text-muted-foreground">
+                <p className="text-sm">No sections in this category</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  // ── Desktop: centered modal ──
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className={cn(
+          "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
+          "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
+          "max-h-[88vh]"
+        )}
+      >
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+          <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
+        </DialogHeader>
+
+        {/* Body: sidebar + grid */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left categories sidebar */}
+          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
+            {allCategories.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 text-sm font-medium transition-all relative",
+                  (cat.key === "all" && !activeCategory) || activeCategory === cat.key
+                    ? "text-foreground bg-background border-l-2 border-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Right: 1-column grid */}
+          <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+            <div className="grid grid-cols-1 gap-4">
+              {visibleSections.map((type) => (
+                <SectionCard key={type} type={type} />
+              ))}
+            </div>
+            {visibleSections.length === 0 && (
+              <div className="py-16 text-center text-muted-foreground">
+                <p className="text-sm">No sections in this category</p>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
