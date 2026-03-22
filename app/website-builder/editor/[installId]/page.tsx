@@ -801,7 +801,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [install, setInstall] = useState<ThemeInstall | null>(null)
   const [sections, setSections] = useState<SectionInstance[]>([])
   const [settingsDraft, setSettingsDraft] = useState<ThemeSettingsValues>({})
-  const [currentPage, setCurrentPage] = useState<PageKey>("home")
+  const [currentPage, setCurrentPage] = useState<PageKey>(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("page")
+      if (p) return p as PageKey
+    }
+    return "home"
+  })
   const [selectedPanel, setSelectedPanel] = useState<Panel>({ type: "pages" })
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop")
   const [loading, setLoading] = useState(true)
@@ -1018,6 +1024,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
+  // Update browser URL to reflect current page
+  const updatePageUrl = useCallback((page: string, productName?: string) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set("page", page)
+    if (productName) url.searchParams.set("product", productName)
+    else url.searchParams.delete("product")
+    window.history.replaceState({}, "", url.toString())
+  }, [])
+
   const handlePageChange = async (page: PageKey) => {
     setSectionsLoading(true)
     setCanvasLoading(true)
@@ -1026,6 +1041,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setPageBrowserOpen(false)
     setSelectedProductPage(null)
     setEditAllProductPages(false)
+    updatePageUrl(page)
     await loadSections(page)
     setSectionsLoading(false)
     setCanvasLoading(false)
@@ -1038,6 +1054,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setCurrentPage("product")
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
+    updatePageUrl("product", productTitle)
 
     // Build fallback product data from the products list immediately
     const listProduct = products.find(p => p.id === productId)
@@ -1246,7 +1263,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [handleUndo, handleRedo])
 
   const saveDraft = async () => {
-    setSaving(true)
     try {
       await fetch(`/api/website-builder/themes/${installId}/settings`, {
         method: "PUT",
@@ -1265,7 +1281,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     } catch {
       showNotification("Failed to save", "error")
     }
-    setSaving(false)
   }
 
   const publishChanges = async () => {
@@ -1308,12 +1323,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const handleSave = async () => {
+    setSaving(true)
     if (install?.status === "published") {
-      // Auto-publish if already live
       await publishChanges()
     } else {
       await saveDraft()
     }
+    setSaving(false)
   }
 
   const activeThemeSettings: ThemeSettingsValues = settingsDraft
@@ -2081,19 +2097,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {/* ── Canvas ── */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden bg-muted/50 flex justify-center" style={{ padding: device === "mobile" ? "16px" : "24px" }}>
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-muted/50" style={{ paddingTop: device === "mobile" ? "16px" : "24px", paddingLeft: device === "mobile" ? "16px" : "24px", paddingRight: device === "mobile" ? "16px" : "24px", paddingBottom: 0 }}>
           <div
             className={cn(
-              "bg-white shadow-lg overflow-hidden transition-all duration-300 flex flex-col rounded-xl",
+              "bg-white shadow-lg transition-all duration-300 rounded-t-xl mx-auto",
               device === "mobile" ? "w-[360px]" : "w-full max-w-[1400px]",
             )}
-            style={{ minHeight: "calc(100vh - 96px)" }}
+            style={{ minHeight: "calc(100vh - 72px)" }}
           >
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
-              <div className="flex-1 flex flex-col">
+              <div>
                 <div className="h-14 bg-neutral-100/60 animate-pulse" />
-                <div className="flex-1 flex items-center justify-center bg-neutral-50/40">
+                <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
                   <div className="flex flex-col items-center gap-3">
                     <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
                     <p className="text-xs text-neutral-400">Loading page...</p>
@@ -2108,7 +2124,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {/* Announcement bar */}
                 {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
                   <div
-                    className="w-full py-2 text-center text-sm font-medium shrink-0"
+                    className="w-full py-2 text-center text-sm font-medium"
                     style={{
                       background: String(settingsDraft.announcement_bar_bg ?? "#6366f1"),
                       color: String(settingsDraft.announcement_bar_color ?? "#ffffff"),
@@ -2120,37 +2136,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
                 {/* Header */}
                 {sections.filter(s => s.type === "header").map(section => (
-                  <div key={section.id} id={`wb-section-${section.id}`} className="shrink-0">
+                  <div key={section.id} id={`wb-section-${section.id}`}>
                     <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
                   </div>
                 ))}
 
-                {/* Body sections + empty page placeholder — fills remaining space */}
-                <div className="flex-1 flex flex-col">
-                  {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
-                    <div key={section.id} id={`wb-section-${section.id}`}>
-                      <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
-                    </div>
-                  ))}
+                {/* Body sections */}
+                {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
+                  <div key={section.id} id={`wb-section-${section.id}`}>
+                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                  </div>
+                ))}
 
-                  {/* Empty page — between header and footer */}
-                  {sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
-                    <div className="flex-1 flex items-center justify-center text-center py-16">
-                      <div>
-                        <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
-                        <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
-                        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors" onClick={() => setAddSectionOpen(true)}>
-                          <Plus className="h-4 w-4" />
-                          Add a section
-                        </button>
-                      </div>
+                {/* Empty page — between header and footer */}
+                {sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
+                  <div className="py-24 flex items-center justify-center text-center">
+                    <div>
+                      <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
+                      <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
+                      <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors" onClick={() => setAddSectionOpen(true)}>
+                        <Plus className="h-4 w-4" />
+                        Add a section
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Footer — always at bottom */}
+                {/* Footer */}
                 {sections.filter(s => s.type === "footer").map(section => (
-                  <div key={section.id} id={`wb-section-${section.id}`} className="shrink-0 mt-auto">
+                  <div key={section.id} id={`wb-section-${section.id}`}>
                     <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
                   </div>
                 ))}
