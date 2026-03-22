@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -2016,12 +2016,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const totalOrdersInChart = summary.totalOrders
   const totalRevenueInChart = summary.totalRevenue
 
-  // Compute chart data with conversion rate and CTR added
-  const rawChartData = trendData.map(d => ({
+  // Compute chart data with conversion rate and CTR added — memoized to keep
+  // a stable reference so the animation useEffect doesn't re-fire on every render.
+  const rawChartData = useMemo(() => trendData.map(d => ({
     ...d,
     conversion: d.views > 0 ? Number(((d.sales / d.views) * 100).toFixed(2)) : 0,
     ctr: d.views > 0 && d.clicks ? Number(((d.clicks / d.views) * 100).toFixed(2)) : 0,
-  }))
+  })), [trendData])
 
   // ── Sample data overlay ─────────────────────────────────────────────────
   const ANALYTICS_SAMPLE_ONEPAGE = {
@@ -2033,16 +2034,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     || onePageMetrics.allTimeViews > 0 || onePageMetrics.allTimeClicks > 0
   const displaySummary = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_SUMMARY : summary
   const displayOnePageMetrics = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_ONEPAGE : onePageMetrics
-  const chartDisplayData = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData
+  const chartDisplayData = useMemo(
+    () => showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData,
+    [showSampleData, hasRealData, rawChartData]
+  )
 
-  // Animate chart only when the underlying data changes (timeframe / product
-  // filter), NOT when switching metric KPI cards — that just shows/hides
-  // different Area layers and shouldn't replay the line-draw animation.
+  // Animate chart when data changes or KPI metric switches — matches
+  // dashboard behavior where switching KPIs plays a smooth line-draw.
+  // Now safe because chartDisplayData is memoized (stable reference),
+  // so touch interactions won't accidentally re-trigger this.
   useEffect(() => {
     setChartShouldAnimate(true)
     const timer = setTimeout(() => setChartShouldAnimate(false), 900)
     return () => clearTimeout(timer)
-  }, [chartDisplayData])
+  }, [chartDisplayData, chartMetricFilter, onePageChartFilter])
 
   // Store data length in ref for native listener access
   const chartDataLenRef = useRef(chartDisplayData.length)
@@ -2749,34 +2754,88 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartTooltipActive && chartActiveIndex != null && chartActiveIndex >= 0 && chartActiveIndex < chartDisplayData.length && (
                     <ReferenceLine x={chartDisplayData[chartActiveIndex].date} stroke="#c4b5fd" strokeWidth={1} strokeDasharray="4 3" />
                   )}
-                  {/* Store areas */}
+                  {/* Store areas — dot logic matches dashboard: active scrub dot, last-point dot, or invisible */}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.views} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" } : false} name="views" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.views} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.views} stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.views, stroke: "#fff", strokeWidth: 2 } : false} name="views" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.orders} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" } : false} name="sales" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.orders} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.orders} stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.orders, stroke: "#fff", strokeWidth: 2 } : false} name="sales" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && (
-                    <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.refunds} stroke="#fff" strokeWidth={2.5} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: CHART_COLORS.refunds, strokeWidth: 2, stroke: "#fff" } : false} name="refunds" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.refunds} stroke="#fff" strokeWidth={2.5} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.refunds} stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.refunds, stroke: "#fff", strokeWidth: 2 } : false} name="refunds" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.revenue} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(59,130,246,0.4))" }} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" } : false} name="revenue" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.revenue} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(59,130,246,0.4))" }} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.revenue} stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.revenue, stroke: "#fff", strokeWidth: 2 } : false} name="revenue" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-                    <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#10b981" stroke="#fff" strokeWidth={2.5} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#fff" } : false} name="conversion" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#10b981" stroke="#fff" strokeWidth={2.5} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill="#10b981" stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: "#10b981", stroke: "#fff", strokeWidth: 2 } : false} name="conversion" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {/* OnePage areas */}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.views} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" } : false} name="views" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.views} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.views} stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.views, stroke: "#fff", strokeWidth: 2 } : false} name="views" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.clicks} stroke="#fff" strokeWidth={2.5} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" } : false} name="clicks" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.clicks} stroke="#fff" strokeWidth={2.5} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.clicks} stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.clicks, stroke: "#fff", strokeWidth: 2 } : false} name="clicks" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#8b5cf6" stroke="#fff" strokeWidth={2.5} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" } : false} name="subscribers" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#8b5cf6" stroke="#fff" strokeWidth={2.5} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false} name="subscribers" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                   {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={(p: any) => chartTooltipActive && p.index === chartActiveIndex ? <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#f59e0b" stroke="#fff" strokeWidth={2.5} /> : <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />} activeDot={!isTouchDevice ? { r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#fff" } : false} name="ctr" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={(p: any) => {
+                      const isActive = chartTooltipActive && p.index === chartActiveIndex
+                      const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#f59e0b" stroke="#fff" strokeWidth={2.5} />
+                      if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill="#f59e0b" stroke="#fff" strokeWidth={2} />
+                      return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
+                    }} activeDot={!isTouchDevice ? { r: 5, fill: "#f59e0b", stroke: "#fff", strokeWidth: 2 } : false} name="ctr" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
