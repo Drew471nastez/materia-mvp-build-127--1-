@@ -2261,7 +2261,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#fafafa]">
+    <div className="h-full overflow-y-auto bg-[#fafafa] select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
       {/* Announcement Bar — fixed above black header on mobile */}
       <AnnouncementBarMobile>
         <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
@@ -2788,7 +2788,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={(p: any) => {
                       const isActive = chartTooltipActive && p.index === chartActiveIndex
                       const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
-                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.refunds} stroke="#fff" strokeWidth={2.5} />
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.refunds} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(239,68,68,0.4))" }} />
                       if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.refunds} stroke="#fff" strokeWidth={2} />
                       return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
                     }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.refunds, stroke: "#fff", strokeWidth: 2 } : false} name="refunds" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
@@ -2806,7 +2806,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={(p: any) => {
                       const isActive = chartTooltipActive && p.index === chartActiveIndex
                       const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
-                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#10b981" stroke="#fff" strokeWidth={2.5} />
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#10b981" stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(16,185,129,0.4))" }} />
                       if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill="#10b981" stroke="#fff" strokeWidth={2} />
                       return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
                     }} activeDot={!isTouchDevice ? { r: 5, fill: "#10b981", stroke: "#fff", strokeWidth: 2 } : false} name="conversion" isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
@@ -2825,7 +2825,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={(p: any) => {
                       const isActive = chartTooltipActive && p.index === chartActiveIndex
                       const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
-                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.clicks} stroke="#fff" strokeWidth={2.5} />
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill={CHART_COLORS.clicks} stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(59,130,246,0.4))" }} />
                       if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill={CHART_COLORS.clicks} stroke="#fff" strokeWidth={2} />
                       return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
                     }} activeDot={!isTouchDevice ? { r: 5, fill: CHART_COLORS.clicks, stroke: "#fff", strokeWidth: 2 } : false} name="clicks" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
@@ -2834,7 +2834,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={(p: any) => {
                       const isActive = chartTooltipActive && p.index === chartActiveIndex
                       const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
-                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#8b5cf6" stroke="#fff" strokeWidth={2.5} />
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#8b5cf6" stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(139,92,246,0.4))" }} />
                       if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill="#8b5cf6" stroke="#fff" strokeWidth={2} />
                       return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
                     }} activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false} name="subscribers" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
@@ -2843,7 +2843,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={(p: any) => {
                       const isActive = chartTooltipActive && p.index === chartActiveIndex
                       const isLast = p.index === chartDisplayData.length - 1 && !chartTooltipActive
-                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#f59e0b" stroke="#fff" strokeWidth={2.5} />
+                      if (isActive) return <circle key={p.index} cx={p.cx} cy={p.cy} r={6} fill="#f59e0b" stroke="#fff" strokeWidth={2.5} style={{ filter: "drop-shadow(0 1px 3px rgba(245,158,11,0.4))" }} />
                       if (isLast) return <circle key={p.index} cx={p.cx} cy={p.cy} r={4} fill="#f59e0b" stroke="#fff" strokeWidth={2} />
                       return <circle key={p.index} r={0} cx={0} cy={0} fill="none" stroke="none" />
                     }} activeDot={!isTouchDevice ? { r: 5, fill: "#f59e0b", stroke: "#fff", strokeWidth: 2 } : false} name="ctr" connectNulls isAnimationActive={chartShouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
