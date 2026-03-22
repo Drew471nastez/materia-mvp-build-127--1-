@@ -27,7 +27,6 @@ export function UpgradePageClient({
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
-  const [checkoutOpened, setCheckoutOpened] = useState(false)
 
   const goBack = () => {
     if (closing) return
@@ -78,24 +77,20 @@ export function UpgradePageClient({
             cancelUrl: `${origin}/app/settings/billing/upgrade`,
           }),
         })
+        const data = await response.json()
         if (!response.ok) {
-          const err = await response.json()
-          throw new Error(err.error || "Failed to create checkout session")
+          throw new Error(data.error || "Failed to create checkout session")
         }
-        const { checkoutUrl } = await response.json()
+        const { checkoutUrl } = data
         if (checkoutUrl) {
           if (isNativeApp()) {
-            // Native: open in system browser (Safari/Chrome)
+            // Native: open in system browser (Safari/Chrome) as a new tab
             openExternal(checkoutUrl)
-            setCheckoutOpened(true)
-            setLoading(null)
-            return
-          } else {
-            // Web: redirect in same tab for maximum reliability
-            // (window.open is blocked by popup blockers on most browsers)
-            window.location.href = checkoutUrl
-            return // Don't clear loading — page is navigating away
           }
+          // Web or fallback: redirect in same tab — Stripe will redirect
+          // back to /app/settings/billing?success=1 after payment
+          window.location.href = checkoutUrl
+          return // Don't clear loading — page is navigating away
         }
       }
     } catch (err: any) {
@@ -129,7 +124,7 @@ export function UpgradePageClient({
         </div>
       )}
       {/* Top bar — sticky within the app layout's overflow-y-auto scroll container */}
-      <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]">
+      <div className="sticky top-0 z-30 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <button
             onClick={goBack}
@@ -162,14 +157,6 @@ export function UpgradePageClient({
           <h1 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">Choose Your Plan</h1>
           <p className="text-[15px] text-[#6b7280] mt-2">Scale your business with the right plan for you</p>
         </div>
-
-        {/* Checkout opened in external browser (native only) */}
-        {checkoutOpened && (
-          <div className="max-w-xl mx-auto mb-6 p-4 bg-violet-50 border border-violet-200 rounded-xl text-[13px] text-violet-900 text-center">
-            <p className="font-medium">Checkout opened in your browser</p>
-            <p className="text-violet-600 mt-1">Complete your payment there, then come back to the app.</p>
-          </div>
-        )}
 
         {/* Error */}
         {error && (
@@ -244,7 +231,7 @@ export function UpgradePageClient({
                   {isGrowth && !isCurrentPlan && !isPendingPlan && !(cancelAtPeriodEnd && isFree) && (
                     <span className="btn-shine-effect" aria-hidden="true" />
                   )}
-                  <span className="relative z-10 flex items-center gap-2">
+                  <span className="relative z-[1] flex items-center gap-2">
                     {loading === plan.id ? (
                       <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
                     ) : (

@@ -1052,7 +1052,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
         ) : (
           <>
             <p className="text-xl font-bold">{currentPlanInfo.name}</p>
-            <p className="text-sm text-gray-400 mt-1">{currentPlanInfo.price} &middot; {currentPlanInfo.fee}</p>
+            <p className="text-sm text-gray-400 mt-1">{currentPlanInfo.description}</p>
           </>
         )}
       </div>
