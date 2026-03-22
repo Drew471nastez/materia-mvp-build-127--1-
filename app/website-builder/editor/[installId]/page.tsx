@@ -1393,7 +1393,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {websiteUrl && (
                 <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")} className="cursor-pointer">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  View Live Website
+                  View Live
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -1444,17 +1444,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
         {/* Right side */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* View Live */}
+          {/* View Live — globe icon only */}
           {websiteUrl && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5 bg-transparent hidden sm:flex cursor-pointer"
+            <button
+              className="h-9 w-9 hidden sm:flex items-center justify-center rounded-lg border border-neutral-200 bg-transparent hover:bg-neutral-100 transition-colors cursor-pointer"
               onClick={() => window.open(websiteUrl, "_blank")}
+              title="View live website"
             >
-              <ExternalLink className="h-4 w-4" />
-              <span className="hidden md:inline">View Live</span>
-            </Button>
+              <Globe className="h-4 w-4 text-neutral-600" />
+            </button>
           )}
 
           {/* Device Switcher */}

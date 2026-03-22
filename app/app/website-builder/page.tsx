@@ -201,7 +201,7 @@ function CatalogThemePreview({ catalog }: { catalog: typeof THEME_CATALOG[0] }) 
   const btnRadius = buttonStyle === "pill" ? "9999px" : buttonStyle === "square" ? "4px" : "8px"
 
   return (
-    <div className="w-full aspect-[3/4] overflow-hidden flex flex-col" style={{ background: colors.bg }}>
+    <div className="w-full aspect-[4/3] overflow-hidden flex flex-col" style={{ background: colors.bg }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b shrink-0" style={{ borderColor: colors.surface }}>
         <span className="text-[9px] font-bold truncate" style={{ color: colors.text, fontFamily: font }}>{catalog.name}</span>
@@ -500,53 +500,85 @@ export default function WebsiteBuilderPage() {
   const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
 
   return (
-    <div className="max-w-6xl mx-auto px-5 py-8">
-      {/* ── Page header ── */}
-      <div className="mb-10">
-        <div className="flex items-center gap-2.5 mb-1">
-          <Layers className="h-6 w-6 text-neutral-700" />
-          <h1 className="text-2xl font-bold text-neutral-900">Website Builder</h1>
+    <div className="max-w-[900px] mx-auto px-5 py-8">
+      {/* ── Page header with View Live + URL ── */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <div className="flex items-center gap-2.5 mb-1">
+            <Layers className="h-5 w-5 text-neutral-700" />
+            <h1 className="text-xl font-bold text-neutral-900">Website Builder</h1>
+          </div>
+          <p className="text-sm text-neutral-500">Manage and customize your store website</p>
         </div>
-        <p className="text-sm text-neutral-500">Manage and customize your store website</p>
+        <div className="flex items-center gap-3 shrink-0">
+          {websiteUrl && (
+            <>
+              <div className="flex items-center gap-1.5 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
+                <Globe className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                <span className="truncate max-w-[180px] text-xs">{websiteDisplay}</span>
+                <button
+                  className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0 ml-1"
+                  onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
+                >
+                  Copy
+                </button>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => window.open(websiteUrl, "_blank")}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View Live
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════
           SECTION 1: Current Website (published/live theme)
           ══════════════════════════════════════════════════════════ */}
-      <section className="mb-12">
+      <section className="mb-10">
         <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
           Current Website
         </h2>
         {liveTheme ? (
           <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-            {/* Full-width real preview */}
-            <div className="relative">
-              <ThemePreview install={liveTheme} aspectClass="aspect-[16/9] sm:aspect-[2/1]" />
-              <div className="absolute top-4 left-4">
+            {/* Preview in browser-style frame */}
+            <div className="relative bg-neutral-100 p-4 sm:p-6">
+              {/* Browser chrome */}
+              <div className="rounded-xl overflow-hidden shadow-xl shadow-black/8 border border-neutral-200/80 bg-white">
+                {/* Browser toolbar */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/60" />
+                  </div>
+                  <div className="flex-1 mx-3">
+                    <div className="bg-white rounded-md border border-neutral-200 px-3 py-0.5 text-[10px] text-neutral-400 truncate max-w-[260px]">
+                      {websiteDisplay || "storelib.com/yoursite"}
+                    </div>
+                  </div>
+                </div>
+                {/* Actual rendered sections */}
+                <ThemePreview install={liveTheme} aspectClass="aspect-[16/9]" />
+              </div>
+              <div className="absolute top-6 sm:top-8 left-6 sm:left-8">
                 <StatusBadge status="published" />
               </div>
             </div>
 
             {/* Info bar */}
-            <div className="p-5 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-neutral-900 truncate">{liveTheme.name}</h2>
-                  <p className="text-sm text-neutral-500 mt-0.5">
+                  <h2 className="text-base font-semibold text-neutral-900 truncate">{liveTheme.name}</h2>
+                  <p className="text-xs text-neutral-500 mt-0.5">
                     {liveTheme.theme?.author ?? "Storelib"} · v{liveTheme.theme?.version ?? "1.0.0"}
                   </p>
-                  {websiteUrl && (
-                    <div className="mt-2 flex items-center gap-2 text-sm text-neutral-500">
-                      <Globe className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{websiteDisplay}</span>
-                      <button
-                        className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0"
-                        onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
-                      >
-                        Copy
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -565,11 +597,6 @@ export default function WebsiteBuilderPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      {websiteUrl && (
-                        <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")}>
-                          <ExternalLink className="h-4 w-4 mr-2" />View live site
-                        </DropdownMenuItem>
-                      )}
                       <DropdownMenuItem onClick={() => handleAction("duplicate", liveTheme)}>
                         <Copy className="h-4 w-4 mr-2" />Duplicate
                       </DropdownMenuItem>
@@ -687,14 +714,11 @@ export default function WebsiteBuilderPage() {
       {/* ══════════════════════════════════════════════════════════
           SECTION 3: Theme Library (6 themes, portrait cards)
           ══════════════════════════════════════════════════════════ */}
-      <section>
+      <section className="mb-12">
         <div className="mb-4">
           <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
             Theme Library
           </h2>
-          <p className="text-xs text-neutral-400 mt-1">
-            Choose a theme to add to your websites. Up to 3 websites.
-          </p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -745,14 +769,6 @@ export default function WebsiteBuilderPage() {
           })}
         </div>
 
-        {/* Free themes note */}
-        <div className="mt-6 rounded-xl bg-neutral-50 border border-neutral-100 p-4 text-sm text-neutral-500 flex items-start gap-3">
-          <Check className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
-          <div>
-            <span className="font-medium text-neutral-700">Free themes included</span>
-            <span className="ml-1">— All themes are free to use and customize.</span>
-          </div>
-        </div>
       </section>
 
       {/* ── Dialogs ── */}

@@ -2,8 +2,136 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+// Default product page template sections
+const DEFAULT_PRODUCT_SECTIONS = [
+  {
+    id: "header-global",
+    type: "header",
+    name: "Header",
+    hidden: false,
+    settings: {
+      logo_text: "My Store",
+      cta_text: "Shop Now",
+      cta_url: "/products",
+      sticky: true,
+      bg_color: "#ffffff",
+      text_color: "#0f172a",
+    },
+    blocks: [],
+  },
+  {
+    id: "product-hero",
+    type: "split_content",
+    name: "Product",
+    hidden: false,
+    settings: {
+      heading: "Product Name",
+      body: "<p>Describe your product here. Highlight the key features, what's included, and why customers should buy it.</p>",
+      button_text: "Buy Now",
+      button_url: "#",
+      image_url: "",
+      image_position: "left",
+      bg_color: "#ffffff",
+      text_color: "#0f172a",
+      padding_top: 60,
+      padding_bottom: 60,
+    },
+    blocks: [],
+  },
+  {
+    id: "product-features",
+    type: "feature_grid",
+    name: "What's Included",
+    hidden: false,
+    settings: {
+      heading: "What's Included",
+      subheading: "Everything you get with your purchase",
+      columns: "3",
+      bg_color: "#f8fafc",
+      text_color: "#0f172a",
+      padding_top: 60,
+      padding_bottom: 60,
+    },
+    blocks: [
+      { id: "pf-1", type: "feature", settings: { icon: "download", title: "Instant Download", description: "Get immediate access to all files after purchase." } },
+      { id: "pf-2", type: "feature", settings: { icon: "refresh-cw", title: "Free Updates", description: "Receive all future updates at no extra cost." } },
+      { id: "pf-3", type: "feature", settings: { icon: "shield", title: "Satisfaction Guarantee", description: "Not happy? Get a full refund within 30 days." } },
+    ],
+  },
+  {
+    id: "product-reviews",
+    type: "testimonials",
+    name: "Customer Reviews",
+    hidden: false,
+    settings: {
+      heading: "What Customers Say",
+      subheading: "Hear from people who love this product",
+      layout: "grid",
+      columns: "2",
+      bg_color: "#ffffff",
+      text_color: "#111827",
+      padding_top: 60,
+      padding_bottom: 60,
+    },
+    blocks: [
+      { id: "pr-1", type: "testimonial", settings: { quote: "Absolutely love this product. It saves me hours every week!", author: "Sarah J.", role: "Designer", rating: 5, verified: true } },
+      { id: "pr-2", type: "testimonial", settings: { quote: "Best purchase I've made this year. Highly recommend!", author: "Mike R.", role: "Developer", rating: 5, verified: true } },
+    ],
+  },
+  {
+    id: "product-related",
+    type: "product_list",
+    name: "Related Products",
+    hidden: false,
+    settings: {
+      heading: "You Might Also Like",
+      subheading: "More products from this creator",
+      show_price: true,
+      show_button: true,
+      columns: "3",
+      bg_color: "#f8fafc",
+      text_color: "#0f172a",
+      padding_top: 60,
+      padding_bottom: 60,
+    },
+    blocks: [],
+  },
+  {
+    id: "product-cta",
+    type: "cta",
+    name: "Call to Action",
+    hidden: false,
+    settings: {
+      heading: "Ready to Get Started?",
+      subheading: "Join thousands of satisfied customers.",
+      button_text: "Buy Now",
+      button_url: "#",
+      bg_color: "#0f172a",
+      text_color: "#ffffff",
+      button_color: "#6366f1",
+      padding_top: 60,
+      padding_bottom: 60,
+    },
+    blocks: [],
+  },
+  {
+    id: "footer-global",
+    type: "footer",
+    name: "Footer",
+    hidden: false,
+    settings: {
+      logo_text: "My Store",
+      copyright: "\u00a9 2026 My Store. All rights reserved.",
+      bg_color: "#0f172a",
+      text_color: "#94a3b8",
+    },
+    blocks: [],
+  },
+]
+
 // POST /api/website-builder/initialize
 // Idempotently seeds the 3 built-in theme installs for the current creator.
+// Also ensures product page templates exist for all installs.
 export async function POST() {
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -27,6 +155,34 @@ export async function POST() {
   if (error) {
     console.error("initialize_creator_themes error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Ensure product page templates exist for all installs
+  const { data: installs } = await admin
+    .from("store_theme_installs")
+    .select("id")
+    .eq("creator_id", creator.id)
+
+  if (installs && installs.length > 0) {
+    for (const install of installs) {
+      // Check if product page already exists
+      const { data: existing } = await admin
+        .from("store_theme_pages")
+        .select("id")
+        .eq("install_id", install.id)
+        .eq("page_key", "product")
+        .maybeSingle()
+
+      if (!existing) {
+        await admin
+          .from("store_theme_pages")
+          .insert({
+            install_id: install.id,
+            page_key: "product",
+            sections: DEFAULT_PRODUCT_SECTIONS,
+          })
+      }
+    }
   }
 
   return NextResponse.json({ ok: true })
