@@ -3384,6 +3384,34 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
       },
     ],
   },
+
+  // ── Image section (single image with optional caption) ──────
+  image_section: {
+    type: "image_section",
+    name: "Image",
+    description: "Display a single image with optional caption",
+    icon: "image",
+    category: "media",
+    fields: [
+      { id: "image_url", label: "Image", type: "image" },
+      { id: "caption", label: "Caption", type: "text", placeholder: "Image caption" },
+      { id: "aspect_ratio", label: "Aspect ratio", type: "select", default: "auto", options: [
+        { label: "Auto", value: "auto" },
+        { label: "16:9", value: "16:9" },
+        { label: "4:3", value: "4:3" },
+        { label: "1:1", value: "1:1" },
+      ]},
+      { id: "bg_color", label: "Background", type: "color", default: "#ffffff" },
+      { id: "padding_top", label: "Padding top", type: "range", min: 0, max: 120, step: 4, unit: "px", default: 40 },
+      { id: "padding_bottom", label: "Padding bottom", type: "range", min: 0, max: 120, step: 4, unit: "px", default: 40 },
+    ],
+    presets: [
+      {
+        name: "Default image",
+        settings: { image_url: "", caption: "", aspect_ratio: "auto", bg_color: "#ffffff", padding_top: 40, padding_bottom: 40 },
+      },
+    ],
+  },
 }
 
 
@@ -3395,6 +3423,7 @@ export const ADDABLE_SECTIONS = [
   "rich_text",
   "split_content",
   "image_banner",
+  "image_section",
   "slideshow",
   // Commerce
   "product",

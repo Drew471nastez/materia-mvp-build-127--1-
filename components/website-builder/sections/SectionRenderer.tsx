@@ -10,7 +10,7 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import {
   Zap, Shield, Star, CheckCircle, Download, Heart, Globe, Lock,
   RefreshCw, Rocket, ChevronDown, ChevronUp,
-  Heart, Share2, Package, FileText, Eye,
+  Share2, Package, FileText, Eye,
 } from "lucide-react"
 import { useState, useEffect, CSSProperties } from "react"
 import { cn } from "@/lib/utils"
@@ -919,12 +919,120 @@ function ProductSection({ section, theme, isEditing, isSelected, onClick }: Sect
   )
 }
 
+// ── Image with Text (split_content) ──────────────────────────
+function SplitContentSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+  const s = section.settings
+  const bg = str(s.bg_color, "#ffffff")
+  const textColor = str(s.text_color, "#0f172a")
+  const imagePos = str(s.image_position, "left")
+  const imgUrl = str(s.image_url, "")
+
+  return (
+    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+      <div className={cn("flex flex-col md:flex-row items-center gap-8 px-8", imagePos === "right" && "md:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
+        <div className="flex-1 min-w-0">
+          {imgUrl ? (
+            <img src={imgUrl} alt="" className="w-full h-auto rounded-lg object-cover" style={{ maxHeight: "500px" }} />
+          ) : (
+            <div className="w-full aspect-[4/3] rounded-lg bg-neutral-100 flex items-center justify-center">
+              <span className="text-neutral-400 text-sm">Image</span>
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0" style={{ color: textColor }}>
+          {!!s.heading && <h2 className="text-3xl font-bold mb-4" style={{ fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
+          {!!s.text && <p className="text-base leading-relaxed opacity-80 mb-6">{str(s.text)}</p>}
+          {!!s.button_text && (
+            <a href={str(s.button_link, "#")} className="inline-block px-6 py-3 text-sm font-semibold text-white" style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}>
+              {str(s.button_text)}
+            </a>
+          )}
+        </div>
+      </div>
+    </SectionWrapper>
+  )
+}
+
+// ── Slideshow ────────────────────────────────────────────────
+function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+  const s = section.settings
+  const bg = str(s.bg_color, "#000000")
+  const blocks = section.blocks ?? []
+  const [activeSlide, setActiveSlide] = useState(0)
+
+  const slides = blocks.length > 0 ? blocks : [
+    { id: "1", type: "slide", settings: { image_url: "", heading: "Slide 1", subheading: "Your first slide", button_text: "Shop Now" } },
+    { id: "2", type: "slide", settings: { image_url: "", heading: "Slide 2", subheading: "Your second slide", button_text: "Learn More" } },
+  ]
+
+  const slide = slides[activeSlide] ?? slides[0]
+  const slideSettings = slide?.settings ?? {}
+
+  return (
+    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+      <div className="relative w-full" style={{ height: `${s.height ?? 500}px` }}>
+        {str(slideSettings.image_url as unknown) ? (
+          <img src={str(slideSettings.image_url as unknown)} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900" />
+        )}
+        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white px-8">
+          {!!slideSettings.heading && <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: theme.font_heading }}>{str(slideSettings.heading as unknown)}</h2>}
+          {!!slideSettings.subheading && <p className="text-lg opacity-80 max-w-xl mb-6">{str(slideSettings.subheading as unknown)}</p>}
+          {!!slideSettings.button_text && (
+            <button className="px-8 py-3 text-sm font-semibold text-white" style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}>
+              {str(slideSettings.button_text as unknown)}
+            </button>
+          )}
+        </div>
+        {/* Dots */}
+        {slides.length > 1 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+            {slides.map((_, i) => (
+              <button key={i} className={cn("w-2.5 h-2.5 rounded-full transition-all", i === activeSlide ? "bg-white" : "bg-white/40")} onClick={e => { e.stopPropagation(); setActiveSlide(i) }} />
+            ))}
+          </div>
+        )}
+      </div>
+    </SectionWrapper>
+  )
+}
+
+// ── Image Section (single image) ─────────────────────────────
+function ImageSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+  const s = section.settings
+  const bg = str(s.bg_color, "#ffffff")
+  const imgUrl = str(s.image_url, "")
+  const caption = str(s.caption, "")
+  const aspectRatio = str(s.aspect_ratio, "auto")
+
+  const aspectMap: Record<string, string> = { "16:9": "aspect-video", "4:3": "aspect-[4/3]", "1:1": "aspect-square", "auto": "" }
+
+  return (
+    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+      <div className="px-8" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
+        {imgUrl ? (
+          <img src={imgUrl} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} />
+        ) : (
+          <div className={cn("w-full rounded-lg bg-neutral-100 flex items-center justify-center", aspectMap[aspectRatio] || "aspect-video")}>
+            <span className="text-neutral-400 text-sm">Add an image</span>
+          </div>
+        )}
+        {caption && <p className="text-center text-sm text-neutral-500 mt-3">{caption}</p>}
+      </div>
+    </SectionWrapper>
+  )
+}
+
 // ── Section registry ─────────────────────────────────────────
 const SECTION_COMPONENTS: Record<string, React.ComponentType<SectionProps>> = {
   header: HeaderSection,
   hero: HeroSection,
   rich_text: RichTextSection,
   image_banner: ImageBannerSection,
+  split_content: SplitContentSection,
+  image_section: ImageSection,
+  slideshow: SlideshowSection,
   product: ProductSection,
   product_list: ProductListSection,
   testimonials: TestimonialsSection,

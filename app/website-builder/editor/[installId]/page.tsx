@@ -324,6 +324,8 @@ const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string; st
   pricing: DollarSign,
   video_hero: Video,
   split_content: Columns,
+  image_section: Image,
+  slideshow: Play,
   slideshow: Play,
   team_members: Users,
   countdown_timer: Timer,
@@ -806,7 +808,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const [expandedSettings, setExpandedSettings] = useState<string | null>("branding")
+  const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(320)
   const [isMobileView, setIsMobileView] = useState(false)
@@ -1454,18 +1456,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
             <div className="flex-1 overflow-y-auto p-2">
               {THEME_SETTINGS_GROUPS.map(group => (
-                <div key={group.key} className="mb-0.5">
+                <div key={group.id} className="mb-0.5">
                   <button
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                      expandedSettings === group.key ? "bg-muted/80 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                      expandedSettings === group.id ? "bg-muted/80 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                     )}
-                    onClick={() => setExpandedSettings(expandedSettings === group.key ? null : group.key)}
+                    onClick={() => setExpandedSettings(expandedSettings === group.id ? null : group.id)}
                   >
                     {group.label}
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expandedSettings === group.key && "rotate-180")} />
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expandedSettings === group.id && "rotate-180")} />
                   </button>
-                  {expandedSettings === group.key && (
+                  {expandedSettings === group.id && (
                     <div className="px-3 py-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
                       {group.fields.map(field => (
                         <div key={field.id}>
@@ -1772,17 +1774,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return null
   }
 
-  // ── Loading state ──────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="h-svh flex items-center justify-center bg-muted/30">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-          <p className="text-sm text-muted-foreground">Loading editor...</p>
-        </div>
-      </div>
-    )
-  }
+  // ── Loading state — no separate screen, render the shell with skeleton ──
 
   // ── Website URL display ────────────────────────────────────
   const websiteUrl = username ? getWebsiteShareUrl(username) : ""
@@ -1892,18 +1884,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </button>
           )}
 
-          {/* Device Switcher */}
-          <div className="hidden sm:flex items-center border border-border rounded-lg overflow-hidden shrink-0">
+          {/* Device Switcher — pill toggle */}
+          <div className="hidden sm:flex items-center bg-neutral-100 rounded-lg p-0.5 shrink-0">
             <button
-              className={cn("h-8 w-8 flex items-center justify-center transition-colors", device === "desktop" ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-muted")}
+              className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "desktop" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
               onClick={() => setDevice("desktop")}
               title="Desktop"
             >
               <Monitor className="h-3.5 w-3.5" />
             </button>
-            <div className="w-px h-5 bg-border" />
             <button
-              className={cn("h-8 w-8 flex items-center justify-center transition-colors", device === "mobile" ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-muted")}
+              className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "mobile" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
               onClick={() => setDevice("mobile")}
               title="Mobile"
             >
@@ -1928,18 +1919,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Button
             size="sm"
             className={cn(
-              "h-9 cursor-pointer gap-1.5 min-w-[80px] transition-all",
-              isDirty
-                ? "bg-purple-600 text-white hover:bg-purple-700"
-                : "bg-neutral-100 text-neutral-400 border border-border hover:bg-neutral-100"
+              "h-9 cursor-pointer min-w-[80px] transition-all duration-200 text-white",
+              saving
+                ? "bg-purple-600 hover:bg-purple-600"
+                : isDirty
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-purple-600/50 hover:bg-purple-600/50 cursor-default"
             )}
             onClick={handleSave}
             disabled={saving || !isDirty}
           >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="hidden sm:inline">Saving...</span>
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                <span>Saving...</span>
               </>
             ) : isDirty ? (
               <span>Save</span>
@@ -2051,10 +2044,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               "bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300",
               device === "mobile" ? "w-[360px]" : "w-full max-w-5xl",
             )}
-            style={{ minHeight: "600px" }}
+            style={{ minHeight: "100%" }}
           >
+            {/* Loading skeleton for canvas */}
+            {loading && (
+              <div className="space-y-0 animate-pulse">
+                <div className="h-16 bg-neutral-100" />
+                <div className="h-[400px] bg-neutral-50" />
+                <div className="h-[200px] bg-neutral-100/50" />
+                <div className="h-[300px] bg-neutral-50" />
+              </div>
+            )}
+
             {/* Announcement bar */}
-            {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
+            {!loading && settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
               <div
                 className="w-full py-2 text-center text-sm font-medium"
                 style={{
@@ -2067,7 +2070,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
 
             {/* Sections */}
-            {sections.map(section => (
+            {!loading && sections.map(section => (
               <div key={section.id} id={`wb-section-${section.id}`}>
                 <SectionRenderer
                   section={section}
@@ -2079,15 +2082,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
             ))}
 
-            {sections.length === 0 && (
-              <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-                <div className="text-center">
-                  <Layers className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">No sections yet</p>
+            {/* Empty page — show only when no body sections (header/footer don't count) */}
+            {!loading && sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
+              <div className="py-20 flex items-center justify-center text-center">
+                <div>
+                  <p className="text-2xl font-bold tracking-tight text-neutral-400 uppercase mb-2">Empty Page</p>
+                  <p className="text-sm text-neutral-400">Create your beautiful page by adding sections</p>
                   <button
-                    className="mt-2 text-purple-600 underline text-sm font-medium"
+                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors"
                     onClick={() => setAddSectionOpen(true)}
                   >
+                    <Plus className="h-4 w-4" />
                     Add a section
                   </button>
                 </div>
