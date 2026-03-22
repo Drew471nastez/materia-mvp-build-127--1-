@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
-import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { isNativeApp } from "@/lib/native-bridge"
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
@@ -27,6 +27,26 @@ export function UpgradePageClient({
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
+
+  // Listen for in-app browser tab closing (native Capacitor)
+  // When user finishes Stripe checkout and the tab closes,
+  // navigate to billing page to show success/updated plan
+  useEffect(() => {
+    if (!isNativeApp()) return
+    let cleanup: (() => void) | undefined
+    import("@capacitor/browser")
+      .then(({ Browser }) => {
+        const listener = Browser.addListener("browserFinished", () => {
+          // Tab closed — user either completed payment or cancelled
+          // Navigate to billing to show latest status
+          setLoading(null)
+          router.push("/app/settings/billing?success=1")
+        })
+        cleanup = () => { listener.then(h => h.remove()) }
+      })
+      .catch(() => {})
+    return () => { cleanup?.() }
+  }, [router])
 
   const goBack = () => {
     if (closing) return
@@ -84,13 +104,25 @@ export function UpgradePageClient({
         const { checkoutUrl } = data
         if (checkoutUrl) {
           if (isNativeApp()) {
-            // Native: open in system browser (Safari/Chrome) as a new tab
-            openExternal(checkoutUrl)
+            // Native: open Stripe checkout in an in-app browser tab
+            // iOS → SFSafariViewController, Android → Chrome Custom Tab
+            // These appear as an overlay tab within the app, not the full browser
+            try {
+              const { Browser } = await import("@capacitor/browser")
+              await Browser.open({
+                url: checkoutUrl,
+                toolbarColor: "#ffffff",
+                presentationStyle: "popover",
+              })
+            } catch {
+              // Fallback: redirect in same webview
+              window.location.href = checkoutUrl
+            }
+            return // Don't clear loading — browser tab is open
           }
-          // Web or fallback: redirect in same tab — Stripe will redirect
-          // back to /app/settings/billing?success=1 after payment
+          // Web: redirect in same tab — Stripe redirects back after payment
           window.location.href = checkoutUrl
-          return // Don't clear loading — page is navigating away
+          return
         }
       }
     } catch (err: any) {
