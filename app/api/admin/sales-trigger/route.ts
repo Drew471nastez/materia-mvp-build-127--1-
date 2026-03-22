@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails } from "@/lib/email"
-import { isSmtpConfigured } from "@/lib/mail"
+// Email sending is intentionally skipped in simulation mode
 import { notifySale } from "@/lib/push/notifications"
 import { v4 as uuidv4 } from "uuid"
 
@@ -252,33 +251,9 @@ async function processPostOrder(
     results.push(`Sales increment failed: ${e}`)
   }
 
-  // 5. Send order emails (buyer download + seller notification)
-  try {
-    if (!isSmtpConfigured()) {
-      results.push("Emails skipped: MAILGUN_API_KEY not configured in environment")
-    } else {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
-      const emailResults = await sendOrderEmails(admin, {
-        orderId: order.id,
-        buyerEmail,
-        buyerFirstName,
-        buyerLastName,
-        productTitle: product.title,
-        receiptToken,
-        creatorId: creator.id,
-        amountCents: 0,
-        feeCents: 0,
-        baseUrl,
-      })
-      if (emailResults.buyerSuccess && emailResults.sellerSuccess) {
-        results.push("Emails sent successfully (buyer + seller)")
-      } else {
-        results.push(`Emails: buyer=${emailResults.buyerSuccess}, seller=${emailResults.sellerSuccess}`)
-      }
-    }
-  } catch (e) {
-    results.push(`Email failed: ${e}`)
-  }
+  // 5. Emails — intentionally skipped in admin simulation mode
+  // Real order emails are sent by the normal checkout flow, not here
+  results.push("Emails skipped (simulation mode)")
 
   // 6. Push notification to seller
   try {
