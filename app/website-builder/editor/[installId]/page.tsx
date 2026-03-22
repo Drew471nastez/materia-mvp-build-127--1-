@@ -2029,70 +2029,80 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {/* ── Canvas ── */}
-        <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden bg-muted/50 p-4 md:p-6 flex items-start justify-center">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden bg-muted/50 flex justify-center" style={{ padding: device === "mobile" ? "16px" : "24px" }}>
           <div
             className={cn(
-              "bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300",
-              device === "mobile" ? "w-[360px]" : "w-full max-w-5xl",
+              "bg-white shadow-lg overflow-hidden transition-all duration-300 flex flex-col rounded-xl",
+              device === "mobile" ? "w-[360px]" : "w-full",
             )}
-            style={{ minHeight: "100%" }}
+            style={{ minHeight: "calc(100vh - 96px)" }}
           >
-            {/* Loading skeleton for canvas — initial load or page switch */}
+            {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
-              <div className="animate-pulse">
-                <div className="h-14 bg-neutral-100/80" />
-                <div className="h-[420px] bg-neutral-50/80 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-3 opacity-40">
-                    <div className="h-8 w-8 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+              <div className="flex-1 flex flex-col">
+                <div className="h-14 bg-neutral-100/60 animate-pulse" />
+                <div className="flex-1 flex items-center justify-center bg-neutral-50/40">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs text-neutral-400">Loading page...</p>
                   </div>
                 </div>
-                <div className="h-[180px] bg-neutral-100/40" />
-                <div className="h-[280px] bg-neutral-50/40" />
-                <div className="h-[120px] bg-neutral-100/40" />
+                <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
               </div>
             )}
 
-            {/* Announcement bar */}
-            {!loading && !canvasLoading && settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
-              <div
-                className="w-full py-2 text-center text-sm font-medium"
-                style={{
-                  background: String(settingsDraft.announcement_bar_bg ?? "#6366f1"),
-                  color: String(settingsDraft.announcement_bar_color ?? "#ffffff"),
-                }}
-              >
-                {String(settingsDraft.announcement_bar_text)}
-              </div>
-            )}
-
-            {/* Sections */}
-            {!loading && !canvasLoading && sections.map(section => (
-              <div key={section.id} id={`wb-section-${section.id}`}>
-                <SectionRenderer
-                  section={section}
-                  theme={activeThemeSettings}
-                  isEditing={true}
-                  isSelected={selectedSectionId === section.id}
-                  onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
-                />
-              </div>
-            ))}
-
-            {/* Empty page — show only when no body sections (header/footer don't count) */}
-            {!loading && !canvasLoading && sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
-              <div className="py-20 flex items-center justify-center text-center">
-                <div>
-                  <p className="text-2xl font-bold tracking-tight text-neutral-400 uppercase mb-2">Empty Page</p>
-                  <p className="text-sm text-neutral-400">Create your beautiful page by adding sections</p>
-                  <button
-                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors"
-                    onClick={() => setAddSectionOpen(true)}
+            {!loading && !canvasLoading && (
+              <>
+                {/* Announcement bar */}
+                {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
+                  <div
+                    className="w-full py-2 text-center text-sm font-medium shrink-0"
+                    style={{
+                      background: String(settingsDraft.announcement_bar_bg ?? "#6366f1"),
+                      color: String(settingsDraft.announcement_bar_color ?? "#ffffff"),
+                    }}
                   >
-                    <Plus className="h-4 w-4" />
-                    Add a section
-                  </button>
+                    {String(settingsDraft.announcement_bar_text)}
+                  </div>
+                )}
+
+                {/* Header */}
+                {sections.filter(s => s.type === "header").map(section => (
+                  <div key={section.id} id={`wb-section-${section.id}`} className="shrink-0">
+                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                  </div>
+                ))}
+
+                {/* Body sections + empty page placeholder — fills remaining space */}
+                <div className="flex-1 flex flex-col">
+                  {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
+                    <div key={section.id} id={`wb-section-${section.id}`}>
+                      <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                    </div>
+                  ))}
+
+                  {/* Empty page — between header and footer */}
+                  {sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
+                    <div className="flex-1 flex items-center justify-center text-center py-16">
+                      <div>
+                        <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
+                        <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
+                        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors" onClick={() => setAddSectionOpen(true)}>
+                          <Plus className="h-4 w-4" />
+                          Add a section
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+
+                {/* Footer — always at bottom */}
+                {sections.filter(s => s.type === "footer").map(section => (
+                  <div key={section.id} id={`wb-section-${section.id}`} className="shrink-0 mt-auto">
+                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                  </div>
+                ))}
+              </>
             )}
           </div>
         </main>
@@ -2215,58 +2225,83 @@ function SidebarSectionRow({
   isStructure?: boolean
   dragHandleProps?: Record<string, unknown>
 }) {
-  return (
-    <div
-      className={cn(
-        "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors",
-        isSelected ? "bg-purple-600 text-white" : "hover:bg-muted text-foreground",
-        section.hidden && "opacity-50",
-      )}
-      onClick={onSelect}
-    >
-      {!isStructure && (
-        <span
-          {...(dragHandleProps ?? {})}
-          className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
-          onClick={e => e.stopPropagation()}
-        >
-          <GripVertical className={cn("h-3.5 w-3.5 opacity-30", isSelected && "opacity-60")} />
-        </span>
-      )}
-      <SectionIcon type={section.type} className={isSelected ? "text-white" : "text-muted-foreground"} />
-      <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
-      {section.hidden && (
-        <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
-      )}
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
-      {/* Hover actions — no hide/duplicate/remove for header/footer */}
-      {!isStructure && (
-        <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
-          <button
-            className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
-            onClick={e => { e.stopPropagation(); onToggleHide() }}
-            title={section.hidden ? "Show" : "Hide"}
+  return (
+    <>
+      <div
+        className={cn(
+          "group flex items-center gap-2 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors relative",
+          isSelected ? "bg-purple-600 text-white" : "hover:bg-muted text-foreground",
+          section.hidden && "opacity-50",
+        )}
+        onClick={onSelect}
+        onContextMenu={e => {
+          if (isStructure) return
+          e.preventDefault()
+          setContextMenu({ x: e.clientX, y: e.clientY })
+        }}
+      >
+        {!isStructure && (
+          <span
+            {...(dragHandleProps ?? {})}
+            className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            onClick={e => e.stopPropagation()}
           >
-            {section.hidden
-              ? <Eye className="h-2.5 w-2.5" />
-              : <EyeOff className="h-2.5 w-2.5" />}
-          </button>
-          <button
-            className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
-            onClick={e => { e.stopPropagation(); onDuplicate() }}
-            title="Duplicate"
+            <GripVertical className={cn("h-3.5 w-3.5 opacity-30", isSelected && "opacity-60")} />
+          </span>
+        )}
+        <SectionIcon type={section.type} className={isSelected ? "text-white" : "text-muted-foreground"} />
+        <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
+        {section.hidden && (
+          <EyeOff className={cn("h-3 w-3 shrink-0", isSelected ? "opacity-60" : "opacity-40")} />
+        )}
+
+        {/* Hover actions — only eye + trash on hover (no header/footer actions) */}
+        {!isStructure && (
+          <div className={cn("items-center gap-0.5 hidden group-hover:flex", isSelected && "flex")}>
+            <button
+              className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20" : "hover:bg-muted-foreground/10")}
+              onClick={e => { e.stopPropagation(); onToggleHide() }}
+              title={section.hidden ? "Show" : "Hide"}
+            >
+              {section.hidden ? <Eye className="h-2.5 w-2.5" /> : <EyeOff className="h-2.5 w-2.5" />}
+            </button>
+            <button
+              className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
+              onClick={e => { e.stopPropagation(); onRemove() }}
+              title="Remove"
+            >
+              <Trash2 className="h-2.5 w-2.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-[200]" onClick={() => setContextMenu(null)} onContextMenu={e => { e.preventDefault(); setContextMenu(null) }} />
+          <div
+            className="fixed z-[201] w-48 bg-white rounded-lg shadow-xl border border-border py-1 animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            <Copy className="h-2.5 w-2.5" />
-          </button>
-          <button
-            className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors", isSelected ? "hover:bg-white/20 text-red-300" : "hover:bg-red-100 text-red-400")}
-            onClick={e => { e.stopPropagation(); onRemove() }}
-            title="Remove"
-          >
-            <Trash2 className="h-2.5 w-2.5" />
-          </button>
-        </div>
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors" onClick={() => { onDuplicate(); setContextMenu(null) }}>
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+              Duplicate
+            </button>
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors" onClick={() => { onToggleHide(); setContextMenu(null) }}>
+              {section.hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+              {section.hidden ? "Show" : "Hide"}
+            </button>
+            <div className="h-px bg-border my-1" />
+            <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors" onClick={() => { onRemove(); setContextMenu(null) }}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          </div>
+        </>
       )}
-    </div>
+    </>
   )
 }
