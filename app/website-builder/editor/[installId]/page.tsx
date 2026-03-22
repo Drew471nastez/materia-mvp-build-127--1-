@@ -828,6 +828,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
+  const [canvasLoading, setCanvasLoading] = useState(false)
   const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
   const [addPageOpen, setAddPageOpen] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState("")
@@ -916,26 +917,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setLoading(false)
   }, [installId, currentPage])
 
-  const loadSections = useCallback(async (page: PageKey) => {
+  // Returns sections array — callers can inject product data before setting state
+  const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
-    if (!res.ok) return
+    if (!res.ok) return []
     const data = await res.json()
     let loaded: SectionInstance[] = data.sections ?? []
 
     // Ensure header and footer exist on every page
-    const hasHeader = loaded.some(s => s.type === "header")
-    const hasFooter = loaded.some(s => s.type === "footer")
-    if (!hasHeader) {
+    if (!loaded.some(s => s.type === "header")) {
       const hs = SECTION_SCHEMAS["header"]
-      if (hs) {
-        loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
-      }
+      if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
     }
-    if (!hasFooter) {
+    if (!loaded.some(s => s.type === "footer")) {
       const fs = SECTION_SCHEMAS["footer"]
-      if (fs) {
-        loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
-      }
+      if (fs) loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
     }
 
     // Auto-add Product section on product pages if missing
@@ -943,25 +939,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const ps = SECTION_SCHEMAS["product"]
       if (ps) {
         const headerIdx = loaded.findIndex(s => s.type === "header")
-        const newProductSection: SectionInstance = {
-          id: `product-${Date.now()}`,
-          type: "product",
-          name: ps.name,
-          settings: ps.presets?.[0]?.settings ?? {},
-          blocks: [],
-          hidden: false,
-        }
-        // Insert right after header
-        if (headerIdx !== -1) {
-          loaded.splice(headerIdx + 1, 0, newProductSection)
-        } else {
-          loaded.unshift(newProductSection)
-        }
+        const newSection: SectionInstance = { id: `product-${Date.now()}`, type: "product", name: ps.name, settings: ps.presets?.[0]?.settings ?? {}, blocks: [], hidden: false }
+        if (headerIdx !== -1) loaded.splice(headerIdx + 1, 0, newSection)
+        else loaded.unshift(newSection)
       }
     }
 
-    setSections(loaded)
+    return loaded
   }, [installId])
+
+  const loadSections = useCallback(async (page: PageKey) => {
+    const loaded = await fetchPageSections(page)
+    setSections(loaded)
+  }, [fetchPageSections])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -1022,6 +1012,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const handlePageChange = async (page: PageKey) => {
     setSectionsLoading(true)
+    setCanvasLoading(true)
     setCurrentPage(page)
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
@@ -1029,36 +1020,36 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setEditAllProductPages(false)
     await loadSections(page)
     setSectionsLoading(false)
+    setCanvasLoading(false)
   }
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
     setSectionsLoading(true)
+    setCanvasLoading(true)
     setSelectedProductPage(productTitle)
     setCurrentPage("product")
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
-    await loadSections("product")
 
-    // Find product data and inject into Product section settings
-    const productData = products.find(p => p.id === productId)
+    // Fetch sections and product data in parallel
+    const [pageSections, productRes] = await Promise.all([
+      fetchPageSections("product"),
+      fetch(`/api/website-builder/products?id=${productId}`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ])
+
+    // Inject real product data into the Product section before setting state
+    const productData = productRes?.product ?? products.find(p => p.id === productId) ?? null
     if (productData) {
-      // Fetch full product details including files
-      let fullProduct = { ...productData, files: [] as any[] }
-      try {
-        const res = await fetch(`/api/website-builder/products?id=${productId}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.product) fullProduct = data.product
+      for (const s of pageSections) {
+        if (s.type === "product") {
+          s.settings = { ...s.settings, _product_data: productData }
         }
-      } catch {}
-
-      setSections(prev => prev.map(s =>
-        s.type === "product"
-          ? { ...s, settings: { ...s.settings, _product_data: fullProduct } }
-          : s
-      ))
+      }
     }
+
+    setSections(pageSections)
     setSectionsLoading(false)
+    setCanvasLoading(false)
   }
 
   // Settings change (debounced undo push)
@@ -2046,18 +2037,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
             style={{ minHeight: "100%" }}
           >
-            {/* Loading skeleton for canvas */}
-            {loading && (
-              <div className="space-y-0 animate-pulse">
-                <div className="h-16 bg-neutral-100" />
-                <div className="h-[400px] bg-neutral-50" />
-                <div className="h-[200px] bg-neutral-100/50" />
-                <div className="h-[300px] bg-neutral-50" />
+            {/* Loading skeleton for canvas — initial load or page switch */}
+            {(loading || canvasLoading) && (
+              <div className="animate-pulse">
+                <div className="h-14 bg-neutral-100/80" />
+                <div className="h-[420px] bg-neutral-50/80 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-3 opacity-40">
+                    <div className="h-8 w-8 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                </div>
+                <div className="h-[180px] bg-neutral-100/40" />
+                <div className="h-[280px] bg-neutral-50/40" />
+                <div className="h-[120px] bg-neutral-100/40" />
               </div>
             )}
 
             {/* Announcement bar */}
-            {!loading && settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
+            {!loading && !canvasLoading && settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
               <div
                 className="w-full py-2 text-center text-sm font-medium"
                 style={{
@@ -2070,7 +2066,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )}
 
             {/* Sections */}
-            {!loading && sections.map(section => (
+            {!loading && !canvasLoading && sections.map(section => (
               <div key={section.id} id={`wb-section-${section.id}`}>
                 <SectionRenderer
                   section={section}
@@ -2083,7 +2079,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             ))}
 
             {/* Empty page — show only when no body sections (header/footer don't count) */}
-            {!loading && sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
+            {!loading && !canvasLoading && sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
               <div className="py-20 flex items-center justify-center text-center">
                 <div>
                   <p className="text-2xl font-bold tracking-tight text-neutral-400 uppercase mb-2">Empty Page</p>
