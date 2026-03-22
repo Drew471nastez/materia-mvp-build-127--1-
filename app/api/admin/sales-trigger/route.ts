@@ -255,15 +255,16 @@ async function processPostOrder(
   // Real order emails are sent by the normal checkout flow, not here
   results.push("Emails skipped (simulation mode)")
 
-  // 6. Push notification to seller
+  // 6. Push notification to seller (5-second delay so it feels like a real sale)
   try {
+    await new Promise((resolve) => setTimeout(resolve, 5000))
     await notifySale(creator.user_id, {
       productName: product.title,
       amountCents: 0,
       orderId: order.id,
       productId: product.id,
     })
-    results.push("Push notification sent")
+    results.push("Push notification sent (after 5s delay)")
   } catch (e) {
     results.push(`Push failed: ${e}`)
   }
