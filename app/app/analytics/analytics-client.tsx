@@ -2687,42 +2687,49 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CHART_COLORS.views} stopOpacity={0} />
+                      <stop offset="5%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={CHART_COLORS.views} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.orders} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CHART_COLORS.orders} stopOpacity={0} />
+                      <stop offset="5%" stopColor={CHART_COLORS.orders} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={CHART_COLORS.orders} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.revenue} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
+                      <stop offset="5%" stopColor={CHART_COLORS.revenue} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradRefunds" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.refunds} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CHART_COLORS.refunds} stopOpacity={0} />
+                      <stop offset="5%" stopColor={CHART_COLORS.refunds} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={CHART_COLORS.refunds} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradConversion" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.15} />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.clicks} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={CHART_COLORS.clicks} stopOpacity={0} />
+                      <stop offset="5%" stopColor={CHART_COLORS.clicks} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={CHART_COLORS.clicks} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradSubscribers" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradCtr" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.15} />
-                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                   <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} interval="preserveStartEnd" />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} domain={[0, "auto"]} width={40}
-                    tickFormatter={(v) => (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") ? `${v}%` : v.toLocaleString()}
+                    tickFormatter={(v: number) => {
+                      if (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") return `${v}%`
+                      if (chartMetricFilter === "revenue" || (analyticsMode === "store" && chartMetricFilter === "all")) {
+                        // Only format as currency when revenue is the sole visible metric
+                        if (chartMetricFilter === "revenue") return `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}`
+                      }
+                      return v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)
+                    }}
                   />
                   {/* Desktop-only Recharts tooltip — hidden on touch devices */}
                   {!isTouchDevice && (
@@ -2756,7 +2763,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   )}
                   {/* Vertical crosshair line at active touch point */}
                   {chartTooltipActive && chartActiveIndex != null && chartActiveIndex >= 0 && chartActiveIndex < chartDisplayData.length && (
-                    <ReferenceLine x={chartDisplayData[chartActiveIndex].date} stroke="#c4b5fd" strokeWidth={1} strokeDasharray="4 3" />
+                    <ReferenceLine x={chartDisplayData[chartActiveIndex].date} stroke="#c4b5fd" strokeWidth={1} strokeDasharray="4 3" ifOverflow="extendDomain" />
                   )}
                   {/* Store areas — dot logic matches dashboard: active scrub dot, last-point dot, or invisible */}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
@@ -2898,7 +2905,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   }}>
                     <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, marginBottom: "2px" }}>{pt.date}</p>
                     {lines.map((l, i) => (
-                      <p key={i} style={{ fontWeight: 500, margin: 0, color: l.isRefund ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
+                      <p key={i} style={{ fontWeight: 600, margin: 0, color: l.isRefund ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
                     ))}
                   </div>
                 )
