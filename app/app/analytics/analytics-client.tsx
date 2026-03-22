@@ -2670,8 +2670,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {(
               <div className="relative">
                 <div
+                  className={`transition-opacity duration-500 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} ${isRefreshing ? "opacity-30 blur-[2px]" : ""}`}
+                >
+                <div
                   ref={chartContainerRef}
-                  className={`transition-all duration-500 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} ${isRefreshing ? "opacity-30 blur-[2px]" : "blur-0"}`}
                   style={{
                     touchAction: chartTooltipActive ? "none" : "pan-y pinch-zoom",
                     userSelect: "none",
@@ -2910,6 +2912,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   </div>
                 )
               })()}
+                </div>
                 </div>
                 {!hasRealData && (
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
