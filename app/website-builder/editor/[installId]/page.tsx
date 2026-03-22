@@ -352,221 +352,65 @@ function SectionIcon({ type, className }: { type: string; className?: string }) 
   return <Icon className={cn("h-4 w-4", className)} strokeWidth={1.5} />
 }
 
-// ── Section Preview Components for Modal ─────────────────────
-function SectionPreviewThumbnail({ type }: { type: string }) {
-  const schema = SECTION_SCHEMAS[type]
-  if (!schema) return <div className="w-full h-full bg-muted flex items-center justify-center"><Layout className="h-8 w-8 text-muted-foreground/30" /></div>
+// ── Section Preview — renders the real section scaled down ───
+const PREVIEW_RENDER_WIDTH = 800
+const PREVIEW_THEME: ThemeSettingsValues = {
+  primary_color: "#6366f1",
+  secondary_color: "#8b5cf6",
+  accent_color: "#f59e0b",
+  background_color: "#ffffff",
+  surface_color: "#f8fafc",
+  text_color: "#0f172a",
+  text_secondary_color: "#64748b",
+  border_color: "#e2e8f0",
+  button_style: "rounded",
+  border_radius: 8,
+  font_heading: "Inter",
+  font_body: "Inter",
+}
 
-  switch (type) {
-    case "hero":
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex flex-col items-center justify-center gap-2 p-4 text-white">
-          <div className="h-2 bg-white/90 rounded w-3/5" />
-          <div className="h-1.5 bg-white/50 rounded w-2/5" />
-          <div className="h-5 bg-white/90 rounded-md w-1/4 mt-1" />
-        </div>
-      )
-    case "video_hero":
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center gap-2 p-4">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <Play className="h-5 w-5 text-white/80 fill-white/80" />
-          </div>
-          <div className="h-1.5 bg-white/60 rounded w-2/5" />
-        </div>
-      )
-    case "rich_text":
-      return (
-        <div className="w-full h-full bg-white flex flex-col gap-2 items-center justify-center p-4">
-          <div className="h-2.5 bg-slate-800 rounded w-1/3" />
-          <div className="space-y-1.5 w-4/5">
-            <div className="h-1.5 bg-slate-300 rounded w-full" />
-            <div className="h-1.5 bg-slate-200 rounded w-11/12" />
-            <div className="h-1.5 bg-slate-200 rounded w-4/5" />
-          </div>
-        </div>
-      )
-    case "split_content":
-      return (
-        <div className="w-full h-full bg-white flex gap-2 p-3">
-          <div className="flex-1 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center">
-            <Image className="h-5 w-5 text-slate-400" />
-          </div>
-          <div className="flex-1 flex flex-col gap-1.5 justify-center py-1">
-            <div className="h-2 bg-slate-800 rounded w-4/5" />
-            <div className="h-1.5 bg-slate-300 rounded w-full" />
-            <div className="h-1.5 bg-slate-200 rounded w-3/4" />
-            <div className="h-4 bg-purple-500 rounded w-3/5 mt-1" />
-          </div>
-        </div>
-      )
-    case "image_banner":
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-amber-100 via-orange-200 to-rose-200 flex items-center justify-center">
-          <div className="text-center">
-            <div className="h-2 bg-slate-800/60 rounded w-24 mx-auto mb-1" />
-            <div className="h-1.5 bg-slate-800/30 rounded w-16 mx-auto" />
-          </div>
-        </div>
-      )
-    case "slideshow":
-      return (
-        <div className="w-full h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 flex items-center justify-center relative">
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white/30" />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white/30" />
-          <div className="h-2 bg-white/80 rounded w-1/3" />
-        </div>
-      )
-    case "product_list":
-      return (
-        <div className="w-full h-full bg-white p-3 flex flex-col gap-2">
-          <div className="h-2 bg-slate-800 rounded w-1/3" />
-          <div className="flex-1 grid grid-cols-3 gap-1.5">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-slate-100 rounded-lg flex flex-col overflow-hidden border border-slate-200">
-                <div className="flex-1 bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center">
-                  <Package className="h-3 w-3 text-slate-400" />
-                </div>
-                <div className="p-1 space-y-0.5">
-                  <div className="h-1 bg-slate-600 rounded w-full" />
-                  <div className="h-1 bg-emerald-500 rounded w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    case "feature_grid":
-      return (
-        <div className="w-full h-full bg-white p-3 flex flex-col gap-2">
-          <div className="h-2 bg-slate-800 rounded w-2/5 mx-auto" />
-          <div className="flex-1 grid grid-cols-3 gap-2">
-            {[{ c: "bg-purple-100 text-purple-500" }, { c: "bg-blue-100 text-blue-500" }, { c: "bg-emerald-100 text-emerald-500" }].map((item, i) => (
-              <div key={i} className="flex flex-col items-center gap-1 p-1">
-                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center", item.c)}>
-                  <Star className="w-3 h-3" />
-                </div>
-                <div className="h-1.5 bg-slate-700 rounded w-full" />
-                <div className="h-1 bg-slate-300 rounded w-4/5" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    case "testimonials":
-      return (
-        <div className="w-full h-full bg-slate-50 p-3 flex flex-col gap-2">
-          <div className="h-2 bg-slate-800 rounded w-1/3 mx-auto" />
-          <div className="flex-1 flex gap-2">
-            {[1, 2].map(i => (
-              <div key={i} className="flex-1 bg-white rounded-lg p-2 border border-slate-200">
-                <div className="flex gap-0.5 mb-1">
-                  {[1, 2, 3, 4, 5].map(s => <Star key={s} className="w-2 h-2 text-amber-400 fill-amber-400" />)}
-                </div>
-                <div className="h-1 bg-slate-300 rounded w-full mb-0.5" />
-                <div className="h-1 bg-slate-200 rounded w-3/4" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    case "faq":
-      return (
-        <div className="w-full h-full bg-white p-3 flex flex-col gap-1.5">
-          <div className="h-2 bg-slate-800 rounded w-1/4 mx-auto mb-1" />
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex items-center justify-between px-2 py-1.5 border border-slate-200 rounded-md">
-              <div className="h-1.5 bg-slate-600 rounded w-2/3" />
-              <ChevronDown className="h-2.5 w-2.5 text-slate-400" />
-            </div>
-          ))}
-        </div>
-      )
-    case "cta":
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-purple-600 to-indigo-700 flex flex-col items-center justify-center gap-2 p-4">
-          <div className="h-2 bg-white/90 rounded w-2/5" />
-          <div className="h-1.5 bg-white/50 rounded w-3/5" />
-          <div className="h-5 bg-white rounded-md w-1/4 mt-1" />
-        </div>
-      )
-    case "stats":
-      return (
-        <div className="w-full h-full bg-slate-50 p-3 flex items-center justify-center">
-          <div className="grid grid-cols-4 gap-4 w-full">
-            {["10K+", "500+", "99%", "24/7"].map((n, i) => (
-              <div key={i} className="text-center">
-                <div className="text-[10px] font-bold text-purple-600">{n}</div>
-                <div className="h-1 bg-slate-300 rounded w-3/4 mx-auto mt-0.5" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    case "newsletter":
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center gap-2 p-4">
-          <Mail className="h-5 w-5 text-white/80" />
-          <div className="h-1.5 bg-white/80 rounded w-2/5" />
-          <div className="flex gap-1 w-3/5">
-            <div className="flex-1 h-4 bg-white/20 rounded" />
-            <div className="h-4 w-12 bg-white rounded" />
-          </div>
-        </div>
-      )
-    case "pricing":
-      return (
-        <div className="w-full h-full bg-white p-3 flex flex-col gap-2">
-          <div className="h-2 bg-slate-800 rounded w-1/3 mx-auto" />
-          <div className="flex-1 grid grid-cols-3 gap-1.5">
-            {[false, true, false].map((featured, i) => (
-              <div key={i} className={cn("rounded-lg p-1.5 border flex flex-col gap-1", featured ? "bg-purple-600 border-purple-600" : "bg-white border-slate-200")}>
-                <div className={cn("h-1.5 rounded w-2/3", featured ? "bg-white/80" : "bg-slate-600")} />
-                <div className={cn("text-[8px] font-bold", featured ? "text-white" : "text-slate-800")}>$29</div>
-                <div className={cn("h-3 rounded text-[6px] flex items-center justify-center font-medium", featured ? "bg-white text-purple-600" : "bg-purple-600 text-white")}>Buy</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    case "gallery":
-      return (
-        <div className="w-full h-full bg-white p-3">
-          <div className="grid grid-cols-3 gap-1.5 h-full">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="bg-gradient-to-br from-slate-200 to-slate-300 rounded-md" />
-            ))}
-          </div>
-        </div>
-      )
-    case "logo_bar":
-      return (
-        <div className="w-full h-full bg-slate-50 flex items-center justify-center gap-4 p-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-5 w-12 bg-slate-300 rounded opacity-60" />
-          ))}
-        </div>
-      )
-    case "trust_badges":
-      return (
-        <div className="w-full h-full bg-white flex items-center justify-center gap-3 p-4">
-          {[Shield, Star, Award].map((Icon, i) => (
-            <div key={i} className="flex flex-col items-center gap-1">
-              <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center">
-                <Icon className="h-3.5 w-3.5 text-emerald-600" />
-              </div>
-              <div className="h-1 bg-slate-400 rounded w-8" />
-            </div>
-          ))}
-        </div>
-      )
-    default:
-      return (
-        <div className="w-full h-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-          <SectionIcon type={type} className="h-8 w-8 text-muted-foreground/30" />
-        </div>
-      )
+function buildPreviewSection(type: string): SectionInstance | null {
+  const schema = SECTION_SCHEMAS[type]
+  if (!schema) return null
+  const preset = schema.presets?.[0]
+  return {
+    id: `preview-${type}`,
+    type,
+    name: schema.name,
+    settings: preset?.settings ?? {},
+    blocks: preset?.blocks ?? [],
+    hidden: false,
   }
+}
+
+function SectionPreviewThumbnail({ type, containerWidth = 220 }: { type: string; containerWidth?: number }) {
+  const section = buildPreviewSection(type)
+  if (!section) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center">
+        <Layout className="h-8 w-8 text-muted-foreground/30" />
+      </div>
+    )
+  }
+  const scale = containerWidth / PREVIEW_RENDER_WIDTH
+  return (
+    <div
+      className="origin-top-left overflow-hidden"
+      style={{
+        width: PREVIEW_RENDER_WIDTH,
+        zoom: scale,
+        pointerEvents: "none",
+        userSelect: "none",
+      }}
+    >
+      <SectionRenderer
+        section={section}
+        theme={PREVIEW_THEME}
+        isEditing={false}
+        isSelected={false}
+      />
+    </div>
+  )
 }
 
 // ── Add Section Modal ────────────────────────────────────────
@@ -617,9 +461,20 @@ function AddSectionModal({
   // ── Section card (shared between mobile & desktop) ──
   const SectionCard = ({ type, mobile }: { type: string; mobile?: boolean }) => {
     const schema = SECTION_SCHEMAS[type]
+    const cardRef = useRef<HTMLButtonElement>(null)
+    const [cardWidth, setCardWidth] = useState(mobile ? 300 : 260)
+    useEffect(() => {
+      if (!cardRef.current) return
+      const ro = new ResizeObserver(([entry]) => {
+        if (entry) setCardWidth(entry.contentRect.width)
+      })
+      ro.observe(cardRef.current)
+      return () => ro.disconnect()
+    }, [])
     if (!schema) return null
     return (
       <button
+        ref={cardRef}
         onClick={() => handleAdd(type)}
         className={cn(
           "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
@@ -635,9 +490,9 @@ function AddSectionModal({
         <div className="px-4 pt-3 pb-2.5 shrink-0">
           <p className="font-semibold text-sm leading-tight text-foreground">{schema.name}</p>
         </div>
-        {/* Full-width section preview */}
-        <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative aspect-[16/9]">
-          <SectionPreviewThumbnail type={type} />
+        {/* Full-width real section preview */}
+        <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
+          <SectionPreviewThumbnail type={type} containerWidth={cardWidth} />
         </div>
       </button>
     )
