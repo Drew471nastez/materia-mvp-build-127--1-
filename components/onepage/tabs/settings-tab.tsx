@@ -24,6 +24,8 @@ import {
   Send,
 } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import {
   Dialog,
@@ -72,12 +74,28 @@ export interface SettingsTabRef {
 
 export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, ref) {
   const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, markDirty } = useOnePage()
+  const router = useRouter()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
   const [showOgImageModal, setShowOgImageModal] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [localSaveState, setLocalSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Billing state
+  const [userPlan, setUserPlan] = useState<"free" | "growth" | "pro" | null>(null)
+  const [planLoading, setPlanLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/billing/subscription")
+      .then(r => r.json())
+      .then(data => {
+        const plan = (data.subscription?.plan_id || data.currentPlan?.id) as "free" | "growth" | "pro" | undefined
+        setUserPlan(plan || "free")
+      })
+      .catch(() => setUserPlan("free"))
+      .finally(() => setPlanLoading(false))
+  }, [])
 
   // Form states
   const [pageName, setPageName] = useState(onepage?.title || "")
@@ -1007,11 +1025,20 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
     )
   }
 
+  const planDetails: Record<string, { name: string; price: string; description: string; fee: string }> = {
+    free: { name: "Free", price: "$0", description: "Basic features", fee: "6% + $0.25 per sale" },
+    growth: { name: "Growth", price: "$29.90/mo", description: "Lower fees, custom domain", fee: "3% + $0.25 per sale" },
+    pro: { name: "Professional", price: "$99/mo", description: "Lowest fees, priority support", fee: "1.5% + $0.25 per sale" },
+  }
+
+  const currentPlanInfo = planDetails[userPlan || "free"]
+  const isPaid = userPlan === "growth" || userPlan === "pro"
+
   const renderBilling = () => (
     <div className="space-y-6">
       <div>
         <h3 className="text-base font-semibold mb-1">Billing</h3>
-        <p className="text-sm text-gray-500">Manage your subscription</p>
+        <p className="text-sm text-gray-500">Manage your subscription and billing</p>
       </div>
 
       {/* Current Plan */}
@@ -1020,45 +1047,59 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
           <span className="text-xs font-medium text-gray-400">Current Plan</span>
           <span className="px-2 py-0.5 bg-white/10 text-white text-xs font-medium rounded-full">Active</span>
         </div>
-        <p className="text-xl font-bold">Free</p>
-        <p className="text-sm text-gray-400 mt-1">Basic features</p>
+        {planLoading ? (
+          <div className="h-7 w-24 bg-white/10 rounded animate-pulse" />
+        ) : (
+          <>
+            <p className="text-xl font-bold">{currentPlanInfo.name}</p>
+            <p className="text-sm text-gray-400 mt-1">{currentPlanInfo.price} &middot; {currentPlanInfo.fee}</p>
+          </>
+        )}
       </div>
 
-      {/* Upgrade Card */}
-      <div className="border border-gray-200 rounded-lg p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-violet-600" />
+      {/* Upgrade Card — only show if not on Pro */}
+      {userPlan !== "pro" && (
+        <div className="border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="font-medium text-sm text-gray-900">{userPlan === "free" ? "Growth Plan" : "Professional Plan"}</p>
+              <p className="text-xs text-gray-500">{userPlan === "free" ? "$29.90/month" : "$99/month"}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium text-sm text-gray-900">Pro Plan</p>
-            <p className="text-xs text-gray-500">$9/month</p>
-          </div>
+          <ul className="space-y-2 mb-4">
+            {(userPlan === "free"
+              ? ["Lower fees (3%)", "Custom domain", "Verified badge", "2,000 emails/month"]
+              : ["Lowest fees (1.5%)", "Priority support", "White-label", "5,000 emails/month"]
+            ).map((feature) => (
+              <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
+                <Check className="h-3.5 w-3.5 text-violet-500" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+          <Button
+            className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white cursor-pointer"
+            onClick={() => router.push("/app/settings/billing/upgrade")}
+          >
+            {userPlan === "free" ? "Upgrade Plan" : "Upgrade to Pro"}
+          </Button>
         </div>
-        <ul className="space-y-2 mb-4">
-          {["Remove branding", "Custom domain", "Advanced analytics", "Priority support"].map((feature) => (
-            <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
-              <Check className="h-3.5 w-3.5 text-violet-500" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-        <Button className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white">
-          Upgrade to Pro
-        </Button>
-      </div>
+      )}
 
-      {/* Payment Method */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Payment Method</Label>
-        <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <CreditCard className="h-4 w-4 text-gray-400" />
-            <span className="text-sm text-gray-500">No payment method</span>
-          </div>
-          <ChevronRight className="h-4 w-4 text-gray-400" />
-        </button>
-      </div>
+      {/* Manage Billing Link */}
+      <Link
+        href="/app/settings/billing"
+        className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <CreditCard className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-700">Manage billing & invoices</span>
+        </div>
+        <ChevronRight className="h-4 w-4 text-gray-400" />
+      </Link>
     </div>
   )
 

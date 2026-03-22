@@ -27,6 +27,7 @@ export function UpgradePageClient({
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
+  const [checkoutOpened, setCheckoutOpened] = useState(false)
 
   const goBack = () => {
     if (closing) return
@@ -84,9 +85,16 @@ export function UpgradePageClient({
         const { checkoutUrl } = await response.json()
         if (checkoutUrl) {
           if (isNativeApp()) {
+            // Native: open in system browser (Safari/Chrome)
             openExternal(checkoutUrl)
+            setCheckoutOpened(true)
+            setLoading(null)
+            return
           } else {
-            window.open(checkoutUrl, "_blank", "noopener,noreferrer")
+            // Web: redirect in same tab for maximum reliability
+            // (window.open is blocked by popup blockers on most browsers)
+            window.location.href = checkoutUrl
+            return // Don't clear loading — page is navigating away
           }
         }
       }
@@ -154,6 +162,14 @@ export function UpgradePageClient({
           <h1 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">Choose Your Plan</h1>
           <p className="text-[15px] text-[#6b7280] mt-2">Scale your business with the right plan for you</p>
         </div>
+
+        {/* Checkout opened in external browser (native only) */}
+        {checkoutOpened && (
+          <div className="max-w-xl mx-auto mb-6 p-4 bg-violet-50 border border-violet-200 rounded-xl text-[13px] text-violet-900 text-center">
+            <p className="font-medium">Checkout opened in your browser</p>
+            <p className="text-violet-600 mt-1">Complete your payment there, then come back to the app.</p>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
