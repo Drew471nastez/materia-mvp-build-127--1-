@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Eye, Code2, Settings2, Globe, Palette, MoreHorizontal,
-  Plus, Check, Pencil, Trash2, Copy, Upload, RefreshCw,
+  Globe, Palette, MoreHorizontal,
+  Plus, Check, Pencil, Trash2, Copy, RefreshCw,
   EyeOff, ExternalLink, Loader2, AlertTriangle, Layers,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,17 +18,83 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import type { ThemeInstall } from "@/lib/website-builder/types"
+import type { ThemeInstall, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+
+// ── Theme Library Catalog ────────────────────────────────────
+// 6 themes covering different niches for digital products
+const THEME_CATALOG = [
+  {
+    id: "storelib-default",
+    themeId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    name: "Storelib Default",
+    description: "Clean modern storefront for any digital product",
+    niche: "General",
+    colors: { primary: "#6366f1", bg: "#ffffff", hero: "#0f172a", heroText: "#ffffff", text: "#0f172a", surface: "#f8fafc" },
+    font: "Inter",
+    buttonStyle: "rounded" as const,
+  },
+  {
+    id: "creator-minimal",
+    themeId: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    name: "Creator Minimal",
+    description: "Refined minimal theme for creators",
+    niche: "Creators",
+    colors: { primary: "#171717", bg: "#ffffff", hero: "#fafafa", heroText: "#0a0a0a", text: "#0a0a0a", surface: "#f5f5f5" },
+    font: "Plus Jakarta Sans",
+    buttonStyle: "square" as const,
+  },
+  {
+    id: "digital-wave",
+    themeId: "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    name: "Digital Wave",
+    description: "Bold gradients for creators who stand out",
+    niche: "Digital Products",
+    colors: { primary: "#7c3aed", bg: "#0a0a0f", hero: "#0a0a0f", heroText: "#ffffff", text: "#e2e8f0", surface: "#1a1a2e" },
+    font: "Space Grotesk",
+    buttonStyle: "pill" as const,
+  },
+  {
+    id: "ebook-author",
+    themeId: "ebook-author-theme-001",
+    name: "Ebook Author",
+    description: "Perfect for authors selling books & ebooks",
+    niche: "Books & Ebooks",
+    colors: { primary: "#b45309", bg: "#fffbeb", hero: "#78350f", heroText: "#fef3c7", text: "#451a03", surface: "#fef9c3" },
+    font: "Playfair Display",
+    buttonStyle: "rounded" as const,
+  },
+  {
+    id: "course-creator",
+    themeId: "course-creator-theme-001",
+    name: "Course Creator",
+    description: "Built for online courses & educational content",
+    niche: "Courses & Education",
+    colors: { primary: "#0891b2", bg: "#f0fdfa", hero: "#134e4a", heroText: "#ccfbf1", text: "#0f172a", surface: "#e0f2fe" },
+    font: "DM Sans",
+    buttonStyle: "rounded" as const,
+  },
+  {
+    id: "designer-portfolio",
+    themeId: "designer-portfolio-theme-001",
+    name: "Designer Portfolio",
+    description: "Showcase design assets & templates beautifully",
+    niche: "Design & Templates",
+    colors: { primary: "#e11d48", bg: "#fafafa", hero: "#18181b", heroText: "#fafafa", text: "#18181b", surface: "#f4f4f5" },
+    font: "Sora",
+    buttonStyle: "pill" as const,
+  },
+]
 
 // ── Status badge ─────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   if (status === "published") {
     return (
       <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5">
-        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
         Live
       </Badge>
     )
@@ -47,108 +113,132 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-// ── Theme preview using actual screenshot (thum.io) with mock fallback ─────
+// ── Real section-based theme preview ─────────────────────────
+// Renders actual sections from the theme's saved state, scaled down
 function ThemePreview({
   install,
-  size = "large",
-  username,
-  screenshotTimestamp,
+  aspectClass = "aspect-[16/10]",
 }: {
   install: ThemeInstall
-  size?: "large" | "small"
-  username?: string
-  screenshotTimestamp?: number
+  aspectClass?: string
 }) {
-  const [imgError, setImgError] = useState(false)
-  const [imgLoaded, setImgLoaded] = useState(false)
-  const isSmall = size === "small"
-  const isPublished = install.status === "published"
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(400)
 
-  // Only show screenshot for the published (live) theme
-  const screenshotUrl = isPublished && username && !imgError
-    ? `https://image.thum.io/get/width/800/crop/${isSmall ? "300" : "500"}/${encodeURIComponent(`https://materia.so/u/${username}`)}?t=${screenshotTimestamp ?? 0}`
-    : null
+  useEffect(() => {
+    if (!containerRef.current) return
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setContainerWidth(entry.contentRect.width)
+    })
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
 
-  // Mock preview using theme colors (fallback)
-  const s = install.settings?.draft_settings ?? install.settings?.settings ?? {}
-  const primaryColor = (s.primary_color as string) ?? "#6366f1"
-  const bgColor = (s.background_color as string) ?? "#ffffff"
-  const textColor = (s.text_color as string) ?? "#0f172a"
-  const surfaceColor = (s.surface_color as string) ?? "#f8fafc"
-  const brandName = (s.brand_name as string) ?? install.name ?? "My Store"
-  const fontHeading = (s.font_heading as string) ?? "Inter"
-  const buttonStyle = (s.button_style as string) ?? "rounded"
-  const btnRadius = buttonStyle === "pill" ? "9999px" : buttonStyle === "square" ? "4px" : "8px"
-  const heroSection = install.pages?.find((p: any) => p.page_key === "home")
-  const pageSections = heroSection?.draft_sections ?? heroSection?.sections ?? []
-  const hero = Array.isArray(pageSections) ? pageSections.find((sec: any) => sec.type === "hero") : null
-  const heroBg = String(hero?.settings?.bg_color ?? "#0f172a")
-  const heroTextColor = String(hero?.settings?.text_color ?? "#ffffff")
-  const heroHeading = String(hero?.settings?.heading ?? "Discover Amazing Digital Products")
-  const heroCta = String(hero?.settings?.cta_text ?? "Shop Now")
+  const s = install.settings?.settings ?? install.settings?.draft_settings ?? {}
+  const theme: ThemeSettingsValues = {
+    primary_color: (s.primary_color as string) ?? "#6366f1",
+    secondary_color: (s.secondary_color as string) ?? "#8b5cf6",
+    accent_color: (s.accent_color as string) ?? "#f59e0b",
+    background_color: (s.background_color as string) ?? "#ffffff",
+    surface_color: (s.surface_color as string) ?? "#f8fafc",
+    text_color: (s.text_color as string) ?? "#0f172a",
+    text_secondary_color: (s.text_secondary_color as string) ?? "#64748b",
+    border_color: (s.border_color as string) ?? "#e2e8f0",
+    button_style: (s.button_style as "rounded" | "square" | "pill") ?? "rounded",
+    border_radius: (s.border_radius as number) ?? 8,
+    font_heading: (s.font_heading as string) ?? "Inter",
+    font_body: (s.font_body as string) ?? "Inter",
+    brand_name: (s.brand_name as string) ?? install.name ?? "My Store",
+  }
+
+  // Get home page sections
+  const homePage = install.pages?.find((p: any) => p.page_key === "home")
+  const sections: SectionInstance[] = homePage?.sections ?? homePage?.draft_sections ?? []
+
+  const RENDER_WIDTH = 1200
+  const scale = containerWidth / RENDER_WIDTH
 
   return (
     <div
-      className={cn(
-        "w-full overflow-hidden border border-neutral-200/60 relative",
-        isSmall ? "aspect-[4/3] rounded-lg" : "aspect-[16/10] rounded-xl",
-      )}
-      style={{ background: bgColor }}
+      ref={containerRef}
+      className={cn("w-full overflow-hidden relative bg-white", aspectClass)}
     >
-      {/* Screenshot image */}
-      {screenshotUrl && (
-        <>
-          {!imgLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 z-10">
-              <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
-            </div>
-          )}
-          <img
-            src={screenshotUrl}
-            alt="Live site preview"
-            className={cn("absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300", imgLoaded ? "opacity-100" : "opacity-0")}
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
-          />
-        </>
-      )}
-
-      {/* Mock fallback (always rendered, hidden when screenshot loaded) */}
-      {(!screenshotUrl || imgError) && (
-        <div className="relative h-full flex flex-col">
-          <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0" style={{ background: bgColor, borderColor: surfaceColor }}>
-            <span className={cn("font-bold truncate", isSmall ? "text-[8px]" : "text-[10px]")} style={{ color: textColor, fontFamily: fontHeading }}>
-              {brandName}
-            </span>
-            {!isSmall && (
-              <div className="flex gap-1">
-                <span className="text-[7px] opacity-50" style={{ color: textColor }}>Shop</span>
-                <span className="text-[7px] opacity-50" style={{ color: textColor }}>About</span>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 flex flex-col items-center justify-center gap-1 px-3 min-h-0" style={{ background: heroBg }}>
-            <p className={cn("font-bold text-center leading-tight max-w-[90%]", isSmall ? "text-[8px]" : "text-[11px]")} style={{ color: heroTextColor, fontFamily: fontHeading }}>
-              {heroHeading}
-            </p>
-            <div className={cn("text-white font-semibold mt-0.5", isSmall ? "text-[6px] px-2 py-0.5" : "text-[7px] px-3 py-1")} style={{ background: primaryColor, borderRadius: btnRadius }}>
-              {heroCta}
-            </div>
-          </div>
-          <div className="px-2 py-1.5 shrink-0" style={{ background: bgColor }}>
-            <div className="flex gap-1">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="flex-1 rounded overflow-hidden" style={{ border: `1px solid ${surfaceColor}` }}>
-                  <div className={cn("bg-gradient-to-br from-neutral-200 to-neutral-100", isSmall ? "h-3" : "h-5")} />
-                  <div className="p-0.5">
-                    <div className={cn("rounded", isSmall ? "h-0.5 w-3/4" : "h-1 w-3/4")} style={{ background: textColor, opacity: 0.15 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+      {sections.length > 0 ? (
+        <div
+          className="origin-top-left"
+          style={{
+            width: RENDER_WIDTH,
+            zoom: scale,
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+        >
+          {sections.map((section) => (
+            <SectionRenderer
+              key={section.id}
+              section={section}
+              theme={theme}
+              isEditing={false}
+              isSelected={false}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-50">
+          <div className="text-center">
+            <Layers className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
+            <p className="text-xs text-neutral-400">No sections yet</p>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Theme catalog preview (static, no saved sections) ────────
+function CatalogThemePreview({ catalog }: { catalog: typeof THEME_CATALOG[0] }) {
+  const { colors, font, buttonStyle } = catalog
+  const btnRadius = buttonStyle === "pill" ? "9999px" : buttonStyle === "square" ? "4px" : "8px"
+
+  return (
+    <div className="w-full aspect-[3/4] overflow-hidden flex flex-col" style={{ background: colors.bg }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b shrink-0" style={{ borderColor: colors.surface }}>
+        <span className="text-[9px] font-bold truncate" style={{ color: colors.text, fontFamily: font }}>{catalog.name}</span>
+        <div className="flex gap-1.5">
+          <span className="text-[7px] opacity-40" style={{ color: colors.text }}>Shop</span>
+          <span className="text-[7px] opacity-40" style={{ color: colors.text }}>About</span>
+        </div>
+      </div>
+      {/* Hero */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-1.5 px-4 min-h-0" style={{ background: colors.hero }}>
+        <p className="text-[10px] font-bold text-center leading-tight" style={{ color: colors.heroText, fontFamily: font }}>
+          Build Something Amazing
+        </p>
+        <p className="text-[7px] text-center opacity-60" style={{ color: colors.heroText }}>
+          Premium digital products for creators
+        </p>
+        <div
+          className="text-[6px] font-semibold px-3 py-1 mt-0.5"
+          style={{ background: colors.primary, color: "#fff", borderRadius: btnRadius }}
+        >
+          Shop Now
+        </div>
+      </div>
+      {/* Feature cards */}
+      <div className="px-2 py-2 shrink-0" style={{ background: colors.bg }}>
+        <div className="flex gap-1.5">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex-1 rounded overflow-hidden" style={{ border: `1px solid ${colors.surface}` }}>
+              <div className="h-4 bg-gradient-to-br from-neutral-200 to-neutral-100" style={{ opacity: 0.6 }} />
+              <div className="p-1">
+                <div className="h-0.5 rounded w-3/4 mb-0.5" style={{ background: colors.text, opacity: 0.12 }} />
+                <div className="h-0.5 rounded w-1/2" style={{ background: colors.primary, opacity: 0.3 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -215,7 +305,7 @@ function DeleteDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
-            Delete theme?
+            Delete website?
           </DialogTitle>
           <DialogDescription>
             This will permanently delete <strong>{install?.name}</strong> and all its customizations. This cannot be undone.
@@ -225,177 +315,11 @@ function DeleteDialog({
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button variant="destructive" onClick={handleDelete} disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Delete theme
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// ── Live theme hero card (Current theme — larger) ────────────
-function LiveThemeCard({
-  install,
-  username,
-  onEdit,
-  onCode,
-  onAction,
-  screenshotTimestamp,
-}: {
-  install: ThemeInstall
-  username: string
-  onEdit: () => void
-  onCode: () => void
-  onAction: (action: string, install: ThemeInstall) => void
-  screenshotTimestamp?: number
-}) {
-  const websiteUrl = username ? getWebsiteShareUrl(username) : ""
-  const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
-
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-      <div className="relative">
-        <ThemePreview install={install} size="large" username={username} screenshotTimestamp={screenshotTimestamp} />
-        <div className="absolute top-3 left-3">
-          <StatusBadge status={install.status} />
-        </div>
-      </div>
-      <div className="p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-[17px] font-semibold text-neutral-900 truncate">{install.name}</h2>
-            </div>
-            <p className="text-sm text-neutral-500 mt-0.5">
-              {install.theme?.author ?? "Storelib"} · v{install.theme?.version ?? "1.0.0"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="outline" onClick={onCode} className="gap-1.5">
-              <Code2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Edit code</span>
-            </Button>
-            <Button size="sm" onClick={onEdit} className="gap-1.5 bg-neutral-900 hover:bg-neutral-800 text-white">
-              <Palette className="h-3.5 w-3.5" />
-              Edit theme
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                {websiteUrl && (
-                  <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")}>
-                    <ExternalLink className="h-4 w-4 mr-2" />View live site
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={() => onAction("duplicate", install)}>
-                  <Copy className="h-4 w-4 mr-2" />Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAction("rename", install)}>
-                  <Pencil className="h-4 w-4 mr-2" />Rename
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onAction("unpublish", install)} className="text-amber-600">
-                  <EyeOff className="h-4 w-4 mr-2" />Unpublish
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        {websiteUrl && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-neutral-500 bg-neutral-50 rounded-lg px-3 py-2">
-            <Globe className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{websiteDisplay}</span>
-            <button
-              className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0"
-              onClick={() => { navigator.clipboard.writeText(websiteUrl); }}
-            >
-              Copy
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Theme card (grid card — 3 per row) ───────────────────────
-function ThemeGridCard({
-  install,
-  onEdit,
-  onAction,
-  username,
-  screenshotTimestamp,
-}: {
-  install: ThemeInstall
-  onEdit: () => void
-  onAction: (action: string, install: ThemeInstall) => void
-  username?: string
-  screenshotTimestamp?: number
-}) {
-  return (
-    <div className="group rounded-xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-300 hover:shadow-md transition-all">
-      {/* Preview */}
-      <div className="relative cursor-pointer" onClick={onEdit}>
-        <ThemePreview install={install} size="small" username={username} screenshotTimestamp={screenshotTimestamp} />
-        <div className="absolute top-2 left-2">
-          <StatusBadge status={install.status} />
-        </div>
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button size="sm" className="bg-white text-neutral-900 hover:bg-neutral-100 shadow-lg gap-1.5">
-              <Palette className="h-3.5 w-3.5" />
-              Customize
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Info + actions */}
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-neutral-900 truncate">{install.name}</p>
-            <p className="text-xs text-neutral-500 truncate mt-0.5">
-              {install.theme?.author ?? "Storelib"}
-            </p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0">
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => onAction("publish", install)}>
-                <Globe className="h-4 w-4 mr-2" />Publish
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAction("edit", install)}>
-                <Palette className="h-4 w-4 mr-2" />Edit theme
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAction("code", install)}>
-                <Code2 className="h-4 w-4 mr-2" />Edit code
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onAction("duplicate", install)}>
-                <Copy className="h-4 w-4 mr-2" />Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAction("rename", install)}>
-                <Pencil className="h-4 w-4 mr-2" />Rename
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onAction("delete", install)} className="text-red-600">
-                <Trash2 className="h-4 w-4 mr-2" />Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -417,10 +341,7 @@ export default function WebsiteBuilderPage() {
     if (!res.ok) return
     const data = await res.json()
     setInstalls(data.installs ?? [])
-    // Derive username from the first install's brand_name or creator slug
-    if (data.username) {
-      setUsername(data.username)
-    }
+    if (data.username) setUsername(data.username)
   }, [])
 
   useEffect(() => {
@@ -444,21 +365,18 @@ export default function WebsiteBuilderPage() {
   }, [loadInstalls])
 
   const liveTheme = installs.find(i => i.status === "published")
-  const libraryThemes = installs.filter(i => i.status !== "published")
+  const draftThemes = installs.filter(i => i.status !== "published")
+
+  // Which catalog themes are already installed
+  const installedThemeIds = new Set(installs.map(i => i.theme_id))
 
   const goToEditor = (installId: string) => {
     startNavigationLoading()
     router.push(`/website-builder/editor/${installId}`)
   }
 
-  const goToCode = (installId: string) => {
-    startNavigationLoading()
-    router.push(`/website-builder/code/${installId}`)
-  }
-
   const handleAction = async (action: string, install: ThemeInstall) => {
     if (action === "edit") { goToEditor(install.id); return }
-    if (action === "code") { goToCode(install.id); return }
     if (action === "rename") { setRenameInstall(install); return }
     if (action === "delete") { setDeleteInstall(install); return }
 
@@ -524,6 +442,25 @@ export default function WebsiteBuilderPage() {
     }
   }
 
+  const handleAddTheme = async (catalogTheme: typeof THEME_CATALOG[0]) => {
+    // Check max 3 themes
+    if (installs.length >= 3) {
+      toast({ title: "Maximum 3 websites allowed. Remove one to add another.", variant: "destructive" })
+      return
+    }
+
+    setActionLoading(catalogTheme.id + "_add")
+    // Initialize themes if needed, then reload — the theme will be auto-created
+    // We need to use the duplicate endpoint from an existing install of same theme, or use initialize
+    // For simplicity: use initialize to ensure theme exists, then reload
+    const res = await fetch("/api/website-builder/initialize", { method: "POST" })
+    setActionLoading(null)
+    if (res.ok) {
+      toast({ title: `"${catalogTheme.name}" added to your websites` })
+      await loadInstalls()
+    }
+  }
+
   const handleRename = async (id: string, name: string) => {
     const res = await fetch(`/api/website-builder/themes/${id}`, {
       method: "PATCH",
@@ -531,7 +468,7 @@ export default function WebsiteBuilderPage() {
       body: JSON.stringify({ name }),
     })
     if (res.ok) {
-      toast({ title: "Theme renamed" })
+      toast({ title: "Website renamed" })
       await loadInstalls()
     } else {
       const d = await res.json()
@@ -542,7 +479,7 @@ export default function WebsiteBuilderPage() {
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/website-builder/themes/${id}`, { method: "DELETE" })
     if (res.ok) {
-      toast({ title: "Theme deleted" })
+      toast({ title: "Website deleted" })
       await loadInstalls()
     } else {
       const d = await res.json()
@@ -554,105 +491,271 @@ export default function WebsiteBuilderPage() {
     return (
       <div className="flex items-center justify-center h-64 gap-3 text-neutral-500">
         <Loader2 className="h-5 w-5 animate-spin" />
-        <span>{initializing ? "Setting up your themes…" : "Loading…"}</span>
+        <span>{initializing ? "Setting up your themes..." : "Loading..."}</span>
       </div>
     )
   }
 
+  const websiteUrl = username ? getWebsiteShareUrl(username) : ""
+  const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
+
   return (
-    <div className="max-w-5xl mx-auto px-5 py-8">
+    <div className="max-w-6xl mx-auto px-5 py-8">
       {/* ── Page header ── */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Layers className="h-6 w-6 text-neutral-700" />
-            <h1 className="text-[22px] font-bold text-neutral-900">Website Builder</h1>
-          </div>
-          <p className="text-sm text-neutral-500">Manage your store's look and feel</p>
+      <div className="mb-10">
+        <div className="flex items-center gap-2.5 mb-1">
+          <Layers className="h-6 w-6 text-neutral-700" />
+          <h1 className="text-2xl font-bold text-neutral-900">Website Builder</h1>
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5" disabled>
-          <Upload className="h-3.5 w-3.5" />
-          Import theme
-        </Button>
+        <p className="text-sm text-neutral-500">Manage and customize your store website</p>
       </div>
 
-      {/* ── Current live theme ── */}
-      <section className="mb-10">
-        <h2 className="text-[13px] font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-          Current theme
+      {/* ══════════════════════════════════════════════════════════
+          SECTION 1: Current Website (published/live theme)
+          ══════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+          Current Website
         </h2>
         {liveTheme ? (
-          <div className="max-w-[50%]">
-            <LiveThemeCard
-              install={liveTheme}
-              username={username}
-              onEdit={() => goToEditor(liveTheme.id)}
-              onCode={() => goToCode(liveTheme.id)}
-              onAction={handleAction}
-              screenshotTimestamp={screenshotTimestamp}
-            />
+          <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+            {/* Full-width real preview */}
+            <div className="relative">
+              <ThemePreview install={liveTheme} aspectClass="aspect-[16/9] sm:aspect-[2/1]" />
+              <div className="absolute top-4 left-4">
+                <StatusBadge status="published" />
+              </div>
+            </div>
+
+            {/* Info bar */}
+            <div className="p-5 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-neutral-900 truncate">{liveTheme.name}</h2>
+                  <p className="text-sm text-neutral-500 mt-0.5">
+                    {liveTheme.theme?.author ?? "Storelib"} · v{liveTheme.theme?.version ?? "1.0.0"}
+                  </p>
+                  {websiteUrl && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-neutral-500">
+                      <Globe className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{websiteDisplay}</span>
+                      <button
+                        className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0"
+                        onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => goToEditor(liveTheme.id)}
+                    className="gap-1.5 bg-neutral-900 hover:bg-neutral-800 text-white"
+                  >
+                    <Palette className="h-3.5 w-3.5" />
+                    Customize Website
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      {websiteUrl && (
+                        <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")}>
+                          <ExternalLink className="h-4 w-4 mr-2" />View live site
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleAction("duplicate", liveTheme)}>
+                        <Copy className="h-4 w-4 mr-2" />Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("rename", liveTheme)}>
+                        <Pencil className="h-4 w-4 mr-2" />Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleAction("unpublish", liveTheme)} className="text-amber-600">
+                        <EyeOff className="h-4 w-4 mr-2" />Unpublish
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
-            <Globe className="h-8 w-8 text-neutral-300 mx-auto mb-3" />
-            <p className="text-neutral-500 text-sm">No live theme. Publish a theme from your library below.</p>
+          <div className="rounded-2xl border-2 border-dashed border-neutral-200 p-12 text-center">
+            <Globe className="h-10 w-10 text-neutral-300 mx-auto mb-3" />
+            <p className="text-neutral-500 text-sm font-medium">No live website</p>
+            <p className="text-neutral-400 text-xs mt-1">Publish a website from your drafts below</p>
           </div>
         )}
       </section>
 
-      {/* ── Theme library (3 per row grid) ── */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[13px] font-semibold text-neutral-500 uppercase tracking-wider">
-            Theme library
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={loadInstalls}
-            className="gap-1.5 text-neutral-400 hover:text-neutral-700"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {libraryThemes.length === 0 && !liveTheme ? (
-          <div className="rounded-xl border border-dashed border-neutral-200 p-8 text-center">
-            <p className="text-neutral-400 text-sm">No themes installed yet.</p>
+      {/* ══════════════════════════════════════════════════════════
+          SECTION 2: My Websites (drafts/unpublished)
+          ══════════════════════════════════════════════════════════ */}
+      {draftThemes.length > 0 && (
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+              My Websites
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadInstalls}
+              className="gap-1.5 text-neutral-400 hover:text-neutral-700 h-7"
+            >
+              <RefreshCw className="h-3 w-3" />
+            </Button>
           </div>
-        ) : (
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Show all themes including live in the grid */}
-            {installs.map(install => (
+            {draftThemes.map(install => (
               <div key={install.id} className="relative">
                 {actionLoading?.startsWith(install.id) && (
                   <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
                     <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
                   </div>
                 )}
-                <ThemeGridCard
-                  install={install}
-                  onEdit={() => goToEditor(install.id)}
-                  onAction={handleAction}
-                  username={username}
-                  screenshotTimestamp={screenshotTimestamp}
-                />
+                <div className="group rounded-xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-300 hover:shadow-md transition-all">
+                  {/* Preview */}
+                  <div className="relative cursor-pointer" onClick={() => goToEditor(install.id)}>
+                    <ThemePreview install={install} aspectClass="aspect-[4/3]" />
+                    <div className="absolute top-2.5 left-2.5">
+                      <StatusBadge status={install.status} />
+                    </div>
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="sm" className="bg-white text-neutral-900 hover:bg-neutral-100 shadow-lg gap-1.5">
+                          <Palette className="h-3.5 w-3.5" />
+                          Customize Website
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-neutral-900 truncate">{install.name}</p>
+                        <p className="text-xs text-neutral-500 truncate mt-0.5">
+                          {install.theme?.author ?? "Storelib"}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => handleAction("publish", install)}>
+                            <Globe className="h-4 w-4 mr-2" />Publish
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => goToEditor(install.id)}>
+                            <Palette className="h-4 w-4 mr-2" />Customize Website
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleAction("duplicate", install)}>
+                            <Copy className="h-4 w-4 mr-2" />Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleAction("rename", install)}>
+                            <Pencil className="h-4 w-4 mr-2" />Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleAction("delete", install)} className="text-red-600">
+                            <Trash2 className="h-4 w-4 mr-2" />Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
-        )}
+        </section>
+      )}
 
-        {/* Free themes info box */}
-        <div className="mt-6 rounded-xl bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-500 flex items-start gap-3">
+      {/* ══════════════════════════════════════════════════════════
+          SECTION 3: Theme Library (6 themes, portrait cards)
+          ══════════════════════════════════════════════════════════ */}
+      <section>
+        <div className="mb-4">
+          <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+            Theme Library
+          </h2>
+          <p className="text-xs text-neutral-400 mt-1">
+            Choose a theme to add to your websites. Up to 3 websites.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {THEME_CATALOG.map(catalog => {
+            const isAdded = installedThemeIds.has(catalog.themeId)
+            const isLoadingThis = actionLoading === catalog.id + "_add"
+            return (
+              <div key={catalog.id} className="relative group">
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden transition-all hover:border-neutral-300 hover:shadow-md">
+                  {/* Portrait preview */}
+                  <div className="relative">
+                    <CatalogThemePreview catalog={catalog} />
+
+                    {/* Hover overlay — Add Theme button */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {isLoadingThis ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-white" />
+                        ) : isAdded ? (
+                          <div className="flex flex-col items-center gap-1.5">
+                            <Badge className="bg-white/90 text-neutral-700 border-0 text-[11px] font-medium px-3 py-1">
+                              <Check className="h-3 w-3 mr-1" />
+                              Added
+                            </Badge>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddTheme(catalog)}
+                            className="bg-white text-neutral-900 hover:bg-neutral-100 shadow-lg gap-1.5"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add Theme
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3">
+                    <p className="text-sm font-medium text-neutral-900 truncate">{catalog.name}</p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">{catalog.niche}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Free themes note */}
+        <div className="mt-6 rounded-xl bg-neutral-50 border border-neutral-100 p-4 text-sm text-neutral-500 flex items-start gap-3">
           <Check className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
           <div>
-            <span className="font-medium text-neutral-700">3 free themes included</span>
-            <span className="ml-1">— Storelib Default, Creator Minimal, and Digital Wave are pre-installed and ready to customize.</span>
+            <span className="font-medium text-neutral-700">Free themes included</span>
+            <span className="ml-1">— All themes are free to use and customize.</span>
           </div>
         </div>
       </section>
 
-      {/* Dialogs */}
+      {/* ── Dialogs ── */}
       <RenameDialog
         open={!!renameInstall}
         onClose={() => setRenameInstall(null)}
