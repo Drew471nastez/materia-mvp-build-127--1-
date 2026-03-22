@@ -829,6 +829,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
   const [canvasLoading, setCanvasLoading] = useState(false)
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+  const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showNotification = useCallback((message: string, type: "success" | "error" = "success") => {
+    if (notificationTimer.current) clearTimeout(notificationTimer.current)
+    setNotification({ message, type })
+    notificationTimer.current = setTimeout(() => setNotification(null), 4000)
+  }, [])
   const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
   const [addPageOpen, setAddPageOpen] = useState(false)
   const [newPageTitle, setNewPageTitle] = useState("")
@@ -1233,9 +1241,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
 
       setIsDirty(false)
-      toast.success("Draft saved")
+      showNotification("Changes saved successfully")
     } catch {
-      toast.error("Failed to save draft")
+      showNotification("Failed to save", "error")
     }
     setSaving(false)
   }
@@ -1265,16 +1273,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       if (!res.ok) {
         const d = await res.json()
-        toast.error(d.error ?? "Failed to publish")
+        showNotification(d.error ?? "Failed to publish", "error")
         setPublishing(false)
         return
       }
 
       setIsDirty(false)
       setHasPublished(true)
-      toast.success("Published and live!")
+      showNotification("Changes saved and published")
     } catch {
-      toast.error("Failed to publish")
+      showNotification("Failed to publish", "error")
     }
     setPublishing(false)
   }
@@ -1933,6 +1941,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </Button>
         </div>
       </header>
+
+      {/* ── Top notification bar ── */}
+      <div
+        className={cn(
+          "fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none transition-all duration-300 ease-out",
+          notification ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
+        )}
+      >
+        <div
+          className={cn(
+            "mt-3 px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium pointer-events-auto flex items-center gap-2",
+            notification?.type === "error"
+              ? "bg-red-600 text-white"
+              : "bg-neutral-900 text-white"
+          )}
+        >
+          {notification?.type === "error" ? (
+            <X className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <Check className="h-3.5 w-3.5 shrink-0" />
+          )}
+          {notification?.message}
+        </div>
+      </div>
 
       {/* ── Body ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
