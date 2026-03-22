@@ -7,7 +7,7 @@ import Link from "next/link"
 import { ArrowLeft, Check, Download, Mail, CreditCard, Package } from "lucide-react"
 
 export const metadata = {
-  title: "Order Details | Storelib",
+  title: "Order Details",
 }
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {

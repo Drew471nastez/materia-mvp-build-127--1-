@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // For browser tab: let the root layout template add "| Storelib"
   // If user set a custom SEO title, use it as-is (absolute) to avoid template doubling
   const pageTitle = seoTitle || displayName
-  const ogTitle = seoTitle || `${displayName} | Storelib`
+  const ogTitle = seoTitle?.replace(/ \| Storelib$/i, "") || displayName
 
   // Favicon
   let faviconUrl = profile?.avatar_url || onepage.avatar_url

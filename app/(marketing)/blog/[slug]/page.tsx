@@ -189,7 +189,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const source = dbPost || staticPost
   if (!source) return { title: "Post Not Found" }
 
-  const title = (dbPost?.seo_title || staticPost?.seo_title || source.title) + " | Storelib"
+  const title = (dbPost?.seo_title || staticPost?.seo_title || source.title)?.replace(/ \| Storelib(?: Blog)?$/i, "") || source.title
   const description = dbPost?.seo_description || staticPost?.seo_description || source.excerpt || ""
   const keywords = dbPost?.seo_keywords || staticPost?.seo_keywords || ""
   const cover = dbPost?.cover_image_url

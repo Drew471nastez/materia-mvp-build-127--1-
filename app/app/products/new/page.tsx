@@ -1641,7 +1641,7 @@ export default function NewProductPage() {
 
   // Update document title based on edit mode
   useEffect(() => {
-    const pageTitle = editProductId ? "Edit - Add Product | Storelib" : "Add Product | Storelib"
+    const pageTitle = editProductId ? "Edit Product | Storelib" : "Add Product | Storelib"
     document.title = pageTitle
 
     // Cleanup: restore default title on unmount

@@ -3,7 +3,7 @@ import { FileText } from "lucide-react"
 import { BackButton } from "@/components/back-button"
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Storelib",
+  title: "Terms of Service",
   description: "Terms of Service for Storelib Inc. — read our terms and conditions for using the platform.",
 }
 

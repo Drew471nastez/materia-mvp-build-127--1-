@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import { FaqPageClient } from "@/components/marketing/faq-page-client"
 
 export const metadata: Metadata = {
-  title: "FAQ | Storelib",
+  title: "FAQ",
   description: "Frequently asked questions about Storelib. Learn about getting started, selling, payments, pricing, customization, and more.",
   openGraph: {
     title: "FAQ | Storelib",

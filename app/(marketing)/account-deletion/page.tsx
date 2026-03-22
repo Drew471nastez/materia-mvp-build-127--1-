@@ -5,7 +5,7 @@ import { Mail } from "lucide-react"
 // ConditionalHeader / ConditionalFooter — no extra wiring needed in this file.
 
 export const metadata: Metadata = {
-  title: "Delete Your Account | Storelib",
+  title: "Delete Your Account",
   description: "Learn how to permanently delete your Storelib account and associated data.",
   robots: { index: false, follow: false },
 }

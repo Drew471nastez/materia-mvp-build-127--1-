@@ -3,7 +3,7 @@ import { Suspense } from "react"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 
 export const metadata: Metadata = {
-  title: "My Wishlist | Storelib",
+  title: "My Wishlist",
   description: "Your saved products",
 }
 

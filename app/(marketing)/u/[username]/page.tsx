@@ -85,7 +85,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
 
   // Use SEO overrides if set, otherwise use defaults
-  const title = seoOverride?.seo_title || `${displayTitle} | Storelib`
+  const title = seoOverride?.seo_title?.replace(/ \| Storelib$/i, "") || displayTitle
   const description = seoOverride?.seo_description || defaultDescription
 
   return {

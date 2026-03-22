@@ -21,7 +21,7 @@ import {
 import { BackButton } from "@/components/back-button"
 
 export const metadata: Metadata = {
-  title: "Help Center | Storelib",
+  title: "Help Center",
   description: "Documentation and guides for using Storelib",
 }
 
