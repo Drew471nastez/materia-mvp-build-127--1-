@@ -7,7 +7,7 @@
  */
 export function AnnouncementBarMobile({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full bg-[#8b5cf6] text-white">
+    <div className="w-full bg-[#8b5cf6] text-white select-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
       <div className="h-[40px] md:h-[42px] flex items-center justify-center px-4">
         {children}
       </div>
