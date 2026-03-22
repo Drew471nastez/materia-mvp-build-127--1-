@@ -10,8 +10,9 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import {
   Zap, Shield, Star, CheckCircle, Download, Heart, Globe, Lock,
   RefreshCw, Rocket, ChevronDown, ChevronUp,
+  Heart, Share2, Package, FileText, Eye,
 } from "lucide-react"
-import { useState, CSSProperties } from "react"
+import { useState, useEffect, CSSProperties } from "react"
 import { cn } from "@/lib/utils"
 
 interface SectionProps {
@@ -664,12 +665,267 @@ function FooterSection({ section, theme, isEditing, isSelected, onClick }: Secti
   )
 }
 
+// ── Product section (single product page) ────────────────────
+function ProductSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+  const s = section.settings
+  const bg = str(s.bg_color, "#ffffff")
+  const textColor = str(s.text_color, "#0f172a")
+  const layout = str(s.product_layout, "two_column")
+  const imageWidth = str(s.image_width, "55%")
+  const colorScheme = str(s.color_scheme, "white")
+  const showWishlist = bool(s.show_wishlist, true)
+  const showShare = bool(s.show_share_button, true)
+  const showWhatsIncluded = bool(s.show_whats_included, true)
+  const [showAllFiles, setShowAllFiles] = useState(false)
+
+  // Product data is injected via section.settings._product_data by the editor
+  const productData = (s._product_data as Record<string, unknown> | undefined) ?? null
+
+  const title = str(productData?.title as unknown, "Product Title")
+  const description = str(productData?.description as unknown, "Product description will appear here. This is where you describe your product in detail, including features, benefits, and what makes it special.")
+  const priceCents = typeof productData?.price_cents === "number" ? productData.price_cents : 2999
+  const compareAtCents = typeof productData?.compare_at_cents === "number" ? productData.compare_at_cents : null
+  const thumbnailUrl = str(productData?.thumbnail_url as unknown, "")
+  const galleryUrls: string[] = Array.isArray(productData?.gallery_urls) ? (productData.gallery_urls as string[]) : []
+  const whatsIncluded: string[] = Array.isArray(productData?.whats_included) ? (productData.whats_included as string[]) : []
+  const files: { file_name: string; file_size: number; mime_type: string }[] = Array.isArray(productData?.files) ? (productData.files as any[]) : []
+
+  const allImages = thumbnailUrl ? [thumbnailUrl, ...galleryUrls] : galleryUrls
+  const [activeImage, setActiveImage] = useState(0)
+
+  const formatPrice = (cents: number) => {
+    const val = cents / 100
+    return val % 1 === 0 ? `$${val}` : `$${val.toFixed(2)}`
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+  }
+
+  const getFileExtension = (name: string) => {
+    const ext = name.split(".").pop()?.toUpperCase() ?? ""
+    return ext
+  }
+
+  const isOnSale = compareAtCents && compareAtCents > priceCents
+  const discount = isOnSale ? Math.round(((compareAtCents - priceCents) / compareAtCents) * 100) : 0
+
+  // Color scheme backgrounds
+  const schemeColors: Record<string, { bg: string; text: string; muted: string; surface: string; border: string }> = {
+    white: { bg: "#ffffff", text: "#0f172a", muted: "#64748b", surface: "#f8fafc", border: "#e2e8f0" },
+    light: { bg: "#f8fafc", text: "#0f172a", muted: "#64748b", surface: "#ffffff", border: "#e2e8f0" },
+    dark: { bg: "#1e293b", text: "#f1f5f9", muted: "#94a3b8", surface: "#334155", border: "#475569" },
+    black: { bg: "#0f172a", text: "#f8fafc", muted: "#94a3b8", surface: "#1e293b", border: "#334155" },
+    highlight: { bg: str(theme.primary_color, "#6366f1"), text: "#ffffff", muted: "rgba(255,255,255,0.7)", surface: "rgba(255,255,255,0.1)", border: "rgba(255,255,255,0.2)" },
+  }
+  const scheme = schemeColors[colorScheme] ?? schemeColors.white
+  const primaryColor = str(theme.primary_color, "#6366f1")
+
+  const visibleFiles = showAllFiles ? files : files.slice(0, 4)
+
+  return (
+    <SectionWrapper bgColor={scheme.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+      <div
+        className={cn("w-full", layout === "one_column" ? "max-w-2xl mx-auto px-6" : "flex flex-col md:flex-row")}
+        style={{ color: scheme.text, paddingTop: `${s.padding_top ?? 48}px`, paddingBottom: `${s.padding_bottom ?? 48}px` }}
+      >
+        {/* Image column */}
+        <div
+          className={cn(layout === "two_column" ? "px-6 md:px-8" : "mb-8")}
+          style={layout === "two_column" ? { width: imageWidth, flexShrink: 0 } : undefined}
+        >
+          {allImages.length > 0 ? (
+            <div>
+              {/* Main image */}
+              <div className="w-full overflow-hidden rounded-lg" style={{ background: scheme.surface }}>
+                <img
+                  src={allImages[activeImage] ?? allImages[0]}
+                  alt={title}
+                  className="w-full h-auto object-contain"
+                  style={{ maxHeight: "600px" }}
+                />
+              </div>
+              {/* Thumbnails */}
+              {allImages.length > 1 && (
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+                  {allImages.map((img, i) => (
+                    <button
+                      key={i}
+                      className={cn(
+                        "w-16 h-16 rounded-md overflow-hidden border-2 shrink-0 transition-all",
+                        activeImage === i ? "border-current opacity-100" : "opacity-50 hover:opacity-80"
+                      )}
+                      style={{ borderColor: activeImage === i ? primaryColor : scheme.border }}
+                      onClick={e => { e.stopPropagation(); setActiveImage(i) }}
+                    >
+                      <img src={img} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="w-full aspect-[4/5] rounded-lg flex items-center justify-center"
+              style={{ background: scheme.surface, border: `1px solid ${scheme.border}` }}
+            >
+              <div className="text-center" style={{ color: scheme.muted }}>
+                <Package className="h-12 w-12 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">Product image</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content column */}
+        <div className={cn("flex-1 min-w-0", layout === "two_column" ? "px-6 md:px-8 py-4" : "")}>
+          {/* Sale badge */}
+          {isOnSale && (
+            <span
+              className="inline-block px-3 py-1 text-xs font-bold text-white rounded-full mb-4"
+              style={{ background: "#16a34a" }}
+            >
+              On Sale
+            </span>
+          )}
+
+          {/* Title */}
+          <h1
+            className="text-2xl md:text-3xl font-bold mb-4 leading-tight"
+            style={{ fontFamily: theme.font_heading, color: scheme.text }}
+          >
+            {title}
+          </h1>
+
+          {/* Pricing */}
+          <div className="flex items-baseline gap-3 mb-6">
+            {isOnSale && (
+              <span className="text-lg line-through" style={{ color: scheme.muted }}>
+                {formatPrice(compareAtCents)}
+              </span>
+            )}
+            {isOnSale && (
+              <span className="text-sm" style={{ color: scheme.muted }}>
+                ({discount}% off)
+              </span>
+            )}
+            <span className="text-2xl font-bold" style={{ color: scheme.text }}>
+              {priceCents === 0 ? "Free" : formatPrice(priceCents)}
+            </span>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="space-y-3 mb-6">
+            <button
+              className="w-full py-3.5 text-base font-semibold border-2 rounded-lg transition-colors"
+              style={{ borderColor: primaryColor, color: primaryColor, ...buttonRadiusStyle(theme) }}
+            >
+              Add to Cart
+            </button>
+            <button
+              className="w-full py-3.5 text-base font-semibold text-white rounded-lg transition-colors"
+              style={{ background: primaryColor, ...buttonRadiusStyle(theme) }}
+            >
+              Buy Now
+            </button>
+          </div>
+
+          {/* Wishlist + Share */}
+          <div className="flex items-center gap-4 mb-6" style={{ color: scheme.muted }}>
+            {showWishlist && (
+              <button className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity">
+                <Heart className="h-4 w-4" />
+                <span className="underline">Add to wishlist</span>
+              </button>
+            )}
+            {showShare && (
+              <button className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity">
+                <Share2 className="h-4 w-4" />
+                <span className="underline">Share</span>
+              </button>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="mb-6">
+            <div
+              className="text-sm leading-relaxed whitespace-pre-wrap"
+              style={{ color: scheme.text }}
+              dangerouslySetInnerHTML={{ __html: description }}
+            />
+          </div>
+
+          {/* What you'll get */}
+          {showWhatsIncluded && (files.length > 0 || whatsIncluded.length > 0) && (
+            <div className="mb-6 p-4 rounded-lg" style={{ background: scheme.surface, border: `1px solid ${scheme.border}` }}>
+              {files.length > 0 && (
+                <>
+                  <p className="text-sm font-semibold mb-1" style={{ color: scheme.text }}>
+                    You will get the following files:
+                  </p>
+                  <div className="space-y-1.5 mb-3">
+                    {visibleFiles.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm" style={{ color: scheme.muted }}>
+                        <span className="flex items-center gap-2">
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                          {getFileExtension(f.file_name)} ({formatFileSize(f.file_size)})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {files.length > 4 && !showAllFiles && (
+                    <button
+                      className="text-sm font-medium underline"
+                      style={{ color: primaryColor }}
+                      onClick={e => { e.stopPropagation(); setShowAllFiles(true) }}
+                    >
+                      Show all ({files.length} files)
+                    </button>
+                  )}
+                  {showAllFiles && files.length > 4 && (
+                    <button
+                      className="text-sm font-medium underline"
+                      style={{ color: primaryColor }}
+                      onClick={e => { e.stopPropagation(); setShowAllFiles(false) }}
+                    >
+                      Show less
+                    </button>
+                  )}
+                </>
+              )}
+
+              {whatsIncluded.length > 0 && (
+                <div className={files.length > 0 ? "mt-3 pt-3" : ""} style={files.length > 0 ? { borderTop: `1px solid ${scheme.border}` } : undefined}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: scheme.text }}>
+                    What you&apos;re getting:
+                  </p>
+                  <ul className="space-y-1.5">
+                    {whatsIncluded.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: scheme.muted }}>
+                        <CheckCircle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "#16a34a" }} />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionWrapper>
+  )
+}
+
 // ── Section registry ─────────────────────────────────────────
 const SECTION_COMPONENTS: Record<string, React.ComponentType<SectionProps>> = {
   header: HeaderSection,
   hero: HeroSection,
   rich_text: RichTextSection,
   image_banner: ImageBannerSection,
+  product: ProductSection,
   product_list: ProductListSection,
   testimonials: TestimonialsSection,
   faq: FaqSection,

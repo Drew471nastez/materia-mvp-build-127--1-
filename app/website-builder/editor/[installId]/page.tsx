@@ -312,6 +312,7 @@ const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string; st
   hero: Star,
   rich_text: AlignLeft,
   image_banner: Image,
+  product: Star,
   product_list: ShoppingBag,
   testimonials: MessageSquare,
   faq: HelpCircle,
@@ -818,7 +819,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
   const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
   const [pageBrowserSearch, setPageBrowserSearch] = useState("")
-  const [products, setProducts] = useState<{ id: string; title: string; slug: string }[]>([])
+  const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
   const [collections, setCollections] = useState<{ id: string; name: string; slug: string }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
@@ -935,6 +936,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     }
 
+    // Auto-add Product section on product pages if missing
+    if (page === "product" && !loaded.some(s => s.type === "product")) {
+      const ps = SECTION_SCHEMAS["product"]
+      if (ps) {
+        const headerIdx = loaded.findIndex(s => s.type === "header")
+        const newProductSection: SectionInstance = {
+          id: `product-${Date.now()}`,
+          type: "product",
+          name: ps.name,
+          settings: ps.presets?.[0]?.settings ?? {},
+          blocks: [],
+          hidden: false,
+        }
+        // Insert right after header
+        if (headerIdx !== -1) {
+          loaded.splice(headerIdx + 1, 0, newProductSection)
+        } else {
+          loaded.unshift(newProductSection)
+        }
+      }
+    }
+
     setSections(loaded)
   }, [installId])
 
@@ -963,13 +986,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const loadProducts = useCallback(async () => {
     setProductsLoading(true)
     try {
-      const res = await fetch("/api/products?limit=100")
+      const res = await fetch("/api/website-builder/products?limit=100")
       if (res.ok) {
         const data = await res.json()
-        setProducts((data.products ?? data ?? []).map((p: any) => ({
+        setProducts((data.products ?? []).map((p: any) => ({
           id: p.id,
           title: p.title || "Untitled Product",
           slug: p.slug || p.id,
+          thumbnail_url: p.thumbnail_url || "",
+          price_cents: p.price_cents ?? 0,
+          compare_at_cents: p.compare_at_cents ?? null,
+          description: p.description || "",
+          whats_included: p.whats_included ?? [],
+          gallery_urls: p.gallery_urls ?? [],
         })))
       }
     } catch {}
@@ -1000,13 +1029,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSectionsLoading(false)
   }
 
-  const handleSelectProductPage = async (productTitle: string) => {
+  const handleSelectProductPage = async (productId: string, productTitle: string) => {
     setSectionsLoading(true)
     setSelectedProductPage(productTitle)
     setCurrentPage("product")
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
     await loadSections("product")
+
+    // Find product data and inject into Product section settings
+    const productData = products.find(p => p.id === productId)
+    if (productData) {
+      // Fetch full product details including files
+      let fullProduct = { ...productData, files: [] as any[] }
+      try {
+        const res = await fetch(`/api/website-builder/products?id=${productId}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.product) fullProduct = data.product
+        }
+      } catch {}
+
+      setSections(prev => prev.map(s =>
+        s.type === "product"
+          ? { ...s, settings: { ...s.settings, _product_data: fullProduct } }
+          : s
+      ))
+    }
     setSectionsLoading(false)
   }
 
@@ -1346,7 +1395,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
                       selectedProductPage === p.title ? "text-purple-600 font-medium bg-purple-50" : "text-foreground"
                     )}
-                    onClick={() => handleSelectProductPage(p.title)}
+                    onClick={() => handleSelectProductPage(p.id, p.title)}
                   >
                     {p.title}
                   </button>

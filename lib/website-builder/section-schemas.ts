@@ -3290,6 +3290,100 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
       },
     ],
   },
+
+  // ── Product section (single product page) ───────────────────
+  product: {
+    type: "product",
+    name: "Product",
+    description: "Display a single product with images, pricing, description and purchase buttons",
+    icon: "star",
+    category: "commerce",
+    fields: [
+      // Reviews
+      { id: "header_reviews", label: "Reviews Summary", type: "header" },
+      { id: "show_reviews_summary", label: "Show reviews summary", type: "toggle", default: false },
+      { id: "reviews_position", label: "Summary position", type: "select", default: "above_title", options: [
+        { label: "Above title", value: "above_title" },
+        { label: "Above description", value: "above_description" },
+      ]},
+
+      // Advanced / Layout
+      { id: "header_advanced", label: "Advanced", type: "header" },
+      { id: "format", label: "Format", type: "select", default: "standard", options: [
+        { label: "Standard", value: "standard" },
+        { label: "Compact", value: "compact" },
+        { label: "Wide", value: "wide" },
+      ]},
+      { id: "bg_color", label: "Background", type: "color", default: "#ffffff" },
+      { id: "color_scheme", label: "Color Scheme", type: "select", default: "white", options: [
+        { label: "White", value: "white" },
+        { label: "Light", value: "light" },
+        { label: "Dark", value: "dark" },
+        { label: "Black", value: "black" },
+        { label: "Highlight", value: "highlight" },
+      ]},
+      { id: "image_width", label: "Image width", type: "select", default: "55%", options: [
+        { label: "75%", value: "75%" },
+        { label: "65%", value: "65%" },
+        { label: "55%", value: "55%" },
+        { label: "45%", value: "45%" },
+        { label: "35%", value: "35%" },
+      ]},
+      { id: "multiple_images_layout", label: "Multiple images layout", type: "select", default: "stacked", options: [
+        { label: "Slideshow", value: "slideshow" },
+        { label: "Stacked", value: "stacked" },
+        { label: "Stacked (2 col)", value: "stacked_2col" },
+        { label: "Carousel", value: "carousel" },
+      ]},
+      { id: "image_click_action", label: "Image click action", type: "select", default: "none", options: [
+        { label: "None", value: "none" },
+        { label: "Zoom", value: "zoom" },
+        { label: "Lightbox", value: "lightbox" },
+      ]},
+      { id: "image_hover_action", label: "Image hover action", type: "select", default: "none", options: [
+        { label: "None", value: "none" },
+        { label: "Zoom", value: "zoom" },
+      ]},
+      { id: "product_layout", label: "Product layout", type: "select", default: "two_column", options: [
+        { label: "Two Column", value: "two_column" },
+        { label: "One Column", value: "one_column" },
+      ]},
+      { id: "show_wishlist", label: "Show add to wishlist", type: "toggle", default: true },
+      { id: "show_social_icons", label: "Show social media icons", type: "toggle", default: false },
+      { id: "show_whats_included", label: "Show what's included", type: "toggle", default: true },
+      { id: "show_share_button", label: "Show share button", type: "toggle", default: true },
+
+      // Styling
+      { id: "header_styling", label: "Styling", type: "header" },
+      { id: "text_color", label: "Text color", type: "color", default: "#0f172a" },
+      { id: "padding_top", label: "Padding top", type: "range", min: 0, max: 120, step: 4, unit: "px", default: 48 },
+      { id: "padding_bottom", label: "Padding bottom", type: "range", min: 0, max: 120, step: 4, unit: "px", default: 48 },
+    ],
+    presets: [
+      {
+        name: "Default product",
+        settings: {
+          show_reviews_summary: false,
+          reviews_position: "above_title",
+          format: "standard",
+          bg_color: "#ffffff",
+          color_scheme: "white",
+          image_width: "55%",
+          multiple_images_layout: "stacked",
+          image_click_action: "none",
+          image_hover_action: "none",
+          product_layout: "two_column",
+          show_wishlist: true,
+          show_social_icons: false,
+          show_whats_included: true,
+          show_share_button: true,
+          text_color: "#0f172a",
+          padding_top: 48,
+          padding_bottom: 48,
+        },
+      },
+    ],
+  },
 }
 
 
@@ -3303,6 +3397,7 @@ export const ADDABLE_SECTIONS = [
   "image_banner",
   "slideshow",
   // Commerce
+  "product",
   "product_list",
   "pricing",
   // Features & social proof
