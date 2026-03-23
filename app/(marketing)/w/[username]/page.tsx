@@ -4,6 +4,8 @@ import type { Metadata } from "next"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
+export const dynamic = "force-dynamic"
+
 interface PageProps {
   params: Promise<{ username: string }>
 }

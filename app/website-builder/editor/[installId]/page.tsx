@@ -1792,17 +1792,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const saveDraft = async () => {
     try {
-      await fetch(`/api/website-builder/themes/${installId}/settings`, {
+      const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ draft_settings: settingsDraft }),
       })
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json().catch(() => ({}))
+        showNotification(d.error ?? "Failed to save settings", "error")
+        return
+      }
 
-      await fetch(`/api/website-builder/themes/${installId}/sections`, {
+      const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ page_key: currentPage, sections, mode: "draft" }),
       })
+      if (!sectionsRes.ok) {
+        const d = await sectionsRes.json().catch(() => ({}))
+        showNotification(d.error ?? "Failed to save sections", "error")
+        return
+      }
 
       setIsDirty(false)
       showNotification("Changes saved successfully")
@@ -1814,20 +1824,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const publishChanges = async () => {
     setPublishing(true)
     try {
-      // Save current state first (both settings and sections)
-      await fetch(`/api/website-builder/themes/${installId}/settings`, {
+      // 1. Save current editor state as draft (settings + current page sections)
+      const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: settingsDraft, draft_settings: settingsDraft, mode: "publish" }),
+        body: JSON.stringify({ draft_settings: settingsDraft }),
       })
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json().catch(() => ({}))
+        showNotification(d.error ?? "Failed to save settings", "error")
+        setPublishing(false)
+        return
+      }
 
-      await fetch(`/api/website-builder/themes/${installId}/sections`, {
+      const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections, mode: "publish" }),
+        body: JSON.stringify({ page_key: currentPage, sections, mode: "draft" }),
       })
+      if (!sectionsRes.ok) {
+        const d = await sectionsRes.json().catch(() => ({}))
+        showNotification(d.error ?? "Failed to save sections", "error")
+        setPublishing(false)
+        return
+      }
 
-      // Then publish
+      // 2. Publish — promotes ALL pages' draft_sections → sections
+      //    and draft_settings → settings atomically
       const res = await fetch(`/api/website-builder/themes/${installId}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
