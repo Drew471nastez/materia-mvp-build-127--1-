@@ -108,12 +108,83 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
 
   // When deviceMode is set (editor), use it directly. Otherwise use CSS responsive.
   const forceMobile = deviceMode === "mobile"
-  const forceDesktop = deviceMode === "desktop"
   const hasDeviceMode = !!deviceMode
 
   const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)
   const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 40)
   const desktopLogoH = Number(s.logo_height) || 40
+
+  const renderLogo = () => {
+    if (!s.logo_url) {
+      return (
+        <span className="text-[15px] font-bold whitespace-nowrap" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
+          {str(s.logo_text, theme.brand_name ?? "My Store")}
+        </span>
+      )
+    }
+    if (hasDeviceMode) {
+      return (
+        <img
+          src={forceMobile ? mobileLogoSrc : str(s.logo_url)}
+          alt={str(s.logo_text, theme.brand_name ?? "Logo")}
+          className="object-contain"
+          style={{ height: `${forceMobile ? mobileLogoH : desktopLogoH}px` }}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+        />
+      )
+    }
+    return (
+      <>
+        <img
+          src={str(s.logo_url)}
+          alt={str(s.logo_text, theme.brand_name ?? "Logo")}
+          className="object-contain hidden md:block"
+          style={{ height: `${desktopLogoH}px` }}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+        />
+        <img
+          src={mobileLogoSrc}
+          alt={str(s.logo_text, theme.brand_name ?? "Logo")}
+          className="object-contain md:hidden"
+          style={{ height: `${mobileLogoH}px` }}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+        />
+      </>
+    )
+  }
+
+  const renderNavLinks = () => {
+    if (!section.blocks?.length) return null
+    if (hasDeviceMode) {
+      if (forceMobile) return null
+      return section.blocks.map(block => (
+        <a
+          key={block.id}
+          href={str(block.settings.url, "#")}
+          className="text-[13px] font-medium opacity-70 hover:opacity-100 whitespace-nowrap"
+          style={{ color: textColor }}
+        >
+          {str(block.settings.label)}
+        </a>
+      ))
+    }
+    return section.blocks.map(block => (
+      <a
+        key={block.id}
+        href={str(block.settings.url, "#")}
+        className="hidden md:inline text-[13px] font-medium opacity-70 hover:opacity-100 whitespace-nowrap"
+        style={{ color: textColor }}
+      >
+        {str(block.settings.label)}
+      </a>
+    ))
+  }
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
@@ -126,94 +197,41 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         )}
         style={{ borderColor: theme.border_color ?? "#e2e8f0" }}
       >
-        <div className="flex items-center gap-2">
-          {s.logo_url ? (
-            hasDeviceMode ? (
-              /* Editor: show correct logo based on device toggle */
-              <img
-                src={forceMobile ? mobileLogoSrc : str(s.logo_url)}
-                alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-                className="object-contain"
-                style={{ height: `${forceMobile ? mobileLogoH : desktopLogoH}px` }}
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-              />
-            ) : (
-              /* Live site: use CSS responsive classes */
-              <>
-                <img
-                  src={str(s.logo_url)}
-                  alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-                  className="object-contain hidden md:block"
-                  style={{ height: `${desktopLogoH}px` }}
-                  loading="eager"
-                  decoding="async"
-                  fetchPriority="high"
-                />
-                <img
-                  src={mobileLogoSrc}
-                  alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-                  className="object-contain md:hidden"
-                  style={{ height: `${mobileLogoH}px` }}
-                  loading="eager"
-                  decoding="async"
-                  fetchPriority="high"
-                />
-              </>
-            )
-          ) : (
-            <span className="text-[15px] font-bold" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
-              {str(s.logo_text, theme.brand_name ?? "My Store")}
-            </span>
-          )}
-        </div>
+        {/* Left: Logo + Nav links side by side */}
         <div className={cn(
           "flex items-center",
           hasDeviceMode
-            ? (forceMobile ? "gap-2" : "gap-4")
-            : "gap-2 md:gap-4",
+            ? (forceMobile ? "gap-3" : "gap-8")
+            : "gap-3 md:gap-8",
         )}>
-          {hasDeviceMode ? (
-            /* Editor: conditionally render nav links */
-            !forceMobile && section.blocks?.slice(0, 4).map(block => (
-              <a
-                key={block.id}
-                href={str(block.settings.url, "#")}
-                className="text-[13px] font-medium opacity-70 hover:opacity-100"
-                style={{ color: textColor }}
-              >
-                {str(block.settings.label)}
-              </a>
-            ))
-          ) : (
-            /* Live site: use CSS responsive classes for nav links */
-            section.blocks?.slice(0, 4).map(block => (
-              <a
-                key={block.id}
-                href={str(block.settings.url, "#")}
-                className="hidden md:inline text-[13px] font-medium opacity-70 hover:opacity-100"
-                style={{ color: textColor }}
-              >
-                {str(block.settings.label)}
-              </a>
-            ))
-          )}
-          {!!s.cta_text && (
-            <a
-              href={str(s.cta_url, "#")}
-              className={cn(
-                "font-semibold text-white",
-                hasDeviceMode
-                  ? (forceMobile ? "px-2.5 py-1 text-[12px]" : "px-3 py-1.5 text-[13px]")
-                  : "px-2.5 py-1 text-[12px] md:px-3 md:py-1.5 md:text-[13px]",
-              )}
-              style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
-            >
-              {str(s.cta_text)}
-            </a>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {renderLogo()}
+          </div>
+          <nav className={cn(
+            "flex items-center",
+            hasDeviceMode
+              ? (forceMobile ? "gap-3" : "gap-6")
+              : "gap-3 md:gap-6",
+          )}>
+            {renderNavLinks()}
+          </nav>
         </div>
+
+        {/* Right: CTA button */}
+        {!!s.cta_text && (
+          <a
+            href={str(s.cta_url, "#")}
+            className={cn(
+              "font-semibold text-white shrink-0",
+              hasDeviceMode
+                ? (forceMobile ? "px-2.5 py-1 text-[12px]" : "px-3 py-1.5 text-[13px]")
+                : "px-2.5 py-1 text-[12px] md:px-3 md:py-1.5 md:text-[13px]",
+            )}
+            style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
+          >
+            {str(s.cta_text)}
+          </a>
+        )}
       </div>
     </SectionWrapper>
   )
@@ -255,7 +273,7 @@ function HeroSection({ section, theme, isEditing, isSelected, onClick }: Section
         </div>
       )}
       <div
-        className={cn("relative z-10 flex flex-col gap-5 px-8 justify-center max-w-[1280px] mx-auto w-full", alignClass, fullHeight ? "min-h-[80vh]" : "")}
+        className={cn("relative z-10 flex flex-col gap-5 px-8 justify-center max-w-[1230px] mx-auto w-full", alignClass, fullHeight ? "min-h-[80vh]" : "")}
       >
         {!!s.heading && (
           <h1
@@ -296,7 +314,7 @@ function RichTextSection({ section, theme, isEditing, isSelected, onClick }: Sec
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className={cn("px-8 py-16 mx-auto", mw === "max-w-none" ? "max-w-[1280px]" : mw)} style={{ textAlign: align as any }}>
+      <div className={cn("px-8 py-16 mx-auto", mw === "max-w-none" ? "max-w-[1230px]" : mw)} style={{ textAlign: align as any }}>
         {!!s.heading && (
           <h2 className="text-3xl font-bold mb-4" style={{ color: textColor, fontFamily: theme.font_heading }}>
             {str(s.heading)}
@@ -359,7 +377,7 @@ function ProductListSection({ section, theme, isEditing, isSelected, onClick }: 
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-16 max-w-[1280px] mx-auto">
+      <div className="px-8 py-16 max-w-[1230px] mx-auto">
         {!!s.heading && (
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold mb-2" style={{ color: textColor, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>
@@ -400,7 +418,7 @@ function TestimonialsSection({ section, theme, isEditing, isSelected, onClick }:
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-16 max-w-[1280px] mx-auto">
+      <div className="px-8 py-16 max-w-[1230px] mx-auto">
         {!!s.heading && (
           <h2 className="text-3xl font-bold text-center mb-10" style={{ color: textColor, fontFamily: theme.font_heading }}>
             {str(s.heading)}
@@ -487,7 +505,7 @@ function CtaSection({ section, theme, isEditing, isSelected, onClick }: SectionP
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-16 text-center max-w-[1280px] mx-auto">
+      <div className="px-8 py-16 text-center max-w-[1230px] mx-auto">
         {!!s.heading && (
           <h2 className="text-3xl font-bold mb-3" style={{ color: textColor, fontFamily: theme.font_heading }}>
             {str(s.heading)}
@@ -520,7 +538,7 @@ function StatsSection({ section, theme, isEditing, isSelected, onClick }: Sectio
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-12 max-w-[1280px] mx-auto">
+      <div className="px-8 py-12 max-w-[1230px] mx-auto">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
           {blocks.map(block => (
             <div key={block.id}>
@@ -553,7 +571,7 @@ function FeatureGridSection({ section, theme, isEditing, isSelected, onClick }: 
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-16 max-w-[1280px] mx-auto">
+      <div className="px-8 py-16 max-w-[1230px] mx-auto">
         {!!(s.heading || s.subheading) && (
           <div className="text-center mb-10">
             {!!s.heading && <h2 className="text-3xl font-bold mb-2" style={{ color: textColor, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
@@ -588,7 +606,7 @@ function PricingSection({ section, theme, isEditing, isSelected, onClick }: Sect
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-16 max-w-[1280px] mx-auto">
+      <div className="px-8 py-16 max-w-[1230px] mx-auto">
         <div className="text-center mb-10">
           {!!s.heading && <h2 className="text-3xl font-bold mb-2" style={{ color: textColor, fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
           {!!s.subheading && <p className="text-base opacity-70" style={{ color: textColor }}>{str(s.subheading)}</p>}
@@ -646,7 +664,7 @@ function LogoBarSection({ section, theme, isEditing, isSelected, onClick }: Sect
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-10 max-w-[1280px] mx-auto">
+      <div className="px-8 py-10 max-w-[1230px] mx-auto">
         {!!s.heading && (
           <p className="text-center text-sm font-medium opacity-50 mb-6 uppercase tracking-widest" style={{ color: theme.text_color ?? "#0f172a" }}>
             {str(s.heading)}
@@ -681,7 +699,7 @@ function GallerySection({ section, theme, isEditing, isSelected, onClick }: Sect
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-16 max-w-[1280px] mx-auto">
+      <div className="px-8 py-16 max-w-[1230px] mx-auto">
         {!!s.heading && <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: theme.text_color ?? "#0f172a", fontFamily: theme.font_heading }}>{str(s.heading)}</h2>}
         {blocks.length === 0 ? (
           <div className={cn("grid gap-4", colClass[cols] ?? "grid-cols-3")}>
@@ -715,7 +733,7 @@ function FooterSection({ section, theme, isEditing, isSelected, onClick }: Secti
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-[1280px] mx-auto">
+      <div className="px-8 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-[1230px] mx-auto">
         <div>
           <div className="font-bold text-[15px] mb-1" style={{ color: "#fff" }}>
             {str(s.logo_text, theme.brand_name ?? "My Store")}
@@ -801,7 +819,7 @@ function ProductSection({ section, theme, isEditing, isSelected, onClick }: Sect
   return (
     <SectionWrapper bgColor={scheme.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className={cn("w-full mx-auto", layout === "one_column" ? "max-w-2xl px-6" : "max-w-[1280px] flex flex-col md:flex-row")}
+        className={cn("w-full mx-auto", layout === "one_column" ? "max-w-2xl px-6" : "max-w-[1230px] flex flex-col md:flex-row")}
         style={{ color: scheme.text, paddingTop: `${s.padding_top ?? 48}px`, paddingBottom: `${s.padding_bottom ?? 48}px` }}
       >
         {/* Image column */}
@@ -1004,7 +1022,7 @@ function SplitContentSection({ section, theme, isEditing, isSelected, onClick }:
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className={cn("flex flex-col md:flex-row items-center gap-8 px-8 max-w-[1280px] mx-auto", imagePos === "right" && "md:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
+      <div className={cn("flex flex-col md:flex-row items-center gap-8 px-8 max-w-[1230px] mx-auto", imagePos === "right" && "md:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
         <div className="flex-1 min-w-0">
           {imgUrl ? (
             <img src={imgUrl} alt="" className="w-full h-auto rounded-lg object-cover" style={{ maxHeight: "500px" }} loading="lazy" decoding="async" />
@@ -1052,7 +1070,7 @@ function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: Se
           <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900" />
         )}
         <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-          <div className="max-w-[1280px] mx-auto w-full px-8 text-center flex flex-col items-center">
+          <div className="max-w-[1230px] mx-auto w-full px-8 text-center flex flex-col items-center">
             {!!slideSettings.heading && <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: theme.font_heading }}>{str(slideSettings.heading as unknown)}</h2>}
             {!!slideSettings.subheading && <p className="text-lg opacity-80 max-w-xl mb-6">{str(slideSettings.subheading as unknown)}</p>}
             {!!slideSettings.button_text && (
@@ -1087,7 +1105,7 @@ function ImageSection({ section, theme, isEditing, isSelected, onClick }: Sectio
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 max-w-[1280px] mx-auto" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
+      <div className="px-8 max-w-[1230px] mx-auto" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
         {imgUrl ? (
           <img src={imgUrl} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} loading="lazy" decoding="async" />
         ) : (

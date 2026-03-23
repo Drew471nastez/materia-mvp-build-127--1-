@@ -85,6 +85,19 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
       },
     ],
     max_blocks: 8,
+    presets: [
+      {
+        name: "Default",
+        settings: {},
+        blocks: [
+          { id: "nav-home", type: "nav_link", settings: { label: "Home", url: "/" } },
+          { id: "nav-shop", type: "nav_link", settings: { label: "Shop", url: "/shop" } },
+          { id: "nav-about", type: "nav_link", settings: { label: "About", url: "/about" } },
+          { id: "nav-contact", type: "nav_link", settings: { label: "Contact", url: "/contact" } },
+          { id: "nav-faq", type: "nav_link", settings: { label: "FAQ", url: "/faq" } },
+        ],
+      },
+    ],
   },
 
   // ── 2. Hero ─────────────────────────────────────────────────

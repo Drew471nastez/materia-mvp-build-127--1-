@@ -979,6 +979,233 @@ function WbRadioSegment({
   )
 }
 
+// ── Smart Link Picker for Nav URLs ───────────────────────────
+function NavLinkPicker({
+  value,
+  onChange,
+  products,
+  collections,
+  customPages,
+}: {
+  value: string
+  onChange: (v: string) => void
+  products: { id: string; title: string; slug: string }[]
+  collections: { id: string; name: string; slug: string }[]
+  customPages: { name: string; key: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [open])
+
+  const builtInPages = [
+    { label: "Home", url: "/" },
+    { label: "Shop", url: "/shop" },
+    { label: "About", url: "/about" },
+    { label: "Contact", url: "/contact" },
+    { label: "FAQ", url: "/faq" },
+  ]
+  const allPages = [
+    ...builtInPages,
+    ...customPages.map(p => ({ label: p.name, url: `/${p.key}` })),
+  ]
+
+  const q = search.toLowerCase()
+  const filteredPages = allPages.filter(p => p.label.toLowerCase().includes(q))
+  const filteredProducts = products.filter(p => p.title.toLowerCase().includes(q))
+  const filteredCollections = collections.filter(c => c.name.toLowerCase().includes(q))
+
+  const hasResults = filteredPages.length > 0 || filteredProducts.length > 0 || filteredCollections.length > 0
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          ref={inputRef}
+          type="text"
+          className="w-full h-9 pl-9 pr-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          placeholder="Paste your link (or type to search)"
+          value={open ? search : (value || "")}
+          onFocus={() => { setOpen(true); setSearch(value || "") }}
+          onChange={e => {
+            const v = e.target.value
+            setSearch(v)
+            // If it looks like a URL, update directly
+            if (v.startsWith("/") || v.startsWith("http") || v.startsWith("#")) {
+              onChange(v)
+            }
+          }}
+          onKeyDown={e => {
+            if (e.key === "Escape") { setOpen(false); inputRef.current?.blur() }
+          }}
+        />
+      </div>
+      {open && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-lg max-h-[260px] overflow-y-auto">
+          {!hasResults && search && (
+            <div className="px-3 py-4 text-sm text-muted-foreground text-center">No results found</div>
+          )}
+
+          {filteredPages.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">Pages</div>
+              {filteredPages.map(p => (
+                <button
+                  key={p.url}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                  onClick={() => { onChange(p.url); setOpen(false) }}
+                >
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{p.label}</span>
+                  <span className="ml-auto text-[11px] text-muted-foreground/60 shrink-0">{p.url}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredProducts.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">Products</div>
+              {filteredProducts.slice(0, 10).map(p => (
+                <button
+                  key={p.id}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                  onClick={() => { onChange(`/products/${p.slug}`); setOpen(false) }}
+                >
+                  <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{p.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredCollections.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">Collections</div>
+              {filteredCollections.slice(0, 10).map(c => (
+                <button
+                  key={c.id}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                  onClick={() => { onChange(`/collections/${c.slug}`); setOpen(false) }}
+                >
+                  <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Sortable Nav Link Item ───────────────────────────────────
+function SortableNavLink({
+  block,
+  idx,
+  blockSchema,
+  onUpdateBlockSetting,
+  onRemoveBlock,
+  products,
+  collections,
+  customPages,
+}: {
+  block: { id: string; type: string; settings: Record<string, unknown> }
+  idx: number
+  blockSchema: any
+  onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
+  onRemoveBlock: (blockId: string) => void
+  products: { id: string; title: string; slug: string }[]
+  collections: { id: string; name: string; slug: string }[]
+  customPages: { name: string; key: string }[]
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: block.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  }
+
+  return (
+    <details ref={setNodeRef} style={style} className="group border border-border rounded-lg overflow-hidden bg-background">
+      <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50 transition-colors">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="cursor-grab active:cursor-grabbing touch-none"
+            {...attributes}
+            {...listeners}
+            onClick={e => e.preventDefault()}
+          >
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+          </button>
+          <span className="text-sm font-medium">{String(block.settings.label || `Link ${idx + 1}`)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+            onClick={e => { e.preventDefault(); onRemoveBlock(block.id) }}
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
+        </div>
+      </summary>
+      <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
+        {blockSchema?.fields.map((field: SchemaField) => (
+          <div key={field.id}>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+            {field.type === "toggle" ? (
+              <WbToggle
+                label=""
+                value={block.settings[field.id]}
+                onChange={val => onUpdateBlockSetting(block.id, field.id, val)}
+              />
+            ) : field.id === "url" ? (
+              <NavLinkPicker
+                value={typeof block.settings.url === "string" ? block.settings.url : ""}
+                onChange={val => onUpdateBlockSetting(block.id, "url", val)}
+                products={products}
+                collections={collections}
+                customPages={customPages}
+              />
+            ) : (
+              <input
+                type="text"
+                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                placeholder={field.placeholder ?? ""}
+                value={typeof block.settings[field.id] === "string" ? (block.settings[field.id] as string) : ""}
+                onChange={e => onUpdateBlockSetting(block.id, field.id, e.target.value)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
 // ── Header Section Settings Panel ────────────────────────────
 function HeaderSectionSettings({
   section,
@@ -988,6 +1215,10 @@ function HeaderSectionSettings({
   onUpdateBlockSetting,
   onAddBlock,
   onRemoveBlock,
+  onReorderBlocks,
+  products,
+  collections,
+  customPages,
 }: {
   section: SectionInstance
   schema: any
@@ -996,9 +1227,28 @@ function HeaderSectionSettings({
   onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
   onAddBlock: (type: string) => void
   onRemoveBlock: (blockId: string) => void
+  onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
+  products: { id: string; title: string; slug: string }[]
+  collections: { id: string; name: string; slug: string }[]
+  customPages: { name: string; key: string }[]
 }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const s = section.settings
+
+  const navSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleNavDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const blocks = section.blocks ?? []
+    const oldIndex = blocks.findIndex(b => b.id === active.id)
+    const newIndex = blocks.findIndex(b => b.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    onReorderBlocks(arrayMove(blocks, oldIndex, newIndex))
+  }
 
   const tabs = [
     { id: "logo", label: "Store Logo" },
@@ -1111,50 +1361,26 @@ function HeaderSectionSettings({
       case "nav":
         return (
           <div className="space-y-3">
-            {(section.blocks ?? []).map((block, idx) => {
-              const blockSchema = schema?.blocks?.find((b: any) => b.type === block.type)
-              return (
-                <details key={block.id} className="group border border-border rounded-lg overflow-hidden">
-                  <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-                      <span className="text-sm font-medium">{String(block.settings.label || `Link ${idx + 1}`)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
-                        onClick={e => { e.preventDefault(); onRemoveBlock(block.id) }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
-                    </div>
-                  </summary>
-                  <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-                    {blockSchema?.fields.map((field: SchemaField) => (
-                      <div key={field.id}>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                        {field.type === "toggle" ? (
-                          <WbToggle
-                            label=""
-                            value={block.settings[field.id]}
-                            onChange={val => onUpdateBlockSetting(block.id, field.id, val)}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                            placeholder={field.placeholder ?? ""}
-                            value={typeof block.settings[field.id] === "string" ? (block.settings[field.id] as string) : ""}
-                            onChange={e => onUpdateBlockSetting(block.id, field.id, e.target.value)}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )
-            })}
+            <DndContext sensors={navSensors} collisionDetection={closestCenter} onDragEnd={handleNavDragEnd}>
+              <SortableContext items={(section.blocks ?? []).map(b => b.id)} strategy={verticalListSortingStrategy}>
+                {(section.blocks ?? []).map((block, idx) => {
+                  const blockSchema = schema?.blocks?.find((b: any) => b.type === block.type)
+                  return (
+                    <SortableNavLink
+                      key={block.id}
+                      block={block}
+                      idx={idx}
+                      blockSchema={blockSchema}
+                      onUpdateBlockSetting={onUpdateBlockSetting}
+                      onRemoveBlock={onRemoveBlock}
+                      products={products}
+                      collections={collections}
+                      customPages={customPages}
+                    />
+                  )
+                })}
+              </SortableContext>
+            </DndContext>
             {(!schema?.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
               <button
                 className="w-full flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-purple-300 hover:border-purple-400 rounded-lg transition-colors hover:bg-purple-50/50"
@@ -1756,6 +1982,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const newBlock = { id: `block-${Date.now()}`, type: blockType, settings: {} }
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, blocks: [...(s.blocks ?? []), newBlock] } : s
+    ))
+    setIsDirty(true)
+  }
+
+  const reorderBlocks = (sectionId: string, blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => {
+    setSections(prev => prev.map(s =>
+      s.id === sectionId ? { ...s, blocks } : s
     ))
     setIsDirty(true)
   }
@@ -2436,6 +2669,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onUpdateBlockSetting={(blockId, key, val) => updateBlockSetting(section.id, blockId, key, val)}
             onAddBlock={(type) => addBlock(section.id, type)}
             onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
+            onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
+            products={products}
+            collections={collections}
+            customPages={[
+              { name: "Home", key: "home" },
+              { name: "About", key: "about" },
+              { name: "Contact", key: "contact" },
+              ...customPages.map(p => ({ name: p.name, key: p.key as string })),
+            ]}
           />
         )
       }
