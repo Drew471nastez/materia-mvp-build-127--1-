@@ -108,7 +108,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick }: Secti
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="w-full max-w-[1280px] mx-auto px-6 py-3 flex items-center justify-between border-b"
+        className="w-full px-6 py-3 flex items-center justify-between border-b"
         style={{ borderColor: theme.border_color ?? "#e2e8f0" }}
       >
         <div className="flex items-center gap-2">
