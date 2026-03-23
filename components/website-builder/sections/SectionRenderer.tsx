@@ -121,8 +121,8 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         className={cn(
           "w-full py-3 flex items-center justify-between border-b",
           hasDeviceMode
-            ? (forceMobile ? "px-4" : "px-[10%]")
-            : "px-4 md:px-[10%]",
+            ? (forceMobile ? "px-4" : "px-[5%]")
+            : "px-4 md:px-[5%]",
         )}
         style={{ borderColor: theme.border_color ?? "#e2e8f0" }}
       >
