@@ -21,6 +21,7 @@ interface SectionProps {
   isEditing?: boolean
   isSelected?: boolean
   onClick?: () => void
+  deviceMode?: "desktop" | "mobile"
 }
 
 // ── Utility ──────────────────────────────────────────────────
@@ -100,60 +101,113 @@ function SectionWrapper({
 
 // ── Section components ────────────────────────────────────────
 
-function HeaderSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
   const s = section.settings
   const bg = str(s.bg_color, "#ffffff")
   const textColor = str(s.text_color, "#0f172a")
 
+  // When deviceMode is set (editor), use it directly. Otherwise use CSS responsive.
+  const forceMobile = deviceMode === "mobile"
+  const forceDesktop = deviceMode === "desktop"
+  const hasDeviceMode = !!deviceMode
+
+  const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)
+  const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 40)
+  const desktopLogoH = Number(s.logo_height) || 40
+
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
-        className="w-full px-6 py-3 flex items-center justify-between border-b"
+        className={cn(
+          "w-full py-3 flex items-center justify-between border-b",
+          hasDeviceMode
+            ? (forceMobile ? "px-4" : "px-[10%]")
+            : "px-4 md:px-[10%]",
+        )}
         style={{ borderColor: theme.border_color ?? "#e2e8f0" }}
       >
         <div className="flex items-center gap-2">
           {s.logo_url ? (
-            <>
+            hasDeviceMode ? (
+              /* Editor: show correct logo based on device toggle */
               <img
-                src={str(s.logo_url)}
+                src={forceMobile ? mobileLogoSrc : str(s.logo_url)}
                 alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-                className="object-contain hidden md:block"
-                style={{ height: `${Number(s.logo_height) || 40}px` }}
+                className="object-contain"
+                style={{ height: `${forceMobile ? mobileLogoH : desktopLogoH}px` }}
                 loading="eager"
                 decoding="async"
                 fetchPriority="high"
               />
-              <img
-                src={s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)}
-                alt={str(s.logo_text, theme.brand_name ?? "Logo")}
-                className="object-contain md:hidden"
-                style={{ height: `${s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 40)}px` }}
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-              />
-            </>
+            ) : (
+              /* Live site: use CSS responsive classes */
+              <>
+                <img
+                  src={str(s.logo_url)}
+                  alt={str(s.logo_text, theme.brand_name ?? "Logo")}
+                  className="object-contain hidden md:block"
+                  style={{ height: `${desktopLogoH}px` }}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+                <img
+                  src={mobileLogoSrc}
+                  alt={str(s.logo_text, theme.brand_name ?? "Logo")}
+                  className="object-contain md:hidden"
+                  style={{ height: `${mobileLogoH}px` }}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+              </>
+            )
           ) : (
             <span className="text-[15px] font-bold" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
               {str(s.logo_text, theme.brand_name ?? "My Store")}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          {section.blocks?.slice(0, 4).map(block => (
-            <a
-              key={block.id}
-              href={str(block.settings.url, "#")}
-              className="text-[13px] font-medium opacity-70 hover:opacity-100"
-              style={{ color: textColor }}
-            >
-              {str(block.settings.label)}
-            </a>
-          ))}
+        <div className={cn(
+          "flex items-center",
+          hasDeviceMode
+            ? (forceMobile ? "gap-2" : "gap-4")
+            : "gap-2 md:gap-4",
+        )}>
+          {hasDeviceMode ? (
+            /* Editor: conditionally render nav links */
+            !forceMobile && section.blocks?.slice(0, 4).map(block => (
+              <a
+                key={block.id}
+                href={str(block.settings.url, "#")}
+                className="text-[13px] font-medium opacity-70 hover:opacity-100"
+                style={{ color: textColor }}
+              >
+                {str(block.settings.label)}
+              </a>
+            ))
+          ) : (
+            /* Live site: use CSS responsive classes for nav links */
+            section.blocks?.slice(0, 4).map(block => (
+              <a
+                key={block.id}
+                href={str(block.settings.url, "#")}
+                className="hidden md:inline text-[13px] font-medium opacity-70 hover:opacity-100"
+                style={{ color: textColor }}
+              >
+                {str(block.settings.label)}
+              </a>
+            ))
+          )}
           {!!s.cta_text && (
             <a
               href={str(s.cta_url, "#")}
-              className="px-3 py-1.5 text-[13px] font-semibold text-white"
+              className={cn(
+                "font-semibold text-white",
+                hasDeviceMode
+                  ? (forceMobile ? "px-2.5 py-1 text-[12px]" : "px-3 py-1.5 text-[13px]")
+                  : "px-2.5 py-1 text-[12px] md:px-3 md:py-1.5 md:text-[13px]",
+              )}
               style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
             >
               {str(s.cta_text)}
@@ -1083,6 +1137,6 @@ export function renderSection(props: SectionProps) {
   return <Component {...props} />
 }
 
-export default function SectionRenderer({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
-  return renderSection({ section, theme, isEditing, isSelected, onClick }) ?? null
+export default function SectionRenderer({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
+  return renderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }) ?? null
 }

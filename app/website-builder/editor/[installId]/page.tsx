@@ -3044,7 +3044,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {/* Header */}
                 {sections.filter(s => s.type === "header").map(section => (
                   <div key={section.id} id={`wb-section-${section.id}`}>
-                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
                   </div>
                 ))}
 
@@ -3052,7 +3052,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <div className="flex-1">
                   {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
                     <div key={section.id} id={`wb-section-${section.id}`}>
-                      <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                      <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
                     </div>
                   ))}
 
@@ -3074,7 +3074,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {/* Footer */}
                 {sections.filter(s => s.type === "footer").map(section => (
                   <div key={section.id} id={`wb-section-${section.id}`}>
-                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
+                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
                   </div>
                 ))}
               </>
