@@ -57,6 +57,16 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 
+// ── Logo sync maps (header section ↔ theme settings) ────────
+const LOGO_SYNC_HEADER_TO_THEME: Record<string, string> = {
+  logo_url: "logo_url",
+  logo_height: "logo_width",
+}
+const LOGO_SYNC_THEME_TO_HEADER: Record<string, string> = {
+  logo_url: "logo_url",
+  logo_width: "logo_height",
+}
+
 // ── Field editor ─────────────────────────────────────────────
 function FieldEditor({
   field,
@@ -1460,6 +1470,42 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }, [])
 
+  // Returns sections array — callers can inject product data before setting state
+  const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
+    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
+    if (!res.ok) return []
+    const data = await res.json()
+    let loaded: SectionInstance[] = data.sections ?? []
+
+    // Ensure header and footer exist on every page
+    if (!loaded.some(s => s.type === "header")) {
+      const hs = SECTION_SCHEMAS["header"]
+      if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
+    }
+    if (!loaded.some(s => s.type === "footer")) {
+      const fs = SECTION_SCHEMAS["footer"]
+      if (fs) loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
+    }
+
+    // Auto-add Product section on product pages if missing
+    if (page === "product" && !loaded.some(s => s.type === "product")) {
+      const ps = SECTION_SCHEMAS["product"]
+      if (ps) {
+        const headerIdx = loaded.findIndex(s => s.type === "header")
+        const newSection: SectionInstance = { id: `product-${Date.now()}`, type: "product", name: ps.name, settings: ps.presets?.[0]?.settings ?? {}, blocks: [], hidden: false }
+        if (headerIdx !== -1) loaded.splice(headerIdx + 1, 0, newSection)
+        else loaded.unshift(newSection)
+      }
+    }
+
+    return loaded
+  }, [installId])
+
+  const loadSections = useCallback(async (page: PageKey) => {
+    const loaded = await fetchPageSections(page)
+    setSections(loaded)
+  }, [fetchPageSections])
+
   // Load install data
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -1498,42 +1544,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(loaded)
     setLoading(false)
   }, [installId, currentPage, fetchPageSections])
-
-  // Returns sections array — callers can inject product data before setting state
-  const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
-    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
-    if (!res.ok) return []
-    const data = await res.json()
-    let loaded: SectionInstance[] = data.sections ?? []
-
-    // Ensure header and footer exist on every page
-    if (!loaded.some(s => s.type === "header")) {
-      const hs = SECTION_SCHEMAS["header"]
-      if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
-    }
-    if (!loaded.some(s => s.type === "footer")) {
-      const fs = SECTION_SCHEMAS["footer"]
-      if (fs) loaded = [...loaded, { id: `footer-${Date.now()}`, type: "footer", name: fs.name, settings: fs.presets?.[0]?.settings ?? {}, blocks: fs.presets?.[0]?.blocks ?? [], hidden: false }]
-    }
-
-    // Auto-add Product section on product pages if missing
-    if (page === "product" && !loaded.some(s => s.type === "product")) {
-      const ps = SECTION_SCHEMAS["product"]
-      if (ps) {
-        const headerIdx = loaded.findIndex(s => s.type === "header")
-        const newSection: SectionInstance = { id: `product-${Date.now()}`, type: "product", name: ps.name, settings: ps.presets?.[0]?.settings ?? {}, blocks: [], hidden: false }
-        if (headerIdx !== -1) loaded.splice(headerIdx + 1, 0, newSection)
-        else loaded.unshift(newSection)
-      }
-    }
-
-    return loaded
-  }, [installId])
-
-  const loadSections = useCallback(async (page: PageKey) => {
-    const loaded = await fetchPageSections(page)
-    setSections(loaded)
-  }, [fetchPageSections])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -1700,19 +1710,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     undoPushTimerRef.current = setTimeout(() => pushUndo(), 500)
   }, [pushUndo])
 
-  // Reverse sync map: theme settings key → header section key
-  const THEME_TO_HEADER_SYNC: Record<string, string> = {
-    logo_url: "logo_url",
-    logo_width: "logo_height",
-  }
-
   const updateSetting = (key: string, value: unknown) => {
     debouncedPushUndo()
     setSettingsDraft(prev => ({ ...prev, [key]: value }))
 
     // If updating logo in theme settings, also sync to header section
-    if (key in THEME_TO_HEADER_SYNC) {
-      const sectionKey = THEME_TO_HEADER_SYNC[key]
+    if (key in LOGO_SYNC_THEME_TO_HEADER) {
+      const sectionKey = LOGO_SYNC_THEME_TO_HEADER[key]
       setSections(prev => prev.map(s =>
         s.type === "header" ? { ...s, settings: { ...s.settings, [sectionKey]: value } } : s
       ))
@@ -1721,20 +1725,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
-  // Bidirectional logo sync keys: header section key → theme settings key
-  const LOGO_SYNC_MAP: Record<string, string> = {
-    logo_url: "logo_url",
-    logo_height: "logo_width", // header uses height, theme settings uses width — sync the value
-  }
-
   // Section settings change
   const updateSectionSetting = (sectionId: string, key: string, value: unknown) => {
     debouncedPushUndo()
     setSections(prev => {
       const section = prev.find(s => s.id === sectionId)
       // If updating header section logo settings, also sync to theme settings
-      if (section?.type === "header" && key in LOGO_SYNC_MAP) {
-        const themeKey = LOGO_SYNC_MAP[key]
+      if (section?.type === "header" && key in LOGO_SYNC_HEADER_TO_THEME) {
+        const themeKey = LOGO_SYNC_HEADER_TO_THEME[key]
         setSettingsDraft(p => ({ ...p, [themeKey]: value }))
       }
       return prev.map(s =>
@@ -2250,20 +2248,72 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           </p>
                         </>
                       ) : (
-                        /* All other groups use the standard FieldEditor */
-                        group.fields.map(field => (
-                          <div key={field.id}>
-                            {field.type !== "header" && field.type !== "paragraph" && (
-                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                            )}
-                            <FieldEditor
-                              field={field}
-                              value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                              onChange={v => updateSetting(field.id, v)}
-                            />
-                            {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
-                          </div>
-                        ))
+                        /* All other groups use modern Wb* components */
+                        group.fields.map(field => {
+                          const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
+                          return (
+                            <div key={field.id}>
+                              {field.type === "toggle" ? (
+                                <WbToggle
+                                  label={field.label}
+                                  value={val}
+                                  onChange={v => updateSetting(field.id, v)}
+                                  info={field.info}
+                                />
+                              ) : field.type === "range" ? (
+                                <WbSlider
+                                  label={field.label}
+                                  value={val}
+                                  onChange={v => updateSetting(field.id, v)}
+                                  min={field.min ?? 0}
+                                  max={field.max ?? 100}
+                                  step={field.step ?? 1}
+                                  unit={field.unit ?? ""}
+                                  defaultValue={typeof field.default === "number" ? field.default : 0}
+                                />
+                              ) : field.type === "select" || field.type === "font" ? (
+                                <WbSelect
+                                  label={field.label}
+                                  value={val}
+                                  onChange={v => updateSetting(field.id, v)}
+                                  options={field.options ?? []}
+                                />
+                              ) : field.type === "radio" ? (
+                                <WbRadioSegment
+                                  label={field.label}
+                                  value={val}
+                                  onChange={v => updateSetting(field.id, v)}
+                                  options={field.options ?? []}
+                                />
+                              ) : field.type === "image" ? (
+                                <>
+                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                                  <WbImagePicker
+                                    value={typeof val === "string" ? val : undefined}
+                                    onChange={url => updateSetting(field.id, url ?? "")}
+                                    aspectRatio="video"
+                                    folder="sections"
+                                  />
+                                </>
+                              ) : field.type === "color" ? (
+                                <>
+                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                                  <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                                </>
+                              ) : field.type === "header" || field.type === "paragraph" ? (
+                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                              ) : (
+                                <>
+                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                                  <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                                </>
+                              )}
+                              {field.type !== "toggle" && field.info && (
+                                <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+                              )}
+                            </div>
+                          )
+                        })
                       )}
                     </div>
                   )}
@@ -2588,17 +2638,71 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         </p>
                       </>
                     ) : (
-                      group.fields.map(field => (
-                        <div key={field.id}>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                          <FieldEditor
-                            field={field}
-                            value={settingsDraft[field.id]}
-                            onChange={val => updateSetting(field.id, val)}
-                          />
-                          {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
-                        </div>
-                      ))
+                      group.fields.map(field => {
+                        const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
+                        return (
+                          <div key={field.id}>
+                            {field.type === "toggle" ? (
+                              <WbToggle
+                                label={field.label}
+                                value={val}
+                                onChange={v => updateSetting(field.id, v)}
+                                info={field.info}
+                              />
+                            ) : field.type === "range" ? (
+                              <WbSlider
+                                label={field.label}
+                                value={val}
+                                onChange={v => updateSetting(field.id, v)}
+                                min={field.min ?? 0}
+                                max={field.max ?? 100}
+                                step={field.step ?? 1}
+                                unit={field.unit ?? ""}
+                                defaultValue={typeof field.default === "number" ? field.default : 0}
+                              />
+                            ) : field.type === "select" || field.type === "font" ? (
+                              <WbSelect
+                                label={field.label}
+                                value={val}
+                                onChange={v => updateSetting(field.id, v)}
+                                options={field.options ?? []}
+                              />
+                            ) : field.type === "radio" ? (
+                              <WbRadioSegment
+                                label={field.label}
+                                value={val}
+                                onChange={v => updateSetting(field.id, v)}
+                                options={field.options ?? []}
+                              />
+                            ) : field.type === "image" ? (
+                              <>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                                <WbImagePicker
+                                  value={typeof val === "string" ? val : undefined}
+                                  onChange={url => updateSetting(field.id, url ?? "")}
+                                  aspectRatio="video"
+                                  folder="sections"
+                                />
+                              </>
+                            ) : field.type === "color" ? (
+                              <>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                              </>
+                            ) : field.type === "header" || field.type === "paragraph" ? (
+                              <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                            ) : (
+                              <>
+                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                              </>
+                            )}
+                            {field.type !== "toggle" && field.info && (
+                              <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+                            )}
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 )}
