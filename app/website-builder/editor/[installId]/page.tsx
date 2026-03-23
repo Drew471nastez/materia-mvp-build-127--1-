@@ -13,6 +13,7 @@ import {
   Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package,
   Menu, Undo2, Redo2, PanelLeft, ExternalLink, Link2,
   Search, FileText, ArrowRight, FolderOpen, MoreHorizontal,
+  Upload, ImageIcon, Info, RefreshCw, Crop,
 } from "lucide-react"
 import {
   DndContext,
@@ -43,6 +44,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+import { Slider } from "@/components/ui/slider"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
   PageKey, EditorPanel, SchemaField,
@@ -181,26 +184,12 @@ function FieldEditor({
 
   if (field.type === "image") {
     return (
-      <div className="space-y-2">
-        {typeof raw === "string" && raw && (
-          <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
-            <img src={raw} alt="" className="w-full h-full object-cover" />
-            <button
-              className="absolute top-1.5 right-1.5 h-6 w-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors"
-              onClick={() => onChange("")}
-            >
-              <X className="h-3 w-3 text-white" />
-            </button>
-          </div>
-        )}
-        <input
-          type="text"
-          className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-          placeholder="Paste image URL..."
-          value={typeof raw === "string" ? raw : ""}
-          onChange={e => onChange(e.target.value)}
-        />
-      </div>
+      <WbImagePicker
+        value={typeof raw === "string" ? raw : undefined}
+        onChange={url => onChange(url ?? "")}
+        aspectRatio="video"
+        folder="sections"
+      />
     )
   }
 
@@ -628,6 +617,338 @@ function AddSectionModal({
   )
 }
 
+// ── Professional Image Picker ────────────────────────────────
+function WbImagePicker({
+  value,
+  onChange,
+  label,
+  aspectRatio = "video",
+  bucket = "store-builder-images" as const,
+  folder = "logos",
+}: {
+  value: string | undefined
+  onChange: (url: string | null) => void
+  label?: string
+  aspectRatio?: "square" | "video" | "logo"
+  bucket?: "product-images" | "avatars" | "covers" | "store-builder-images"
+  folder?: string
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const url = typeof value === "string" && value ? value : null
+
+  const handleFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) return
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return }
+
+    setUploading(true)
+    setProgress(10)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not logged in")
+
+      const ext = file.name.split(".").pop()
+      const filePath = `${user.id}/${folder}/${Date.now()}.${ext}`
+      setProgress(30)
+
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, { cacheControl: "3600", upsert: true })
+      if (uploadError) throw uploadError
+
+      setProgress(80)
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
+      setProgress(100)
+      onChange(urlData.publicUrl)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setUploading(false)
+      setProgress(0)
+    }
+  }, [bucket, folder, onChange])
+
+  const aspectClass = aspectRatio === "square" ? "aspect-square" : aspectRatio === "logo" ? "min-h-[100px]" : "aspect-video"
+
+  if (url) {
+    return (
+      <div className="space-y-2.5">
+        {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
+        <div className={cn("relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa]", aspectClass, "flex items-center justify-center")}>
+          <img src={url} alt="" className="max-w-full max-h-full object-contain p-2" />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium border border-border rounded-lg hover:bg-muted/50 transition-colors"
+            onClick={() => inputRef.current?.click()}
+          >
+            <RefreshCw className="h-3 w-3" />
+            Replace
+          </button>
+          <button
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-xs font-medium border border-border rounded-lg hover:bg-muted/50 transition-colors text-red-500"
+            onClick={() => onChange(null)}
+          >
+            <Trash2 className="h-3 w-3" />
+            Remove
+          </button>
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
+      <div
+        className={cn(
+          "relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-2",
+          aspectClass,
+          dragOver ? "border-purple-400 bg-purple-50" : "border-border bg-[#fafafa] hover:border-purple-300 hover:bg-purple-50/30",
+        )}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+      >
+        {uploading ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-5 w-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-muted-foreground">Uploading... {progress}%</p>
+            <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-purple-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-muted-foreground">Add Image</p>
+            <p className="text-[11px] text-muted-foreground/70">Click to upload or drag & drop</p>
+          </>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
+    </div>
+  )
+}
+
+// ── Professional Color Picker with Swatches ──────────────────
+const COLOR_SWATCHES = [
+  "#000000", "#374151", "#3B82F6", "#10B981", "#F59E0B",
+  "#EF4444", "#8B5CF6", "#EC4899", "#6366F1", "#14B8A6",
+]
+
+function WbColorPicker({
+  label,
+  value,
+  onChange,
+  defaultValue = "#000000",
+}: {
+  label: string
+  value: unknown
+  onChange: (v: string) => void
+  defaultValue?: string
+}) {
+  const color = typeof value === "string" && value ? value : defaultValue
+  const [inputVal, setInputVal] = useState(color)
+
+  useEffect(() => {
+    setInputVal(typeof value === "string" && value ? value : defaultValue)
+  }, [value, defaultValue])
+
+  const handleInput = (v: string) => {
+    setInputVal(v)
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) || v === "transparent") {
+      onChange(v)
+    }
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <div className="flex items-center gap-2.5">
+        <div className="relative h-10 w-10 rounded-lg overflow-hidden border border-border shrink-0 shadow-sm">
+          {color === "transparent" ? (
+            <div className="w-full h-full" style={{ background: "repeating-conic-gradient(#e5e7eb 0% 25%, transparent 0% 50%) 50% / 10px 10px" }} />
+          ) : (
+            <div className="w-full h-full" style={{ backgroundColor: color }} />
+          )}
+          <input
+            type="color"
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            value={color === "transparent" ? "#ffffff" : color}
+            onChange={e => { onChange(e.target.value); setInputVal(e.target.value) }}
+          />
+        </div>
+        <input
+          type="text"
+          className="flex-1 h-10 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          value={inputVal}
+          onChange={e => handleInput(e.target.value)}
+          onBlur={() => setInputVal(color)}
+        />
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {COLOR_SWATCHES.map(sw => (
+          <button
+            key={sw}
+            type="button"
+            className={cn(
+              "h-7 w-7 rounded-full border-2 transition-all hover:scale-110",
+              color === sw ? "border-foreground ring-2 ring-foreground/10 scale-110" : "border-transparent"
+            )}
+            style={{ backgroundColor: sw }}
+            onClick={() => { onChange(sw); setInputVal(sw) }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Professional Slider with value display ───────────────────
+function WbSlider({
+  label,
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  unit = "px",
+  defaultValue = 0,
+}: {
+  label: string
+  value: unknown
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  step?: number
+  unit?: string
+  defaultValue?: number
+}) {
+  const num = typeof value === "number" ? value : defaultValue
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <span className="text-sm text-muted-foreground tabular-nums">{num}{unit}</span>
+      </div>
+      <Slider
+        value={[num]}
+        onValueChange={([v]) => onChange(v)}
+        min={min}
+        max={max}
+        step={step}
+      />
+    </div>
+  )
+}
+
+// ── Professional Toggle Row ──────────────────────────────────
+function WbToggle({
+  label,
+  value,
+  onChange,
+  info,
+}: {
+  label: string
+  value: unknown
+  onChange: (v: boolean) => void
+  info?: string
+}) {
+  const checked = typeof value === "boolean" ? value : false
+  return (
+    <div className="flex items-center justify-between py-1">
+      <div className="flex-1">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {info && <p className="text-[11px] text-muted-foreground mt-0.5">{info}</p>}
+      </div>
+      <button
+        type="button"
+        className={cn(
+          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ml-3",
+          checked ? "bg-purple-600" : "bg-muted",
+        )}
+        onClick={() => onChange(!checked)}
+      >
+        <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform", checked ? "translate-x-4" : "translate-x-0.5")} />
+      </button>
+    </div>
+  )
+}
+
+// ── Professional Select dropdown ─────────────────────────────
+function WbSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: unknown
+  onChange: (v: string) => void
+  options: { label: string; value: string }[]
+}) {
+  const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <div className="relative">
+        <select
+          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 appearance-none cursor-pointer transition-colors"
+          value={selected}
+          onChange={e => onChange(e.target.value)}
+        >
+          {options.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </div>
+    </div>
+  )
+}
+
+// ── Professional Radio Segment Control ───────────────────────
+function WbRadioSegment({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: unknown
+  onChange: (v: string) => void
+  options: { label: string; value: string }[]
+}) {
+  const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <div className="flex gap-1.5">
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex-1 py-2 text-sm font-medium rounded-lg border-2 transition-all text-center",
+              selected === opt.value
+                ? "border-foreground bg-background text-foreground shadow-sm"
+                : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Header Section Settings Panel ────────────────────────────
 function HeaderSectionSettings({
   section,
@@ -647,44 +968,311 @@ function HeaderSectionSettings({
   onRemoveBlock: (blockId: string) => void
 }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
+  const s = section.settings
 
-  // Group header fields into categories
   const tabs = [
-    {
-      id: "logo",
-      label: "Store Logo",
-      fields: schema?.fields?.filter((f: SchemaField) =>
-        ["logo_text", "logo_url", "logo_font"].includes(f.id)
-      ) ?? [],
-    },
-    {
-      id: "nav",
-      label: "Navigation Links",
-      isBlocks: true,
-    },
-    {
-      id: "settings",
-      label: "Header Settings",
-      fields: schema?.fields?.filter((f: SchemaField) =>
-        ["hdr_layout", "sticky", "transparent_on_hero", "nav_alignment", "max_width"].includes(f.id)
-      ) ?? [],
-    },
-    {
-      id: "announcement",
-      label: "Announcement Bar",
-      fields: schema?.fields?.filter((f: SchemaField) =>
-        f.id.startsWith("hdr_button") || ["cta_text", "cta_url", "cta_style", "cta_color", "cta_text_color", "cta_border_radius"].includes(f.id)
-      ) ?? [],
-    },
-    {
-      id: "elements",
-      label: "Elements",
-      fields: schema?.fields?.filter((f: SchemaField) =>
-        ["hdr_style", "bg_color", "text_color", "border_color", "show_border"].includes(f.id)
-      ) ?? [],
-    },
+    { id: "logo", label: "Store Logo" },
+    { id: "nav", label: "Navigation Links" },
+    { id: "settings", label: "Header Settings" },
+    { id: "button", label: "Button" },
+    { id: "elements", label: "Elements" },
   ]
 
+  // ── Sub-panel content ──────────────────────────────────────
+  const renderSubPanel = (tabId: string) => {
+    switch (tabId) {
+      case "logo":
+        return (
+          <div className="space-y-5">
+            {/* Logo image picker */}
+            <WbImagePicker
+              label="LOGO IMAGE"
+              value={typeof s.logo_url === "string" ? s.logo_url : undefined}
+              onChange={url => onUpdateSetting("logo_url", url ?? "")}
+              aspectRatio="logo"
+              folder="logos"
+            />
+
+            {/* Logo height slider */}
+            {typeof s.logo_url === "string" && s.logo_url && (
+              <WbSlider
+                label="Logo height"
+                value={s.logo_height}
+                onChange={v => onUpdateSetting("logo_height", v)}
+                min={24}
+                max={120}
+                step={2}
+                unit="px"
+                defaultValue={40}
+              />
+            )}
+
+            {/* Use different logo for mobile */}
+            <WbToggle
+              label="Use different logo for mobile devices"
+              value={s.use_mobile_logo}
+              onChange={v => onUpdateSetting("use_mobile_logo", v)}
+            />
+
+            {/* Mobile logo image */}
+            {!!s.use_mobile_logo && (
+              <>
+                <WbImagePicker
+                  label="MOBILE LOGO IMAGE"
+                  value={typeof s.mobile_logo_url === "string" ? s.mobile_logo_url : undefined}
+                  onChange={url => onUpdateSetting("mobile_logo_url", url ?? "")}
+                  aspectRatio="logo"
+                  folder="logos"
+                />
+                {typeof s.mobile_logo_url === "string" && s.mobile_logo_url && (
+                  <WbSlider
+                    label="Mobile logo height"
+                    value={s.mobile_logo_height}
+                    onChange={v => onUpdateSetting("mobile_logo_height", v)}
+                    min={20}
+                    max={80}
+                    step={2}
+                    unit="px"
+                    defaultValue={32}
+                  />
+                )}
+              </>
+            )}
+
+            {/* Store title */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">STORE TITLE</p>
+              <input
+                type="text"
+                className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                placeholder="My Store"
+                value={typeof s.logo_text === "string" ? s.logo_text : ""}
+                onChange={e => onUpdateSetting("logo_text", e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 mt-1.5">
+                <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                Search engines like Google need the store title, so ensure you add one even when you use a logo. Logos replace the store title on all pages.
+              </p>
+            </div>
+
+            {/* Logo font */}
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Logo font</p>
+              <div className="relative">
+                <select
+                  className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 appearance-none cursor-pointer transition-colors"
+                  value={typeof s.logo_font === "string" ? s.logo_font : "Inter"}
+                  onChange={e => onUpdateSetting("logo_font", e.target.value)}
+                  style={{ fontFamily: typeof s.logo_font === "string" ? s.logo_font : "Inter" }}
+                >
+                  {[
+                    "Inter", "Poppins", "Playfair Display", "Merriweather", "Raleway",
+                    "Montserrat", "Lora", "DM Sans", "Space Grotesk",
+                  ].map(f => (
+                    <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        )
+
+      case "nav":
+        return (
+          <div className="space-y-3">
+            {(section.blocks ?? []).map((block, idx) => {
+              const blockSchema = schema?.blocks?.find((b: any) => b.type === block.type)
+              return (
+                <details key={block.id} className="group border border-border rounded-lg overflow-hidden">
+                  <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+                      <span className="text-sm font-medium">{String(block.settings.label || `Link ${idx + 1}`)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                        onClick={e => { e.preventDefault(); onRemoveBlock(block.id) }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
+                    </div>
+                  </summary>
+                  <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
+                    {blockSchema?.fields.map((field: SchemaField) => (
+                      <div key={field.id}>
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                        {field.type === "toggle" ? (
+                          <WbToggle
+                            label=""
+                            value={block.settings[field.id]}
+                            onChange={val => onUpdateBlockSetting(block.id, field.id, val)}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                            placeholder={field.placeholder ?? ""}
+                            value={typeof block.settings[field.id] === "string" ? (block.settings[field.id] as string) : ""}
+                            onChange={e => onUpdateBlockSetting(block.id, field.id, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )
+            })}
+            {(!schema?.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
+              <button
+                className="w-full flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-purple-300 hover:border-purple-400 rounded-lg transition-colors hover:bg-purple-50/50"
+                onClick={() => onAddBlock("nav_link")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add navigation link
+              </button>
+            )}
+          </div>
+        )
+
+      case "settings":
+        return (
+          <div className="space-y-5">
+            <WbToggle
+              label="Sticky header"
+              value={s.sticky}
+              onChange={v => onUpdateSetting("sticky", v)}
+              info="Header stays at the top when scrolling"
+            />
+            <WbToggle
+              label="Transparent over hero"
+              value={s.transparent_on_hero}
+              onChange={v => onUpdateSetting("transparent_on_hero", v)}
+              info="Header background becomes transparent when over hero section"
+            />
+            <div className="h-px bg-border" />
+            <WbRadioSegment
+              label="Navigation alignment"
+              value={s.nav_alignment}
+              onChange={v => onUpdateSetting("nav_alignment", v)}
+              options={[
+                { label: "Left", value: "left" },
+                { label: "Center", value: "center" },
+                { label: "Right", value: "right" },
+              ]}
+            />
+            <WbSelect
+              label="Container width"
+              value={s.max_width}
+              onChange={v => onUpdateSetting("max_width", v)}
+              options={[
+                { label: "Narrow", value: "narrow" },
+                { label: "Medium", value: "medium" },
+                { label: "Wide", value: "wide" },
+                { label: "Full width", value: "full" },
+              ]}
+            />
+          </div>
+        )
+
+      case "button":
+        return (
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Button text</p>
+              <input
+                type="text"
+                className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                placeholder="Shop Now"
+                value={typeof s.cta_text === "string" ? s.cta_text : ""}
+                onChange={e => onUpdateSetting("cta_text", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Button URL</p>
+              <input
+                type="text"
+                className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                placeholder="/products"
+                value={typeof s.cta_url === "string" ? s.cta_url : ""}
+                onChange={e => onUpdateSetting("cta_url", e.target.value)}
+              />
+            </div>
+            <WbRadioSegment
+              label="Button style"
+              value={s.cta_style}
+              onChange={v => onUpdateSetting("cta_style", v)}
+              options={[
+                { label: "Filled", value: "filled" },
+                { label: "Outline", value: "outline" },
+                { label: "Ghost", value: "ghost" },
+              ]}
+            />
+            <WbColorPicker
+              label="Button color"
+              value={s.cta_color}
+              onChange={v => onUpdateSetting("cta_color", v)}
+              defaultValue="#6366f1"
+            />
+            <WbColorPicker
+              label="Button text color"
+              value={s.cta_text_color}
+              onChange={v => onUpdateSetting("cta_text_color", v)}
+              defaultValue="#ffffff"
+            />
+            <WbSlider
+              label="Button radius"
+              value={s.cta_border_radius}
+              onChange={v => onUpdateSetting("cta_border_radius", v)}
+              min={0}
+              max={32}
+              step={2}
+              unit="px"
+              defaultValue={8}
+            />
+          </div>
+        )
+
+      case "elements":
+        return (
+          <div className="space-y-5">
+            <WbColorPicker
+              label="Background color"
+              value={s.bg_color}
+              onChange={v => onUpdateSetting("bg_color", v)}
+              defaultValue="#ffffff"
+            />
+            <WbColorPicker
+              label="Text color"
+              value={s.text_color}
+              onChange={v => onUpdateSetting("text_color", v)}
+              defaultValue="#0f172a"
+            />
+            <div className="h-px bg-border" />
+            <WbToggle
+              label="Show bottom border"
+              value={s.show_border}
+              onChange={v => onUpdateSetting("show_border", v)}
+            />
+            {(s.show_border !== false) && (
+              <WbColorPicker
+                label="Border color"
+                value={s.border_color}
+                onChange={v => onUpdateSetting("border_color", v)}
+                defaultValue="#e2e8f0"
+              />
+            )}
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  // ── Sub-panel view ─────────────────────────────────────────
   if (activeTab) {
     const tab = tabs.find(t => t.id === activeTab)
     if (!tab) return null
@@ -697,74 +1285,14 @@ function HeaderSectionSettings({
           </button>
           <span className="text-sm font-semibold">{tab.label}</span>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {tab.id === "nav" ? (
-            // Navigation links (blocks)
-            <div className="space-y-3">
-              {(section.blocks ?? []).map(block => {
-                const blockSchema = schema?.blocks?.find((b: any) => b.type === block.type)
-                return (
-                  <details key={block.id} className="group border border-border rounded-lg overflow-hidden">
-                    <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50">
-                      <span className="text-sm font-medium">
-                        {String(block.settings.label || "Nav link")}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600"
-                          onClick={e => { e.preventDefault(); onRemoveBlock(block.id) }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
-                      </div>
-                    </summary>
-                    <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-                      {blockSchema?.fields.map((field: SchemaField) => (
-                        <div key={field.id}>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                          <FieldEditor
-                            field={field}
-                            value={block.settings[field.id]}
-                            onChange={val => onUpdateBlockSetting(block.id, field.id, val)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )
-              })}
-              {(!schema?.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
-                <button
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-purple-400 rounded-lg transition-colors"
-                  onClick={() => onAddBlock("nav_link")}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add nav link
-                </button>
-              )}
-            </div>
-          ) : (
-            // Regular fields
-            tab.fields?.map((field: SchemaField) => (
-              <div key={field.id}>
-                {field.type !== "header" && field.type !== "paragraph" && (
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                )}
-                <FieldEditor
-                  field={field}
-                  value={section.settings[field.id]}
-                  onChange={val => onUpdateSetting(field.id, val)}
-                />
-              </div>
-            ))
-          )}
+        <div className="flex-1 overflow-y-auto p-4">
+          {renderSubPanel(activeTab)}
         </div>
       </div>
     )
   }
 
+  // ── Main tab list ──────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">

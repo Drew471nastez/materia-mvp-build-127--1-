@@ -14,9 +14,13 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
     fields: [
       // Content
       { id: "hdr_content", label: "Content", type: "header" },
-      { id: "logo_text", label: "Logo text", type: "text", placeholder: "My Store" },
+      { id: "logo_text", label: "Store title", type: "text", placeholder: "My Store" },
       { id: "logo_url", label: "Logo image", type: "image" },
       { id: "logo_font", label: "Logo font", type: "font" },
+      { id: "logo_height", label: "Logo height", type: "range", min: 24, max: 120, step: 2, unit: "px", default: 40 },
+      { id: "use_mobile_logo", label: "Use different logo for mobile devices", type: "toggle", default: false },
+      { id: "mobile_logo_url", label: "Mobile logo image", type: "image" },
+      { id: "mobile_logo_height", label: "Mobile logo height", type: "range", min: 20, max: 80, step: 2, unit: "px", default: 32 },
       // Button
       { id: "hdr_button", label: "Button", type: "header" },
       { id: "cta_text", label: "Button text", type: "text", placeholder: "Shop Now" },

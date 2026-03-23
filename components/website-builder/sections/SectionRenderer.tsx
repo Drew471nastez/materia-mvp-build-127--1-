@@ -113,9 +113,22 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick }: Secti
       >
         <div className="flex items-center gap-2">
           {s.logo_url ? (
-            <img src={str(s.logo_url)} alt="Logo" className="h-8 object-contain" />
+            <>
+              <img
+                src={str(s.logo_url)}
+                alt="Logo"
+                className="object-contain hidden md:block"
+                style={{ height: `${Number(s.logo_height) || 40}px` }}
+              />
+              <img
+                src={s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)}
+                alt="Logo"
+                className="object-contain md:hidden"
+                style={{ height: `${s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 40)}px` }}
+              />
+            </>
           ) : (
-            <span className="text-[15px] font-bold" style={{ color: textColor }}>
+            <span className="text-[15px] font-bold" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
               {str(s.logo_text, theme.brand_name ?? "My Store")}
             </span>
           )}
