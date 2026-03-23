@@ -1864,6 +1864,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return
       }
 
+      // Update local install status so subsequent saves also publish
+      if (install) {
+        setInstall({ ...install, status: "published" })
+      }
+
       setIsDirty(false)
       setHasPublished(true)
       showNotification("Changes saved and published")
