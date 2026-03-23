@@ -640,9 +640,24 @@ function WbImagePicker({
 
   const url = typeof value === "string" && value ? value : null
 
+  // Allowed image MIME types for security
+  const ALLOWED_TYPES = new Set([
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/avif",
+  ])
+  // Safe file extensions
+  const SAFE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg", "avif"])
+
   const handleFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) return
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return }
+    if (!ALLOWED_TYPES.has(file.type)) {
+      toast.error("Only JPEG, PNG, GIF, WebP, SVG, and AVIF images are allowed")
+      return
+    }
+    const ext = (file.name.split(".").pop() ?? "").toLowerCase()
+    if (!SAFE_EXTENSIONS.has(ext)) {
+      toast.error("Invalid file extension")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return }
 
     setUploading(true)
     setProgress(10)
@@ -651,11 +666,16 @@ function WbImagePicker({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not logged in")
 
-      const ext = file.name.split(".").pop()
-      const filePath = `${user.id}/${folder}/${Date.now()}.${ext}`
+      // Sanitize filename: only keep alphanumeric + timestamp
+      const safeName = `${Date.now()}.${ext}`
+      const filePath = `${user.id}/${folder}/${safeName}`
       setProgress(30)
 
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, { cacheControl: "3600", upsert: true })
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file, {
+        cacheControl: "31536000", // 1 year — immutable content-addressed names
+        upsert: true,
+        contentType: file.type,
+      })
       if (uploadError) throw uploadError
 
       setProgress(80)
@@ -665,8 +685,8 @@ function WbImagePicker({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed")
     } finally {
-      setUploading(false)
-      setProgress(0)
+      setUploading(true) // brief delay to show 100%
+      setTimeout(() => { setUploading(false); setProgress(0) }, 300)
     }
   }, [bucket, folder, onChange])
 
@@ -1452,12 +1472,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     // Load settings
     const settings = inst.settings
-    setSettingsDraft(settings?.draft_settings ?? settings?.settings ?? {})
+    const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
 
     // Load sections for current page
-    await loadSections(currentPage)
+    const loaded = await fetchPageSections(currentPage)
+
+    // Sync logo between header section and theme settings on initial load
+    const header = loaded.find(s => s.type === "header")
+    if (header) {
+      const headerLogo = header.settings.logo_url
+      const themeLogo = loadedSettings.logo_url
+      // If header has a logo but theme settings doesn't, populate theme settings
+      if (headerLogo && !themeLogo) {
+        loadedSettings.logo_url = headerLogo
+        if (header.settings.logo_height) loadedSettings.logo_width = header.settings.logo_height
+      }
+      // If theme settings has a logo but header doesn't, populate header
+      else if (themeLogo && !headerLogo) {
+        header.settings.logo_url = themeLogo
+        if (loadedSettings.logo_width) header.settings.logo_height = loadedSettings.logo_width
+      }
+    }
+
+    setSettingsDraft(loadedSettings)
+    setSections(loaded)
     setLoading(false)
-  }, [installId, currentPage])
+  }, [installId, currentPage, fetchPageSections])
 
   // Returns sections array — callers can inject product data before setting state
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
@@ -1564,13 +1604,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const handlePageChange = async (page: PageKey) => {
     setSectionsLoading(true)
     setCanvasLoading(true)
+
+    // Capture current header/footer before switching — they are universal
+    const currentHeader = sections.find(s => s.type === "header")
+    const currentFooter = sections.find(s => s.type === "footer")
+
     setCurrentPage(page)
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
     setSelectedProductPage(null)
     setEditAllProductPages(false)
     updatePageUrl(page)
-    await loadSections(page)
+
+    // Load new page sections, then replace its header/footer with the shared ones
+    const loaded = await fetchPageSections(page)
+    const bodySections = loaded.filter(s => s.type !== "header" && s.type !== "footer")
+    const merged = [
+      ...(currentHeader ? [currentHeader] : loaded.filter(s => s.type === "header")),
+      ...bodySections,
+      ...(currentFooter ? [currentFooter] : loaded.filter(s => s.type === "footer")),
+    ]
+    setSections(merged)
+
     setSectionsLoading(false)
     setCanvasLoading(false)
   }
@@ -1578,6 +1633,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
     setSectionsLoading(true)
     setCanvasLoading(true)
+
+    // Capture current header/footer — they are universal
+    const currentHeader = sections.find(s => s.type === "header")
+    const currentFooter = sections.find(s => s.type === "footer")
+
     setSelectedProductPage(productTitle)
     setCurrentPage("product")
     setSelectedPanel({ type: "pages" })
@@ -1620,7 +1680,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     }
 
-    setSections(pageSections)
+    // Replace header/footer with shared universal ones
+    const bodySections = pageSections.filter(s => s.type !== "header" && s.type !== "footer")
+    const merged = [
+      ...(currentHeader ? [currentHeader] : pageSections.filter(s => s.type === "header")),
+      ...bodySections,
+      ...(currentFooter ? [currentFooter] : pageSections.filter(s => s.type === "footer")),
+    ]
+
+    setSections(merged)
     setSectionsLoading(false)
     setCanvasLoading(false)
   }
@@ -1632,18 +1700,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     undoPushTimerRef.current = setTimeout(() => pushUndo(), 500)
   }, [pushUndo])
 
+  // Reverse sync map: theme settings key → header section key
+  const THEME_TO_HEADER_SYNC: Record<string, string> = {
+    logo_url: "logo_url",
+    logo_width: "logo_height",
+  }
+
   const updateSetting = (key: string, value: unknown) => {
     debouncedPushUndo()
     setSettingsDraft(prev => ({ ...prev, [key]: value }))
+
+    // If updating logo in theme settings, also sync to header section
+    if (key in THEME_TO_HEADER_SYNC) {
+      const sectionKey = THEME_TO_HEADER_SYNC[key]
+      setSections(prev => prev.map(s =>
+        s.type === "header" ? { ...s, settings: { ...s.settings, [sectionKey]: value } } : s
+      ))
+    }
+
     setIsDirty(true)
+  }
+
+  // Bidirectional logo sync keys: header section key → theme settings key
+  const LOGO_SYNC_MAP: Record<string, string> = {
+    logo_url: "logo_url",
+    logo_height: "logo_width", // header uses height, theme settings uses width — sync the value
   }
 
   // Section settings change
   const updateSectionSetting = (sectionId: string, key: string, value: unknown) => {
     debouncedPushUndo()
-    setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, settings: { ...s.settings, [key]: value } } : s
-    ))
+    setSections(prev => {
+      const section = prev.find(s => s.id === sectionId)
+      // If updating header section logo settings, also sync to theme settings
+      if (section?.type === "header" && key in LOGO_SYNC_MAP) {
+        const themeKey = LOGO_SYNC_MAP[key]
+        setSettingsDraft(p => ({ ...p, [themeKey]: value }))
+      }
+      return prev.map(s =>
+        s.id === sectionId ? { ...s, settings: { ...s.settings, [key]: value } } : s
+      )
+    })
     setIsDirty(true)
   }
 
@@ -1790,6 +1887,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.removeEventListener("keydown", handler)
   }, [handleUndo, handleRedo])
 
+  // Save header/footer to all pages so they stay universal
+  const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
+    const header = sections.find(s => s.type === "header")
+    const footer = sections.find(s => s.type === "footer")
+    if (!header && !footer) return
+
+    // Fetch all pages for this install
+    const res = await fetch(`/api/website-builder/themes/${installId}/sections/sync-global`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        header: header ?? null,
+        footer: footer ?? null,
+        current_page: currentPage,
+        mode,
+      }),
+    })
+    if (!res.ok) {
+      console.warn("Failed to sync header/footer to other pages")
+    }
+  }
+
   const saveDraft = async () => {
     try {
       const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
@@ -1813,6 +1932,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         showNotification(d.error ?? "Failed to save sections", "error")
         return
       }
+
+      // Sync header/footer to all other pages
+      await syncHeaderFooterToAllPages("draft")
 
       setIsDirty(false)
       showNotification("Changes saved successfully")
@@ -1848,6 +1970,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setPublishing(false)
         return
       }
+
+      // 1b. Sync header/footer to all other pages before publish
+      await syncHeaderFooterToAllPages("draft")
 
       // 2. Publish — promotes ALL pages' draft_sections → sections
       //    and draft_settings → settings atomically
@@ -2060,19 +2185,86 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </button>
                   {expandedSettings === group.id && (
                     <div className="px-3 py-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
-                      {group.fields.map(field => (
-                        <div key={field.id}>
-                          {field.type !== "header" && field.type !== "paragraph" && (
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                          )}
-                          <FieldEditor
-                            field={field}
-                            value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                            onChange={v => updateSetting(field.id, v)}
+                      {/* Custom Branding section with proper image pickers + sliders */}
+                      {group.id === "branding" ? (
+                        <>
+                          {/* Store name */}
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store name</label>
+                            <input
+                              type="text"
+                              className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                              placeholder="My Store"
+                              value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
+                              onChange={e => updateSetting("brand_name", e.target.value)}
+                            />
+                          </div>
+
+                          {/* Logo image — synced with header section */}
+                          <WbImagePicker
+                            label="LOGO IMAGE"
+                            value={typeof settingsDraft.logo_url === "string" ? settingsDraft.logo_url as string : undefined}
+                            onChange={url => updateSetting("logo_url", url ?? "")}
+                            aspectRatio="logo"
+                            folder="logos"
                           />
-                          {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
-                        </div>
-                      ))}
+
+                          {/* Logo height slider — synced with header section */}
+                          {typeof settingsDraft.logo_url === "string" && settingsDraft.logo_url && (
+                            <WbSlider
+                              label="Logo height"
+                              value={settingsDraft.logo_width}
+                              onChange={v => updateSetting("logo_width", v)}
+                              min={24}
+                              max={120}
+                              step={2}
+                              unit="px"
+                              defaultValue={40}
+                            />
+                          )}
+
+                          {/* Favicon */}
+                          <WbImagePicker
+                            label="FAVICON"
+                            value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
+                            onChange={url => updateSetting("favicon_url", url ?? "")}
+                            aspectRatio="square"
+                            folder="logos"
+                          />
+
+                          {/* Tagline */}
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tagline</label>
+                            <input
+                              type="text"
+                              className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                              placeholder="Your trusted digital store"
+                              value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
+                              onChange={e => updateSetting("tagline", e.target.value)}
+                            />
+                          </div>
+
+                          <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                            <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                            Logo and height are synced with the Header section. Changes here update the header everywhere.
+                          </p>
+                        </>
+                      ) : (
+                        /* All other groups use the standard FieldEditor */
+                        group.fields.map(field => (
+                          <div key={field.id}>
+                            {field.type !== "header" && field.type !== "paragraph" && (
+                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                            )}
+                            <FieldEditor
+                              field={field}
+                              value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                              onChange={v => updateSetting(field.id, v)}
+                            />
+                            {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
@@ -2342,17 +2534,72 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </button>
                 {expandedSettings === group.id && (
                   <div className="px-3 pb-4 space-y-4">
-                    {group.fields.map(field => (
-                      <div key={field.id}>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                        <FieldEditor
-                          field={field}
-                          value={settingsDraft[field.id]}
-                          onChange={val => updateSetting(field.id, val)}
+                    {group.id === "branding" ? (
+                      <>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store name</label>
+                          <input
+                            type="text"
+                            className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                            placeholder="My Store"
+                            value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
+                            onChange={e => updateSetting("brand_name", e.target.value)}
+                          />
+                        </div>
+                        <WbImagePicker
+                          label="LOGO IMAGE"
+                          value={typeof settingsDraft.logo_url === "string" ? settingsDraft.logo_url as string : undefined}
+                          onChange={url => updateSetting("logo_url", url ?? "")}
+                          aspectRatio="logo"
+                          folder="logos"
                         />
-                        {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
-                      </div>
-                    ))}
+                        {typeof settingsDraft.logo_url === "string" && settingsDraft.logo_url && (
+                          <WbSlider
+                            label="Logo height"
+                            value={settingsDraft.logo_width}
+                            onChange={v => updateSetting("logo_width", v)}
+                            min={24}
+                            max={120}
+                            step={2}
+                            unit="px"
+                            defaultValue={40}
+                          />
+                        )}
+                        <WbImagePicker
+                          label="FAVICON"
+                          value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
+                          onChange={url => updateSetting("favicon_url", url ?? "")}
+                          aspectRatio="square"
+                          folder="logos"
+                        />
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tagline</label>
+                          <input
+                            type="text"
+                            className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                            placeholder="Your trusted digital store"
+                            value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
+                            onChange={e => updateSetting("tagline", e.target.value)}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                          <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                          Logo and height are synced with the Header section.
+                        </p>
+                      </>
+                    ) : (
+                      group.fields.map(field => (
+                        <div key={field.id}>
+                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                          <FieldEditor
+                            field={field}
+                            value={settingsDraft[field.id]}
+                            onChange={val => updateSetting(field.id, val)}
+                          />
+                          {field.info && <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>}
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>

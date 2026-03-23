@@ -116,15 +116,21 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick }: Secti
             <>
               <img
                 src={str(s.logo_url)}
-                alt="Logo"
+                alt={str(s.logo_text, theme.brand_name ?? "Logo")}
                 className="object-contain hidden md:block"
                 style={{ height: `${Number(s.logo_height) || 40}px` }}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
               />
               <img
                 src={s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)}
-                alt="Logo"
+                alt={str(s.logo_text, theme.brand_name ?? "Logo")}
                 className="object-contain md:hidden"
                 style={{ height: `${s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 40)}px` }}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
               />
             </>
           ) : (
@@ -187,7 +193,7 @@ function HeroSection({ section, theme, isEditing, isSelected, onClick }: Section
     >
       {!!s.image_url && (
         <div className="absolute inset-0">
-          <img src={str(s.image_url)} alt="" className="w-full h-full object-cover" />
+          <img src={str(s.image_url)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
           <div
             className="absolute inset-0"
             style={{ background: bg, opacity: (Number(s.overlay_opacity ?? 40)) / 100 }}
@@ -262,7 +268,7 @@ function ImageBannerSection({ section, theme, isEditing, isSelected, onClick }: 
     <SectionWrapper isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div className={cn("relative w-full overflow-hidden bg-neutral-200", aspect)}>
         {s.image_url ? (
-          <img src={str(s.image_url)} alt="" className="w-full h-full object-cover" />
+          <img src={str(s.image_url)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-neutral-300 to-neutral-400 flex items-center justify-center">
             <span className="text-neutral-500 text-sm">Add an image</span>
@@ -357,7 +363,7 @@ function TestimonialsSection({ section, theme, isEditing, isSelected, onClick }:
                 </p>
                 <div className="flex items-center gap-3">
                   {block.settings.avatar_url ? (
-                    <img src={str(block.settings.avatar_url)} className="h-8 w-8 rounded-full object-cover" alt="" />
+                    <img src={str(block.settings.avatar_url)} className="h-8 w-8 rounded-full object-cover" alt="" loading="lazy" decoding="async" />
                   ) : (
                     <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: theme.primary_color ?? "#6366f1" }}>
                       {str(block.settings.author).charAt(0)}
@@ -599,7 +605,7 @@ function LogoBarSection({ section, theme, isEditing, isSelected, onClick }: Sect
             {blocks.map(block => (
               <div key={block.id} className={cn("h-8", grayscale && "grayscale opacity-60")}>
                 {block.settings.image_url ? (
-                  <img src={str(block.settings.image_url)} alt={str(block.settings.alt)} className="h-full w-auto object-contain" />
+                  <img src={str(block.settings.image_url)} alt={str(block.settings.alt)} className="h-full w-auto object-contain" loading="lazy" decoding="async" />
                 ) : (
                   <div className="h-8 w-20 bg-neutral-300 rounded flex items-center justify-center text-[10px] text-neutral-500">Logo</div>
                 )}
@@ -634,7 +640,7 @@ function GallerySection({ section, theme, isEditing, isSelected, onClick }: Sect
             {blocks.map(block => (
               <div key={block.id} className="aspect-square rounded-xl overflow-hidden">
                 {block.settings.image_url ? (
-                  <img src={str(block.settings.image_url)} alt={str(block.settings.caption)} className="w-full h-full object-cover" />
+                  <img src={str(block.settings.image_url)} alt={str(block.settings.caption)} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-full h-full bg-neutral-200 flex items-center justify-center text-xs text-neutral-400">Image</div>
                 )}
@@ -758,6 +764,8 @@ function ProductSection({ section, theme, isEditing, isSelected, onClick }: Sect
                   alt={title}
                   className="w-full h-auto object-contain"
                   style={{ maxHeight: "600px" }}
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
               {/* Thumbnails */}
@@ -773,7 +781,7 @@ function ProductSection({ section, theme, isEditing, isSelected, onClick }: Sect
                       style={{ borderColor: activeImage === i ? primaryColor : scheme.border }}
                       onClick={e => { e.stopPropagation(); setActiveImage(i) }}
                     >
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     </button>
                   ))}
                 </div>
@@ -945,7 +953,7 @@ function SplitContentSection({ section, theme, isEditing, isSelected, onClick }:
       <div className={cn("flex flex-col md:flex-row items-center gap-8 px-8", imagePos === "right" && "md:flex-row-reverse")} style={{ paddingTop: `${s.padding_top ?? 60}px`, paddingBottom: `${s.padding_bottom ?? 60}px` }}>
         <div className="flex-1 min-w-0">
           {imgUrl ? (
-            <img src={imgUrl} alt="" className="w-full h-auto rounded-lg object-cover" style={{ maxHeight: "500px" }} />
+            <img src={imgUrl} alt="" className="w-full h-auto rounded-lg object-cover" style={{ maxHeight: "500px" }} loading="lazy" decoding="async" />
           ) : (
             <div className="w-full aspect-[4/3] rounded-lg bg-neutral-100 flex items-center justify-center">
               <span className="text-neutral-400 text-sm">Image</span>
@@ -985,7 +993,7 @@ function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: Se
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div className="relative w-full" style={{ height: `${s.height ?? 500}px` }}>
         {str(slideSettings.image_url as unknown) ? (
-          <img src={str(slideSettings.image_url as unknown)} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={str(slideSettings.image_url as unknown)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900" />
         )}
@@ -1025,7 +1033,7 @@ function ImageSection({ section, theme, isEditing, isSelected, onClick }: Sectio
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div className="px-8" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
         {imgUrl ? (
-          <img src={imgUrl} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} />
+          <img src={imgUrl} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} loading="lazy" decoding="async" />
         ) : (
           <div className={cn("w-full rounded-lg bg-neutral-100 flex items-center justify-center", aspectMap[aspectRatio] || "aspect-video")}>
             <span className="text-neutral-400 text-sm">Add an image</span>
