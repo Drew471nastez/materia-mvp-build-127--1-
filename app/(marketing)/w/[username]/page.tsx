@@ -85,7 +85,7 @@ export default async function WebsitePublicPage({ params }: PageProps) {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen flex flex-col"
       style={{
         backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
         fontFamily: String(themeSettings.font_body ?? "Inter"),
@@ -104,23 +104,31 @@ export default async function WebsitePublicPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Render all sections */}
-      {sections.map((section) => (
-        <SectionRenderer
-          key={section.id}
-          section={section}
-          theme={themeSettings}
-        />
+      {/* Header sections */}
+      {sections.filter(s => s.type === "header").map((section) => (
+        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
       ))}
 
-      {sections.length === 0 && (
-        <div className="min-h-[50vh] flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <p className="text-lg font-medium">This website is being set up</p>
-            <p className="text-sm mt-1">Check back soon!</p>
+      {/* Body sections — flex-1 pushes footer to bottom without trailing whitespace */}
+      <div className="flex-1">
+        {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
+          <SectionRenderer key={section.id} section={section} theme={themeSettings} />
+        ))}
+
+        {sections.length === 0 && (
+          <div className="min-h-[50vh] flex items-center justify-center">
+            <div className="text-center text-gray-400">
+              <p className="text-lg font-medium">This website is being set up</p>
+              <p className="text-sm mt-1">Check back soon!</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* Footer sections */}
+      {sections.filter(s => s.type === "footer").map((section) => (
+        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
+      ))}
     </div>
   )
 }

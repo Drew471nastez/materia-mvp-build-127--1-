@@ -2100,7 +2100,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-muted/50" style={{ paddingTop: device === "mobile" ? "16px" : "24px", paddingLeft: device === "mobile" ? "16px" : "24px", paddingRight: device === "mobile" ? "16px" : "24px", paddingBottom: 0 }}>
           <div
             className={cn(
-              "bg-white shadow-lg transition-all duration-300 rounded-t-xl mx-auto",
+              "bg-white shadow-lg transition-all duration-300 rounded-t-xl mx-auto flex flex-col",
               device === "mobile" ? "w-[360px]" : "w-full max-w-[1400px]",
             )}
             style={{ minHeight: "calc(100vh - 72px)" }}
@@ -2141,26 +2141,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </div>
                 ))}
 
-                {/* Body sections */}
-                {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
-                  <div key={section.id} id={`wb-section-${section.id}`}>
-                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
-                  </div>
-                ))}
-
-                {/* Empty page — between header and footer */}
-                {sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
-                  <div className="py-24 flex items-center justify-center text-center">
-                    <div>
-                      <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
-                      <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
-                      <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors" onClick={() => setAddSectionOpen(true)}>
-                        <Plus className="h-4 w-4" />
-                        Add a section
-                      </button>
+                {/* Body sections — flex-1 so footer sticks to bottom without trailing whitespace */}
+                <div className="flex-1">
+                  {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
+                    <div key={section.id} id={`wb-section-${section.id}`}>
+                      <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} />
                     </div>
-                  </div>
-                )}
+                  ))}
+
+                  {/* Empty page — between header and footer */}
+                  {sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
+                    <div className="py-24 flex items-center justify-center text-center">
+                      <div>
+                        <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
+                        <p className="text-sm text-neutral-400 mb-4">Create your beautiful page by adding sections</p>
+                        <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors" onClick={() => setAddSectionOpen(true)}>
+                          <Plus className="h-4 w-4" />
+                          Add a section
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Footer */}
                 {sections.filter(s => s.type === "footer").map(section => (
