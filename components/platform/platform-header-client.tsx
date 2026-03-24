@@ -2169,7 +2169,7 @@ export function PlatformHeaderClient() {
             )}
             <Link
               href={getCanonicalOrRelativePath("/library")}
-              onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
+              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
