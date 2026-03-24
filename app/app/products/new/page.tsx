@@ -2162,14 +2162,21 @@ export default function NewProductPage() {
 
     try {
       let finalSlug = slug
-      if (!productId) {
-        // Check for duplicate slug for THIS creator (unique constraint is per-creator)
-        const { data: existing } = await supabase
+      // Check for duplicate slug for THIS creator (unique constraint is per-creator)
+      // Runs for both create AND update — excludes current product when updating
+      {
+        let query = supabase
           .from("products")
           .select("id")
           .eq("slug", slug)
           .eq("creator_id", creatorId)
-          .maybeSingle()
+
+        // When updating, exclude the current product from the duplicate check
+        if (productId) {
+          query = query.neq("id", productId)
+        }
+
+        const { data: existing } = await query.maybeSingle()
 
         if (existing) {
           // Add timestamp + random suffix to ensure uniqueness
