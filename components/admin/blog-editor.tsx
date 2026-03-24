@@ -551,7 +551,7 @@ function BlockItem({
 }
 
 // ─── Add Block Menu ────────────────────────────────────────────────────────
-function AddBlockMenu({ onAdd }: { onAdd: (type: BlockType) => void }) {
+function AddBlockMenu({ onAdd, compact }: { onAdd: (type: BlockType) => void; compact?: boolean }) {
   const [open, setOpen] = useState(false)
   const groups = ["Text", "Lists", "Structure", "Media"]
 
@@ -559,10 +559,13 @@ function AddBlockMenu({ onAdd }: { onAdd: (type: BlockType) => void }) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-800 border border-dashed border-neutral-200 rounded-lg hover:border-neutral-400 transition-all hover:bg-white"
+        className={compact
+          ? "flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-neutral-400 hover:text-neutral-700 border border-dashed border-neutral-200 rounded-lg hover:border-neutral-400 transition-all hover:bg-white"
+          : "flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-800 border border-dashed border-neutral-200 rounded-lg hover:border-neutral-400 transition-all hover:bg-white"
+        }
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Block
+        {compact ? "Add" : "Add Block"}
       </button>
 
       {open && (
@@ -597,6 +600,73 @@ function AddBlockMenu({ onAdd }: { onAdd: (type: BlockType) => void }) {
   )
 }
 
+// ─── Inline Inserter (between blocks) ─────────────────────────────────────
+function InlineInserter({
+  onAdd,
+  onUpload,
+}: {
+  onAdd: (type: BlockType) => void
+  onUpload: (file: File) => Promise<string>
+}) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="group/inserter relative flex items-center gap-1.5 py-0.5 -my-0.5">
+      {/* Hover line */}
+      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent group-hover/inserter:bg-neutral-200 transition-colors pointer-events-none" />
+
+      {/* Quick actions */}
+      <div className="relative z-[1] flex items-center gap-1 opacity-0 group-hover/inserter:opacity-100 transition-opacity ml-8">
+        {/* Quick image upload */}
+        <label
+          className={`flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg border border-dashed border-neutral-200 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all cursor-pointer ${uploading ? "text-blue-500 bg-blue-50 border-blue-300" : "text-neutral-400"}`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          {uploading ? "Uploading..." : "Image"}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={async e => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              setUploading(true)
+              try {
+                const url = await onUpload(file)
+                if (url) {
+                  onAdd("img")
+                  // Small delay to let the block be created, then we update it via a custom event
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent("blog-editor-set-last-img", { detail: { url } }))
+                  }, 50)
+                }
+              } finally {
+                setUploading(false)
+                if (fileRef.current) fileRef.current.value = ""
+              }
+            }}
+          />
+        </label>
+
+        {/* Quick paragraph */}
+        <button
+          onClick={() => onAdd("p")}
+          className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-neutral-400 rounded-lg border border-dashed border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-600 transition-all"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>
+          Text
+        </button>
+
+        {/* All blocks menu */}
+        <AddBlockMenu onAdd={onAdd} compact />
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Blog Editor ──────────────────────────────────────────────────────
 export interface BlogEditorProps {
   blocks: Block[]
@@ -604,40 +674,45 @@ export interface BlogEditorProps {
 }
 
 export default function BlogEditor({ blocks, onChange }: BlogEditorProps) {
+  const blocksRef = useRef(blocks)
+  blocksRef.current = blocks
+  const [dragOver, setDragOver] = useState(false)
+
   const addBlock = useCallback((type: BlockType, afterIndex?: number) => {
     const newBlock: Block = { id: newId(), type, ...DEFAULTS[type] }
-    const updated = [...blocks]
+    const updated = [...blocksRef.current]
     if (afterIndex !== undefined) {
       updated.splice(afterIndex + 1, 0, newBlock)
     } else {
       updated.push(newBlock)
     }
     onChange(updated)
-  }, [blocks, onChange])
+    return newBlock.id
+  }, [onChange])
 
   const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
-    onChange(blocks.map(b => b.id === id ? { ...b, ...updates } : b))
-  }, [blocks, onChange])
+    onChange(blocksRef.current.map(b => b.id === id ? { ...b, ...updates } : b))
+  }, [onChange])
 
   const deleteBlock = useCallback((id: string) => {
-    onChange(blocks.filter(b => b.id !== id))
-  }, [blocks, onChange])
+    onChange(blocksRef.current.filter(b => b.id !== id))
+  }, [onChange])
 
   const moveUp = useCallback((id: string) => {
-    const i = blocks.findIndex(b => b.id === id)
+    const i = blocksRef.current.findIndex(b => b.id === id)
     if (i <= 0) return
-    const updated = [...blocks]
+    const updated = [...blocksRef.current]
     ;[updated[i - 1], updated[i]] = [updated[i], updated[i - 1]]
     onChange(updated)
-  }, [blocks, onChange])
+  }, [onChange])
 
   const moveDown = useCallback((id: string) => {
-    const i = blocks.findIndex(b => b.id === id)
-    if (i >= blocks.length - 1) return
-    const updated = [...blocks]
+    const i = blocksRef.current.findIndex(b => b.id === id)
+    if (i >= blocksRef.current.length - 1) return
+    const updated = [...blocksRef.current]
     ;[updated[i], updated[i + 1]] = [updated[i + 1], updated[i]]
     onChange(updated)
-  }, [blocks, onChange])
+  }, [onChange])
 
   const uploadImage = useCallback(async (file: File): Promise<string> => {
     const fd = new FormData()
@@ -647,29 +722,103 @@ export default function BlogEditor({ blocks, onChange }: BlogEditorProps) {
     return data.url || ""
   }, [])
 
+  // Listen for the custom event to set URL on the last added img block
+  useLayoutEffect(() => {
+    const handler = (e: Event) => {
+      const url = (e as CustomEvent).detail?.url
+      if (!url) return
+      const current = blocksRef.current
+      // Find the last img block without a URL
+      for (let i = current.length - 1; i >= 0; i--) {
+        if (current[i].type === "img" && !current[i].url) {
+          onChange(current.map((b, idx) => idx === i ? { ...b, url } : b))
+          break
+        }
+      }
+    }
+    window.addEventListener("blog-editor-set-last-img", handler)
+    return () => window.removeEventListener("blog-editor-set-last-img", handler)
+  }, [onChange])
+
+  // Drag-and-drop images onto the entire editor
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes("Files")) {
+      e.preventDefault()
+      setDragOver(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback(() => setDragOver(false), [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"))
+    for (const file of files) {
+      const url = await uploadImage(file)
+      if (url) {
+        const id = addBlock("img")
+        // Short delay then set URL
+        setTimeout(() => {
+          onChange(blocksRef.current.map(b => b.id === id ? { ...b, url } : b))
+        }, 30)
+      }
+    }
+  }, [uploadImage, addBlock, onChange])
+
   return (
-    <div className="space-y-2">
+    <div
+      className={`space-y-2 relative ${dragOver ? "ring-2 ring-blue-400 ring-offset-2 rounded-xl" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag-and-drop overlay */}
+      {dragOver && (
+        <div className="absolute inset-0 z-30 bg-blue-50/80 rounded-xl flex items-center justify-center pointer-events-none">
+          <div className="text-blue-600 font-medium text-sm flex items-center gap-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Drop image here to insert
+          </div>
+        </div>
+      )}
+
       {blocks.length === 0 && (
         <div className="text-center py-12 text-neutral-300">
           <svg className="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
           <p className="text-sm">No content yet. Add your first block below.</p>
+          <p className="text-xs mt-1 text-neutral-300">You can also drag &amp; drop images anywhere here.</p>
         </div>
       )}
 
       {blocks.map((block, index) => (
-        <div key={block.id} className="rounded-xl border border-transparent hover:border-neutral-100 p-3 transition-colors">
-          <BlockItem
-            block={block}
-            index={index}
-            total={blocks.length}
-            onChange={updateBlock}
-            onDelete={deleteBlock}
-            onMoveUp={moveUp}
-            onMoveDown={moveDown}
+        <div key={block.id}>
+          {/* Inline inserter before each block */}
+          <InlineInserter
+            onAdd={(type) => addBlock(type, index - 1)}
             onUpload={uploadImage}
           />
+
+          <div className="rounded-xl border border-transparent hover:border-neutral-100 p-3 transition-colors">
+            <BlockItem
+              block={block}
+              index={index}
+              total={blocks.length}
+              onChange={updateBlock}
+              onDelete={deleteBlock}
+              onMoveUp={moveUp}
+              onMoveDown={moveDown}
+              onUpload={uploadImage}
+            />
+          </div>
         </div>
       ))}
+
+      {/* Bottom inserter + full Add Block menu */}
+      <InlineInserter
+        onAdd={(type) => addBlock(type)}
+        onUpload={uploadImage}
+      />
 
       <div className="pt-2">
         <AddBlockMenu onAdd={(type) => addBlock(type)} />
