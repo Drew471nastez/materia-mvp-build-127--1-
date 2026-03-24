@@ -146,74 +146,7 @@ If you didn't request this, please ignore this email and secure your account imm
 
       // ── Delete all user data (in dependency order) ─────────────────────────
       try {
-        // 1. Collect creator id (needed to delete products, analytics, etc.)
-        const { data: creatorRow } = await adminSupabase
-          .from("creators")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle()
-        const creatorId = creatorRow?.id ?? null
-
-        // 2. Delete storage files ─────────────────────────────────────────────
-        // avatars bucket
-        await deleteStorageFolder(adminSupabase, "avatars", user.id)
-        // onepage-assets bucket
-        await deleteStorageFolder(adminSupabase, "onepage-assets", user.id)
-        // product-images bucket
-        if (creatorId) {
-          await deleteStorageFolder(adminSupabase, "product-images", creatorId)
-        }
-
-        // 3. Analytics & engagement events ────────────────────────────────────
-        if (creatorId) {
-          // Delete all analytics events for this creator's products
-          const { data: productIds } = await adminSupabase
-            .from("products")
-            .select("id")
-            .eq("creator_id", creatorId)
-          if (productIds && productIds.length > 0) {
-            const ids = productIds.map((p: { id: string }) => p.id)
-            await adminSupabase.from("analytics_events").delete().in("product_id", ids)
-            await adminSupabase.from("analytics_daily_rollups").delete().in("product_id", ids)
-          }
-        }
-
-        // 4. Orders (buyer side — purchases made by this user) ─────────────────
-        await adminSupabase.from("orders").delete().eq("buyer_id", user.id)
-
-        // 5. Library items (purchased digital products) ───────────────────────
-        await adminSupabase.from("library_items").delete().eq("user_id", user.id)
-
-        // 6. Push tokens ──────────────────────────────────────────────────────
-        await adminSupabase.from("push_tokens").delete().eq("user_id", user.id)
-
-        // 7. Onepages ─────────────────────────────────────────────────────────
-        await adminSupabase.from("onepages").delete().eq("owner_id", user.id)
-
-        // 8. Creator-specific data ────────────────────────────────────────────
-        if (creatorId) {
-          await adminSupabase.from("digital_assets").delete().eq("creator_id", creatorId)
-          await adminSupabase.from("products").delete().eq("creator_id", creatorId)
-          await adminSupabase.from("payouts").delete().eq("creator_id", creatorId)
-          await adminSupabase.from("creators").delete().eq("id", creatorId)
-        }
-
-        // Also catch any digital_assets still linked by user_id
-        await adminSupabase.from("digital_assets").delete().eq("user_id", user.id)
-
-        // 9. Profiles ─────────────────────────────────────────────────────────
-        await adminSupabase.from("profiles").delete().eq("id", user.id)
-
-        // 10. Verification codes ──────────────────────────────────────────────
-        await adminSupabase.from("account_delete_codes").delete().eq("user_id", user.id)
-        await adminSupabase.from("email_change_codes").delete().eq("user_id", user.id)
-
-        // 11. Finally delete the auth user ────────────────────────────────────
-        const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
-        if (deleteError) {
-          console.error("Error deleting auth user:", deleteError)
-          return NextResponse.json({ error: "Failed to delete account" }, { status: 500 })
-        }
+        await deleteAllUserData(adminSupabase, user.id)
       } catch (deleteError) {
         console.error("Error during account deletion:", deleteError)
         return NextResponse.json({ error: "Failed to delete account data" }, { status: 500 })
@@ -229,6 +162,119 @@ If you didn't request this, please ignore this email and secure your account imm
   } catch (error) {
     console.error("Delete account error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+// ── Shared user deletion logic ──────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function deleteAllUserData(adminSupabase: any, userId: string) {
+  // 1. Collect creator id (needed for creator-specific tables)
+  const { data: creatorRow } = await adminSupabase
+    .from("creators")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle()
+  const creatorId = creatorRow?.id ?? null
+
+  // 2. Delete storage files ─────────────────────────────────────────────────
+  await deleteStorageFolder(adminSupabase, "avatars", userId)
+  await deleteStorageFolder(adminSupabase, "onepage-assets", userId)
+  if (creatorId) {
+    await deleteStorageFolder(adminSupabase, "product-images", creatorId)
+  }
+
+  // 3. Collect product IDs for child-table cleanup ──────────────────────────
+  let productIds: string[] = []
+  if (creatorId) {
+    const { data: prods } = await adminSupabase
+      .from("products")
+      .select("id")
+      .eq("creator_id", creatorId)
+    if (prods && prods.length > 0) {
+      productIds = prods.map((p: { id: string }) => p.id)
+    }
+  }
+
+  // 4. Analytics (must happen before products are deleted) ──────────────────
+  if (productIds.length > 0) {
+    await adminSupabase.from("analytics_events").delete().in("product_id", productIds)
+    await adminSupabase.from("analytics_daily_rollups").delete().in("product_id", productIds)
+    await adminSupabase.from("product_analytics_daily").delete().in("product_id", productIds)
+    await adminSupabase.from("product_views").delete().in("product_id", productIds)
+    await adminSupabase.from("product_bundles").delete().in("product_id", productIds)
+    await adminSupabase.from("subscriber_digital_products").delete().in("product_id", productIds)
+  }
+
+  // 5. Refunds (references orders and creators) ─────────────────────────────
+  await adminSupabase.from("refunds").delete().eq("buyer_id", userId)
+  if (creatorId) {
+    await adminSupabase.from("refunds").delete().eq("creator_id", creatorId)
+  }
+
+  // 6. Orders (buyer side — purchases made by this user) ────────────────────
+  await adminSupabase.from("orders").delete().eq("buyer_id", userId)
+
+  // 7. Library items ────────────────────────────────────────────────────────
+  await adminSupabase.from("library_items").delete().eq("user_id", userId)
+
+  // 8. Push tokens ──────────────────────────────────────────────────────────
+  await adminSupabase.from("push_tokens").delete().eq("user_id", userId)
+
+  // 9. Onepages ─────────────────────────────────────────────────────────────
+  await adminSupabase.from("onepages").delete().eq("owner_id", userId)
+
+  // 10. Creator-specific data ───────────────────────────────────────────────
+  if (creatorId) {
+    // Email system
+    await adminSupabase.from("flow_execution_log").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("scheduled_flow_emails").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("email_events").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("campaign_recipients").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("email_flows").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("email_usage").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Subscriptions & billing
+    await adminSupabase.from("invoices").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("payment_methods").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("subscriptions").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Ledger
+    await adminSupabase.from("ledger_events").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("seller_ledger").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Domains
+    await adminSupabase.from("domain_redirects").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("custom_domains").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Coupons
+    await adminSupabase.from("coupons").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Website builder (theme installs cascade to settings, pages, files, publish history)
+    await adminSupabase.from("theme_publish_history").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("store_theme_installs").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Core creator data
+    await adminSupabase.from("digital_assets").delete().eq("creator_id", creatorId)
+    await adminSupabase.from("products").delete().eq("creator_id", creatorId)
+    await adminSupabase.from("payouts").delete().eq("creator_id", creatorId)
+    await adminSupabase.from("creators").delete().eq("id", creatorId)
+  }
+
+  // Also catch any digital_assets still linked by user_id
+  await adminSupabase.from("digital_assets").delete().eq("user_id", userId)
+
+  // 11. Profiles ────────────────────────────────────────────────────────────
+  await adminSupabase.from("profiles").delete().eq("id", userId)
+
+  // 12. Verification codes ──────────────────────────────────────────────────
+  await adminSupabase.from("account_delete_codes").delete().eq("user_id", userId)
+  await adminSupabase.from("email_change_codes").delete().eq("user_id", userId)
+
+  // 13. Finally delete the auth user ────────────────────────────────────────
+  const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
+  if (deleteError) {
+    console.error("Error deleting auth user:", deleteError)
+    throw new Error(`Failed to delete auth user: ${deleteError.message}`)
   }
 }
 
