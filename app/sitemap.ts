@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
+
+export const dynamic = "force-dynamic"
 
 const BASE = "https://storelib.com"
 
@@ -10,7 +13,7 @@ const STATIC_BLOG_SLUGS = [
   "pricing-strategies-for-digital-products",
 ]
 
-const CATEGORIES = [
+const EXPLORE_CATEGORIES = [
   "design",
   "development",
   "marketing",
@@ -30,20 +33,30 @@ const CATEGORIES = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const routes: MetadataRoute.Sitemap = [
     { url: BASE, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 },
-    { url: `${BASE}/blog`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
+    { url: `${BASE}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE}/explore`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE}/signup`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE}/pricing`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
   ]
 
-  // Category pages
-  for (const category of CATEGORIES) {
+  // Explore category pages
+  for (const category of EXPLORE_CATEGORIES) {
     routes.push({
       url: `${BASE}/explore/${category}`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8,
+    })
+  }
+
+  // Blog category pages
+  for (const category of STORELIB_CATEGORIES) {
+    routes.push({
+      url: `${BASE}/blog/explore/categories/${categoryToSlug(category)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
     })
   }
 
@@ -63,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const { data: posts } = await supabase
       .from("blog_posts")
-      .select("slug, updated_at")
+      .select("slug, updated_at, published_at")
       .eq("is_published", true)
 
     for (const post of posts || []) {
@@ -71,7 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!exists) {
         routes.push({
           url: `${BASE}/blog/${post.slug}`,
-          lastModified: new Date(post.updated_at),
+          lastModified: new Date(post.updated_at || post.published_at),
           changeFrequency: "monthly",
           priority: 0.8,
         })
