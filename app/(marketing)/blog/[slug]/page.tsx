@@ -9,6 +9,8 @@ import ShareButtons from "./_share-buttons"
 import ReadingProgress from "./_reading-progress"
 import CtaBanner from "./_cta-banner"
 
+export const dynamic = "force-dynamic"
+
 // ─── Hardcoded fallback posts ──────────────────────────────────────────────
 const BLOG_POSTS: Record<string, {
   title: string; excerpt: string; category: string; published_at: string

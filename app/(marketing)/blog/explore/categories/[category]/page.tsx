@@ -9,6 +9,8 @@ import {
 } from "@/lib/blog-categories"
 import BlogListing, { type BlogPost } from "../../../_blog-listing"
 
+export const dynamic = "force-dynamic"
+
 const STATIC_POSTS: BlogPost[] = [
   { id: "s1", slug: "how-to-start-selling-digital-products-2026", title: "How to Start Selling Digital Products in 2026", excerpt: "Turn your skills into income. A no-fluff guide to launching your first digital product store.", category: "Getting Started", published_at: "2026-01-15T00:00:00Z", read_time: "5 min read", cover_image_url: "/images/blog/digital-products-2026.svg", gradient: "from-neutral-800 to-neutral-900" },
   { id: "s2", slug: "why-low-transaction-fees-matter", title: "Why Low Transaction Fees Matter for Digital Creators", excerpt: "The difference between 3% and 15% fees adds up fast. We break down the real numbers.", category: "Creator Tips", published_at: "2026-02-03T00:00:00Z", read_time: "4 min read", cover_image_url: "/images/blog/transaction-fees.svg", gradient: "from-neutral-700 to-neutral-800" },

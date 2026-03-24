@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import BlogListing, { type BlogPost } from "./_blog-listing"
 
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "Storelib Blog — Creator Tips, Growth Strategies & Platform News",
   description: "Practical advice for digital product creators. Learn how to start selling, grow your audience, price your products, and build a sustainable creator business.",

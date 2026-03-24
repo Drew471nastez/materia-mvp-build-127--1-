@@ -59,6 +59,13 @@ const nextConfig = {
         ],
       },
       {
+        // Blog pages — short CDN cache so new posts appear quickly
+        source: '/blog/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
+        ],
+      },
+      {
         // Explore / marketplace
         source: '/explore/:path*',
         headers: [

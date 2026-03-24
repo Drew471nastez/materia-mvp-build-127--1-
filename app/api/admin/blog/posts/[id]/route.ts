@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
+
+function revalidateBlogPages(slug?: string) {
+  revalidatePath("/blog")
+  if (slug) revalidatePath(`/blog/${slug}`)
+  revalidatePath("/blog/explore/categories", "layout")
+}
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) {
@@ -53,6 +60,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Revalidate public blog pages so changes appear immediately
+  revalidateBlogPages(data?.slug)
+
   return NextResponse.json(data)
 }
 
@@ -63,11 +74,23 @@ export async function DELETE(_req: NextRequest, context: { params: Promise<{ id:
 
   const { id } = await context.params
   const supabase = createAdminClient()
+
+  // Fetch the post slug before deleting so we can revalidate its page
+  const { data: post } = await supabase
+    .from("blog_posts")
+    .select("slug")
+    .eq("id", id)
+    .single()
+
   const { error } = await supabase
     .from("blog_posts")
     .delete()
     .eq("id", id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Revalidate public blog pages so deleted post is removed
+  revalidateBlogPages(post?.slug)
+
   return NextResponse.json({ ok: true })
 }

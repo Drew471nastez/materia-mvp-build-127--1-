@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 
@@ -46,5 +47,11 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Revalidate public blog pages so new posts appear immediately
+  revalidatePath("/blog")
+  if (data?.slug) revalidatePath(`/blog/${data.slug}`)
+  revalidatePath("/blog/explore/categories", "layout")
+
   return NextResponse.json(data)
 }
