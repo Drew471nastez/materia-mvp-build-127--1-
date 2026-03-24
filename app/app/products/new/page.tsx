@@ -11,13 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+// Native <select> used instead of Radix Select for reliable dropdown behavior
 import {
   Tooltip,
   TooltipContent,
@@ -5302,24 +5296,25 @@ export default function NewProductPage() {
                     <span className="text-gray-900">{callToAction || "I want this!"}</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </Button>
-                  {/* Desktop: standard select */}
-                  <div className="hidden sm:block">
-                    <Select value={callToAction || "I want this!"} onValueChange={(val) => setCallToAction(val)}>
-                      <SelectTrigger className="w-full h-11 border-gray-200 text-base">
-                        <SelectValue placeholder="Select button text" />
-                      </SelectTrigger>
-                      <SelectContent position="popper" sideOffset={4} className="z-[100]">
-                        <SelectItem value="I want this!">I want this!</SelectItem>
-                        <SelectItem value="Buy Now">Buy Now</SelectItem>
-                        <SelectItem value="Get Access">Get Access</SelectItem>
-                        <SelectItem value="Download Now">Download Now</SelectItem>
-                        <SelectItem value="Purchase">Purchase</SelectItem>
-                        <SelectItem value="Add to Cart">Add to Cart</SelectItem>
-                        <SelectItem value="Join Now">Join Now</SelectItem>
-                        <SelectItem value="Get it Now">Get it Now</SelectItem>
-                        <SelectItem value="Start Now">Start Now</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {/* Desktop: native select — guaranteed to work */}
+                  <div className="hidden sm:block relative">
+                    <select
+                      id="cta"
+                      value={callToAction || "I want this!"}
+                      onChange={(e) => setCallToAction(e.target.value)}
+                      className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-colors"
+                    >
+                      <option value="I want this!">I want this!</option>
+                      <option value="Buy Now">Buy Now</option>
+                      <option value="Get Access">Get Access</option>
+                      <option value="Download Now">Download Now</option>
+                      <option value="Purchase">Purchase</option>
+                      <option value="Add to Cart">Add to Cart</option>
+                      <option value="Join Now">Join Now</option>
+                      <option value="Get it Now">Get it Now</option>
+                      <option value="Start Now">Start Now</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
 
@@ -5392,18 +5387,18 @@ export default function NewProductPage() {
                         <span className="text-gray-900">{refundPolicyType === "no_refunds" ? "No refunds allowed" : refundPolicyType === "7_day" ? "7-day money back guarantee" : refundPolicyType === "14_day" ? "14-day money back guarantee" : "30-day money back guarantee"}</span>
                         <ChevronDown className="h-4 w-4 text-gray-400" />
                       </Button>
-                      <div className="hidden sm:block">
-                        <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
-                          <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no_refunds">No refunds allowed</SelectItem>
-                            <SelectItem value="7_day">7-day money back guarantee</SelectItem>
-                            <SelectItem value="14_day">14-day money back guarantee</SelectItem>
-                            <SelectItem value="30_day">30-day money back guarantee</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="hidden sm:block relative">
+                        <select
+                          value={refundPolicyType}
+                          onChange={(e) => setRefundPolicyType(e.target.value)}
+                          className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-colors"
+                        >
+                          <option value="no_refunds">No refunds allowed</option>
+                          <option value="7_day">7-day money back guarantee</option>
+                          <option value="14_day">14-day money back guarantee</option>
+                          <option value="30_day">30-day money back guarantee</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                       </div>
                     </>
                   )}
