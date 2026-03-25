@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import BlogEditor, { Block, BlockType } from "@/components/admin/blog-editor"
 
 function slugify(text: string) {
@@ -56,6 +55,8 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
   const [coverUploading, setCoverUploading] = useState(false)
+  const [coverUrlInput, setCoverUrlInput] = useState("")
+  const [coverError, setCoverError] = useState(false)
   const [slugManual, setSlugManual] = useState(false)
 
   // Load existing post
@@ -78,6 +79,7 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
             cover_image_url: data.cover_image_url ?? "",
             content: Array.isArray(data.content) ? data.content : [],
           })
+          setCoverUrlInput(data.cover_image_url || "")
           setSlugManual(true) // Don't auto-update slug when editing
           setLoading(false)
         })
@@ -259,31 +261,95 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
           {/* Cover Image */}
           <div className="bg-white rounded-xl border border-neutral-200 p-4">
             <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">Cover Image</h3>
-            {post.cover_image_url ? (
-              <div className="relative rounded-lg overflow-hidden bg-neutral-100">
-                <Image src={post.cover_image_url} alt="Cover" width={280} height={160} className="w-full h-36 object-cover" />
+
+            {/* Preview */}
+            {post.cover_image_url && !coverError && (
+              <div className="relative rounded-lg overflow-hidden bg-neutral-100 mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={post.cover_image_url}
+                  alt="Cover"
+                  className="w-full h-36 object-cover"
+                  onError={() => setCoverError(true)}
+                />
                 <button
-                  onClick={() => setPost(p => ({ ...p, cover_image_url: "" }))}
+                  onClick={() => { setPost(p => ({ ...p, cover_image_url: "" })); setCoverUrlInput(""); setCoverError(false) }}
                   className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="block w-full cursor-pointer border-2 border-dashed border-neutral-200 rounded-lg p-4 text-center hover:border-neutral-300 transition-colors">
-                  <svg className="mx-auto mb-1.5 text-neutral-300" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <span className="text-xs text-neutral-500">{coverUploading ? "Uploading…" : "Upload cover image"}</span>
-                  <input type="file" accept="image/*" className="hidden" disabled={coverUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
-                </label>
-                <input
-                  type="url"
-                  placeholder="Or paste image URL…"
-                  value={post.cover_image_url}
-                  onChange={e => setPost(p => ({ ...p, cover_image_url: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
+            )}
+
+            {/* Broken image feedback */}
+            {post.cover_image_url && coverError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 mb-2 text-center">
+                <svg className="mx-auto mb-1 text-red-300" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+                <p className="text-[10px] text-red-500">Image failed to load. Check the URL.</p>
+                <button
+                  onClick={() => { setPost(p => ({ ...p, cover_image_url: "" })); setCoverUrlInput(""); setCoverError(false) }}
+                  className="text-[10px] text-red-600 underline mt-1"
+                >
+                  Remove
+                </button>
               </div>
+            )}
+
+            {/* Upload + URL input (always visible when no cover) */}
+            {!post.cover_image_url && (
+              <label className="block w-full cursor-pointer border-2 border-dashed border-neutral-200 rounded-lg p-4 text-center hover:border-neutral-300 transition-colors mb-2">
+                <svg className="mx-auto mb-1.5 text-neutral-300" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span className="text-xs text-neutral-500">{coverUploading ? "Uploading…" : "Upload cover image"}</span>
+                <input type="file" accept="image/*" className="hidden" disabled={coverUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
+              </label>
+            )}
+
+            {/* URL input — separate from the actual cover_image_url state so typing doesn't flash broken images */}
+            <div className="flex gap-1.5">
+              <input
+                type="url"
+                placeholder="Paste image URL…"
+                value={post.cover_image_url ? post.cover_image_url : coverUrlInput}
+                onChange={e => {
+                  if (post.cover_image_url) {
+                    // Already has a cover — clear it and start fresh
+                    setPost(p => ({ ...p, cover_image_url: "" }))
+                    setCoverUrlInput(e.target.value)
+                    setCoverError(false)
+                  } else {
+                    setCoverUrlInput(e.target.value)
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && coverUrlInput.trim()) {
+                    e.preventDefault()
+                    setCoverError(false)
+                    setPost(p => ({ ...p, cover_image_url: coverUrlInput.trim() }))
+                  }
+                }}
+                onPaste={e => {
+                  // Auto-apply pasted URLs immediately
+                  const pasted = e.clipboardData.getData("text").trim()
+                  if (pasted && (pasted.startsWith("http://") || pasted.startsWith("https://"))) {
+                    e.preventDefault()
+                    setCoverError(false)
+                    setCoverUrlInput(pasted)
+                    setPost(p => ({ ...p, cover_image_url: pasted }))
+                  }
+                }}
+                className="flex-1 px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              />
+              {coverUrlInput && !post.cover_image_url && (
+                <button
+                  onClick={() => { setCoverError(false); setPost(p => ({ ...p, cover_image_url: coverUrlInput.trim() })) }}
+                  className="px-2 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors flex-shrink-0"
+                >
+                  Set
+                </button>
+              )}
+            </div>
+            {!post.cover_image_url && coverUrlInput && (
+              <p className="text-[10px] text-neutral-400 mt-1">Press Enter or click Set to apply</p>
             )}
           </div>
 
