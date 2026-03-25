@@ -4092,27 +4092,17 @@ function PublicBlockRenderer({
 
       const buttonStyles: React.CSSProperties = {
         backgroundColor:
-          theme.button_style === "filled"
-            ? theme.button_color
+          theme.button_style === "outline"
+            ? "transparent"
             : theme.button_style === "glass"
-              ? `${theme.button_color}`
-              : "transparent",
-        color: theme.button_text_color,
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
-        borderWidth:
-          theme.button_style === "outline"
-            ? `${Math.max(1, theme.button_border_width || 2)}px`
-            : theme.button_style === "glass"
-              ? "1px"
-              : "0",
-        borderColor:
-          theme.button_style === "outline"
-            ? theme.button_border_color
-            : theme.button_style === "glass"
-              ? `${theme.button_text_color}30`
-              : "transparent",
+        borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
@@ -4915,22 +4905,17 @@ function PublicBlockRenderer({
       }
       const emailButtonStyles: React.CSSProperties = {
         backgroundColor:
-          theme.button_style === "filled"
-            ? theme.button_color
+          theme.button_style === "outline"
+            ? "transparent"
             : theme.button_style === "glass"
-              ? `${theme.button_color}`
-              : "transparent",
-        color: theme.button_text_color,
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
-        borderColor:
-          theme.button_style === "outline"
-            ? theme.text_color
-            : theme.button_style === "glass"
-              ? `${theme.button_text_color}30`
-              : theme.button_border_color || "transparent",
         borderStyle: "solid",
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
@@ -5483,27 +5468,17 @@ function PublicBlockRenderer({
       }
       const buttonStyles: React.CSSProperties = {
         backgroundColor:
-          theme.button_style === "filled"
-            ? theme.button_color
+          theme.button_style === "outline"
+            ? "transparent"
             : theme.button_style === "glass"
-              ? `${theme.button_color}`
-              : "transparent",
-        color: theme.button_text_color,
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
-        borderWidth:
-          theme.button_style === "outline"
-            ? `${Math.max(1, theme.button_border_width || 2)}px`
-            : theme.button_style === "glass"
-              ? "1px"
-              : "0",
-        borderColor:
-          theme.button_style === "outline"
-            ? theme.button_border_color
-            : theme.button_style === "glass"
-              ? `${theme.button_text_color}30`
-              : "transparent",
+        borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
@@ -5799,22 +5774,17 @@ function PublicBlockRenderer({
       }
       const pdfButtonStyles: React.CSSProperties = {
         backgroundColor:
-          theme.button_style === "filled"
-            ? theme.button_color
+          theme.button_style === "outline"
+            ? "transparent"
             : theme.button_style === "glass"
-              ? `${theme.button_color}`
-              : "transparent",
-        color: theme.button_text_color,
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
-        borderColor:
-          theme.button_style === "outline"
-            ? theme.text_color
-            : theme.button_style === "glass"
-              ? `${theme.button_text_color}30`
-              : theme.button_border_color || "transparent",
         borderStyle: "solid",
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
@@ -5990,22 +5960,17 @@ function PublicBlockRenderer({
       }
       const menuButtonStyles: React.CSSProperties = {
         backgroundColor:
-          theme.button_style === "filled"
-            ? theme.button_color
+          theme.button_style === "outline"
+            ? "transparent"
             : theme.button_style === "glass"
-              ? `${theme.button_color}`
-              : "transparent",
-        color: theme.button_text_color,
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
-        borderColor:
-          theme.button_style === "outline"
-            ? theme.text_color
-            : theme.button_style === "glass"
-              ? `${theme.button_text_color}30`
-              : theme.button_border_color || "transparent",
         borderStyle: "solid",
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
@@ -6181,22 +6146,17 @@ function PublicBlockRenderer({
       }
       const calendlyButtonStyles: React.CSSProperties = {
         backgroundColor:
-          theme.button_style === "filled"
-            ? theme.button_color
+          theme.button_style === "outline"
+            ? "transparent"
             : theme.button_style === "glass"
-              ? `${theme.button_color}`
-              : "transparent",
-        color: theme.button_text_color,
+              ? "rgba(255, 255, 255, 0.15)"
+              : theme.button_color,
+        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
-        borderColor:
-          theme.button_style === "outline"
-            ? theme.text_color
-            : theme.button_style === "glass"
-              ? `${theme.button_text_color}30`
-              : theme.button_border_color || "transparent",
         borderStyle: "solid",
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : "none",
+        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
 
