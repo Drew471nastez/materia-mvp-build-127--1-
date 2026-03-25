@@ -2173,9 +2173,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
           background: getBackgroundStyle(),
+          backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: safeTheme.font_family || "Inter",
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
           animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
+          overscrollBehavior: "none",
         }}
       >
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
@@ -2329,9 +2331,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         style={{
           overflowX: 'clip',
           background: getBackgroundStyle(),
+          backgroundColor: safeTheme.background_color || "#000000",
           fontFamily: safeTheme.font_family || "Inter",
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
           animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
+          overscrollBehavior: "none",
         }}
       >
         <div className="relative min-h-screen">
@@ -4101,7 +4105,7 @@ function PublicBlockRenderer({
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.button_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -4914,7 +4918,7 @@ function PublicBlockRenderer({
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.button_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -5477,7 +5481,7 @@ function PublicBlockRenderer({
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.button_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -5783,7 +5787,7 @@ function PublicBlockRenderer({
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.button_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -5969,7 +5973,7 @@ function PublicBlockRenderer({
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.button_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -6155,7 +6159,7 @@ function PublicBlockRenderer({
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.button_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
