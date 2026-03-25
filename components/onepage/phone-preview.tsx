@@ -1,5 +1,7 @@
 "use client"
 
+// Phone preview: renders exact same button styles as public-onepage.tsx
+// All button styles use theme.button_text_color for text color (no conditional for outline)
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
