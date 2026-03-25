@@ -4408,7 +4408,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               </svg>
             ) : null}
             <div className={cn("flex flex-col min-w-0", hasThumbnailOrIcon ? `w-full text-center ${s.buttonTextPadding}` : "")}>
-              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
+              <span className="text-center break-words whitespace-normal leading-tight" style={{ color: theme.button_text_color }}>{data.label || "My Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
@@ -4484,7 +4484,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               </svg>
             ) : null}
             <div className={cn("flex flex-col min-w-0 w-full text-center", s.buttonTextPadding)}>
-              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
+              <span className="text-center break-words whitespace-normal leading-tight" style={{ color: theme.button_text_color }}>{data.label || "My Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
                 <span
@@ -4559,7 +4559,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             </svg>
           ) : null}
           <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? `w-full text-center ${s.buttonTextPadding}` : "")}>
-            <span className="text-center break-words whitespace-normal leading-tight">{data.label || "My Link"}</span>
+            <span className="text-center break-words whitespace-normal leading-tight" style={{ color: theme.button_text_color }}>{data.label || "My Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
