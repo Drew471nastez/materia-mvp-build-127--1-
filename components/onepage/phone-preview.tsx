@@ -3581,11 +3581,11 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         : theme.button_style === "glass"
           ? "rgba(255, 255, 255, 0.15)"
           : theme.button_color,
-    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+    color: theme.button_text_color,
     borderRadius: `${theme.button_border_radius}px`,
     borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
     borderStyle: "solid" as const,
-    borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+    borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
     backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
     boxShadow: shadowStyles[buttonShadow] || "none",
   }
@@ -3979,7 +3979,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const isFilledIcon = detectedIcon ? FILLED_ICONS.has(detectedIcon) : false
       const iconViewBox = detectedIcon === "threads" ? "0 0 16 16" : "0 0 24 24"
       // Icon color should match button text color
-      const iconColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
+      const iconColor = theme.button_text_color
 
       // Pro Layout - Featured display with larger thumbnail
       if (data.layout_type === 'pro') {
@@ -4180,7 +4180,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
               }}
             >
-              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color }}>
+              <span className="truncate font-medium max-w-full block" style={{ color: theme.button_text_color }}>
                 {data.label || "My Link"}
               </span>
               {/* Spotify metadata display for Pro Layout */}
@@ -4188,7 +4188,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <span
                   className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.7
                   }}
                 >
@@ -4209,7 +4209,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <span
                   className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.7
                   }}
                 >
@@ -4229,7 +4229,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <span
                   className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.7
                   }}
                 >
@@ -4412,7 +4412,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <span
                   className="text-[10px] flex items-center justify-center gap-1 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.7
                   }}
                 >
@@ -4488,7 +4488,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <span
                   className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                   style={{
-                    color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                    color: theme.button_text_color,
                     opacity: 0.75
                   }}
                 >
@@ -4563,7 +4563,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <span
                 className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{
-                  color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                  color: theme.button_text_color,
                   opacity: 0.75
                 }}
               >
@@ -4584,7 +4584,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <span
                 className="text-[10px] flex items-center justify-center gap-1 mt-0.5 max-w-full"
                 style={{
-                  color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+                  color: theme.button_text_color,
                   opacity: 0.75
                 }}
               >
@@ -5080,11 +5080,11 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid" as const,
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: productShadowStyles[productButtonShadow] || "none",
       }

@@ -4097,11 +4097,11 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -4910,11 +4910,11 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -5473,11 +5473,11 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -5779,11 +5779,11 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -5965,11 +5965,11 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
@@ -6151,11 +6151,11 @@ function PublicBlockRenderer({
             : theme.button_style === "glass"
               ? "rgba(255, 255, 255, 0.15)"
               : theme.button_color,
-        color: theme.button_style === "outline" ? theme.text_color : theme.button_text_color,
+        color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(1, theme.button_border_width) : theme.button_border_width}px`,
         borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? theme.text_color : theme.button_border_color,
+        borderColor: theme.button_style === "outline" ? theme.button_text_color : theme.button_border_color,
         backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
         boxShadow: shadowStyles[buttonShadow] || "none",
       }
