@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 
 interface Post {
   id: string
@@ -248,7 +247,8 @@ export default function BlogDashboardClient() {
                           <div className="flex items-center gap-3">
                             {post.cover_image_url ? (
                               <div className="w-10 h-10 rounded-lg overflow-hidden bg-neutral-100 flex-shrink-0">
-                                <Image src={post.cover_image_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={post.cover_image_url} alt="" className="w-full h-full object-cover" />
                               </div>
                             ) : (
                               <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center flex-shrink-0 text-neutral-400">

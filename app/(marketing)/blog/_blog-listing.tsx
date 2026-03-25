@@ -1,5 +1,4 @@
 import Link from "next/link"
-import Image from "next/image"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 
 export interface BlogPost {
@@ -114,11 +113,10 @@ export default function BlogListing({
                       {/* Cover image */}
                       <div className="aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 mb-5 group-hover:scale-[1.005] transition-transform duration-500 ease-out">
                         {post.cover_image_url ? (
-                          <Image
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
                             src={post.cover_image_url}
                             alt={post.title}
-                            width={680}
-                            height={425}
                             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700 ease-out"
                           />
                         ) : (

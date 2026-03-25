@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import Image from "next/image"
 import Link from "next/link"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { categoryToSlug } from "@/lib/blog-categories"
@@ -323,13 +322,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* Cover image */}
         {post.cover_image_url && (
           <div className="mb-8 rounded-xl overflow-hidden">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={post.cover_image_url}
               alt={post.title}
-              width={680}
-              height={400}
               className="w-full object-cover"
-              priority
             />
           </div>
         )}
@@ -349,11 +346,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         {/* Author card */}
         <div className="mt-10 pt-10 border-t border-neutral-100 flex items-start gap-4">
           <div className="w-12 h-12 rounded-full overflow-hidden bg-neutral-100 flex-shrink-0 flex items-center justify-center border border-neutral-200">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={DEFAULT_AUTHOR.avatar}
               alt={post.author}
-              width={48}
-              height={48}
               className="w-full h-full object-cover"
             />
           </div>
