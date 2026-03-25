@@ -4114,14 +4114,14 @@ function ButtonsSection() {
         <div className="flex items-center gap-3">
           <MobileColorPicker
             value={theme.button_color}
-            onChange={(color) => updateTheme({ button_color: color })}
+            onChange={(color) => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })}
             label="Button color"
           />
-          <Input value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+          <Input value={theme.button_color} onChange={(e) => updateTheme(theme.button_style === "outline" ? { button_color: e.target.value, button_border_color: e.target.value } : { button_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
           {['#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ button_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
+            <button key={color} onClick={() => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
           ))}
         </div>
       </div>
