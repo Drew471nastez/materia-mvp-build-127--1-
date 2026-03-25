@@ -489,7 +489,8 @@ function EditorLayout() {
   const hasProFeaturesEnabled = useCallback(() => {
     if (!onepage) return false
     // Hide branding is a Pro feature - check if show_branding is false (meaning branding is hidden)
-    return onepage.settings.show_branding === false
+    // Verified badge is also a Pro feature
+    return onepage.settings.show_branding === false || (onepage.settings as any).verified_badge_enabled === true
   }, [onepage])
 
   // Handle save with Pro plan check
@@ -532,7 +533,8 @@ function EditorLayout() {
     updateSettings({
       show_branding: true, // Re-enable branding
       hide_branding_pro_enabled: false,
-    })
+      verified_badge_enabled: false, // Disable verified badge
+    } as any)
     setShowProUpgradeDialog(false)
   }, [updateSettings])
 

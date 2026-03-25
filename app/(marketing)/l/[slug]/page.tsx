@@ -385,7 +385,7 @@ export default async function PublicOnePageRoute({ params }: Props) {
         card_width: "standard",
       },
     blocks: publishedBlocks || onepage.draft_blocks || [],
-    social_links: publishedProfile?.social_links || onepage.social_links || {},
+    social_links: onepage.published_social_links || onepage.social_links || {},
     settings: onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true },
     seller_id: resolvedCreatorId,
   }

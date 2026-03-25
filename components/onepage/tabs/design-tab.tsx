@@ -4312,16 +4312,82 @@ function SocialsSection() {
   )
 }
 
+function ProBadge({ userHasPaidPlan, groupPrefix }: { userHasPaidPlan: boolean; groupPrefix: string }) {
+  return (
+    <div className="group/badge relative flex items-center">
+      {/* Tooltip */}
+      <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+        {userHasPaidPlan
+          ? "You have access to this feature"
+          : "Click it to preview the feature for free."}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+      </div>
+
+      {/* Badge shape: circle → purple pill on hover */}
+      <div
+        className={cn(
+          "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
+          "transition-all duration-300 ease-in-out",
+          "w-5 h-5 rounded-full",
+          groupPrefix === "row"
+            ? "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600 group-hover/row:opacity-100"
+            : "group-hover/row2:w-9 group-hover/row2:rounded-full group-hover/row2:bg-violet-600 group-hover/row2:opacity-100",
+          "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
+          userHasPaidPlan ? "opacity-50" : "opacity-30",
+          "group-hover/badge:opacity-100",
+        )}
+      >
+        {/* Lightning bolt — visible in circle state, fades when badge opens */}
+        <svg
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className={cn(
+            "absolute w-3 h-3 transition-all duration-200",
+            groupPrefix === "row"
+              ? "group-hover/row:opacity-0 group-hover/row:scale-50"
+              : "group-hover/row2:opacity-0 group-hover/row2:scale-50",
+            "group-hover/badge:opacity-0 group-hover/badge:scale-50",
+          )}
+        >
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+
+        {/* "Pro" text — hidden in circle state, fades in on badge hover */}
+        <span
+          className={cn(
+            "absolute text-[10px] font-bold whitespace-nowrap",
+            "opacity-0 transition-opacity duration-150 delay-100",
+            groupPrefix === "row"
+              ? "group-hover/row:opacity-100"
+              : "group-hover/row2:opacity-100",
+            "group-hover/badge:opacity-100",
+          )}
+        >
+          Pro
+        </span>
+      </div>
+    </div>
+  )
+}
+
 function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const { onepage, updateSettings } = useOnePage()
   if (!onepage) return null
   const { settings } = onepage
 
   const hideBrandingEnabled = !settings.show_branding
+  const verifiedEnabled = (settings as any).verified_badge_enabled ?? false
   const userHasPaidPlan = userPlan === "growth" || userPlan === "pro"
 
   const handleHideBrandingChange = (hide: boolean) => {
     updateSettings({ show_branding: !hide, hide_branding_pro_enabled: hide })
+  }
+
+  const handleVerifiedBadgeChange = (enabled: boolean) => {
+    updateSettings({
+      verified_badge_enabled: enabled,
+      ...(!enabled ? {} : { verified_badge_type: (settings as any).verified_badge_type || "verified_creator" }),
+    } as any)
   }
 
   return (
@@ -4334,64 +4400,31 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm">Hide Storelib Branding</p>
-
-                {/* Animated thunder circle → Pro badge */}
-                <div className="group/badge relative flex items-center">
-                  {/* Tooltip */}
-                  <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
-                    {userHasPaidPlan
-                      ? "You have access to this feature"
-                      : "Click it to preview the feature for free."}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                  </div>
-
-                  {/* Badge shape: circle → purple pill on hover */}
-                  <div
-                    className={cn(
-                      "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
-                      "transition-all duration-300 ease-in-out",
-                      "w-5 h-5 rounded-full",
-                      // row hover or badge hover: expand into pill + turn purple
-                      "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600",
-                      "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
-                      // paid users: less faded; free users: more faded
-                      userHasPaidPlan ? "opacity-50" : "opacity-30",
-                      // on hover: fully opaque
-                      "group-hover/row:opacity-100 group-hover/badge:opacity-100",
-                    )}
-                  >
-                    {/* Lightning bolt — visible in circle state, fades when badge opens */}
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className={cn(
-                        "absolute w-3 h-3 transition-all duration-200",
-                        "group-hover/row:opacity-0 group-hover/row:scale-50",
-                        "group-hover/badge:opacity-0 group-hover/badge:scale-50",
-                      )}
-                    >
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-
-                    {/* "Pro" text — hidden in circle state, fades in on badge hover */}
-                    <span
-                      className={cn(
-                        "absolute text-[10px] font-bold whitespace-nowrap",
-                        "opacity-0 transition-opacity duration-150 delay-100",
-                        "group-hover/row:opacity-100 group-hover/badge:opacity-100",
-                      )}
-                    >
-                      Pro
-                    </span>
-                  </div>
-                </div>
+                <ProBadge userHasPaidPlan={userHasPaidPlan} groupPrefix="row" />
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Remove the "on Storelib" badge from your page</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Remove the &ldquo;on Storelib&rdquo; badge from your page</p>
             </div>
           </div>
           <Toggle
             checked={hideBrandingEnabled}
             onCheckedChange={handleHideBrandingChange}
+          />
+        </div>
+
+        {/* Verified Badge row — same pro-gated pattern */}
+        <div className="group/row2 flex items-center justify-between p-3 md:p-4 border rounded-xl">
+          <div className="flex items-center gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">Verified Badge</p>
+                <ProBadge userHasPaidPlan={userHasPaidPlan} groupPrefix="row2" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Show a verification badge next to your name</p>
+            </div>
+          </div>
+          <Toggle
+            checked={verifiedEnabled}
+            onCheckedChange={handleVerifiedBadgeChange}
           />
         </div>
       </div>
