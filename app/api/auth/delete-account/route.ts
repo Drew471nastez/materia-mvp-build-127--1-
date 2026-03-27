@@ -147,9 +147,20 @@ If you didn't request this, please ignore this email and secure your account imm
       // ── Delete all user data (in dependency order) ─────────────────────────
       try {
         await deleteAllUserData(adminSupabase, user.id)
-      } catch (deleteError) {
-        console.error("Error during account deletion:", deleteError)
-        return NextResponse.json({ error: "Failed to delete account data" }, { status: 500 })
+      } catch (deleteError: any) {
+        console.error("Error during account deletion:", deleteError?.message || deleteError)
+        // Even if data deletion had issues, still try to delete the auth user
+        // so the account is at least inaccessible
+        try {
+          await adminSupabase.auth.admin.deleteUser(user.id)
+          return NextResponse.json({
+            success: true,
+            message: "Account deleted (some data cleanup may still be pending)",
+          })
+        } catch (authDeleteErr: any) {
+          console.error("Auth user deletion also failed:", authDeleteErr?.message)
+          return NextResponse.json({ error: "Failed to delete account data" }, { status: 500 })
+        }
       }
 
       return NextResponse.json({
@@ -325,12 +336,21 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
   // 14. Verification codes ──────────────────────────────────────────────────
   await adminSupabase.from("account_delete_codes").delete().eq("user_id", userId).catch(() => {})
   await adminSupabase.from("email_change_codes").delete().eq("user_id", userId).catch(() => {})
+  await adminSupabase.from("password_reset_requests").delete().eq("user_id", userId).catch(() => {})
+  await adminSupabase.from("auth_recovery_requests").delete().eq("user_id", userId).catch(() => {})
 
   // 15. Finally delete the auth user ────────────────────────────────────────
-  const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
-  if (deleteError) {
-    console.error("Error deleting auth user:", deleteError)
-    throw new Error(`Failed to delete auth user: ${deleteError.message}`)
+  // Try up to 2 times — first attempt may fail if FK constraints still pending
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
+    if (!deleteError) return // Success
+    if (attempt === 0) {
+      console.warn("First deleteUser attempt failed, retrying after 1s:", deleteError.message)
+      await new Promise(r => setTimeout(r, 1000))
+    } else {
+      console.error("Error deleting auth user:", deleteError)
+      throw new Error(`Failed to delete auth user: ${deleteError.message}`)
+    }
   }
 }
 
