@@ -217,11 +217,22 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
     await adminSupabase.from("entitlements").delete().eq("creator_id", creatorId).catch(() => {})
   }
 
-  // 7. Orders (buyer side — purchases made by this user) ────────────────────
+  // 7. Verification codes & security events (reference orders) ──────────────
+  await adminSupabase.from("security_events").delete().eq("user_id", userId).catch(() => {})
+  await adminSupabase.from("verification_codes").delete().eq("user_id", userId).catch(() => {})
+
+  // 8. Orders (buyer side — purchases made by this user) ────────────────────
   await adminSupabase.from("orders").delete().eq("buyer_id", userId).catch(() => {})
 
-  // 8. Wishlist items ──────────────────────────────────────────────────────
+  // 9. Course progress ────────────────────────────────────────────────────
+  await adminSupabase.from("course_progress").delete().eq("buyer_id", userId).catch(() => {})
+
+  // 10. Wishlist items ──────────────────────────────────────────────────────
   await adminSupabase.from("wishlist_items").delete().eq("user_id", userId).catch(() => {})
+
+  // 11. Community (posts & comments by this user) ──────────────────────────
+  await adminSupabase.from("community_comments").delete().eq("author_id", userId).catch(() => {})
+  await adminSupabase.from("community_posts").delete().eq("author_id", userId).catch(() => {})
 
   // 9. Library items ────────────────────────────────────────────────────────
   await adminSupabase.from("library_items").delete().eq("user_id", userId).catch(() => {})
@@ -253,6 +264,19 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
 
     // Seller notifications
     await adminSupabase.from("seller_notifications").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Customers & payment events
+    await adminSupabase.from("customers").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("payment_connection_events").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Email templates
+    await adminSupabase.from("email_templates").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Community (creator's community posts)
+    await adminSupabase.from("community_posts").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // OnePage billing
+    await adminSupabase.from("onepage_billing").delete().eq("seller_id", creatorId).catch(() => {})
 
     // Subscriptions & billing
     await adminSupabase.from("invoices").delete().eq("creator_id", creatorId).catch(() => {})
