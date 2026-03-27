@@ -197,41 +197,62 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
 
   // 4. Analytics (must happen before products are deleted) ──────────────────
   if (productIds.length > 0) {
-    await adminSupabase.from("analytics_events").delete().in("product_id", productIds)
-    await adminSupabase.from("analytics_daily_rollups").delete().in("product_id", productIds)
-    await adminSupabase.from("product_analytics_daily").delete().in("product_id", productIds)
-    await adminSupabase.from("product_views").delete().in("product_id", productIds)
-    await adminSupabase.from("product_bundles").delete().in("product_id", productIds)
-    await adminSupabase.from("subscriber_digital_products").delete().in("product_id", productIds)
+    await adminSupabase.from("analytics_events").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("analytics_daily_rollups").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("product_analytics_daily").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("product_views").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("product_bundles").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("subscriber_digital_products").delete().in("product_id", productIds).catch(() => {})
   }
 
   // 5. Refunds (references orders and creators) ─────────────────────────────
-  await adminSupabase.from("refunds").delete().eq("buyer_id", userId)
+  await adminSupabase.from("refunds").delete().eq("buyer_id", userId).catch(() => {})
   if (creatorId) {
-    await adminSupabase.from("refunds").delete().eq("creator_id", creatorId)
+    await adminSupabase.from("refunds").delete().eq("creator_id", creatorId).catch(() => {})
   }
 
-  // 6. Orders (buyer side — purchases made by this user) ────────────────────
-  await adminSupabase.from("orders").delete().eq("buyer_id", userId)
-
-  // 7. Library items ────────────────────────────────────────────────────────
-  await adminSupabase.from("library_items").delete().eq("user_id", userId)
-
-  // 8. Push tokens ──────────────────────────────────────────────────────────
-  await adminSupabase.from("push_tokens").delete().eq("user_id", userId)
-
-  // 9. Onepages ─────────────────────────────────────────────────────────────
-  await adminSupabase.from("onepages").delete().eq("owner_id", userId)
-
-  // 10. Creator-specific data ───────────────────────────────────────────────
+  // 6. Entitlements (references buyer_id, creator_id, product_id) ──────────
+  await adminSupabase.from("entitlements").delete().eq("buyer_id", userId).catch(() => {})
   if (creatorId) {
+    await adminSupabase.from("entitlements").delete().eq("creator_id", creatorId).catch(() => {})
+  }
+
+  // 7. Orders (buyer side — purchases made by this user) ────────────────────
+  await adminSupabase.from("orders").delete().eq("buyer_id", userId).catch(() => {})
+
+  // 8. Wishlist items ──────────────────────────────────────────────────────
+  await adminSupabase.from("wishlist_items").delete().eq("user_id", userId).catch(() => {})
+
+  // 9. Library items ────────────────────────────────────────────────────────
+  await adminSupabase.from("library_items").delete().eq("user_id", userId).catch(() => {})
+
+  // 10. Push tokens ──────────────────────────────────────────────────────────
+  await adminSupabase.from("push_tokens").delete().eq("user_id", userId).catch(() => {})
+
+  // 11. OnePage views & pages ─────────────────────────────────────────────────
+  await adminSupabase.from("onepage_views").delete().eq("onepage_id", userId).catch(() => {})
+  await adminSupabase.from("onepages").delete().eq("owner_id", userId).catch(() => {})
+
+  // 12. Creator-specific data ───────────────────────────────────────────────
+  if (creatorId) {
+    // Subscribers
+    await adminSupabase.from("subscribers").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Reviews (references creator_id and product_id)
+    await adminSupabase.from("reviews").delete().eq("creator_id", creatorId).catch(() => {})
+
     // Email system
     await adminSupabase.from("flow_execution_log").delete().eq("creator_id", creatorId).catch(() => {})
     await adminSupabase.from("scheduled_flow_emails").delete().eq("creator_id", creatorId).catch(() => {})
     await adminSupabase.from("email_events").delete().eq("creator_id", creatorId).catch(() => {})
     await adminSupabase.from("campaign_recipients").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("email_campaigns").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("email_segments").delete().eq("creator_id", creatorId).catch(() => {})
     await adminSupabase.from("email_flows").delete().eq("creator_id", creatorId).catch(() => {})
     await adminSupabase.from("email_usage").delete().eq("creator_id", creatorId).catch(() => {})
+
+    // Seller notifications
+    await adminSupabase.from("seller_notifications").delete().eq("creator_id", creatorId).catch(() => {})
 
     // Subscriptions & billing
     await adminSupabase.from("invoices").delete().eq("creator_id", creatorId).catch(() => {})
@@ -249,28 +270,39 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
     // Coupons
     await adminSupabase.from("coupons").delete().eq("creator_id", creatorId).catch(() => {})
 
+    // Store builder
+    await adminSupabase.from("store_builder_configs").delete().eq("creator_id", creatorId).catch(() => {})
+
     // Website builder (theme installs cascade to settings, pages, files, publish history)
     await adminSupabase.from("theme_publish_history").delete().eq("creator_id", creatorId).catch(() => {})
     await adminSupabase.from("store_theme_installs").delete().eq("creator_id", creatorId).catch(() => {})
 
+    // Product variants & videos & slug history
+    await adminSupabase.from("product_variants").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("product_videos").delete().in("product_id", productIds).catch(() => {})
+    await adminSupabase.from("product_slug_history").delete().in("product_id", productIds).catch(() => {})
+
+    // Courses
+    await adminSupabase.from("courses").delete().in("product_id", productIds).catch(() => {})
+
     // Core creator data
-    await adminSupabase.from("digital_assets").delete().eq("creator_id", creatorId)
-    await adminSupabase.from("products").delete().eq("creator_id", creatorId)
-    await adminSupabase.from("payouts").delete().eq("creator_id", creatorId)
-    await adminSupabase.from("creators").delete().eq("id", creatorId)
+    await adminSupabase.from("digital_assets").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("products").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("payouts").delete().eq("creator_id", creatorId).catch(() => {})
+    await adminSupabase.from("creators").delete().eq("id", creatorId).catch(() => {})
   }
 
   // Also catch any digital_assets still linked by user_id
-  await adminSupabase.from("digital_assets").delete().eq("user_id", userId)
+  await adminSupabase.from("digital_assets").delete().eq("user_id", userId).catch(() => {})
 
-  // 11. Profiles ────────────────────────────────────────────────────────────
-  await adminSupabase.from("profiles").delete().eq("id", userId)
+  // 13. Profiles ────────────────────────────────────────────────────────────
+  await adminSupabase.from("profiles").delete().eq("id", userId).catch(() => {})
 
-  // 12. Verification codes ──────────────────────────────────────────────────
-  await adminSupabase.from("account_delete_codes").delete().eq("user_id", userId)
-  await adminSupabase.from("email_change_codes").delete().eq("user_id", userId)
+  // 14. Verification codes ──────────────────────────────────────────────────
+  await adminSupabase.from("account_delete_codes").delete().eq("user_id", userId).catch(() => {})
+  await adminSupabase.from("email_change_codes").delete().eq("user_id", userId).catch(() => {})
 
-  // 13. Finally delete the auth user ────────────────────────────────────────
+  // 15. Finally delete the auth user ────────────────────────────────────────
   const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
   if (deleteError) {
     console.error("Error deleting auth user:", deleteError)
