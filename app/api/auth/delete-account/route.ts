@@ -149,17 +149,18 @@ If you didn't request this, please ignore this email and secure your account imm
         await deleteAllUserData(adminSupabase, user.id)
       } catch (deleteError: any) {
         console.error("Error during account deletion:", deleteError?.message || deleteError)
-        // Even if data deletion had issues, still try to delete the auth user
-        // so the account is at least inaccessible
-        try {
-          await adminSupabase.auth.admin.deleteUser(user.id)
-          return NextResponse.json({
-            success: true,
-            message: "Account deleted (some data cleanup may still be pending)",
-          })
-        } catch (authDeleteErr: any) {
-          console.error("Auth user deletion also failed:", authDeleteErr?.message)
-          return NextResponse.json({ error: "Failed to delete account data" }, { status: 500 })
+      }
+
+      // Always try to delete the auth user, even if data cleanup had issues
+      const { error: authDeleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
+      if (authDeleteError) {
+        console.error("Auth user deletion failed:", authDeleteError.message)
+        // Try once more after a short delay
+        await new Promise(r => setTimeout(r, 500))
+        const { error: retryError } = await adminSupabase.auth.admin.deleteUser(user.id)
+        if (retryError) {
+          console.error("Auth user deletion retry failed:", retryError.message)
+          return NextResponse.json({ error: "Failed to delete account. Please contact support." }, { status: 500 })
         }
       }
 
@@ -206,14 +207,20 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
     }
   }
 
+  // Helper: safe batch delete (skip if empty array)
+  const deleteIn = async (table: string, column: string, ids: string[]) => {
+    if (ids.length === 0) return
+    await adminSupabase.from(table).delete().in(column, ids).catch(() => {})
+  }
+
   // 4. Analytics (must happen before products are deleted) ──────────────────
   if (productIds.length > 0) {
-    await adminSupabase.from("analytics_events").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("analytics_daily_rollups").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("product_analytics_daily").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("product_views").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("product_bundles").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("subscriber_digital_products").delete().in("product_id", productIds).catch(() => {})
+    await deleteIn("analytics_events", "product_id", productIds)
+    await deleteIn("analytics_daily_rollups", "product_id", productIds)
+    await deleteIn("product_analytics_daily", "product_id", productIds)
+    await deleteIn("product_views", "product_id", productIds)
+    await deleteIn("product_bundles", "product_id", productIds)
+    await deleteIn("subscriber_digital_products", "product_id", productIds)
   }
 
   // 5. Refunds (references orders and creators) ─────────────────────────────
@@ -252,7 +259,12 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
   await adminSupabase.from("push_tokens").delete().eq("user_id", userId).catch(() => {})
 
   // 11. OnePage views & pages ─────────────────────────────────────────────────
-  await adminSupabase.from("onepage_views").delete().eq("onepage_id", userId).catch(() => {})
+  // Get onepage IDs first, then delete views by those IDs
+  const { data: onepages } = await adminSupabase.from("onepages").select("id").eq("owner_id", userId).catch(() => ({ data: null }))
+  if (onepages && onepages.length > 0) {
+    const onepageIds = onepages.map((p: { id: string }) => p.id)
+    await deleteIn("onepage_views", "onepage_id", onepageIds)
+  }
   await adminSupabase.from("onepages").delete().eq("owner_id", userId).catch(() => {})
 
   // 12. Creator-specific data ───────────────────────────────────────────────
@@ -313,12 +325,12 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
     await adminSupabase.from("store_theme_installs").delete().eq("creator_id", creatorId).catch(() => {})
 
     // Product variants & videos & slug history
-    await adminSupabase.from("product_variants").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("product_videos").delete().in("product_id", productIds).catch(() => {})
-    await adminSupabase.from("product_slug_history").delete().in("product_id", productIds).catch(() => {})
+    await deleteIn("product_variants", "product_id", productIds)
+    await deleteIn("product_videos", "product_id", productIds)
+    await deleteIn("product_slug_history", "product_id", productIds)
 
     // Courses
-    await adminSupabase.from("courses").delete().in("product_id", productIds).catch(() => {})
+    await deleteIn("courses", "product_id", productIds)
 
     // Core creator data
     await adminSupabase.from("digital_assets").delete().eq("creator_id", creatorId).catch(() => {})
@@ -339,19 +351,7 @@ export async function deleteAllUserData(adminSupabase: any, userId: string) {
   await adminSupabase.from("password_reset_requests").delete().eq("user_id", userId).catch(() => {})
   await adminSupabase.from("auth_recovery_requests").delete().eq("user_id", userId).catch(() => {})
 
-  // 15. Finally delete the auth user ────────────────────────────────────────
-  // Try up to 2 times — first attempt may fail if FK constraints still pending
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
-    if (!deleteError) return // Success
-    if (attempt === 0) {
-      console.warn("First deleteUser attempt failed, retrying after 1s:", deleteError.message)
-      await new Promise(r => setTimeout(r, 1000))
-    } else {
-      console.error("Error deleting auth user:", deleteError)
-      throw new Error(`Failed to delete auth user: ${deleteError.message}`)
-    }
-  }
+  // Auth user deletion is handled by the caller (POST handler)
 }
 
 // ── Storage helper ─────────────────────────────────────────────────────────────
