@@ -4689,7 +4689,8 @@ function PublicBlockRenderer({
 
     case "text": {
       const data = (block.data || { content: "", alignment: "center" }) as TextBlockData
-      if (!data.content || !data.content.trim()) return null
+      // Skip empty/whitespace-only text blocks — they render as visible white bars on dark backgrounds
+      if (!data.content || !data.content.trim() || /^[\s|_\-·•\u00A0\u200B]+$/.test(data.content)) return null
       return (
         <p
           className={cn(
