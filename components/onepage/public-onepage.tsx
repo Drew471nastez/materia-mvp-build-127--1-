@@ -2019,7 +2019,16 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         )}
       >
         {safeBlocks
-          .filter((b) => b?.enabled)
+          .filter((b) => {
+            if (!b?.enabled) return false
+            // Pre-filter text blocks with no meaningful content to prevent empty wrapper divs
+            if (b.type === "text") {
+              const content = (b.data as any)?.content || ""
+              const stripped = content.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF!?.,;:'"()@#$%&+=\/\\<>{}[\]~`^*]/g, "")
+              if (stripped.length < 2) return false
+            }
+            return true
+          })
           .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))
           .map((block, index) => (
             <div
