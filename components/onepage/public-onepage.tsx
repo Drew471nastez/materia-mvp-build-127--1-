@@ -4232,6 +4232,8 @@ function PublicBlockRenderer({
                 className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
                 style={{
                   backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                  fontSize: '15px',
+                  lineHeight: '1.4',
                 }}
               >
                 <span className="truncate font-medium" style={{ color: theme.button_text_color }}>
@@ -4349,9 +4351,11 @@ function PublicBlockRenderer({
             )}
             {/* Title area */}
             <div
-              className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center overflow-hidden"
+              className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center overflow-hidden text-sm sm:text-base"
               style={{
                 backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                fontSize: '15px',
+                lineHeight: '1.4',
               }}
             >
               <span className="truncate font-medium max-w-full block" style={{ color: theme.button_text_color }}>
