@@ -2019,24 +2019,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         )}
       >
         {safeBlocks
-          .filter((b) => {
-            if (!b?.enabled) return false
-            // Pre-filter text blocks with no meaningful content to prevent empty wrapper divs
-            if (b.type === "text") {
-              const content = (b.data as any)?.content || ""
-              const stripped = content.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF!?.,;:'"()@#$%&+=\/\\<>{}[\]~`^*]/g, "")
-              if (stripped.length < 2) return false
-            }
-            return true
-          })
-          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))
           .filter((b) => isBlockVisible(b))
-          .map((block, index) => (
-            <div
-              key={block.id}
-              className={cn("w-full", !hasBlocksAnimated && "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both")}
-              style={!hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
-            >
+          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))
+          .map((block, index) => {
+            const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
+            const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
+            return (
+              <div
+                key={block.id}
+                className={cn("w-full", animClass)}
+                style={animStyle}
+              >
               <PublicBlockRenderer
                 block={block}
                 theme={safeTheme}
@@ -2047,7 +2040,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 settings={safeSettings}
               />
             </div>
-          ))}
+            )
+          })}
       </div>
       {/* Footer - pushed to bottom */}
       <div className="mt-auto pt-10 pb-4">
