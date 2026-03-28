@@ -204,11 +204,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description,
       url: `https://storelib.com/blog/${slug}`,
       type: "article",
+      siteName: "Storelib",
       publishedTime: source.published_at || undefined,
+      section: source.category || undefined,
+      tags: keywords ? keywords.split(",").map((k: string) => k.trim()) : undefined,
       images: cover ? [{ url: cover, width: 1200, height: 630 }] : undefined,
     },
-    twitter: { card: "summary_large_image", title, description },
+    twitter: { card: "summary_large_image", title, description, ...(cover ? { images: [cover] } : {}) },
     alternates: { canonical: `https://storelib.com/blog/${slug}` },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
   }
 }
 

@@ -49,8 +49,10 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: { title, description, url: `https://storelib.com/blog/explore/categories/${slug}`, type: "website" },
+    openGraph: { title, description, url: `https://storelib.com/blog/explore/categories/${slug}`, type: "website", siteName: "Storelib" },
+    twitter: { card: "summary", title, description },
     alternates: { canonical: `https://storelib.com/blog/explore/categories/${slug}` },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
   }
 }
 
@@ -76,11 +78,33 @@ export default async function CategoryPage({
   )
 
   return (
-    <BlogListing
-      posts={posts}
-      activeCategory={category}
-      title={category}
-      subtitle={CATEGORY_SUBTITLES[category] || `Browse all articles about ${category}.`}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            name: `${category} — Storelib Blog`,
+            description: CATEGORY_SUBTITLES[category] || `Browse all Storelib articles about ${category}.`,
+            url: `https://storelib.com/blog/explore/categories/${categoryToSlug(category)}`,
+            isPartOf: { "@type": "Blog", name: "Storelib Blog", url: "https://storelib.com/blog" },
+            breadcrumb: {
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Blog", item: "https://storelib.com/blog" },
+                { "@type": "ListItem", position: 2, name: category, item: `https://storelib.com/blog/explore/categories/${categoryToSlug(category)}` },
+              ],
+            },
+          }),
+        }}
+      />
+      <BlogListing
+        posts={posts}
+        activeCategory={category}
+        title={category}
+        subtitle={CATEGORY_SUBTITLES[category] || `Browse all articles about ${category}.`}
+      />
+    </>
   )
 }
