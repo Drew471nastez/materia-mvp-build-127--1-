@@ -2169,7 +2169,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
       <div
-        className="onepage-live hidden md:block min-h-screen w-full relative overflow-x-hidden"
+        className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
           background: getBackgroundStyle(),
@@ -4689,6 +4689,7 @@ function PublicBlockRenderer({
 
     case "text": {
       const data = (block.data || { content: "", alignment: "center" }) as TextBlockData
+      if (!data.content || !data.content.trim()) return null
       return (
         <p
           className={cn(
