@@ -2030,6 +2030,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             return true
           })
           .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))
+          .filter((b) => isBlockVisible(b))
           .map((block, index) => (
             <div
               key={block.id}
@@ -3435,6 +3436,27 @@ function PublicImageCarousel({
       )}
     </div>
   )
+}
+
+/** Check if a block will produce visible content — used to skip empty wrapper divs */
+function isBlockVisible(block: any): boolean {
+  if (!block?.enabled) return false
+  // Text blocks: must have meaningful alphanumeric content
+  if (block.type === "text") {
+    const content = block.data?.content || ""
+    const stripped = content.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF!?.,;:'"()@#$%&+=\/\\<>{}[\]~`^*]/g, "")
+    return stripped.length >= 2
+  }
+  // Image blocks: must have an image URL
+  if (block.type === "image") {
+    const images = block.data?.images || (block.data?.image_url ? [{ image_url: block.data.image_url }] : [])
+    return images.length > 0 && !!images[0]?.image_url
+  }
+  // Link buttons: must have a URL
+  if (block.type === "link_button") {
+    return !!(block.data?.url)
+  }
+  return true
 }
 
 function PublicBlockRenderer({

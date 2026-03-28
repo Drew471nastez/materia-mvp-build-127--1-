@@ -469,13 +469,9 @@ html.capacitor body {
       scrollbar-width: none;
     }
   }
-  /* Hide empty block wrappers and empty text elements on live OnePage.
-     These can appear as white vertical bars on dark backgrounds. */
-  .onepage-live p:empty,
-  .onepage-live p:blank,
-  .onepage-live div > p:only-child:empty {
-    display: none !important;
-  }
+  /* Hide any empty elements on live OnePage that could show as white bars */
+  .onepage-live p:empty { display: none !important; }
+  .onepage-live div:empty:not([style]) { display: none !important; }
 
   .onepage-no-scrollbar {
     scrollbar-width: none;
