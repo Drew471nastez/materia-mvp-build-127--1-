@@ -151,8 +151,10 @@ export async function generateMetadata({ params }: ProductPageProps) {
       title: ogTitle,
       description: pageDescription,
       type: "website",
+      siteName: "Storelib",
+      url: `https://storelib.com/p/${product.slug}`,
       ...(socialImage && {
-        images: [{ url: socialImage }],
+        images: [{ url: socialImage, width: 1200, height: 630, alt: product.title }],
       }),
     },
     twitter: {
@@ -166,6 +168,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
     alternates: {
       canonical: `https://storelib.com/p/${product.slug}`,
     },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
@@ -1578,12 +1581,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     "@type": "Product",
     name: product.title,
     description: product.description || undefined,
+    sku: product.id,
     image: product.gallery_urls?.length
       ? product.gallery_urls
       : product.thumbnail_url
         ? [product.thumbnail_url]
         : undefined,
     url: canonicalUrl,
+    inLanguage: "en",
     brand: {
       "@type": "Brand",
       name: sellerDisplayName,
@@ -1597,7 +1602,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     }),
     offers: {
       "@type": "Offer",
-      price: (product.price_cents / 100).toFixed(2),
+      price: product.price_cents === 0 ? "0" : (product.price_cents / 100).toFixed(2),
       priceCurrency: "USD",
       availability: "https://schema.org/InStock",
       url: canonicalUrl,

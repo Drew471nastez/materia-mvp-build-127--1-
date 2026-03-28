@@ -95,6 +95,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       title,
       description,
       type: "website",
+      siteName: "Storelib",
       url: siteUrl,
       images: socialPreviewImage
         ? [
@@ -116,6 +117,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     alternates: {
       canonical: `https://storelib.com/u/${username}`,
     },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
