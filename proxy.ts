@@ -86,6 +86,44 @@ function isReservedPath(pathname: string): boolean {
 }
 
 /**
+ * Check if a username is an old/changed username and resolve to the current one.
+ * Returns the new username if found, null if not an old username.
+ */
+async function resolveOldUsername(oldUsername: string): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return null
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Check if this username exists as a current profile
+    const { data: currentProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", oldUsername)
+      .limit(1)
+      .maybeSingle()
+
+    // If a current profile exists with this username, it's not an old one
+    if (currentProfile) return null
+
+    // Check username_history for the most recent redirect
+    const { data: historyRecord } = await supabase
+      .from("username_history")
+      .select("new_username")
+      .ilike("old_username", oldUsername)
+      .order("changed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    return historyRecord?.new_username || null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Resolve a custom domain to a username via Supabase lookup
  * Returns the username if the domain is active, null otherwise
  */
@@ -313,6 +351,18 @@ export async function proxy(request: NextRequest) {
 
   // If we have a username (from subdomain or custom domain) and it's not a reserved path
   if (username && !isReservedPath(pathname)) {
+    // Check if this is an old username that should redirect to a new one
+    if (!isCustomDomain) {
+      const newUsername = await resolveOldUsername(username)
+      if (newUsername && newUsername.toLowerCase() !== username.toLowerCase()) {
+        // 301 redirect to the new subdomain (permanent, SEO-safe)
+        const redirectUrl = new URL(`https://${newUsername}.${MAIN_DOMAIN}`)
+        redirectUrl.pathname = pathname
+        redirectUrl.search = search
+        return NextResponse.redirect(redirectUrl, { status: 301 })
+      }
+    }
+
     // Rewrite URLs:
     // - /links -> /l/{username} (seller onepage - username is used as slug)
     // - / -> /u/{username} (seller store homepage)
