@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
@@ -255,6 +255,19 @@ export default async function PublicOnePageRoute({ params }: Props) {
   }
 
   if (!onepage) {
+    // Check username history — maybe this slug was an old username
+    const { data: historyRecord } = await adminSupabase
+      .from("username_history")
+      .select("new_username")
+      .ilike("old_username", slug)
+      .order("changed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (historyRecord?.new_username) {
+      redirect(`/l/${historyRecord.new_username}`)
+    }
+
     notFound()
   }
 

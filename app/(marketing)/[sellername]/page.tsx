@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -100,7 +101,23 @@ export default async function SellerWebsitePage({ params }: PageProps) {
     }
   }
 
-  if (!creatorId) notFound()
+  if (!creatorId) {
+    // Check username history for redirect
+    const adminSupabase = createAdminClient()
+    const { data: historyRecord } = await adminSupabase
+      .from("username_history")
+      .select("new_username")
+      .ilike("old_username", sellername)
+      .order("changed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (historyRecord?.new_username) {
+      redirect(`/${historyRecord.new_username}`)
+    }
+
+    notFound()
+  }
 
   // Find the published theme install for this creator
   const { data: install } = await supabase

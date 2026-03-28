@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Package, ShoppingBag } from "lucide-react"
@@ -148,6 +149,20 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   }
 
   if (!profile) {
+    // Check username history for redirects (old username → new username)
+    const adminSupabase = createAdminClient()
+    const { data: historyRecord } = await adminSupabase
+      .from("username_history")
+      .select("new_username")
+      .ilike("old_username", username)
+      .order("changed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (historyRecord?.new_username) {
+      redirect(`/u/${historyRecord.new_username}`)
+    }
+
     notFound()
   }
 
