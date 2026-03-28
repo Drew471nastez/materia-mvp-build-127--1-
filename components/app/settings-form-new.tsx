@@ -1560,14 +1560,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const displayName = `${firstName} ${lastName}`.trim()
 
     try {
-      const { data: existingUser } = await supabase
+      // Check if username is taken by another user
+      const { data: existingUsers } = await supabase
         .from("profiles")
         .select("id")
         .eq("username", cleanUsername)
         .neq("id", profile.id)
-        .single()
+        .limit(1)
 
-      if (existingUser) {
+      if (existingUsers && existingUsers.length > 0) {
         setError("This username is already taken")
         setIsLoading(false)
         return
@@ -1665,7 +1666,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         setShowSaveToast(false)
       }, 8000)
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      console.error("[Settings] Save error:", error)
+      setError(error instanceof Error ? error.message : "An error occurred while saving. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -3530,9 +3532,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             </button>
             <button
               type="button"
-              onClick={() => {
-                handleSubmit(new Event('submit') as any)
-              }}
+              onClick={() => handleSubmit()}
               disabled={isLoading}
               className="px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
             >
