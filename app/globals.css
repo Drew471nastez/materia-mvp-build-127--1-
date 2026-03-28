@@ -469,12 +469,18 @@ html.capacitor body {
       scrollbar-width: none;
     }
   }
-  /* Hide any empty elements on live OnePage that could show as white bars */
-  .onepage-live p:empty { display: none !important; }
-  .onepage-live div:empty:not([style]) { display: none !important; }
-  /* Prevent any text carets/cursors from showing on the live page */
+  /* Hide any empty elements on live OnePage that could show as white bars.
+     Also hide the caret/cursor and any single-child-only paragraph elements. */
+  .onepage-live p:empty,
+  .onepage-live div:empty:not([style]):not([class]) {
+    display: none !important;
+  }
   .onepage-live, .onepage-live * {
     caret-color: transparent !important;
+  }
+  /* Force block wrapper divs that contain only whitespace to collapse */
+  .onepage-live .flex.flex-col > .w-full:has(> :only-child:is(p)) > p {
+    overflow: hidden;
   }
 
   .onepage-no-scrollbar {
