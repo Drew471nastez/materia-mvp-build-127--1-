@@ -1543,8 +1543,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }, 160)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent | Event) => {
+    if (e && 'preventDefault' in e) e.preventDefault()
 
     if (usernameError) {
       setError(usernameError)
@@ -3531,11 +3531,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <button
               type="button"
               onClick={() => {
-                // Trigger form submission
-                const form = document.querySelector('form')
-                if (form) {
-                  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-                }
+                handleSubmit(new Event('submit') as any)
               }}
               disabled={isLoading}
               className="px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
