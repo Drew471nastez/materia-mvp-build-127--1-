@@ -4690,10 +4690,12 @@ function PublicBlockRenderer({
     case "text": {
       const data = (block.data || { content: "", alignment: "center" }) as TextBlockData
       // Skip text blocks with no meaningful visible content — they render as
-      // white vertical bars on dark backgrounds from inherited color + line-height
+      // white vertical bars on dark backgrounds from inherited color + line-height.
+      // Strip everything except letters, numbers, and common punctuation.
+      // Content must have at least 2 meaningful characters to render.
       const raw = data.content || ""
-      const stripped = raw.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF!?.,;:'"()@#$%&+=]/g, "")
-      if (!stripped) return null
+      const stripped = raw.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF!?.,;:'"()@#$%&+=\/\\<>{}[\]~`^*]/g, "")
+      if (stripped.length < 2) return null
       return (
         <p
           className={cn(
