@@ -4200,10 +4200,12 @@ function PublicBlockRenderer({
         if (shouldEmbed) {
           return (
             <div
-              className={cn("w-full overflow-hidden font-medium text-sm sm:text-base", getAnimationClass(data.animation_type))}
+              className={cn("w-full overflow-hidden", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
                 padding: 0,
+                fontSize: 0,
+                lineHeight: 0,
               }}
             >
               {/* YouTube embed area */}
@@ -4416,10 +4418,12 @@ function PublicBlockRenderer({
                 trackClick(block.id, data.url)
                 openSpotifyModal(data)
               }}
-              className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer", hoverEffect, getAnimationClass(data.animation_type))}
+              className={cn("w-full overflow-hidden transition-all cursor-pointer block", hoverEffect, getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
                 padding: 0,
+                fontSize: 0,
+                lineHeight: 0,
               }}
             >
               {proLayoutContent}
@@ -4436,10 +4440,12 @@ function PublicBlockRenderer({
                 trackClick(block.id, data.url)
                 openAppleMusicModal(data)
               }}
-              className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer", hoverEffect, getAnimationClass(data.animation_type))}
+              className={cn("w-full overflow-hidden transition-all cursor-pointer block", hoverEffect, getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
                 padding: 0,
+                fontSize: 0,
+                lineHeight: 0,
               }}
             >
               {proLayoutContent}
@@ -4453,10 +4459,12 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn("w-full overflow-hidden font-medium text-sm sm:text-base transition-all", hoverEffect, getAnimationClass(data.animation_type))}
+            className={cn("w-full overflow-hidden transition-all block", hoverEffect, getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
+              fontSize: 0,
+              lineHeight: 0,
             }}
           >
             {proLayoutContent}
