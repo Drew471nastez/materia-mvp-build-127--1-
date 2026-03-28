@@ -2169,7 +2169,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
       <div
-        className="onepage-live hidden md:block min-h-screen w-full relative overflow-hidden"
+        className="onepage-live hidden md:block min-h-screen w-full relative overflow-x-hidden"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
           background: getBackgroundStyle(),
