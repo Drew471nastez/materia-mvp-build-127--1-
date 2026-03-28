@@ -1548,8 +1548,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
     if (usernameError) {
       setError(usernameError)
+      setShowSaveToast(true)
       return
     }
+
+    if (isLoading) return // Prevent double-clicks
 
     setIsLoading(true)
     setError(null)
@@ -1667,7 +1670,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       }, 8000)
     } catch (error: unknown) {
       console.error("[Settings] Save error:", error)
-      setError(error instanceof Error ? error.message : "An error occurred while saving. Please try again.")
+      const msg = error instanceof Error ? error.message : "An error occurred while saving. Please try again."
+      setError(msg)
+      setShowSaveToast(false)
     } finally {
       setIsLoading(false)
     }
@@ -3504,9 +3509,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         }`}
       >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-2 h-2 rounded-full bg-amber-500" />
-            <span className="text-[14px] text-[#6b7280]">{t("settings.unsavedChanges")}</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {error ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                <span className="text-[14px] text-red-600 truncate">{error}</span>
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <span className="text-[14px] text-[#6b7280]">{t("settings.unsavedChanges")}</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2.5">
             <button
