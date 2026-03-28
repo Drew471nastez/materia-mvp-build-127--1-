@@ -472,6 +472,10 @@ html.capacitor body {
   /* Hide any empty elements on live OnePage that could show as white bars */
   .onepage-live p:empty { display: none !important; }
   .onepage-live div:empty:not([style]) { display: none !important; }
+  /* Prevent any text carets/cursors from showing on the live page */
+  .onepage-live, .onepage-live * {
+    caret-color: transparent !important;
+  }
 
   .onepage-no-scrollbar {
     scrollbar-width: none;
