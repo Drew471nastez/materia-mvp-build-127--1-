@@ -4689,8 +4689,11 @@ function PublicBlockRenderer({
 
     case "text": {
       const data = (block.data || { content: "", alignment: "center" }) as TextBlockData
-      // Skip empty/whitespace-only text blocks — they render as visible white bars on dark backgrounds
-      if (!data.content || !data.content.trim() || /^[\s|_\-·•\u00A0\u200B]+$/.test(data.content)) return null
+      // Skip text blocks with no meaningful visible content — they render as
+      // white vertical bars on dark backgrounds from inherited color + line-height
+      const raw = data.content || ""
+      const stripped = raw.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF!?.,;:'"()@#$%&+=]/g, "")
+      if (!stripped) return null
       return (
         <p
           className={cn(
@@ -4699,7 +4702,7 @@ function PublicBlockRenderer({
           )}
           style={{ color: theme.secondary_text_color || theme.text_color }}
         >
-          {data.content}
+          {raw}
         </p>
       )
     }

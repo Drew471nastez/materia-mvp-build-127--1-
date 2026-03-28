@@ -1580,11 +1580,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       // Track old username for redirects (only if actually changing)
       const oldUsername = profile.username
       if (oldUsername && oldUsername !== cleanUsername) {
-        await supabase.from("username_history").insert({
-          user_id: profile.id,
-          old_username: oldUsername,
-          new_username: cleanUsername,
-        }).catch(() => {}) // Non-fatal
+        try {
+          await supabase.from("username_history").insert({
+            user_id: profile.id,
+            old_username: oldUsername,
+            new_username: cleanUsername,
+          })
+        } catch {} // Non-fatal
       }
 
       const { error: profileError } = await supabase
@@ -1616,11 +1618,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       // Sync OnePage slug to match new username
       if (oldUsername && oldUsername !== cleanUsername) {
-        await supabase
-          .from("onepages")
-          .update({ slug: cleanUsername })
-          .eq("owner_id", profile.id)
-          .catch(() => {}) // Non-fatal
+        try {
+          await supabase
+            .from("onepages")
+            .update({ slug: cleanUsername })
+            .eq("owner_id", profile.id)
+        } catch {} // Non-fatal
       }
 
       // Save timezone to localStorage
