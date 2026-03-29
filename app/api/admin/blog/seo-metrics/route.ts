@@ -10,12 +10,39 @@ export async function DELETE(req: NextRequest) {
   if (!productId) return NextResponse.json({ error: "Missing productId" }, { status: 400 })
 
   const supabase = createAdminClient()
-  // Delete product children first
-  await supabase.from("product_variants").delete().eq("product_id", productId).catch(() => {})
-  await supabase.from("product_videos").delete().eq("product_id", productId).catch(() => {})
-  await supabase.from("reviews").delete().eq("product_id", productId).catch(() => {})
+
+  // Delete all child tables that reference product_id (order matters for FK constraints)
+  const childTables = [
+    "analytics_events",
+    "analytics_daily_rollups",
+    "product_analytics_daily",
+    "product_views",
+    "subscriber_digital_products",
+    "product_variants",
+    "product_videos",
+    "product_slug_history",
+    "reviews",
+    "entitlements",
+    "courses",
+    "orders",
+    "refunds",
+    "library_items",
+  ]
+
+  for (const table of childTables) {
+    try {
+      await supabase.from(table).delete().eq("product_id", productId)
+    } catch {
+      // Table may not exist or column may not match — skip
+    }
+  }
+
+  // Delete the product itself
   const { error } = await supabase.from("products").delete().eq("id", productId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("Failed to delete product:", error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }
 

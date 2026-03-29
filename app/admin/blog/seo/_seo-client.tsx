@@ -159,6 +159,9 @@ export default function SeoAdminClient() {
           ...prev,
           [creatorId]: (prev[creatorId] || []).filter(p => p.id !== productId)
         }))
+      } else {
+        const data = await res.json().catch(() => ({}))
+        alert(`Failed to delete: ${data.error || "Unknown error"}`)
       }
     } catch {}
     setDeletingProduct(null)
