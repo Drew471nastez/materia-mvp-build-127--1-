@@ -396,42 +396,36 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
         onMouseDown={(e) => e.stopPropagation()}
       />
       {isMobileView ? (
-        /* Mobile: GPU-accelerated bottom sheet — matches MobileSheet pattern exactly */
+        /* Mobile: centered popup that slides in from top — avoids keyboard overlap */
         <div
           ref={(node) => {
             (popoverRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
             (sheetRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
           }}
-          className={cn("shadow-xl border-t flex flex-col", className)}
+          className={cn("shadow-2xl flex flex-col", className)}
           style={{
             position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
+            top: "8vh",
+            left: "16px",
+            right: "16px",
             zIndex: 2147483646,
             pointerEvents: "auto",
             backgroundColor: bgColor,
             borderColor: borderColorValue,
             color: textColor,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            maxHeight: "85vh",
-            overflow: "hidden",
+            borderRadius: 20,
+            maxHeight: "80dvh",
+            overflow: "auto",
             willChange: "transform",
             backfaceVisibility: "hidden",
-            // GPU-accelerated: slides up on open, slides down on close/drag
-            transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+            transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, -120%, 0)",
             transition: isDragging ? "none" : "transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
         >
-          {/* Drag handle */}
-          <div className="flex justify-center py-2.5 flex-shrink-0 cursor-grab" data-drag-handle>
+          {/* Close handle */}
+          <div className="flex justify-center py-2.5 flex-shrink-0" onClick={handleClose}>
             <div className="w-10 h-1 rounded-full" style={{ backgroundColor: isDark ? "#555" : "#d1d5db" }} />
           </div>
           <div className="flex-1 overflow-y-auto overscroll-contain px-1 pb-[env(safe-area-inset-bottom)]" data-scroll-container>

@@ -5070,13 +5070,16 @@ export default function NewProductPage() {
                   </DialogContent>
                 </Dialog>
 
-                {/* Mobile Category Popup */}
-                {isMobileViewport && showCategoryModal && (
-                  <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[5vh] sm:items-center sm:pt-0 px-4" onClick={() => { setShowCategoryModal(false); setCategorySearch("") }}>
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-                    <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                {/* Mobile Category Bottom Sheet */}
+                {isMobileViewport && (
+                  <MobileSheet
+                    isOpen={showCategoryModal}
+                    onClose={() => { setShowCategoryModal(false); setCategorySearch("") }}
+                    maxHeight="64vh"
+                    zIndex={100}
+                  >
                     {/* Title row */}
-                    <div className="px-5 pt-5 pb-2">
+                    <div className="px-5 pb-2">
                       <div className="flex items-center justify-between mb-0.5">
                         <h3 className="text-base font-semibold text-gray-900">Select Category</h3>
                         {selectedCategory && (
@@ -5093,7 +5096,7 @@ export default function NewProductPage() {
                     </div>
 
                     {/* Search */}
-                    <div className="px-5 py-2.5 sticky top-0 z-10 bg-white border-b border-gray-100">
+                    <div className="px-5 py-2.5 sticky top-7 z-10 bg-white border-b border-gray-100">
                       <Input
                         placeholder="Search 300+ categories..."
                         value={categorySearch}
@@ -5222,8 +5225,7 @@ export default function NewProductPage() {
                         </div>
                       )}
                     </div>
-                    </div>
-                  </div>
+                  </MobileSheet>
                 )}
               </div>
 
@@ -5654,70 +5656,54 @@ export default function NewProductPage() {
         </div>
       )}
 
-      {/* CTA Popup */}
-      {showCtaSheet && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] sm:items-center sm:pt-0 px-4" onClick={() => setShowCtaSheet(false)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[80dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-5 space-y-1">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-gray-900">Call to Action</h3>
-                <button type="button" onClick={() => setShowCtaSheet(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full"><X className="h-5 w-5" /></button>
-              </div>
-              {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now", "Get it Now", "Start Now"].map((cta) => (
-                <button
-                  key={cta}
-                  type="button"
-                  onClick={() => { setCallToAction(cta); setShowCtaSheet(false) }}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
-                    (callToAction || "I want this!") === cta
-                      ? "bg-violet-50 text-violet-900 font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <span>{cta}</span>
-                  {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* CTA Bottom Sheet */}
+      <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)}>
+        <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
+          {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now", "Get it Now", "Start Now"].map((cta) => (
+            <button
+              key={cta}
+              type="button"
+              onClick={() => { setCallToAction(cta); setShowCtaSheet(false) }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
+                (callToAction || "I want this!") === cta
+                  ? "bg-violet-50 text-violet-900 font-medium"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span>{cta}</span>
+              {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
+            </button>
+          ))}
         </div>
-      )}
+      </MobileSheet>
 
-      {/* Refund Policy Popup */}
-      {showRefundPolicySheet && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] sm:items-center sm:pt-0 px-4" onClick={() => setShowRefundPolicySheet(false)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[80dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-5 space-y-1">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-gray-900">Refund Policy</h3>
-                <button type="button" onClick={() => setShowRefundPolicySheet(false)} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full"><X className="h-5 w-5" /></button>
-              </div>
-              {[
-                { value: "no_refunds", label: "No refunds allowed" },
-                { value: "7_day", label: "7-day money back guarantee" },
-                { value: "14_day", label: "14-day money back guarantee" },
-                { value: "30_day", label: "30-day money back guarantee" },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => { setRefundPolicyType(option.value); setShowRefundPolicySheet(false) }}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
-                    refundPolicyType === option.value
-                      ? "bg-violet-50 text-violet-900 font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <span>{option.label}</span>
-                  {refundPolicyType === option.value && <Check className="h-4 w-4 text-violet-500" />}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Refund Policy Bottom Sheet */}
+      <MobileSheet isOpen={showRefundPolicySheet} onClose={() => setShowRefundPolicySheet(false)} maxHeight="85vh">
+        <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
+          {[
+            { value: "no_refunds", label: "No refunds allowed" },
+            { value: "7_day", label: "7-day money back guarantee" },
+            { value: "14_day", label: "14-day money back guarantee" },
+            { value: "30_day", label: "30-day money back guarantee" },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => { setRefundPolicyType(option.value); setShowRefundPolicySheet(false) }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
+                refundPolicyType === option.value
+                  ? "bg-violet-50 text-violet-900 font-medium"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span>{option.label}</span>
+              {refundPolicyType === option.value && <Check className="h-4 w-4 text-violet-500" />}
+            </button>
+          ))}
         </div>
-      )}
+      </MobileSheet>
 
       {/* Unsaved Changes Dialog */}
       <Dialog open={showExitDialog} onOpenChange={(open) => {
