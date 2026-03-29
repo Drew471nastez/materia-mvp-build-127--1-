@@ -126,6 +126,44 @@ export default function SeoAdminClient() {
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
   const [postSearch, setPostSearch] = useState("")
 
+  // Creator products state
+  const [expandedCreator, setExpandedCreator] = useState<string | null>(null)
+  const [creatorProducts, setCreatorProducts] = useState<Record<string, any[]>>({})
+  const [loadingProducts, setLoadingProducts] = useState<string | null>(null)
+  const [deletingProduct, setDeletingProduct] = useState<string | null>(null)
+
+  const loadCreatorProducts = useCallback(async (creatorId: string) => {
+    if (creatorProducts[creatorId]) {
+      setExpandedCreator(expandedCreator === creatorId ? null : creatorId)
+      return
+    }
+    setLoadingProducts(creatorId)
+    setExpandedCreator(creatorId)
+    try {
+      const res = await fetch(`/api/admin/blog/seo-metrics?creatorProducts=${creatorId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setCreatorProducts(prev => ({ ...prev, [creatorId]: data.products || [] }))
+      }
+    } catch {}
+    setLoadingProducts(null)
+  }, [creatorProducts, expandedCreator])
+
+  const deleteProduct = useCallback(async (productId: string, creatorId: string) => {
+    if (!confirm("Delete this product permanently? This cannot be undone.")) return
+    setDeletingProduct(productId)
+    try {
+      const res = await fetch(`/api/admin/blog/seo-metrics?deleteProduct=${productId}`, { method: "DELETE" })
+      if (res.ok) {
+        setCreatorProducts(prev => ({
+          ...prev,
+          [creatorId]: (prev[creatorId] || []).filter(p => p.id !== productId)
+        }))
+      }
+    } catch {}
+    setDeletingProduct(null)
+  }, [])
+
   const loadMetrics = useCallback(async () => {
     setLoading(true)
     try {
@@ -447,6 +485,14 @@ export default function SeoAdminClient() {
                           <a href={`https://storelib.com/u/${creator.username}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-neutral-400 hover:text-neutral-700 transition-colors" title="View storefront">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                           </a>
+                          {creator.product_count > 0 && (
+                            <button
+                              onClick={() => loadCreatorProducts(creator.id)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${expandedCreator === creator.id ? "bg-purple-100 text-purple-700" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+                            >
+                              {loadingProducts === creator.id ? "Loading…" : expandedCreator === creator.id ? "Hide Products" : `${creator.product_count} Products`}
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               if (isEditing) { setEditingCreator(null) } else {
@@ -496,6 +542,52 @@ export default function SeoAdminClient() {
                             <button onClick={() => setEditingCreator(null)} className="px-4 py-2 text-xs font-medium text-neutral-600 border border-neutral-200 rounded-lg hover:bg-neutral-50">Cancel</button>
                             <span className="text-[10px] text-neutral-400 ml-1">Affects Google search snippet for this storefront</span>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Creator's products list */}
+                      {expandedCreator === creator.id && (
+                        <div className="mt-4 pt-4 border-t border-neutral-100">
+                          <h4 className="text-xs font-semibold text-neutral-700 mb-3">Products by {creator.display_name || creator.username}</h4>
+                          {loadingProducts === creator.id ? (
+                            <div className="text-xs text-neutral-400 animate-pulse py-4 text-center">Loading products…</div>
+                          ) : (creatorProducts[creator.id] || []).length === 0 ? (
+                            <div className="text-xs text-neutral-400 py-4 text-center">No products found</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {(creatorProducts[creator.id] || []).map((product: any) => (
+                                <div key={product.id} className="flex items-center gap-3 p-3 bg-neutral-50 rounded-lg">
+                                  {product.thumbnail_url ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-neutral-200 shrink-0 flex items-center justify-center text-neutral-400">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium text-neutral-900 truncate">{product.title}</div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-[10px] text-neutral-400">/{product.slug}</span>
+                                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${product.status === "published" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                                        {product.status}
+                                      </span>
+                                      <span className="text-[10px] text-neutral-500">${((product.price_cents || 0) / 100).toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <a href={`/p/${product.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-neutral-400 hover:text-neutral-700 transition-colors" title="View">
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                    </a>
+                                    <button onClick={() => deleteProduct(product.id, creator.id)} disabled={deletingProduct === product.id}
+                                      className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors disabled:opacity-50" title="Delete">
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

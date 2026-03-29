@@ -1,13 +1,51 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 
-export async function GET() {
+export async function DELETE(req: NextRequest) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const productId = req.nextUrl.searchParams.get("deleteProduct")
+  if (!productId) return NextResponse.json({ error: "Missing productId" }, { status: 400 })
+
+  const supabase = createAdminClient()
+  // Delete product children first
+  await supabase.from("product_variants").delete().eq("product_id", productId).catch(() => {})
+  await supabase.from("product_videos").delete().eq("product_id", productId).catch(() => {})
+  await supabase.from("reviews").delete().eq("product_id", productId).catch(() => {})
+  const { error } = await supabase.from("products").delete().eq("id", productId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
+export async function GET(req: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const supabase = createAdminClient()
+
+  // If requesting creator products specifically (param is profile.id / user_id)
+  const profileId = req.nextUrl.searchParams.get("creatorProducts")
+  if (profileId) {
+    // Resolve profile.id (user_id) → creators.id
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("id")
+      .eq("user_id", profileId)
+      .maybeSingle()
+
+    if (!creator) return NextResponse.json({ products: [] })
+
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, title, slug, status, price_cents, thumbnail_url, created_at")
+      .eq("creator_id", creator.id)
+      .order("created_at", { ascending: false })
+      .limit(100)
+    return NextResponse.json({ products: products || [] })
+  }
 
   const [
     { count: totalProducts },
