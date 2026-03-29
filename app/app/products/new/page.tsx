@@ -4055,18 +4055,36 @@ export default function NewProductPage() {
                             e.stopPropagation()
                             e.preventDefault()
                             setShowYoutubeInput(true)
-                            // Auto-scroll to the YouTube input after it renders and focus it
+                            // Focus input first (opens keyboard), then scroll after keyboard settles
                             setTimeout(() => {
-                              const el = document.getElementById("youtube-inline-input")
-                              if (el) {
-                                el.scrollIntoView({ behavior: "smooth", block: "center" })
-                                // Focus the input inside after scroll settles
-                                setTimeout(() => {
-                                  const input = el.querySelector("input")
-                                  if (input) input.focus()
-                                }, 400)
+                              const input = document.getElementById("youtube-url-field") as HTMLInputElement
+                              if (input) {
+                                input.focus()
+                                // Wait for keyboard to open, then scroll into view
+                                const scrollAfterKeyboard = () => {
+                                  const el = document.getElementById("youtube-inline-input")
+                                  if (el) {
+                                    el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                                  }
+                                }
+                                // Use visualViewport resize (keyboard open) or fallback timeout
+                                const vv = window.visualViewport
+                                if (vv) {
+                                  const onResize = () => {
+                                    vv.removeEventListener("resize", onResize)
+                                    setTimeout(scrollAfterKeyboard, 100)
+                                  }
+                                  vv.addEventListener("resize", onResize)
+                                  // Fallback if keyboard doesn't trigger resize (desktop)
+                                  setTimeout(() => {
+                                    vv.removeEventListener("resize", onResize)
+                                    scrollAfterKeyboard()
+                                  }, 600)
+                                } else {
+                                  setTimeout(scrollAfterKeyboard, 500)
+                                }
                               }
-                            }, 150)
+                            }, 100)
                           }}
                           className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors pointer-events-auto"
                         >
