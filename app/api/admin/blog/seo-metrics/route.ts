@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
     { count: totalSellers },
     { data: creatorProfiles },
     { data: productCounts },
+    { data: creatorsTable },
     { data: blogPosts },
     { data: onepages },
   ] = await Promise.all([
@@ -71,8 +72,10 @@ export async function GET(req: NextRequest) {
       .limit(500),
     supabase
       .from("products")
-      .select("creator_id, status")
-      .eq("status", "published"),
+      .select("creator_id, status"),
+    supabase
+      .from("creators")
+      .select("id, user_id"),
     supabase
       .from("blog_posts")
       .select("id, slug, title, seo_title, seo_description, is_published, published_at, views")
@@ -83,10 +86,19 @@ export async function GET(req: NextRequest) {
       .select("owner_id, slug, title"),
   ])
 
-  const countByCreator: Record<string, number> = {}
+  // Map creator_id → product count (ALL products, not just published)
+  const countByCreatorId: Record<string, number> = {}
   for (const product of productCounts ?? []) {
     if (product.creator_id) {
-      countByCreator[product.creator_id] = (countByCreator[product.creator_id] ?? 0) + 1
+      countByCreatorId[product.creator_id] = (countByCreatorId[product.creator_id] ?? 0) + 1
+    }
+  }
+
+  // Map user_id → creator_id for resolving profile.id → product count
+  const creatorIdByUserId: Record<string, string> = {}
+  for (const c of creatorsTable ?? []) {
+    if (c.user_id && c.id) {
+      creatorIdByUserId[c.user_id] = c.id
     }
   }
 
@@ -100,6 +112,8 @@ export async function GET(req: NextRequest) {
 
   const creators = (creatorProfiles ?? []).map((profile) => {
     const op = onepageByOwner[profile.id]
+    const cId = creatorIdByUserId[profile.id]
+    const productCount = cId ? (countByCreatorId[cId] ?? 0) : 0
     return {
       id: profile.id,
       username: profile.username,
@@ -107,8 +121,8 @@ export async function GET(req: NextRequest) {
       avatar_url: profile.avatar_url,
       joined_at: profile.created_at,
       country: (profile as Record<string, unknown>).country as string | null ?? null,
-      product_count: countByCreator[profile.id] ?? 0,
-      has_published_products: (countByCreator[profile.id] ?? 0) > 0,
+      product_count: productCount,
+      has_published_products: productCount > 0,
       onepage_slug: op?.slug ?? null,
       onepage_title: op?.title ?? null,
     }

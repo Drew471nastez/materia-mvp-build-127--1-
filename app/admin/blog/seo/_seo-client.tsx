@@ -485,14 +485,12 @@ export default function SeoAdminClient() {
                           <a href={`https://storelib.com/u/${creator.username}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-neutral-400 hover:text-neutral-700 transition-colors" title="View storefront">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                           </a>
-                          {creator.product_count > 0 && (
-                            <button
-                              onClick={() => loadCreatorProducts(creator.id)}
-                              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${expandedCreator === creator.id ? "bg-purple-100 text-purple-700" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
-                            >
-                              {loadingProducts === creator.id ? "Loading…" : expandedCreator === creator.id ? "Hide Products" : `${creator.product_count} Products`}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => loadCreatorProducts(creator.id)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${expandedCreator === creator.id ? "bg-purple-100 text-purple-700" : "bg-purple-50 text-purple-600 hover:bg-purple-100"}`}
+                          >
+                            {loadingProducts === creator.id ? "Loading…" : expandedCreator === creator.id ? "Hide Products" : `${creator.product_count} Products`}
+                          </button>
                           <button
                             onClick={() => {
                               if (isEditing) { setEditingCreator(null) } else {
