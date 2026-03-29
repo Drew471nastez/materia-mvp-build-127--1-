@@ -5602,50 +5602,59 @@ export default function NewProductPage() {
         </div>
       </div>
 
-      {/* YouTube Bottom Sheet */}
-      <MobileSheet isOpen={showYoutubeInput} onClose={() => { setShowYoutubeInput(false); setYoutubeInput("") }} maxHeight="50dvh">
-        <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
-            <button type="button" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 flex-shrink-0">
-              <svg viewBox="0 -7 48 48" className="h-5 w-5" fill="none">
-                <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
-              </svg>
-            </div>
-            <Input
-              placeholder="Paste YouTube URL..."
-              value={youtubeInput}
-              onChange={(e) => setYoutubeInput(e.target.value)}
-              className="flex-1 h-10 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
-                if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
-              }}
-            />
-          </div>
-          {youtubeInput && parseYouTubeUrl(youtubeInput) && (
-            <div className="relative aspect-video max-w-[240px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-              <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt="Video preview" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="h-6 w-6 text-white ml-0.5" /></div>
-              </div>
-            </div>
-          )}
-          <Button
-            type="button"
-            onClick={handleAddYouTube}
-            disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
-            className="w-full h-11 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-xl disabled:bg-gray-200 disabled:text-gray-400"
+      {/* YouTube Modal (centered dialog instead of bottom sheet to avoid keyboard overlap) */}
+      {showYoutubeInput && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] sm:items-center sm:pt-0 px-4" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+          <div
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
           >
-            Add Video
-          </Button>
+            <div className="px-5 py-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
+                <button type="button" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 flex-shrink-0">
+                  <svg viewBox="0 -7 48 48" className="h-5 w-5" fill="none">
+                    <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
+                  </svg>
+                </div>
+                <Input
+                  placeholder="Paste YouTube URL..."
+                  value={youtubeInput}
+                  onChange={(e) => setYoutubeInput(e.target.value)}
+                  autoFocus
+                  className="flex-1 h-10 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
+                    if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
+                  }}
+                />
+              </div>
+              {youtubeInput && parseYouTubeUrl(youtubeInput) && (
+                <div className="relative aspect-video max-w-[240px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                  <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt="Video preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="h-6 w-6 text-white ml-0.5" /></div>
+                  </div>
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={handleAddYouTube}
+                disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
+                className="w-full h-11 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-xl disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                Add Video
+              </Button>
+            </div>
+          </div>
         </div>
-      </MobileSheet>
+      )}
 
       {/* CTA Bottom Sheet */}
       <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)}>
