@@ -511,23 +511,26 @@ function MobileSheet({
     const vv = window.visualViewport
     if (!vv) return
 
-    const handleResize = () => {
+    const repositionSheet = () => {
       if (!sheetRef.current) return
       const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop
       if (keyboardHeight > 100) {
-        // Keyboard is open
+        // Keyboard is open — move sheet above it
         sheetRef.current.style.bottom = `${keyboardHeight}px`
-        sheetRef.current.style.maxHeight = `${vv.height * 0.7}px`
-        sheetRef.current.style.transition = 'bottom 0.2s ease, max-height 0.2s ease'
+        sheetRef.current.style.maxHeight = `${Math.min(vv.height - 40, 400)}px`
       } else {
-        // Keyboard is closed
+        // Keyboard is closed — restore
         sheetRef.current.style.bottom = '0'
         sheetRef.current.style.maxHeight = maxHeight || '85dvh'
       }
     }
 
-    vv.addEventListener('resize', handleResize)
-    return () => vv.removeEventListener('resize', handleResize)
+    vv.addEventListener('resize', repositionSheet)
+    vv.addEventListener('scroll', repositionSheet)
+    return () => {
+      vv.removeEventListener('resize', repositionSheet)
+      vv.removeEventListener('scroll', repositionSheet)
+    }
   }, [isVisible, maxHeight])
 
   const handleClose = useCallback(() => {
@@ -625,37 +628,6 @@ function MobileSheet({
           WebkitBackfaceVisibility: 'hidden' as any,
           touchAction: 'pan-y',
           paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
-        onFocus={(e) => {
-          // When an input is focused (keyboard opens on mobile), move sheet above keyboard
-          const target = e.target as HTMLElement
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-            // Use visualViewport to detect keyboard height
-            const vv = window.visualViewport
-            if (vv && sheetRef.current) {
-              const keyboardHeight = window.innerHeight - vv.height
-              if (keyboardHeight > 100) {
-                // Keyboard is open — position sheet above it
-                sheetRef.current.style.bottom = `${keyboardHeight}px`
-                sheetRef.current.style.maxHeight = `${vv.height * 0.7}px`
-              }
-            }
-            // Also scroll the input into view after a short delay
-            setTimeout(() => {
-              target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }, 100)
-          }
-        }}
-        onBlur={() => {
-          // When input loses focus (keyboard closes), restore position
-          if (sheetRef.current) {
-            setTimeout(() => {
-              if (sheetRef.current) {
-                sheetRef.current.style.bottom = '0'
-                sheetRef.current.style.maxHeight = maxHeight || '85dvh'
-              }
-            }, 300)
-          }
         }}
       >
         {/* Handle bar - increased hit area */}
