@@ -3433,7 +3433,7 @@ export default function NewProductPage() {
 
         {/* Skeleton Content - exact match to form structure */}
         <div className="flex-1 overflow-y-auto bg-white sm:bg-gray-50">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-64 sm:pb-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-24 sm:pb-8">
             <div className="max-w-5xl mx-auto">
               <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
                 <div className="lg:w-3/5 space-y-8 sm:space-y-12">
@@ -3798,7 +3798,7 @@ export default function NewProductPage() {
       <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-white sm:bg-gray-50 overscroll-contain">
 
         {/* Form Content - flat on mobile, card on desktop */}
-        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-64 sm:pb-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-24 sm:pb-8">
           <div className="max-w-5xl mx-auto">
             <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
               {/* Form content wrapper - 60% width and left-aligned on desktop */}
