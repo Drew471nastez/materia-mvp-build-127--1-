@@ -591,13 +591,30 @@ function MobileSheet({
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl overflow-auto"
         style={{
-          maxHeight: maxHeight || '85vh',
+          maxHeight: maxHeight || '85dvh',
           transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
           transition: isDragging ? 'none' : 'transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           willChange: isDragging ? 'transform' : 'auto',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden' as any,
           touchAction: 'pan-y',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+        onFocus={() => {
+          // When an input is focused (keyboard opens), reduce max height to avoid overlap
+          if (sheetRef.current) {
+            sheetRef.current.style.maxHeight = '50dvh'
+          }
+        }}
+        onBlur={() => {
+          // When input loses focus (keyboard closes), restore max height
+          if (sheetRef.current) {
+            setTimeout(() => {
+              if (sheetRef.current) {
+                sheetRef.current.style.maxHeight = maxHeight || '85dvh'
+              }
+            }, 300)
+          }
         }}
       >
         {/* Handle bar - increased hit area */}
@@ -5573,7 +5590,7 @@ export default function NewProductPage() {
       </div>
 
       {/* YouTube Bottom Sheet */}
-      <MobileSheet isOpen={showYoutubeInput} onClose={() => { setShowYoutubeInput(false); setYoutubeInput("") }} maxHeight="85vh">
+      <MobileSheet isOpen={showYoutubeInput} onClose={() => { setShowYoutubeInput(false); setYoutubeInput("") }} maxHeight="50dvh">
         <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
