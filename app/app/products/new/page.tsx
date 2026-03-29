@@ -4053,9 +4053,14 @@ export default function NewProductPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
+                            e.preventDefault()
                             setShowYoutubeInput(true)
+                            // Auto-scroll to the YouTube input after it renders
+                            setTimeout(() => {
+                              document.getElementById("youtube-inline-input")?.scrollIntoView({ behavior: "smooth", block: "center" })
+                            }, 100)
                           }}
-                          className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
+                          className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors pointer-events-auto"
                         >
                           <svg viewBox="0 -7 48 48" className="h-4 w-4 sm:h-5 sm:w-5" fill="none">
                             <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
@@ -4063,7 +4068,7 @@ export default function NewProductPage() {
                           Add YouTube video
                         </button>
                       ) : (
-                        <div className="mt-3 space-y-3">
+                        <div id="youtube-inline-input" className="mt-3 space-y-3 pointer-events-auto" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2">
                             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 flex-shrink-0">
                               <svg viewBox="0 -7 48 48" className="h-4 w-4" fill="none">
