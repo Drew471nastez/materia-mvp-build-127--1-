@@ -4055,10 +4055,18 @@ export default function NewProductPage() {
                             e.stopPropagation()
                             e.preventDefault()
                             setShowYoutubeInput(true)
-                            // Auto-scroll to the YouTube input after it renders
+                            // Auto-scroll to the YouTube input after it renders and focus it
                             setTimeout(() => {
-                              document.getElementById("youtube-inline-input")?.scrollIntoView({ behavior: "smooth", block: "center" })
-                            }, 100)
+                              const el = document.getElementById("youtube-inline-input")
+                              if (el) {
+                                el.scrollIntoView({ behavior: "smooth", block: "center" })
+                                // Focus the input inside after scroll settles
+                                setTimeout(() => {
+                                  const input = el.querySelector("input")
+                                  if (input) input.focus()
+                                }, 400)
+                              }
+                            }, 150)
                           }}
                           className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors pointer-events-auto"
                         >
@@ -4076,10 +4084,10 @@ export default function NewProductPage() {
                               </svg>
                             </div>
                             <Input
+                              id="youtube-url-field"
                               placeholder="Paste YouTube URL..."
                               value={youtubeInput}
                               onChange={(e) => setYoutubeInput(e.target.value)}
-                              autoFocus
                               className="flex-1 h-9 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1 placeholder:text-gray-400"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
