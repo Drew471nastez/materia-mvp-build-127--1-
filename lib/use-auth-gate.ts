@@ -52,7 +52,7 @@ export function useAuthGate() {
         sessionStorage.removeItem("nativeAuthInProgress")
       } catch {}
       setNativeAuthInProgress(false)
-    }, 15_000)
+    }, 30_000)
     return () => {
       window.clearInterval(poll)
       window.clearTimeout(safety)
@@ -79,10 +79,10 @@ export function useAuthGate() {
         if (!cancelled) setBooting(false)
       })
 
-    // Safety: don't stall the UI forever
+    // Safety: don't stall the UI forever (8s for slow devices/networks)
     const safety = window.setTimeout(() => {
       if (!cancelled) setBooting(false)
-    }, 3_000)
+    }, 8_000)
 
     return () => {
       cancelled = true

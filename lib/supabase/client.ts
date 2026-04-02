@@ -72,14 +72,21 @@ const capacitorStorage = {
     return null
   },
   async setItem(key: string, value: string): Promise<void> {
+    // Mirror to localStorage FIRST (synchronous) — ensures reads on cold start
+    // work even if the async Preferences write hasn't completed yet.
+    try { localStorage.setItem(key, value) } catch { /* ignore */ }
     // Write to Preferences (primary, survives process switches).
     try {
       const { Preferences } = await import("@capacitor/preferences")
       await Preferences.set({ key, value })
-    } catch { /* ignore */ }
-    // Mirror to localStorage — enables synchronous reads on cold start
-    // (NativeStartupRouter Layer 0 checks localStorage before React mounts).
-    try { localStorage.setItem(key, value) } catch { /* ignore */ }
+    } catch {
+      // Retry once after 100ms — transient failures happen during app state transitions
+      try {
+        await new Promise(r => setTimeout(r, 100))
+        const { Preferences } = await import("@capacitor/preferences")
+        await Preferences.set({ key, value })
+      } catch { /* ignore */ }
+    }
   },
   async removeItem(key: string): Promise<void> {
     try {

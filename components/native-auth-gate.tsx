@@ -82,10 +82,11 @@ export function NativeAuthGate({
       }
     }
 
-    // Give Supabase client up to 4 s to restore from Preferences
+    // Give Supabase client up to 10 s to restore from Preferences
+    // (slow devices + cold start + large session can take longer than 4s)
     const timeout = window.setTimeout(() => {
       if (!cancelled) router.replace("/login")
-    }, 4000)
+    }, 10_000)
 
     checkNativeSession().then(() => window.clearTimeout(timeout))
 

@@ -231,6 +231,7 @@ async function handleRecoveryCallback(rawUrl: string): Promise<void> {
   console.log(`${TAG} ▶ Recovery deep link detected`)
   showToast(`Recovery deep link received`, "info")
 
+  isHandling = true // Prevent onAuthStateChange from racing with this handler
   notifyNativeAuthStart()
 
   try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
@@ -585,6 +586,14 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log(`${TAG} ← onAuthStateChange event="${event}"  hasSession=${!!session}  path="${window.location.pathname}"`)
+        // Handle unexpected sign-out events (e.g., refresh token expired)
+        // Only log and clear state — do NOT redirect to login, as this could be
+        // a transient network error and Supabase will retry automatically.
+        if (event === "SIGNED_OUT") {
+          console.warn(`${TAG}   SIGNED_OUT event fired — session expired or user signed out`)
+          return
+        }
+
         if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
           // CRITICAL: if handleOAuthCallback is in progress, do NOT navigate.
           // The callback handler owns the full flow (exchange → sync-session
