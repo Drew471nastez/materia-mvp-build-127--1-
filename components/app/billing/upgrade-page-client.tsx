@@ -220,7 +220,7 @@ export function UpgradePageClient({
             else if (cancelAtPeriodEnd) buttonLabel = "Upgrade Again"
             else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
             else if (hasActiveSubscription) buttonLabel = `Upgrade to ${plan.name}`
-            else buttonLabel = `Get started with ${plan.name}`
+            else buttonLabel = `Get ${plan.name}`
 
             return (
               <div
