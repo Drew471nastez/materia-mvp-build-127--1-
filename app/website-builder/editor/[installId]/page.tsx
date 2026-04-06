@@ -953,48 +953,71 @@ function WbSelect({
 }
 
 // ── Per-section Color Scheme Picker ──────────────────────────
-// Renders the row of 5 Aa swatches for picking which global scheme
-// the currently-selected section uses.
+// Renders a vertical list of 5 Aa pills (matching the Storelib mock).
+// The active pill has a blue ring + an "Edit" button that jumps to
+// the global Color Schemes editor.
 function SectionColorSchemePicker({
   value,
   onChange,
   themeSchemes,
+  onEditScheme,
 }: {
   value: string
   onChange: (v: string) => void
   themeSchemes: Record<string, ColorSchemeValues> | undefined
+  onEditScheme?: () => void
 }) {
   const keys: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
   const labels: Record<ColorSchemeKey, string> = {
     white: "White", light: "Light", dark: "Dark", black: "Black", highlight: "Highlight",
   }
   return (
-    <div className="border-b border-border p-4 space-y-2">
-      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Section Color Scheme</p>
-      <p className="text-[11px] text-muted-foreground leading-relaxed">
-        Choose a color scheme for this section. Visit the Color Schemes editor in General Settings to customise colors.
+    <div className="border-b border-border p-4 space-y-3">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Color Scheme</p>
+      <p className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+        <Info className="h-3 w-3 shrink-0 mt-0.5" />
+        Choose a color scheme for this section. Visit the
+        {onEditScheme ? (
+          <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline mx-1">
+            color scheme editor
+          </button>
+        ) : (
+          <span className="text-blue-600 mx-1">color scheme editor</span>
+        )}
+        to customise colors.
       </p>
-      <div className="grid grid-cols-5 gap-2 pt-1">
+      <div className="space-y-2">
         {keys.map(k => {
           const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
           const isActive = value === k
+          // Use the global SCHEME_PILL_STYLES for consistent visuals
+          const pill = SCHEME_PILL_STYLES[k]
           return (
             <button
               key={k}
               type="button"
               onClick={() => onChange(k)}
               className={cn(
-                "flex flex-col items-center gap-1.5 p-1 rounded-lg transition-all cursor-pointer hover:scale-[1.04]",
-                isActive && "ring-2 ring-purple-500 ring-offset-2",
+                "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 transition-all cursor-pointer",
+                isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
               )}
+              style={{ background: pill.bg, color: pill.text }}
             >
-              <div
-                className="w-full aspect-square rounded-md border border-border flex items-center justify-center text-[14px] font-semibold"
-                style={{ background: sc.bg, color: sc.heading }}
-              >
-                Aa
-              </div>
-              <span className="text-[10px] font-medium text-foreground">{labels[k]}</span>
+              <span className="flex items-center gap-2.5">
+                <span className="text-[14px] font-bold">Aa</span>
+                <span className="text-sm font-medium">{labels[k]}</span>
+              </span>
+              {isActive && onEditScheme && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={e => { e.stopPropagation(); onEditScheme() }}
+                  onKeyDown={e => { if (e.key === "Enter") { e.stopPropagation(); onEditScheme() } }}
+                  className="text-[12px] font-medium px-2.5 py-1 rounded border border-current bg-white/80 text-gray-900 hover:bg-white transition-colors cursor-pointer"
+                >
+                  Edit
+                </span>
+              )}
             </button>
           )
         })}
@@ -1011,24 +1034,207 @@ const COLOR_SCHEME_KEYS: ColorSchemeKey[] = ["white", "light", "dark", "black", 
 const COLOR_SCHEME_LABELS: Record<ColorSchemeKey, string> = {
   white: "White", light: "Light", dark: "Dark", black: "Black", highlight: "Highlight",
 }
+// Full color slot definitions, grouped by section as in the spec.
 const COLOR_SCHEME_GROUPS: { id: keyof ColorSchemeValues; label: string; group: string }[] = [
-  { id: "bg",                    label: "Background",            group: "Section" },
-  { id: "text",                  label: "Text",                  group: "Section" },
-  { id: "heading",               label: "Heading text",          group: "Section" },
-  { id: "border",                label: "Inset border",          group: "Section" },
+  // Header
   { id: "store_title",           label: "Store title",           group: "Header" },
   { id: "nav_link",              label: "Navigation links",      group: "Header" },
-  { id: "link",                  label: "Link",                  group: "Links" },
-  { id: "link_underline",        label: "Link underline",        group: "Links" },
-  { id: "primary_btn_bg",        label: "Background",            group: "Primary Button (Normal)" },
-  { id: "primary_btn_text",      label: "Text",                  group: "Primary Button (Normal)" },
-  { id: "primary_btn_border",    label: "Border",                group: "Primary Button (Normal)" },
-  { id: "primary_btn_hover_bg",  label: "Background",            group: "Primary Button (Hover)" },
-  { id: "primary_btn_hover_text",label: "Text",                  group: "Primary Button (Hover)" },
-  { id: "secondary_btn_bg",      label: "Background",            group: "Secondary Button" },
-  { id: "secondary_btn_text",    label: "Text",                  group: "Secondary Button" },
-  { id: "secondary_btn_border",  label: "Border",                group: "Secondary Button" },
+  // Section
+  { id: "bg",                    label: "Background",            group: "Section" },
+  { id: "inset_border",          label: "Inset border",          group: "Section" },
+  // Text
+  { id: "heading",               label: "Heading text",          group: "Text" },
+  { id: "paragraph",             label: "Paragraph text",        group: "Text" },
+  { id: "link",                  label: "Link",                  group: "Text" },
+  { id: "link_underline",        label: "Link underline",        group: "Text" },
+  // Primary Button — Normal
+  { id: "primary_btn_bg",        label: "Background",            group: "Primary Button (Normal State)" },
+  { id: "primary_btn_text",      label: "Text",                  group: "Primary Button (Normal State)" },
+  { id: "primary_btn_border",    label: "Border",                group: "Primary Button (Normal State)" },
+  // Primary Button — Hover
+  { id: "primary_btn_hover_bg",  label: "Background",            group: "Primary Button (Hover State)" },
+  { id: "primary_btn_hover_text",label: "Text",                  group: "Primary Button (Hover State)" },
+  { id: "primary_btn_hover_border", label: "Border",             group: "Primary Button (Hover State)" },
+  // Secondary Button — Normal
+  { id: "secondary_btn_bg",      label: "Background",            group: "Secondary Button (Normal State)" },
+  { id: "secondary_btn_text",    label: "Text",                  group: "Secondary Button (Normal State)" },
+  { id: "secondary_btn_border",  label: "Border",                group: "Secondary Button (Normal State)" },
+  // Secondary Button — Hover
+  { id: "secondary_btn_hover_bg",label: "Background",            group: "Secondary Button (Hover State)" },
+  { id: "secondary_btn_hover_text", label: "Text",               group: "Secondary Button (Hover State)" },
+  { id: "secondary_btn_hover_border", label: "Border",           group: "Secondary Button (Hover State)" },
+  // Footer
+  { id: "footer_link",           label: "Footer link",           group: "Footer" },
+  { id: "footer_link_underline", label: "Footer link underline", group: "Footer" },
+  // Misc
+  { id: "borders",               label: "Borders",               group: "Misc" },
+  { id: "on_sale",               label: "On sale",               group: "Misc" },
+  // Subscription Page
+  { id: "plan_bg",               label: "Plan background",       group: "Subscription Page" },
+  { id: "plan_border",           label: "Plan border",           group: "Subscription Page" },
+  { id: "plan_heading",          label: "Plan heading",          group: "Subscription Page" },
+  { id: "plan_paragraph",        label: "Plan paragraph",        group: "Subscription Page" },
+  { id: "plan_link",             label: "Plan link",             group: "Subscription Page" },
+  { id: "plan_link_underline",   label: "Plan link underline",   group: "Subscription Page" },
+  // Subscription Login Page
+  { id: "login_form_bg",         label: "Login form background", group: "Subscription Login Page" },
+  { id: "login_form_border",     label: "Login form border",     group: "Subscription Login Page" },
+  // Slideshow Section
+  { id: "slideshow_controls",    label: "Controls",              group: "Slideshow Section" },
+  { id: "slideshow_controls_bg", label: "Controls background",   group: "Slideshow Section" },
+  // Image Overlay
+  { id: "image_overlay_bg",      label: "Background",            group: "Image Overlay" },
+  { id: "image_overlay_text",    label: "Text",                  group: "Image Overlay" },
+  // Announcement Bar
+  { id: "announcement_bg",       label: "Background",            group: "Announcement Bar" },
+  { id: "announcement_text",     label: "Text",                  group: "Announcement Bar" },
+  // Image Collage
+  { id: "collage_title",         label: "Title",                 group: "Image Collage" },
+  { id: "collage_subtitle",      label: "Subtitle",              group: "Image Collage" },
+  { id: "collage_bg",            label: "Background",            group: "Image Collage" },
+  { id: "collage_link",          label: "Image collage link",    group: "Image Collage" },
+  { id: "collage_link_underline",label: "Image collage link underline", group: "Image Collage" },
+  // Header Dropdown
+  { id: "header_dropdown_bg",    label: "Background",            group: "Header Dropdown" },
+  { id: "header_dropdown_link",  label: "Link",                  group: "Header Dropdown" },
+  // Header Cart Notification
+  { id: "cart_notification_bg",  label: "Background",            group: "Header Cart Notification" },
+  { id: "cart_notification_text",label: "Text",                  group: "Header Cart Notification" },
+  // Pagination
+  { id: "pagination_bg",         label: "Background",            group: "Pagination (Normal State)" },
+  { id: "pagination_text",       label: "Text",                  group: "Pagination (Normal State)" },
+  { id: "pagination_active_bg",  label: "Background",            group: "Pagination (Active State)" },
+  { id: "pagination_active_text",label: "Text",                  group: "Pagination (Active State)" },
+  // Course Curriculum
+  { id: "curriculum_bg",         label: "Background",            group: "Course Curriculum" },
+  { id: "curriculum_list_title", label: "List item title",       group: "Course Curriculum" },
+  { id: "curriculum_lesson_title", label: "Lesson title",        group: "Course Curriculum" },
+  { id: "curriculum_icon",       label: "Icon",                  group: "Course Curriculum" },
+  { id: "curriculum_free_badge", label: "Free preview badge",    group: "Course Curriculum" },
+  // Customer Reviews
+  { id: "review_star",           label: "Star rating",           group: "Customer Reviews" },
+  { id: "review_verified",       label: "Verified buyer icon",   group: "Customer Reviews" },
+  { id: "review_recommended",    label: "Recommended icon",      group: "Customer Reviews" },
+  // Video Play Button
+  { id: "video_play_bg",         label: "Background",            group: "Video Play Button" },
+  { id: "video_play_icon",       label: "Icon",                  group: "Video Play Button" },
+  // On Sale Badge
+  { id: "sale_badge_bg",         label: "Background",            group: "On Sale Badge" },
+  { id: "sale_badge_text",       label: "Text",                  group: "On Sale Badge" },
+  { id: "sale_badge_border",     label: "Border",                group: "On Sale Badge" },
+  // Out Of Stock Badge
+  { id: "oos_badge_bg",          label: "Background",            group: "Out Of Stock Badge" },
+  { id: "oos_badge_text",        label: "Text",                  group: "Out Of Stock Badge" },
+  { id: "oos_badge_border",      label: "Border",                group: "Out Of Stock Badge" },
+  // Sale Time Remaining
+  { id: "sale_time_bg",          label: "Background",            group: "Sale Time Remaining" },
+  { id: "sale_time_text",        label: "Text",                  group: "Sale Time Remaining" },
+  { id: "sale_time_border",      label: "Border",                group: "Sale Time Remaining" },
+  // Inventory Low Message
+  { id: "inventory_low_text",    label: "Text",                  group: "Inventory Low Message" },
+  // Description Tab
+  { id: "desc_tab_bg",           label: "Background",            group: "Description Tab" },
+  { id: "desc_tab_text",         label: "Text",                  group: "Description Tab" },
+  { id: "desc_tab_border",       label: "Border",                group: "Description Tab" },
+  // Slider List Section
+  { id: "slider_controls",       label: "Controls",              group: "Slider List Section" },
+  { id: "slider_controls_bg",    label: "Controls background",   group: "Slider List Section" },
 ]
+
+const SCHEME_PILL_STYLES: Record<ColorSchemeKey, { bg: string; text: string }> = {
+  white:     { bg: "#ffffff", text: "#0f172a" },
+  light:     { bg: "#f1f5f9", text: "#0f172a" },
+  dark:      { bg: "#1f2937", text: "#ffffff" },
+  black:     { bg: "#000000", text: "#ffffff" },
+  highlight: { bg: "#fde2e4", text: "#1f2937" },
+}
+
+// ── Pretty color picker dropdown (chevron + popup) ───────────
+function ColorChip({
+  value,
+  onChange,
+  existing,
+}: {
+  value: string
+  onChange: (v: string) => void
+  existing: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", onDoc)
+    return () => document.removeEventListener("mousedown", onDoc)
+  }, [open])
+
+  const isTransparent = !value || value === "transparent"
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 h-7 px-1.5 rounded border border-border hover:border-purple-400 transition-colors cursor-pointer"
+        aria-label="Pick color"
+      >
+        <span
+          className="h-5 w-5 rounded-full border border-border shrink-0"
+          style={{
+            background: isTransparent
+              ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
+              : value,
+          }}
+        />
+        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute z-50 right-0 top-full mt-1 w-[260px] bg-white border border-border rounded-xl shadow-xl p-3">
+          <input
+            type="color"
+            value={isTransparent ? "#000000" : value}
+            onChange={e => onChange(e.target.value)}
+            className="w-full h-9 cursor-pointer rounded border border-border"
+          />
+          <input
+            type="text"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="mt-2 w-full h-8 px-2 text-xs border border-border rounded uppercase tabular-nums focus:outline-none focus:ring-1 focus:ring-purple-500"
+            placeholder="#FFFFFF"
+          />
+          {existing.length > 0 && (
+            <>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1.5">Existing colors</p>
+              <div className="grid grid-cols-7 gap-1.5">
+                {existing.map((c, i) => (
+                  <button
+                    key={`${c}-${i}`}
+                    type="button"
+                    onClick={() => { onChange(c); setOpen(false) }}
+                    className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform"
+                    style={{ background: c }}
+                    aria-label={`Use ${c}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => { onChange("transparent"); setOpen(false) }}
+            className="mt-3 w-full h-9 flex items-center justify-center gap-2 text-xs border border-border rounded hover:bg-muted transition-colors"
+          >
+            <span className="inline-block h-4 w-4 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
+            Don&apos;t apply any color
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ColorSchemesEditor({
   value,
@@ -1038,6 +1244,8 @@ function ColorSchemesEditor({
   onChange: (v: Record<string, ColorSchemeValues>) => void
 }) {
   const [active, setActive] = useState<ColorSchemeKey>("white")
+  const [stepOneOpen, setStepOneOpen] = useState(false)
+
   // Merge defaults so we always have a complete shape to edit
   const schemes: Record<ColorSchemeKey, ColorSchemeValues> = {
     white:     { ...DEFAULT_COLOR_SCHEMES.white,     ...(value?.white ?? {}) },
@@ -1055,6 +1263,13 @@ function ColorSchemesEditor({
     onChange({ ...schemes, [active]: { ...DEFAULT_COLOR_SCHEMES[active] } })
   }
 
+  // Build the recently-used color list for the picker
+  const existing = Array.from(
+    new Set(
+      Object.values(current).filter((v): v is string => typeof v === "string" && v !== "transparent"),
+    ),
+  ).slice(0, 14)
+
   // Group fields by their group label
   const grouped: Record<string, typeof COLOR_SCHEME_GROUPS> = {}
   for (const f of COLOR_SCHEME_GROUPS) {
@@ -1063,45 +1278,66 @@ function ColorSchemesEditor({
 
   return (
     <div className="space-y-4">
-      <p className="text-[11px] text-muted-foreground leading-relaxed">
-        Each section in the editor uses one of these schemes. Pick a scheme tab below and edit its colors — every section using that scheme will update.
+      <h3 className="text-[15px] font-semibold">Edit Section Color Scheme</h3>
+      <p className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+        <Info className="h-3 w-3 shrink-0 mt-0.5" />
+        Click on any element in the preview, then its settings will appear. Each scheme is global — every section using it updates.
       </p>
 
-      {/* Step 1: Choose scheme */}
+      {/* ─── Step 1: Choose color scheme (dropdown) ─── */}
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Step 1 · Choose color scheme</p>
-        <div className="grid grid-cols-5 gap-2">
-          {COLOR_SCHEME_KEYS.map(k => {
-            const sc = schemes[k]
-            const isActive = active === k
-            return (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setActive(k)}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 p-1 rounded-lg transition-all",
-                  isActive && "ring-2 ring-purple-500 ring-offset-2",
-                )}
+        <p className="text-[12px] font-semibold text-foreground"><span className="font-bold">Step 1:</span> Choose color scheme you&apos;d like to edit</p>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setStepOneOpen(!stepOneOpen)}
+            className="w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 border-blue-500 bg-white hover:bg-blue-50/30 transition-colors"
+          >
+            <span className="flex items-center gap-2.5">
+              <span
+                className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold"
+                style={{ background: SCHEME_PILL_STYLES[active].bg, color: SCHEME_PILL_STYLES[active].text }}
               >
-                <div
-                  className="w-full aspect-square rounded-md border border-border flex items-center justify-center text-[14px] font-semibold"
-                  style={{ background: sc.bg, color: sc.heading }}
-                >
-                  Aa
-                </div>
-                <span className="text-[10px] font-medium text-foreground">{COLOR_SCHEME_LABELS[k]}</span>
-              </button>
-            )
-          })}
+                Aa
+              </span>
+              <span className="text-sm font-medium text-foreground">{COLOR_SCHEME_LABELS[active]}</span>
+            </span>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", stepOneOpen && "rotate-180")} />
+          </button>
+          {stepOneOpen && (
+            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-xl overflow-hidden">
+              {COLOR_SCHEME_KEYS.map(k => {
+                const isActive = active === k
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { setActive(k); setStepOneOpen(false) }}
+                    className={cn(
+                      "w-full h-12 flex items-center gap-2.5 px-3 transition-colors",
+                      isActive ? "border-2 border-blue-500" : "border-2 border-transparent hover:bg-blue-50/40",
+                    )}
+                  >
+                    <span
+                      className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold"
+                      style={{ background: SCHEME_PILL_STYLES[k].bg, color: SCHEME_PILL_STYLES[k].text }}
+                    >
+                      Aa
+                    </span>
+                    <span className="text-sm font-medium text-foreground">{COLOR_SCHEME_LABELS[k]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="h-px bg-border" />
 
-      {/* Step 2: Edit colors */}
+      {/* ─── Step 2: Edit colors ─── */}
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Step 2 · Edit “{COLOR_SCHEME_LABELS[active]}”</p>
+        <p className="text-[12px] font-semibold text-foreground"><span className="font-bold">Step 2:</span> Edit the colors of this color scheme</p>
         <button
           type="button"
           onClick={resetScheme}
@@ -1112,28 +1348,25 @@ function ColorSchemesEditor({
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
         {Object.entries(grouped).map(([groupLabel, fields]) => (
-          <div key={groupLabel} className="space-y-2">
+          <div key={groupLabel} className="space-y-1">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{groupLabel}</p>
-            <div className="space-y-2">
-              {fields.map(f => (
-                <div key={f.id} className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-foreground flex-1 truncate">{f.label}</span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="color"
-                      value={current[f.id] || "#000000"}
-                      onChange={e => updateColor(f.id, e.target.value)}
-                      className="h-7 w-7 rounded border border-border cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={current[f.id] || ""}
-                      onChange={e => updateColor(f.id, e.target.value)}
-                      className="w-[78px] h-7 px-2 text-[11px] border border-border rounded uppercase tabular-nums focus:outline-none focus:ring-1 focus:ring-purple-500"
-                    />
-                  </div>
+            <div>
+              {fields.map((f, idx) => (
+                <div
+                  key={f.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 py-2.5",
+                    idx > 0 && "border-t border-border/60",
+                  )}
+                >
+                  <span className="text-[13px] text-foreground flex-1 truncate">{f.label}</span>
+                  <ColorChip
+                    value={current[f.id] || "#000000"}
+                    onChange={c => updateColor(f.id, c)}
+                    existing={existing}
+                  />
                 </div>
               ))}
             </div>
@@ -1908,52 +2141,73 @@ function HeaderSectionSettings({
 
       case "elements":
         return (
-          <div className="space-y-5">
-            <WbToggle
-              label="Show search icon"
-              value={s.show_search}
-              onChange={v => onUpdateSetting("show_search", v)}
-              info="Show a search icon on the right side of the header"
-            />
-            <WbToggle
-              label="Show cart icon"
-              value={s.show_cart}
-              onChange={v => onUpdateSetting("show_cart", v)}
-              info="Cart icon opens a slide-in cart drawer"
-            />
-            <div className="h-px bg-border" />
-            <WbColorPicker
-              label="Nav link color"
-              value={s.nav_link_color}
-              onChange={v => onUpdateSetting("nav_link_color", v)}
-              defaultValue="#000000"
-            />
-            <WbColorPicker
-              label="Background color"
-              value={s.bg_color}
-              onChange={v => onUpdateSetting("bg_color", v)}
-              defaultValue="#ffffff"
-            />
-            <WbColorPicker
-              label="Text color"
-              value={s.text_color}
-              onChange={v => onUpdateSetting("text_color", v)}
-              defaultValue="#0f172a"
-            />
-            <div className="h-px bg-border" />
-            <WbToggle
-              label="Show bottom border"
-              value={s.show_border}
-              onChange={v => onUpdateSetting("show_border", v)}
-            />
-            {(s.show_border !== false) && (
-              <WbColorPicker
-                label="Border color"
-                value={s.border_color}
-                onChange={v => onUpdateSetting("border_color", v)}
-                defaultValue="#e2e8f0"
+          <div className="space-y-6">
+            {/* ── Call To Action Button ── */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Call To Action Button</p>
+              <WbToggle
+                label="Show call to action button"
+                value={s.show_cta_button}
+                onChange={v => onUpdateSetting("show_cta_button", v)}
               />
-            )}
+              {s.show_cta_button !== false && (
+                <>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">Button Text</p>
+                    <input
+                      type="text"
+                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                      placeholder="Discover"
+                      value={typeof s.cta_text === "string" ? s.cta_text : ""}
+                      onChange={e => onUpdateSetting("cta_text", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">Button Link</p>
+                    <input
+                      type="text"
+                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+                      placeholder="/products"
+                      value={typeof s.cta_url === "string" ? s.cta_url : ""}
+                      onChange={e => onUpdateSetting("cta_url", e.target.value)}
+                    />
+                  </div>
+                  <WbRadioSegment
+                    label="Button style"
+                    value={s.cta_style}
+                    onChange={v => onUpdateSetting("cta_style", v)}
+                    options={[
+                      { label: "Filled", value: "filled" },
+                      { label: "Outline", value: "outline" },
+                      { label: "Ghost", value: "ghost" },
+                    ]}
+                  />
+                </>
+              )}
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                A call to action button lets you immediately draw a visitor&apos;s attention to the most important page.
+              </p>
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* ── Search & Cart ── */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Search &amp; Cart</p>
+              <WbToggle
+                label="Show search icon"
+                value={s.show_search}
+                onChange={v => onUpdateSetting("show_search", v)}
+              />
+              <WbToggle
+                label="Show cart icon"
+                value={s.show_cart}
+                onChange={v => onUpdateSetting("show_cart", v)}
+              />
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                We highly recommend you don&apos;t disable the cart icon, however in some cases you might need to.
+              </p>
+            </div>
           </div>
         )
 
@@ -3159,6 +3413,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               value={typeof section.settings.color_scheme === "string" ? section.settings.color_scheme : "white"}
               onChange={v => updateSectionSetting(section.id, "color_scheme", v)}
               themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
+              onEditScheme={() => {
+                setSidebarMode("settings")
+                setExpandedSettings("color_schemes")
+                setSelectedPanel({ type: "pages" })
+              }}
             />
 
             {schema?.fields && schema.fields.length > 0 && (

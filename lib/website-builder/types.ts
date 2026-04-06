@@ -52,63 +52,288 @@ export interface ThemeSettings {
 // section.settings.color_scheme. The renderer resolves the scheme
 // from theme.color_schemes and applies its colors as the section's
 // defaults.
+//
+// Every color slot from the Storelib spec is mapped here. Optional
+// fields default to sensible values from DEFAULT_COLOR_SCHEMES so
+// older saved schemes keep working.
 export interface ColorSchemeValues {
+  // ── Header ──
+  store_title: string
+  nav_link: string
+
+  // ── Section ──
   bg: string
-  text: string
+  inset_border: string
+
+  // ── Text ──
   heading: string
+  paragraph: string
   link: string
   link_underline: string
+  // Legacy / shared
+  text: string
   border: string
+
+  // ── Primary Button ──
   primary_btn_bg: string
   primary_btn_text: string
   primary_btn_border: string
   primary_btn_hover_bg: string
   primary_btn_hover_text: string
+  primary_btn_hover_border: string
+
+  // ── Secondary Button ──
   secondary_btn_bg: string
   secondary_btn_text: string
   secondary_btn_border: string
-  store_title: string
-  nav_link: string
+  secondary_btn_hover_bg: string
+  secondary_btn_hover_text: string
+  secondary_btn_hover_border: string
+
+  // ── Footer ──
+  footer_link: string
+  footer_link_underline: string
+
+  // ── Misc ──
+  borders: string
+  on_sale: string
+
+  // ── Subscription Page ──
+  plan_bg: string
+  plan_border: string
+  plan_heading: string
+  plan_paragraph: string
+  plan_link: string
+  plan_link_underline: string
+
+  // ── Subscription Login Page ──
+  login_form_bg: string
+  login_form_border: string
+
+  // ── Slideshow Section ──
+  slideshow_controls: string
+  slideshow_controls_bg: string
+
+  // ── Image Overlay ──
+  image_overlay_bg: string
+  image_overlay_text: string
+
+  // ── Announcement Bar ──
+  announcement_bg: string
+  announcement_text: string
+
+  // ── Image Collage ──
+  collage_title: string
+  collage_subtitle: string
+  collage_bg: string
+  collage_link: string
+  collage_link_underline: string
+
+  // ── Header Dropdown ──
+  header_dropdown_bg: string
+  header_dropdown_link: string
+
+  // ── Header Cart Notification ──
+  cart_notification_bg: string
+  cart_notification_text: string
+
+  // ── Pagination ──
+  pagination_bg: string
+  pagination_text: string
+  pagination_active_bg: string
+  pagination_active_text: string
+
+  // ── Course Curriculum ──
+  curriculum_bg: string
+  curriculum_list_title: string
+  curriculum_lesson_title: string
+  curriculum_icon: string
+  curriculum_free_badge: string
+
+  // ── Customer Reviews ──
+  review_star: string
+  review_verified: string
+  review_recommended: string
+
+  // ── Video Play Button ──
+  video_play_bg: string
+  video_play_icon: string
+
+  // ── On Sale Badge ──
+  sale_badge_bg: string
+  sale_badge_text: string
+  sale_badge_border: string
+
+  // ── Out Of Stock Badge ──
+  oos_badge_bg: string
+  oos_badge_text: string
+  oos_badge_border: string
+
+  // ── Sale Time Remaining ──
+  sale_time_bg: string
+  sale_time_text: string
+  sale_time_border: string
+
+  // ── Inventory Low Message ──
+  inventory_low_text: string
+
+  // ── Description Tab ──
+  desc_tab_bg: string
+  desc_tab_text: string
+  desc_tab_border: string
+
+  // ── Slider List Section ──
+  slider_controls: string
+  slider_controls_bg: string
 }
 export type ColorSchemeKey = "white" | "light" | "dark" | "black" | "highlight"
 export type ColorSchemes = Record<ColorSchemeKey, ColorSchemeValues>
 
+// Helper to build a complete scheme from a small palette
+function buildScheme(p: {
+  bg: string; text: string; heading: string; paragraph: string; border: string;
+  link: string; primaryBtnBg: string; primaryBtnText: string;
+  secondaryBtnBg: string; secondaryBtnText: string;
+  navLink: string; storeTitle: string; accent: string;
+}): ColorSchemeValues {
+  return {
+    // Header
+    store_title: p.storeTitle,
+    nav_link: p.navLink,
+    // Section
+    bg: p.bg,
+    inset_border: p.border,
+    // Text
+    heading: p.heading,
+    paragraph: p.paragraph,
+    link: p.link,
+    link_underline: p.link,
+    text: p.text,
+    border: p.border,
+    // Primary button
+    primary_btn_bg: p.primaryBtnBg,
+    primary_btn_text: p.primaryBtnText,
+    primary_btn_border: p.primaryBtnBg,
+    primary_btn_hover_bg: p.accent,
+    primary_btn_hover_text: p.primaryBtnText,
+    primary_btn_hover_border: p.accent,
+    // Secondary button
+    secondary_btn_bg: p.secondaryBtnBg,
+    secondary_btn_text: p.secondaryBtnText,
+    secondary_btn_border: p.secondaryBtnText,
+    secondary_btn_hover_bg: p.secondaryBtnText,
+    secondary_btn_hover_text: p.secondaryBtnBg,
+    secondary_btn_hover_border: p.secondaryBtnText,
+    // Footer
+    footer_link: p.link,
+    footer_link_underline: p.link,
+    // Misc
+    borders: p.border,
+    on_sale: "#ef4444",
+    // Subscription Page
+    plan_bg: p.bg,
+    plan_border: p.border,
+    plan_heading: p.heading,
+    plan_paragraph: p.paragraph,
+    plan_link: p.link,
+    plan_link_underline: p.link,
+    // Subscription Login Page
+    login_form_bg: p.bg,
+    login_form_border: p.border,
+    // Slideshow
+    slideshow_controls: p.text,
+    slideshow_controls_bg: p.bg,
+    // Image Overlay
+    image_overlay_bg: "rgba(0,0,0,0.4)",
+    image_overlay_text: "#ffffff",
+    // Announcement Bar
+    announcement_bg: p.heading,
+    announcement_text: p.bg,
+    // Image Collage
+    collage_title: p.heading,
+    collage_subtitle: p.paragraph,
+    collage_bg: p.bg,
+    collage_link: p.link,
+    collage_link_underline: p.link,
+    // Header Dropdown
+    header_dropdown_bg: p.bg,
+    header_dropdown_link: p.text,
+    // Cart Notification
+    cart_notification_bg: p.heading,
+    cart_notification_text: p.bg,
+    // Pagination
+    pagination_bg: p.bg,
+    pagination_text: p.text,
+    pagination_active_bg: p.heading,
+    pagination_active_text: p.bg,
+    // Course Curriculum
+    curriculum_bg: p.bg,
+    curriculum_list_title: p.heading,
+    curriculum_lesson_title: p.text,
+    curriculum_icon: p.text,
+    curriculum_free_badge: "#10b981",
+    // Customer Reviews
+    review_star: "#f59e0b",
+    review_verified: "#10b981",
+    review_recommended: "#6366f1",
+    // Video Play Button
+    video_play_bg: "rgba(0,0,0,0.6)",
+    video_play_icon: "#ffffff",
+    // On Sale Badge
+    sale_badge_bg: "#ef4444",
+    sale_badge_text: "#ffffff",
+    sale_badge_border: "#ef4444",
+    // Out Of Stock Badge
+    oos_badge_bg: "#9ca3af",
+    oos_badge_text: "#ffffff",
+    oos_badge_border: "#9ca3af",
+    // Sale Time Remaining
+    sale_time_bg: "#fef3c7",
+    sale_time_text: "#92400e",
+    sale_time_border: "#fde68a",
+    // Inventory Low Message
+    inventory_low_text: "#ef4444",
+    // Description Tab
+    desc_tab_bg: p.bg,
+    desc_tab_text: p.text,
+    desc_tab_border: p.border,
+    // Slider List
+    slider_controls: p.text,
+    slider_controls_bg: p.bg,
+  }
+}
+
 export const DEFAULT_COLOR_SCHEMES: ColorSchemes = {
-  white: {
-    bg: "#ffffff", text: "#0f172a", heading: "#0f172a", link: "#0f172a", link_underline: "#0f172a",
-    border: "#e2e8f0", primary_btn_bg: "#0f172a", primary_btn_text: "#ffffff", primary_btn_border: "#0f172a",
-    primary_btn_hover_bg: "#1f2937", primary_btn_hover_text: "#ffffff",
-    secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a", secondary_btn_border: "#0f172a",
-    store_title: "#0f172a", nav_link: "#000000",
-  },
-  light: {
-    bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", link: "#0f172a", link_underline: "#0f172a",
-    border: "#e2e8f0", primary_btn_bg: "#0f172a", primary_btn_text: "#ffffff", primary_btn_border: "#0f172a",
-    primary_btn_hover_bg: "#1f2937", primary_btn_hover_text: "#ffffff",
-    secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a", secondary_btn_border: "#cbd5e1",
-    store_title: "#0f172a", nav_link: "#0f172a",
-  },
-  dark: {
-    bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", link: "#f8fafc", link_underline: "#f8fafc",
-    border: "#374151", primary_btn_bg: "#ffffff", primary_btn_text: "#0f172a", primary_btn_border: "#ffffff",
-    primary_btn_hover_bg: "#e5e7eb", primary_btn_hover_text: "#0f172a",
-    secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff", secondary_btn_border: "#ffffff",
-    store_title: "#ffffff", nav_link: "#f8fafc",
-  },
-  black: {
-    bg: "#000000", text: "#ffffff", heading: "#ffffff", link: "#ffffff", link_underline: "#ffffff",
-    border: "#1f2937", primary_btn_bg: "#ffffff", primary_btn_text: "#000000", primary_btn_border: "#ffffff",
-    primary_btn_hover_bg: "#e5e7eb", primary_btn_hover_text: "#000000",
-    secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff", secondary_btn_border: "#ffffff",
-    store_title: "#ffffff", nav_link: "#ffffff",
-  },
-  highlight: {
-    bg: "#6366f1", text: "#ffffff", heading: "#ffffff", link: "#ffffff", link_underline: "#ffffff",
-    border: "#4f46e5", primary_btn_bg: "#ffffff", primary_btn_text: "#6366f1", primary_btn_border: "#ffffff",
-    primary_btn_hover_bg: "#f8fafc", primary_btn_hover_text: "#4f46e5",
-    secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff", secondary_btn_border: "#ffffff",
-    store_title: "#ffffff", nav_link: "#ffffff",
-  },
+  white: buildScheme({
+    bg: "#ffffff", text: "#5C5B63", heading: "#0f172a", paragraph: "#5C5B63", border: "#e2e8f0",
+    link: "#0f172a", primaryBtnBg: "#000000", primaryBtnText: "#ffffff",
+    secondaryBtnBg: "#ffffff", secondaryBtnText: "#0f172a",
+    navLink: "#5C5B63", storeTitle: "#0f172a", accent: "#1f2937",
+  }),
+  light: buildScheme({
+    bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", paragraph: "#475569", border: "#e2e8f0",
+    link: "#0f172a", primaryBtnBg: "#0f172a", primaryBtnText: "#ffffff",
+    secondaryBtnBg: "#ffffff", secondaryBtnText: "#0f172a",
+    navLink: "#0f172a", storeTitle: "#0f172a", accent: "#1f2937",
+  }),
+  dark: buildScheme({
+    bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", paragraph: "#cbd5e1", border: "#374151",
+    link: "#f8fafc", primaryBtnBg: "#ffffff", primaryBtnText: "#0f172a",
+    secondaryBtnBg: "transparent", secondaryBtnText: "#ffffff",
+    navLink: "#f8fafc", storeTitle: "#ffffff", accent: "#e5e7eb",
+  }),
+  black: buildScheme({
+    bg: "#000000", text: "#ffffff", heading: "#ffffff", paragraph: "#cbd5e1", border: "#1f2937",
+    link: "#ffffff", primaryBtnBg: "#ffffff", primaryBtnText: "#000000",
+    secondaryBtnBg: "transparent", secondaryBtnText: "#ffffff",
+    navLink: "#ffffff", storeTitle: "#ffffff", accent: "#e5e7eb",
+  }),
+  highlight: buildScheme({
+    bg: "#fde2e4", text: "#1f2937", heading: "#1f2937", paragraph: "#475569", border: "#fbcfd1",
+    link: "#1f2937", primaryBtnBg: "#1f2937", primaryBtnText: "#fde2e4",
+    secondaryBtnBg: "transparent", secondaryBtnText: "#1f2937",
+    navLink: "#1f2937", storeTitle: "#1f2937", accent: "#0f172a",
+  }),
 }
 
 export interface ThemeSettingsValues {
