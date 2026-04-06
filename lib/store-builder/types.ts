@@ -39,42 +39,11 @@ export interface SocialLinksConfig {
 }
 
 // Navigation link for header
-export type NavLinkTarget =
-  | "custom"
-  | "home"
-  | "shop"
-  | "product"
-  | "collection"
-  | "page"
-  | "blog"
-
 export interface NavLink {
   id: string
   label: string
   url: string
-  // What kind of resource this link points to. "custom" means url is a raw URL.
-  // The other values link to internal store resources by id/slug so labels can
-  // stay stable when the underlying slug changes.
-  linkType?: NavLinkTarget
-  // Internal target id (product id, collection id, page id, blog post id)
-  // when linkType is something other than "custom".
-  targetId?: string
-  // Open in new browser tab when clicked
-  openInNewTab?: boolean
 }
-
-// Header layout (logo / nav alignment)
-// 1: logo left,    nav right
-// 2: logo left,    nav next to logo
-// 3: logo left,    nav center
-// 4: nav left,     logo center
-// 5: logo center,  nav below
-export type HeaderLayout = "logo-left-nav-right" | "logo-left-nav-inline" | "logo-left-nav-center" | "nav-left-logo-center" | "logo-center-nav-below"
-
-// Header color scheme presets
-export type HeaderColorScheme = "white" | "light" | "dark" | "black" | "highlight"
-
-export type HeaderWidth = "fixed" | "full"
 
 // Footer column types
 export type FooterColumnType = "navigation" | "newsletter" | "social" | "custom-text"
@@ -402,34 +371,13 @@ export interface ShopHeaderSettings {
   socialMediaIconStyle?: "default" | "filled" | "outlined" // Icon style: default, filled circle, or outlined
   socialLinks?: SocialLinksConfig
   faviconUrl?: string
-  // ── Store logo / branding ──────────────────────────────────────────────
+  // Logo settings
   logoUrl?: string
-  logoHeight?: number // px, controls desktop logo render height
+  logoHeight?: number
   useMobileLogo?: boolean
   mobileLogoUrl?: string
-  // SEO / accessible store title — required even when a logo is set
-  storeTitle?: string
-
-  // ── Navigation links ───────────────────────────────────────────────────
+  // Navigation links
   navLinks?: NavLink[]
-  // Default text color for nav links when no color scheme override is set
-  navLinkColor?: string
-
-  // ── Header section (top bar) ───────────────────────────────────────────
-  // Layout selection — controls how logo / nav / utility icons are arranged
-  headerLayout?: HeaderLayout
-  // Optional color scheme preset (overrides individual colors)
-  headerColorScheme?: HeaderColorScheme
-  headerTransparent?: boolean
-  headerWidth?: HeaderWidth
-  headerFixed?: boolean
-  // Vertical padding (vw units) — matches the editor input
-  headerVerticalPaddingVw?: number
-  // Space between menu links (vw units)
-  headerLinkSpacingVw?: number
-  // Show / hide built-in utility icons
-  headerShowSearch?: boolean
-  headerShowCart?: boolean
   colors: ColorConfig
   spacing: SpacingConfig
   // Subscribe bar settings embedded in header for shop pages

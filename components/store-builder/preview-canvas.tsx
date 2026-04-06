@@ -5,7 +5,6 @@ import { useStoreBuilder } from "./store-builder-context"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { ShopHeaderSettings, ProductHeaderSettings } from "@/lib/store-builder/types"
-import { StoreHeaderBar } from "@/components/storefront/store-header-bar"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   UnifiedSectionRenderer,
@@ -707,15 +706,6 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                 scrollContainerRef={scrollParentRef}
               />
             )}
-
-            {/* Top header bar — logo, navigation links, search & cart drawer.
-                Rendered above the existing profile/cover header so the editor
-                preview matches the published storefront. */}
-            <StoreHeaderBar
-              settings={draftConfig.headerSettings as ShopHeaderSettings}
-              username={profile?.username || creator?.slug || ""}
-              storeDisplayName={profile?.display_name || undefined}
-            />
 
             <UnifiedShopHeader
               settings={draftConfig.headerSettings as ShopHeaderSettings}
