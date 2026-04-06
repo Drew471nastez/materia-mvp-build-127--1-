@@ -1253,10 +1253,12 @@ function HeaderSectionSettings({
   const tabs = [
     { id: "logo", label: "Store Logo" },
     { id: "nav", label: "Navigation Links" },
-    { id: "settings", label: "Header Settings" },
+    { id: "header", label: "Header Section" },
     { id: "button", label: "Button" },
     { id: "elements", label: "Elements" },
   ]
+
+  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
 
   // ── Sub-panel content ──────────────────────────────────────
   const renderSubPanel = (tabId: string) => {
@@ -1393,45 +1395,254 @@ function HeaderSectionSettings({
           </div>
         )
 
-      case "settings":
+      case "header": {
+        const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
+        const currentScheme = (typeof s.color_scheme === "string" ? s.color_scheme : "white")
+        const colorSchemes: { id: string; label: string; bg: string; text: string }[] = [
+          { id: "white",     label: "White",     bg: "#ffffff", text: "#0f172a" },
+          { id: "light",     label: "Light",     bg: "#f1f5f9", text: "#0f172a" },
+          { id: "dark",      label: "Dark",      bg: "#1f2937", text: "#ffffff" },
+          { id: "black",     label: "Black",     bg: "#000000", text: "#ffffff" },
+          { id: "highlight", label: "Highlight", bg: "#6366f1", text: "#ffffff" },
+        ]
+        const layoutOptions: { id: string; label: string; preview: React.ReactNode }[] = [
+          {
+            id: "logo_left_nav_right",
+            label: "Logo left · Nav + icons right",
+            preview: (
+              <div className="flex items-center justify-between w-full h-full px-3">
+                <div className="h-3 w-10 bg-gray-700 rounded-sm" />
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-2 w-2 bg-gray-700 rounded-full ml-1" />
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: "logo_left_nav_inline",
+            label: "Logo left · Nav inline · Icons right",
+            preview: (
+              <div className="flex items-center w-full h-full px-3 gap-3">
+                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
+                <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                <div className="flex-1" />
+                <div className="h-2 w-2 bg-gray-700 rounded-full" />
+              </div>
+            ),
+          },
+          {
+            id: "logo_left_nav_center",
+            label: "Logo left · Nav centered · Icons right",
+            preview: (
+              <div className="flex items-center justify-between w-full h-full px-3">
+                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                </div>
+                <div className="h-2 w-2 bg-gray-700 rounded-full" />
+              </div>
+            ),
+          },
+          {
+            id: "nav_left_logo_center",
+            label: "Nav left · Logo centered · Icons right",
+            preview: (
+              <div className="flex items-center justify-between w-full h-full px-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                </div>
+                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
+                <div className="h-2 w-2 bg-gray-700 rounded-full" />
+              </div>
+            ),
+          },
+          {
+            id: "logo_center_nav_below",
+            label: "Logo centered · Nav below",
+            preview: (
+              <div className="flex flex-col items-center justify-center w-full h-full gap-1.5">
+                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
+                </div>
+              </div>
+            ),
+          },
+        ]
+        const currentLayoutMeta = layoutOptions.find(l => l.id === currentLayout) ?? layoutOptions[0]
+
         return (
-          <div className="space-y-5">
-            <WbToggle
-              label="Sticky header"
-              value={s.sticky}
-              onChange={v => onUpdateSetting("sticky", v)}
-              info="Header stays at the top when scrolling"
-            />
-            <WbToggle
-              label="Transparent over hero"
-              value={s.transparent_on_hero}
-              onChange={v => onUpdateSetting("transparent_on_hero", v)}
-              info="Header background becomes transparent when over hero section"
-            />
+          <div className="space-y-6">
+            {/* ── Header layout ── */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout</p>
+              <button
+                type="button"
+                onClick={() => setLayoutPickerOpen(true)}
+                className="w-full group border border-border rounded-xl bg-background hover:border-purple-400 transition-colors overflow-hidden"
+              >
+                <div className="h-14 bg-muted/30 border-b border-border">
+                  {currentLayoutMeta.preview}
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5 text-left">
+                  <span className="text-xs font-medium text-foreground">{currentLayoutMeta.label}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </button>
+            </div>
+
             <div className="h-px bg-border" />
-            <WbRadioSegment
-              label="Navigation alignment"
-              value={s.nav_alignment}
-              onChange={v => onUpdateSetting("nav_alignment", v)}
-              options={[
-                { label: "Left", value: "left" },
-                { label: "Center", value: "center" },
-                { label: "Right", value: "right" },
-              ]}
-            />
-            <WbSelect
-              label="Container width"
-              value={s.max_width}
-              onChange={v => onUpdateSetting("max_width", v)}
-              options={[
-                { label: "Narrow", value: "narrow" },
-                { label: "Medium", value: "medium" },
-                { label: "Wide", value: "wide" },
-                { label: "Full width", value: "full" },
-              ]}
-            />
+
+            {/* ── Color Settings ── */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Color Settings</p>
+              <WbToggle
+                label="Make header transparent"
+                value={s.header_transparent}
+                onChange={v => onUpdateSetting("header_transparent", v)}
+              />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Choose a color scheme for the header. Visit the color scheme editor to customise colors.
+              </p>
+              <div className="grid grid-cols-5 gap-2">
+                {colorSchemes.map(scheme => {
+                  const active = currentScheme === scheme.id
+                  return (
+                    <button
+                      key={scheme.id}
+                      type="button"
+                      onClick={() => onUpdateSetting("color_scheme", scheme.id)}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 p-1 rounded-lg transition-all",
+                        active && "ring-2 ring-purple-500 ring-offset-2",
+                      )}
+                    >
+                      <div
+                        className="w-full aspect-square rounded-md border border-border flex items-center justify-center text-[14px] font-semibold"
+                        style={{ background: scheme.bg, color: scheme.text }}
+                      >
+                        Aa
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground">{scheme.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* ── Advanced Settings ── */}
+            <div className="space-y-4">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Advanced Settings</p>
+              <WbRadioSegment
+                label="Header width"
+                value={s.header_width}
+                onChange={v => onUpdateSetting("header_width", v)}
+                options={[
+                  { label: "Full", value: "full" },
+                  { label: "Fixed", value: "fixed" },
+                ]}
+              />
+              <WbToggle
+                label="Fixed position"
+                value={s.header_fixed}
+                onChange={v => onUpdateSetting("header_fixed", v)}
+                info="Header stays pinned to the top when scrolling"
+              />
+              <WbSlider
+                label="Vertical padding"
+                value={s.vertical_padding_vw}
+                onChange={v => onUpdateSetting("vertical_padding_vw", v)}
+                min={0}
+                max={5}
+                step={0.1}
+                unit="vw"
+                defaultValue={1.2}
+              />
+              <WbSlider
+                label="Space between menu links"
+                value={s.link_spacing_vw}
+                onChange={v => onUpdateSetting("link_spacing_vw", v)}
+                min={0.2}
+                max={5}
+                step={0.1}
+                unit="vw"
+                defaultValue={1.4}
+              />
+            </div>
+
+            {/* ── Layout picker modal ── */}
+            {layoutPickerOpen && (
+              <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50" onClick={() => setLayoutPickerOpen(false)}>
+                <div
+                  className="w-full max-w-[720px] max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <h3 className="text-[15px] font-semibold">Choose header layout</h3>
+                    <button
+                      type="button"
+                      onClick={() => setLayoutPickerOpen(false)}
+                      className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {layoutOptions.map(opt => {
+                      const active = currentLayout === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            onUpdateSetting("header_layout", opt.id)
+                          }}
+                          className={cn(
+                            "text-left border rounded-xl overflow-hidden bg-white transition-all",
+                            active ? "border-blue-500 ring-2 ring-blue-500" : "border-border hover:border-blue-300",
+                          )}
+                        >
+                          <div className="h-20 bg-gray-50 border-b border-border">
+                            {opt.preview}
+                          </div>
+                          <div className="px-4 py-3 flex items-center justify-between">
+                            <span className="text-xs font-medium">{opt.label}</span>
+                            {active && (
+                              <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="border-t border-border p-4 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLayoutPickerOpen(false)}
+                      className="h-9 px-4 rounded-lg bg-blue-600 text-white text-[13px] font-semibold hover:bg-blue-700 transition-colors"
+                    >
+                      Choose this layout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )
+      }
 
       case "button":
         return (
@@ -1494,6 +1705,25 @@ function HeaderSectionSettings({
       case "elements":
         return (
           <div className="space-y-5">
+            <WbToggle
+              label="Show search icon"
+              value={s.show_search}
+              onChange={v => onUpdateSetting("show_search", v)}
+              info="Show a search icon on the right side of the header"
+            />
+            <WbToggle
+              label="Show cart icon"
+              value={s.show_cart}
+              onChange={v => onUpdateSetting("show_cart", v)}
+              info="Cart icon opens a slide-in cart drawer"
+            />
+            <div className="h-px bg-border" />
+            <WbColorPicker
+              label="Nav link color"
+              value={s.nav_link_color}
+              onChange={v => onUpdateSetting("nav_link_color", v)}
+              defaultValue="#000000"
+            />
             <WbColorPicker
               label="Background color"
               value={s.bg_color}
@@ -1707,6 +1937,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!loaded.some(s => s.type === "header")) {
       const hs = SECTION_SCHEMAS["header"]
       if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
+    } else {
+      // Backfill default nav links for legacy headers that were seeded with empty blocks
+      const hs = SECTION_SCHEMAS["header"]
+      const preset = hs?.presets?.[0]
+      loaded = loaded.map(sec => {
+        if (sec.type !== "header") return sec
+        const needsNav = !sec.blocks || sec.blocks.length === 0
+        if (!needsNav || !preset?.blocks?.length) return sec
+        return {
+          ...sec,
+          blocks: preset.blocks.map(b => ({
+            id: `${b.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            type: b.type,
+            settings: { ...b.settings },
+          })),
+        }
+      })
     }
     if (!loaded.some(s => s.type === "footer")) {
       const fs = SECTION_SCHEMAS["footer"]

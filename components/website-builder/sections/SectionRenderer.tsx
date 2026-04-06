@@ -10,10 +10,20 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import {
   Zap, Shield, Star, CheckCircle, Download, Heart, Globe, Lock,
   RefreshCw, Rocket, ChevronDown, ChevronUp,
-  Share2, Package, FileText, Eye,
+  Share2, Package, FileText, Eye, Search, ShoppingBag, X,
 } from "lucide-react"
 import { useState, useEffect, CSSProperties } from "react"
 import { cn } from "@/lib/utils"
+
+// ── Header color schemes ─────────────────────────────────────
+type HeaderColorScheme = "white" | "light" | "dark" | "black" | "highlight"
+const HEADER_SCHEMES: Record<HeaderColorScheme, { bg: string; text: string; border: string }> = {
+  white:     { bg: "#ffffff", text: "#0f172a", border: "#e2e8f0" },
+  light:     { bg: "#f8fafc", text: "#0f172a", border: "#e2e8f0" },
+  dark:      { bg: "#1f2937", text: "#f8fafc", border: "#374151" },
+  black:     { bg: "#000000", text: "#ffffff", border: "#1f2937" },
+  highlight: { bg: "#6366f1", text: "#ffffff", border: "#4f46e5" },
+}
 
 interface SectionProps {
   section: SectionInstance
@@ -101,23 +111,116 @@ function SectionWrapper({
 
 // ── Section components ────────────────────────────────────────
 
+function HeaderCartDrawer({
+  open,
+  onClose,
+  scheme,
+}: {
+  open: boolean
+  onClose: () => void
+  scheme: HeaderColorScheme
+}) {
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [open, onClose])
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        aria-hidden
+        onClick={onClose}
+        className="fixed inset-0 z-[90] bg-black/40 transition-opacity duration-300"
+        style={{ opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none" }}
+      />
+      {/* Drawer */}
+      <aside
+        role="dialog"
+        aria-label="Cart"
+        className="fixed top-0 right-0 z-[95] h-full w-full sm:w-[420px] max-w-[92vw] bg-white shadow-2xl flex flex-col"
+        style={{
+          transform: open ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="text-[15px] font-semibold text-gray-900">Your cart</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close cart"
+            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-700 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 text-center">
+          <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+            <ShoppingBag className="h-7 w-7 text-gray-400" strokeWidth={1.5} />
+          </div>
+          <p className="text-[15px] font-medium text-gray-900">Your cart is empty</p>
+          <p className="text-[13px] text-gray-500 mt-1">Browse the shop to add something.</p>
+        </div>
+        <div className="border-t border-gray-100 p-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full h-11 rounded-lg bg-gray-900 text-white text-[14px] font-semibold hover:bg-gray-800 transition-colors"
+          >
+            Continue shopping
+          </button>
+        </div>
+      </aside>
+    </>
+  )
+}
+
 function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const textColor = str(s.text_color, "#0f172a")
+  const [cartOpen, setCartOpen] = useState(false)
 
-  // When deviceMode is set (editor), use it directly. Otherwise use CSS responsive.
+  // Resolve color scheme (falls back to explicit bg/text colors if still set)
+  const schemeKey = (str(s.color_scheme, "white") as HeaderColorScheme)
+  const scheme = HEADER_SCHEMES[schemeKey] ?? HEADER_SCHEMES.white
+  const transparent = bool(s.header_transparent, false)
+  const bg = transparent ? "transparent" : str(s.bg_color, scheme.bg)
+  const textColor = str(s.text_color, scheme.text)
+  const navLinkColor = str(s.nav_link_color, "#000000")
+  const borderColor = str(s.border_color, scheme.border)
+
+  const layout = str(s.header_layout, "logo_left_nav_right")
+  const showSearch = s.show_search !== false
+  const showCart = s.show_cart !== false
+  const headerWidth = str(s.header_width, "full")
+  const isFixedWidth = headerWidth === "fixed"
+  const headerFixed = bool(s.header_fixed, false)
+
+  const paddingVw = Number.isFinite(Number(s.vertical_padding_vw))
+    ? Number(s.vertical_padding_vw)
+    : 1.2
+  const linkSpacingVw = Number.isFinite(Number(s.link_spacing_vw))
+    ? Number(s.link_spacing_vw)
+    : 1.4
+
   const forceMobile = deviceMode === "mobile"
   const hasDeviceMode = !!deviceMode
 
   const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : str(s.logo_url)
-  const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 40)
-  const desktopLogoH = Number(s.logo_height) || 40
+  const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 64)
+  const desktopLogoH = Number(s.logo_height) || 64
 
   const renderLogo = () => {
     if (!s.logo_url) {
       return (
-        <span className="text-[15px] font-bold whitespace-nowrap" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
+        <span className="text-[17px] font-bold whitespace-nowrap" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
           {str(s.logo_text, theme.brand_name ?? "My Store")}
         </span>
       )
@@ -159,80 +262,178 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     )
   }
 
+  // Default nav links fallback (Home / Shop / About / Contact)
+  const DEFAULT_NAV_BLOCKS = [
+    { id: "nav-home",    type: "nav_link", settings: { label: "Home",    url: "/",        link_type: "custom" } },
+    { id: "nav-shop",    type: "nav_link", settings: { label: "Shop",    url: "/shop",    link_type: "custom" } },
+    { id: "nav-about",   type: "nav_link", settings: { label: "About",   url: "/about",   link_type: "custom" } },
+    { id: "nav-contact", type: "nav_link", settings: { label: "Contact", url: "/contact", link_type: "custom" } },
+  ]
+  const navBlocks = (section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS
+
+  const resolveHref = (block: { settings: Record<string, unknown> }): string => {
+    const linkType = str(block.settings.link_type, "custom")
+    const url = str(block.settings.url, "")
+    const targetId = str(block.settings.target_id, "")
+    if (linkType === "product" && targetId) return `/products/${targetId}`
+    if (linkType === "collection" && targetId) return `/collections/${targetId}`
+    if (linkType === "page" && targetId) return `/${targetId}`
+    if (linkType === "blog" && targetId) return `/blog/${targetId}`
+    if (linkType === "blog_post" && targetId) return `/blog/${targetId}`
+    return url || "#"
+  }
+
   const renderNavLinks = () => {
-    if (!section.blocks?.length) return null
-    if (hasDeviceMode) {
-      if (forceMobile) return null
-      return section.blocks.map(block => (
+    if (!navBlocks.length) return null
+    return navBlocks.map(block => {
+      const openInNew = bool(block.settings.open_in_new_tab, false)
+      return (
         <a
           key={block.id}
-          href={str(block.settings.url, "#")}
-          className="text-[13px] font-medium opacity-70 hover:opacity-100 whitespace-nowrap"
-          style={{ color: textColor }}
+          href={resolveHref(block)}
+          target={openInNew ? "_blank" : undefined}
+          rel={openInNew ? "noopener noreferrer" : undefined}
+          className={cn(
+            "text-[14px] font-medium whitespace-nowrap hover:opacity-70 transition-opacity",
+            hasDeviceMode && forceMobile ? "hidden" : "",
+            !hasDeviceMode && "hidden md:inline-block",
+          )}
+          style={{ color: navLinkColor }}
         >
           {str(block.settings.label)}
         </a>
-      ))
-    }
-    return section.blocks.map(block => (
-      <a
-        key={block.id}
-        href={str(block.settings.url, "#")}
-        className="hidden md:inline text-[13px] font-medium opacity-70 hover:opacity-100 whitespace-nowrap"
-        style={{ color: textColor }}
-      >
-        {str(block.settings.label)}
-      </a>
-    ))
+      )
+    })
   }
+
+  const renderIcons = () => (
+    <div className="flex items-center gap-2 shrink-0" style={{ color: textColor }}>
+      {showSearch && (
+        <button
+          type="button"
+          aria-label="Search"
+          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          onClick={e => e.preventDefault()}
+        >
+          <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        </button>
+      )}
+      {showCart && (
+        <button
+          type="button"
+          aria-label="Open cart"
+          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          onClick={e => { e.preventDefault(); setCartOpen(true) }}
+        >
+          <ShoppingBag className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        </button>
+      )}
+      {!!s.cta_text && (
+        <a
+          href={str(s.cta_url, "#")}
+          className="ml-1 font-semibold text-white px-3 py-1.5 text-[13px] shrink-0"
+          style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
+        >
+          {str(s.cta_text)}
+        </a>
+      )}
+    </div>
+  )
+
+  // ── Layout variants ──────────────────────────────────────
+  const navNode = (
+    <nav
+      className="flex items-center"
+      style={{ gap: `${linkSpacingVw}vw` }}
+    >
+      {renderNavLinks()}
+    </nav>
+  )
+
+  const logoNode = (
+    <div className="flex items-center gap-2 shrink-0">
+      {renderLogo()}
+    </div>
+  )
+
+  let content: React.ReactNode
+  if (layout === "logo_left_nav_center") {
+    content = (
+      <div className="w-full flex items-center justify-between gap-6">
+        {logoNode}
+        <div className="flex-1 flex items-center justify-center">{navNode}</div>
+        {renderIcons()}
+      </div>
+    )
+  } else if (layout === "nav_left_logo_center") {
+    content = (
+      <div className="w-full flex items-center justify-between gap-6">
+        {navNode}
+        <div className="flex-1 flex items-center justify-center">{logoNode}</div>
+        {renderIcons()}
+      </div>
+    )
+  } else if (layout === "logo_center_nav_below") {
+    content = (
+      <div className="w-full flex flex-col items-center gap-2">
+        <div className="w-full flex items-center justify-between">
+          <div className="w-[80px]" />
+          {logoNode}
+          {renderIcons()}
+        </div>
+        <div className="flex items-center justify-center w-full">{navNode}</div>
+      </div>
+    )
+  } else if (layout === "logo_left_nav_inline") {
+    content = (
+      <div className="w-full flex items-center gap-8">
+        {logoNode}
+        {navNode}
+        <div className="flex-1" />
+        {renderIcons()}
+      </div>
+    )
+  } else {
+    // logo_left_nav_right (default)
+    content = (
+      <div className="w-full flex items-center justify-between gap-6">
+        {logoNode}
+        <div className="flex items-center" style={{ gap: `${linkSpacingVw}vw` }}>
+          {navNode}
+          {renderIcons()}
+        </div>
+      </div>
+    )
+  }
+
+  const innerStyle: CSSProperties = {
+    paddingTop: `${paddingVw}vw`,
+    paddingBottom: `${paddingVw}vw`,
+    borderColor,
+    color: textColor,
+  }
+  const widthClass = isFixedWidth ? "max-w-[1280px] mx-auto" : "w-full"
+  const outerPaddingClass = hasDeviceMode
+    ? (forceMobile ? "px-4" : "px-[5%]")
+    : "px-4 md:px-[5%]"
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
         className={cn(
-          "w-full py-3 flex items-center justify-between border-b",
-          hasDeviceMode
-            ? (forceMobile ? "px-4" : "px-[5%]")
-            : "px-4 md:px-[5%]",
+          "relative border-b",
+          !isEditing && headerFixed && "sticky top-0 z-40",
         )}
-        style={{ borderColor: theme.border_color ?? "#e2e8f0" }}
+        style={{ background: bg, borderColor }}
       >
-        {/* Left: Logo + Nav links side by side */}
-        <div className={cn(
-          "flex items-center",
-          hasDeviceMode
-            ? (forceMobile ? "gap-3" : "gap-8")
-            : "gap-3 md:gap-8",
-        )}>
-          <div className="flex items-center gap-2 shrink-0">
-            {renderLogo()}
-          </div>
-          <nav className={cn(
-            "flex items-center",
-            hasDeviceMode
-              ? (forceMobile ? "gap-3" : "gap-6")
-              : "gap-3 md:gap-6",
-          )}>
-            {renderNavLinks()}
-          </nav>
+        <div className={cn(widthClass, outerPaddingClass)} style={innerStyle}>
+          {content}
         </div>
-
-        {/* Right: CTA button */}
-        {!!s.cta_text && (
-          <a
-            href={str(s.cta_url, "#")}
-            className={cn(
-              "font-semibold text-white shrink-0",
-              hasDeviceMode
-                ? (forceMobile ? "px-2.5 py-1 text-[12px]" : "px-3 py-1.5 text-[13px]")
-                : "px-2.5 py-1 text-[12px] md:px-3 md:py-1.5 md:text-[13px]",
-            )}
-            style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
-          >
-            {str(s.cta_text)}
-          </a>
-        )}
       </div>
+      {/* Cart drawer (portal-like, fixed-positioned) */}
+      {cartOpen && (
+        <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
+      )}
     </SectionWrapper>
   )
 }
