@@ -19,40 +19,57 @@ export function startNavigationLoading() {
 export function NavigationLoadingBar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [isLoading, setIsLoading] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const progressRef = useRef<NodeJS.Timeout | null>(null)
+  const barRef = useRef<HTMLDivElement | null>(null)
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const safetyRef = useRef<NodeJS.Timeout | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const startTsRef = useRef<number>(0)
+  const activeRef = useRef(false)
   const prevPathRef = useRef(pathname)
   const prevSearchRef = useRef(searchParams.toString())
-  // Track when loading started so we can enforce a minimum display time
-  const startTimeRef = useRef<number>(0)
+
+  const cancelRaf = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+  }
 
   const clearAllTimers = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    if (progressRef.current) clearTimeout(progressRef.current)
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
     if (safetyRef.current) clearTimeout(safetyRef.current)
+    cancelRaf()
+  }
+
+  // Write the current progress straight to the DOM — avoids a React
+  // re-render on every animation frame.
+  const setBarWidth = (pct: number) => {
+    const el = barRef.current
+    if (el) el.style.width = `${pct}%`
   }
 
   const doComplete = () => {
-    setProgress(100)
+    cancelRaf()
+    activeRef.current = false
+    setBarWidth(100)
     setIsComplete(true)
-    timeoutRef.current = setTimeout(() => {
-      setIsLoading(false)
-      setProgress(0)
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsVisible(false)
       setIsComplete(false)
-    }, 400)
+      setBarWidth(0)
+    }, 380)
   }
 
   const completeLoading = () => {
-    clearAllTimers()
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    if (safetyRef.current) clearTimeout(safetyRef.current)
     // Enforce a 250 ms minimum so the bar never flashes and disappears instantly
-    const elapsed = Date.now() - startTimeRef.current
+    const elapsed = performance.now() - startTsRef.current
     const remaining = Math.max(0, 250 - elapsed)
     if (remaining > 0) {
-      timeoutRef.current = setTimeout(doComplete, remaining)
+      hideTimeoutRef.current = setTimeout(doComplete, remaining)
     } else {
       doComplete()
     }
@@ -61,22 +78,33 @@ export function NavigationLoadingBar() {
   // Start the animated loading bar immediately (called from outside via event or click)
   const startLoading = () => {
     clearAllTimers()
-    startTimeRef.current = Date.now()
-    setIsLoading(true)
+    startTsRef.current = performance.now()
+    activeRef.current = true
     setIsComplete(false)
-    // Jump to 8% instantly so the bar is visible <16 ms after the tap
-    setProgress(8)
+    setIsVisible(true)
+    // Paint at 0 % first so the transform from the previous run (if any)
+    // doesn't flash. The RAF loop immediately drives it upward from here.
+    setBarWidth(0)
 
-    let currentProgress = 8
-    const animate = () => {
-      const increment = Math.random() * 3 + 1
-      currentProgress = Math.min(currentProgress + increment, 82)
-      setProgress(currentProgress)
-      if (currentProgress < 82) {
-        progressRef.current = setTimeout(animate, 150 + Math.random() * 100)
-      }
+    // Smooth continuous animation using requestAnimationFrame.
+    // Asymptotic curve — approaches but never exceeds 90 % until the real
+    // navigation completes. This produces the silky "nprogress" feel rather
+    // than the stuttery stepped progress from the old setTimeout loop.
+    //
+    //   p(t) = 90 * (1 - e^(-t / TAU))
+    //
+    // TAU controls how quickly we approach the ceiling. 1800 ms puts us at
+    // ~40 % after 900 ms, ~63 % at 1.8 s, ~86 % at 3.6 s — matching the
+    // pacing of real page loads on 3G/4G.
+    const TAU = 1800
+    const tick = (now: number) => {
+      if (!activeRef.current) return
+      const t = now - startTsRef.current
+      const p = 90 * (1 - Math.exp(-t / TAU))
+      setBarWidth(p)
+      rafRef.current = requestAnimationFrame(tick)
     }
-    progressRef.current = setTimeout(animate, 80) // continue animating after 80 ms
+    rafRef.current = requestAnimationFrame(tick)
 
     // Safety timeout: auto-dismiss after 8 seconds to prevent stuck bar
     safetyRef.current = setTimeout(() => { completeLoading() }, 8000)
@@ -120,7 +148,7 @@ export function NavigationLoadingBar() {
   useEffect(() => {
     const currentSearch = searchParams.toString()
     if (prevPathRef.current !== pathname || prevSearchRef.current !== currentSearch) {
-      if (isLoading) {
+      if (activeRef.current) {
         completeLoading()
       }
       prevPathRef.current = pathname
@@ -130,21 +158,29 @@ export function NavigationLoadingBar() {
     return () => clearAllTimers()
   }, [pathname, searchParams])
 
-  if (!isLoading && progress === 0) return null
+  if (!isVisible) return null
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] pointer-events-none">
       {/* 3px tall — more visible than 2px on high-DPI mobile screens */}
       <div className="h-[3px] w-full bg-transparent">
         <div
+          ref={barRef}
           className="h-full relative"
           style={{
-            width: `${progress}%`,
+            // Width is updated every RAF frame by the asymptotic curve, so
+            // the bar advances at a true 60 fps without the visible stair-
+            // stepping that the old setTimeout loop produced. The CSS
+            // transition is only enabled on completion, where it drives the
+            // final jump to 100 % and the fade-out.
+            width: '0%',
             transition: isComplete
-              ? 'width 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 350ms ease-out'
-              : 'width 400ms cubic-bezier(0.4, 0, 1, 1)',
+              ? 'width 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 360ms ease-out'
+              : 'none',
             opacity: isComplete ? 0 : 1,
             background: 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.65) 70%, rgba(255,255,255,0.95) 100%)',
+            willChange: 'width, opacity',
+            backfaceVisibility: 'hidden',
           }}
         >
           <div
@@ -153,7 +189,7 @@ export function NavigationLoadingBar() {
               background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 60%, rgba(255,255,255,0.75) 100%)',
               filter: 'blur(2px)',
               opacity: isComplete ? 0 : 0.85,
-              transition: 'opacity 300ms ease-out',
+              transition: 'opacity 320ms ease-out',
             }}
           />
           <div
@@ -162,7 +198,7 @@ export function NavigationLoadingBar() {
               background: 'rgba(255,255,255,0.98)',
               boxShadow: '0 0 6px rgba(255,255,255,0.6), 0 0 12px rgba(255,255,255,0.35)',
               opacity: isComplete ? 0 : 1,
-              transition: 'opacity 300ms ease-out',
+              transition: 'opacity 320ms ease-out',
             }}
           />
         </div>
