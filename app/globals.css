@@ -235,6 +235,55 @@ html.capacitor body {
   .delay-400 { animation-delay: 400ms; }
   .delay-500 { animation-delay: 500ms; }
 
+  /* ── Storefront section reveal ────────────────────────────────────────
+     Applied by sections inside a storefront page (.storelib-storefront)
+     so each section gently rises into view as the visitor scrolls. The
+     animation is GPU-only (transform + opacity) and uses content-visibility
+     to skip painting of off-screen sections — produces silky-smooth scrolls
+     even on slow hardware without any "chunky" snap-in.
+
+     prefers-reduced-motion completely disables the animation so users with
+     vestibular sensitivity see content at full opacity instantly. */
+  @keyframes storefront-section-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  .storelib-storefront [data-storelib-section] {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+    will-change: opacity, transform;
+    backface-visibility: hidden;
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 600px;
+    animation: storefront-section-in 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Stagger the first six sections so the page reveals in order rather
+     than every section snapping in simultaneously. After section 6 the
+     animation runs on a single tick (no extra delay) so users scrolling
+     fast aren't waiting for content. */
+  .storelib-storefront [data-storelib-section]:nth-of-type(1) { animation-delay: 0ms; }
+  .storelib-storefront [data-storelib-section]:nth-of-type(2) { animation-delay: 60ms; }
+  .storelib-storefront [data-storelib-section]:nth-of-type(3) { animation-delay: 120ms; }
+  .storelib-storefront [data-storelib-section]:nth-of-type(4) { animation-delay: 180ms; }
+  .storelib-storefront [data-storelib-section]:nth-of-type(5) { animation-delay: 240ms; }
+  .storelib-storefront [data-storelib-section]:nth-of-type(6) { animation-delay: 300ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .storelib-storefront [data-storelib-section] {
+      animation: none !important;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   /* Global overflow prevention.
    * NOTE: overflow-x: hidden is set on <html>, NOT <body>.
    * Setting overflow-x: hidden (or any non-visible overflow) on <body> is a

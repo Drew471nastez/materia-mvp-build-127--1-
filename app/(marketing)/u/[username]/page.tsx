@@ -463,7 +463,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
         />
         <div
-          className="min-h-screen overflow-x-hidden"
+          className="storelib-storefront min-h-screen overflow-x-hidden"
           style={{
             background: pageBackgroundColor || "var(--background)",
             color: pageTextColor || "var(--foreground)",
@@ -502,27 +502,33 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           return (
             <>
               {regularSections.map((section) => (
-                <SectionRenderer
-                  key={section.id}
-                  section={section}
-                  products={productsData}
-                  globalSettings={globalSettings}
-                  creatorName={profile.display_name || undefined}
-                />
+                // data-storelib-section opts each section into the smooth
+                // staggered reveal defined in app/globals.css. Wrapping
+                // in a plain <div> keeps SectionRenderer's internals
+                // untouched while letting the parent CSS animate it.
+                <div key={section.id} data-storelib-section>
+                  <SectionRenderer
+                    section={section}
+                    products={productsData}
+                    globalSettings={globalSettings}
+                    creatorName={profile.display_name || undefined}
+                  />
+                </div>
               ))}
 
               {/* About section - always rendered last */}
               {aboutSection && (
-                <SectionRenderer
-                  key={aboutSection.id}
-                  section={aboutSection}
-                  products={productsData}
-                  globalSettings={globalSettings}
-                  creatorName={profile.display_name || undefined}
-                  sellerMemberSince={profile.created_at}
-                  sellerTotalSales={totalSales}
-                  sellerProductsCount={productsCount}
-                />
+                <div key={aboutSection.id} data-storelib-section>
+                  <SectionRenderer
+                    section={aboutSection}
+                    products={productsData}
+                    globalSettings={globalSettings}
+                    creatorName={profile.display_name || undefined}
+                    sellerMemberSince={profile.created_at}
+                    sellerTotalSales={totalSales}
+                    sellerProductsCount={productsCount}
+                  />
+                </div>
               )}
             </>
           )
