@@ -47,7 +47,74 @@ export interface ThemeSettings {
   updated_at: string
 }
 
+// ── Global color schemes ──────────────────────────────────────
+// Each theme defines 5 named color schemes. Sections pick one via
+// section.settings.color_scheme. The renderer resolves the scheme
+// from theme.color_schemes and applies its colors as the section's
+// defaults.
+export interface ColorSchemeValues {
+  bg: string
+  text: string
+  heading: string
+  link: string
+  link_underline: string
+  border: string
+  primary_btn_bg: string
+  primary_btn_text: string
+  primary_btn_border: string
+  primary_btn_hover_bg: string
+  primary_btn_hover_text: string
+  secondary_btn_bg: string
+  secondary_btn_text: string
+  secondary_btn_border: string
+  store_title: string
+  nav_link: string
+}
+export type ColorSchemeKey = "white" | "light" | "dark" | "black" | "highlight"
+export type ColorSchemes = Record<ColorSchemeKey, ColorSchemeValues>
+
+export const DEFAULT_COLOR_SCHEMES: ColorSchemes = {
+  white: {
+    bg: "#ffffff", text: "#0f172a", heading: "#0f172a", link: "#0f172a", link_underline: "#0f172a",
+    border: "#e2e8f0", primary_btn_bg: "#0f172a", primary_btn_text: "#ffffff", primary_btn_border: "#0f172a",
+    primary_btn_hover_bg: "#1f2937", primary_btn_hover_text: "#ffffff",
+    secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a", secondary_btn_border: "#0f172a",
+    store_title: "#0f172a", nav_link: "#000000",
+  },
+  light: {
+    bg: "#f8fafc", text: "#0f172a", heading: "#0f172a", link: "#0f172a", link_underline: "#0f172a",
+    border: "#e2e8f0", primary_btn_bg: "#0f172a", primary_btn_text: "#ffffff", primary_btn_border: "#0f172a",
+    primary_btn_hover_bg: "#1f2937", primary_btn_hover_text: "#ffffff",
+    secondary_btn_bg: "#ffffff", secondary_btn_text: "#0f172a", secondary_btn_border: "#cbd5e1",
+    store_title: "#0f172a", nav_link: "#0f172a",
+  },
+  dark: {
+    bg: "#1f2937", text: "#f8fafc", heading: "#ffffff", link: "#f8fafc", link_underline: "#f8fafc",
+    border: "#374151", primary_btn_bg: "#ffffff", primary_btn_text: "#0f172a", primary_btn_border: "#ffffff",
+    primary_btn_hover_bg: "#e5e7eb", primary_btn_hover_text: "#0f172a",
+    secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff", secondary_btn_border: "#ffffff",
+    store_title: "#ffffff", nav_link: "#f8fafc",
+  },
+  black: {
+    bg: "#000000", text: "#ffffff", heading: "#ffffff", link: "#ffffff", link_underline: "#ffffff",
+    border: "#1f2937", primary_btn_bg: "#ffffff", primary_btn_text: "#000000", primary_btn_border: "#ffffff",
+    primary_btn_hover_bg: "#e5e7eb", primary_btn_hover_text: "#000000",
+    secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff", secondary_btn_border: "#ffffff",
+    store_title: "#ffffff", nav_link: "#ffffff",
+  },
+  highlight: {
+    bg: "#6366f1", text: "#ffffff", heading: "#ffffff", link: "#ffffff", link_underline: "#ffffff",
+    border: "#4f46e5", primary_btn_bg: "#ffffff", primary_btn_text: "#6366f1", primary_btn_border: "#ffffff",
+    primary_btn_hover_bg: "#f8fafc", primary_btn_hover_text: "#4f46e5",
+    secondary_btn_bg: "transparent", secondary_btn_text: "#ffffff", secondary_btn_border: "#ffffff",
+    store_title: "#ffffff", nav_link: "#ffffff",
+  },
+}
+
 export interface ThemeSettingsValues {
+  // Global color schemes
+  color_schemes?: ColorSchemes
+
   // Branding
   brand_name?: string
   logo_url?: string

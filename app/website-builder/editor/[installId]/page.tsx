@@ -48,9 +48,9 @@ import { createClient } from "@/lib/supabase/client"
 import { Slider } from "@/components/ui/slider"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
-  PageKey, EditorPanel, SchemaField,
+  PageKey, EditorPanel, SchemaField, ColorSchemeValues, ColorSchemeKey,
 } from "@/lib/website-builder/types"
-import { PAGE_META } from "@/lib/website-builder/types"
+import { PAGE_META, DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
@@ -700,13 +700,19 @@ function WbImagePicker({
     }
   }, [bucket, folder, onChange])
 
-  const aspectClass = aspectRatio === "square" ? "aspect-square" : aspectRatio === "logo" ? "min-h-[100px]" : "aspect-video"
+  const emptyAspectClass = aspectRatio === "square" ? "aspect-square" : aspectRatio === "logo" ? "min-h-[72px]" : "aspect-video"
+  // Filled preview is kept small/compact so it doesn't dominate the sidebar
+  const filledClass = aspectRatio === "square"
+    ? "aspect-square max-h-[120px]"
+    : aspectRatio === "logo"
+      ? "h-[68px]"
+      : "h-[96px]"
 
   if (url) {
     return (
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
-        <div className={cn("relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa]", aspectClass, "flex items-center justify-center")}>
+        <div className={cn("relative w-full rounded-lg overflow-hidden border border-border bg-[#fafafa] flex items-center justify-center", filledClass)}>
           <img src={url} alt="" className="max-w-full max-h-full object-contain p-2" />
         </div>
         <div className="flex items-center gap-2">
@@ -735,8 +741,8 @@ function WbImagePicker({
       {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
       <div
         className={cn(
-          "relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-2",
-          aspectClass,
+          "relative w-full rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5",
+          emptyAspectClass,
           dragOver ? "border-purple-400 bg-purple-50" : "border-border bg-[#fafafa] hover:border-purple-300 hover:bg-purple-50/30",
         )}
         onClick={() => inputRef.current?.click()}
@@ -754,9 +760,9 @@ function WbImagePicker({
           </div>
         ) : (
           <>
-            <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
-            <p className="text-sm font-medium text-muted-foreground">Add Image</p>
-            <p className="text-[11px] text-muted-foreground/70">Click to upload or drag & drop</p>
+            <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
+            <p className="text-[13px] font-medium text-muted-foreground">Add Image</p>
+            <p className="text-[10px] text-muted-foreground/70">Click to upload or drag &amp; drop</p>
           </>
         )}
       </div>
@@ -861,18 +867,20 @@ function WbSlider({
 }) {
   const num = typeof value === "number" ? value : defaultValue
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 group">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">{label}</p>
         <span className="text-sm text-muted-foreground tabular-nums">{num}{unit}</span>
       </div>
-      <Slider
-        value={[num]}
-        onValueChange={([v]) => onChange(v)}
-        min={min}
-        max={max}
-        step={step}
-      />
+      <div className="py-1 cursor-grab active:cursor-grabbing hover:[&_[role=slider]]:scale-110 [&_[role=slider]]:transition-transform">
+        <Slider
+          value={[num]}
+          onValueChange={([v]) => onChange(v)}
+          min={min}
+          max={max}
+          step={step}
+        />
+      </div>
     </div>
   )
 }
@@ -891,22 +899,24 @@ function WbToggle({
 }) {
   const checked = typeof value === "boolean" ? value : false
   return (
-    <div className="flex items-center justify-between py-1">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {info && <p className="text-[11px] text-muted-foreground mt-0.5">{info}</p>}
+    <label className="flex items-center justify-between py-1.5 cursor-pointer select-none group">
+      <div className="flex-1 min-w-0 pr-3">
+        <p className="text-sm font-medium text-foreground group-hover:text-purple-700 transition-colors">{label}</p>
+        {info && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{info}</p>}
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
         className={cn(
-          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ml-3",
-          checked ? "bg-purple-600" : "bg-muted",
+          "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500",
+          checked ? "bg-purple-600" : "bg-gray-300",
         )}
-        onClick={() => onChange(!checked)}
+        onClick={e => { e.preventDefault(); onChange(!checked) }}
       >
-        <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform", checked ? "translate-x-4" : "translate-x-0.5")} />
+        <span className={cn("inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
       </button>
-    </div>
+    </label>
   )
 }
 
@@ -937,6 +947,198 @@ function WbSelect({
           ))}
         </select>
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </div>
+    </div>
+  )
+}
+
+// ── Per-section Color Scheme Picker ──────────────────────────
+// Renders the row of 5 Aa swatches for picking which global scheme
+// the currently-selected section uses.
+function SectionColorSchemePicker({
+  value,
+  onChange,
+  themeSchemes,
+}: {
+  value: string
+  onChange: (v: string) => void
+  themeSchemes: Record<string, ColorSchemeValues> | undefined
+}) {
+  const keys: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
+  const labels: Record<ColorSchemeKey, string> = {
+    white: "White", light: "Light", dark: "Dark", black: "Black", highlight: "Highlight",
+  }
+  return (
+    <div className="border-b border-border p-4 space-y-2">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Section Color Scheme</p>
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
+        Choose a color scheme for this section. Visit the Color Schemes editor in General Settings to customise colors.
+      </p>
+      <div className="grid grid-cols-5 gap-2 pt-1">
+        {keys.map(k => {
+          const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
+          const isActive = value === k
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => onChange(k)}
+              className={cn(
+                "flex flex-col items-center gap-1.5 p-1 rounded-lg transition-all cursor-pointer hover:scale-[1.04]",
+                isActive && "ring-2 ring-purple-500 ring-offset-2",
+              )}
+            >
+              <div
+                className="w-full aspect-square rounded-md border border-border flex items-center justify-center text-[14px] font-semibold"
+                style={{ background: sc.bg, color: sc.heading }}
+              >
+                Aa
+              </div>
+              <span className="text-[10px] font-medium text-foreground">{labels[k]}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Global Color Schemes Editor ──────────────────────────────
+// Renders a tabbed editor for the 5 global color schemes (white,
+// light, dark, black, highlight). Each scheme exposes the color
+// slots that the renderer reads when a section selects it.
+const COLOR_SCHEME_KEYS: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
+const COLOR_SCHEME_LABELS: Record<ColorSchemeKey, string> = {
+  white: "White", light: "Light", dark: "Dark", black: "Black", highlight: "Highlight",
+}
+const COLOR_SCHEME_GROUPS: { id: keyof ColorSchemeValues; label: string; group: string }[] = [
+  { id: "bg",                    label: "Background",            group: "Section" },
+  { id: "text",                  label: "Text",                  group: "Section" },
+  { id: "heading",               label: "Heading text",          group: "Section" },
+  { id: "border",                label: "Inset border",          group: "Section" },
+  { id: "store_title",           label: "Store title",           group: "Header" },
+  { id: "nav_link",              label: "Navigation links",      group: "Header" },
+  { id: "link",                  label: "Link",                  group: "Links" },
+  { id: "link_underline",        label: "Link underline",        group: "Links" },
+  { id: "primary_btn_bg",        label: "Background",            group: "Primary Button (Normal)" },
+  { id: "primary_btn_text",      label: "Text",                  group: "Primary Button (Normal)" },
+  { id: "primary_btn_border",    label: "Border",                group: "Primary Button (Normal)" },
+  { id: "primary_btn_hover_bg",  label: "Background",            group: "Primary Button (Hover)" },
+  { id: "primary_btn_hover_text",label: "Text",                  group: "Primary Button (Hover)" },
+  { id: "secondary_btn_bg",      label: "Background",            group: "Secondary Button" },
+  { id: "secondary_btn_text",    label: "Text",                  group: "Secondary Button" },
+  { id: "secondary_btn_border",  label: "Border",                group: "Secondary Button" },
+]
+
+function ColorSchemesEditor({
+  value,
+  onChange,
+}: {
+  value: Record<string, ColorSchemeValues> | undefined
+  onChange: (v: Record<string, ColorSchemeValues>) => void
+}) {
+  const [active, setActive] = useState<ColorSchemeKey>("white")
+  // Merge defaults so we always have a complete shape to edit
+  const schemes: Record<ColorSchemeKey, ColorSchemeValues> = {
+    white:     { ...DEFAULT_COLOR_SCHEMES.white,     ...(value?.white ?? {}) },
+    light:     { ...DEFAULT_COLOR_SCHEMES.light,     ...(value?.light ?? {}) },
+    dark:      { ...DEFAULT_COLOR_SCHEMES.dark,      ...(value?.dark ?? {}) },
+    black:     { ...DEFAULT_COLOR_SCHEMES.black,     ...(value?.black ?? {}) },
+    highlight: { ...DEFAULT_COLOR_SCHEMES.highlight, ...(value?.highlight ?? {}) },
+  }
+  const current = schemes[active]
+
+  const updateColor = (key: keyof ColorSchemeValues, color: string) => {
+    onChange({ ...schemes, [active]: { ...current, [key]: color } })
+  }
+  const resetScheme = () => {
+    onChange({ ...schemes, [active]: { ...DEFAULT_COLOR_SCHEMES[active] } })
+  }
+
+  // Group fields by their group label
+  const grouped: Record<string, typeof COLOR_SCHEME_GROUPS> = {}
+  for (const f of COLOR_SCHEME_GROUPS) {
+    (grouped[f.group] ??= []).push(f)
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
+        Each section in the editor uses one of these schemes. Pick a scheme tab below and edit its colors — every section using that scheme will update.
+      </p>
+
+      {/* Step 1: Choose scheme */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Step 1 · Choose color scheme</p>
+        <div className="grid grid-cols-5 gap-2">
+          {COLOR_SCHEME_KEYS.map(k => {
+            const sc = schemes[k]
+            const isActive = active === k
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setActive(k)}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 p-1 rounded-lg transition-all",
+                  isActive && "ring-2 ring-purple-500 ring-offset-2",
+                )}
+              >
+                <div
+                  className="w-full aspect-square rounded-md border border-border flex items-center justify-center text-[14px] font-semibold"
+                  style={{ background: sc.bg, color: sc.heading }}
+                >
+                  Aa
+                </div>
+                <span className="text-[10px] font-medium text-foreground">{COLOR_SCHEME_LABELS[k]}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Step 2: Edit colors */}
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Step 2 · Edit “{COLOR_SCHEME_LABELS[active]}”</p>
+        <button
+          type="button"
+          onClick={resetScheme}
+          className="text-[11px] font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1"
+        >
+          <RotateCcw className="h-3 w-3" />
+          Reset
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {Object.entries(grouped).map(([groupLabel, fields]) => (
+          <div key={groupLabel} className="space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{groupLabel}</p>
+            <div className="space-y-2">
+              {fields.map(f => (
+                <div key={f.id} className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-foreground flex-1 truncate">{f.label}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="color"
+                      value={current[f.id] || "#000000"}
+                      onChange={e => updateColor(f.id, e.target.value)}
+                      className="h-7 w-7 rounded border border-border cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={current[f.id] || ""}
+                      onChange={e => updateColor(f.id, e.target.value)}
+                      className="w-[78px] h-7 px-2 text-[11px] border border-border rounded uppercase tabular-nums focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1148,26 +1350,28 @@ function SortableNavLink({
   }
 
   return (
-    <details ref={setNodeRef} style={style} className="group border border-border rounded-lg overflow-hidden bg-background">
-      <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50 transition-colors">
-        <div className="flex items-center gap-2">
+    <details ref={setNodeRef} style={style} className="group border border-border rounded-lg overflow-hidden bg-background hover:border-purple-300 hover:shadow-sm transition-all">
+      <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-purple-50/40 transition-colors">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            className="cursor-grab active:cursor-grabbing touch-none"
+            className="cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded hover:bg-purple-100 text-muted-foreground hover:text-purple-600 transition-colors"
+            aria-label="Drag to reorder"
             {...attributes}
             {...listeners}
             onClick={e => e.preventDefault()}
           >
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <GripVertical className="h-3.5 w-3.5" />
           </button>
-          <span className="text-sm font-medium">{String(block.settings.label || `Link ${idx + 1}`)}</span>
+          <span className="text-sm font-medium truncate">{String(block.settings.label || `Link ${idx + 1}`)}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+            className="h-7 w-7 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+            aria-label="Delete link"
             onClick={e => { e.preventDefault(); onRemoveBlock(block.id) }}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
         </div>
@@ -2663,8 +2867,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </button>
                   {expandedSettings === group.id && (
                     <div className="px-3 py-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
-                      {/* Custom Branding section with proper image pickers + sliders */}
-                      {group.id === "branding" ? (
+                      {/* Custom Color Schemes editor */}
+                      {group.id === "color_schemes" ? (
+                        <ColorSchemesEditor
+                          value={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
+                          onChange={v => updateSetting("color_schemes", v)}
+                        />
+                      ) : group.id === "branding" ? (
                         <>
                           {/* Store name */}
                           <div>
@@ -2945,6 +3154,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
 
           <div className="flex-1 overflow-y-auto">
+            {/* Per-section color scheme picker (uses global Color Schemes) */}
+            <SectionColorSchemePicker
+              value={typeof section.settings.color_scheme === "string" ? section.settings.color_scheme : "white"}
+              onChange={v => updateSectionSetting(section.id, "color_scheme", v)}
+              themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
+            />
+
             {schema?.fields && schema.fields.length > 0 && (
               <div className="p-4 space-y-4">
                 {schema.fields.map(field => (

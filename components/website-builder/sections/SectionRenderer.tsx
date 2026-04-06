@@ -6,7 +6,8 @@
 // All sections receive: settings (their config), blocks, themeSettings.
 // ============================================================
 
-import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import type { SectionInstance, ThemeSettingsValues, ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
+import { DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import {
   Zap, Shield, Star, CheckCircle, Download, Heart, Globe, Lock,
   RefreshCw, Rocket, ChevronDown, ChevronUp,
@@ -16,13 +17,14 @@ import { useState, useEffect, CSSProperties } from "react"
 import { cn } from "@/lib/utils"
 
 // ── Header color schemes ─────────────────────────────────────
-type HeaderColorScheme = "white" | "light" | "dark" | "black" | "highlight"
-const HEADER_SCHEMES: Record<HeaderColorScheme, { bg: string; text: string; border: string }> = {
-  white:     { bg: "#ffffff", text: "#0f172a", border: "#e2e8f0" },
-  light:     { bg: "#f8fafc", text: "#0f172a", border: "#e2e8f0" },
-  dark:      { bg: "#1f2937", text: "#f8fafc", border: "#374151" },
-  black:     { bg: "#000000", text: "#ffffff", border: "#1f2937" },
-  highlight: { bg: "#6366f1", text: "#ffffff", border: "#4f46e5" },
+type HeaderColorScheme = ColorSchemeKey
+
+// Resolve a section's color scheme — falls back to the theme-level scheme,
+// then to DEFAULT_COLOR_SCHEMES.
+function resolveScheme(theme: ThemeSettingsValues, key: string | undefined): ColorSchemeValues {
+  const k = (key && (key in DEFAULT_COLOR_SCHEMES) ? key : "white") as ColorSchemeKey
+  const themeSchemes = (theme.color_schemes as Record<string, ColorSchemeValues> | undefined) ?? {}
+  return { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes[k] ?? {}) }
 }
 
 interface SectionProps {
@@ -189,19 +191,32 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
 
   // Resolve color scheme (falls back to explicit bg/text colors if still set)
   const schemeKey = (str(s.color_scheme, "white") as HeaderColorScheme)
-  const scheme = HEADER_SCHEMES[schemeKey] ?? HEADER_SCHEMES.white
+  const scheme = resolveScheme(theme, schemeKey)
   const transparent = bool(s.header_transparent, false)
-  const bg = transparent ? "transparent" : str(s.bg_color, scheme.bg)
+  // transparent_on_hero only takes effect when this header sits over a hero block.
+  // We approximate this by using transparent background only when the toggle is on
+  // — the consumer (page renderer) wraps the header above the hero in those cases.
+  const bg = (transparent || bool(s.transparent_on_hero, false)) ? "transparent" : str(s.bg_color, scheme.bg)
   const textColor = str(s.text_color, scheme.text)
-  const navLinkColor = str(s.nav_link_color, "#000000")
+  const navLinkColor = str(s.nav_link_color, scheme.nav_link)
   const borderColor = str(s.border_color, scheme.border)
 
   const layout = str(s.header_layout, "logo_left_nav_right")
   const showSearch = s.show_search !== false
   const showCart = s.show_cart !== false
-  const headerWidth = str(s.header_width, "full")
-  const isFixedWidth = headerWidth === "fixed"
-  const headerFixed = bool(s.header_fixed, false)
+  // Header width — supports new ("full"/"fixed") and legacy ("narrow"/"medium"/"wide"/"full") values
+  const headerWidthRaw = str(s.header_width, str(s.max_width, "full"))
+  const headerWidthMaxPx: number | null =
+    headerWidthRaw === "narrow" ? 960 :
+    headerWidthRaw === "medium" ? 1140 :
+    headerWidthRaw === "wide"   ? 1280 :
+    headerWidthRaw === "fixed"  ? 1280 :
+    null // "full"
+  const isFixedWidth = headerWidthMaxPx !== null
+  // Sticky/fixed position — honour both new "header_fixed" and legacy "sticky"
+  const headerFixed = bool(s.header_fixed, bool(s.sticky, true))
+  const transparentOnHero = bool(s.transparent_on_hero, false)
+  const navAlignment = str(s.nav_alignment, "right") // legacy field, used by default layout
 
   const paddingVw = Number.isFinite(Number(s.vertical_padding_vw))
     ? Number(s.vertical_padding_vw)
@@ -394,16 +409,35 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       </div>
     )
   } else {
-    // logo_left_nav_right (default)
-    content = (
-      <div className="w-full flex items-center justify-between gap-6">
-        {logoNode}
-        <div className="flex items-center" style={{ gap: `${linkSpacingVw}vw` }}>
-          {navNode}
+    // logo_left_nav_right (default) — honours legacy nav_alignment when set
+    if (navAlignment === "center") {
+      content = (
+        <div className="w-full flex items-center justify-between gap-6">
+          {logoNode}
+          <div className="flex-1 flex items-center justify-center">{navNode}</div>
           {renderIcons()}
         </div>
-      </div>
-    )
+      )
+    } else if (navAlignment === "left") {
+      content = (
+        <div className="w-full flex items-center gap-6">
+          {logoNode}
+          {navNode}
+          <div className="flex-1" />
+          {renderIcons()}
+        </div>
+      )
+    } else {
+      content = (
+        <div className="w-full flex items-center justify-between gap-6">
+          {logoNode}
+          <div className="flex items-center" style={{ gap: `${linkSpacingVw}vw` }}>
+            {navNode}
+            {renderIcons()}
+          </div>
+        </div>
+      )
+    }
   }
 
   const innerStyle: CSSProperties = {
@@ -412,7 +446,8 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     borderColor,
     color: textColor,
   }
-  const widthClass = isFixedWidth ? "max-w-[1280px] mx-auto" : "w-full"
+  const widthClass = isFixedWidth ? "mx-auto" : "w-full"
+  const widthStyle: CSSProperties = isFixedWidth && headerWidthMaxPx ? { maxWidth: `${headerWidthMaxPx}px` } : {}
   const outerPaddingClass = hasDeviceMode
     ? (forceMobile ? "px-4" : "px-[5%]")
     : "px-4 md:px-[5%]"
@@ -426,7 +461,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         )}
         style={{ background: bg, borderColor }}
       >
-        <div className={cn(widthClass, outerPaddingClass)} style={innerStyle}>
+        <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
           {content}
         </div>
       </div>

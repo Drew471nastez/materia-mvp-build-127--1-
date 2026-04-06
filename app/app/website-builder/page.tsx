@@ -6,6 +6,7 @@ import {
   Globe, Palette, MoreHorizontal,
   Plus, Check, Pencil, Trash2, Copy, RefreshCw,
   EyeOff, ExternalLink, Loader2, AlertTriangle, Layers,
+  Download, Upload,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -332,6 +333,8 @@ export default function WebsiteBuilderPage() {
   const [initializing, setInitializing] = useState(false)
   const [renameInstall, setRenameInstall] = useState<ThemeInstall | null>(null)
   const [deleteInstall, setDeleteInstall] = useState<ThemeInstall | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [username, setUsername] = useState("")
   const [screenshotTimestamp, setScreenshotTimestamp] = useState(() => Date.now())
@@ -419,6 +422,32 @@ export default function WebsiteBuilderPage() {
       } else {
         const d = await res.json()
         toast({ title: d.error ?? "Failed to unpublish", variant: "destructive" })
+      }
+      return
+    }
+
+    if (action === "export") {
+      // Trigger a direct browser download — the API streams a .storelib-export zip
+      try {
+        setActionLoading(install.id + "_export")
+        const res = await fetch(`/api/website-builder/themes/${install.id}/export`)
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}))
+          toast({ title: d.error ?? "Failed to export", variant: "destructive" })
+          return
+        }
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${install.name.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase()}.storelib-export.zip`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+        toast({ title: `"${install.name}" exported` })
+      } finally {
+        setActionLoading(null)
       }
       return
     }
@@ -593,6 +622,9 @@ export default function WebsiteBuilderPage() {
                       <DropdownMenuItem onClick={() => handleAction("rename", liveTheme)}>
                         <Pencil className="h-4 w-4 mr-2" />Rename
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("export", liveTheme)}>
+                        <Download className="h-4 w-4 mr-2" />Export theme
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleAction("unpublish", liveTheme)} className="text-amber-600">
                         <EyeOff className="h-4 w-4 mr-2" />Unpublish
@@ -621,15 +653,54 @@ export default function WebsiteBuilderPage() {
             <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
               My Websites
             </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={loadInstalls}
-              className="gap-1.5 text-neutral-400 hover:text-neutral-700 h-7"
-            >
-              <RefreshCw className="h-3 w-3" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => importInputRef.current?.click()}
+                className="gap-1.5 text-neutral-400 hover:text-neutral-700 h-7"
+                disabled={importing}
+              >
+                {importing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                Import theme
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadInstalls}
+                className="gap-1.5 text-neutral-400 hover:text-neutral-700 h-7"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={async e => {
+              const f = e.target.files?.[0]
+              e.target.value = ""
+              if (!f) return
+              setImporting(true)
+              try {
+                const fd = new FormData()
+                fd.append("file", f)
+                const res = await fetch("/api/website-builder/themes/import", { method: "POST", body: fd })
+                if (res.ok) {
+                  const d = await res.json()
+                  toast({ title: `"${d.name}" imported` })
+                  await loadInstalls()
+                } else {
+                  const d = await res.json().catch(() => ({}))
+                  toast({ title: d.error ?? "Failed to import", variant: "destructive" })
+                }
+              } finally {
+                setImporting(false)
+              }
+            }}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {draftThemes.map(install => (
@@ -688,6 +759,9 @@ export default function WebsiteBuilderPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleAction("rename", install)}>
                             <Pencil className="h-4 w-4 mr-2" />Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleAction("export", install)}>
+                            <Download className="h-4 w-4 mr-2" />Export theme
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleAction("delete", install)} className="text-red-600">

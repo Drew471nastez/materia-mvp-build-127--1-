@@ -18,8 +18,15 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     ],
   },
   {
+    id: "color_schemes",
+    label: "Color Schemes",
+    icon: "palette",
+    // Rendered by a custom UI in the editor (handles editing of all 5 schemes).
+    fields: [],
+  },
+  {
     id: "colors",
-    label: "Colors",
+    label: "Legacy colors",
     icon: "palette",
     fields: [
       { id: "primary_color", label: "Primary", type: "color", default: "#6366f1" },
