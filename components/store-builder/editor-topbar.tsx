@@ -24,8 +24,6 @@ import {
   Save,
   PanelLeft,
   ExternalLink,
-  Download,
-  Upload,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
@@ -66,78 +64,8 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   const [pendingBrowserBack, setPendingBrowserBack] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
-  // ── Theme export / import state ────────────────────────────────────────
-  const [isExportingTheme, setIsExportingTheme] = useState(false)
-  const [isImportingTheme, setIsImportingTheme] = useState(false)
 
   const hasUnsavedChanges = saveState === "unsaved"
-
-  // Trigger a browser download of the current theme as a storelib zip.
-  // We hit /api/store-builder/export-theme as a normal fetch so we can
-  // surface a loading state instead of a hard navigation. The route
-  // returns a `Content-Disposition: attachment` zip blob.
-  const handleExportTheme = async () => {
-    if (isExportingTheme) return
-    setIsExportingTheme(true)
-    try {
-      const url = `/api/store-builder/export-theme?pageType=${currentPageType}&includeImages=1&stage=draft`
-      const res = await fetch(url, { cache: "no-store" })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Export failed" }))
-        throw new Error(err.error || "Export failed")
-      }
-      // Pull the filename from Content-Disposition so users see the same
-      // {storename}-storelib-export.zip name we set on the server.
-      const cd = res.headers.get("Content-Disposition") || ""
-      const match = /filename="([^"]+)"/.exec(cd)
-      const fileName = match?.[1] || `${creatorSlug}-storelib-export.zip`
-
-      const blob = await res.blob()
-      const objectUrl = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = objectUrl
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      // Revoke after the download starts so memory is released
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 4000)
-    } catch (err) {
-      console.error("Export theme failed", err)
-      window.alert((err as Error).message || "Failed to export theme")
-    } finally {
-      setIsExportingTheme(false)
-    }
-  }
-
-  // Open a hidden <input type="file"> picker for .zip and POST it to the
-  // import endpoint. After a successful import we reload the editor so
-  // the new draft_config is fetched fresh.
-  const handleImportTheme = () => {
-    if (isImportingTheme) return
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = ".zip,application/zip"
-    input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
-      setIsImportingTheme(true)
-      try {
-        const fd = new FormData()
-        fd.append("file", file)
-        const res = await fetch("/api/store-builder/import-theme", { method: "POST", body: fd })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(data.error || "Import failed")
-        // Reload so the editor pulls the new draft_config from the server.
-        window.location.reload()
-      } catch (err) {
-        console.error("Import theme failed", err)
-        window.alert((err as Error).message || "Failed to import theme")
-        setIsImportingTheme(false)
-      }
-    }
-    input.click()
-  }
 
   // Fetch custom domain on mount
   useEffect(() => {
@@ -409,53 +337,6 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             <DropdownMenuItem onClick={handleViewLiveStore} className="cursor-pointer">
               <ExternalLink className="mr-2 h-4 w-4" />
               View Live Store
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {/* ── Theme export / import ─────────────────────────────────
-                Exports the current draft as a {slug}-storelib-export.zip
-                bundle (manifest + theme.json + bundled image content) so
-                creators can move themes between stores. Importing
-                replaces the current draft_config and uploads any bundled
-                images to the new owner's storage bucket. */}
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.preventDefault()
-                handleExportTheme()
-              }}
-              disabled={isExportingTheme}
-              className="cursor-pointer"
-            >
-              {isExportingTheme ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Exporting…
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export theme
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.preventDefault()
-                handleImportTheme()
-              }}
-              disabled={isImportingTheme}
-              className="cursor-pointer"
-            >
-              {isImportingTheme ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Importing…
-                </>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import theme
-                </>
-              )}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
