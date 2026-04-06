@@ -20,6 +20,7 @@ import type {
   GlobalStoreSettings,
   ThemePreset,
   VerifiedBadgeType,
+  NavLink,
 } from "./types"
 
 // ============================================
@@ -1245,6 +1246,17 @@ export const defaultSubscribeBarSettings: SubscribeBarSettings = {
 }
 
 // Default header settings for shop page
+// Default navigation links applied to every new theme. These give the
+// storefront a familiar Home / Shop / About / Contact menu out of the box.
+// Each link uses linkType so the renderer can resolve the right destination
+// (e.g. "shop" → /, "about" → /#about) without hardcoding URLs.
+export const defaultNavLinks: NavLink[] = [
+  { id: "nav-home",    label: "Home",    url: "/",         linkType: "home" },
+  { id: "nav-shop",    label: "Shop",    url: "/#products", linkType: "shop" },
+  { id: "nav-about",   label: "About",   url: "/#about",    linkType: "page" },
+  { id: "nav-contact", label: "Contact", url: "/#contact",  linkType: "page" },
+]
+
 export const defaultShopHeaderSettings: ShopHeaderSettings = {
   coverImageUrl: undefined,
   coverFocalPoint: { x: 50, y: 50 },
@@ -1272,6 +1284,25 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
     spotify: { enabled: false, url: "" },
   },
   faviconUrl: undefined,
+  // ── Logo / branding ──────────────────────────────────────────────────
+  logoUrl: undefined,
+  logoHeight: 64,
+  useMobileLogo: false,
+  mobileLogoUrl: undefined,
+  storeTitle: "",
+  // ── Navigation links (default Home / Shop / About / Contact) ─────────
+  navLinks: defaultNavLinks,
+  navLinkColor: "#000000",
+  // ── Header section (top bar) defaults ────────────────────────────────
+  headerLayout: "logo-left-nav-right",
+  headerColorScheme: "white",
+  headerTransparent: false,
+  headerWidth: "full",
+  headerFixed: false,
+  headerVerticalPaddingVw: 1.2,
+  headerLinkSpacingVw: 1.4,
+  headerShowSearch: true,
+  headerShowCart: true,
   colors: {
     backgroundColor: "transparent",
     textColor: "",

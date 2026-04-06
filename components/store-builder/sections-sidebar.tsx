@@ -141,6 +141,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { HeaderSectionEditor } from "@/components/store-builder/header-section-editor"
 
 // Niche categories (mirrored from onboarding)
 const NICHE_PRIMARY = [
@@ -2192,15 +2193,13 @@ function ShopHeaderSettingsForm({
 
   return (
     <div className="space-y-6">
-      {/* Store Title */}
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Store title</Label>
-        <Input
-          value={(settings as any).storeTitle || ""}
-          onChange={(e) => onChange({ storeTitle: e.target.value } as any)}
-          placeholder="Your Store Name"
-        />
-      </div>
+      {/* ── Store Logo / Header Section / Navigation Links ───────────────
+          Self-contained editor for the new top header bar (logo, layout,
+          color scheme, advanced spacing, navigation links). Lives in
+          components/store-builder/header-section-editor.tsx so this file
+          stays manageable. Settings flow through the same onChange pipe
+          as the rest of the form below. */}
+      <HeaderSectionEditor settings={settings} onChange={onChange} />
 
       {/* Edit Settings Link */}
       <a

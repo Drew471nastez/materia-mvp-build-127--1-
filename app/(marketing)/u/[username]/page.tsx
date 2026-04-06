@@ -14,6 +14,7 @@ import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/def
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
+import { StoreHeaderBar } from "@/components/storefront/store-header-bar"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 
 export const dynamic = "force-dynamic"
@@ -472,6 +473,15 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <TrackView type="store" creatorId={creator.id} />
 
         {subscribeBarSettings.visible && <SubscribeBar settings={subscribeBarSettings} creatorId={creator.id} />}
+
+        {/* Store top header bar — logo, navigation, search, cart drawer.
+            Settings (layout, color scheme, nav links, padding) come from
+            ShopHeaderSettings on the published page config. */}
+        <StoreHeaderBar
+          settings={headerSettings}
+          username={username}
+          storeDisplayName={profile.display_name || undefined}
+        />
 
         <ShopHeaderRenderer
           settings={headerSettings}
