@@ -1001,10 +1001,6 @@ export default function CheckoutPageClient({
   // (the native Browser plugin passes these so the form is pre-filled)
   const urlFirstName = searchParams.get("firstName") || ""
   const urlLastName  = searchParams.get("lastName")  || ""
-  // ?directPay=1  → skip Phase-1 placeholder and mount Stripe Elements immediately.
-  // Set when the Capacitor WebView opens this URL in the in-app browser so the
-  // user lands directly on the card form (standard Safari, no WebView restrictions).
-  const urlDirectPay = searchParams.get("directPay") === "1"
 
   const [firstName, setFirstName] = useState(() => urlFirstName || loadSessionField(SESSION_KEYS.firstName))
   const [lastName,  setLastName]  = useState(() => urlLastName  || loadSessionField(SESSION_KEYS.lastName))
@@ -1037,9 +1033,11 @@ export default function CheckoutPageClient({
   const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
-  // Deferred Stripe gate: Stripe.js must NOT load until the user explicitly
-  // activates the card form.
-  const [cardFormActive, setCardFormActive] = useState(urlDirectPay)
+  // Card form is rendered immediately for paid products on web so the user
+  // sees the real Stripe Elements card fields (and express checkout /
+  // Google Pay / Link) right away — no intermediate "tap to enter card
+  // details securely" placeholder. The native app path is unaffected.
+  const [cardFormActive, setCardFormActive] = useState(true)
 
   // ── Native app: plain card inputs ────────────────────────────────────────────
   // In Capacitor WKWebView, Stripe.js is completely bypassed. Card data is
