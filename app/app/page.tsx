@@ -4,8 +4,41 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import type { Metadata } from "next"
 
-export const metadata: Metadata = {
-  title: "Storelib",
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    // Use an absolute title to bypass the root "%s | Storelib" template so the
+    // tab never shows "Storelib | Storelib".
+    return { title: { absolute: "Storelib" } }
+  }
+
+  const adminSupabase = createAdminClient()
+  const [{ data: profile }, { data: creator }] = await Promise.all([
+    adminSupabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle(),
+    adminSupabase
+      .from("creators")
+      .select("username, slug")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ])
+
+  const username =
+    profile?.username || creator?.username || creator?.slug || null
+
+  // When a username exists, the root layout's "%s | Storelib" template
+  // turns this into "username | Storelib". When it doesn't, fall back to
+  // an absolute "Storelib" so we never show "Storelib | Storelib".
+  return username
+    ? { title: username }
+    : { title: { absolute: "Storelib" } }
 }
 
 export const dynamic = "force-dynamic"

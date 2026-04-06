@@ -423,7 +423,7 @@ export function Hero() {
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
-    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
+    <section ref={sectionRef} className="hero-section flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
           transform: scale(0.96);
@@ -439,6 +439,13 @@ export function Hero() {
         }
         @media (min-width: 1280px) {
           .hero-collage-inner { transform: scale(1.24); }
+        }
+        /* Desktop-only: scale down the entire hero section by 10% on larger
+           screens. Uses CSS zoom so all child layout (widths, margins, font
+           sizes) shrinks uniformly without requiring per-element overrides.
+           Mobile/tablet remain untouched. */
+        @media (min-width: 1024px) {
+          .hero-section { zoom: 0.9; }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-collage-inner, .collage-card {
