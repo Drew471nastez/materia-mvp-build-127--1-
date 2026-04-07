@@ -2145,6 +2145,45 @@ function SortableNavLink({
   )
 }
 
+// ── Mobile header layout preview thumbnails (shared) ────────
+const MOBILE_LAYOUT_PREVIEW_NODE = (id: string): React.ReactNode => {
+  const burger = (
+    <div className="flex flex-col gap-[2px]">
+      <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+      <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+      <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+    </div>
+  )
+  const logo = <div className="h-3 w-8 bg-gray-800 rounded-sm" />
+  const dot = <div className="h-2 w-2 bg-gray-800 rounded-full" />
+  if (id === "logo_left_hamburger_right") {
+    return (
+      <div className="flex items-center justify-between w-full h-full px-4">
+        {logo}
+        <div className="flex items-center gap-2">{dot}{burger}</div>
+      </div>
+    )
+  }
+  if (id === "hamburger_left_logo_left") {
+    return (
+      <div className="flex items-center w-full h-full px-4 gap-2">
+        {burger}
+        {logo}
+        <div className="flex-1" />
+        {dot}
+      </div>
+    )
+  }
+  // logo_center_hamburger_left (default)
+  return (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full h-full px-4">
+      <div className="flex items-center justify-start">{burger}</div>
+      <div className="flex items-center justify-center">{logo}</div>
+      <div className="flex items-center justify-end">{dot}</div>
+    </div>
+  )
+}
+
 // ── Header Section Settings Panel ────────────────────────────
 function HeaderSectionSettings({
   section,
@@ -2202,6 +2241,7 @@ function HeaderSectionSettings({
   ]
 
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
+  const [mobileLayoutPickerOpen, setMobileLayoutPickerOpen] = useState(false)
 
   // ── Sub-panel content ──────────────────────────────────────
   const renderSubPanel = (tabId: string) => {
@@ -2232,27 +2272,25 @@ function HeaderSectionSettings({
               />
             )}
 
-            {/* Custom logo vertical position — desktop */}
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
-              <WbToggle
-                label="Custom logo vertical position"
-                value={s.logo_vertical_offset_enabled}
-                onChange={v => onUpdateSetting("logo_vertical_offset_enabled", v)}
-                info="Nudge the logo up or down inside the header."
+            {/* Custom logo horizontal position — desktop (clean inline) */}
+            <WbToggle
+              label="Custom logo horizontal position"
+              value={s.logo_horizontal_offset_enabled}
+              onChange={v => onUpdateSetting("logo_horizontal_offset_enabled", v)}
+              info="Nudge the logo left or right inside the header."
+            />
+            {!!s.logo_horizontal_offset_enabled && (
+              <WbSlider
+                label="Horizontal offset"
+                value={s.logo_horizontal_offset_px}
+                onChange={v => onUpdateSetting("logo_horizontal_offset_px", v)}
+                min={-120}
+                max={120}
+                step={1}
+                unit="px"
+                defaultValue={0}
               />
-              {!!s.logo_vertical_offset_enabled && (
-                <WbSlider
-                  label="Vertical offset"
-                  value={s.logo_vertical_offset_px}
-                  onChange={v => onUpdateSetting("logo_vertical_offset_px", v)}
-                  min={-40}
-                  max={40}
-                  step={1}
-                  unit="px"
-                  defaultValue={0}
-                />
-              )}
-            </div>
+            )}
 
             {/* Use different logo for mobile */}
             <WbToggle
@@ -2286,27 +2324,25 @@ function HeaderSectionSettings({
               </>
             )}
 
-            {/* Custom logo vertical position — mobile */}
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
-              <WbToggle
-                label="Custom mobile logo vertical position"
-                value={s.mobile_logo_vertical_offset_enabled}
-                onChange={v => onUpdateSetting("mobile_logo_vertical_offset_enabled", v)}
-                info="Nudge the mobile logo up or down inside the header."
+            {/* Custom logo horizontal position — mobile (clean inline) */}
+            <WbToggle
+              label="Custom mobile logo horizontal position"
+              value={s.mobile_logo_horizontal_offset_enabled}
+              onChange={v => onUpdateSetting("mobile_logo_horizontal_offset_enabled", v)}
+              info="Nudge the mobile logo left or right inside the header."
+            />
+            {!!s.mobile_logo_horizontal_offset_enabled && (
+              <WbSlider
+                label="Mobile horizontal offset"
+                value={s.mobile_logo_horizontal_offset_px}
+                onChange={v => onUpdateSetting("mobile_logo_horizontal_offset_px", v)}
+                min={-80}
+                max={80}
+                step={1}
+                unit="px"
+                defaultValue={0}
               />
-              {!!s.mobile_logo_vertical_offset_enabled && (
-                <WbSlider
-                  label="Mobile vertical offset"
-                  value={s.mobile_logo_vertical_offset_px}
-                  onChange={v => onUpdateSetting("mobile_logo_vertical_offset_px", v)}
-                  min={-30}
-                  max={30}
-                  step={1}
-                  unit="px"
-                  defaultValue={0}
-                />
-              )}
-            </div>
+            )}
 
             {/* Store title */}
             <div className="space-y-1.5">
@@ -2448,62 +2484,12 @@ function HeaderSectionSettings({
         ]
         const currentLayoutMeta = layoutOptions.find(l => l.id === currentLayout) ?? layoutOptions[0]
 
-        const mobileLayoutOptions = [
-          { id: "logo_center_hamburger_left", label: "Logo centered · Hamburger left" },
-          { id: "logo_right_hamburger_left",  label: "Logo right · Hamburger left" },
-          { id: "logo_left_hamburger_right",  label: "Logo left · Hamburger right" },
-        ]
-        const renderMobilePreview = (id: string) => {
-          if (id === "logo_left_hamburger_right") {
-            return (
-              <div className="flex items-center justify-between w-full h-full px-3">
-                <div className="h-3 w-8 bg-gray-800 rounded-sm" />
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 bg-gray-800 rounded-full" />
-                  <div className="flex flex-col gap-[2px]">
-                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                  </div>
-                </div>
-              </div>
-            )
-          }
-          if (id === "logo_right_hamburger_left") {
-            return (
-              <div className="flex items-center justify-between w-full h-full px-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="flex flex-col gap-[2px]">
-                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                  </div>
-                  <div className="h-2 w-2 bg-gray-800 rounded-full" />
-                </div>
-                <div className="h-3 w-8 bg-gray-800 rounded-sm" />
-              </div>
-            )
-          }
-          // logo_center_hamburger_left (default)
-          return (
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full h-full px-3">
-              <div className="flex items-center justify-start">
-                <div className="flex flex-col gap-[2px]">
-                  <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                  <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                  <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
-                </div>
-              </div>
-              <div className="flex items-center justify-center">
-                <div className="h-3 w-8 bg-gray-800 rounded-sm" />
-              </div>
-              <div className="flex items-center justify-end">
-                <div className="h-2 w-2 bg-gray-800 rounded-full" />
-              </div>
-            </div>
-          )
-        }
         const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
+        const currentMobileLayoutLabel =
+          currentMobileLayout === "hamburger_left_logo_left" ? "Hamburger left · Logo left"
+          : currentMobileLayout === "logo_left_hamburger_right" ? "Logo left · Hamburger right"
+          : "Logo centered · Hamburger left"
+        const mobilePreviewSummary = MOBILE_LAYOUT_PREVIEW_NODE(currentMobileLayout)
         return (
           <div className="space-y-6">
             {/* ── Header layout (desktop) ── */}
@@ -2524,33 +2510,22 @@ function HeaderSectionSettings({
               </button>
             </div>
 
-            {/* ── Mobile header layout ── */}
+            {/* ── Header layout (mobile) — opens its own sub-panel ── */}
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (mobile)</p>
-              <div className="grid gap-2">
-                {mobileLayoutOptions.map(opt => {
-                  const active = currentMobileLayout === opt.id
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => onUpdateSetting("mobile_header_layout", opt.id)}
-                      className={cn(
-                        "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                        active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
-                      )}
-                    >
-                      <div className="h-12 bg-gray-50 border-b border-border flex items-center">
-                        {renderMobilePreview(opt.id)}
-                      </div>
-                      <div className="px-3 py-2 flex items-center justify-between">
-                        <span className="text-[11px] font-medium">{opt.label}</span>
-                        {active && <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              <button
+                type="button"
+                onClick={() => setMobileLayoutPickerOpen(true)}
+                className="w-full group border border-border rounded-xl bg-background hover:border-purple-400 transition-colors overflow-hidden"
+              >
+                <div className="h-14 bg-muted/30 border-b border-border">
+                  {mobilePreviewSummary}
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5 text-left">
+                  <span className="text-xs font-medium text-foreground">{currentMobileLayoutLabel}</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+              </button>
             </div>
 
             <div className="h-px bg-border" />
@@ -2753,6 +2728,59 @@ function HeaderSectionSettings({
       default:
         return null
     }
+  }
+
+  // ── Mobile layout picker sub-panel ─────────────────────────
+  if (mobileLayoutPickerOpen) {
+    const mobileLayoutOptions: { id: string; label: string }[] = [
+      { id: "logo_center_hamburger_left", label: "Logo centered · Hamburger left" },
+      { id: "hamburger_left_logo_left",   label: "Hamburger left · Logo left" },
+      { id: "logo_left_hamburger_right",  label: "Logo left · Hamburger right" },
+    ]
+    const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
+    return (
+      <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-200 ease-out">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
+          <button
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setMobileLayoutPickerOpen(false)}
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold">Choose mobile header layout</span>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {mobileLayoutOptions.map(opt => {
+            const active = currentMobileLayout === opt.id
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  onUpdateSetting("mobile_header_layout", opt.id)
+                  setMobileLayoutPickerOpen(false)
+                }}
+                className={cn(
+                  "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
+                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                )}
+              >
+                <div className="h-20 bg-gray-50 border-b border-border flex items-center">
+                  {MOBILE_LAYOUT_PREVIEW_NODE(opt.id)}
+                </div>
+                <div className="px-3 py-2.5 flex items-center justify-between">
+                  <span className="text-xs font-medium">{opt.label}</span>
+                  {active && (
+                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
   }
 
   // ── Layout picker sub-panel (inline, not modal) ────────────
@@ -4579,17 +4607,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <div
             id="wb-preview-root"
             className={cn(
-              "relative bg-white shadow-2xl transition-all duration-300 mx-auto flex flex-col overflow-hidden",
+              "relative bg-white shadow-xl transition-all duration-300 mx-auto flex flex-col overflow-hidden",
               device === "mobile"
-                ? "rounded-[36px] border-[6px] border-neutral-900/90 ring-1 ring-black/5"
+                ? "rounded-2xl"
                 : "rounded-t-xl w-full max-w-[1400px]",
             )}
             style={
               device === "mobile"
                 ? {
-                    // Phone-shaped — height adapts to viewport zoom, width derives from aspect ratio.
-                    height: "min(820px, calc(100vh - 120px))",
-                    aspectRatio: "9 / 19.5",
+                    // Phone-shaped — fixed width keeps content from reflowing while
+                    // the height adapts to the available viewport (browser zoom).
+                    width: "380px",
+                    height: "min(800px, calc(100vh - 96px))",
                     flex: "0 0 auto",
                   }
                 : { minHeight: "calc(100vh - 72px)" }

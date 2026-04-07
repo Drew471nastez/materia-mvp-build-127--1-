@@ -27,31 +27,78 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const supabase = await createClient()
 
-  // Look up by profile username first, then by creator slug
+  // Resolve the creator id (via profile username or creator slug)
+  let creatorId: string | null = null
+  let fallbackName = ""
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, display_name, username")
     .eq("username", sellername.toLowerCase())
     .maybeSingle()
-
   if (profile) {
-    return {
-      title: `${profile.display_name || profile.username} - Website`,
-      description: `Visit ${profile.display_name || profile.username}'s website on Storelib`,
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("id, slug, display_name")
+      .eq("user_id", profile.id)
+      .maybeSingle()
+    if (creator) {
+      creatorId = creator.id
+      fallbackName = creator.display_name || profile.display_name || profile.username || sellername
+    }
+  }
+  if (!creatorId) {
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("id, slug, display_name")
+      .eq("slug", sellername.toLowerCase())
+      .maybeSingle()
+    if (creator) {
+      creatorId = creator.id
+      fallbackName = creator.display_name || creator.slug || sellername
     }
   }
 
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id, slug, display_name")
-    .eq("slug", sellername.toLowerCase())
+  if (!creatorId) return { title: "Not Found" }
+
+  // Pull published theme settings so we can use brand_name, seo fields and favicon
+  const { data: install } = await supabase
+    .from("store_theme_installs")
+    .select(`
+      id,
+      store_theme_settings ( settings, draft_settings )
+    `)
+    .eq("creator_id", creatorId)
+    .eq("status", "published")
+    .order("sort_order", { ascending: true })
+    .limit(1)
     .maybeSingle()
 
-  if (!creator) return { title: "Not Found" }
+  const settingsRow: any =
+    (install as any)?.store_theme_settings?.[0] ??
+    (install as any)?.store_theme_settings ??
+    {}
+  // Prefer published `settings`, but also fall back to `draft_settings` so a
+  // brand-new install that hasn't been re-published yet still gets the icon
+  // the user just uploaded.
+  const settings: ThemeSettingsValues = settingsRow.settings ?? settingsRow.draft_settings ?? {}
+
+  const brand = typeof settings.brand_name === "string" && settings.brand_name
+    ? settings.brand_name
+    : fallbackName
+  const title = typeof settings.seo_title === "string" && settings.seo_title
+    ? settings.seo_title
+    : `${brand} - Website`
+  const description = typeof settings.seo_description === "string" && settings.seo_description
+    ? settings.seo_description
+    : `Visit ${brand}'s website on Storelib`
+  const favicon = typeof settings.favicon_url === "string" && settings.favicon_url
+    ? settings.favicon_url
+    : undefined
 
   return {
-    title: `${creator.display_name || creator.slug} - Website`,
-    description: `Visit ${creator.display_name || creator.slug}'s website on Storelib`,
+    title,
+    description,
+    icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
   }
 }
 

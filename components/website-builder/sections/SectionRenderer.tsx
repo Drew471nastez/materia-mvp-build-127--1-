@@ -359,21 +359,21 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
   const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 64)
   const desktopLogoH = Number(s.logo_height) || 64
 
-  // Custom logo vertical position — desktop & mobile (separate)
-  const desktopLogoOffsetEnabled = bool(s.logo_vertical_offset_enabled, false)
-  const desktopLogoOffsetPx = Number.isFinite(Number(s.logo_vertical_offset_px))
-    ? Number(s.logo_vertical_offset_px)
+  // Custom logo horizontal position — desktop & mobile (separate)
+  const desktopLogoOffsetEnabled = bool(s.logo_horizontal_offset_enabled, false)
+  const desktopLogoOffsetPx = Number.isFinite(Number(s.logo_horizontal_offset_px))
+    ? Number(s.logo_horizontal_offset_px)
     : 0
-  const mobileLogoOffsetEnabled = bool(s.mobile_logo_vertical_offset_enabled, false)
-  const mobileLogoOffsetPx = Number.isFinite(Number(s.mobile_logo_vertical_offset_px))
-    ? Number(s.mobile_logo_vertical_offset_px)
+  const mobileLogoOffsetEnabled = bool(s.mobile_logo_horizontal_offset_enabled, false)
+  const mobileLogoOffsetPx = Number.isFinite(Number(s.mobile_logo_horizontal_offset_px))
+    ? Number(s.mobile_logo_horizontal_offset_px)
     : 0
 
   const desktopLogoTransform = desktopLogoOffsetEnabled && desktopLogoOffsetPx !== 0
-    ? `translateY(${desktopLogoOffsetPx}px)`
+    ? `translateX(${desktopLogoOffsetPx}px)`
     : undefined
   const mobileLogoTransform = mobileLogoOffsetEnabled && mobileLogoOffsetPx !== 0
-    ? `translateY(${mobileLogoOffsetPx}px)`
+    ? `translateX(${mobileLogoOffsetPx}px)`
     : undefined
 
   const renderLogo = () => {
@@ -562,14 +562,14 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           </div>
         </div>
       )
-    } else if (mobileLayout === "logo_right_hamburger_left") {
+    } else if (mobileLayout === "hamburger_left_logo_left") {
+      // Hamburger then logo, both left-aligned; icons pushed to the right
       content = (
-        <div className="w-full flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
-            {renderHamburger()}
-            {renderIcons()}
-          </div>
+        <div className="w-full flex items-center gap-3">
+          {renderHamburger()}
           <div className="flex items-center min-w-0">{logoNode}</div>
+          <div className="flex-1" />
+          {renderIcons()}
         </div>
       )
     } else {

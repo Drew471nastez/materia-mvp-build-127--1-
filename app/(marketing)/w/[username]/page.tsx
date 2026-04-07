@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .from("store_theme_installs")
     .select(`
       id,
-      store_theme_settings ( settings )
+      store_theme_settings ( settings, draft_settings )
     `)
     .eq("creator_id", creator.id)
     .eq("status", "published")
@@ -35,10 +35,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .limit(1)
     .maybeSingle()
 
-  const settings: ThemeSettingsValues =
-    (install as any)?.store_theme_settings?.[0]?.settings ??
-    (install as any)?.store_theme_settings?.settings ??
+  const settingsRow: any =
+    (install as any)?.store_theme_settings?.[0] ??
+    (install as any)?.store_theme_settings ??
     {}
+  // Prefer published `settings`, fall back to `draft_settings` so a freshly
+  // uploaded favicon shows up even if the install hasn't been re-published.
+  const settings: ThemeSettingsValues = settingsRow.settings ?? settingsRow.draft_settings ?? {}
 
   const brand = typeof settings.brand_name === "string" && settings.brand_name
     ? settings.brand_name
