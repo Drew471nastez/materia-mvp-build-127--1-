@@ -203,10 +203,10 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
   // transparent_on_hero only takes effect when this header sits over a hero block.
   // We approximate this by using transparent background only when the toggle is on
   // — the consumer (page renderer) wraps the header above the hero in those cases.
-  const bg = (transparent || bool(s.transparent_on_hero, false)) ? "transparent" : str(s.bg_color, scheme.bg)
-  const textColor = str(s.text_color, scheme.text)
-  const navLinkColor = str(s.nav_link_color, scheme.nav_link)
-  const borderColor = str(s.border_color, scheme.border)
+  const bg = (transparent || bool(s.transparent_on_hero, false)) ? "transparent" : scheme.bg
+  const textColor = scheme.heading
+  const navLinkColor = scheme.nav_link
+  const borderColor = scheme.inset_border
 
   const layout = str(s.header_layout, "logo_left_nav_right")
   const showSearch = s.show_search !== false
@@ -483,9 +483,9 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
 function HeroSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const textColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const textColor = c.heading
+  const paraColor = c.paragraph
   const layout = str(s.layout, "center")
   const fullHeight = bool(s.full_height)
   const ctaStyle = str(s.cta_style, "primary")
@@ -552,9 +552,9 @@ function HeroSection({ section, theme, isEditing, isSelected, onClick }: Section
 function RichTextSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const bodyColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const bodyColor = c.paragraph
   const align = str(s.alignment, "left")
   const maxWidthMap: Record<string, string> = { narrow: "max-w-xl", medium: "max-w-2xl", wide: "max-w-4xl", full: "max-w-none" }
   const mw = maxWidthMap[str(s.max_width, "medium")] ?? "max-w-2xl"
@@ -579,9 +579,10 @@ function RichTextSection({ section, theme, isEditing, isSelected, onClick }: Sec
 
 function ImageBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
+  const c = sectionColors(section, theme)
   const aspectMap: Record<string, string> = { "16:9": "aspect-video", "3:1": "aspect-[3/1]", "4:3": "aspect-[4/3]", auto: "" }
   const aspect = aspectMap[str(s.aspect_ratio, "16:9")] ?? "aspect-video"
-  const textColor = str(s.text_color, "#ffffff")
+  const textColor = c.image_overlay_text
 
   return (
     <SectionWrapper isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
@@ -610,9 +611,9 @@ function ImageBannerSection({ section, theme, isEditing, isSelected, onClick }: 
 function ProductListSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
   const cardBg = c.bg === "#ffffff" ? "#f8fafc" : c.bg
   const cols = str(s.columns, "3")
   const colClass: Record<string, string> = { "2": "grid-cols-2", "3": "grid-cols-3", "4": "grid-cols-4" }
@@ -663,9 +664,9 @@ function ProductListSection({ section, theme, isEditing, isSelected, onClick }: 
 function TestimonialsSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
   const cardBg = c.bg === "#ffffff" ? "#f8fafc" : c.bg
   const blocks = section.blocks ?? []
 
@@ -711,9 +712,9 @@ function TestimonialsSection({ section, theme, isEditing, isSelected, onClick }:
 function FaqSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
   const borderColor = c.inset_border
   const textColor = paraColor
   const blocks = section.blocks ?? []
@@ -757,9 +758,9 @@ function FaqSection({ section, theme, isEditing, isSelected, onClick }: SectionP
 function CtaSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
@@ -791,9 +792,9 @@ function CtaSection({ section, theme, isEditing, isSelected, onClick }: SectionP
 function StatsSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const textColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const textColor = c.paragraph
   const blocks = section.blocks ?? []
 
   return (
@@ -824,9 +825,9 @@ function StatsSection({ section, theme, isEditing, isSelected, onClick }: Sectio
 function FeatureGridSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
   const cols = str(s.columns, "3")
   const colClass: Record<string, string> = { "2": "grid-cols-2", "3": "grid-cols-3", "4": "grid-cols-4" }
   const blocks = section.blocks ?? []
@@ -863,9 +864,9 @@ function FeatureGridSection({ section, theme, isEditing, isSelected, onClick }: 
 function PricingSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
   const blocks = section.blocks ?? []
 
   return (
@@ -923,7 +924,7 @@ function PricingSection({ section, theme, isEditing, isSelected, onClick }: Sect
 function LogoBarSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
+  const bg = c.bg
   const paraColor = c.paragraph
   const blocks = section.blocks ?? []
   const grayscale = bool(s.grayscale, true)
@@ -959,7 +960,7 @@ function LogoBarSection({ section, theme, isEditing, isSelected, onClick }: Sect
 function GallerySection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
+  const bg = c.bg
   const cols = str(s.columns, "3")
   const colClass: Record<string, string> = { "2": "grid-cols-2", "3": "grid-cols-3", "4": "grid-cols-4" }
   const blocks = section.blocks ?? []
@@ -997,8 +998,8 @@ function FooterSection({ section, theme, isEditing, isSelected, onClick }: Secti
   // Footers default to the "dark" scheme when no scheme is explicitly set
   const schemeKey = typeof s.color_scheme === "string" ? s.color_scheme : "dark"
   const c = resolveScheme(theme, schemeKey)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
+  const bg = c.bg
+  const headingColor = c.heading
   const linkColor = c.footer_link
   const linkUnderlineColor = c.footer_link_underline
   const blocks = section.blocks ?? []
@@ -1036,8 +1037,6 @@ function FooterSection({ section, theme, isEditing, isSelected, onClick }: Secti
 // ── Product section (single product page) ────────────────────
 function ProductSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
-  const textColor = str(s.text_color, "#0f172a")
   const layout = str(s.product_layout, "two_column")
   const imageWidth = str(s.image_width, "55%")
   const colorScheme = str(s.color_scheme, "white")
@@ -1294,9 +1293,9 @@ function ProductSection({ section, theme, isEditing, isSelected, onClick }: Sect
 function SplitContentSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg)
-  const headingColor = str(s.text_color, c.heading)
-  const paraColor = str(s.text_color, c.paragraph)
+  const bg = c.bg
+  const headingColor = c.heading
+  const paraColor = c.paragraph
   const imagePos = str(s.image_position, "left")
   const imgUrl = str(s.image_url, "")
 
@@ -1334,7 +1333,7 @@ function SplitContentSection({ section, theme, isEditing, isSelected, onClick }:
 function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
-  const bg = str(s.bg_color, c.bg === "#ffffff" ? "#000000" : c.bg)
+  const bg = c.bg === "#ffffff" ? "#000000" : c.bg
   const blocks = section.blocks ?? []
   const [activeSlide, setActiveSlide] = useState(0)
 
@@ -1384,7 +1383,8 @@ function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: Se
 // ── Image Section (single image) ─────────────────────────────
 function ImageSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
-  const bg = str(s.bg_color, "#ffffff")
+  const c = sectionColors(section, theme)
+  const bg = c.bg
   const imgUrl = str(s.image_url, "")
   const caption = str(s.caption, "")
   const aspectRatio = str(s.aspect_ratio, "auto")
