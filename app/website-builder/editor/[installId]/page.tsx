@@ -4666,24 +4666,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </>
         )}
 
-        {/* ── Canvas ── */}
+        {/* ── Canvas ──
+            The `<main>` is NOT scrollable. It just paints the gray surround
+            and centers the preview card. The preview card itself
+            (`#wb-preview-root`) IS the scroll container on both desktop and
+            mobile — which means:
+              • Sticky headers inside the preview stick to the TOP of the
+                card, not to the top of the editor viewport.
+              • Scrolled content can never visually escape the card's
+                rounded corners into the editor topbar.
+        */}
         <main
           className={cn(
-            "flex-1 min-w-0 bg-muted/50",
-            device === "mobile"
-              ? "overflow-hidden flex items-start justify-center py-8 px-6"
-              : "overflow-y-auto overflow-x-hidden",
+            "flex-1 min-w-0 bg-muted/50 overflow-hidden flex items-start justify-center",
+            device === "mobile" ? "py-8 px-6" : "pt-6 px-6",
           )}
-          style={device === "mobile" ? undefined : { paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: 0 }}
         >
           <div
             id="wb-preview-root"
             className={cn(
-              "relative bg-white shadow-xl transition-all duration-300 mx-auto flex flex-col",
-              // `overflow-clip` clips the rounded corners without becoming a
-              // scroll container, so `position: sticky` descendants can still
-              // find the outer <main> as their scroll ancestor.
-              "overflow-clip",
+              "relative bg-white shadow-xl transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               device === "mobile"
                 ? "rounded-2xl"
                 : "rounded-t-xl w-full max-w-[1400px]",
@@ -4691,23 +4693,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             style={
               device === "mobile"
                 ? {
-                    // Phone-shaped — fixed width keeps content from reflowing while
-                    // the height adapts to the available viewport (browser zoom).
+                    // Phone-shaped — fixed width keeps content from reflowing
+                    // while the height adapts to the available viewport.
                     width: "380px",
                     height: "min(800px, calc(100vh - 96px))",
                     flex: "0 0 auto",
                   }
-                : { minHeight: "calc(100vh - 72px)" }
+                : {
+                    // Desktop — card fills the canvas area and scrolls internally.
+                    height: "calc(100svh - 48px - 24px)",
+                  }
             }
           >
-            {/* Inner scroll container — for mobile the phone is the viewport;
-                for desktop the outer <main> handles scrolling. */}
-            <div
-              className={cn(
-                "flex flex-col w-full",
-                device === "mobile" ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "flex-1",
-              )}
-            >
+            {/* Inner wrapper — used to be the scroll container; now just
+                a flex-col so the footer sits at the bottom. */}
+            <div className="flex flex-col w-full flex-1">
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
               <div>
