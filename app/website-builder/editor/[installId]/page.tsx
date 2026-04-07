@@ -4737,11 +4737,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   </div>
                 )}
 
-                {/* Header */}
+                {/* Header — NO intermediate wrapping <div>. Passing
+                    `wrapperId` means the id lands on the SectionWrapper's
+                    root div, so `position: sticky` has the full flex-col
+                    above as its containing block instead of a tight
+                    wrapper that's exactly the header's own height. */}
                 {sections.filter(s => s.type === "header").map(section => (
-                  <div key={section.id} id={`wb-section-${section.id}`}>
-                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
-                  </div>
+                  <SectionRenderer
+                    key={section.id}
+                    wrapperId={`wb-section-${section.id}`}
+                    section={section}
+                    theme={activeThemeSettings}
+                    isEditing={true}
+                    isSelected={selectedSectionId === section.id}
+                    onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                    deviceMode={device}
+                  />
                 ))}
 
                 {/* Body sections — flex-1 so footer sticks to bottom without trailing whitespace */}

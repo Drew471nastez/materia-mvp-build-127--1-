@@ -42,6 +42,10 @@ interface SectionProps {
   isSelected?: boolean
   onClick?: () => void
   deviceMode?: "desktop" | "mobile"
+  /** Optional DOM id set on the outer section wrapper — used by the editor
+   *  to `scrollIntoView` without needing a separate wrapping <div> which
+   *  would constrain sticky's containing block. */
+  wrapperId?: string
 }
 
 // ── Utility ──────────────────────────────────────────────────
@@ -83,6 +87,7 @@ function buttonRadiusStyle(theme: ThemeSettingsValues): CSSProperties {
 }
 
 function SectionWrapper({
+  id,
   children,
   bgColor,
   isEditing,
@@ -90,6 +95,7 @@ function SectionWrapper({
   onClick,
   className,
 }: {
+  id?: string
   children: React.ReactNode
   bgColor?: string
   isEditing?: boolean
@@ -99,6 +105,7 @@ function SectionWrapper({
 }) {
   return (
     <div
+      id={id}
       className={cn(
         "relative w-full transition-all",
         isEditing && "cursor-pointer",
@@ -277,23 +284,9 @@ function HeaderMobileNavDrawer({
           pointerEvents: open ? "auto" : "none",
         }}
       >
-        <div
-          className="flex items-center justify-between px-5 py-4 border-b"
-          style={{ borderColor: scheme.inset_border }}
-        >
-          <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: scheme.heading }}>Menu</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close menu"
-            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-black/5 transition-colors"
-            style={{ color: scheme.heading }}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {/* Items — no per-row dividers, just the one under "Menu". */}
-        <nav className="flex-1 overflow-y-auto py-2">
+        {/* Items — one row per link, no dividers, no duplicate close button.
+            The header's own hamburger icon doubles as the close button. */}
+        <nav className="flex-1 overflow-y-auto pt-6 pb-4">
           {visibleItems.map(item => (
             <a
               key={item.id}
@@ -315,7 +308,7 @@ function HeaderMobileNavDrawer({
   return createPortal(drawer, target)
 }
 
-function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
+function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode, wrapperId }: SectionProps) {
   const s = section.settings
   const [cartOpen, setCartOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -838,7 +831,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     return (
       <>
         {/* In-flow spacer to reserve header height */}
-        <div style={{ height: measuredH || undefined, background: bg }} />
+        <div id={wrapperId} style={{ height: measuredH || undefined, background: bg }} />
         <div
           ref={headerRef}
           className="fixed top-0 left-0 right-0 z-40 will-change-transform"
@@ -862,6 +855,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
   if (useStickyInFlow) {
     return (
       <SectionWrapper
+        id={wrapperId}
         bgColor={bg}
         isEditing={isEditing}
         isSelected={isSelected}
@@ -888,7 +882,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
 
   // 3) Plain non-sticky.
   return (
-    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+    <SectionWrapper id={wrapperId} bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       {headerInner}
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
@@ -1861,6 +1855,6 @@ export function renderSection(props: SectionProps) {
   return <Component {...props} />
 }
 
-export default function SectionRenderer({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
-  return renderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }) ?? null
+export default function SectionRenderer(props: SectionProps) {
+  return renderSection(props) ?? null
 }
