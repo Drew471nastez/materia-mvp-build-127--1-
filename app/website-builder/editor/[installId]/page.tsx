@@ -3171,14 +3171,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
 
-    // Prefill default page title with "{seller name} | Storelib" the first
-    // time the editor loads for a theme that has no SEO title set yet. The
-    // user can freely edit or clear it — we only fill it in when blank.
+    // Prefill default page title with "{creator username} | Storelib" the
+    // first time the editor loads for a theme that has no SEO title set yet.
+    // Always prefers the platform username (e.g. "loudliba") over the
+    // brand_name / install name fallback so new users get their real handle
+    // instead of a generic "My Store" placeholder. User can freely edit it.
     if (!loadedSettings.seo_title || typeof loadedSettings.seo_title !== "string" || !loadedSettings.seo_title.trim()) {
-      const brand = (typeof loadedSettings.brand_name === "string" && loadedSettings.brand_name.trim())
-        ? loadedSettings.brand_name.trim()
-        : (data.username || inst.name || "My Store")
-      loadedSettings.seo_title = `${brand} | Storelib`
+      const handle = (typeof data.username === "string" && data.username.trim())
+        ? data.username.trim()
+        : (typeof loadedSettings.brand_name === "string" && loadedSettings.brand_name.trim()
+            ? loadedSettings.brand_name.trim()
+            : (inst.name || "My Store"))
+      loadedSettings.seo_title = `${handle} | Storelib`
     }
 
     // Load sections for current page
@@ -4675,7 +4679,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <div
             id="wb-preview-root"
             className={cn(
-              "relative bg-white shadow-xl transition-all duration-300 mx-auto flex flex-col overflow-hidden",
+              "relative bg-white shadow-xl transition-all duration-300 mx-auto flex flex-col",
+              // Use `overflow-clip` (not `overflow-hidden`) so the rounded
+              // corners still clip but `position: sticky` descendants can
+              // find the outer scroll container. `overflow-hidden` would
+              // create a new containing block and break sticky.
+              "[overflow:clip]",
               device === "mobile"
                 ? "rounded-2xl"
                 : "rounded-t-xl w-full max-w-[1400px]",

@@ -47,14 +47,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // uploaded favicon shows up even if the install hasn't been re-published.
   const settings: ThemeSettingsValues = settingsRow.settings ?? settingsRow.draft_settings ?? {}
 
-  const brand = typeof settings.brand_name === "string" && settings.brand_name
-    ? settings.brand_name
-    : (creator.display_name || creator.slug || username)
-  // Default format: "{seller name} | Storelib". Use `title.absolute` so the
-  // root layout's `%s | Storelib` template doesn't double-append.
+  // Default format: "{username} | Storelib" — prefer the creator's platform
+  // username/slug over the brand_name so the tab title matches the URL.
+  const defaultHandle = creator.slug || username || creator.display_name || "Storelib"
   const rawTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
     ? settings.seo_title.trim()
-    : `${brand} | Storelib`
+    : `${defaultHandle} | Storelib`
+  const brand = typeof settings.brand_name === "string" && settings.brand_name
+    ? settings.brand_name
+    : defaultHandle
   const description = typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
     : `Visit ${brand}'s website on Storelib`

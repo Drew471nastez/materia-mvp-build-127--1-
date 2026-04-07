@@ -86,14 +86,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // the user just uploaded.
   const settings: ThemeSettingsValues = settingsRow.settings ?? settingsRow.draft_settings ?? {}
 
-  const brand = typeof settings.brand_name === "string" && settings.brand_name
-    ? settings.brand_name
-    : (fallbackName || sellername)
-  // Default format: "{seller name} | Storelib". Use `title.absolute` so the
-  // root layout's `%s | Storelib` template doesn't double-append.
+  // Default format: "{username} | Storelib" — prefer the platform username
+  // (the sellername in the URL) so the tab title matches the URL.
+  const defaultHandle = sellername || fallbackName || "Storelib"
   const rawTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
     ? settings.seo_title.trim()
-    : `${brand} | Storelib`
+    : `${defaultHandle} | Storelib`
+  const brand = typeof settings.brand_name === "string" && settings.brand_name
+    ? settings.brand_name
+    : defaultHandle
   const description = typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
     : `Visit ${brand}'s website on Storelib`

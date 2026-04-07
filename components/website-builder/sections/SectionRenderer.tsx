@@ -211,14 +211,26 @@ function HeaderMobileNavDrawer({
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  // Keep the drawer in the tree briefly after closing so the slide-out animation plays.
+  // Two-phase render so the drawer always animates in/out, even on the
+  // very first open. `shouldRender` keeps the DOM around while closing;
+  // `openVisual` is the class-driven open/close state which is always
+  // flipped on the next frame so the transform transition runs.
   const [shouldRender, setShouldRender] = useState(open)
+  const [openVisual, setOpenVisual] = useState(false)
   useEffect(() => {
     if (open) {
       setShouldRender(true)
-      return
+      // Wait for the element to mount at the closed position, THEN flip
+      // openVisual on the next frame so the transform transition plays.
+      const raf = requestAnimationFrame(() => {
+        // Double RAF is safer in Safari / strict mode double invoke.
+        requestAnimationFrame(() => setOpenVisual(true))
+      })
+      return () => cancelAnimationFrame(raf)
     }
-    const t = window.setTimeout(() => setShouldRender(false), 420)
+    // Closing: flip to closed first, unmount after the transition.
+    setOpenVisual(false)
+    const t = window.setTimeout(() => setShouldRender(false), 440)
     return () => window.clearTimeout(t)
   }, [open])
 
@@ -256,8 +268,8 @@ function HeaderMobileNavDrawer({
         className={cn(positionClass, "left-0 right-0 bottom-0 z-[90] bg-black/50 backdrop-blur-[2px]")}
         style={{
           top: headerOffset ? `${headerOffset}px` : 0,
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
+          opacity: openVisual ? 1 : 0,
+          pointerEvents: openVisual ? "auto" : "none",
           transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
@@ -273,7 +285,7 @@ function HeaderMobileNavDrawer({
           top: headerOffset ? `${headerOffset}px` : 0,
           background: scheme.bg,
           color: scheme.heading,
-          transform: open ? "translateX(0)" : "translateX(-101%)",
+          transform: openVisual ? "translateX(0)" : "translateX(-101%)",
           transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
@@ -356,14 +368,36 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
   // Back-compat alias used further down
   const headerFixed = headerStickyEnabled
 
-  // Scroll-direction aware reveal (only applies on the live site).
+  // Scroll-direction aware reveal. Works on both the live site (listens
+  // on window) and inside the editor canvas (listens on the closest
+  // scrollable ancestor of the header) so the preview mirrors the live
+  // behaviour exactly.
   const [stickyVisible, setStickyVisible] = useState(true)
+  const scrollAnchorRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    if (isEditing || !headerStickyEnabled || !headerStickyOnScrollUp) return
-    let lastY = typeof window !== "undefined" ? window.scrollY : 0
+    if (!headerStickyEnabled || !headerStickyOnScrollUp) {
+      setStickyVisible(true)
+      return
+    }
+    const getScrollTarget = (): Window | HTMLElement => {
+      if (!isEditing) return window
+      // Find the nearest scrollable ancestor inside the editor canvas.
+      let el: HTMLElement | null = scrollAnchorRef.current
+      while (el) {
+        const style = window.getComputedStyle(el)
+        const oy = style.overflowY
+        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) {
+          return el
+        }
+        el = el.parentElement
+      }
+      return window
+    }
+    const target = getScrollTarget()
+    const getY = () => (target === window ? window.scrollY : (target as HTMLElement).scrollTop)
+    let lastY = getY()
     const onScroll = () => {
-      const y = window.scrollY
-      // Always show near the top
+      const y = getY()
       if (y < 80) {
         setStickyVisible(true)
       } else if (y > lastY + 4) {
@@ -373,8 +407,8 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       }
       lastY = y
     }
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
+    target.addEventListener("scroll", onScroll as EventListener, { passive: true })
+    return () => target.removeEventListener("scroll", onScroll as EventListener)
   }, [isEditing, headerStickyEnabled, headerStickyOnScrollUp])
   const transparentOnHero = bool(s.transparent_on_hero, false)
   const navAlignment = str(s.nav_alignment, "right") // legacy field, used by default layout
@@ -727,17 +761,26 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     ? (forceMobile ? "px-4" : "px-[5%]")
     : "px-4 md:px-[5%]"
 
-  const stickyHidden = !isEditing && headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
-  // We can't rely on `position: sticky` because the public site lives inside
-  // a marketing `<main>` with `overflow-x: clip`, which kills sticky in most
-  // browsers. Use `position: fixed` + a spacer div (measured via
-  // ResizeObserver) instead — guaranteed to work in every layout.
-  const isLiveSticky = !isEditing && headerStickyEnabled
-  const headerInnerRef = useRef<HTMLDivElement | null>(null)
+  const stickyHidden = headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
+  // Sticky behaviour needs to work in BOTH places:
+  //  • Live site (`isEditing === false`) — wrapped in a marketing layout
+  //    `<main className="[overflow-x:clip]">` which kills `position: sticky`
+  //    in most browsers. Use `position: fixed` + a spacer div.
+  //  • Editor canvas (`isEditing === true`) — content scrolls inside
+  //    `<main className="overflow-y-auto">` (desktop) or
+  //    `#wb-preview-root` (mobile phone frame). Use `position: sticky`
+  //    there since the scroll ancestor is a simple overflow container.
+  const useStickyFixed = !isEditing && headerStickyEnabled
+  const useStickyInFlow = isEditing && headerStickyEnabled
+
+  const headerRef = useRef<HTMLDivElement | null>(null)
   const [measuredH, setMeasuredH] = useState(0)
   useLayoutEffect(() => {
-    if (!isLiveSticky) { setMeasuredH(0); return }
-    const el = headerInnerRef.current
+    // Measure for both the live fixed header (so the spacer reserves the
+    // right height) and the editor sticky header (so the mobile drawer can
+    // start just below it).
+    if (!headerStickyEnabled) { setMeasuredH(0); return }
+    const el = headerRef.current
     if (!el) return
     const update = () => setMeasuredH(el.offsetHeight)
     update()
@@ -748,24 +791,22 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       ro.disconnect()
       window.removeEventListener("resize", update)
     }
-  }, [isLiveSticky])
+  }, [headerStickyEnabled])
 
+  // The actual header visual — always identical between editor and live.
+  // We put the slide-up/down transform on the OUTERMOST wrapper so the
+  // whole header (including its background) hides together instead of
+  // leaving an empty bar behind.
   const headerInner = (
-    <div
-      ref={headerInnerRef}
-      className="relative border-b"
-      style={{
-        background: bg,
-        borderColor,
-        transform: stickyHidden ? "translateY(-100%)" : "translateY(0)",
-        transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
-      }}
-    >
+    <div className="relative border-b" style={{ background: bg, borderColor }}>
       <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
         {content}
       </div>
     </div>
   )
+
+  const hideTransform = stickyHidden ? "translateY(-100%)" : "translateY(0)"
+  const hideTransition = "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)"
 
   const mobileDrawer = (
     <HeaderMobileNavDrawer
@@ -773,7 +814,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       onClose={() => setMobileNavOpen(false)}
       scheme={scheme}
       scopedToPreview={isEditing}
-      headerOffset={isLiveSticky ? measuredH : 0}
+      headerOffset={measuredH}
       items={navBlocks.map(b => ({
         id: b.id,
         label: str(b.settings.label),
@@ -783,16 +824,22 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     />
   )
 
-  // Live sticky: render a spacer where the header would sit in flow, then
-  // render the real header as `position: fixed` so it stays pinned no
-  // matter how the parent layout scrolls.
-  if (isLiveSticky) {
+  // 1) Live sticky: fixed header + spacer. Transform lives on the fixed
+  // wrapper so the whole header (bg + content) slides together.
+  if (useStickyFixed) {
     return (
       <>
         {/* In-flow spacer to reserve header height */}
         <div style={{ height: measuredH || undefined, background: bg }} />
-        {/* Fixed header */}
-        <div className="fixed top-0 left-0 right-0 z-40 will-change-transform" style={{ background: bg }}>
+        <div
+          ref={headerRef}
+          className="fixed top-0 left-0 right-0 z-40 will-change-transform"
+          style={{
+            background: bg,
+            transform: hideTransform,
+            transition: hideTransition,
+          }}
+        >
           {headerInner}
         </div>
         {cartOpen && (
@@ -803,16 +850,41 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     )
   }
 
+  // 2) Editor sticky (inside canvas scroll container).
+  if (useStickyInFlow) {
+    return (
+      <SectionWrapper
+        bgColor={bg}
+        isEditing={isEditing}
+        isSelected={isSelected}
+        onClick={onClick}
+        className="sticky top-0 z-40 will-change-transform"
+      >
+        <div
+          ref={(el) => { headerRef.current = el; scrollAnchorRef.current = el }}
+          style={{
+            background: bg,
+            transform: hideTransform,
+            transition: hideTransition,
+          }}
+        >
+          {headerInner}
+        </div>
+        {cartOpen && (
+          <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
+        )}
+        {mobileDrawer}
+      </SectionWrapper>
+    )
+  }
+
+  // 3) Plain non-sticky.
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       {headerInner}
-      {/* Cart drawer (portal-like, fixed-positioned) */}
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
       )}
-      {/* Mobile nav drawer — always mounted so the slide-in/out animation
-          plays cleanly. When rendered inside the editor preview (isEditing),
-          it's scoped to #wb-preview-root so it doesn't cover the editor. */}
       {mobileDrawer}
     </SectionWrapper>
   )
