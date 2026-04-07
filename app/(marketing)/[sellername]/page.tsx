@@ -60,8 +60,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!creatorId) return { title: "Not Found" }
 
-  // Pull published theme settings so we can use brand_name, seo fields and favicon
-  const { data: install } = await supabase
+  // Pull published theme settings so we can use brand_name, seo fields and favicon.
+  // Use the admin client: published installs are meant to be public and the
+  // regular supabase client is subject to RLS (which blocks unauthenticated
+  // reads of store_theme_* tables).
+  const adminForMeta = createAdminClient()
+  const { data: install } = await adminForMeta
     .from("store_theme_installs")
     .select(`
       id,
@@ -167,8 +171,12 @@ export default async function SellerWebsitePage({ params }: PageProps) {
     notFound()
   }
 
-  // Find the published theme install for this creator
-  const { data: install } = await supabase
+  // Find the published theme install for this creator.
+  // Use admin client — published installs must be readable by anyone on the
+  // internet, and the `store_theme_*` tables have RLS that locks them down
+  // to the owning creator for the regular (anon) client.
+  const publicAdmin = createAdminClient()
+  const { data: install } = await publicAdmin
     .from("store_theme_installs")
     .select(`
       id,
@@ -196,8 +204,8 @@ export default async function SellerWebsitePage({ params }: PageProps) {
     )
   }
 
-  // Get published sections for the home page
-  const { data: pageData } = await supabase
+  // Get published sections for the home page (admin bypasses RLS)
+  const { data: pageData } = await publicAdmin
     .from("store_theme_pages")
     .select("sections, draft_sections")
     .eq("install_id", install.id)

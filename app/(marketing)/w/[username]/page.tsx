@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -22,8 +23,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!creator) return { title: "Not Found" }
 
-  // Pull published theme settings so we can use brand_name, seo fields and favicon
-  const { data: install } = await supabase
+  // Pull published theme settings so we can use brand_name, seo fields and favicon.
+  // Use admin client — published installs must be readable by anyone and
+  // `store_theme_*` tables are locked down by RLS to the owning creator.
+  const adminForMeta = createAdminClient()
+  const { data: install } = await adminForMeta
     .from("store_theme_installs")
     .select(`
       id,
@@ -77,8 +81,11 @@ export default async function WebsitePublicPage({ params }: PageProps) {
 
   if (!creator) notFound()
 
-  // Find the published theme install for this creator
-  const { data: install } = await supabase
+  // Find the published theme install for this creator.
+  // Use admin client — published installs must be publicly readable but
+  // `store_theme_*` tables are locked to the owner under regular RLS.
+  const publicAdmin = createAdminClient()
+  const { data: install } = await publicAdmin
     .from("store_theme_installs")
     .select(`
       id,
@@ -106,8 +113,8 @@ export default async function WebsitePublicPage({ params }: PageProps) {
     )
   }
 
-  // Get published sections for the home page
-  const { data: pageData } = await supabase
+  // Get published sections for the home page (admin bypasses RLS)
+  const { data: pageData } = await publicAdmin
     .from("store_theme_pages")
     .select("sections, draft_sections")
     .eq("install_id", install.id)
