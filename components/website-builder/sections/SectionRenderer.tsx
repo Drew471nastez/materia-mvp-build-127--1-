@@ -94,6 +94,9 @@ function SectionWrapper({
   isSelected,
   onClick,
   className,
+  style,
+  forwardRef,
+  disableWrapperTransition,
 }: {
   id?: string
   children: React.ReactNode
@@ -102,18 +105,25 @@ function SectionWrapper({
   isSelected?: boolean
   onClick?: () => void
   className?: string
+  style?: CSSProperties
+  forwardRef?: React.Ref<HTMLDivElement>
+  /** Drop the default `transition-all` so inline `transition` rules (e.g.
+   *  for sticky hide) aren't fighting the wrapper's own transitions. */
+  disableWrapperTransition?: boolean
 }) {
   return (
     <div
       id={id}
+      ref={forwardRef as any}
       className={cn(
-        "relative w-full transition-all",
+        "relative w-full",
+        !disableWrapperTransition && "transition-all",
         isEditing && "cursor-pointer",
         isEditing && !isSelected && "hover:ring-2 hover:ring-blue-400/50 hover:ring-inset",
         isEditing && isSelected && "ring-2 ring-blue-500 ring-inset",
         className,
       )}
-      style={{ background: bgColor }}
+      style={{ background: bgColor, ...style }}
       onClick={onClick}
     >
       {isEditing && isSelected && (
@@ -851,7 +861,9 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     )
   }
 
-  // 2) Editor sticky (inside canvas scroll container).
+  // 2) Editor sticky (inside canvas scroll container). Transform lives on
+  // the SectionWrapper's root div, not on an inner wrapper, so when the
+  // header slides up the WHOLE thing (background + content) goes with it.
   if (useStickyInFlow) {
     return (
       <SectionWrapper
@@ -860,18 +872,25 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         isEditing={isEditing}
         isSelected={isSelected}
         onClick={onClick}
-        className="sticky top-0 z-40 will-change-transform"
+        disableWrapperTransition
+        className={cn(
+          "sticky top-0 z-40 will-change-transform",
+          // While hidden, drop the selection/hover rings so the translated
+          // element doesn't leave a blue/gray stripe peeking into the
+          // editor topbar area.
+          stickyHidden && "!ring-0 hover:!ring-0",
+        )}
+        style={{
+          transform: hideTransform,
+          transition: hideTransition,
+          pointerEvents: stickyHidden ? "none" : undefined,
+        }}
+        forwardRef={(el: HTMLDivElement | null) => {
+          headerRef.current = el
+          scrollAnchorRef.current = el
+        }}
       >
-        <div
-          ref={(el) => { headerRef.current = el; scrollAnchorRef.current = el }}
-          style={{
-            background: bg,
-            transform: hideTransform,
-            transition: hideTransition,
-          }}
-        >
-          {headerInner}
-        </div>
+        {headerInner}
         {cartOpen && (
           <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
         )}
