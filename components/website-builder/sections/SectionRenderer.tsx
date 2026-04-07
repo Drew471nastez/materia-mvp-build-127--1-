@@ -257,22 +257,30 @@ function HeaderMobileNavDrawer({
   // Filter out empty/placeholder items so the drawer only shows real links
   const visibleItems = items.filter(it => it.label && it.label.trim().length > 0)
 
+  // Use different easing/duration for open vs close — open is a smooth
+  // deceleration (iOS-style spring), close is a quicker ease-in so it
+  // feels snappy and intentional rather than slow.
+  const drawerTransition = open
+    ? "transform 360ms cubic-bezier(0.32, 0.72, 0, 1)"
+    : "transform 260ms cubic-bezier(0.4, 0, 1, 1)"
+  const backdropTransition = open
+    ? "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)"
+    : "opacity 220ms cubic-bezier(0.4, 0, 0.6, 1)"
+
   const drawer = (
     <>
+      {/* Backdrop — no backdrop-blur to avoid GPU compositing jank on mobile.
+          Pure opacity transition; pointerEvents handles interactivity. */}
       <div
         aria-hidden
         onClick={onClose}
-        className={cn(positionClass, "left-0 right-0 bottom-0 z-[90] bg-black/50 backdrop-blur-[2px]")}
+        className={cn(positionClass, "left-0 right-0 bottom-0 z-[90] bg-black/50")}
         style={{
           top: headerOffset ? `${headerOffset}px` : 0,
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
-          transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
-          visibility: open ? "visible" : "hidden",
-          transitionProperty: "opacity, visibility",
-          transitionDuration: "320ms",
-          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-          transitionDelay: open ? "0ms, 0ms" : "0ms, 320ms",
+          transition: backdropTransition,
+          willChange: "opacity",
         }}
       />
       <aside
@@ -281,7 +289,7 @@ function HeaderMobileNavDrawer({
         aria-hidden={!open}
         className={cn(
           positionClass,
-          "left-0 bottom-0 z-[95] shadow-2xl flex flex-col will-change-transform",
+          "left-0 bottom-0 z-[95] shadow-2xl flex flex-col",
           scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
         )}
         style={{
@@ -289,13 +297,14 @@ function HeaderMobileNavDrawer({
           background: scheme.bg,
           color: scheme.heading,
           transform: open ? "translateX(0)" : "translateX(-101%)",
-          transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: drawerTransition,
+          willChange: "transform",
           pointerEvents: open ? "auto" : "none",
         }}
       >
         {/* Items — one row per link, no dividers, no duplicate close button.
             The header's own hamburger icon doubles as the close button. */}
-        <nav className="flex-1 overflow-y-auto pt-6 pb-4">
+        <nav className="flex-1 overflow-y-auto pt-6 pb-4" style={{ overscrollBehavior: "contain" }}>
           {visibleItems.map(item => (
             <a
               key={item.id}
@@ -589,28 +598,37 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       <span className="relative block h-[16px] w-[22px]">
         <span
           aria-hidden
-          className="absolute left-0 h-[2px] w-full rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="absolute left-0 h-[2px] w-full rounded-full"
           style={{
             background: navLinkColor,
             top: mobileNavOpen ? "7px" : "0px",
             transform: mobileNavOpen ? "rotate(45deg)" : "rotate(0deg)",
+            transition: mobileNavOpen
+              ? "top 180ms cubic-bezier(0.4, 0, 0.6, 1), transform 200ms 80ms cubic-bezier(0.32, 0.72, 0, 1)"
+              : "transform 160ms cubic-bezier(0.4, 0, 1, 1), top 180ms 60ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
         />
         <span
           aria-hidden
-          className="absolute left-0 top-[7px] h-[2px] w-full rounded-full transition-opacity duration-200 ease-out"
+          className="absolute left-0 top-[7px] h-[2px] w-full rounded-full"
           style={{
             background: navLinkColor,
             opacity: mobileNavOpen ? 0 : 1,
+            transition: mobileNavOpen
+              ? "opacity 120ms ease-out"
+              : "opacity 160ms 60ms ease-in",
           }}
         />
         <span
           aria-hidden
-          className="absolute left-0 h-[2px] w-full rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="absolute left-0 h-[2px] w-full rounded-full"
           style={{
             background: navLinkColor,
             top: mobileNavOpen ? "7px" : "14px",
             transform: mobileNavOpen ? "rotate(-45deg)" : "rotate(0deg)",
+            transition: mobileNavOpen
+              ? "top 180ms cubic-bezier(0.4, 0, 0.6, 1), transform 200ms 80ms cubic-bezier(0.32, 0.72, 0, 1)"
+              : "transform 160ms cubic-bezier(0.4, 0, 1, 1), top 180ms 60ms cubic-bezier(0.32, 0.72, 0, 1)",
           }}
         />
       </span>
