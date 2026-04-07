@@ -953,10 +953,73 @@ function WbSelect({
   )
 }
 
+// ── Shared Scheme Pill List ──────────────────────────────────
+// Vertical list of 5 Aa pills whose bg + text colors come straight
+// from the scheme's own background + heading colors in
+// theme.color_schemes (with DEFAULT_COLOR_SCHEMES as a fallback).
+// Labels are "Scheme 1..5" so editing the underlying colors doesn't
+// make the name lie. Active row reveals an Edit button that jumps
+// to General Settings → Color Schemes.
+const SCHEME_KEYS_ORDERED: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
+const SCHEME_PILL_LABELS: Record<ColorSchemeKey, string> = {
+  white: "Scheme 1", light: "Scheme 2", dark: "Scheme 3", black: "Scheme 4", highlight: "Scheme 5",
+}
+
+function SchemePillList({
+  value,
+  onChange,
+  themeSchemes,
+  onEditScheme,
+  dense = false,
+}: {
+  value: string
+  onChange: (v: string) => void
+  themeSchemes: Record<string, ColorSchemeValues> | undefined
+  onEditScheme?: () => void
+  dense?: boolean
+}) {
+  return (
+    <div className={cn("space-y-2", dense ? "" : "")}>
+      {SCHEME_KEYS_ORDERED.map(k => {
+        const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
+        const isActive = value === k
+        // Dynamic pill colors: background = scheme.bg, text = scheme.heading
+        const pillBg = sc.bg
+        const pillText = sc.heading
+        return (
+          <button
+            key={k}
+            type="button"
+            onClick={() => onChange(k)}
+            className={cn(
+              "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-xl border-2 transition-all cursor-pointer",
+              isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
+            )}
+            style={{ background: pillBg, color: pillText }}
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="text-[16px] font-bold">Aa</span>
+              <span className="text-[14px] font-medium">{SCHEME_PILL_LABELS[k]}</span>
+            </span>
+            {isActive && onEditScheme && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={e => { e.stopPropagation(); onEditScheme() }}
+                onKeyDown={e => { if (e.key === "Enter") { e.stopPropagation(); onEditScheme() } }}
+                className="text-[12px] font-medium px-3 py-1 rounded-md bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
+              >
+                Edit
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Per-section Color Scheme Picker ──────────────────────────
-// Renders a vertical list of 5 Aa pills (matching the Storelib mock).
-// The active pill has a blue ring + an "Edit" button that jumps to
-// the global Color Schemes editor.
 function SectionColorSchemePicker({
   value,
   onChange,
@@ -968,10 +1031,6 @@ function SectionColorSchemePicker({
   themeSchemes: Record<string, ColorSchemeValues> | undefined
   onEditScheme?: () => void
 }) {
-  const keys: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
-  const labels: Record<ColorSchemeKey, string> = {
-    white: "White", light: "Light", dark: "Dark", black: "Black", highlight: "Highlight",
-  }
   return (
     <div className="border-b border-border p-4 space-y-3">
       <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Color Scheme</p>
@@ -987,42 +1046,12 @@ function SectionColorSchemePicker({
         )}
         to customise colors.
       </p>
-      <div className="space-y-2">
-        {keys.map(k => {
-          const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
-          const isActive = value === k
-          // Use the global SCHEME_PILL_STYLES for consistent visuals
-          const pill = SCHEME_PILL_STYLES[k]
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => onChange(k)}
-              className={cn(
-                "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 transition-all cursor-pointer",
-                isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
-              )}
-              style={{ background: pill.bg, color: pill.text }}
-            >
-              <span className="flex items-center gap-2.5">
-                <span className="text-[14px] font-bold">Aa</span>
-                <span className="text-sm font-medium">{labels[k]}</span>
-              </span>
-              {isActive && onEditScheme && (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={e => { e.stopPropagation(); onEditScheme() }}
-                  onKeyDown={e => { if (e.key === "Enter") { e.stopPropagation(); onEditScheme() } }}
-                  className="text-[12px] font-medium px-2.5 py-1 rounded border border-current bg-white/80 text-gray-900 hover:bg-white transition-colors cursor-pointer"
-                >
-                  Edit
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      <SchemePillList
+        value={value}
+        onChange={onChange}
+        themeSchemes={themeSchemes}
+        onEditScheme={onEditScheme}
+      />
     </div>
   )
 }
@@ -1032,8 +1061,11 @@ function SectionColorSchemePicker({
 // light, dark, black, highlight). Each scheme exposes the color
 // slots that the renderer reads when a section selects it.
 const COLOR_SCHEME_KEYS: ColorSchemeKey[] = ["white", "light", "dark", "black", "highlight"]
+// Labels are generic "Scheme N" so editing a scheme's colors doesn't
+// make its name lie. The 5 built-in keys (white/light/dark/black/
+// highlight) are still used internally for stable storage.
 const COLOR_SCHEME_LABELS: Record<ColorSchemeKey, string> = {
-  white: "White", light: "Light", dark: "Dark", black: "Black", highlight: "Highlight",
+  white: "Scheme 1", light: "Scheme 2", dark: "Scheme 3", black: "Scheme 4", highlight: "Scheme 5",
 }
 // Full color slot definitions, grouped by section as in the spec.
 const COLOR_SCHEME_GROUPS: { id: keyof ColorSchemeValues; label: string; group: string }[] = [
@@ -1532,7 +1564,7 @@ function ColorSchemesEditor({
             <span className="flex items-center gap-2.5">
               <span
                 className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold"
-                style={{ background: SCHEME_PILL_STYLES[active].bg, color: SCHEME_PILL_STYLES[active].text }}
+                style={{ background: schemes[active].bg, color: schemes[active].heading }}
               >
                 Aa
               </span>
@@ -1544,6 +1576,7 @@ function ColorSchemesEditor({
             <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-xl overflow-hidden">
               {COLOR_SCHEME_KEYS.map(k => {
                 const isActive = active === k
+                const sc = schemes[k]
                 return (
                   <button
                     key={k}
@@ -1556,7 +1589,7 @@ function ColorSchemesEditor({
                   >
                     <span
                       className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold"
-                      style={{ background: SCHEME_PILL_STYLES[k].bg, color: SCHEME_PILL_STYLES[k].text }}
+                      style={{ background: sc.bg, color: sc.heading }}
                     >
                       Aa
                     </span>
@@ -1892,6 +1925,8 @@ function HeaderSectionSettings({
   products,
   collections,
   customPages,
+  themeSchemes,
+  onEditScheme,
 }: {
   section: SectionInstance
   schema: any
@@ -1904,6 +1939,8 @@ function HeaderSectionSettings({
   products: { id: string; title: string; slug: string }[]
   collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
+  themeSchemes: Record<string, ColorSchemeValues> | undefined
+  onEditScheme: () => void
 }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const s = section.settings
@@ -2185,33 +2222,21 @@ function HeaderSectionSettings({
                 value={s.header_transparent}
                 onChange={v => onUpdateSetting("header_transparent", v)}
               />
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Choose a color scheme for the header. Visit the color scheme editor to customise colors.
+              <p className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                Choose a color scheme for the header. Visit the
+                <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline mx-1">
+                  color scheme editor
+                </button>
+                to customise colors.
               </p>
-              <div className="grid grid-cols-5 gap-2">
-                {colorSchemes.map(scheme => {
-                  const active = currentScheme === scheme.id
-                  return (
-                    <button
-                      key={scheme.id}
-                      type="button"
-                      onClick={() => onUpdateSetting("color_scheme", scheme.id)}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 p-1 rounded-lg transition-all",
-                        active && "ring-2 ring-purple-500 ring-offset-2",
-                      )}
-                    >
-                      <div
-                        className="w-full aspect-square rounded-md border border-border flex items-center justify-center text-[14px] font-semibold"
-                        style={{ background: scheme.bg, color: scheme.text }}
-                      >
-                        Aa
-                      </div>
-                      <span className="text-[10px] font-medium text-foreground">{scheme.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
+              <SchemePillList
+                value={currentScheme}
+                onChange={v => onUpdateSetting("color_scheme", v)}
+                themeSchemes={themeSchemes}
+                onEditScheme={onEditScheme}
+                dense
+              />
             </div>
 
             <div className="h-px bg-border" />
@@ -3616,6 +3641,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               { name: "Contact", key: "contact" },
               ...customPages.map(p => ({ name: p.name, key: p.key as string })),
             ]}
+            themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
+            onEditScheme={() => {
+              setSidebarMode("settings")
+              setExpandedSettings("color_schemes")
+              setSelectedPanel({ type: "pages" })
+            }}
           />
         )
       }
@@ -3938,8 +3969,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
       {/* ── Top bar ── */}
       <header className="h-12 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-30">
-        {/* Left side: Back, theme name, Live badge, 3-dots */}
-        <div className="flex items-center gap-2 min-w-0">
+        {/* LEFT: Back + sidebar mode toggles (desktop only) */}
+        <div className="flex items-center gap-1.5 min-w-0">
           {isMobileView && (
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}>
               <PanelLeft className="h-4 w-4" />
@@ -3958,23 +3989,67 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <ArrowLeft className="h-4 w-4" />
           </button>
 
-          {/* Theme name + Live badge */}
-          <span className="text-sm font-semibold text-foreground truncate hidden md:block max-w-[180px]">{install?.name}</span>
+          {/* Desktop: sidebar mode toggles (Pages / Sections / General Settings)
+              Moved up from the old vertical rail so the sidebar gets the full
+              horizontal space for its panel content. */}
+          {!isMobileView && (
+            <div className="flex items-center gap-0.5 ml-1">
+              <button
+                className={cn(
+                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  pageBrowserOpen
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                )}
+                onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
+                title="Pages"
+              >
+                <FileText className="h-[17px] w-[17px]" />
+              </button>
+              <button
+                className={cn(
+                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  sidebarMode === "sections" && !pageBrowserOpen
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                )}
+                onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
+                title="Sections"
+              >
+                <Layers className="h-[17px] w-[17px]" />
+              </button>
+              <button
+                className={cn(
+                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  sidebarMode === "settings" && !pageBrowserOpen
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                )}
+                onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
+                title="General Settings"
+              >
+                <Settings className="h-[17px] w-[17px]" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* CENTER: theme name + Live badge + 3-dots menu + unsaved indicator */}
+        <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+          <span className="text-sm font-semibold text-foreground truncate hidden md:block max-w-[220px]">{install?.name}</span>
           {install?.status === "published" && (
             <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[10px] font-semibold uppercase tracking-wide shrink-0 px-2 py-0">
               <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Live
             </Badge>
           )}
-
-          {/* 3-dots menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0">
+              <button className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0" title="Theme options">
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52 z-[100]">
+            <DropdownMenuContent align="center" className="w-52 z-[100]">
               {websiteUrl && (
                 <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")} className="cursor-pointer">
                   <ExternalLink className="mr-2 h-4 w-4" />
@@ -3994,37 +4069,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* Undo / Redo */}
-          <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0 ml-1">
-            <button
-              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              title="Undo (Ctrl+Z)"
-            >
-              <Undo2 className="h-4 w-4 text-neutral-600" />
-            </button>
-            <div className="w-px h-5 bg-border" />
-            <button
-              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              <Redo2 className="h-4 w-4 text-neutral-600" />
-            </button>
-          </div>
-        </div>
-
-        {/* Center: unsaved indicator */}
-        <div className="flex-1 flex items-center justify-center min-w-0">
           {isDirty && (
-            <span className="text-xs text-amber-600 hidden md:inline">Unsaved changes</span>
+            <span className="text-xs text-amber-600 hidden md:inline ml-2">Unsaved changes</span>
           )}
         </div>
 
-        {/* Right side */}
+        {/* RIGHT: view live, device switcher, undo/redo, save */}
         <div className="flex items-center gap-2 shrink-0">
           {/* View Live — globe icon only */}
           {websiteUrl && (
@@ -4067,6 +4117,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           >
             <ExternalLink className="h-3.5 w-3.5 text-neutral-600" />
           </button>
+
+          {/* Undo / Redo — sit next to the Save button per the mock */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0">
+            <button
+              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="h-4 w-4 text-neutral-600" />
+            </button>
+            <div className="w-px h-5 bg-border" />
+            <button
+              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-4 w-4 text-neutral-600" />
+            </button>
+          </div>
 
           {/* Save button — publishes automatically if theme is live */}
           <Button
@@ -4122,50 +4193,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       {/* ── Body ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* ── Left sidebar ── */}
+        {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-hidden">
-            {/* Vertical icon rail */}
-            <div className="w-12 border-r border-border bg-muted/30 flex flex-col items-center py-3 gap-1 shrink-0">
-              <button
-                className={cn(
-                  "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
-                  sidebarMode === "sections" && !pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
-                )}
-                onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
-                title="Sections"
-              >
-                <Layers className="h-[18px] w-[18px]" />
-              </button>
-              <button
-                className={cn(
-                  "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
-                  pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
-                )}
-                onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
-                title="Pages"
-              >
-                <FileText className="h-[18px] w-[18px]" />
-              </button>
-              <button
-                className={cn(
-                  "h-10 w-10 flex items-center justify-center rounded-lg transition-colors",
-                  sidebarMode === "settings" && !pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
-                )}
-                onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
-                title="General Settings"
-              >
-                <Settings className="h-[18px] w-[18px]" />
-              </button>
-            </div>
-            {/* Sidebar content panel */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth - 48, minWidth: 232 }}>
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth, minWidth: 280 }}>
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                 {renderSidebarContent()}
               </div>
