@@ -2232,6 +2232,28 @@ function HeaderSectionSettings({
               />
             )}
 
+            {/* Custom logo vertical position — desktop */}
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
+              <WbToggle
+                label="Custom logo vertical position"
+                value={s.logo_vertical_offset_enabled}
+                onChange={v => onUpdateSetting("logo_vertical_offset_enabled", v)}
+                info="Nudge the logo up or down inside the header."
+              />
+              {!!s.logo_vertical_offset_enabled && (
+                <WbSlider
+                  label="Vertical offset"
+                  value={s.logo_vertical_offset_px}
+                  onChange={v => onUpdateSetting("logo_vertical_offset_px", v)}
+                  min={-40}
+                  max={40}
+                  step={1}
+                  unit="px"
+                  defaultValue={0}
+                />
+              )}
+            </div>
+
             {/* Use different logo for mobile */}
             <WbToggle
               label="Use different logo for mobile devices"
@@ -2263,6 +2285,28 @@ function HeaderSectionSettings({
                 )}
               </>
             )}
+
+            {/* Custom logo vertical position — mobile */}
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
+              <WbToggle
+                label="Custom mobile logo vertical position"
+                value={s.mobile_logo_vertical_offset_enabled}
+                onChange={v => onUpdateSetting("mobile_logo_vertical_offset_enabled", v)}
+                info="Nudge the mobile logo up or down inside the header."
+              />
+              {!!s.mobile_logo_vertical_offset_enabled && (
+                <WbSlider
+                  label="Mobile vertical offset"
+                  value={s.mobile_logo_vertical_offset_px}
+                  onChange={v => onUpdateSetting("mobile_logo_vertical_offset_px", v)}
+                  min={-30}
+                  max={30}
+                  step={1}
+                  unit="px"
+                  defaultValue={0}
+                />
+              )}
+            </div>
 
             {/* Store title */}
             <div className="space-y-1.5">
@@ -2404,11 +2448,67 @@ function HeaderSectionSettings({
         ]
         const currentLayoutMeta = layoutOptions.find(l => l.id === currentLayout) ?? layoutOptions[0]
 
+        const mobileLayoutOptions = [
+          { id: "logo_center_hamburger_left", label: "Logo centered · Hamburger left" },
+          { id: "logo_right_hamburger_left",  label: "Logo right · Hamburger left" },
+          { id: "logo_left_hamburger_right",  label: "Logo left · Hamburger right" },
+        ]
+        const renderMobilePreview = (id: string) => {
+          if (id === "logo_left_hamburger_right") {
+            return (
+              <div className="flex items-center justify-between w-full h-full px-3">
+                <div className="h-3 w-8 bg-gray-800 rounded-sm" />
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 bg-gray-800 rounded-full" />
+                  <div className="flex flex-col gap-[2px]">
+                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          if (id === "logo_right_hamburger_left") {
+            return (
+              <div className="flex items-center justify-between w-full h-full px-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex flex-col gap-[2px]">
+                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                    <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                  </div>
+                  <div className="h-2 w-2 bg-gray-800 rounded-full" />
+                </div>
+                <div className="h-3 w-8 bg-gray-800 rounded-sm" />
+              </div>
+            )
+          }
+          // logo_center_hamburger_left (default)
+          return (
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full h-full px-3">
+              <div className="flex items-center justify-start">
+                <div className="flex flex-col gap-[2px]">
+                  <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                  <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                  <div className="h-[2px] w-3 bg-gray-800 rounded-full" />
+                </div>
+              </div>
+              <div className="flex items-center justify-center">
+                <div className="h-3 w-8 bg-gray-800 rounded-sm" />
+              </div>
+              <div className="flex items-center justify-end">
+                <div className="h-2 w-2 bg-gray-800 rounded-full" />
+              </div>
+            </div>
+          )
+        }
+        const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
         return (
           <div className="space-y-6">
-            {/* ── Header layout ── */}
+            {/* ── Header layout (desktop) ── */}
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (desktop)</p>
               <button
                 type="button"
                 onClick={() => setLayoutPickerOpen(true)}
@@ -2422,6 +2522,35 @@ function HeaderSectionSettings({
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
               </button>
+            </div>
+
+            {/* ── Mobile header layout ── */}
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (mobile)</p>
+              <div className="grid gap-2">
+                {mobileLayoutOptions.map(opt => {
+                  const active = currentMobileLayout === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onUpdateSetting("mobile_header_layout", opt.id)}
+                      className={cn(
+                        "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
+                        active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                      )}
+                    >
+                      <div className="h-12 bg-gray-50 border-b border-border flex items-center">
+                        {renderMobilePreview(opt.id)}
+                      </div>
+                      <div className="px-3 py-2 flex items-center justify-between">
+                        <span className="text-[11px] font-medium">{opt.label}</span>
+                        {active && <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="h-px bg-border" />
@@ -4438,15 +4567,42 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         )}
 
         {/* ── Canvas ── */}
-        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-muted/50" style={{ paddingTop: device === "mobile" ? "16px" : "24px", paddingLeft: device === "mobile" ? "16px" : "24px", paddingRight: device === "mobile" ? "16px" : "24px", paddingBottom: 0 }}>
+        <main
+          className={cn(
+            "flex-1 min-w-0 bg-muted/50",
+            device === "mobile"
+              ? "overflow-hidden flex items-start justify-center py-8 px-6"
+              : "overflow-y-auto overflow-x-hidden",
+          )}
+          style={device === "mobile" ? undefined : { paddingTop: "24px", paddingLeft: "24px", paddingRight: "24px", paddingBottom: 0 }}
+        >
           <div
             id="wb-preview-root"
             className={cn(
-              "relative bg-white shadow-lg transition-all duration-300 rounded-t-xl mx-auto flex flex-col overflow-hidden",
-              device === "mobile" ? "w-[360px]" : "w-full max-w-[1400px]",
+              "relative bg-white shadow-2xl transition-all duration-300 mx-auto flex flex-col overflow-hidden",
+              device === "mobile"
+                ? "rounded-[36px] border-[6px] border-neutral-900/90 ring-1 ring-black/5"
+                : "rounded-t-xl w-full max-w-[1400px]",
             )}
-            style={{ minHeight: "calc(100vh - 72px)" }}
+            style={
+              device === "mobile"
+                ? {
+                    // Phone-shaped — height adapts to viewport zoom, width derives from aspect ratio.
+                    height: "min(820px, calc(100vh - 120px))",
+                    aspectRatio: "9 / 19.5",
+                    flex: "0 0 auto",
+                  }
+                : { minHeight: "calc(100vh - 72px)" }
+            }
           >
+            {/* Inner scroll container — for mobile the phone is the viewport;
+                for desktop the outer <main> handles scrolling. */}
+            <div
+              className={cn(
+                "flex flex-col w-full",
+                device === "mobile" ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "flex-1",
+              )}
+            >
             {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
               <div>
@@ -4514,6 +4670,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 ))}
               </>
             )}
+            </div>
           </div>
         </main>
       </div>

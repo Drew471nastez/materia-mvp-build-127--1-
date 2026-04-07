@@ -209,6 +209,17 @@ function HeaderMobileNavDrawer({
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
+  // Keep the drawer in the tree briefly after closing so the slide-out animation plays.
+  const [shouldRender, setShouldRender] = useState(open)
+  useEffect(() => {
+    if (open) {
+      setShouldRender(true)
+      return
+    }
+    const t = window.setTimeout(() => setShouldRender(false), 420)
+    return () => window.clearTimeout(t)
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -225,24 +236,26 @@ function HeaderMobileNavDrawer({
     }
   }, [open, onClose, scopedToPreview])
 
-  if (!mounted) return null
+  if (!mounted || !shouldRender) return null
   const target: HTMLElement | null = scopedToPreview
     ? (document.getElementById("wb-preview-root") ?? document.body)
     : document.body
   if (!target) return null
 
   const positionClass = scopedToPreview ? "absolute" : "fixed"
+  // Filter out empty/placeholder items so the drawer only shows real links
+  const visibleItems = items.filter(it => it.label && it.label.trim().length > 0)
 
   const drawer = (
     <>
       <div
         aria-hidden
         onClick={onClose}
-        className={cn(positionClass, "inset-0 z-[90] bg-black/40")}
+        className={cn(positionClass, "inset-0 z-[90] bg-black/50 backdrop-blur-[2px]")}
         style={{
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
-          transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
       <aside
@@ -250,18 +263,21 @@ function HeaderMobileNavDrawer({
         aria-label="Menu"
         className={cn(
           positionClass,
-          "top-0 left-0 z-[95] h-full shadow-2xl flex flex-col",
+          "top-0 left-0 z-[95] h-full shadow-2xl flex flex-col will-change-transform",
           scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
         )}
         style={{
           background: scheme.bg,
           color: scheme.heading,
-          transform: open ? "translateX(0)" : "translateX(-100%)",
-          transition: "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transform: open ? "translateX(0)" : "translateX(-101%)",
+          transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: scheme.inset_border }}>
-          <h2 className="text-[15px] font-semibold" style={{ color: scheme.heading }}>Menu</h2>
+        <div
+          className="flex items-center justify-between px-5 py-4 border-b"
+          style={{ borderColor: scheme.inset_border }}
+        >
+          <h2 className="text-[15px] font-semibold tracking-tight" style={{ color: scheme.heading }}>Menu</h2>
           <button
             type="button"
             onClick={onClose}
@@ -272,19 +288,17 @@ function HeaderMobileNavDrawer({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {/* Items — no per-row dividers, just the one under "Menu". */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {items.map(item => (
+          {visibleItems.map(item => (
             <a
               key={item.id}
               href={item.href}
               target={item.openInNew ? "_blank" : undefined}
               rel={item.openInNew ? "noopener noreferrer" : undefined}
               onClick={onClose}
-              className="block px-5 py-3.5 text-[15px] font-medium border-b hover:opacity-70 transition-opacity"
-              style={{
-                color: scheme.nav_link,
-                borderColor: scheme.inset_border,
-              }}
+              className="block px-5 py-3 text-[15px] font-medium hover:bg-black/5 transition-colors"
+              style={{ color: scheme.nav_link }}
             >
               {item.label}
             </a>
@@ -345,10 +359,34 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
   const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 64)
   const desktopLogoH = Number(s.logo_height) || 64
 
+  // Custom logo vertical position — desktop & mobile (separate)
+  const desktopLogoOffsetEnabled = bool(s.logo_vertical_offset_enabled, false)
+  const desktopLogoOffsetPx = Number.isFinite(Number(s.logo_vertical_offset_px))
+    ? Number(s.logo_vertical_offset_px)
+    : 0
+  const mobileLogoOffsetEnabled = bool(s.mobile_logo_vertical_offset_enabled, false)
+  const mobileLogoOffsetPx = Number.isFinite(Number(s.mobile_logo_vertical_offset_px))
+    ? Number(s.mobile_logo_vertical_offset_px)
+    : 0
+
+  const desktopLogoTransform = desktopLogoOffsetEnabled && desktopLogoOffsetPx !== 0
+    ? `translateY(${desktopLogoOffsetPx}px)`
+    : undefined
+  const mobileLogoTransform = mobileLogoOffsetEnabled && mobileLogoOffsetPx !== 0
+    ? `translateY(${mobileLogoOffsetPx}px)`
+    : undefined
+
   const renderLogo = () => {
     if (!s.logo_url) {
       return (
-        <span className="text-[17px] font-bold whitespace-nowrap" style={{ color: textColor, fontFamily: str(s.logo_font, "inherit") }}>
+        <span
+          className="text-[17px] font-bold whitespace-nowrap"
+          style={{
+            color: textColor,
+            fontFamily: str(s.logo_font, "inherit"),
+            transform: forceMobile ? mobileLogoTransform : desktopLogoTransform,
+          }}
+        >
           {str(s.logo_text, theme.brand_name ?? "My Store")}
         </span>
       )
@@ -359,7 +397,10 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           src={forceMobile ? mobileLogoSrc : str(s.logo_url)}
           alt={str(s.logo_text, theme.brand_name ?? "Logo")}
           className="object-contain"
-          style={{ height: `${forceMobile ? mobileLogoH : desktopLogoH}px` }}
+          style={{
+            height: `${forceMobile ? mobileLogoH : desktopLogoH}px`,
+            transform: forceMobile ? mobileLogoTransform : desktopLogoTransform,
+          }}
           loading="eager"
           decoding="async"
           fetchPriority="high"
@@ -372,7 +413,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           src={str(s.logo_url)}
           alt={str(s.logo_text, theme.brand_name ?? "Logo")}
           className="object-contain hidden md:block"
-          style={{ height: `${desktopLogoH}px` }}
+          style={{ height: `${desktopLogoH}px`, transform: desktopLogoTransform }}
           loading="eager"
           decoding="async"
           fetchPriority="high"
@@ -381,7 +422,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           src={mobileLogoSrc}
           alt={str(s.logo_text, theme.brand_name ?? "Logo")}
           className="object-contain md:hidden"
-          style={{ height: `${mobileLogoH}px` }}
+          style={{ height: `${mobileLogoH}px`, transform: mobileLogoTransform }}
           loading="eager"
           decoding="async"
           fetchPriority="high"
@@ -505,18 +546,42 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     </div>
   )
 
-  // If mobile, we collapse ALL layouts into a consistent mobile shell:
-  // [hamburger] .... [centered logo] .... [icons]
+  // If mobile, collapse all desktop layouts into a mobile shell driven by
+  // `mobile_header_layout`. Default = logo centered, hamburger left.
   const isMobileShell = hasDeviceMode && forceMobile
+  const mobileLayout = str(s.mobile_header_layout, "logo_center_hamburger_left")
   let content: React.ReactNode
   if (isMobileShell) {
-    content = (
-      <div className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-3">
-        {renderHamburger()}
-        <div className="flex items-center justify-center min-w-0">{logoNode}</div>
-        {renderIcons()}
-      </div>
-    )
+    if (mobileLayout === "logo_left_hamburger_right") {
+      content = (
+        <div className="w-full flex items-center justify-between gap-3">
+          <div className="flex items-center min-w-0">{logoNode}</div>
+          <div className="flex items-center gap-1">
+            {renderIcons()}
+            {renderHamburger()}
+          </div>
+        </div>
+      )
+    } else if (mobileLayout === "logo_right_hamburger_left") {
+      content = (
+        <div className="w-full flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1">
+            {renderHamburger()}
+            {renderIcons()}
+          </div>
+          <div className="flex items-center min-w-0">{logoNode}</div>
+        </div>
+      )
+    } else {
+      // logo_center_hamburger_left (default) — truly centered logo via 3-col grid
+      content = (
+        <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div className="flex items-center justify-start">{renderHamburger()}</div>
+          <div className="flex items-center justify-center min-w-0">{logoNode}</div>
+          <div className="flex items-center justify-end">{renderIcons()}</div>
+        </div>
+      )
+    }
   } else if (layout === "logo_left_nav_center") {
     // Truly centered nav using 3-col grid
     content = (
@@ -616,24 +681,21 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
       )}
-      {/* Mobile nav drawer — slides in from the left with all nav links.
-          When the header is rendered inside the editor preview (isEditing),
-          the drawer is scoped to the preview container so it doesn't cover
-          the entire editor page. */}
-      {mobileNavOpen && (
-        <HeaderMobileNavDrawer
-          open={mobileNavOpen}
-          onClose={() => setMobileNavOpen(false)}
-          scheme={scheme}
-          scopedToPreview={isEditing}
-          items={navBlocks.map(b => ({
-            id: b.id,
-            label: str(b.settings.label),
-            href: resolveHref(b),
-            openInNew: bool(b.settings.open_in_new_tab, false),
-          }))}
-        />
-      )}
+      {/* Mobile nav drawer — always mounted so the slide-in/out animation
+          plays cleanly. When rendered inside the editor preview (isEditing),
+          it's scoped to #wb-preview-root so it doesn't cover the editor. */}
+      <HeaderMobileNavDrawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        scheme={scheme}
+        scopedToPreview={isEditing}
+        items={navBlocks.map(b => ({
+          id: b.id,
+          label: str(b.settings.label),
+          href: resolveHref(b),
+          openInNew: bool(b.settings.open_in_new_tab, false),
+        }))}
+      />
     </SectionWrapper>
   )
 }

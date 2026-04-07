@@ -77,6 +77,23 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
           { label: "Highlight", value: "highlight" },
         ],
       },
+      {
+        id: "mobile_header_layout",
+        label: "Mobile header layout",
+        type: "select",
+        default: "logo_center_hamburger_left",
+        options: [
+          { label: "Logo centered · Hamburger left", value: "logo_center_hamburger_left" },
+          { label: "Logo right · Hamburger left",    value: "logo_right_hamburger_left" },
+          { label: "Logo left · Hamburger right",    value: "logo_left_hamburger_right" },
+        ],
+      },
+      // Custom logo vertical position — desktop
+      { id: "logo_vertical_offset_enabled", label: "Custom logo vertical position", type: "toggle", default: false },
+      { id: "logo_vertical_offset_px", label: "Logo vertical offset", type: "range", min: -40, max: 40, step: 1, unit: "px", default: 0 },
+      // Custom logo vertical position — mobile
+      { id: "mobile_logo_vertical_offset_enabled", label: "Custom mobile logo vertical position", type: "toggle", default: false },
+      { id: "mobile_logo_vertical_offset_px", label: "Mobile logo vertical offset", type: "range", min: -30, max: 30, step: 1, unit: "px", default: 0 },
       { id: "header_transparent", label: "Make header transparent", type: "toggle", default: false },
       {
         id: "header_width",
