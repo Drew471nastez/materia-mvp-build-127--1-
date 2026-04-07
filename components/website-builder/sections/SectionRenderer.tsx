@@ -340,8 +340,38 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     headerWidthRaw === "fixed"  ? 1280 :
     null // "full"
   const isFixedWidth = headerWidthMaxPx !== null
-  // Sticky/fixed position — honour both new "header_fixed" and legacy "sticky"
-  const headerFixed = bool(s.header_fixed, bool(s.sticky, true))
+  // Sticky header — honour new fields with legacy fallbacks.
+  //   header_sticky_enabled       — master toggle
+  //   header_sticky_on_scroll_up  — only reveal when scrolling up
+  //   legacy: header_fixed / sticky
+  const headerStickyEnabled = bool(
+    s.header_sticky_enabled,
+    bool(s.header_fixed, bool(s.sticky, true)),
+  )
+  const headerStickyOnScrollUp = bool(s.header_sticky_on_scroll_up, false)
+  // Back-compat alias used further down
+  const headerFixed = headerStickyEnabled
+
+  // Scroll-direction aware reveal (only applies on the live site).
+  const [stickyVisible, setStickyVisible] = useState(true)
+  useEffect(() => {
+    if (isEditing || !headerStickyEnabled || !headerStickyOnScrollUp) return
+    let lastY = typeof window !== "undefined" ? window.scrollY : 0
+    const onScroll = () => {
+      const y = window.scrollY
+      // Always show near the top
+      if (y < 80) {
+        setStickyVisible(true)
+      } else if (y > lastY + 4) {
+        setStickyVisible(false) // scrolling down
+      } else if (y < lastY - 4) {
+        setStickyVisible(true)  // scrolling up
+      }
+      lastY = y
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [isEditing, headerStickyEnabled, headerStickyOnScrollUp])
   const transparentOnHero = bool(s.transparent_on_hero, false)
   const navAlignment = str(s.nav_alignment, "right") // legacy field, used by default layout
 
@@ -664,14 +694,20 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     ? (forceMobile ? "px-4" : "px-[5%]")
     : "px-4 md:px-[5%]"
 
+  const stickyHidden = !isEditing && headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div
         className={cn(
-          "relative border-b",
-          !isEditing && headerFixed && "sticky top-0 z-40",
+          "relative border-b will-change-transform",
+          !isEditing && headerStickyEnabled && "sticky top-0 z-40",
         )}
-        style={{ background: bg, borderColor }}
+        style={{
+          background: bg,
+          borderColor,
+          transform: stickyHidden ? "translateY(-100%)" : "translateY(0)",
+          transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
       >
         <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
           {content}

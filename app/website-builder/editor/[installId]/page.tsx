@@ -2572,11 +2572,19 @@ function HeaderSectionSettings({
                 ]}
               />
               <WbToggle
-                label="Fixed position"
-                value={s.header_fixed}
-                onChange={v => onUpdateSetting("header_fixed", v)}
-                info="Header stays pinned to the top when scrolling"
+                label="Enable sticky header"
+                value={s.header_sticky_enabled}
+                onChange={v => onUpdateSetting("header_sticky_enabled", v)}
+                info="Keep the header pinned to the top as the visitor scrolls."
               />
+              {!!s.header_sticky_enabled && (
+                <WbToggle
+                  label="Sticky on scroll up"
+                  value={s.header_sticky_on_scroll_up}
+                  onChange={v => onUpdateSetting("header_sticky_on_scroll_up", v)}
+                  info="Hide the sticky header when scrolling down; reveal it seamlessly on scroll up."
+                />
+              )}
               <WbSlider
                 label="Vertical padding"
                 value={s.vertical_padding_vw}
@@ -2913,9 +2921,16 @@ function HeaderSectionSettings({
     if (!tab) return null
 
     return (
-      <div className="flex flex-col h-full">
+      <div
+        key={`sub-${activeTab}`}
+        className="flex flex-col h-full animate-in fade-in slide-in-from-right-3 duration-200 ease-out"
+      >
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-          <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setActiveTab(null)}>
+          <button
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setActiveTab(null)}
+            aria-label="Back"
+          >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <span className="text-sm font-semibold">{tab.label}</span>
@@ -2929,9 +2944,9 @@ function HeaderSectionSettings({
 
   // ── Main tab list ──────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full animate-in fade-in slide-in-from-left-3 duration-200 ease-out">
       <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-        <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={onBack}>
+        <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <span className="text-sm font-semibold">Header Section</span>
@@ -4321,9 +4336,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {/* LEFT: Back + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {isMobileView && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}>
-              <PanelLeft className="h-4 w-4" />
-            </Button>
+            <button
+              type="button"
+              aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileSidebarOpen}
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              className="h-8 w-8 shrink-0 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+            >
+              <span className="relative block h-[14px] w-[18px]">
+                <span
+                  className="absolute left-0 h-[2px] w-full bg-current rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  style={{ top: mobileSidebarOpen ? "6px" : "0px", transform: mobileSidebarOpen ? "rotate(45deg)" : "rotate(0deg)" }}
+                />
+                <span
+                  className="absolute left-0 top-[6px] h-[2px] w-full bg-current rounded-full transition-opacity duration-200 ease-out"
+                  style={{ opacity: mobileSidebarOpen ? 0 : 1 }}
+                />
+                <span
+                  className="absolute left-0 h-[2px] w-full bg-current rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  style={{ top: mobileSidebarOpen ? "6px" : "12px", transform: mobileSidebarOpen ? "rotate(-45deg)" : "rotate(0deg)" }}
+                />
+              </span>
+            </button>
           )}
 
           {/* Back button */}
@@ -4541,7 +4575,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       </div>
 
       {/* ── Body ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-hidden">
@@ -4553,13 +4587,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
         ) : (
           <>
-            {/* Mobile sidebar overlay */}
+            {/* Mobile sidebar overlay — slides in from the left UNDER the topbar */}
             <div
               className={cn(
-                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[360px] bg-background border-r border-border transition-transform duration-300 ease-in-out flex",
-                mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[360px] bg-background border-r border-border flex will-change-transform shadow-2xl",
               )}
-              style={{ top: "48px" }}
+              style={{
+                top: 0,
+                transform: mobileSidebarOpen ? "translateX(0)" : "translateX(-102%)",
+                transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
             >
               {/* Mobile icon rail */}
               <div className="w-12 border-r border-border bg-muted/30 flex flex-col items-center py-3 gap-1 shrink-0">
@@ -4588,9 +4625,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </div>
               </div>
             </div>
-            {mobileSidebarOpen && (
-              <div className="absolute inset-0 z-20 bg-black/30" style={{ top: "48px" }} onClick={() => setMobileSidebarOpen(false)} />
-            )}
+            {/* Backdrop — fade in/out smoothly */}
+            <div
+              className="absolute inset-0 z-20 bg-black/40"
+              style={{
+                opacity: mobileSidebarOpen ? 1 : 0,
+                pointerEvents: mobileSidebarOpen ? "auto" : "none",
+                transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
+              onClick={() => setMobileSidebarOpen(false)}
+            />
           </>
         )}
 
@@ -4632,22 +4676,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 device === "mobile" ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "flex-1",
               )}
             >
-            {/* Loading skeleton for canvas — page switch */}
+            {/* Skeleton — mimics the actual page structure (header → hero → content → footer).
+                No spinner: elements gently pulse and then the real content fades in. */}
             {(loading || canvasLoading) && (
-              <div>
-                <div className="h-14 bg-neutral-100/60 animate-pulse" />
-                <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-xs text-neutral-400">Loading page...</p>
+              <div className="animate-in fade-in duration-200">
+                {/* Header skeleton */}
+                <div className="h-14 border-b border-neutral-100 flex items-center justify-between px-6">
+                  <div className="h-5 w-24 bg-neutral-100 rounded-md animate-pulse" />
+                  <div className="flex items-center gap-4">
+                    <div className="h-3 w-12 bg-neutral-100 rounded-full animate-pulse" />
+                    <div className="h-3 w-12 bg-neutral-100 rounded-full animate-pulse" />
+                    <div className="h-3 w-12 bg-neutral-100 rounded-full animate-pulse" />
+                    <div className="h-7 w-7 bg-neutral-100 rounded-full animate-pulse" />
                   </div>
                 </div>
-                <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
+                {/* Hero skeleton */}
+                <div className="px-8 py-16 flex flex-col items-center gap-5">
+                  <div className="h-10 w-2/3 max-w-[520px] bg-neutral-100 rounded-lg animate-pulse" />
+                  <div className="h-4 w-1/2 max-w-[420px] bg-neutral-100 rounded-full animate-pulse" />
+                  <div className="h-10 w-[140px] bg-neutral-200 rounded-lg animate-pulse mt-2" />
+                </div>
+                {/* Grid skeleton */}
+                <div className="px-8 pb-16 grid grid-cols-3 gap-5">
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="space-y-3">
+                      <div className="aspect-[4/3] bg-neutral-100 rounded-xl animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+                      <div className="h-3 w-3/4 bg-neutral-100 rounded-full animate-pulse" />
+                      <div className="h-3 w-1/3 bg-neutral-100 rounded-full animate-pulse" />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {!loading && !canvasLoading && (
-              <>
+              <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-out">
                 {/* Announcement bar */}
                 {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
                   <div
@@ -4697,7 +4760,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
                   </div>
                 ))}
-              </>
+              </div>
             )}
             </div>
           </div>

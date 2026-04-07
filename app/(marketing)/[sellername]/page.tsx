@@ -84,10 +84,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const brand = typeof settings.brand_name === "string" && settings.brand_name
     ? settings.brand_name
-    : fallbackName
+    : (fallbackName || sellername)
+  // Default format: "{seller name} | Storelib"
   const title = typeof settings.seo_title === "string" && settings.seo_title
     ? settings.seo_title
-    : `${brand} - Website`
+    : `${brand} | Storelib`
   const description = typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
     : `Visit ${brand}'s website on Storelib`

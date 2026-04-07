@@ -105,7 +105,8 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = {
           { label: "Fixed", value: "fixed" },
         ],
       },
-      { id: "header_fixed", label: "Fixed position", type: "toggle", default: true },
+      { id: "header_sticky_enabled", label: "Enable sticky header", type: "toggle", default: true, info: "Header stays pinned to the top as the visitor scrolls." },
+      { id: "header_sticky_on_scroll_up", label: "Sticky on scroll up", type: "toggle", default: false, info: "Only reveal the sticky header when scrolling up — hides on scroll down." },
       { id: "vertical_padding_vw", label: "Vertical padding", type: "range", min: 0, max: 5, step: 0.1, unit: "vw", default: 1.2 },
       { id: "link_spacing_vw", label: "Space between menu links", type: "range", min: 0.2, max: 5, step: 0.1, unit: "vw", default: 1.4 },
       // Legacy / extra layout

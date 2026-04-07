@@ -544,27 +544,16 @@ export default function WebsiteBuilderPage() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {websiteUrl && (
-            <>
-              <div className="flex items-center gap-1.5 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
-                <Globe className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-                <span className="truncate max-w-[180px] text-xs">{websiteDisplay}</span>
-                <button
-                  className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0 ml-1"
-                  onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
-                >
-                  Copy
-                </button>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => window.open(websiteUrl, "_blank")}
+            <div className="flex items-center gap-1.5 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
+              <Globe className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+              <span className="truncate max-w-[220px] text-xs">{websiteDisplay}</span>
+              <button
+                className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0 ml-1"
+                onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                View Live
-              </Button>
-            </>
+                Copy
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -577,14 +566,12 @@ export default function WebsiteBuilderPage() {
           Current Website
         </h2>
         {liveTheme ? (
-          <div className="rounded-2xl border border-neutral-200/70 bg-neutral-50 overflow-hidden">
-            {/* Website preview — clean, just the site in a gray container */}
-            <div className="relative px-[8%] pt-6 sm:pt-8">
-              <div className="rounded-t-xl overflow-hidden shadow-2xl shadow-black/10 bg-white border border-neutral-200/60 border-b-0">
-                <ThemePreview install={liveTheme} aspectClass="aspect-[16/9]" />
-              </div>
-              {/* Bottom fade — natural edge like the screenshot */}
-              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-neutral-50 to-transparent pointer-events-none" />
+          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden">
+            {/* Full-bleed website preview — covers the container edge-to-edge */}
+            <div className="relative bg-neutral-50 overflow-hidden">
+              <ThemePreview install={liveTheme} aspectClass="aspect-[16/7]" />
+              {/* Soft fade at the bottom to blend into the info bar */}
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white/70 to-transparent pointer-events-none" />
             </div>
 
             {/* Info bar */}
@@ -702,75 +689,73 @@ export default function WebsiteBuilderPage() {
             }}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden divide-y divide-neutral-100">
             {draftThemes.map(install => (
-              <div key={install.id} className="relative">
+              <div key={install.id} className="relative group flex items-center gap-4 px-4 py-3.5 hover:bg-neutral-50/60 transition-colors">
                 {actionLoading?.startsWith(install.id) && (
-                  <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center z-10">
-                    <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
+                    <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
                   </div>
                 )}
-                <div className="group rounded-xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-300 hover:shadow-md transition-all">
-                  {/* Preview */}
-                  <div className="relative cursor-pointer" onClick={() => goToEditor(install.id)}>
-                    <ThemePreview install={install} aspectClass="aspect-[4/3]" />
-                    <div className="absolute top-2.5 left-2.5">
-                      <StatusBadge status={install.status} />
-                    </div>
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" className="bg-white text-neutral-900 hover:bg-neutral-100 shadow-lg gap-1.5">
-                          <Palette className="h-3.5 w-3.5" />
-                          Customize Website
-                        </Button>
-                      </div>
-                    </div>
+                {/* Thumbnail */}
+                <button
+                  onClick={() => goToEditor(install.id)}
+                  className="shrink-0 w-[110px] h-[72px] rounded-lg overflow-hidden border border-neutral-200/80 bg-neutral-50 hover:border-neutral-300 transition-colors cursor-pointer"
+                >
+                  <ThemePreview install={install} aspectClass="aspect-[110/72]" />
+                </button>
+                {/* Metadata */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-neutral-900 truncate">{install.name}</p>
+                    <StatusBadge status={install.status} />
                   </div>
-
-                  {/* Info */}
-                  <div className="p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-neutral-900 truncate">{install.name}</p>
-                        <p className="text-xs text-neutral-500 truncate mt-0.5">
-                          {install.theme?.author ?? "Storelib"} · v{install.theme?.version ?? "1.0.0"}
-                        </p>
-                        <p className="text-[10px] text-neutral-400 mt-0.5">
-                          Last saved {new Date(install.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0">
-                            <MoreHorizontal className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleAction("publish", install)}>
-                            <Globe className="h-4 w-4 mr-2" />Publish
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => goToEditor(install.id)}>
-                            <Palette className="h-4 w-4 mr-2" />Customize Website
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleAction("duplicate", install)}>
-                            <Copy className="h-4 w-4 mr-2" />Duplicate
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleAction("rename", install)}>
-                            <Pencil className="h-4 w-4 mr-2" />Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleAction("export", install)}>
-                            <Download className="h-4 w-4 mr-2" />Export theme
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleAction("delete", install)} className="text-red-600">
-                            <Trash2 className="h-4 w-4 mr-2" />Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Last saved {new Date(install.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date(install.updated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
+                  </p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    v{install.theme?.version ?? "1.0.0"}
+                  </p>
+                </div>
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleAction("duplicate", install)}>
+                        <Copy className="h-4 w-4 mr-2" />Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("rename", install)}>
+                        <Pencil className="h-4 w-4 mr-2" />Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("export", install)}>
+                        <Download className="h-4 w-4 mr-2" />Export theme
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleAction("delete", install)} className="text-red-600">
+                        <Trash2 className="h-4 w-4 mr-2" />Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-medium"
+                    onClick={() => handleAction("publish", install)}
+                  >
+                    Publish
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white"
+                    onClick={() => goToEditor(install.id)}
+                  >
+                    Edit theme
+                  </Button>
                 </div>
               </div>
             ))}
