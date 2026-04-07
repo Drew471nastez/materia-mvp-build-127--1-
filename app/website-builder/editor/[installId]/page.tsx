@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef, use } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Monitor, Smartphone, Loader2, Globe, Save,
@@ -1150,6 +1151,8 @@ const SCHEME_PILL_STYLES: Record<ColorSchemeKey, { bg: string; text: string }> =
 }
 
 // ── Pretty color picker dropdown (chevron + popup) ───────────
+// Uses a portal + fixed positioning so the popup floats above every
+// sidebar scroller and isn't clipped by the parent `overflow-y-auto`.
 function ColorChip({
   value,
   onChange,
@@ -1160,21 +1163,113 @@ function ColorChip({
   existing: string[]
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const POPUP_W = 260
+  const POPUP_H = 270
+
+  // Compute the popup position based on the trigger's rect, and keep it
+  // on-screen. Re-measure on scroll/resize while open.
+  useEffect(() => {
+    if (!open) return
+    const update = () => {
+      const el = triggerRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      // Prefer opening to the LEFT of the trigger (sidebar is on the right)
+      let left = r.left - POPUP_W - 8
+      if (left < 8) left = Math.max(8, r.right - POPUP_W)
+      if (left + POPUP_W > vw - 8) left = vw - POPUP_W - 8
+      let top = r.top
+      if (top + POPUP_H > vh - 8) top = Math.max(8, vh - POPUP_H - 8)
+      setPos({ top, left })
+    }
+    update()
+    const onScroll = () => update()
+    window.addEventListener("scroll", onScroll, true)
+    window.addEventListener("resize", update)
+    return () => {
+      window.removeEventListener("scroll", onScroll, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [open])
+
+  // Close on outside click / escape
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (triggerRef.current?.contains(t)) return
+      if (popupRef.current?.contains(t)) return
+      setOpen(false)
     }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
     document.addEventListener("mousedown", onDoc)
-    return () => document.removeEventListener("mousedown", onDoc)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onDoc)
+      window.removeEventListener("keydown", onKey)
+    }
   }, [open])
 
   const isTransparent = !value || value === "transparent"
 
-  return (
-    <div ref={ref} className="relative">
+  const popup = open && pos && typeof document !== "undefined" ? createPortal(
+    <div
+      ref={popupRef}
+      className="fixed z-[200] w-[260px] bg-white border border-border rounded-xl shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-100"
+      style={{ top: pos.top, left: pos.left }}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      <input
+        type="color"
+        value={isTransparent ? "#000000" : value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full h-9 cursor-pointer rounded border border-border"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="mt-2 w-full h-8 px-2 text-xs border border-border rounded uppercase tabular-nums focus:outline-none focus:ring-1 focus:ring-purple-500"
+        placeholder="#FFFFFF"
+      />
+      {existing.length > 0 && (
+        <>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1.5">Existing colors</p>
+          <div className="grid grid-cols-7 gap-1.5">
+            {existing.map((c, i) => (
+              <button
+                key={`${c}-${i}`}
+                type="button"
+                onClick={() => { onChange(c); setOpen(false) }}
+                className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform"
+                style={{ background: c }}
+                aria-label={`Use ${c}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
       <button
+        type="button"
+        onClick={() => { onChange("transparent"); setOpen(false) }}
+        className="mt-3 w-full h-9 flex items-center justify-center gap-2 text-xs border border-border rounded hover:bg-muted transition-colors"
+      >
+        <span className="inline-block h-4 w-4 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
+        Don&apos;t apply any color
+      </button>
+    </div>,
+    document.body,
+  ) : null
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 h-7 px-1.5 rounded border border-border hover:border-purple-400 transition-colors cursor-pointer"
@@ -1190,49 +1285,8 @@ function ColorChip({
         />
         <ChevronDown className="h-3 w-3 text-muted-foreground" />
       </button>
-      {open && (
-        <div className="absolute z-50 right-0 top-full mt-1 w-[260px] bg-white border border-border rounded-xl shadow-xl p-3">
-          <input
-            type="color"
-            value={isTransparent ? "#000000" : value}
-            onChange={e => onChange(e.target.value)}
-            className="w-full h-9 cursor-pointer rounded border border-border"
-          />
-          <input
-            type="text"
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            className="mt-2 w-full h-8 px-2 text-xs border border-border rounded uppercase tabular-nums focus:outline-none focus:ring-1 focus:ring-purple-500"
-            placeholder="#FFFFFF"
-          />
-          {existing.length > 0 && (
-            <>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1.5">Existing colors</p>
-              <div className="grid grid-cols-7 gap-1.5">
-                {existing.map((c, i) => (
-                  <button
-                    key={`${c}-${i}`}
-                    type="button"
-                    onClick={() => { onChange(c); setOpen(false) }}
-                    className="h-6 w-6 rounded border border-border hover:scale-110 transition-transform"
-                    style={{ background: c }}
-                    aria-label={`Use ${c}`}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => { onChange("transparent"); setOpen(false) }}
-            className="mt-3 w-full h-9 flex items-center justify-center gap-2 text-xs border border-border rounded hover:bg-muted transition-colors"
-          >
-            <span className="inline-block h-4 w-4 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
-            Don&apos;t apply any color
-          </button>
-        </div>
-      )}
-    </div>
+      {popup}
+    </>
   )
 }
 
@@ -2114,18 +2168,6 @@ function HeaderSectionSettings({
                 { label: "Ghost", value: "ghost" },
               ]}
             />
-            <WbColorPicker
-              label="Button color"
-              value={s.cta_color}
-              onChange={v => onUpdateSetting("cta_color", v)}
-              defaultValue="#6366f1"
-            />
-            <WbColorPicker
-              label="Button text color"
-              value={s.cta_text_color}
-              onChange={v => onUpdateSetting("cta_text_color", v)}
-              defaultValue="#ffffff"
-            />
             <WbSlider
               label="Button radius"
               value={s.cta_border_radius}
@@ -2136,6 +2178,10 @@ function HeaderSectionSettings({
               unit="px"
               defaultValue={8}
             />
+            <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
+              <Info className="h-3 w-3 shrink-0 mt-0.5" />
+              Button colors are controlled by the section&apos;s Color Scheme. Edit colors from General Settings → Color Schemes.
+            </p>
           </div>
         )
 
@@ -3420,25 +3466,44 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               }}
             />
 
-            {schema?.fields && schema.fields.length > 0 && (
-              <div className="p-4 space-y-4">
-                {schema.fields.map(field => (
-                  <div key={field.id}>
-                    {field.type !== "header" && field.type !== "paragraph" && (
-                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                    )}
-                    <FieldEditor
-                      field={field}
-                      value={section.settings[field.id]}
-                      onChange={val => updateSectionSetting(section.id, field.id, val)}
-                    />
-                    {field.type !== "header" && field.type !== "paragraph" && field.info && (
-                      <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {schema?.fields && schema.fields.length > 0 && (() => {
+              // Colors are driven by the section's Color Scheme — hide any
+              // color fields so sidebars only expose content + layout.
+              // Also drop "header"/"paragraph" dividers that only separated
+              // color groups and end up as orphans once the colors are gone.
+              const visible = schema.fields.filter(f => f.type !== "color")
+              const clean: typeof visible = []
+              for (let i = 0; i < visible.length; i++) {
+                const f = visible[i]
+                if (f.type === "header" || f.type === "paragraph") {
+                  const next = visible[i + 1]
+                  // Drop a header if nothing meaningful follows before the
+                  // next header (i.e. the whole group was colors).
+                  if (!next || next.type === "header") continue
+                }
+                clean.push(f)
+              }
+              if (clean.length === 0) return null
+              return (
+                <div className="p-4 space-y-4">
+                  {clean.map(field => (
+                    <div key={field.id}>
+                      {field.type !== "header" && field.type !== "paragraph" && (
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                      )}
+                      <FieldEditor
+                        field={field}
+                        value={section.settings[field.id]}
+                        onChange={val => updateSectionSetting(section.id, field.id, val)}
+                      />
+                      {field.type !== "header" && field.type !== "paragraph" && field.info && (
+                        <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
 
             {/* Blocks */}
             {schema?.blocks && (
