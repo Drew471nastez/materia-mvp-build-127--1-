@@ -2573,18 +2573,32 @@ function HeaderSectionSettings({
               />
               <WbToggle
                 label="Enable sticky header"
-                value={s.header_sticky_enabled}
-                onChange={v => onUpdateSetting("header_sticky_enabled", v)}
+                value={!!s.header_sticky_enabled && !s.header_sticky_on_scroll_up}
+                onChange={v => {
+                  if (v) {
+                    // Turning plain sticky on — turn scroll-up variant off
+                    onUpdateSetting("header_sticky_enabled", true)
+                    onUpdateSetting("header_sticky_on_scroll_up", false)
+                  } else {
+                    onUpdateSetting("header_sticky_enabled", false)
+                  }
+                }}
                 info="Keep the header pinned to the top as the visitor scrolls."
               />
-              {!!s.header_sticky_enabled && (
-                <WbToggle
-                  label="Sticky on scroll up"
-                  value={s.header_sticky_on_scroll_up}
-                  onChange={v => onUpdateSetting("header_sticky_on_scroll_up", v)}
-                  info="Hide the sticky header when scrolling down; reveal it seamlessly on scroll up."
-                />
-              )}
+              <WbToggle
+                label="Sticky header on scroll up"
+                value={!!s.header_sticky_on_scroll_up}
+                onChange={v => {
+                  if (v) {
+                    // Turning scroll-up variant on — enable sticky, mark variant
+                    onUpdateSetting("header_sticky_enabled", true)
+                    onUpdateSetting("header_sticky_on_scroll_up", true)
+                  } else {
+                    onUpdateSetting("header_sticky_on_scroll_up", false)
+                  }
+                }}
+                info="Only reveal the header when scrolling up — hides on scroll down."
+              />
               <WbSlider
                 label="Vertical padding"
                 value={s.vertical_padding_vw}

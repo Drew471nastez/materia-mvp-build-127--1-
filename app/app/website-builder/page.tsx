@@ -6,7 +6,7 @@ import {
   Globe, Palette, MoreHorizontal,
   Plus, Check, Pencil, Trash2, Copy, RefreshCw,
   EyeOff, ExternalLink, Loader2, AlertTriangle, Layers,
-  Download, Upload,
+  Download, Upload, ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -833,10 +833,18 @@ export default function WebsiteBuilderPage() {
           SECTION 3: Theme Library (6 themes, portrait cards)
           ══════════════════════════════════════════════════════════ */}
       <section className="mb-12">
-        <div className="mb-4">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
             Theme Library
           </h2>
+          <button
+            type="button"
+            onClick={() => router.push("/app/website-builder/themes")}
+            className="text-xs font-medium text-purple-600 hover:text-purple-700 inline-flex items-center gap-1 transition-colors"
+          >
+            View all
+            <ArrowRight className="h-3 w-3" />
+          </button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -844,43 +852,39 @@ export default function WebsiteBuilderPage() {
             const isAdded = installedThemeIds.has(catalog.themeId)
             const isLoadingThis = actionLoading === catalog.id + "_add"
             return (
-              <div key={catalog.id} className="relative group">
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden transition-all hover:border-neutral-300 hover:shadow-md">
-                  {/* Portrait preview */}
-                  <div className="relative">
-                    <CatalogThemePreview catalog={catalog} />
+              <div key={catalog.id} className="rounded-xl border border-neutral-200 bg-white overflow-hidden transition-all hover:border-neutral-300 hover:shadow-md flex flex-col">
+                {/* Portrait preview */}
+                <div className="relative border-b border-neutral-100">
+                  <CatalogThemePreview catalog={catalog} />
+                </div>
 
-                    {/* Hover overlay — Add Theme button */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        {isLoadingThis ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-white" />
-                        ) : isAdded ? (
-                          <div className="flex flex-col items-center gap-1.5">
-                            <Badge className="bg-white/90 text-neutral-700 border-0 text-[11px] font-medium px-3 py-1">
-                              <Check className="h-3 w-3 mr-1" />
-                              Added
-                            </Badge>
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddTheme(catalog)}
-                            className="bg-white text-neutral-900 hover:bg-neutral-100 shadow-lg gap-1.5"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add Theme
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="p-3">
+                {/* Info + persistent action button */}
+                <div className="p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-neutral-900 truncate">{catalog.name}</p>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">{catalog.niche}</p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5 truncate">{catalog.niche}</p>
                   </div>
+                  {isLoadingThis ? (
+                    <div className="h-8 w-[70px] flex items-center justify-center shrink-0">
+                      <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
+                    </div>
+                  ) : isAdded ? (
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex items-center gap-1 h-8 px-3 text-[11px] font-semibold text-neutral-500 bg-neutral-100 rounded-lg cursor-not-allowed shrink-0"
+                    >
+                      <Check className="h-3 w-3" />
+                      Added
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddTheme(catalog)}
+                      className="h-8 px-3 text-[11px] font-semibold bg-neutral-900 hover:bg-neutral-800 text-white shrink-0"
+                    >
+                      Add
+                    </Button>
+                  )}
                 </div>
               </div>
             )

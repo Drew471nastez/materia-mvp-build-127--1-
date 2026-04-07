@@ -50,9 +50,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const brand = typeof settings.brand_name === "string" && settings.brand_name
     ? settings.brand_name
     : (creator.display_name || creator.slug || username)
-  // Default format: "{seller name} | Storelib"
-  const title = typeof settings.seo_title === "string" && settings.seo_title
-    ? settings.seo_title
+  // Default format: "{seller name} | Storelib". Use `title.absolute` so the
+  // root layout's `%s | Storelib` template doesn't double-append.
+  const rawTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
+    ? settings.seo_title.trim()
     : `${brand} | Storelib`
   const description = typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
@@ -62,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     : undefined
 
   return {
-    title,
+    title: { absolute: rawTitle },
     description,
     icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
   }

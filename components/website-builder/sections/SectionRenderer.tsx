@@ -13,7 +13,7 @@ import {
   RefreshCw, Rocket, ChevronDown, ChevronUp,
   Share2, Package, FileText, Eye, Search, ShoppingBag, X, Menu,
 } from "lucide-react"
-import { useState, useEffect, CSSProperties } from "react"
+import { useState, useEffect, useRef, useLayoutEffect, CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
@@ -199,12 +199,14 @@ function HeaderMobileNavDrawer({
   items,
   scheme,
   scopedToPreview,
+  headerOffset = 0,
 }: {
   open: boolean
   onClose: () => void
   items: { id: string; label: string; href: string; openInNew: boolean }[]
   scheme: ColorSchemeValues
   scopedToPreview?: boolean
+  headerOffset?: number
 }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
@@ -251,8 +253,9 @@ function HeaderMobileNavDrawer({
       <div
         aria-hidden
         onClick={onClose}
-        className={cn(positionClass, "inset-0 z-[90] bg-black/50 backdrop-blur-[2px]")}
+        className={cn(positionClass, "left-0 right-0 bottom-0 z-[90] bg-black/50 backdrop-blur-[2px]")}
         style={{
+          top: headerOffset ? `${headerOffset}px` : 0,
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -263,10 +266,11 @@ function HeaderMobileNavDrawer({
         aria-label="Menu"
         className={cn(
           positionClass,
-          "top-0 left-0 z-[95] h-full shadow-2xl flex flex-col will-change-transform",
+          "left-0 bottom-0 z-[95] shadow-2xl flex flex-col will-change-transform",
           scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
         )}
         style={{
+          top: headerOffset ? `${headerOffset}px` : 0,
           background: scheme.bg,
           color: scheme.heading,
           transform: open ? "translateX(0)" : "translateX(-101%)",
@@ -542,11 +546,13 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     </div>
   )
 
-  // Mobile hamburger — rendered on the LEFT side of the header on mobile
+  // Mobile hamburger — 3 animated bars that morph into an X when open.
+  // Rendered on the LEFT side of the header on mobile.
   const renderHamburger = () => (
     <button
       type="button"
-      aria-label="Open menu"
+      aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+      aria-expanded={mobileNavOpen}
       className={cn(
         "h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 transition-colors shrink-0",
         hasDeviceMode
@@ -554,9 +560,36 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           : "flex md:hidden",
       )}
       style={{ color: navLinkColor }}
-      onClick={e => { e.preventDefault(); setMobileNavOpen(true) }}
+      onClick={e => { e.preventDefault(); setMobileNavOpen(o => !o) }}
     >
-      <Menu className="h-[20px] w-[20px]" strokeWidth={1.8} />
+      <span className="relative block h-[16px] w-[22px]">
+        <span
+          aria-hidden
+          className="absolute left-0 h-[2px] w-full rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{
+            background: navLinkColor,
+            top: mobileNavOpen ? "7px" : "0px",
+            transform: mobileNavOpen ? "rotate(45deg)" : "rotate(0deg)",
+          }}
+        />
+        <span
+          aria-hidden
+          className="absolute left-0 top-[7px] h-[2px] w-full rounded-full transition-opacity duration-200 ease-out"
+          style={{
+            background: navLinkColor,
+            opacity: mobileNavOpen ? 0 : 1,
+          }}
+        />
+        <span
+          aria-hidden
+          className="absolute left-0 h-[2px] w-full rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{
+            background: navLinkColor,
+            top: mobileNavOpen ? "7px" : "14px",
+            transform: mobileNavOpen ? "rotate(-45deg)" : "rotate(0deg)",
+          }}
+        />
+      </span>
     </button>
   )
 
@@ -695,35 +728,84 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     : "px-4 md:px-[5%]"
 
   const stickyHidden = !isEditing && headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
-  // NOTE: for `position: sticky` to actually stick we need the class on the
-  // OUTERMOST wrapper div — otherwise the element's parent is the same size
-  // as the element itself and there's nowhere for it to stick to. We pass
-  // the sticky classes down into SectionWrapper so they land on the top
-  // wrapper that lives directly inside the page flex column (whose scroll
-  // container is the viewport).
-  return (
-    <SectionWrapper
-      bgColor={bg}
-      isEditing={isEditing}
-      isSelected={isSelected}
-      onClick={onClick}
-      className={cn(
-        !isEditing && headerStickyEnabled && "sticky top-0 z-40 will-change-transform",
-      )}
+  // We can't rely on `position: sticky` because the public site lives inside
+  // a marketing `<main>` with `overflow-x: clip`, which kills sticky in most
+  // browsers. Use `position: fixed` + a spacer div (measured via
+  // ResizeObserver) instead — guaranteed to work in every layout.
+  const isLiveSticky = !isEditing && headerStickyEnabled
+  const headerInnerRef = useRef<HTMLDivElement | null>(null)
+  const [measuredH, setMeasuredH] = useState(0)
+  useLayoutEffect(() => {
+    if (!isLiveSticky) { setMeasuredH(0); return }
+    const el = headerInnerRef.current
+    if (!el) return
+    const update = () => setMeasuredH(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    window.addEventListener("resize", update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("resize", update)
+    }
+  }, [isLiveSticky])
+
+  const headerInner = (
+    <div
+      ref={headerInnerRef}
+      className="relative border-b"
+      style={{
+        background: bg,
+        borderColor,
+        transform: stickyHidden ? "translateY(-100%)" : "translateY(0)",
+        transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
     >
-      <div
-        className="relative border-b"
-        style={{
-          background: bg,
-          borderColor,
-          transform: stickyHidden ? "translateY(-100%)" : "translateY(0)",
-          transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-      >
-        <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
-          {content}
-        </div>
+      <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
+        {content}
       </div>
+    </div>
+  )
+
+  const mobileDrawer = (
+    <HeaderMobileNavDrawer
+      open={mobileNavOpen}
+      onClose={() => setMobileNavOpen(false)}
+      scheme={scheme}
+      scopedToPreview={isEditing}
+      headerOffset={isLiveSticky ? measuredH : 0}
+      items={navBlocks.map(b => ({
+        id: b.id,
+        label: str(b.settings.label),
+        href: resolveHref(b),
+        openInNew: bool(b.settings.open_in_new_tab, false),
+      }))}
+    />
+  )
+
+  // Live sticky: render a spacer where the header would sit in flow, then
+  // render the real header as `position: fixed` so it stays pinned no
+  // matter how the parent layout scrolls.
+  if (isLiveSticky) {
+    return (
+      <>
+        {/* In-flow spacer to reserve header height */}
+        <div style={{ height: measuredH || undefined, background: bg }} />
+        {/* Fixed header */}
+        <div className="fixed top-0 left-0 right-0 z-40 will-change-transform" style={{ background: bg }}>
+          {headerInner}
+        </div>
+        {cartOpen && (
+          <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
+        )}
+        {mobileDrawer}
+      </>
+    )
+  }
+
+  return (
+    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+      {headerInner}
       {/* Cart drawer (portal-like, fixed-positioned) */}
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
@@ -731,18 +813,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       {/* Mobile nav drawer — always mounted so the slide-in/out animation
           plays cleanly. When rendered inside the editor preview (isEditing),
           it's scoped to #wb-preview-root so it doesn't cover the editor. */}
-      <HeaderMobileNavDrawer
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-        scheme={scheme}
-        scopedToPreview={isEditing}
-        items={navBlocks.map(b => ({
-          id: b.id,
-          label: str(b.settings.label),
-          href: resolveHref(b),
-          openInNew: bool(b.settings.open_in_new_tab, false),
-        }))}
-      />
+      {mobileDrawer}
     </SectionWrapper>
   )
 }
