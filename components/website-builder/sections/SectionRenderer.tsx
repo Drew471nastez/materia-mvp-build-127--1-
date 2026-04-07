@@ -126,11 +126,10 @@ function SectionWrapper({
       style={{ background: bgColor, ...style }}
       onClick={onClick}
     >
-      {isEditing && isSelected && (
-        <div className="absolute top-0 left-0 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 z-50 rounded-br">
-          Selected
-        </div>
-      )}
+      {/* The blue ring (ring-2 ring-blue-500 ring-inset) is enough selection
+          feedback on its own; the old "Selected" badge used to cover the
+          section's top-left content (e.g. the header logo) and was reported
+          as overlapping. */}
       {children}
     </div>
   )
@@ -844,9 +843,10 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         <div id={wrapperId} style={{ height: measuredH || undefined, background: bg }} />
         <div
           ref={headerRef}
-          className="fixed top-0 left-0 right-0 z-40 will-change-transform"
+          className="fixed top-0 left-0 right-0 z-40 will-change-transform isolate"
           style={{
-            background: bg,
+            backgroundColor: bg,
+            opacity: 1,
             transform: hideTransform,
             transition: hideTransition,
           }}
@@ -874,13 +874,17 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         onClick={onClick}
         disableWrapperTransition
         className={cn(
-          "sticky top-0 z-40 will-change-transform",
-          // While hidden, drop the selection/hover rings so the translated
-          // element doesn't leave a blue/gray stripe peeking into the
-          // editor topbar area.
-          stickyHidden && "!ring-0 hover:!ring-0",
+          "sticky top-0 z-40 will-change-transform isolate",
+          // Kill the selection/hover rings on the sticky header entirely so
+          // there are never blue/gray edges peeking out over the canvas or
+          // the editor topbar while the header slides.
+          "!ring-0 hover:!ring-0",
         )}
         style={{
+          // Make sure the background is fully opaque (no glassmorphism /
+          // bleed-through from the content behind it).
+          backgroundColor: bg,
+          opacity: 1,
           transform: hideTransform,
           transition: hideTransition,
           pointerEvents: stickyHidden ? "none" : undefined,
@@ -1220,30 +1224,65 @@ function CtaSection({ section, theme, isEditing, isSelected, onClick }: SectionP
   )
 }
 
-function StatsSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+function StatsSection({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
   const bg = c.bg
-  const headingColor = c.heading
   const textColor = c.paragraph
   const blocks = section.blocks ?? []
+  // `deviceMode === "mobile"` is set by the editor preview to force the
+  // mobile layout regardless of browser viewport. On the live site
+  // `deviceMode` is undefined and Tailwind `md:` classes handle it.
+  const forceMobile = deviceMode === "mobile"
+  const gridCols = forceMobile
+    ? "grid-cols-2"
+    : "grid-cols-2 md:grid-cols-4"
 
   return (
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
-      <div className="px-8 py-12 max-w-[1230px] mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+      <div className={cn("max-w-[1230px] mx-auto", forceMobile ? "px-5 py-10" : "px-6 md:px-8 py-10 md:py-14")}>
+        {!!s.heading && (
+          <div className="text-center mb-6 md:mb-8">
+            <h2
+              className={cn(
+                "font-bold",
+                forceMobile ? "text-2xl" : "text-2xl md:text-3xl",
+              )}
+              style={{ color: c.heading, fontFamily: theme.font_heading }}
+            >
+              {str(s.heading)}
+            </h2>
+            {!!s.subheading && (
+              <p className="text-sm md:text-base mt-2" style={{ color: textColor }}>
+                {str(s.subheading)}
+              </p>
+            )}
+          </div>
+        )}
+        <div
+          className={cn(
+            "grid gap-x-4 gap-y-8 text-center",
+            gridCols,
+          )}
+        >
           {blocks.map(block => (
-            <div key={block.id}>
-              <div className="text-4xl font-bold mb-1" style={{ color: c.heading }}>
+            <div key={block.id} className="min-w-0">
+              <div
+                className={cn(
+                  "font-bold mb-1 leading-tight tabular-nums",
+                  forceMobile ? "text-3xl" : "text-3xl md:text-4xl",
+                )}
+                style={{ color: c.heading }}
+              >
                 {str(block.settings.value)}
               </div>
-              <div className="text-[13px]" style={{ color: textColor }}>
+              <div className="text-[12px] md:text-[13px] leading-snug" style={{ color: textColor }}>
                 {str(block.settings.label)}
               </div>
             </div>
           ))}
           {blocks.length === 0 && (
-            <div className="col-span-4 text-sm opacity-40 text-center" style={{ color: textColor }}>
+            <div className="col-span-full text-sm opacity-40 text-center" style={{ color: textColor }}>
               Add stat blocks in the sidebar
             </div>
           )}

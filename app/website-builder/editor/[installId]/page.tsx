@@ -2292,36 +2292,32 @@ function HeaderSectionSettings({
               />
             )}
 
-            {/* Use different logo for mobile */}
-            <WbToggle
-              label="Use different logo for mobile devices"
-              value={s.use_mobile_logo}
-              onChange={v => onUpdateSetting("use_mobile_logo", v)}
+            {/* Mobile logo — always visible picker (no toggle). If the user
+                uploads an image here it's automatically used for mobile
+                devices; if left empty the main LOGO IMAGE is reused. */}
+            <WbImagePicker
+              label="MOBILE LOGO IMAGE"
+              value={typeof s.mobile_logo_url === "string" ? s.mobile_logo_url : undefined}
+              onChange={url => {
+                onUpdateSetting("mobile_logo_url", url ?? "")
+                // Auto-flip the legacy flag so the renderer picks up the
+                // new image without requiring an explicit toggle.
+                onUpdateSetting("use_mobile_logo", !!url)
+              }}
+              aspectRatio="logo"
+              folder="logos"
             />
-
-            {/* Mobile logo image */}
-            {!!s.use_mobile_logo && (
-              <>
-                <WbImagePicker
-                  label="MOBILE LOGO IMAGE"
-                  value={typeof s.mobile_logo_url === "string" ? s.mobile_logo_url : undefined}
-                  onChange={url => onUpdateSetting("mobile_logo_url", url ?? "")}
-                  aspectRatio="logo"
-                  folder="logos"
-                />
-                {typeof s.mobile_logo_url === "string" && s.mobile_logo_url && (
-                  <WbSlider
-                    label="Mobile logo height"
-                    value={s.mobile_logo_height}
-                    onChange={v => onUpdateSetting("mobile_logo_height", v)}
-                    min={20}
-                    max={80}
-                    step={2}
-                    unit="px"
-                    defaultValue={32}
-                  />
-                )}
-              </>
+            {typeof s.mobile_logo_url === "string" && s.mobile_logo_url && (
+              <WbSlider
+                label="Mobile logo height"
+                value={s.mobile_logo_height}
+                onChange={v => onUpdateSetting("mobile_logo_height", v)}
+                min={20}
+                max={80}
+                step={2}
+                unit="px"
+                defaultValue={32}
+              />
             )}
 
             {/* Custom logo horizontal position — mobile (clean inline) */}
@@ -3171,18 +3167,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
 
-    // Prefill default page title with "{creator username} | Storelib" the
-    // first time the editor loads for a theme that has no SEO title set yet.
-    // Always prefers the platform username (e.g. "loudliba") over the
-    // brand_name / install name fallback so new users get their real handle
-    // instead of a generic "My Store" placeholder. User can freely edit it.
-    if (!loadedSettings.seo_title || typeof loadedSettings.seo_title !== "string" || !loadedSettings.seo_title.trim()) {
+    // Prefill default page title with "{creator username} | Storelib" on
+    // load. We always derive the canonical "{handle} | Storelib" string
+    // and use it when:
+    //   • `seo_title` is missing / empty, OR
+    //   • `seo_title` is still one of the stale auto-generated defaults
+    //     we've shipped before ("My Store | Storelib", "{install name} |
+    //     Storelib"). This lets every existing theme pick up the correct
+    //     platform handle without overriding anything the user has
+    //     manually typed.
+    {
       const handle = (typeof data.username === "string" && data.username.trim())
         ? data.username.trim()
         : (typeof loadedSettings.brand_name === "string" && loadedSettings.brand_name.trim()
             ? loadedSettings.brand_name.trim()
             : (inst.name || "My Store"))
-      loadedSettings.seo_title = `${handle} | Storelib`
+      const canonical = `${handle} | Storelib`
+      const current = typeof loadedSettings.seo_title === "string" ? loadedSettings.seo_title.trim() : ""
+      const staleDefaults = new Set([
+        "",
+        "My Store | Storelib",
+        `${inst.name} | Storelib`,
+      ])
+      if (staleDefaults.has(current)) {
+        loadedSettings.seo_title = canonical
+      }
     }
 
     // Load sections for current page
@@ -4360,7 +4369,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   return (
     <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
       {/* ── Top bar ── */}
-      <header className="h-12 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-30">
+      <header className="relative h-12 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
         {/* LEFT: Back + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
           {isMobileView && (
@@ -4678,8 +4687,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */}
         <main
           className={cn(
-            "flex-1 min-w-0 bg-muted/50 overflow-hidden flex items-start justify-center",
-            device === "mobile" ? "py-8 px-6" : "pt-6 px-6",
+            "flex-1 min-w-0 bg-muted/50 overflow-hidden flex justify-center",
+            // Center the phone vertically in mobile preview so the extra
+            // gray space on very tall / wide viewports doesn't bunch below
+            // the device. Desktop preview stays top-aligned.
+            device === "mobile" ? "items-center py-6 px-6" : "items-start pt-6 px-6",
           )}
         >
           <div
