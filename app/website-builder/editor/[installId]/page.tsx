@@ -1348,7 +1348,7 @@ function ColorSchemesEditor({
         </button>
       </div>
 
-      <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
+      <div className="space-y-5">
         {Object.entries(grouped).map(([groupLabel, fields]) => (
           <div key={groupLabel} className="space-y-1">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{groupLabel}</p>
