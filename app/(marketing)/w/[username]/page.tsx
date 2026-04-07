@@ -22,9 +22,41 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!creator) return { title: "Not Found" }
 
+  // Pull published theme settings so we can use brand_name, seo fields and favicon
+  const { data: install } = await supabase
+    .from("store_theme_installs")
+    .select(`
+      id,
+      store_theme_settings ( settings )
+    `)
+    .eq("creator_id", creator.id)
+    .eq("status", "published")
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  const settings: ThemeSettingsValues =
+    (install as any)?.store_theme_settings?.[0]?.settings ??
+    (install as any)?.store_theme_settings?.settings ??
+    {}
+
+  const brand = typeof settings.brand_name === "string" && settings.brand_name
+    ? settings.brand_name
+    : (creator.display_name || creator.slug)
+  const title = typeof settings.seo_title === "string" && settings.seo_title
+    ? settings.seo_title
+    : `${brand} - Website`
+  const description = typeof settings.seo_description === "string" && settings.seo_description
+    ? settings.seo_description
+    : `Visit ${brand}'s website on Storelib`
+  const favicon = typeof settings.favicon_url === "string" && settings.favicon_url
+    ? settings.favicon_url
+    : undefined
+
   return {
-    title: `${creator.display_name || creator.slug} - Website`,
-    description: `Visit ${creator.display_name || creator.slug}'s website on Storelib`,
+    title,
+    description,
+    icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
   }
 }
 

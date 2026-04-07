@@ -14,7 +14,7 @@ import {
   Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package,
   Menu, Undo2, Redo2, PanelLeft, ExternalLink, Link2,
   Search, FileText, ArrowRight, FolderOpen, MoreHorizontal,
-  Upload, ImageIcon, Info, RefreshCw, Crop,
+  Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle,
 } from "lucide-react"
 import {
   DndContext,
@@ -62,10 +62,16 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 const LOGO_SYNC_HEADER_TO_THEME: Record<string, string> = {
   logo_url: "logo_url",
   logo_height: "logo_width",
+  mobile_logo_url: "mobile_logo_url",
+  mobile_logo_height: "mobile_logo_width",
+  use_mobile_logo: "use_mobile_logo",
 }
 const LOGO_SYNC_THEME_TO_HEADER: Record<string, string> = {
   logo_url: "logo_url",
   logo_width: "logo_height",
+  mobile_logo_url: "mobile_logo_url",
+  mobile_logo_width: "mobile_logo_height",
+  use_mobile_logo: "use_mobile_logo",
 }
 
 // ── Field editor ─────────────────────────────────────────────
@@ -640,7 +646,7 @@ function WbImagePicker({
   value: string | undefined
   onChange: (url: string | null) => void
   label?: string
-  aspectRatio?: "square" | "video" | "logo"
+  aspectRatio?: "square" | "video" | "logo" | "favicon"
   bucket?: "product-images" | "avatars" | "covers" | "store-builder-images"
   folder?: string
 }) {
@@ -701,13 +707,17 @@ function WbImagePicker({
     }
   }, [bucket, folder, onChange])
 
-  const emptyAspectClass = aspectRatio === "square" ? "aspect-square" : aspectRatio === "logo" ? "min-h-[72px]" : "aspect-video"
+  const emptyAspectClass =
+    aspectRatio === "favicon" ? "min-h-[60px]"
+    : aspectRatio === "square" ? "aspect-square"
+    : aspectRatio === "logo" ? "min-h-[72px]"
+    : "aspect-video"
   // Filled preview is kept small/compact so it doesn't dominate the sidebar
-  const filledClass = aspectRatio === "square"
-    ? "aspect-square max-h-[120px]"
-    : aspectRatio === "logo"
-      ? "h-[68px]"
-      : "h-[96px]"
+  const filledClass =
+    aspectRatio === "favicon" ? "h-[60px]"
+    : aspectRatio === "square" ? "aspect-square max-h-[120px]"
+    : aspectRatio === "logo" ? "h-[68px]"
+    : "h-[96px]"
 
   if (url) {
     return (
@@ -768,6 +778,116 @@ function WbImagePicker({
         )}
       </div>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }} />
+    </div>
+  )
+}
+
+// ── Branding Tab Panel — logo/favicon/tagline with header sync ──
+function BrandingTabPanel({
+  settingsDraft,
+  updateSetting,
+}: {
+  settingsDraft: ThemeSettingsValues
+  updateSetting: (key: string, value: unknown) => void
+}) {
+  const hasLogo = typeof settingsDraft.logo_url === "string" && settingsDraft.logo_url
+  const hasMobileLogo = typeof settingsDraft.mobile_logo_url === "string" && !!settingsDraft.mobile_logo_url
+  const useMobileLogo = !!settingsDraft.use_mobile_logo
+  return (
+    <div className="space-y-5">
+      {/* Store name */}
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Store name</label>
+        <input
+          type="text"
+          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          placeholder="My Store"
+          value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
+          onChange={e => updateSetting("brand_name", e.target.value)}
+        />
+      </div>
+
+      {/* Logo image — synced with header section */}
+      <WbImagePicker
+        label="LOGO IMAGE"
+        value={typeof settingsDraft.logo_url === "string" ? settingsDraft.logo_url as string : undefined}
+        onChange={url => updateSetting("logo_url", url ?? "")}
+        aspectRatio="logo"
+        folder="logos"
+      />
+      {hasLogo && (
+        <WbSlider
+          label="Logo height"
+          value={settingsDraft.logo_width}
+          onChange={v => updateSetting("logo_width", v)}
+          min={24}
+          max={120}
+          step={2}
+          unit="px"
+          defaultValue={40}
+        />
+      )}
+
+      {/* Mobile logo toggle */}
+      <WbToggle
+        label="Use different logo for mobile"
+        value={useMobileLogo}
+        onChange={v => updateSetting("use_mobile_logo", v)}
+        info="Enable to show a smaller logo on phones."
+      />
+      {useMobileLogo && (
+        <>
+          <WbImagePicker
+            label="MOBILE LOGO"
+            value={typeof settingsDraft.mobile_logo_url === "string" ? settingsDraft.mobile_logo_url as string : undefined}
+            onChange={url => updateSetting("mobile_logo_url", url ?? "")}
+            aspectRatio="logo"
+            folder="logos"
+          />
+          {hasMobileLogo && (
+            <WbSlider
+              label="Mobile logo height"
+              value={settingsDraft.mobile_logo_width}
+              onChange={v => updateSetting("mobile_logo_width", v)}
+              min={20}
+              max={80}
+              step={2}
+              unit="px"
+              defaultValue={32}
+            />
+          )}
+        </>
+      )}
+
+      {/* Favicon — compact clean preview */}
+      <WbImagePicker
+        label="FAVICON"
+        value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
+        onChange={url => updateSetting("favicon_url", url ?? "")}
+        aspectRatio="favicon"
+        folder="logos"
+      />
+      <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 -mt-2">
+        <Info className="h-3 w-3 shrink-0 mt-0.5" />
+        The favicon is the tiny icon shown in browser tabs. Use a square image (ideally 64×64 or larger).
+      </p>
+
+      {/* Tagline */}
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Tagline</label>
+        <input
+          type="text"
+          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          placeholder="Your trusted digital store"
+          value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
+          onChange={e => updateSetting("tagline", e.target.value)}
+        />
+      </div>
+
+      <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+        <Info className="h-3 w-3 shrink-0 mt-0.5" />
+        Logo, mobile logo and heights are synced with the Header section. Changes here update the header everywhere.
+      </p>
     </div>
   )
 }
@@ -1605,24 +1725,29 @@ function ColorSchemesEditor({
           <button
             ref={stepOneTriggerRef}
             type="button"
-            onClick={() => setStepOneOpen(!stepOneOpen)}
-            className="w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 border-blue-500 bg-white hover:bg-blue-50/30 transition-colors"
+            onClick={() => setStepOneOpen(o => !o)}
+            className={cn(
+              "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 bg-white transition-all duration-150",
+              stepOneOpen
+                ? "border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.15)]"
+                : "border-border hover:border-blue-400 hover:shadow-sm",
+            )}
           >
-            <span className="flex items-center gap-2.5">
+            <span className="flex items-center gap-2.5 min-w-0">
               <span
-                className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold"
+                className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold shrink-0 transition-colors"
                 style={{ background: schemes[active].bg, color: schemes[active].heading }}
               >
                 Aa
               </span>
-              <span className="text-sm font-medium text-foreground">{COLOR_SCHEME_LABELS[active]}</span>
+              <span className="text-sm font-medium text-foreground truncate">{COLOR_SCHEME_LABELS[active]}</span>
             </span>
-            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", stepOneOpen && "rotate-180")} />
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", stepOneOpen && "rotate-180 text-blue-500")} />
           </button>
           {stepOneOpen && stepOnePos && typeof document !== "undefined" && createPortal(
             <div
               id="color-scheme-step1-popup"
-              className="fixed z-[200] bg-white border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+              className="fixed z-[200] bg-white border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150 ease-out p-1"
               style={{ top: stepOnePos.top, left: stepOnePos.left, width: stepOnePos.width }}
             >
               {COLOR_SCHEME_KEYS.map(k => {
@@ -1634,17 +1759,25 @@ function ColorSchemesEditor({
                     type="button"
                     onClick={() => { setActive(k); setStepOneOpen(false) }}
                     className={cn(
-                      "w-full h-12 flex items-center gap-2.5 px-3 transition-colors",
-                      isActive ? "border-2 border-blue-500" : "border-2 border-transparent hover:bg-blue-50/40",
+                      "w-full h-11 flex items-center gap-2.5 px-2.5 rounded-md transition-all duration-100",
+                      isActive
+                        ? "bg-blue-50 ring-1 ring-blue-500/40"
+                        : "hover:bg-muted/60 active:scale-[0.99]",
                     )}
                   >
                     <span
-                      className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold"
+                      className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-[13px] font-semibold shrink-0"
                       style={{ background: sc.bg, color: sc.heading }}
                     >
                       Aa
                     </span>
-                    <span className="text-sm font-medium text-foreground">{COLOR_SCHEME_LABELS[k]}</span>
+                    <span className={cn(
+                      "text-sm font-medium flex-1 text-left truncate",
+                      isActive ? "text-blue-700" : "text-foreground",
+                    )}>
+                      {COLOR_SCHEME_LABELS[k]}
+                    </span>
+                    {isActive && <CheckCircle className="h-4 w-4 text-blue-500 shrink-0" />}
                   </button>
                 )
               })}
@@ -1751,14 +1884,48 @@ function NavLinkPicker({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
 
-  // Close on click outside
+  // Measure trigger position for the portaled dropdown
+  useEffect(() => {
+    if (!open) { setPos(null); return }
+    const update = () => {
+      const el = wrapRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const vh = window.innerHeight
+      const spaceBelow = vh - r.bottom - 16
+      const spaceAbove = r.top - 16
+      const maxH = Math.min(320, Math.max(spaceBelow, spaceAbove))
+      const openUp = spaceBelow < 220 && spaceAbove > spaceBelow
+      setPos({
+        top: openUp ? Math.max(8, r.top - maxH - 6) : r.bottom + 6,
+        left: r.left,
+        width: r.width,
+        maxHeight: maxH,
+      })
+    }
+    update()
+    const onScroll = () => update()
+    window.addEventListener("scroll", onScroll, true)
+    window.addEventListener("resize", update)
+    return () => {
+      window.removeEventListener("scroll", onScroll, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [open])
+
+  // Close on click outside (both trigger and portaled popup)
   useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (wrapRef.current?.contains(t)) return
+      const pop = document.getElementById("nav-link-picker-popup")
+      if (pop?.contains(t)) return
+      setOpen(false)
     }
     document.addEventListener("mousedown", handler)
     return () => document.removeEventListener("mousedown", handler)
@@ -1783,8 +1950,78 @@ function NavLinkPicker({
 
   const hasResults = filteredPages.length > 0 || filteredProducts.length > 0 || filteredCollections.length > 0
 
+  const popup = open && pos && typeof document !== "undefined" ? createPortal(
+    <div
+      id="nav-link-picker-popup"
+      className="fixed z-[300] bg-white border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
+      style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
+    >
+      <div className="overflow-y-auto overscroll-contain">
+        {!hasResults && search && (
+          <div className="px-3 py-6 text-sm text-muted-foreground text-center">No results found</div>
+        )}
+        {!hasResults && !search && (
+          <div className="px-3 py-4 text-[12px] text-muted-foreground text-center">Type to search or paste a URL</div>
+        )}
+
+        {filteredPages.length > 0 && (
+          <div className="py-1">
+            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pages</div>
+            {filteredPages.map(p => (
+              <button
+                key={p.url}
+                type="button"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                onMouseDown={e => { e.preventDefault(); onChange(p.url); setOpen(false) }}
+              >
+                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate flex-1">{p.label}</span>
+                <span className="ml-2 text-[11px] text-muted-foreground/60 shrink-0 truncate max-w-[40%]">{p.url}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredCollections.length > 0 && (
+          <div className="py-1 border-t border-border">
+            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Categories</div>
+            {filteredCollections.slice(0, 20).map(c => (
+              <button
+                key={c.id}
+                type="button"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                onMouseDown={e => { e.preventDefault(); onChange(`/collections/${c.slug}`); setOpen(false) }}
+              >
+                <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{c.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {filteredProducts.length > 0 && (
+          <div className="py-1 border-t border-border">
+            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Products</div>
+            {filteredProducts.slice(0, 20).map(p => (
+              <button
+                key={p.id}
+                type="button"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                onMouseDown={e => { e.preventDefault(); onChange(`/products/${p.slug}`); setOpen(false) }}
+              >
+                <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{p.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  ) : null
+
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={wrapRef} className="relative">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         <input
@@ -1797,7 +2034,6 @@ function NavLinkPicker({
           onChange={e => {
             const v = e.target.value
             setSearch(v)
-            // If it looks like a URL, update directly
             if (v.startsWith("/") || v.startsWith("http") || v.startsWith("#")) {
               onChange(v)
             }
@@ -1807,62 +2043,7 @@ function NavLinkPicker({
           }}
         />
       </div>
-      {open && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white border border-border rounded-lg shadow-xl max-h-[280px] overflow-y-auto overscroll-contain">
-          {!hasResults && search && (
-            <div className="px-3 py-4 text-sm text-muted-foreground text-center">No results found</div>
-          )}
-
-          {filteredPages.length > 0 && (
-            <div className="py-1">
-              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-white">Pages</div>
-              {filteredPages.map(p => (
-                <button
-                  key={p.url}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
-                  onClick={() => { onChange(p.url); setOpen(false) }}
-                >
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate flex-1">{p.label}</span>
-                  <span className="ml-2 text-[11px] text-muted-foreground/60 shrink-0">{p.url}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filteredCollections.length > 0 && (
-            <div className="py-1 border-t border-border">
-              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-white">Categories</div>
-              {filteredCollections.slice(0, 20).map(c => (
-                <button
-                  key={c.id}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
-                  onClick={() => { onChange(`/collections/${c.slug}`); setOpen(false) }}
-                >
-                  <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filteredProducts.length > 0 && (
-            <div className="py-1 border-t border-border">
-              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-white">Products</div>
-              {filteredProducts.slice(0, 20).map(p => (
-                <button
-                  key={p.id}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
-                  onClick={() => { onChange(`/products/${p.slug}`); setOpen(false) }}
-                >
-                  <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{p.title}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {popup}
     </div>
   )
 }
@@ -2525,14 +2706,18 @@ function HeaderSectionSettings({
     }
 
     return (
-      <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-2 duration-150">
+      <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-200 ease-out">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-          <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setLayoutPickerOpen(false)}>
+          <button
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setLayoutPickerOpen(false)}
+            aria-label="Back"
+          >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <span className="text-sm font-semibold">Choose header layout</span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {layoutOptions.map(opt => {
             const active = currentLayout === opt.id
             return (
@@ -2578,7 +2763,7 @@ function HeaderSectionSettings({
           </button>
           <span className="text-sm font-semibold">{tab.label}</span>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           {renderSubPanel(activeTab)}
         </div>
       </div>
@@ -2817,6 +3002,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       else if (themeLogo && !headerLogo) {
         header.settings.logo_url = themeLogo
         if (loadedSettings.logo_width) header.settings.logo_height = loadedSettings.logo_width
+      }
+
+      // Mobile logo sync (header ↔ theme)
+      const headerMobileLogo = header.settings.mobile_logo_url
+      const themeMobileLogo = loadedSettings.mobile_logo_url
+      if (headerMobileLogo && !themeMobileLogo) {
+        loadedSettings.mobile_logo_url = headerMobileLogo as string
+        if (header.settings.mobile_logo_height) loadedSettings.mobile_logo_width = header.settings.mobile_logo_height as number
+      } else if (themeMobileLogo && !headerMobileLogo) {
+        header.settings.mobile_logo_url = themeMobileLogo
+        if (loadedSettings.mobile_logo_width) header.settings.mobile_logo_height = loadedSettings.mobile_logo_width
+      }
+      // use_mobile_logo flag sync — header is source of truth when set
+      if (typeof header.settings.use_mobile_logo === "boolean") {
+        loadedSettings.use_mobile_logo = header.settings.use_mobile_logo
+      } else if (typeof loadedSettings.use_mobile_logo === "boolean") {
+        header.settings.use_mobile_logo = loadedSettings.use_mobile_logo
       }
     }
 
@@ -3477,68 +3679,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           onChange={v => updateSetting("color_schemes", v)}
                         />
                       ) : group.id === "branding" ? (
-                        <>
-                          {/* Store name */}
-                          <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store name</label>
-                            <input
-                              type="text"
-                              className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                              placeholder="My Store"
-                              value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
-                              onChange={e => updateSetting("brand_name", e.target.value)}
-                            />
-                          </div>
-
-                          {/* Logo image — synced with header section */}
-                          <WbImagePicker
-                            label="LOGO IMAGE"
-                            value={typeof settingsDraft.logo_url === "string" ? settingsDraft.logo_url as string : undefined}
-                            onChange={url => updateSetting("logo_url", url ?? "")}
-                            aspectRatio="logo"
-                            folder="logos"
-                          />
-
-                          {/* Logo height slider — synced with header section */}
-                          {typeof settingsDraft.logo_url === "string" && settingsDraft.logo_url && (
-                            <WbSlider
-                              label="Logo height"
-                              value={settingsDraft.logo_width}
-                              onChange={v => updateSetting("logo_width", v)}
-                              min={24}
-                              max={120}
-                              step={2}
-                              unit="px"
-                              defaultValue={40}
-                            />
-                          )}
-
-                          {/* Favicon */}
-                          <WbImagePicker
-                            label="FAVICON"
-                            value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
-                            onChange={url => updateSetting("favicon_url", url ?? "")}
-                            aspectRatio="square"
-                            folder="logos"
-                          />
-
-                          {/* Tagline */}
-                          <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tagline</label>
-                            <input
-                              type="text"
-                              className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                              placeholder="Your trusted digital store"
-                              value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
-                              onChange={e => updateSetting("tagline", e.target.value)}
-                            />
-                          </div>
-
-                          <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
-                            <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                            Logo and height are synced with the Header section. Changes here update the header everywhere.
-                          </p>
-                        </>
+                        <BrandingTabPanel
+                          settingsDraft={settingsDraft}
+                          updateSetting={updateSetting}
+                        />
                       ) : (
                         /* All other groups use modern Wb* components */
                         group.fields.map(field => {
@@ -3923,58 +4067,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 {expandedSettings === group.id && (
                   <div className="px-3 pb-4 space-y-4">
                     {group.id === "branding" ? (
-                      <>
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Store name</label>
-                          <input
-                            type="text"
-                            className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                            placeholder="My Store"
-                            value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
-                            onChange={e => updateSetting("brand_name", e.target.value)}
-                          />
-                        </div>
-                        <WbImagePicker
-                          label="LOGO IMAGE"
-                          value={typeof settingsDraft.logo_url === "string" ? settingsDraft.logo_url as string : undefined}
-                          onChange={url => updateSetting("logo_url", url ?? "")}
-                          aspectRatio="logo"
-                          folder="logos"
-                        />
-                        {typeof settingsDraft.logo_url === "string" && settingsDraft.logo_url && (
-                          <WbSlider
-                            label="Logo height"
-                            value={settingsDraft.logo_width}
-                            onChange={v => updateSetting("logo_width", v)}
-                            min={24}
-                            max={120}
-                            step={2}
-                            unit="px"
-                            defaultValue={40}
-                          />
-                        )}
-                        <WbImagePicker
-                          label="FAVICON"
-                          value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
-                          onChange={url => updateSetting("favicon_url", url ?? "")}
-                          aspectRatio="square"
-                          folder="logos"
-                        />
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tagline</label>
-                          <input
-                            type="text"
-                            className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                            placeholder="Your trusted digital store"
-                            value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
-                            onChange={e => updateSetting("tagline", e.target.value)}
-                          />
-                        </div>
-                        <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
-                          <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                          Logo and height are synced with the Header section.
-                        </p>
-                      </>
+                      <BrandingTabPanel
+                        settingsDraft={settingsDraft}
+                        updateSetting={updateSetting}
+                      />
                     ) : (
                       group.fields.map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
@@ -4344,8 +4440,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {/* ── Canvas ── */}
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-muted/50" style={{ paddingTop: device === "mobile" ? "16px" : "24px", paddingLeft: device === "mobile" ? "16px" : "24px", paddingRight: device === "mobile" ? "16px" : "24px", paddingBottom: 0 }}>
           <div
+            id="wb-preview-root"
             className={cn(
-              "bg-white shadow-lg transition-all duration-300 rounded-t-xl mx-auto flex flex-col",
+              "relative bg-white shadow-lg transition-all duration-300 rounded-t-xl mx-auto flex flex-col overflow-hidden",
               device === "mobile" ? "w-[360px]" : "w-full max-w-[1400px]",
             )}
             style={{ minHeight: "calc(100vh - 72px)" }}

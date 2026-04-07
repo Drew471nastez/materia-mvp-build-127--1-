@@ -14,6 +14,7 @@ import {
   Share2, Package, FileText, Eye, Search, ShoppingBag, X, Menu,
 } from "lucide-react"
 import { useState, useEffect, CSSProperties } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 // ── Header color schemes ─────────────────────────────────────
@@ -197,42 +198,61 @@ function HeaderMobileNavDrawer({
   onClose,
   items,
   scheme,
+  scopedToPreview,
 }: {
   open: boolean
   onClose: () => void
   items: { id: string; label: string; href: string; openInNew: boolean }[]
   scheme: ColorSchemeValues
+  scopedToPreview?: boolean
 }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)
-    return () => {
-      document.body.style.overflow = prev
-      window.removeEventListener("keydown", onKey)
+    // Only lock body scroll when not scoped — otherwise the editor page locks
+    let prev: string | null = null
+    if (!scopedToPreview) {
+      prev = document.body.style.overflow
+      document.body.style.overflow = "hidden"
     }
-  }, [open, onClose])
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      if (!scopedToPreview && prev !== null) document.body.style.overflow = prev
+    }
+  }, [open, onClose, scopedToPreview])
 
-  return (
+  if (!mounted) return null
+  const target: HTMLElement | null = scopedToPreview
+    ? (document.getElementById("wb-preview-root") ?? document.body)
+    : document.body
+  if (!target) return null
+
+  const positionClass = scopedToPreview ? "absolute" : "fixed"
+
+  const drawer = (
     <>
-      {/* Backdrop */}
       <div
         aria-hidden
         onClick={onClose}
-        className="fixed inset-0 z-[90] bg-black/40"
+        className={cn(positionClass, "inset-0 z-[90] bg-black/40")}
         style={{
           opacity: open ? 1 : 0,
           pointerEvents: open ? "auto" : "none",
           transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
-      {/* Drawer */}
       <aside
         role="dialog"
         aria-label="Menu"
-        className="fixed top-0 left-0 z-[95] h-full w-[85vw] max-w-[360px] shadow-2xl flex flex-col"
+        className={cn(
+          positionClass,
+          "top-0 left-0 z-[95] h-full shadow-2xl flex flex-col",
+          scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
+        )}
         style={{
           background: scheme.bg,
           color: scheme.heading,
@@ -273,6 +293,8 @@ function HeaderMobileNavDrawer({
       </aside>
     </>
   )
+
+  return createPortal(drawer, target)
 }
 
 function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
@@ -418,10 +440,7 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         <button
           type="button"
           aria-label="Search"
-          className={cn(
-            "h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors",
-            hasDeviceMode && forceMobile ? "" : "",
-          )}
+          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
           onClick={e => e.preventDefault()}
         >
           <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -442,7 +461,6 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           href={str(s.cta_url, "#")}
           className={cn(
             "ml-1 font-semibold text-white px-3 py-1.5 text-[13px] shrink-0",
-            // Hide CTA on mobile to leave room for icons + hamburger
             hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden md:inline-block",
           )}
           style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
@@ -450,22 +468,25 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           {str(s.cta_text)}
         </a>
       )}
-      {/* Hamburger (mobile only) — nav_link color from the scheme */}
-      <button
-        type="button"
-        aria-label="Open menu"
-        className={cn(
-          "h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 transition-colors",
-          hasDeviceMode
-            ? (forceMobile ? "flex" : "hidden")
-            : "flex md:hidden",
-        )}
-        style={{ color: navLinkColor }}
-        onClick={e => { e.preventDefault(); setMobileNavOpen(true) }}
-      >
-        <Menu className="h-[20px] w-[20px]" strokeWidth={1.8} />
-      </button>
     </div>
+  )
+
+  // Mobile hamburger — rendered on the LEFT side of the header on mobile
+  const renderHamburger = () => (
+    <button
+      type="button"
+      aria-label="Open menu"
+      className={cn(
+        "h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 transition-colors shrink-0",
+        hasDeviceMode
+          ? (forceMobile ? "flex" : "hidden")
+          : "flex md:hidden",
+      )}
+      style={{ color: navLinkColor }}
+      onClick={e => { e.preventDefault(); setMobileNavOpen(true) }}
+    >
+      <Menu className="h-[20px] w-[20px]" strokeWidth={1.8} />
+    </button>
   )
 
   // ── Layout variants ──────────────────────────────────────
@@ -484,30 +505,43 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     </div>
   )
 
+  // If mobile, we collapse ALL layouts into a consistent mobile shell:
+  // [hamburger] .... [centered logo] .... [icons]
+  const isMobileShell = hasDeviceMode && forceMobile
   let content: React.ReactNode
-  if (layout === "logo_left_nav_center") {
+  if (isMobileShell) {
     content = (
-      <div className="w-full flex items-center justify-between gap-6">
-        {logoNode}
-        <div className="flex-1 flex items-center justify-center">{navNode}</div>
+      <div className="w-full grid grid-cols-[auto_1fr_auto] items-center gap-3">
+        {renderHamburger()}
+        <div className="flex items-center justify-center min-w-0">{logoNode}</div>
         {renderIcons()}
       </div>
     )
-  } else if (layout === "nav_left_logo_center") {
+  } else if (layout === "logo_left_nav_center") {
+    // Truly centered nav using 3-col grid
     content = (
-      <div className="w-full flex items-center justify-between gap-6">
-        {navNode}
-        <div className="flex-1 flex items-center justify-center">{logoNode}</div>
-        {renderIcons()}
+      <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+        <div className="flex items-center">{logoNode}</div>
+        <div className="flex items-center justify-center">{navNode}</div>
+        <div className="flex items-center justify-end">{renderIcons()}</div>
+      </div>
+    )
+  } else if (layout === "nav_left_logo_center") {
+    // Truly centered logo using 3-col grid
+    content = (
+      <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+        <div className="flex items-center justify-start">{navNode}</div>
+        <div className="flex items-center justify-center">{logoNode}</div>
+        <div className="flex items-center justify-end">{renderIcons()}</div>
       </div>
     )
   } else if (layout === "logo_center_nav_below") {
     content = (
-      <div className="w-full flex flex-col items-center gap-2">
-        <div className="w-full flex items-center justify-between">
-          <div className="w-[80px]" />
-          {logoNode}
-          {renderIcons()}
+      <div className="w-full flex flex-col items-center gap-3">
+        <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+          <div />
+          <div className="flex items-center justify-center">{logoNode}</div>
+          <div className="flex items-center justify-end">{renderIcons()}</div>
         </div>
         <div className="flex items-center justify-center w-full">{navNode}</div>
       </div>
@@ -525,10 +559,10 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     // logo_left_nav_right (default) — honours legacy nav_alignment when set
     if (navAlignment === "center") {
       content = (
-        <div className="w-full flex items-center justify-between gap-6">
-          {logoNode}
-          <div className="flex-1 flex items-center justify-center">{navNode}</div>
-          {renderIcons()}
+        <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+          <div className="flex items-center">{logoNode}</div>
+          <div className="flex items-center justify-center">{navNode}</div>
+          <div className="flex items-center justify-end">{renderIcons()}</div>
         </div>
       )
     } else if (navAlignment === "left") {
@@ -582,12 +616,16 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
       )}
-      {/* Mobile nav drawer — slides in from the left with all nav links */}
+      {/* Mobile nav drawer — slides in from the left with all nav links.
+          When the header is rendered inside the editor preview (isEditing),
+          the drawer is scoped to the preview container so it doesn't cover
+          the entire editor page. */}
       {mobileNavOpen && (
         <HeaderMobileNavDrawer
           open={mobileNavOpen}
           onClose={() => setMobileNavOpen(false)}
           scheme={scheme}
+          scopedToPreview={isEditing}
           items={navBlocks.map(b => ({
             id: b.id,
             label: str(b.settings.label),
