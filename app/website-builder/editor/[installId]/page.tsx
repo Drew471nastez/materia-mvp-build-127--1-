@@ -4680,11 +4680,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             id="wb-preview-root"
             className={cn(
               "relative bg-white shadow-xl transition-all duration-300 mx-auto flex flex-col",
-              // Use `overflow-clip` (not `overflow-hidden`) so the rounded
-              // corners still clip but `position: sticky` descendants can
-              // find the outer scroll container. `overflow-hidden` would
-              // create a new containing block and break sticky.
-              "[overflow:clip]",
+              // `overflow-clip` clips the rounded corners without becoming a
+              // scroll container, so `position: sticky` descendants can still
+              // find the outer <main> as their scroll ancestor.
+              "overflow-clip",
               device === "mobile"
                 ? "rounded-2xl"
                 : "rounded-t-xl w-full max-w-[1400px]",

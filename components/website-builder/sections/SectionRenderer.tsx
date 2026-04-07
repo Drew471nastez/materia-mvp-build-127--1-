@@ -211,29 +211,10 @@ function HeaderMobileNavDrawer({
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  // Two-phase render so the drawer always animates in/out, even on the
-  // very first open. `shouldRender` keeps the DOM around while closing;
-  // `openVisual` is the class-driven open/close state which is always
-  // flipped on the next frame so the transform transition runs.
-  const [shouldRender, setShouldRender] = useState(open)
-  const [openVisual, setOpenVisual] = useState(false)
-  useEffect(() => {
-    if (open) {
-      setShouldRender(true)
-      // Wait for the element to mount at the closed position, THEN flip
-      // openVisual on the next frame so the transform transition plays.
-      const raf = requestAnimationFrame(() => {
-        // Double RAF is safer in Safari / strict mode double invoke.
-        requestAnimationFrame(() => setOpenVisual(true))
-      })
-      return () => cancelAnimationFrame(raf)
-    }
-    // Closing: flip to closed first, unmount after the transition.
-    setOpenVisual(false)
-    const t = window.setTimeout(() => setShouldRender(false), 440)
-    return () => window.clearTimeout(t)
-  }, [open])
-
+  // Keep the drawer permanently in the DOM once it has mounted — it starts
+  // off-screen at translateX(-101%) and only the `open` prop flips the
+  // transform. That means the very first click from the hamburger plays
+  // the transition cleanly (no RAF gymnastics, no mount/unmount jank).
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -250,7 +231,7 @@ function HeaderMobileNavDrawer({
     }
   }, [open, onClose, scopedToPreview])
 
-  if (!mounted || !shouldRender) return null
+  if (!mounted) return null
   const target: HTMLElement | null = scopedToPreview
     ? (document.getElementById("wb-preview-root") ?? document.body)
     : document.body
@@ -268,14 +249,20 @@ function HeaderMobileNavDrawer({
         className={cn(positionClass, "left-0 right-0 bottom-0 z-[90] bg-black/50 backdrop-blur-[2px]")}
         style={{
           top: headerOffset ? `${headerOffset}px` : 0,
-          opacity: openVisual ? 1 : 0,
-          pointerEvents: openVisual ? "auto" : "none",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
           transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+          visibility: open ? "visible" : "hidden",
+          transitionProperty: "opacity, visibility",
+          transitionDuration: "320ms",
+          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+          transitionDelay: open ? "0ms, 0ms" : "0ms, 320ms",
         }}
       />
       <aside
         role="dialog"
         aria-label="Menu"
+        aria-hidden={!open}
         className={cn(
           positionClass,
           "left-0 bottom-0 z-[95] shadow-2xl flex flex-col will-change-transform",
@@ -285,8 +272,9 @@ function HeaderMobileNavDrawer({
           top: headerOffset ? `${headerOffset}px` : 0,
           background: scheme.bg,
           color: scheme.heading,
-          transform: openVisual ? "translateX(0)" : "translateX(-101%)",
+          transform: open ? "translateX(0)" : "translateX(-101%)",
           transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+          pointerEvents: open ? "auto" : "none",
         }}
       >
         <div
@@ -643,14 +631,11 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     </div>
   )
 
-  // If mobile, collapse all desktop layouts into a mobile shell driven by
-  // `mobile_header_layout`. Default = logo centered, hamburger left.
-  const isMobileShell = hasDeviceMode && forceMobile
+  // ── Mobile shell (driven by `mobile_header_layout`) ──────
   const mobileLayout = str(s.mobile_header_layout, "logo_center_hamburger_left")
-  let content: React.ReactNode
-  if (isMobileShell) {
+  const buildMobileShell = (): React.ReactNode => {
     if (mobileLayout === "logo_left_hamburger_right") {
-      content = (
+      return (
         <div className="w-full flex items-center justify-between gap-3">
           <div className="flex items-center min-w-0">{logoNode}</div>
           <div className="flex items-center gap-1">
@@ -659,9 +644,9 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           </div>
         </div>
       )
-    } else if (mobileLayout === "hamburger_left_logo_left") {
-      // Hamburger then logo, both left-aligned; icons pushed to the right
-      content = (
+    }
+    if (mobileLayout === "hamburger_left_logo_left") {
+      return (
         <div className="w-full flex items-center gap-3">
           {renderHamburger()}
           <div className="flex items-center min-w-0">{logoNode}</div>
@@ -669,16 +654,26 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
           {renderIcons()}
         </div>
       )
-    } else {
-      // logo_center_hamburger_left (default) — truly centered logo via 3-col grid
-      content = (
-        <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="flex items-center justify-start">{renderHamburger()}</div>
-          <div className="flex items-center justify-center min-w-0">{logoNode}</div>
-          <div className="flex items-center justify-end">{renderIcons()}</div>
-        </div>
-      )
     }
+    // logo_center_hamburger_left (default) — truly centered logo via 3-col grid
+    return (
+      <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="flex items-center justify-start">{renderHamburger()}</div>
+        <div className="flex items-center justify-center min-w-0">{logoNode}</div>
+        <div className="flex items-center justify-end">{renderIcons()}</div>
+      </div>
+    )
+  }
+
+  // When we KNOW the device (editor preview) we render only one layout;
+  // otherwise (live site) we render BOTH and use Tailwind `md:` classes to
+  // swap at the breakpoint so mobile browsers see the hamburger shell and
+  // desktop browsers see the configured desktop layout.
+  const isMobileShell = hasDeviceMode && forceMobile
+  const isLiveResponsive = !hasDeviceMode
+  let content: React.ReactNode
+  if (isMobileShell) {
+    content = buildMobileShell()
   } else if (layout === "logo_left_nav_center") {
     // Truly centered nav using 3-col grid
     content = (
@@ -747,6 +742,19 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         </div>
       )
     }
+  }
+
+  // On the live site (no deviceMode) always wrap the desktop content in a
+  // `hidden md:flex` container and also render the mobile shell with
+  // `flex md:hidden`, so every visitor gets a proper responsive header.
+  if (isLiveResponsive) {
+    const desktopContent = content
+    content = (
+      <>
+        <div className="hidden md:flex w-full">{desktopContent}</div>
+        <div className="flex md:hidden w-full">{buildMobileShell()}</div>
+      </>
+    )
   }
 
   const innerStyle: CSSProperties = {
