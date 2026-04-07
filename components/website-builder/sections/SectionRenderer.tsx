@@ -695,13 +695,24 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
     : "px-4 md:px-[5%]"
 
   const stickyHidden = !isEditing && headerStickyEnabled && headerStickyOnScrollUp && !stickyVisible
+  // NOTE: for `position: sticky` to actually stick we need the class on the
+  // OUTERMOST wrapper div — otherwise the element's parent is the same size
+  // as the element itself and there's nowhere for it to stick to. We pass
+  // the sticky classes down into SectionWrapper so they land on the top
+  // wrapper that lives directly inside the page flex column (whose scroll
+  // container is the viewport).
   return (
-    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+    <SectionWrapper
+      bgColor={bg}
+      isEditing={isEditing}
+      isSelected={isSelected}
+      onClick={onClick}
+      className={cn(
+        !isEditing && headerStickyEnabled && "sticky top-0 z-40 will-change-transform",
+      )}
+    >
       <div
-        className={cn(
-          "relative border-b will-change-transform",
-          !isEditing && headerStickyEnabled && "sticky top-0 z-40",
-        )}
+        className="relative border-b"
         style={{
           background: bg,
           borderColor,

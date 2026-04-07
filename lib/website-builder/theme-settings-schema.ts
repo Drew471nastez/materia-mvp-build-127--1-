@@ -285,7 +285,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     label: "SEO",
     icon: "search",
     fields: [
-      { id: "seo_title", label: "Default page title", type: "text", placeholder: "{store name} | Storelib", info: "Leave blank to automatically use your store name — e.g. \"My Store | Storelib\"." },
+      { id: "seo_title", label: "Default page title", type: "text", placeholder: "My Store | Storelib" },
       { id: "seo_description", label: "Meta description", type: "textarea", placeholder: "Discover our collection of digital products..." },
       { id: "seo_og_image", label: "Social share image (OG)", type: "image" },
       { id: "seo_twitter_card", label: "Twitter card type", type: "select", default: "summary_large_image",

@@ -3157,6 +3157,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
 
+    // Prefill default page title with "{seller name} | Storelib" the first
+    // time the editor loads for a theme that has no SEO title set yet. The
+    // user can freely edit or clear it — we only fill it in when blank.
+    if (!loadedSettings.seo_title || typeof loadedSettings.seo_title !== "string" || !loadedSettings.seo_title.trim()) {
+      const brand = (typeof loadedSettings.brand_name === "string" && loadedSettings.brand_name.trim())
+        ? loadedSettings.brand_name.trim()
+        : (data.username || inst.name || "My Store")
+      loadedSettings.seo_title = `${brand} | Storelib`
+    }
+
     // Load sections for current page
     const loaded = await fetchPageSections(currentPage)
 
@@ -4676,41 +4686,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 device === "mobile" ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden" : "flex-1",
               )}
             >
-            {/* Skeleton — mimics the actual page structure (header → hero → content → footer).
-                No spinner: elements gently pulse and then the real content fades in. */}
+            {/* Loading skeleton for canvas — page switch */}
             {(loading || canvasLoading) && (
-              <div className="animate-in fade-in duration-200">
-                {/* Header skeleton */}
-                <div className="h-14 border-b border-neutral-100 flex items-center justify-between px-6">
-                  <div className="h-5 w-24 bg-neutral-100 rounded-md animate-pulse" />
-                  <div className="flex items-center gap-4">
-                    <div className="h-3 w-12 bg-neutral-100 rounded-full animate-pulse" />
-                    <div className="h-3 w-12 bg-neutral-100 rounded-full animate-pulse" />
-                    <div className="h-3 w-12 bg-neutral-100 rounded-full animate-pulse" />
-                    <div className="h-7 w-7 bg-neutral-100 rounded-full animate-pulse" />
+              <div>
+                <div className="h-14 bg-neutral-100/60 animate-pulse" />
+                <div className="h-[50vh] flex items-center justify-center bg-neutral-50/40">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="h-7 w-7 border-2 border-neutral-300/60 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs text-neutral-400">Loading page...</p>
                   </div>
                 </div>
-                {/* Hero skeleton */}
-                <div className="px-8 py-16 flex flex-col items-center gap-5">
-                  <div className="h-10 w-2/3 max-w-[520px] bg-neutral-100 rounded-lg animate-pulse" />
-                  <div className="h-4 w-1/2 max-w-[420px] bg-neutral-100 rounded-full animate-pulse" />
-                  <div className="h-10 w-[140px] bg-neutral-200 rounded-lg animate-pulse mt-2" />
-                </div>
-                {/* Grid skeleton */}
-                <div className="px-8 pb-16 grid grid-cols-3 gap-5">
-                  {[0, 1, 2].map(i => (
-                    <div key={i} className="space-y-3">
-                      <div className="aspect-[4/3] bg-neutral-100 rounded-xl animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
-                      <div className="h-3 w-3/4 bg-neutral-100 rounded-full animate-pulse" />
-                      <div className="h-3 w-1/3 bg-neutral-100 rounded-full animate-pulse" />
-                    </div>
-                  ))}
-                </div>
+                <div className="h-20 bg-neutral-100/40 animate-pulse" style={{ animationDelay: "200ms" }} />
               </div>
             )}
 
             {!loading && !canvasLoading && (
-              <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-out">
+              <>
                 {/* Announcement bar */}
                 {settingsDraft.announcement_bar_enabled && settingsDraft.announcement_bar_text && (
                   <div
@@ -4760,7 +4751,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
                   </div>
                 ))}
-              </div>
+              </>
             )}
             </div>
           </div>

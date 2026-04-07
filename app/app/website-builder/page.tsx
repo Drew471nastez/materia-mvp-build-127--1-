@@ -521,9 +521,75 @@ export default function WebsiteBuilderPage() {
 
   if (loading || initializing) {
     return (
-      <div className="flex items-center justify-center h-64 gap-3 text-neutral-500">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        <span>{initializing ? "Setting up your themes..." : "Loading..."}</span>
+      <div className="max-w-[810px] mx-auto px-5 py-8 animate-in fade-in duration-200">
+        {/* Page header skeleton */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="h-5 w-5 bg-neutral-200 rounded animate-pulse" />
+              <div className="h-5 w-36 bg-neutral-200 rounded animate-pulse" />
+            </div>
+            <div className="h-3 w-64 bg-neutral-100 rounded animate-pulse" />
+          </div>
+          <div className="h-8 w-[230px] bg-neutral-100 rounded-lg animate-pulse" />
+        </div>
+
+        {/* Current Website card skeleton — matches the real layout */}
+        <section className="mb-10">
+          <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse mb-4" />
+          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden">
+            <div className="aspect-[16/7] bg-neutral-100 animate-pulse" />
+            <div className="bg-white border-t border-neutral-200/60 px-5 py-4 flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-4 w-40 bg-neutral-200 rounded animate-pulse" />
+                <div className="h-3 w-28 bg-neutral-100 rounded animate-pulse" />
+                <div className="h-3 w-24 bg-neutral-100 rounded animate-pulse" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse" />
+                <div className="h-8 w-36 bg-neutral-200 rounded-lg animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* My Websites list skeleton */}
+        <section className="mb-12">
+          <div className="h-3 w-20 bg-neutral-200 rounded animate-pulse mb-4" />
+          <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden divide-y divide-neutral-100">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3.5">
+                <div className="w-[110px] h-[72px] rounded-lg bg-neutral-100 animate-pulse shrink-0" style={{ animationDelay: `${i * 80}ms` }} />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-40 bg-neutral-200 rounded animate-pulse" />
+                  <div className="h-3 w-56 bg-neutral-100 rounded animate-pulse" />
+                  <div className="h-3 w-16 bg-neutral-100 rounded animate-pulse" />
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse" />
+                  <div className="h-8 w-16 bg-neutral-100 rounded-lg animate-pulse" />
+                  <div className="h-8 w-20 bg-neutral-200 rounded-lg animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Theme Library grid skeleton */}
+        <section className="mb-12">
+          <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse mb-4" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {[0, 1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <div className="aspect-[4/3] bg-neutral-100 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+                <div className="p-3 space-y-2">
+                  <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse" />
+                  <div className="h-2.5 w-16 bg-neutral-100 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     )
   }
