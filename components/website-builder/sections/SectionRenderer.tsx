@@ -126,11 +126,28 @@ function SectionWrapper({
       style={{ background: bgColor, ...style }}
       onClick={onClick}
     >
-      {/* The blue ring (ring-2 ring-blue-500 ring-inset) is enough selection
-          feedback on its own; the old "Selected" badge used to cover the
-          section's top-left content (e.g. the header logo) and was reported
-          as overlapping. */}
       {children}
+      {/* "Selected" badge — anchored to bottom-right so it never overlaps
+          the header's logo/nav area or any section's top content. */}
+      {isEditing && isSelected && (
+        <span
+          className="absolute bottom-2 right-2 z-[9999] pointer-events-none select-none"
+          style={{
+            background: "#3b82f6",
+            color: "#fff",
+            fontSize: "11px",
+            fontWeight: 600,
+            lineHeight: 1,
+            letterSpacing: "0.02em",
+            padding: "3px 8px",
+            borderRadius: "4px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          Selected
+        </span>
+      )}
     </div>
   )
 }
