@@ -11,7 +11,7 @@ import { DEFAULT_COLOR_SCHEMES } from "@/lib/website-builder/types"
 import {
   Zap, Shield, Star, CheckCircle, Download, Heart, Globe, Lock,
   RefreshCw, Rocket, ChevronDown, ChevronUp,
-  Share2, Package, FileText, Eye, Search, ShoppingBag, X,
+  Share2, Package, FileText, Eye, Search, ShoppingBag, X, Menu,
 } from "lucide-react"
 import { useState, useEffect, CSSProperties } from "react"
 import { cn } from "@/lib/utils"
@@ -192,9 +192,93 @@ function HeaderCartDrawer({
   )
 }
 
+function HeaderMobileNavDrawer({
+  open,
+  onClose,
+  items,
+  scheme,
+}: {
+  open: boolean
+  onClose: () => void
+  items: { id: string; label: string; href: string; openInNew: boolean }[]
+  scheme: ColorSchemeValues
+}) {
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [open, onClose])
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        aria-hidden
+        onClick={onClose}
+        className="fixed inset-0 z-[90] bg-black/40"
+        style={{
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+          transition: "opacity 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      />
+      {/* Drawer */}
+      <aside
+        role="dialog"
+        aria-label="Menu"
+        className="fixed top-0 left-0 z-[95] h-full w-[85vw] max-w-[360px] shadow-2xl flex flex-col"
+        style={{
+          background: scheme.bg,
+          color: scheme.heading,
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 380ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: scheme.inset_border }}>
+          <h2 className="text-[15px] font-semibold" style={{ color: scheme.heading }}>Menu</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-black/5 transition-colors"
+            style={{ color: scheme.heading }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto py-2">
+          {items.map(item => (
+            <a
+              key={item.id}
+              href={item.href}
+              target={item.openInNew ? "_blank" : undefined}
+              rel={item.openInNew ? "noopener noreferrer" : undefined}
+              onClick={onClose}
+              className="block px-5 py-3.5 text-[15px] font-medium border-b hover:opacity-70 transition-opacity"
+              style={{
+                color: scheme.nav_link,
+                borderColor: scheme.inset_border,
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+    </>
+  )
+}
+
 function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceMode }: SectionProps) {
   const s = section.settings
   const [cartOpen, setCartOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Resolve color scheme (falls back to explicit bg/text colors if still set)
   const schemeKey = (str(s.color_scheme, "white") as HeaderColorScheme)
@@ -334,7 +418,10 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
         <button
           type="button"
           aria-label="Search"
-          className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+          className={cn(
+            "h-9 w-9 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors",
+            hasDeviceMode && forceMobile ? "" : "",
+          )}
           onClick={e => e.preventDefault()}
         >
           <Search className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -353,12 +440,31 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       {!!s.cta_text && (
         <a
           href={str(s.cta_url, "#")}
-          className="ml-1 font-semibold text-white px-3 py-1.5 text-[13px] shrink-0"
+          className={cn(
+            "ml-1 font-semibold text-white px-3 py-1.5 text-[13px] shrink-0",
+            // Hide CTA on mobile to leave room for icons + hamburger
+            hasDeviceMode ? (forceMobile ? "hidden" : "") : "hidden md:inline-block",
+          )}
           style={{ background: theme.primary_color ?? "#6366f1", ...buttonRadiusStyle(theme) }}
         >
           {str(s.cta_text)}
         </a>
       )}
+      {/* Hamburger (mobile only) — nav_link color from the scheme */}
+      <button
+        type="button"
+        aria-label="Open menu"
+        className={cn(
+          "h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 transition-colors",
+          hasDeviceMode
+            ? (forceMobile ? "flex" : "hidden")
+            : "flex md:hidden",
+        )}
+        style={{ color: navLinkColor }}
+        onClick={e => { e.preventDefault(); setMobileNavOpen(true) }}
+      >
+        <Menu className="h-[20px] w-[20px]" strokeWidth={1.8} />
+      </button>
     </div>
   )
 
@@ -475,6 +581,20 @@ function HeaderSection({ section, theme, isEditing, isSelected, onClick, deviceM
       {/* Cart drawer (portal-like, fixed-positioned) */}
       {cartOpen && (
         <HeaderCartDrawer open={cartOpen} onClose={() => setCartOpen(false)} scheme={schemeKey} />
+      )}
+      {/* Mobile nav drawer — slides in from the left with all nav links */}
+      {mobileNavOpen && (
+        <HeaderMobileNavDrawer
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          scheme={scheme}
+          items={navBlocks.map(b => ({
+            id: b.id,
+            label: str(b.settings.label),
+            href: resolveHref(b),
+            openInNew: bool(b.settings.open_in_new_tab, false),
+          }))}
+        />
       )}
     </SectionWrapper>
   )

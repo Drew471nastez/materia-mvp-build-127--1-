@@ -910,7 +910,7 @@ function WbToggle({
         role="switch"
         aria-checked={checked}
         className={cn(
-          "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500",
+          "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer focus:outline-none",
           checked ? "bg-purple-600" : "bg-gray-300",
         )}
         onClick={e => { e.preventDefault(); onChange(!checked) }}
@@ -1034,18 +1034,20 @@ function SectionColorSchemePicker({
   return (
     <div className="border-b border-border p-4 space-y-3">
       <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Color Scheme</p>
-      <p className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+      <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
         <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        Choose a color scheme for this section. Visit the
-        {onEditScheme ? (
-          <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline mx-1">
-            color scheme editor
-          </button>
-        ) : (
-          <span className="text-blue-600 mx-1">color scheme editor</span>
-        )}
-        to customise colors.
-      </p>
+        <p className="flex-1">
+          Choose a color scheme for this section. Visit the{" "}
+          {onEditScheme ? (
+            <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline inline">
+              color scheme editor
+            </button>
+          ) : (
+            <span className="text-blue-600 inline">color scheme editor</span>
+          )}{" "}
+          to customise colors.
+        </p>
+      </div>
       <SchemePillList
         value={value}
         onChange={onChange}
@@ -1248,8 +1250,8 @@ function ColorChip({
   const popupRef = useRef<HTMLDivElement>(null)
   const svRef = useRef<HTMLDivElement>(null)
   const hueRef = useRef<HTMLDivElement>(null)
-  const POPUP_W = 280
-  const POPUP_H = 370
+  const POPUP_W = 230
+  const POPUP_H = 320
 
   // Current HSV state derived from the hex value (keeps the marker
   // positions stable while editing even when the hex rounding changes
@@ -1268,9 +1270,9 @@ function ColorChip({
     setHexInput(value.toUpperCase())
   }, [value, isTransparent])
 
-  // Position the popup next to the trigger and keep it on-screen while
-  // the sidebar scrolls. Prefer opening to the LEFT with a small gap,
-  // clamped to the viewport on all sides. Top-aligned with the trigger.
+  // Position the popup BELOW the trigger (slightly offset to the left so
+  // the trigger chevron sits at the top-right edge of the popup, matching
+  // the mock). Keep it on-screen on all sides.
   useEffect(() => {
     if (!open) return
     const update = () => {
@@ -1279,12 +1281,17 @@ function ColorChip({
       const r = el.getBoundingClientRect()
       const vw = window.innerWidth
       const vh = window.innerHeight
-      let left = r.left - POPUP_W - 12
-      if (left < 8) left = Math.max(8, r.right - POPUP_W)
+      // Align popup's right edge ~12 px past the trigger's right so the
+      // chevron sits at the top-right corner of the popup.
+      let left = r.right - POPUP_W + 12
+      if (left < 8) left = 8
       if (left + POPUP_W > vw - 8) left = vw - POPUP_W - 8
-      let top = r.top - 4
-      if (top + POPUP_H > vh - 8) top = Math.max(8, vh - POPUP_H - 8)
-      if (top < 8) top = 8
+      // Open just below the trigger; flip up if it would overflow.
+      let top = r.bottom + 6
+      if (top + POPUP_H > vh - 8) {
+        top = r.top - POPUP_H - 6
+        if (top < 8) top = 8
+      }
       setPos({ top, left })
     }
     update()
@@ -1381,14 +1388,14 @@ function ColorChip({
   const popup = open && pos && typeof document !== "undefined" ? createPortal(
     <div
       ref={popupRef}
-      className="fixed z-[200] w-[280px] bg-white border border-border rounded-2xl shadow-2xl p-3 animate-in fade-in zoom-in-95 duration-100"
+      className="fixed z-[200] w-[230px] bg-white border border-border rounded-xl shadow-2xl p-2.5 animate-in fade-in zoom-in-95 duration-100"
       style={{ top: pos.top, left: pos.left }}
       onMouseDown={e => e.stopPropagation()}
     >
       {/* Saturation/value box */}
       <div
         ref={svRef}
-        className="relative h-[160px] w-full rounded-lg overflow-hidden cursor-crosshair touch-none select-none"
+        className="relative h-[120px] w-full rounded-md overflow-hidden cursor-crosshair touch-none select-none"
         style={{
           background: `
             linear-gradient(to top, #000, rgba(0,0,0,0)),
@@ -1400,7 +1407,7 @@ function ColorChip({
         onPointerMove={onSvPointerMove}
       >
         <div
-          className="absolute h-4 w-4 rounded-full border-2 border-white shadow-md pointer-events-none"
+          className="absolute h-3.5 w-3.5 rounded-full border-2 border-white pointer-events-none"
           style={{
             left: markerLeft,
             top: markerTop,
@@ -1413,7 +1420,7 @@ function ColorChip({
       {/* Hue slider */}
       <div
         ref={hueRef}
-        className="relative mt-3 h-3 w-full rounded-full cursor-pointer touch-none select-none"
+        className="relative mt-2.5 h-2.5 w-full rounded-full cursor-pointer touch-none select-none"
         style={{
           background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
         }}
@@ -1421,20 +1428,20 @@ function ColorChip({
         onPointerMove={onHuePointerMove}
       >
         <div
-          className="absolute top-1/2 h-5 w-5 rounded-full border-2 border-white shadow-md pointer-events-none"
+          className="absolute top-1/2 h-4 w-4 rounded-full border-2 border-white pointer-events-none"
           style={{
             left: hueLeft,
             transform: "translate(-50%, -50%)",
             background: pureHue,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
           }}
         />
       </div>
 
       {/* Hex input with swatch preview */}
-      <div className="mt-3 flex items-center gap-2 h-10 px-2 border border-border rounded-lg bg-muted/30">
+      <div className="mt-2.5 flex items-center gap-2 h-9 px-2 border border-border rounded-lg bg-muted/20">
         <span
-          className="h-6 w-6 rounded border border-border shrink-0"
+          className="h-5 w-5 rounded border border-border shrink-0"
           style={{
             background: isTransparent
               ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
@@ -1445,21 +1452,21 @@ function ColorChip({
           type="text"
           value={hexInput}
           onChange={e => onHexInputChange(e.target.value)}
-          className="flex-1 h-full text-sm bg-transparent border-0 tabular-nums uppercase focus:outline-none"
+          className="flex-1 h-full text-[12px] bg-transparent border-0 tabular-nums uppercase focus:outline-none"
           placeholder="#FFFFFF"
         />
       </div>
 
       {existing.length > 0 && (
-        <div className="mt-3">
-          <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Existing colors</p>
-          <div className="grid grid-cols-7 gap-1.5">
+        <div className="mt-2.5">
+          <p className="text-[10px] font-medium text-muted-foreground mb-1">Existing colors</p>
+          <div className="grid grid-cols-8 gap-1">
             {existing.map((c, i) => (
               <button
                 key={`${c}-${i}`}
                 type="button"
                 onClick={() => { onChange(c); setOpen(false) }}
-                className="h-7 w-7 rounded border border-border hover:scale-110 transition-transform"
+                className="h-5 w-5 rounded border border-border hover:scale-110 transition-transform"
                 style={{ background: c }}
                 aria-label={`Use ${c}`}
               />
@@ -1471,9 +1478,9 @@ function ColorChip({
       <button
         type="button"
         onClick={() => { onChange("transparent"); setOpen(false) }}
-        className="mt-3 w-full h-10 flex items-center justify-center gap-2 text-[13px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+        className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
       >
-        <span className="inline-block h-4 w-4 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
+        <span className="inline-block h-3.5 w-3.5 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
         Don&apos;t apply any color
       </button>
     </div>,
@@ -1544,19 +1551,59 @@ function ColorSchemesEditor({
     (grouped[f.group] ??= []).push(f)
   }
 
+  // Step 1 dropdown portal positioning — matches trigger width and sits
+  // just below the trigger with on-screen clamping, so the dropdown is
+  // never clipped by a sidebar overflow-y-auto.
+  const stepOneTriggerRef = useRef<HTMLButtonElement>(null)
+  const [stepOnePos, setStepOnePos] = useState<{ top: number; left: number; width: number } | null>(null)
+  useEffect(() => {
+    if (!stepOneOpen) return
+    const update = () => {
+      const el = stepOneTriggerRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const vh = window.innerHeight
+      const desiredHeight = 5 * 48 + 8
+      let top = r.bottom + 4
+      if (top + desiredHeight > vh - 8) top = Math.max(8, r.top - desiredHeight - 4)
+      setStepOnePos({ top, left: r.left, width: r.width })
+    }
+    update()
+    const onScroll = () => update()
+    window.addEventListener("scroll", onScroll, true)
+    window.addEventListener("resize", update)
+    return () => {
+      window.removeEventListener("scroll", onScroll, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [stepOneOpen])
+  useEffect(() => {
+    if (!stepOneOpen) return
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (stepOneTriggerRef.current?.contains(t)) return
+      const popup = document.getElementById("color-scheme-step1-popup")
+      if (popup?.contains(t)) return
+      setStepOneOpen(false)
+    }
+    document.addEventListener("mousedown", onDoc)
+    return () => document.removeEventListener("mousedown", onDoc)
+  }, [stepOneOpen])
+
   return (
     <div className="space-y-4">
       <h3 className="text-[15px] font-semibold">Edit Section Color Scheme</h3>
-      <p className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+      <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
         <Info className="h-3 w-3 shrink-0 mt-0.5" />
-        Click on any element in the preview, then its settings will appear. Each scheme is global — every section using it updates.
-      </p>
+        <p className="flex-1">Click on any element in the preview, then its settings will appear. Each scheme is global — every section using it updates.</p>
+      </div>
 
       {/* ─── Step 1: Choose color scheme (dropdown) ─── */}
       <div className="space-y-2">
         <p className="text-[12px] font-semibold text-foreground"><span className="font-bold">Step 1:</span> Choose color scheme you&apos;d like to edit</p>
         <div className="relative">
           <button
+            ref={stepOneTriggerRef}
             type="button"
             onClick={() => setStepOneOpen(!stepOneOpen)}
             className="w-full h-12 flex items-center justify-between gap-2 px-3 rounded-lg border-2 border-blue-500 bg-white hover:bg-blue-50/30 transition-colors"
@@ -1572,8 +1619,12 @@ function ColorSchemesEditor({
             </span>
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", stepOneOpen && "rotate-180")} />
           </button>
-          {stepOneOpen && (
-            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-xl overflow-hidden">
+          {stepOneOpen && stepOnePos && typeof document !== "undefined" && createPortal(
+            <div
+              id="color-scheme-step1-popup"
+              className="fixed z-[200] bg-white border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+              style={{ top: stepOnePos.top, left: stepOnePos.left, width: stepOnePos.width }}
+            >
               {COLOR_SCHEME_KEYS.map(k => {
                 const isActive = active === k
                 const sc = schemes[k]
@@ -1597,7 +1648,8 @@ function ColorSchemesEditor({
                   </button>
                 )
               })}
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>
@@ -1756,14 +1808,14 @@ function NavLinkPicker({
         />
       </div>
       {open && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-lg max-h-[260px] overflow-y-auto">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white border border-border rounded-lg shadow-xl max-h-[280px] overflow-y-auto overscroll-contain">
           {!hasResults && search && (
             <div className="px-3 py-4 text-sm text-muted-foreground text-center">No results found</div>
           )}
 
           {filteredPages.length > 0 && (
-            <div>
-              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">Pages</div>
+            <div className="py-1">
+              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-white">Pages</div>
               {filteredPages.map(p => (
                 <button
                   key={p.url}
@@ -1771,33 +1823,17 @@ function NavLinkPicker({
                   onClick={() => { onChange(p.url); setOpen(false) }}
                 >
                   <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{p.label}</span>
-                  <span className="ml-auto text-[11px] text-muted-foreground/60 shrink-0">{p.url}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filteredProducts.length > 0 && (
-            <div>
-              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">Products</div>
-              {filteredProducts.slice(0, 10).map(p => (
-                <button
-                  key={p.id}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
-                  onClick={() => { onChange(`/products/${p.slug}`); setOpen(false) }}
-                >
-                  <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate">{p.title}</span>
+                  <span className="truncate flex-1">{p.label}</span>
+                  <span className="ml-2 text-[11px] text-muted-foreground/60 shrink-0">{p.url}</span>
                 </button>
               ))}
             </div>
           )}
 
           {filteredCollections.length > 0 && (
-            <div>
-              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 sticky top-0">Collections</div>
-              {filteredCollections.slice(0, 10).map(c => (
+            <div className="py-1 border-t border-border">
+              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-white">Categories</div>
+              {filteredCollections.slice(0, 20).map(c => (
                 <button
                   key={c.id}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
@@ -1805,6 +1841,22 @@ function NavLinkPicker({
                 >
                   <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="truncate">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredProducts.length > 0 && (
+            <div className="py-1 border-t border-border">
+              <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-white">Products</div>
+              {filteredProducts.slice(0, 20).map(p => (
+                <button
+                  key={p.id}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-purple-50 text-left transition-colors"
+                  onClick={() => { onChange(`/products/${p.slug}`); setOpen(false) }}
+                >
+                  <ShoppingBag className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{p.title}</span>
                 </button>
               ))}
             </div>
@@ -2046,27 +2098,6 @@ function HeaderSectionSettings({
                 Search engines like Google need the store title, so ensure you add one even when you use a logo. Logos replace the store title on all pages.
               </p>
             </div>
-
-            {/* Logo font */}
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium text-foreground">Logo font</p>
-              <div className="relative">
-                <select
-                  className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 appearance-none cursor-pointer transition-colors"
-                  value={typeof s.logo_font === "string" ? s.logo_font : "Inter"}
-                  onChange={e => onUpdateSetting("logo_font", e.target.value)}
-                  style={{ fontFamily: typeof s.logo_font === "string" ? s.logo_font : "Inter" }}
-                >
-                  {[
-                    "Inter", "Poppins", "Playfair Display", "Merriweather", "Raleway",
-                    "Montserrat", "Lora", "DM Sans", "Space Grotesk",
-                  ].map(f => (
-                    <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
           </div>
         )
 
@@ -2222,14 +2253,16 @@ function HeaderSectionSettings({
                 value={s.header_transparent}
                 onChange={v => onUpdateSetting("header_transparent", v)}
               />
-              <p className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+              <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
                 <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                Choose a color scheme for the header. Visit the
-                <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline mx-1">
-                  color scheme editor
-                </button>
-                to customise colors.
-              </p>
+                <p className="flex-1">
+                  Choose a color scheme for the header. Visit the{" "}
+                  <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline inline">
+                    color scheme editor
+                  </button>{" "}
+                  to customise colors.
+                </p>
+              </div>
               <SchemePillList
                 value={currentScheme}
                 onChange={v => onUpdateSetting("color_scheme", v)}
@@ -2281,63 +2314,6 @@ function HeaderSectionSettings({
               />
             </div>
 
-            {/* ── Layout picker modal ── */}
-            {layoutPickerOpen && (
-              <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50" onClick={() => setLayoutPickerOpen(false)}>
-                <div
-                  className="w-full max-w-[720px] max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                    <h3 className="text-[15px] font-semibold">Choose header layout</h3>
-                    <button
-                      type="button"
-                      onClick={() => setLayoutPickerOpen(false)}
-                      className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {layoutOptions.map(opt => {
-                      const active = currentLayout === opt.id
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => {
-                            onUpdateSetting("header_layout", opt.id)
-                          }}
-                          className={cn(
-                            "text-left border rounded-xl overflow-hidden bg-white transition-all",
-                            active ? "border-blue-500 ring-2 ring-blue-500" : "border-border hover:border-blue-300",
-                          )}
-                        >
-                          <div className="h-20 bg-gray-50 border-b border-border">
-                            {opt.preview}
-                          </div>
-                          <div className="px-4 py-3 flex items-center justify-between">
-                            <span className="text-xs font-medium">{opt.label}</span>
-                            {active && (
-                              <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="border-t border-border p-4 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLayoutPickerOpen(false)}
-                      className="h-9 px-4 rounded-lg bg-blue-600 text-white text-[13px] font-semibold hover:bg-blue-700 transition-colors"
-                    >
-                      Choose this layout
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )
       }
@@ -2467,6 +2443,126 @@ function HeaderSectionSettings({
       default:
         return null
     }
+  }
+
+  // ── Layout picker sub-panel (inline, not modal) ────────────
+  if (layoutPickerOpen) {
+    // Re-use the same layoutOptions the "header" tab builds. We build
+    // a minimal local set so this branch is independent — keeps the
+    // rendering stable even if the "header" case wasn't mounted yet.
+    const layoutOptions: { id: string; label: string }[] = [
+      { id: "logo_left_nav_right",   label: "Logo left · Nav + icons right" },
+      { id: "logo_left_nav_inline",  label: "Logo left · Nav inline · Icons right" },
+      { id: "logo_left_nav_center",  label: "Logo left · Nav centered · Icons right" },
+      { id: "nav_left_logo_center",  label: "Nav left · Logo centered · Icons right" },
+      { id: "logo_center_nav_below", label: "Logo centered · Nav below" },
+    ]
+    const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
+    const renderPreview = (id: string) => {
+      switch (id) {
+        case "logo_left_nav_right":
+          return (
+            <div className="flex items-center justify-between w-full h-full px-4">
+              <div className="h-3 w-12 bg-gray-800 rounded-sm" />
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-2 w-2 bg-gray-800 rounded-full ml-1.5" />
+                <div className="h-2 w-2 bg-gray-800 rounded-full" />
+              </div>
+            </div>
+          )
+        case "logo_left_nav_inline":
+          return (
+            <div className="flex items-center w-full h-full px-4 gap-3">
+              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
+              <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              <div className="flex-1" />
+              <div className="h-2 w-2 bg-gray-800 rounded-full" />
+              <div className="h-2 w-2 bg-gray-800 rounded-full" />
+            </div>
+          )
+        case "logo_left_nav_center":
+          return (
+            <div className="flex items-center justify-between w-full h-full px-4">
+              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              </div>
+              <div className="h-2 w-2 bg-gray-800 rounded-full" />
+            </div>
+          )
+        case "nav_left_logo_center":
+          return (
+            <div className="flex items-center justify-between w-full h-full px-4">
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              </div>
+              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
+              <div className="h-2 w-2 bg-gray-800 rounded-full" />
+            </div>
+          )
+        case "logo_center_nav_below":
+          return (
+            <div className="flex flex-col items-center justify-center w-full h-full gap-2">
+              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
+              </div>
+            </div>
+          )
+      }
+      return null
+    }
+
+    return (
+      <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-2 duration-150">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
+          <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setLayoutPickerOpen(false)}>
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold">Choose header layout</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {layoutOptions.map(opt => {
+            const active = currentLayout === opt.id
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  onUpdateSetting("header_layout", opt.id)
+                  setLayoutPickerOpen(false)
+                }}
+                className={cn(
+                  "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
+                  active ? "border-blue-500 ring-2 ring-blue-500/30" : "border-border hover:border-blue-300",
+                )}
+              >
+                <div className="h-20 bg-gray-50 border-b border-border flex items-center">
+                  {renderPreview(opt.id)}
+                </div>
+                <div className="px-3 py-2.5 flex items-center justify-between">
+                  <span className="text-xs font-medium">{opt.label}</span>
+                  {active && (
+                    <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Selected</span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
   }
 
   // ── Sub-panel view ─────────────────────────────────────────
