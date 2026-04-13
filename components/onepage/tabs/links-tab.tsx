@@ -2265,7 +2265,36 @@ export function LinksTab() {
               <BlockItem
                 block={block}
                 isSelected={selectedBlockId === block.id}
-                onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
+                onSelect={() => {
+                  const isDeselecting = selectedBlockId === block.id
+                  setSelectedBlockId(isDeselecting ? null : block.id)
+                  // When opening (not closing) a block, scroll it into view
+                  // after the editor panel has expanded (next two frames).
+                  if (!isDeselecting) {
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                      const el = document.querySelector(`[data-block-id="${block.id}"]`) as HTMLElement | null
+                      if (!el) return
+                      // Find the nearest scrollable ancestor
+                      let scrollParent: HTMLElement | null = el.parentElement
+                      while (scrollParent && scrollParent !== document.documentElement) {
+                        const style = window.getComputedStyle(scrollParent)
+                        if ((style.overflowY === "auto" || style.overflowY === "scroll") && scrollParent.scrollHeight > scrollParent.clientHeight) break
+                        scrollParent = scrollParent.parentElement
+                      }
+                      if (!scrollParent || scrollParent === document.documentElement) {
+                        el.scrollIntoView({ behavior: "smooth", block: "start" })
+                        return
+                      }
+                      // Scroll so the block's top is near the top of the visible area
+                      // with a small offset (header clearance)
+                      const elRect = el.getBoundingClientRect()
+                      const parentRect = scrollParent.getBoundingClientRect()
+                      const offset = 12 // breathing room from top
+                      const targetScrollTop = scrollParent.scrollTop + (elRect.top - parentRect.top) - offset
+                      scrollParent.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" })
+                    }))
+                  }
+                }}
                 onRemove={() => { removeBlock(block.id); setShowBlockRemovedNotification(false); requestAnimationFrame(() => setShowBlockRemovedNotification(true)) }}
                 onArchive={() => { archiveBlock(block.id); setShowBlockArchivedNotification(false); requestAnimationFrame(() => setShowBlockArchivedNotification(true)) }}
                 onMoveUp={() => {
