@@ -19,6 +19,14 @@ import { useEffect } from "react"
 
 export default function NativeStartPage() {
   useEffect(() => {
+    let didRedirect = false
+
+    function safeRedirect(url: string) {
+      if (didRedirect) return
+      didRedirect = true
+      window.location.replace(url)
+    }
+
     async function resolve() {
       // ── PRIORITY: handle reset-password / recovery deep links first ───────
       // Must run BEFORE the synchronous localStorage fast-path to prevent
@@ -43,14 +51,14 @@ export default function NativeStartPage() {
               try {
                 const code = new URL(lu).searchParams.get("code")
                 if (code) {
-                  window.location.replace(`/reset-password?code=${encodeURIComponent(code)}`)
+                  safeRedirect(`/reset-password?code=${encodeURIComponent(code)}`)
                   return
                 }
               } catch { /* ignore */ }
             } else {
               try { sessionStorage.setItem("nativeRecoveryUrl", lu) } catch { /* ignore */ }
             }
-            window.location.replace("/reset-password")
+            safeRedirect("/reset-password")
             return
           }
         }
@@ -68,7 +76,7 @@ export default function NativeStartPage() {
           const sessionRaw = localStorage.getItem(`sb-${ref}-auth-token`)
           const cachedHome = localStorage.getItem("sb-native-home")
           if (sessionRaw && cachedHome) {
-            window.location.replace(cachedHome)
+            safeRedirect(cachedHome)
             return
           }
         }
@@ -86,7 +94,7 @@ export default function NativeStartPage() {
           // Use cached destination if available — avoids a DB round-trip.
           const cached = await getCachedNativeHome()
           if (cached) {
-            window.location.replace(cached)
+            safeRedirect(cached)
             return
           }
 
@@ -101,7 +109,7 @@ export default function NativeStartPage() {
 
           if (creator?.onboarding_completed) {
             await cacheNativeHome("/app")
-            window.location.replace("/app")
+            safeRedirect("/app")
             return
           }
 
@@ -114,12 +122,12 @@ export default function NativeStartPage() {
           if (profile?.welcome_completed) {
             const dest = profile.is_creator ? "/app" : "/library"
             await cacheNativeHome(dest)
-            window.location.replace(dest)
+            safeRedirect(dest)
             return
           }
 
           // Authenticated but hasn't finished onboarding.
-          window.location.replace("/signup/success")
+          safeRedirect("/signup/success")
           return
         }
 
@@ -135,16 +143,46 @@ export default function NativeStartPage() {
 
         if (rawPrefs || rawLocal) {
           const cached = await getCachedNativeHome()
-          window.location.replace(cached || "/app")
+          safeRedirect(cached || "/app")
+          return
+        }
+      } catch (err) {
+        // Layer 2/3 failed — don't silently swallow. Try cached home or fall
+        // through to /welcome below.
+        console.warn("[native-start] session resolution error:", err)
+        try {
+          const cachedHome = localStorage.getItem("sb-native-home")
+          if (cachedHome) {
+            safeRedirect(cachedHome)
+            return
+          }
+        } catch { /* ignore */ }
+      }
+
+      // ── No session — send to welcome screen ───────────────────────────────
+      safeRedirect("/welcome")
+    }
+
+    // ── Timeout safety net ──────────────────────────────────────────────────
+    // If resolve() hasn't redirected within 8 seconds (network hang, Supabase
+    // unreachable, Preferences stuck, etc.), force a redirect so the user is
+    // never stuck on the spinner indefinitely.
+    const timeout = setTimeout(() => {
+      if (didRedirect) return
+      console.warn("[native-start] resolve() timed out after 8 s — forcing redirect")
+      try {
+        const cachedHome = localStorage.getItem("sb-native-home")
+        if (cachedHome) {
+          safeRedirect(cachedHome)
           return
         }
       } catch { /* ignore */ }
+      safeRedirect("/welcome")
+    }, 8000)
 
-      // ── No session — send to welcome screen ───────────────────────────────
-      window.location.replace("/welcome")
-    }
+    resolve().finally(() => clearTimeout(timeout))
 
-    resolve()
+    return () => clearTimeout(timeout)
   }, [])
 
   return (

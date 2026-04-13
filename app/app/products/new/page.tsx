@@ -3316,6 +3316,11 @@ export default function NewProductPage() {
         console.log("Revalidation skipped:", revalidateErr)
       }
 
+      // Ensure the store builder shop page is published so the product
+      // appears on the creator's live store, even if they've never opened
+      // the store builder editor. Fire-and-forget — non-critical.
+      fetch("/api/store-builder/ensure-published", { method: "POST" }).catch(() => {})
+
       // Smooth scroll to top
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
 

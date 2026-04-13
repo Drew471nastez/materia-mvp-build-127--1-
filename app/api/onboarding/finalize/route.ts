@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
 
 /**
  * POST /api/onboarding/finalize
@@ -137,6 +138,26 @@ export async function POST(request: NextRequest) {
         console.error("[finalize] creator insert error:", insertError)
         return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
       }
+    }
+
+    // ── Auto-publish store builder with defaults ────────────────────────────
+    // Ensures the creator's store page is live immediately after onboarding,
+    // even if they never visit the store builder editor. Featured products
+    // section will show whatever products they add later.
+    try {
+      // Re-fetch the creator id (might have just been inserted above)
+      const { data: finalCreator } = await admin
+        .from("creators")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle()
+
+      if (finalCreator) {
+        await ensureStorePublished(finalCreator.id)
+      }
+    } catch (autoPublishErr) {
+      // Non-critical — the store builder can still be published later manually
+      console.error("[finalize] store auto-publish error:", autoPublishErr)
     }
 
     return NextResponse.json({ ok: true, nextPath: "/app" })
