@@ -49,10 +49,35 @@ export function KeyboardGuard() {
     }
 
     /**
+     * Walk up the DOM from `el` and return the nearest ancestor that is an
+     * independently scrollable container (overflow-y: auto|scroll with
+     * scrollHeight > clientHeight). Returns null if none is found before
+     * reaching <html>.
+     */
+    function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
+      let node: HTMLElement | null = el.parentElement
+      while (node && node !== document.documentElement) {
+        const style = window.getComputedStyle(node)
+        const oy = style.overflowY
+        if (
+          (oy === "auto" || oy === "scroll") &&
+          node.scrollHeight > node.clientHeight
+        ) {
+          return node
+        }
+        node = node.parentElement
+      }
+      return null
+    }
+
+    /**
      * After the keyboard opens and the scroll container resizes (via CSS
      * `--vvh` / `--keyboard-inset-height`), scroll the focused input into
-     * the visible area. Uses 3 RAFs: 1st for the CSS variable to be set,
-     * 2nd for the browser to re-layout, 3rd to read final geometry and scroll.
+     * the centre of the visible area above the keyboard.
+     *
+     * Walks up the DOM from the focused element to find the nearest scrollable
+     * ancestor — this handles nested scroll containers like the one-page
+     * editor panel (`overflow-y-auto`) inside `.app-content-scroll`.
      */
     function scrollFocusedInputIntoView() {
       requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -62,12 +87,10 @@ export function KeyboardGuard() {
           (active.tagName !== "INPUT" && active.tagName !== "TEXTAREA" && !active.isContentEditable)
         ) return
 
-        // Find the nearest scroll container (.app-content-scroll or any
-        // overflow-y: auto/scroll ancestor)
-        const scrollContainer = (
-          active.closest(".app-content-scroll") ??
-          active.closest(".library-scroll-content")
-        ) as HTMLElement | null
+        // Find the nearest scrollable ancestor — this correctly targets
+        // nested overflow-y-auto containers (e.g. the one-page editor panel)
+        // rather than always jumping to the outermost .app-content-scroll.
+        const scrollContainer = findScrollableAncestor(active)
 
         if (!scrollContainer) {
           // Fallback: use native scrollIntoView for document-level scroll
@@ -77,25 +100,23 @@ export function KeyboardGuard() {
 
         const activeRect = active.getBoundingClientRect()
         const containerRect = scrollContainer.getBoundingClientRect()
+        const containerVisibleHeight = scrollContainer.clientHeight
 
-        // Check if the input is fully visible within the container
-        // Add 16px breathing room above and below
-        const visibleTop = containerRect.top + 16
-        const visibleBottom = containerRect.top + scrollContainer.clientHeight - 16
+        // Always scroll the input to the centre of the visible area — don't
+        // just check "is it visible?". On mobile keyboards the visible area is
+        // small; centering keeps the input comfortably above the keyboard with
+        // breathing room.
+        const inputCentreInContainer =
+          activeRect.top - containerRect.top + activeRect.height / 2
+        const desiredScrollTop =
+          scrollContainer.scrollTop +
+          inputCentreInContainer -
+          containerVisibleHeight / 2
 
-        if (activeRect.top < visibleTop || activeRect.bottom > visibleBottom) {
-          // Scroll the element to the center of the visible area
-          const targetScrollTop =
-            scrollContainer.scrollTop +
-            (activeRect.top - containerRect.top) -
-            scrollContainer.clientHeight / 2 +
-            activeRect.height / 2
-
-          scrollContainer.scrollTo({
-            top: Math.max(0, targetScrollTop),
-            behavior: "smooth",
-          })
-        }
+        scrollContainer.scrollTo({
+          top: Math.max(0, desiredScrollTop),
+          behavior: "smooth",
+        })
       })))
     }
 
@@ -137,6 +158,9 @@ export function KeyboardGuard() {
 
     // Also listen for focus events on inputs — on some devices the keyboard
     // opens after the focus event, so we need a secondary trigger.
+    // Fire two passes: 300ms (early, for fast keyboards) and 600ms (late,
+    // for slower iOS keyboards that take ~400-500ms to finish animating).
+    let focusTimers: ReturnType<typeof setTimeout>[] = []
     function onFocusIn(e: FocusEvent) {
       const target = e.target as HTMLElement | null
       if (
@@ -144,8 +168,12 @@ export function KeyboardGuard() {
         (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA" && !target.isContentEditable)
       ) return
 
-      // Delay to allow keyboard to fully open and container to resize
-      setTimeout(scrollFocusedInputIntoView, 350)
+      // Clear any pending timers from a previous focus
+      focusTimers.forEach(clearTimeout)
+      focusTimers = [
+        setTimeout(scrollFocusedInputIntoView, 300),
+        setTimeout(scrollFocusedInputIntoView, 600),
+      ]
     }
 
     vv.addEventListener("resize", onViewportChange)
@@ -156,6 +184,7 @@ export function KeyboardGuard() {
       vv.removeEventListener("resize", onViewportChange)
       vv.removeEventListener("scroll", onViewportChange)
       document.removeEventListener("focusin", onFocusIn)
+      focusTimers.forEach(clearTimeout)
       root.classList.remove("keyboard-open")
       root.style.removeProperty("--vvh")
     }
