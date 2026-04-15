@@ -2066,8 +2066,8 @@ function UnifiedAnnouncementBarSection({
       <div
         className="w-full"
         style={{
-          backgroundColor: settings.colors.backgroundColor || "#000000",
-          color: settings.colors.textColor || "#ffffff",
+          backgroundColor: settings.colors?.backgroundColor || "#000000",
+          color: settings.colors?.textColor || "#ffffff",
         }}
       >
         <div
@@ -2293,7 +2293,7 @@ function UnifiedFeaturedProductsSection({
         >
           <h2
             className={cn("font-semibold text-foreground mb-6", "text-lg sm:text-xl")}
-            style={{ textAlign: settings.typography.textAlign }}
+            style={{ textAlign: settings.typography?.textAlign }}
           >
             {settings.headline}
           </h2>
@@ -2394,7 +2394,7 @@ function UnifiedFeaturedProductsSection({
                 !settings.colors?.textColor && "text-foreground",
               )}
               style={{
-                textAlign: settings.typography.textAlign,
+                textAlign: settings.typography?.textAlign,
                 color: settings.colors?.textColor || undefined,
               }}
             >
@@ -2736,7 +2736,7 @@ export function UnifiedShopHeader({
         !isPreviewMode && onSelect && "cursor-pointer",
         !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
       )}
-      style={{ backgroundColor: settings.colors.backgroundColor || "transparent" }}
+      style={{ backgroundColor: settings.colors?.backgroundColor || "transparent" }}
     >
       {showPlaceholder ? (
         <div
@@ -3177,9 +3177,9 @@ export function UnifiedProductPage({
         !isPreviewMode && isSelected && "ring-2 ring-sky-500 ring-inset",
       )}
       style={{
-        paddingTop: settings.spacing.paddingTop,
-        paddingBottom: settings.spacing.paddingBottom,
-        backgroundColor: settings.colors.backgroundColor || "transparent",
+        paddingTop: settings.spacing?.paddingTop,
+        paddingBottom: settings.spacing?.paddingBottom,
+        backgroundColor: settings.colors?.backgroundColor || "transparent",
       }}
     >
       <SectionContainer className={cn(isMobile ? "py-4" : "py-6 sm:py-12", "pb-24 lg:pb-12")} isMobile={isMobile}>
