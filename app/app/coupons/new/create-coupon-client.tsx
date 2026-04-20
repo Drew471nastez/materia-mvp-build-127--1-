@@ -21,9 +21,24 @@ interface Product {
   status: string
 }
 
+interface CouponRecord {
+  id: string
+  code: string
+  discount_type: "percentage" | "fixed"
+  discount_value: number
+  product_ids: string[] | null
+  usage_limit: number | null
+  starts_at: string | null
+  expires_at: string | null
+  min_purchase_cents: number | null
+  is_active: boolean
+}
+
 interface CreateCouponClientProps {
   creatorId: string
   products: Product[]
+  editId?: string | null
+  initialCoupon?: CouponRecord | null
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -84,11 +99,39 @@ const emptyForm = () => ({
   is_active: true,
 })
 
+// Datetime-local inputs need "YYYY-MM-DDTHH:mm" (no seconds, no TZ).
+const toLocalInput = (iso: string | null): string => {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const fromCoupon = (c: CouponRecord): ReturnType<typeof emptyForm> => ({
+  code: c.code,
+  discount_type: c.discount_type,
+  discount_value: String(c.discount_value),
+  product_ids: c.product_ids ?? [],
+  appliesTo: c.product_ids && c.product_ids.length > 0 ? "specific" : "all",
+  usage_limit: c.usage_limit !== null ? String(c.usage_limit) : "",
+  has_start_date: !!c.starts_at,
+  has_expiry_date: !!c.expires_at,
+  has_min_purchase: c.min_purchase_cents !== null,
+  starts_at: toLocalInput(c.starts_at),
+  expires_at: toLocalInput(c.expires_at),
+  min_purchase_amount: c.min_purchase_cents !== null ? (c.min_purchase_cents / 100).toFixed(2) : "",
+  is_active: c.is_active,
+})
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function CreateCouponClient({ products }: CreateCouponClientProps) {
+export function CreateCouponClient({ products, editId, initialCoupon }: CreateCouponClientProps) {
   const router = useRouter()
-  const [form, setForm] = useState(emptyForm)
+  const isEdit = !!editId && !!initialCoupon
+  const [form, setForm] = useState(() =>
+    initialCoupon ? fromCoupon(initialCoupon) : emptyForm()
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,28 +155,32 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
 
     setSaving(true)
     try {
-      const res = await fetch("/api/coupons", {
-        method: "POST",
+      const payload = {
+        code: form.code,
+        discount_type: form.discount_type,
+        discount_value: Number(form.discount_value),
+        product_ids: form.appliesTo === "specific" ? form.product_ids : null,
+        usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+        starts_at: form.has_start_date && form.starts_at
+          ? new Date(form.starts_at).toISOString() : null,
+        expires_at: form.has_expiry_date && form.expires_at
+          ? new Date(form.expires_at).toISOString() : null,
+        min_purchase_cents: form.has_min_purchase && form.min_purchase_amount
+          ? Math.round(Number(form.min_purchase_amount) * 100) : null,
+        is_active: form.is_active,
+      }
+      const url = isEdit ? `/api/coupons/${editId}` : "/api/coupons"
+      const method = isEdit ? "PUT" : "POST"
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: form.code,
-          discount_type: form.discount_type,
-          discount_value: Number(form.discount_value),
-          product_ids: form.appliesTo === "specific" ? form.product_ids : null,
-          usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
-          starts_at: form.has_start_date && form.starts_at
-            ? new Date(form.starts_at).toISOString() : null,
-          expires_at: form.has_expiry_date && form.expires_at
-            ? new Date(form.expires_at).toISOString() : null,
-          min_purchase_cents: form.has_min_purchase && form.min_purchase_amount
-            ? Math.round(Number(form.min_purchase_amount) * 100) : null,
-          is_active: form.is_active,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to create coupon")
-      // Navigate back to list; the page re-fetches and shows the new coupon
-      router.push(`/app/coupons?created=${encodeURIComponent(data.coupon.code)}`)
+      if (!res.ok) throw new Error(data.error || `Failed to ${isEdit ? "update" : "create"} coupon`)
+      const code = data.coupon?.code ?? form.code
+      const key = isEdit ? "updated" : "created"
+      router.push(`/app/coupons?${key}=${encodeURIComponent(code)}`)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong"
       setError(message)
@@ -142,9 +189,9 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50/40">
+    <div className="h-full flex flex-col bg-[#f8f9fa] app-page-enter">
       {/* Sticky header */}
-      <div className="bg-white border-b border-gray-100 shrink-0 z-10">
+      <div className="bg-white border-b border-[#e5e7eb]/60 shrink-0 z-10">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
           <button
             type="button"
@@ -154,7 +201,9 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
           >
             <ArrowLeft className="w-4 h-4 text-gray-600" />
           </button>
-          <h1 className="text-[15px] font-semibold text-gray-900">Create coupon</h1>
+          <h1 className="text-[15px] font-semibold text-gray-900">
+            {isEdit ? "Edit coupon" : "Create coupon"}
+          </h1>
         </div>
       </div>
 
@@ -409,7 +458,7 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
       </div>
 
       {/* Sticky bottom action bar */}
-      <div className="shrink-0 bg-white border-t border-gray-100 px-4 sm:px-6 py-3 z-10"
+      <div className="shrink-0 bg-white border-t border-[#e5e7eb]/60 px-4 sm:px-6 py-3 z-10"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
@@ -427,7 +476,9 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
             className="h-10 px-6 rounded-xl bg-[#8b5cf6] text-white text-sm font-medium hover:bg-[#7c3aed] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Creating…" : "Create coupon"}
+            {saving
+              ? (isEdit ? "Saving…" : "Creating…")
+              : (isEdit ? "Save changes" : "Create coupon")}
           </button>
         </div>
       </div>

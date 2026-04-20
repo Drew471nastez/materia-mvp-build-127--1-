@@ -295,6 +295,17 @@ const ANALYTICS_SAMPLE_SUMMARY: Summary = {
 
 const timeframeOptions: TimeframeOption[] = [
   {
+    value: "custom",
+    label: "Custom range",
+    shortLabel: "Custom",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 7)
+      return { start, end }
+    },
+  },
+  {
     value: "today",
     label: "Today",
     shortLabel: "Today",
@@ -385,17 +396,6 @@ const timeframeOptions: TimeframeOption[] = [
       return { start, end }
     },
   },
-  {
-    value: "custom",
-    label: "Custom range",
-    shortLabel: "Custom",
-    getDates: () => {
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 7)
-      return { start, end }
-    },
-  },
 ]
 
 // Chart colors - matching reference image
@@ -457,10 +457,12 @@ function AnalyticsChartWithTooltip({
     }
   }, [])
 
-  // When metric filter or data changes, play animation once then stop
+  // When metric filter or data changes, play animation once then stop.
+  // 1200ms matches the Area animationDuration so the chart fully draws
+  // before animation is disabled (otherwise later hover updates don't pop).
   useEffect(() => {
     setShouldAnimate(true)
-    const timer = setTimeout(() => setShouldAnimate(false), 900)
+    const timer = setTimeout(() => setShouldAnimate(false), 1200)
     return () => clearTimeout(timer)
   }, [chartDisplayData, chartMetricFilter, onePageChartFilter])
 
@@ -743,32 +745,32 @@ function AnalyticsChartWithTooltip({
           )}
           {/* Store areas */}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={60} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-            <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={makeDot(CHART_COLORS.orders)} activeDot={makeActiveDot(CHART_COLORS.orders)} name="sales" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={makeDot(CHART_COLORS.orders)} activeDot={makeActiveDot(CHART_COLORS.orders)} name="sales" isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={120} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && (
-            <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={makeDot(CHART_COLORS.refunds)} activeDot={makeActiveDot(CHART_COLORS.refunds)} name="refunds" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={makeDot(CHART_COLORS.refunds)} activeDot={makeActiveDot(CHART_COLORS.refunds)} name="refunds" isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={180} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-            <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={makeDot(CHART_COLORS.revenue)} activeDot={makeActiveDot(CHART_COLORS.revenue)} name="revenue" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={makeDot(CHART_COLORS.revenue)} activeDot={makeActiveDot(CHART_COLORS.revenue)} name="revenue" isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={90} />
           )}
           {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-            <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={makeDot("#10b981")} activeDot={makeActiveDot("#10b981")} name="conversion" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={makeDot("#10b981")} activeDot={makeActiveDot("#10b981")} name="conversion" isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={60} />
           )}
           {/* OnePage areas */}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" connectNulls isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={60} />
           )}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-            <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={makeDot(CHART_COLORS.clicks)} activeDot={makeActiveDot(CHART_COLORS.clicks)} name="clicks" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={makeDot(CHART_COLORS.clicks)} activeDot={makeActiveDot(CHART_COLORS.clicks)} name="clicks" connectNulls isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={120} />
           )}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-            <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={makeDot("#8b5cf6")} activeDot={makeActiveDot("#8b5cf6")} name="subscribers" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={makeDot("#8b5cf6")} activeDot={makeActiveDot("#8b5cf6")} name="subscribers" connectNulls isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={180} />
           )}
           {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-            <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={makeDot("#f59e0b")} activeDot={makeActiveDot("#f59e0b")} name="ctr" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={makeDot("#f59e0b")} activeDot={makeActiveDot("#f59e0b")} name="ctr" connectNulls isAnimationActive={shouldAnimate} animationDuration={1100} animationEasing="ease-in-out" animationBegin={60} />
           )}
         </AreaChart>
       </ResponsiveContainer>
@@ -3009,7 +3011,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className="relative">
                 <div
                   key={`${analyticsMode}-${chartMetricFilter}-${onePageChartFilter}`}
-                  className={`transition-opacity duration-500 ease-out animate-in fade-in duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"} ${isRefreshing ? "opacity-30 blur-[2px]" : ""}`}
+                  className={`transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-30 blur-[2px]" : showSampleData && !hasRealData ? "opacity-50 blur-0" : "opacity-100 blur-0"}`}
                 >
                   <AnalyticsChartWithTooltip
                     chartDisplayData={chartDisplayData}
@@ -3041,7 +3043,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
+          <Card className={`border-[#e5e7eb] bg-white transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-60 blur-[1px]" : showSampleData && !hasRealData ? "opacity-60 blur-0" : "opacity-100 blur-0"}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -3114,7 +3116,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             </CardContent>
           </Card>
 
-          <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
+          <Card className={`border-[#e5e7eb] bg-white transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-60 blur-[1px]" : showSampleData && !hasRealData ? "opacity-60 blur-0" : "opacity-100 blur-0"}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -3200,7 +3202,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </div>
 
         {/* Top products by units sold / Most Clicked */}
-        <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
+        <Card className={`border-[#e5e7eb] bg-white transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-60 blur-[1px]" : showSampleData && !hasRealData ? "opacity-60 blur-0" : "opacity-100 blur-0"}`}>
           <CardHeader className="pb-0 pt-3">
             <div className="flex items-center gap-2">
               {analyticsMode === "store" ? (
@@ -3543,7 +3545,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </Card>
 
         {/* Visitors by Country */}
-        <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
+        <Card className={`border-[#e5e7eb] bg-white transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-60 blur-[1px]" : showSampleData && !hasRealData ? "opacity-60 blur-0" : "opacity-100 blur-0"}`}>
           <CardHeader className="pb-0 pt-3">
             <div className="flex items-center gap-2">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
@@ -3617,7 +3619,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         onClose={() => setIsTimeframeSheetOpen(false)}
         options={timeframeOptions}
         selectedValue={timeframe}
-        onSelect={(value) => setTimeframe(value)}
+        onSelect={(value) => {
+          if (value === "custom") {
+            // Defer opening the calendar until the sheet has finished its
+            // dismiss animation so the two modals don't fight for focus.
+            setTimeout(() => setIsCustomRangeOpen(true), 420)
+          } else {
+            setTimeframe(value)
+          }
+        }}
       />
       <AnalyticsProductsSheet
         isOpen={isProductsSheetOpen}

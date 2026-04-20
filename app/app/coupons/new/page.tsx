@@ -10,7 +10,12 @@ export const metadata = {
   title: "Create Coupon",
 }
 
-export default async function NewCouponPage() {
+interface PageProps {
+  searchParams: Promise<{ edit?: string }>
+}
+
+export default async function NewCouponPage({ searchParams }: PageProps) {
+  const { edit } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
@@ -32,10 +37,24 @@ export default async function NewCouponPage() {
     .eq("status", "published")
     .order("title")
 
+  let initialCoupon = null
+  if (edit) {
+    const { data: coupon } = await admin
+      .from("coupons")
+      .select("*")
+      .eq("id", edit)
+      .eq("creator_id", creator.id)
+      .maybeSingle()
+    if (!coupon) redirect("/app/coupons")
+    initialCoupon = coupon
+  }
+
   return (
     <CreateCouponClient
       creatorId={creator.id}
       products={products || []}
+      editId={edit ?? null}
+      initialCoupon={initialCoupon}
     />
   )
 }

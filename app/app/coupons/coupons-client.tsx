@@ -1,60 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, HelpCircle } from "lucide-react"
+import { Plus, TicketPercent, Copy, Check, Pencil, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-
-// ─── Portal Tooltip ───────────────────────────────────────────────────────────
-// Renders the tooltip via createPortal so it is never clipped by overflow on
-// the modal or sidebar. Position is computed from the trigger's bounding rect.
-
-function Tooltip({ text }: { text: string }) {
-  const [visible, setVisible] = useState(false)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
-  const triggerRef = useRef<HTMLSpanElement>(null)
-
-  const show = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ x: rect.left + rect.width / 2, y: rect.top })
-    }
-    setVisible(true)
-  }
-
-  const hide = () => setVisible(false)
-
-  return (
-    <span
-      ref={triggerRef}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      className="inline-flex items-center shrink-0"
-    >
-      <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
-      {visible && typeof document !== "undefined" && createPortal(
-        <div
-          style={{
-            position: "fixed",
-            left: pos.x,
-            top: pos.y - 6,
-            transform: "translate(-50%, -100%)",
-            zIndex: 99999,
-            pointerEvents: "none",
-          }}
-          className="px-2.5 py-1 bg-neutral-900 text-white text-[11px] font-medium rounded-md whitespace-nowrap shadow-lg"
-        >
-          {text}
-          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-neutral-900" />
-        </div>,
-        document.body
-      )}
-    </span>
-  )
-}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -87,24 +39,6 @@ interface CouponsClientProps {
   initialCoupons: Coupon[]
   products: Product[]
 }
-
-// ─── Empty form default ──────────────────────────────────────────────────────
-
-const emptyForm = () => ({
-  code: "",
-  discount_type: "percentage" as "percentage" | "fixed",
-  discount_value: "",
-  product_ids: [] as string[],
-  appliesTo: "all" as "all" | "specific",
-  usage_limit: "",
-  has_start_date: false,
-  has_expiry_date: false,
-  has_min_purchase: false,
-  starts_at: "",
-  expires_at: "",
-  min_purchase_amount: "",
-  is_active: true,
-})
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -177,454 +111,16 @@ function TopPill({ message, onDone }: { message: string; onDone: () => void }) {
   )
 }
 
-// ─── Form Modal ───────────────────────────────────────────────────────────────
-
-function CouponModal({
-  mode,
-  initial,
-  products,
-  onClose,
-  onSave,
-}: {
-  mode: "create" | "edit"
-  initial: ReturnType<typeof emptyForm>
-  products: Product[]
-  onClose: () => void
-  onSave: (data: ReturnType<typeof emptyForm>) => Promise<void>
-}) {
-  const [form, setForm] = useState(initial)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Animation state
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-
-  // Drag-to-close for mobile
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startYRef = useRef(0)
-  const lastYRef = useRef(0)
-  const lastTimeRef = useRef(0)
-  const velocityRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  // Animate in on mount
-  useEffect(() => {
-    setIsVisible(true)
-    document.body.style.overflow = "hidden"
-    requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
-    return () => { document.body.style.overflow = "" }
-  }, [])
-
-  const animateClose = useCallback(() => {
-    setIsAnimating(false)
-    setIsDragging(false)
-    setDragY(0)
-    velocityRef.current = 0
-    document.body.style.overflow = ""
-    setTimeout(onClose, 350)
-  }, [onClose])
-
-  // Mobile drag handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const el = sheetRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    if (touch.clientY - rect.top <= 60) {
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startYRef.current
-    if (diff > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - lastTimeRef.current)
-      velocityRef.current = (currentY - lastYRef.current) / dt
-      lastYRef.current = currentY
-      lastTimeRef.current = now
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-      setDragY(resisted)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 92 || velocityRef.current > 0.55) animateClose()
-    else setDragY(0)
-  }
-
-  const set = (key: keyof typeof form, value: unknown) => setForm(f => ({ ...f, [key]: value }))
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    if (!form.code.trim()) return setError("Code is required")
-    if (!form.discount_value || Number(form.discount_value) <= 0) return setError("Discount value must be greater than 0")
-    if (form.discount_type === "percentage" && Number(form.discount_value) > 100) return setError("Percentage cannot exceed 100")
-    setSaving(true)
-    try {
-      await onSave(form)
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong"
-      setError(message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const toggleProduct = (id: string) => {
-    set("product_ids", form.product_ids.includes(id)
-      ? form.product_ids.filter(p => p !== id)
-      : [...form.product_ids, id]
-    )
-  }
-
-  if (!isVisible) return null
-
-  const content = (
-    <div
-      className="fixed inset-0 z-50"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        style={{
-          opacity: isAnimating ? 1 : 0,
-          transition: isDragging ? "none" : "opacity 350ms cubic-bezier(0.32,0.72,0,1)",
-        }}
-        onClick={animateClose}
-      />
-
-      {/* Desktop: centered panel */}
-      <div
-        className="hidden sm:flex items-center justify-center absolute inset-0 pointer-events-none"
-      >
-        <div
-          className="pointer-events-auto w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden"
-          style={{
-            opacity: isAnimating ? 1 : 0,
-            transform: isAnimating ? "scale(1) translateY(0)" : "scale(0.96) translateY(8px)",
-            transition: "opacity 300ms cubic-bezier(0.32,0.72,0,1), transform 300ms cubic-bezier(0.32,0.72,0,1)",
-          }}
-        >
-          {renderModalContent()}
-        </div>
-      </div>
-
-      {/* Mobile: bottom sheet */}
-      <div
-        ref={sheetRef}
-        className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
-        style={{
-          transform: isAnimating ? `translate3d(0,${dragY}px,0)` : "translate3d(0,100%,0)",
-          transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32,0.72,0,1)",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-        }}
-      >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing">
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
-        </div>
-        {renderModalContent()}
-      </div>
-    </div>
-  )
-
-  function renderModalContent() {
-    return (
-      <>
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-base font-semibold text-gray-900">
-            {mode === "create" ? "Create coupon" : "Edit coupon"}
-          </h2>
-          <button type="button" onClick={animateClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto overflow-x-hidden flex-1 px-6 py-5 space-y-5">
-          {/* Code */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Coupon code</label>
-            <input
-              type="text"
-              value={form.code}
-              onChange={e => set("code", e.target.value.toUpperCase().replace(/\s/g, ""))}
-              placeholder="SUMMER20"
-              className="w-full h-11 px-3.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 uppercase placeholder:normal-case"
-              maxLength={32}
-            />
-          </div>
-
-          {/* Discount type + value */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Discount</label>
-            <div className="flex gap-2">
-              <div className="relative">
-                <select
-                  value={form.discount_type}
-                  onChange={e => set("discount_type", e.target.value)}
-                  className="h-11 pl-3.5 pr-8 rounded-xl border border-gray-200 text-sm appearance-none bg-white focus:outline-none focus:border-gray-400 cursor-pointer"
-                >
-                  <option value="percentage">Percentage (%)</option>
-                  <option value="fixed">Fixed ($)</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-              <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                  {form.discount_type === "percentage" ? "" : "$"}
-                </span>
-                <input
-                  type="number"
-                  value={form.discount_value}
-                  onChange={e => set("discount_value", e.target.value)}
-                  placeholder={form.discount_type === "percentage" ? "10" : "5.00"}
-                  min={form.discount_type === "percentage" ? "1" : "0.01"}
-                  max={form.discount_type === "percentage" ? "100" : undefined}
-                  step={form.discount_type === "percentage" ? "1" : "0.01"}
-                  className={cn(
-                    "w-full h-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200",
-                    form.discount_type === "fixed" ? "pl-7 pr-3.5" : "px-3.5"
-                  )}
-                />
-                {form.discount_type === "percentage" && (
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Applies to */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Applies to</label>
-            <div className="flex gap-2 mb-2">
-              {(["all", "specific"] as const).map(opt => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => set("appliesTo", opt)}
-                  className={cn(
-                    "flex-1 h-10 rounded-xl text-sm font-medium border transition-colors cursor-pointer",
-                    form.appliesTo === opt
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                  )}
-                >
-                  {opt === "all" ? "All products" : "Specific products"}
-                </button>
-              ))}
-            </div>
-            {form.appliesTo === "specific" && products.length > 0 && (
-              <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 max-h-40 overflow-y-auto">
-                {products.map(p => (
-                  <label key={p.id} className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="checkbox"
-                      checked={form.product_ids.includes(p.id)}
-                      onChange={() => toggleProduct(p.id)}
-                      className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
-                    />
-                    {p.thumbnail_url && (
-                      <img src={p.thumbnail_url} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
-                    )}
-                    <span className="text-sm text-gray-700 flex-1 truncate">{p.title}</span>
-                    <span className="text-xs text-gray-400">${(p.price_cents / 100).toFixed(2)}</span>
-                  </label>
-                ))}
-              </div>
-            )}
-            {form.appliesTo === "specific" && products.length === 0 && (
-              <p className="text-sm text-gray-400 mt-1">No published products found.</p>
-            )}
-          </div>
-
-          {/* Usage limit */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Usage limit</label>
-            <input
-              type="number"
-              value={form.usage_limit}
-              onChange={e => set("usage_limit", e.target.value)}
-              placeholder="Unlimited"
-              min="1"
-              step="1"
-              className="w-full h-11 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
-            />
-            <p className="text-xs text-gray-400 mt-1">Leave empty for unlimited uses.</p>
-          </div>
-
-          {/* Minimum purchase amount */}
-          <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
-            <label className="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.has_min_purchase}
-                onChange={e => set("has_min_purchase", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-violet-600 cursor-pointer shrink-0"
-              />
-              <Tooltip text="Coupon only applies when cart total meets this minimum" />
-              <span className="text-sm font-medium text-gray-700 leading-none">Require minimum purchase amount</span>
-            </label>
-            <div
-              className="overflow-hidden transition-all duration-300 ease-out"
-              style={{ maxHeight: form.has_min_purchase ? "64px" : "0px", opacity: form.has_min_purchase ? 1 : 0 }}
-            >
-              <div className="px-4 pb-3">
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">$</span>
-                  <input
-                    type="number"
-                    value={form.min_purchase_amount}
-                    onChange={e => set("min_purchase_amount", e.target.value)}
-                    placeholder="10.00"
-                    min="0.01"
-                    step="0.01"
-                    className="w-full h-10 pl-7 pr-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Start date toggle */}
-          <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
-            <label className="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.has_start_date}
-                onChange={e => set("has_start_date", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-violet-600 cursor-pointer shrink-0"
-              />
-              <Tooltip text="Coupon becomes valid on this date" />
-              <span className="text-sm font-medium text-gray-700 leading-none">Set start date for coupon</span>
-            </label>
-            <div
-              className="overflow-hidden transition-all duration-300 ease-out"
-              style={{ maxHeight: form.has_start_date ? "64px" : "0px", opacity: form.has_start_date ? 1 : 0 }}
-            >
-              <div className="px-4 pb-3">
-                <input
-                  type="datetime-local"
-                  value={form.starts_at}
-                  onChange={e => set("starts_at", e.target.value)}
-                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Expiry date toggle */}
-          <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
-            <label className="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={form.has_expiry_date}
-                onChange={e => set("has_expiry_date", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-violet-600 cursor-pointer shrink-0"
-              />
-              <Tooltip text="Coupon expires after this date" />
-              <span className="text-sm font-medium text-gray-700 leading-none">Set end date for coupon</span>
-            </label>
-            <div
-              className="overflow-hidden transition-all duration-300 ease-out"
-              style={{ maxHeight: form.has_expiry_date ? "64px" : "0px", opacity: form.has_expiry_date ? 1 : 0 }}
-            >
-              <div className="px-4 pb-3">
-                <input
-                  type="datetime-local"
-                  value={form.expires_at}
-                  onChange={e => set("expires_at", e.target.value)}
-                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Active toggle */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Active</p>
-              <p className="text-xs text-gray-500">Buyers can use this code at checkout</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => set("is_active", !form.is_active)}
-              className={cn(
-                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                form.is_active ? "bg-gray-900" : "bg-gray-200"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform",
-                  form.is_active ? "translate-x-5" : "translate-x-0"
-                )}
-              />
-            </button>
-          </div>
-
-          {error && (
-            <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-100">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-        </form>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
-          <button
-            type="button"
-            onClick={animateClose}
-            className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={saving}
-            className="flex-1 h-11 rounded-xl bg-[#8b5cf6] text-white text-sm font-medium hover:bg-[#7c3aed] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
-          >
-            {saving ? "Saving…" : mode === "create" ? "Create coupon" : "Save changes"}
-          </button>
-        </div>
-      </>
-    )
-  }
-
-  return createPortal(content, document.body)
-}
-
 // ─── Coupon Row ───────────────────────────────────────────────────────────────
 
 function CouponRow({
   coupon,
   products,
-  onEdit,
   onDelete,
   onToggle,
 }: {
   coupon: Coupon
   products: Product[]
-  onEdit: () => void
   onDelete: () => void
   onToggle: () => void
 }) {
@@ -648,7 +144,7 @@ function CouponRow({
 
   return (
     <div className={cn(
-      "rounded-2xl border bg-white p-4 sm:p-5 transition-opacity",
+      "rounded-2xl bg-white border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5 transition-opacity",
       !coupon.is_active && "opacity-60"
     )}>
       <div className="flex items-start gap-3">
@@ -708,14 +204,13 @@ function CouponRow({
               )}
             />
           </button>
-          <button
-            type="button"
-            onClick={onEdit}
+          <Link
+            href={`/app/coupons/${coupon.id}`}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
             title="Edit"
           >
             <Pencil className="w-3.5 h-3.5 text-gray-500" />
-          </button>
+          </Link>
           <button
             type="button"
             onClick={onDelete}
@@ -734,7 +229,6 @@ function CouponRow({
 
 export function CouponsClient({ creatorId, initialCoupons, products }: CouponsClientProps) {
   const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons)
-  const [editTarget, setEditTarget] = useState<Coupon | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [pill, setPill] = useState<{ message: string; id: number } | null>(null)
   const { toast } = useToast()
@@ -743,44 +237,24 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
 
   const showPill = useCallback((msg: string) => setPill({ message: msg, id: Date.now() }), [])
 
-  // Show pill when returning from the create subpage
+  // Show pill when returning from the create or edit subpage
   useEffect(() => {
     const created = searchParams.get("created")
-    if (created) {
-      showPill(`${created} — Coupon created`)
-      // Strip the query param from the URL without a re-render
+    const updated = searchParams.get("updated")
+    const msg = created
+      ? `${created} — Coupon created`
+      : updated
+        ? `${updated} — Coupon updated`
+        : null
+    if (msg) {
+      showPill(msg)
       const url = new URL(window.location.href)
       url.searchParams.delete("created")
+      url.searchParams.delete("updated")
       router.replace(url.pathname, { scroll: false })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // ── Edit ────────────────────────────────────────────────────────────────────
-
-  const handleEdit = async (form: ReturnType<typeof emptyForm>) => {
-    if (!editTarget) return
-    const res = await fetch(`/api/coupons/${editTarget.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: form.code,
-        discount_type: form.discount_type,
-        discount_value: Number(form.discount_value),
-        product_ids: form.appliesTo === "specific" ? form.product_ids : null,
-        usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
-        starts_at: form.has_start_date && form.starts_at ? new Date(form.starts_at).toISOString() : null,
-        expires_at: form.has_expiry_date && form.expires_at ? new Date(form.expires_at).toISOString() : null,
-        min_purchase_cents: form.has_min_purchase && form.min_purchase_amount ? Math.round(Number(form.min_purchase_amount) * 100) : null,
-        is_active: form.is_active,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || "Failed to save coupon")
-    setCoupons(prev => prev.map(c => c.id === editTarget.id ? data.coupon : c))
-    setEditTarget(null)
-    showPill("Coupon updated")
-  }
 
   // ── Toggle active ───────────────────────────────────────────────────────────
 
@@ -805,59 +279,41 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
     showPill("Coupon deleted")
   }
 
-  // ── Convert coupon → edit form ──────────────────────────────────────────────
-
-  const couponToForm = (c: Coupon): ReturnType<typeof emptyForm> => ({
-    code: c.code,
-    discount_type: c.discount_type,
-    discount_value: String(c.discount_value),
-    product_ids: c.product_ids || [],
-    appliesTo: c.product_ids?.length ? "specific" : "all",
-    usage_limit: c.usage_limit !== null ? String(c.usage_limit) : "",
-    has_start_date: !!c.starts_at,
-    has_expiry_date: !!c.expires_at,
-    has_min_purchase: c.min_purchase_cents !== null && c.min_purchase_cents !== undefined && c.min_purchase_cents > 0,
-    starts_at: c.starts_at ? new Date(c.starts_at).toLocaleString("sv").replace(" ", "T").slice(0, 16) : "",
-    expires_at: c.expires_at ? new Date(c.expires_at).toLocaleString("sv").replace(" ", "T").slice(0, 16) : "",
-    min_purchase_amount: c.min_purchase_cents ? String(c.min_purchase_cents / 100) : "",
-    is_active: c.is_active,
-  })
-
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full overflow-y-auto app-page-enter">
-      <div className="max-w-[58rem] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
+        {/* Header — matches Products */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-gray-900 leading-tight">Coupons</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Create discount codes for your buyers.</p>
+            <h1 className="text-[22px] sm:text-[26px] font-bold text-gray-900 leading-tight">Coupons</h1>
+            <p className="text-sm text-gray-500 mt-1">Create discount codes for your buyers.</p>
           </div>
           <Link
             href="/app/coupons/new"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors shrink-0"
+            className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 min-h-[44px] px-4 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-sm font-medium rounded-xl transition-colors shrink-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
             New coupon
           </Link>
         </div>
 
         {/* List */}
         {coupons.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-              <TicketPercent className="w-7 h-7 text-gray-400" />
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
+              <TicketPercent className="w-7 h-7 text-violet-500" />
             </div>
-            <h3 className="text-[15px] font-semibold text-gray-800 mb-1">No coupons yet</h3>
-            <p className="text-sm text-gray-400 mb-5 max-w-xs mx-auto">
+            <h3 className="text-[16px] font-semibold text-gray-900 mb-1">No coupons yet</h3>
+            <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
               Create your first discount code to share with your audience.
             </p>
             <Link
               href="/app/coupons/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
+              className="group inline-flex items-center gap-2 min-h-[44px] px-5 bg-[#8b5cf6] text-white text-sm font-medium rounded-xl hover:bg-[#7c3aed] transition-colors"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
               Create coupon
             </Link>
           </div>
@@ -868,7 +324,6 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
                 key={coupon.id}
                 coupon={coupon}
                 products={products}
-                onEdit={() => setEditTarget(coupon)}
                 onDelete={() => setConfirmDelete(coupon.id)}
                 onToggle={() => handleToggle(coupon)}
               />
@@ -876,17 +331,6 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
           </div>
         )}
       </div>
-
-      {/* Edit modal */}
-      {editTarget && (
-        <CouponModal
-          mode="edit"
-          initial={couponToForm(editTarget)}
-          products={products}
-          onClose={() => setEditTarget(null)}
-          onSave={handleEdit}
-        />
-      )}
 
       {/* Top pill notification */}
       {pill && <TopPill key={pill.id} message={pill.message} onDone={() => setPill(null)} />}

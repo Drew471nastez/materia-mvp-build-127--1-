@@ -14,7 +14,6 @@ import {
   CreditCard,
   Menu,
   Link2,
-  TicketPercent,
   HelpCircle,
   Zap,
   ChevronDown,
@@ -35,6 +34,103 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+// Imperative height/opacity animation that handles rapid toggles safely.
+//
+// Why imperative instead of React style-driven transitions:
+//   - `transition: height` is the only primitive that smoothly retargets when
+//     interrupted (keyframes restart; `style={{height}}` in JSX can miss the
+//     start frame if React commits the new value before the browser records
+//     the old one).
+//   - By writing styles directly in a layout effect and forcing a reflow
+//     between the "start" and "end" assignments, we guarantee the browser
+//     records both values and runs the transition every time — including on
+//     rapid open/close/open clicks.
+//   - After an open transition we set `height: auto` so content can reflow
+//     naturally (e.g. i18n label length changes) without being pinned.
+//   - The very first layout pass applies steady state with no transition, so
+//     a collapsed group doesn't play a fake close animation on mount.
+function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const outerRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+  const didInitRef = useRef(false)
+  const rafRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return
+
+    const DURATION = 360
+    const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+    const TRANSITION = `height ${DURATION}ms ${EASE}, opacity ${DURATION}ms ${EASE}`
+
+    // Initial paint — snap to steady state, no animation.
+    if (!didInitRef.current) {
+      didInitRef.current = true
+      outer.style.transition = "none"
+      outer.style.overflow = "hidden"
+      outer.style.willChange = "height, opacity"
+      outer.style.height = open ? "auto" : "0px"
+      outer.style.opacity = open ? "1" : "0"
+      return
+    }
+
+    // Cancel any queued post-transition cleanup from a prior run.
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+
+    // Capture current (possibly mid-transition) height as the animation start.
+    const startHeight = outer.getBoundingClientRect().height
+    const endHeight = open ? inner.scrollHeight : 0
+
+    // Pause the current transition and pin the start frame to an explicit px
+    // so the next assignment has something to transition FROM. Force a reflow
+    // between the two writes so the browser records the old value.
+    outer.style.transition = "none"
+    outer.style.height = `${startHeight}px`
+    outer.style.opacity = outer.style.opacity || (open ? "0" : "1")
+    // Force reflow
+    void outer.offsetHeight
+
+    // Apply the transition and the new target.
+    outer.style.transition = TRANSITION
+    outer.style.height = `${endHeight}px`
+    outer.style.opacity = open ? "1" : "0"
+
+    // When the height transition finishes AND we ended in the open state,
+    // release the pinned height so content can grow/shrink naturally.
+    const handleEnd = (e: TransitionEvent) => {
+      if (e.target !== outer || e.propertyName !== "height") return
+      outer.removeEventListener("transitionend", handleEnd)
+      if (open) {
+        outer.style.transition = "none"
+        outer.style.height = "auto"
+        // One RAF to let the style settle, then restore transition for next toggle.
+        rafRef.current = requestAnimationFrame(() => {
+          outer.style.transition = TRANSITION
+          rafRef.current = null
+        })
+      }
+    }
+    outer.addEventListener("transitionend", handleEnd)
+    return () => {
+      outer.removeEventListener("transitionend", handleEnd)
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [open, children])
+
+  return (
+    <div ref={outerRef} aria-hidden={!open}>
+      <div ref={innerRef}>{children}</div>
+    </div>
+  )
+}
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
@@ -171,9 +267,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     }
   }
 
-  const mainNavItems = [
+  type NavItemChild = { href: string; label: string }
+  type NavItemData = {
+    href: string
+    label: string
+    icon: typeof LayoutDashboard
+    forceNavigation?: boolean
+    children?: NavItemChild[]
+  }
+
+  const mainNavItems: NavItemData[] = [
     { href: "/app", label: t("nav.dashboard"), icon: LayoutDashboard },
-    { href: "/app/products", label: t("nav.products"), icon: Package },
+    {
+      href: "/app/products",
+      label: t("nav.products"),
+      icon: Package,
+      children: [{ href: "/app/coupons", label: "Coupons" }],
+    },
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
@@ -181,6 +291,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
+
+  // Expandable groups (parent nav items with children).
+  // Always collapsed on mount — user opens manually via the chevron. No
+  // auto-expand based on pathname (we tried this and it made the default
+  // state inconsistent between page loads).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const toggleGroup = useCallback((href: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(href)) next.delete(href)
+      else next.add(href)
+      return next
+    })
+  }, [])
 
   const profileDropdownItems = [
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
@@ -203,8 +327,49 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const userDisplayName = displayName || username || creatorSlug || "User"
   const userInitials = userDisplayName.slice(0, 2).toUpperCase()
 
+  // Sub-item for expandable groups (e.g. Coupons under Products).
+  // No icon, indented, violet accent when active — matches the nested-nav
+  // pattern (parent → child sub-rows) seen in Linktree/Shopify admin.
+  const SubNavItem = ({ child, onClick }: { child: NavItemChild; onClick?: () => void }) => {
+    const realActive = pathname === child.href || pathname.startsWith(child.href)
+    const isActive = realActive || pendingHref === child.href
+    const isPending = !realActive && pendingHref === child.href
+
+    const handleClick = () => {
+      if (!realActive) {
+        setPendingHref(child.href)
+        startNavigationLoading()
+      }
+      onClick?.()
+    }
+
+    const handlePrefetch = () => {
+      if (!realActive) {
+        try { router.prefetch(child.href) } catch {}
+      }
+    }
+
+    return (
+      <Link
+        href={child.href}
+        onClick={handleClick}
+        onMouseEnter={handlePrefetch}
+        onFocus={handlePrefetch}
+        className={cn(
+          "flex items-center rounded-[8px] px-3 py-1.5 text-[13.5px] font-medium cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
+          isActive
+            ? "bg-neutral-200 text-neutral-900"
+            : "text-neutral-500 hover:bg-neutral-100/70 hover:text-neutral-900",
+          isPending && "opacity-90",
+        )}
+      >
+        <span>{child.label}</span>
+      </Link>
+    )
+  }
+
   // Light NavItem for desktop sidebar
-  const NavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
+  const NavItem = ({ item, onClick }: { item: NavItemData; onClick?: () => void }) => {
     const Icon = item.icon
     const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
     // Optimistic active state: treat the link as active the moment the user
@@ -213,8 +378,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const isActive = realActive || pendingHref === item.href
     const isPending = !realActive && pendingHref === item.href
 
+    const hasChildren = !!item.children && item.children.length > 0
+    const expanded = hasChildren && expandedGroups.has(item.href)
+
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
+      "flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
       isActive
         ? "bg-neutral-200 text-neutral-900"
         : "text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 active:bg-neutral-200/80",
@@ -252,11 +420,64 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               window.location.href = item.href
             }
           }}
-          className={baseClassName}
+          className={cn(baseClassName, "w-full")}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
           <span>{item.label}</span>
         </button>
+      )
+    }
+
+    if (hasChildren) {
+      // grid-template-rows 0fr → 1fr animates true auto-height smoothly at 60fps,
+      // no content measurement needed and no late clipping when children change.
+      return (
+        <div>
+          <div className="flex items-center gap-1">
+            <Link
+              href={item.href}
+              onClick={handleClick}
+              onMouseEnter={handlePrefetch}
+              onFocus={handlePrefetch}
+              className={cn(baseClassName, "flex-1 min-w-0")}
+            >
+              <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+              <span className="truncate">{item.label}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                toggleGroup(item.href)
+              }}
+              aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+              aria-expanded={expanded}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-neutral-400 hover:bg-neutral-100/70 hover:text-neutral-700 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 will-change-transform",
+                  expanded ? "rotate-180" : "rotate-0"
+                )}
+                strokeWidth={1.8}
+                style={{
+                  transformOrigin: "center",
+                  transition: expanded
+                    ? "transform 440ms cubic-bezier(0.16, 1, 0.3, 1)"
+                    : "transform 320ms cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+              />
+            </button>
+          </div>
+          <Collapsible open={expanded}>
+            <div className="pt-1 pl-3 ml-[21px] border-l border-neutral-200 space-y-[2px]">
+              {item.children!.map((child) => (
+                <SubNavItem key={child.href} child={child} onClick={onClick} />
+              ))}
+            </div>
+          </Collapsible>
+        </div>
       )
     }
 
@@ -266,7 +487,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onClick={handleClick}
         onMouseEnter={handlePrefetch}
         onFocus={handlePrefetch}
-        className={baseClassName}
+        className={cn(baseClassName, "w-full")}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
         <span>{item.label}</span>
@@ -282,7 +503,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const isPending = !realActive && pendingHref === item.href
 
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
+      "flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
       isActive
         ? "bg-white/15 text-white"
         : "text-white/70 hover:bg-white/10 hover:text-white active:bg-white/15",
@@ -570,7 +791,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <span
         ref={rowRef}
-        className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none"
+        className="flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-neutral-400 cursor-default select-none"
         onMouseEnter={handleEnter}
         onMouseLeave={() => setShow(false)}
       >
@@ -610,7 +831,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="mt-5">
           <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
           <div className="space-y-0.5">
-            <NavItem item={{ href: "/app/coupons", label: "Coupons", icon: TicketPercent }} onClick={onItemClick} />
             <SoonItem />
           </div>
         </div>
@@ -642,7 +862,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <Link
           href="/app/settings"
           onClick={onItemClick}
-          className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] w-full"
+          className="flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] w-full"
         >
           <Settings className="h-5 w-5" strokeWidth={1.5} />
           <span>{t("nav.settings")}</span>
@@ -665,7 +885,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="mt-5">
           <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
           <div className="space-y-0.5">
-            <NavItem item={{ href: "/app/coupons", label: "Coupons", icon: TicketPercent }} onClick={onItemClick} />
             <SoonItem />
           </div>
         </div>
