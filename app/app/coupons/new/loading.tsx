@@ -1,6 +1,6 @@
 export default function CreateCouponLoading() {
   return (
-    <div className="h-full flex flex-col bg-gray-50/40">
+    <div className="h-full flex flex-col bg-gray-50/40 skeleton-deferred">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 shrink-0">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">

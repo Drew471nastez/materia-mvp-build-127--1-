@@ -1,6 +1,6 @@
 export default function CouponsLoading() {
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto skeleton-deferred">
       <div className="w-full max-w-[58rem] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
 
         {/* Header row */}

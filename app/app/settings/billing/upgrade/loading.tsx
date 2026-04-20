@@ -6,7 +6,7 @@
 // shifting brand colors mid-render.
 export default function UpgradeLoading() {
   return (
-    <div className="relative bg-white min-h-full">
+    <div className="relative bg-white min-h-full skeleton-deferred">
       {/* Top bar — matches sticky header in upgrade-page-client.tsx */}
       <div className="sticky top-0 z-30 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16 relative">

@@ -1,6 +1,6 @@
 export default function NewProductLoading() {
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden skeleton-deferred">
       {/* Skeleton Header - exact match */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 z-30 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SettingsLoading() {
   return (
-    <div className="h-full overflow-y-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
+    <div className="h-full overflow-y-scroll bg-[#fafafa] skeleton-deferred" style={{ scrollbarGutter: 'stable' }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">

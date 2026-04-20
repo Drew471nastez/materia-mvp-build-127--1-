@@ -1,6 +1,6 @@
 export default function AnalyticsLoading() {
   return (
-    <div className="h-full overflow-y-auto bg-[#fafafa] select-none">
+    <div className="h-full overflow-y-auto bg-[#fafafa] select-none skeleton-deferred">
       {/* Announcement bar placeholder */}
       <div className="w-full bg-[#8b5cf6]">
         <div className="h-[40px] md:h-[42px]" />

@@ -1157,6 +1157,17 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  // Defer the skeleton by 200 ms. Fast loads skip it entirely; slow loads
+  // still get the skeleton, but it fades in smoothly rather than flashing.
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false)
+  useEffect(() => {
+    if (!isLoading) {
+      setShowLoadingSkeleton(false)
+      return
+    }
+    const timer = setTimeout(() => setShowLoadingSkeleton(true), 200)
+    return () => clearTimeout(timer)
+  }, [isLoading])
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
   const [isProductsOpen, setIsProductsOpen] = useState(false)
@@ -2543,9 +2554,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       </AnnouncementBarMobile>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        {isLoading ? (
+        {isLoading && showLoadingSkeleton ? (
           /* ── Full Page Skeleton ── */
-          <div className="animate-pulse space-y-6">
+          <div className="animate-pulse space-y-6 skeleton-fade">
             {/* Header skeleton */}
             <div className="flex items-center justify-between sm:justify-start gap-3">
               <div className="h-8 w-32 bg-gray-100 rounded-lg" />

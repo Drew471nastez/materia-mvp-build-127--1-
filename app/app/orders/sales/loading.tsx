@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SalesLoading() {
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fa]">
+    <div className="h-full overflow-y-auto bg-[#f8f9fa] skeleton-deferred">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

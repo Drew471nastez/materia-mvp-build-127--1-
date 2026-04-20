@@ -1,6 +1,6 @@
 export default function OrderDetailLoading() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 skeleton-deferred">
       <div className="h-10 w-32 bg-muted rounded animate-pulse" />
       <div className="h-8 w-48 bg-muted rounded animate-pulse" />
       <div className="grid gap-6 md:grid-cols-2">

@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { OfflineGuard } from "@/components/app/offline-guard"
 import { NativeBackHandler } from "@/components/app/native-back-handler"
+import { PageTransition } from "@/components/app/page-transition"
 import AppDashboardLoading from "./loading"
 
 /**
@@ -185,7 +186,9 @@ export default async function AppLayout({
               or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it
               via html.capacitor .app-content-scroll to avoid double padding on iOS */}
-          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">{children}</div>
+          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
+            <PageTransition>{children}</PageTransition>
+          </div>
         </main>
         <Toaster />
       </div>

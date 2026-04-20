@@ -1164,6 +1164,19 @@ export function DashboardClient({
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  // Defer the loading skeleton by 200 ms. When analytics finish fetching in
+  // under 200 ms (typical on warm cache / fast network) we never show the
+  // skeleton at all — the real UI animates in from SSR data directly. Only
+  // slow loads cross the threshold and see the skeleton fade in.
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false)
+  useEffect(() => {
+    if (!isLoading) {
+      setShowLoadingSkeleton(false)
+      return
+    }
+    const timer = setTimeout(() => setShowLoadingSkeleton(true), 200)
+    return () => clearTimeout(timer)
+  }, [isLoading])
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   const [chartExpanded, setChartExpanded] = useState(() => {
@@ -1988,9 +2001,9 @@ export function DashboardClient({
           </div>
         )}
 
-        {isLoading ? (
+        {isLoading && showLoadingSkeleton ? (
           /* ── Full Page Skeleton ── */
-          <div className="animate-pulse">
+          <div className="animate-pulse skeleton-fade">
             {/* Header skeleton */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
               <div>

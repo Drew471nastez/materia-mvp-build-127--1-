@@ -109,6 +109,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
+  // Optimistic active-link state: the clicked href lights up immediately, even
+  // before the new page finishes loading. Cleared as soon as pathname catches
+  // up. Makes sidebar clicks feel instant instead of waiting on the route.
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const mobileDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -118,6 +122,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setMobileProfileDropdownOpen(false)
     setHeaderProfileOpen(false)
     setSearchOpen(false)
+    // Pathname changed — the optimistic active state has served its purpose.
+    setPendingHref(null)
   }, [pathname])
 
   // Load dismissed notifications from localStorage
@@ -200,22 +206,41 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   // Light NavItem for desktop sidebar
   const NavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
     const Icon = item.icon
-    const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
+    const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
+    // Optimistic active state: treat the link as active the moment the user
+    // clicks it, so the highlight appears instantly — before the server
+    // response, before the page re-renders. Cleared when pathname catches up.
+    const isActive = realActive || pendingHref === item.href
+    const isPending = !realActive && pendingHref === item.href
 
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left cursor-pointer",
+      // cubic-bezier(0.32, 0.72, 0, 1) = same "snappy out" curve we use for
+      // dropdowns; 180 ms is long enough to read the state change without
+      // feeling laggy. active:scale-[0.98] gives a subtle press feedback that
+      // mirrors native app behaviour.
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,transform] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]",
       isActive
         ? "bg-neutral-200 text-neutral-900"
         : "text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900",
+      // Tiny fade-pulse during the moment the click is registered but the
+      // pathname hasn't flipped yet — signals that something is happening.
+      isPending && "opacity-90",
     )
+
+    const handleClick = () => {
+      if (!realActive) {
+        setPendingHref(item.href)
+        startNavigationLoading()
+      }
+      onClick?.()
+    }
 
     // Use button for force navigation to ensure reliable click handling
     if (item.forceNavigation) {
       return (
         <button
           onClick={() => {
-            if (!isActive) startNavigationLoading() // instant bar before route resolves
-            onClick?.()
+            handleClick()
             // In Capacitor, router.push preserves auth session (no full reload)
             // On web, force full reload for reliable cross-layout navigation
             if (isNativePlatform()) {
@@ -235,7 +260,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <Link
         href={item.href}
-        onClick={() => { if (!isActive) startNavigationLoading(); onClick?.() }}
+        onClick={handleClick}
         className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
@@ -247,22 +272,32 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   // Dark NavItem for mobile sidebar (matches dark header)
   const MobileNavItem = ({ item, onClick }: { item: (typeof mainNavItems)[0]; onClick?: () => void }) => {
     const Icon = item.icon
-    const isActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
+    const realActive = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href))
+    const isActive = realActive || pendingHref === item.href
+    const isPending = !realActive && pendingHref === item.href
 
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium transition-all duration-150 w-full text-left cursor-pointer",
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,transform] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98]",
       isActive
         ? "bg-white/15 text-white"
         : "text-white/70 hover:bg-white/10 hover:text-white",
+      isPending && "opacity-90",
     )
+
+    const handleClick = () => {
+      if (!realActive) {
+        setPendingHref(item.href)
+        startNavigationLoading()
+      }
+      onClick?.()
+    }
 
     // Use button for force navigation to ensure reliable click handling
     if (item.forceNavigation) {
       return (
         <button
           onClick={() => {
-            if (!isActive) startNavigationLoading() // instant bar before route resolves
-            onClick?.()
+            handleClick()
             // In Capacitor, router.push preserves auth session (no full reload)
             // On web, force full reload for reliable cross-layout navigation
             if (isNativePlatform()) {
@@ -282,7 +317,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <Link
         href={item.href}
-        onClick={() => { if (!isActive) startNavigationLoading(); onClick?.() }}
+        onClick={handleClick}
         className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />

@@ -1,6 +1,6 @@
 export default function ProductsLoading() {
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
+    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] skeleton-deferred">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         {/* Header skeleton - exact match */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

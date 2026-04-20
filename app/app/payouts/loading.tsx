@@ -1,6 +1,6 @@
 export default function PayoutsLoading() {
   return (
-    <div className="h-full overflow-y-auto bg-[#fafafa]">
+    <div className="h-full overflow-y-auto bg-[#fafafa] skeleton-deferred">
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         <div className="animate-pulse">
           {/* Header skeleton */}
