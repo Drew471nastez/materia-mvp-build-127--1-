@@ -252,104 +252,116 @@ export function DateRangePickerModal({
 
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay — subtle dim on mobile, transparent on desktop (still catches outside clicks) */}
       <div
         className={cn(
-          "fixed inset-0 z-[90] bg-black/30 transition-opacity duration-[200ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "fixed inset-0 z-[90] bg-black/30 md:bg-transparent transition-opacity duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
-      {/* Card */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Select date range"
-        className={cn(
-          "fixed z-[91] left-1/2 top-1/2 w-[min(960px,calc(100vw-32px))] max-h-[calc(100svh-32px)] overflow-y-auto -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl border border-[#e5e7eb] shadow-[0_24px_48px_-12px_rgba(17,24,39,0.22)] transition-all duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
-          open
-            ? "opacity-100 scale-100 pointer-events-auto"
-            : "opacity-0 scale-[0.98] pointer-events-none",
-        )}
-      >
-        <div className="flex flex-col md:flex-row">
-          {/* Presets column */}
-          <div className="md:w-[180px] md:border-r md:border-[#e5e7eb] p-3">
-            <div className="flex items-center justify-between md:hidden pb-2">
-              <span className="text-[13px] font-semibold text-[#1a1a2e]">Range</span>
+      {/* Centering wrapper — items-end on mobile (bottom sheet), items-center on desktop */}
+      <div className="fixed inset-0 z-[91] pointer-events-none flex items-end md:items-center justify-center md:p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Select date range"
+          className={cn(
+            "relative bg-white flex flex-col overflow-hidden w-full max-h-[90svh] rounded-t-2xl border-t border-[#e5e7eb] shadow-[0_-12px_32px_-12px_rgba(17,24,39,0.18)]",
+            "md:w-[min(720px,100%)] md:max-h-[calc(100svh-32px)] md:rounded-2xl md:border md:shadow-[0_16px_40px_-12px_rgba(17,24,39,0.22)]",
+            // Motion — mobile slides up from bottom; desktop fades + gently scales
+            "transition-[transform,opacity] duration-[340ms] ease-[cubic-bezier(0.32,0.72,0,1)] md:duration-[240ms]",
+            open
+              ? "opacity-100 translate-y-0 md:scale-100 pointer-events-auto"
+              : "opacity-0 translate-y-full md:translate-y-0 md:scale-[0.97] pointer-events-none",
+          )}
+        >
+          {/* Mobile handle */}
+          <div className="md:hidden flex justify-center pt-2.5 pb-1">
+            <div className="h-1 w-10 rounded-full bg-[#d1d5db]" />
+          </div>
+
+          <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto">
+            {/* Presets column */}
+            <div className="md:w-[160px] md:border-r md:border-[#e5e7eb] p-3">
+              <div className="flex items-center justify-between md:hidden pb-2">
+                <span className="text-[13px] font-semibold text-[#1a1a2e]">Range</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-[#6b7280] hover:bg-[#f3f4f6] transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible -mx-1 px-1 md:mx-0 md:px-0">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => applyPreset(p.value)}
+                    className="shrink-0 md:shrink md:w-full text-left px-3 py-2 text-[13px] font-medium text-[#374151] rounded-lg hover:bg-[#f3f4f6] transition-colors whitespace-nowrap"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Calendar area */}
+            <div className="flex-1 p-4 md:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  type="button"
+                  onClick={() => setViewMonth(addMonths(viewMonth, -1))}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[#f3f4f6] text-[#6b7280] transition-colors"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMonth(addMonths(viewMonth, 1))}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[#f3f4f6] text-[#6b7280] transition-colors"
+                  aria-label="Next month"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex flex-col md:flex-row gap-5">
+                <Month monthDate={viewMonth} />
+                <div className="hidden md:block flex-1 min-w-0">
+                  <Month monthDate={nextMonth} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 border-t border-[#e5e7eb] px-4 md:px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))] md:pb-3 bg-white shrink-0">
+            <div className="text-[12px] md:text-[13px] text-[#374151] truncate">
+              {start ? formatDateLabel(start) : "Start"}
+              <span className="mx-2 text-[#9ca3af]">–</span>
+              {end ? formatDateLabel(end) : "End"}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="h-7 w-7 flex items-center justify-center rounded-md text-[#6b7280] hover:bg-[#f3f4f6] transition-colors"
+                className="h-9 px-4 rounded-lg bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[13px] font-medium text-[#374151] transition-colors"
               >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => applyPreset(p.value)}
-                  className="shrink-0 md:shrink md:w-full text-left px-3 py-2 text-[13px] font-medium text-[#374151] rounded-lg hover:bg-[#f3f4f6] transition-colors whitespace-nowrap"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Calendar area */}
-          <div className="flex-1 p-4 md:p-6">
-            <div className="flex items-center justify-between mb-3">
-              <button
-                type="button"
-                onClick={() => setViewMonth(addMonths(viewMonth, -1))}
-                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[#f3f4f6] text-[#6b7280] transition-colors"
-                aria-label="Previous month"
-              >
-                <ChevronLeft className="h-4 w-4" />
+                Cancel
               </button>
               <button
                 type="button"
-                onClick={() => setViewMonth(addMonths(viewMonth, 1))}
-                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[#f3f4f6] text-[#6b7280] transition-colors"
-                aria-label="Next month"
+                onClick={handleApply}
+                disabled={!start || !end}
+                className="h-9 px-4 rounded-lg bg-[#8b5cf6] hover:bg-[#7c3aed] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <ChevronRight className="h-4 w-4" />
+                Apply
               </button>
             </div>
-            <div className="flex flex-col md:flex-row gap-6">
-              <Month monthDate={viewMonth} />
-              <Month monthDate={nextMonth} />
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-[#e5e7eb] px-4 md:px-6 py-3">
-          <div className="text-[13px] text-[#374151]">
-            {start ? formatDateLabel(start) : "Start"}
-            <span className="mx-2 text-[#9ca3af]">–</span>
-            {end ? formatDateLabel(end) : "End"}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="h-9 px-4 rounded-lg bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[13px] font-medium text-[#374151] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={!start || !end}
-              className="h-9 px-4 rounded-lg bg-[#2463eb] hover:bg-[#1d4ed8] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Apply
-            </button>
           </div>
         </div>
       </div>

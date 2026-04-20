@@ -37,11 +37,7 @@ export default function AppDashboardLoading() {
             ))}
           </div>
           <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
-            <div className="h-[200px] flex items-end gap-2 px-2">
-              {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
-                <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
-              ))}
-            </div>
+            <div className="h-[200px] rounded-lg bg-gradient-to-b from-gray-50 to-transparent" />
           </div>
         </div>
 

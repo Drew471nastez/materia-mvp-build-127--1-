@@ -214,16 +214,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const isPending = !realActive && pendingHref === item.href
 
     const baseClassName = cn(
-      // Transition background + color + transform on the same snappy curve
-      // used for dropdowns. 220 ms gives the hover in/out a soft, tactile
-      // feel on both edges rather than popping. active:scale-[0.98] adds
-      // gentle press feedback that mirrors native apps.
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] will-change-transform",
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
       isActive
         ? "bg-neutral-200 text-neutral-900"
-        : "text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900",
-      // Tiny fade-pulse during the moment the click is registered but the
-      // pathname hasn't flipped yet — signals that something is happening.
+        : "text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 active:bg-neutral-200/80",
       isPending && "opacity-90",
     )
 
@@ -288,10 +282,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     const isPending = !realActive && pendingHref === item.href
 
     const baseClassName = cn(
-      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] will-change-transform",
+      "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium w-full text-left cursor-pointer transition-[background-color,color,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:opacity-80",
       isActive
         ? "bg-white/15 text-white"
-        : "text-white/70 hover:bg-white/10 hover:text-white",
+        : "text-white/70 hover:bg-white/10 hover:text-white active:bg-white/15",
       isPending && "opacity-90",
     )
 
@@ -634,14 +628,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <Link
           href="/app/settings/billing/upgrade"
           onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-[background,transform,box-shadow] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:from-violet-100/80 hover:to-purple-100/80 hover:shadow-[0_4px_14px_-4px_rgba(139,92,246,0.25)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] will-change-transform"
+          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-[background-color,border-color] duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:from-violet-100/80 hover:to-purple-100/80 hover:border-violet-200/70"
         >
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
             <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500 transition-transform duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-110" strokeWidth={2} />
+            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
           </div>
         </Link>
 
@@ -721,14 +715,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <Link
           href="/app/settings/billing/upgrade"
           onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-[background,transform,box-shadow] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:from-violet-100/80 hover:to-purple-100/80 hover:shadow-[0_4px_14px_-4px_rgba(139,92,246,0.25)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.99] will-change-transform"
+          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-[background-color,border-color] duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:from-violet-100/80 hover:to-purple-100/80 hover:border-violet-200/70"
         >
           <div>
             <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
             <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500 transition-transform duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-110" strokeWidth={2} />
+            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
           </div>
         </Link>
       </div>

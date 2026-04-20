@@ -743,32 +743,32 @@ function AnalyticsChartWithTooltip({
           )}
           {/* Store areas */}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-            <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={makeDot(CHART_COLORS.orders)} activeDot={makeActiveDot(CHART_COLORS.orders)} name="sales" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={makeDot(CHART_COLORS.orders)} activeDot={makeActiveDot(CHART_COLORS.orders)} name="sales" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && (
-            <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={makeDot(CHART_COLORS.refunds)} activeDot={makeActiveDot(CHART_COLORS.refunds)} name="refunds" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={makeDot(CHART_COLORS.refunds)} activeDot={makeActiveDot(CHART_COLORS.refunds)} name="refunds" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-            <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={makeDot(CHART_COLORS.revenue)} activeDot={makeActiveDot(CHART_COLORS.revenue)} name="revenue" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={makeDot(CHART_COLORS.revenue)} activeDot={makeActiveDot(CHART_COLORS.revenue)} name="revenue" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-            <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={makeDot("#10b981")} activeDot={makeActiveDot("#10b981")} name="conversion" isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={makeDot("#10b981")} activeDot={makeActiveDot("#10b981")} name="conversion" isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {/* OnePage areas */}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={makeDot(CHART_COLORS.views)} activeDot={makeActiveDot(CHART_COLORS.views)} name="views" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-            <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={makeDot(CHART_COLORS.clicks)} activeDot={makeActiveDot(CHART_COLORS.clicks)} name="clicks" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={makeDot(CHART_COLORS.clicks)} activeDot={makeActiveDot(CHART_COLORS.clicks)} name="clicks" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-            <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={makeDot("#8b5cf6")} activeDot={makeActiveDot("#8b5cf6")} name="subscribers" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={makeDot("#8b5cf6")} activeDot={makeActiveDot("#8b5cf6")} name="subscribers" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
           {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-            <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={makeDot("#f59e0b")} activeDot={makeActiveDot("#f59e0b")} name="ctr" connectNulls isAnimationActive={shouldAnimate} animationDuration={600} animationEasing="ease-out" animationBegin={0} />
+            <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={makeDot("#f59e0b")} activeDot={makeActiveDot("#f59e0b")} name="ctr" connectNulls isAnimationActive={shouldAnimate} animationDuration={900} animationEasing="ease-out" animationBegin={0} />
           )}
         </AreaChart>
       </ResponsiveContainer>
@@ -2888,10 +2888,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalViews")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalViews)}</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalViews)}</span>
                     {<PercentChangeIndicator current={displaySummary.totalViews} previous={displaySummary.prevPeriodViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Revenue */}
                 <button
@@ -2903,10 +2903,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalRevenue")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(displaySummary.totalRevenue)}</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(displaySummary.totalRevenue)}</span>
                     {<PercentChangeIndicator current={displaySummary.totalRevenue} previous={displaySummary.prevPeriodRevenue} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(displaySummary.allTimeRevenue)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(displaySummary.allTimeRevenue)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Orders */}
                 <button
@@ -2918,10 +2918,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalOrders)}</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalOrders)}</span>
                     {<PercentChangeIndicator current={displaySummary.totalOrders} previous={displaySummary.prevPeriodOrders} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeOrders)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeOrders)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Conversion */}
                 <button
@@ -2933,9 +2933,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.conversionRate")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displaySummary.conversionRate)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displaySummary.conversionRate)}%</span>
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
                 </button>
               </>
             ) : (
@@ -2950,10 +2950,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.views)}</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.views)}</span>
                     {<PercentChangeIndicator current={displayOnePageMetrics.views} previous={displayOnePageMetrics.prevViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Clicks */}
                 <button
@@ -2965,10 +2965,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "clicks" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.clicks")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.clicks)}</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.clicks)}</span>
                     {<PercentChangeIndicator current={displayOnePageMetrics.clicks} previous={displayOnePageMetrics.prevClicks} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Subscribers */}
                 <button
@@ -2980,10 +2980,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "subscribers" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "subscribers" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.subscribers")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.subscribers)}</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.subscribers)}</span>
                     {<PercentChangeIndicator current={displayOnePageMetrics.subscribers} previous={displayOnePageMetrics.prevSubscribers} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* CTR */}
                 <button
@@ -2995,9 +2995,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "ctr" ? "text-[#374151]" : "text-[#6b7280]"}`}>CTR</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayOnePageMetrics.ctr)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayOnePageMetrics.ctr)}%</span>
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
                 </button>
               </>
             )}

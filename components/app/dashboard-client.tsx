@@ -362,7 +362,7 @@ function ChartWithLongPressTooltip({
                 }}
                 activeDot={!isTouchDevice ? { r: 5, fill: "#8b5cf6", stroke: "#fff", strokeWidth: 2 } : false}
                 isAnimationActive={shouldAnimate}
-                animationDuration={600}
+                animationDuration={900}
                 animationEasing="ease-out"
                 animationBegin={0}
               />
@@ -2267,10 +2267,10 @@ export function DashboardClient({
               {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodViews)}</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodViews)}</span>
                 <PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalViews)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalViews)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Revenue */}
@@ -2283,10 +2283,10 @@ export function DashboardClient({
               {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.periodRevenue)}</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.periodRevenue)}</span>
                 <PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.totalRevenue)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.totalRevenue)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Orders */}
@@ -2299,10 +2299,10 @@ export function DashboardClient({
               {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodOrders)}</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodOrders)}</span>
                 <PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalOrders)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Conversion Rate - clickable */}
@@ -2315,10 +2315,10 @@ export function DashboardClient({
               {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayAnalytics.conversionRate)}%</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayAnalytics.conversionRate)}%</span>
                 <PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
             </button>
 
             {/* Toggle arrow - sticky right on mobile, positioned in conversion rate area on desktop */}
