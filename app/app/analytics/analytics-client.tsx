@@ -27,6 +27,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
+import { DateRangePickerModal } from "@/components/app/date-range-picker-modal"
 
 // Custom Spotify Icon (brand SVG)
 const SpotifyIcon = ({ className }: { className?: string }) => (
@@ -133,6 +134,49 @@ interface Order {
     id: string
     title: string
   } | null
+}
+
+// Small inline helper: label text with a dotted underline that reveals a
+// soft tooltip card on hover / focus. Matches the Shopify-admin pattern the
+// screenshot showed (title + short description popping in smoothly).
+function InfoHoverLabel({
+  label,
+  title,
+  description,
+}: {
+  label: string
+  title: string
+  description: string
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-flex">
+      <span
+        tabIndex={0}
+        role="button"
+        aria-describedby="top-products-tip"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className="text-[15px] font-semibold text-[#1a1a2e] cursor-default select-none underline decoration-dotted decoration-[#9ca3af] underline-offset-[5px] outline-none"
+      >
+        {label}
+      </span>
+      <span
+        id="top-products-tip"
+        role="tooltip"
+        className={`pointer-events-none absolute left-0 top-full mt-2 z-30 w-[260px] rounded-xl border border-[#e5e7eb] bg-white px-3.5 py-3 shadow-[0_8px_28px_-8px_rgba(17,24,39,0.18)] transition-all duration-[200ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
+          open
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 -translate-y-1 scale-[0.98]"
+        }`}
+      >
+        <p className="text-[13px] font-semibold text-[#1a1a2e] leading-snug">{title}</p>
+        <p className="text-[12px] text-[#6b7280] mt-1 leading-relaxed">{description}</p>
+      </span>
+    </span>
+  )
 }
 
 interface AnalyticsClientProps {
@@ -1155,10 +1199,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const searchParams = useSearchParams()
   const { t } = useLanguage()
 
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  // Defer the skeleton by 200 ms. Fast loads skip it entirely; slow loads
-  // still get the skeleton, but it fades in smoothly rather than flashing.
+  const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(true)
+  // Kept only as a safety net for rare edge cases (e.g. data fetch triggered
+  // after isLoading was manually set true). Defers the skeleton by 200 ms so
+  // it never flashes on fast refetches.
   const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false)
   useEffect(() => {
     if (!isLoading) {
@@ -1179,6 +1224,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [isTouchDevice, setIsTouchDevice] = useState(false)
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
+  const [isCustomRangeOpen, setIsCustomRangeOpen] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   // Initialize analytics mode from URL param (?mode=onepage or ?mode=store)
   const initialMode = searchParams.get("mode") as AnalyticsMode | null
@@ -1288,11 +1334,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   // Fetch analytics data from Supabase (same source as Dashboard)
   const isFirstLoadRef = useRef(true)
   const fetchAnalytics = useCallback(async (showRefreshIndicator = false) => {
-    if (isFirstLoadRef.current) {
-      setIsLoading(true)
-    } else {
-      setIsRefreshing(true)
-    }
+    // First load: isRefreshing is already true (seeded in useState) so KPIs
+    // render with a subtle blur — loading.tsx already handled the streaming
+    // skeleton, so stacking a second full-page skeleton here causes the
+    // "double load" flash. Only show the full skeleton on later re-fetches
+    // where we truly have nothing to render.
+    setIsRefreshing(true)
 
     try {
       const supabase = createClient()
@@ -2103,12 +2150,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     return () => clearInterval(interval)
   }, [fetchAnalytics])
 
-  const handleCustomRangeApply = () => {
-    if (customStart && customEnd) {
-      fetchAnalytics()
-    }
-  }
-
   // Generate KPI chart data (same approach as Dashboard)
   const generateKpiChartData = useCallback(async (kpiType: KPIType) => {
     if (!kpiType) {
@@ -2534,7 +2575,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#fafafa] select-none overscroll-none" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
+    <div className="h-full overflow-y-auto bg-[#fafafa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
       {/* Announcement Bar — fixed above black header on mobile */}
       <AnnouncementBarMobile>
         <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
@@ -2710,7 +2751,17 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {timeframeOptions.map((option) => (
                     <button
                       key={option.value}
-                      onClick={() => { setTimeframe(option.value); setIsTimeframeOpen(false) }}
+                      onClick={() => {
+                        setIsTimeframeOpen(false)
+                        if (option.value === "custom") {
+                          // Open the rich calendar picker instead of flipping
+                          // to the inline input row — smoother and matches
+                          // the Shopify-admin pattern.
+                          setIsCustomRangeOpen(true)
+                        } else {
+                          setTimeframe(option.value)
+                        }
+                      }}
                       className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors ${
                         timeframe === option.value ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium" : "text-[#374151] hover:bg-[#f9fafb]"
                       }`}
@@ -2790,22 +2841,36 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           )}
         </div>
 
-        {/* Custom date range */}
-        {timeframe === "custom" && (
-          <div className="flex gap-4 flex-col sm:flex-row sm:items-end p-4 bg-white rounded-xl border border-[#e5e7eb]">
-            <div className="flex-1 max-w-[180px] space-y-1.5">
-              <Label className="text-xs text-[#6b7280]">Start Date</Label>
-              <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="h-9" />
-            </div>
-            <div className="flex-1 max-w-[180px] space-y-1.5">
-              <Label className="text-xs text-[#6b7280]">End Date</Label>
-              <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="h-9" />
-            </div>
-            <Button onClick={handleCustomRangeApply} disabled={!customStart || !customEnd} size="sm" className="h-9 bg-[#8b5cf6] hover:bg-[#7c3aed]">
-              Apply Range
-            </Button>
-          </div>
+        {/* Custom date range summary — click to reopen the calendar modal. */}
+        {timeframe === "custom" && customStart && customEnd && (
+          <button
+            type="button"
+            onClick={() => setIsCustomRangeOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e5e7eb] rounded-full text-[12px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
+          >
+            <Calendar className="h-3.5 w-3.5 text-[#9ca3af]" />
+            {new Date(customStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            <span className="text-[#9ca3af]">–</span>
+            {new Date(customEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </button>
         )}
+
+        {/* Rich date range picker modal */}
+        <DateRangePickerModal
+          open={isCustomRangeOpen}
+          onOpenChange={setIsCustomRangeOpen}
+          initialStart={customStart ? new Date(customStart) : null}
+          initialEnd={customEnd ? new Date(customEnd) : null}
+          onApply={(start, end) => {
+            // Format as YYYY-MM-DD so getTimeframeDates() keeps working without
+            // timezone shift from ISO parsing.
+            const toYMD = (d: Date) =>
+              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+            setCustomStart(toYMD(start))
+            setCustomEnd(toYMD(end))
+            setTimeframe("custom")
+          }}
+        />
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -3134,13 +3199,21 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </Card>
         </div>
 
-        {/* Top Products / Most Clicked */}
+        {/* Top products by units sold / Most Clicked */}
         <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
-                {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
-              </CardTitle>
+              {analyticsMode === "store" ? (
+                <InfoHoverLabel
+                  label="Top products by units sold"
+                  title="Top products by units sold"
+                  description="Products ranked by how many units were sold."
+                />
+              ) : (
+                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
+                  Most Clicked
+                </CardTitle>
+              )}
               {showSampleData && !hasRealData && analyticsMode === "store" && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
             </div>
           </CardHeader>

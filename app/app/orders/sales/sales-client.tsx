@@ -2871,7 +2871,7 @@ export function SalesClient({
   const hasChartData = chartData.some((d) => d.value > 0);
 
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
+    <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container app-page-enter">
       {/* Notification Toast */}
       {notification.visible && (
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">

@@ -1162,12 +1162,12 @@ export function DashboardClient({
   const navStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
   const navOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  // Defer the loading skeleton by 200 ms. When analytics finish fetching in
-  // under 200 ms (typical on warm cache / fast network) we never show the
-  // skeleton at all — the real UI animates in from SSR data directly. Only
-  // slow loads cross the threshold and see the skeleton fade in.
+  // loading.tsx already renders the streaming skeleton. On first mount we
+  // render the shell immediately with a subtle blur on data-bound fields so
+  // there's no second full-page skeleton flash ("double load"). isLoading
+  // stays behind as a safety net for rare edge cases where data is missing.
+  const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(true)
   const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false)
   useEffect(() => {
     if (!isLoading) {
@@ -1307,11 +1307,10 @@ export function DashboardClient({
 
   const isFirstLoadRef = useRef(true)
   const fetchAnalytics = async (selectedTimeframe: string) => {
-    if (isFirstLoadRef.current) {
-      setIsLoading(true)
-    } else {
-      setIsRefreshing(true)
-    }
+    // First load: isRefreshing is already true (seeded in useState). Using
+    // a full skeleton here would stack with loading.tsx and cause the
+    // "double load" flash. Blur handles the brief refresh visually.
+    setIsRefreshing(true)
     const supabase = createClient()
 
     try {
@@ -1905,7 +1904,7 @@ export function DashboardClient({
   return (
     <div
       ref={scrollRef}
-      className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container relative"
+      className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container relative app-page-enter"
     >
       {/* Pull-to-refresh indicator floats above content */}
       {/* topOffset=0 positions the indicator in the gap between the fixed header

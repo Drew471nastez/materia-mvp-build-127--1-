@@ -2557,7 +2557,7 @@ Tips:
 
   // List View
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
       {showSuccessToast && (
         <div className="hidden md:block fixed left-1/2 -translate-x-1/2 z-[220] top-4 w-auto animate-in fade-in slide-in-from-top-2 duration-300 px-1 pointer-events-none">
           <div className="bg-black text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center whitespace-nowrap">

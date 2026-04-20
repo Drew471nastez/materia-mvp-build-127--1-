@@ -378,7 +378,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
+    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
       {/* Notification Toast */}
       {notification.visible && (
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">

@@ -278,7 +278,7 @@ export default async function PayoutsPage() {
   } catch { /* non-fatal */ }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
       {/* Announcement Bar — fixed above black header on mobile */}
       <AnnouncementBarMobile>
         <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
