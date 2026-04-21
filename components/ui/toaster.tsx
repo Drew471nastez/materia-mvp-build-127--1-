@@ -23,20 +23,13 @@ export function Toaster() {
             <span
               className={
                 variant === "destructive"
-                  ? "shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-white/15"
-                  : "shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20"
+                  ? "shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30"
+                  : "shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500"
               }
             >
-              <Icon
-                className={
-                  variant === "destructive"
-                    ? "h-3 w-3 text-white"
-                    : "h-3 w-3 text-emerald-400"
-                }
-                strokeWidth={3}
-              />
+              <Icon className="h-3 w-3 text-white" strokeWidth={3.5} />
             </span>
-            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
               {title && <ToastTitle className="truncate">{title}</ToastTitle>}
               {description && <ToastDescription>{description}</ToastDescription>}
             </div>

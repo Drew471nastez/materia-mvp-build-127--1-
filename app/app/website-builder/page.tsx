@@ -3,14 +3,20 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Globe, Palette, MoreHorizontal,
-  Plus, Check, Pencil, Trash2, Copy, RefreshCw,
-  EyeOff, ExternalLink, Loader2, AlertTriangle, Layers,
+  Globe, MoreHorizontal,
+  Check, Pencil, Trash2, Copy, RefreshCw,
+  EyeOff, Loader2, AlertTriangle, Layers,
   Download, Upload, ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog"
@@ -178,6 +184,7 @@ function ThemePreview({
               theme={theme}
               isEditing={false}
               isSelected={false}
+              insideEditor={true}
             />
           ))}
         </div>
@@ -551,10 +558,7 @@ export default function WebsiteBuilderPage() {
         {/* Page header skeleton */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="h-5 w-5 bg-neutral-200 rounded animate-pulse" />
-              <div className="h-5 w-36 bg-neutral-200 rounded animate-pulse" />
-            </div>
+            <div className="h-5 w-36 bg-neutral-200 rounded animate-pulse mb-2" />
             <div className="h-3 w-64 max-w-full bg-neutral-100 rounded animate-pulse" />
           </div>
           <div className="h-8 w-full sm:w-[230px] bg-neutral-100 rounded-lg animate-pulse" />
@@ -632,10 +636,7 @@ export default function WebsiteBuilderPage() {
       {/* ── Page header with View Live + URL ── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
         <div className="min-w-0">
-          <div className="flex items-center gap-2.5 mb-1">
-            <Layers className="h-5 w-5 text-neutral-700 shrink-0" />
-            <h1 className="text-xl font-bold text-neutral-900">Website Builder</h1>
-          </div>
+          <h1 className="text-xl font-bold text-neutral-900 mb-1">Website Builder</h1>
           <p className="text-sm text-neutral-500">Manage and customize your store website</p>
         </div>
         <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto min-w-0">
@@ -663,7 +664,7 @@ export default function WebsiteBuilderPage() {
                   rel="noopener noreferrer"
                   aria-label="Open live site"
                   title="Open live site"
-                  className="h-7 w-7 flex items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-800 active:scale-95 transition-all"
+                  className="h-7 w-7 flex items-center justify-center rounded-full bg-purple-600 text-white hover:bg-purple-700 active:scale-95 transition-all shadow-sm"
                 >
                   <ArrowRight className="h-3.5 w-3.5 -rotate-45" />
                 </a>
@@ -710,20 +711,35 @@ export default function WebsiteBuilderPage() {
                   >
                     Customize Website
                   </Button>
-                  <ResponsiveActionMenu
-                    title={liveTheme.name}
-                    trigger={
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0 border border-neutral-200 sm:border-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                    }
-                    items={[
-                      { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => handleAction("duplicate", liveTheme) },
-                      { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => handleAction("rename", liveTheme) },
-                      { label: "Export theme", icon: <Download className="h-4 w-4" />, onClick: () => handleAction("export", liveTheme) },
-                      { label: "Unpublish", icon: <EyeOff className="h-4 w-4" />, onClick: () => handleAction("unpublish", liveTheme), variant: "warning", separatorBefore: true },
-                    ]}
-                  />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleAction("duplicate", liveTheme)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("rename", liveTheme)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("export", liveTheme)}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export theme
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleAction("unpublish", liveTheme)}
+                        className="text-amber-600"
+                      >
+                        <EyeOff className="h-4 w-4 mr-2" />
+                        Unpublish
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -836,20 +852,35 @@ export default function WebsiteBuilderPage() {
                 </div>
                 {/* Actions */}
                 <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto justify-end">
-                  <ResponsiveActionMenu
-                    title={install.name}
-                    trigger={
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                    }
-                    items={[
-                      { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => handleAction("duplicate", install) },
-                      { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => handleAction("rename", install) },
-                      { label: "Export theme", icon: <Download className="h-4 w-4" />, onClick: () => handleAction("export", install) },
-                      { label: "Delete", icon: <Trash2 className="h-4 w-4" />, onClick: () => handleAction("delete", install), variant: "destructive", separatorBefore: true },
-                    ]}
-                  />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleAction("duplicate", install)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("rename", install)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction("export", install)}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export theme
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleAction("delete", install)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     size="sm"
                     variant="outline"
@@ -860,7 +891,8 @@ export default function WebsiteBuilderPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="h-8 px-3 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white transition-colors duration-200 flex-1 sm:flex-none"
+                    variant="outline"
+                    className="h-8 px-3 text-xs font-medium flex-1 sm:flex-none"
                     onClick={() => goToEditor(install.id)}
                   >
                     Edit theme
