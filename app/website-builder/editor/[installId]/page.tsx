@@ -40,11 +40,8 @@ import { Badge } from "@/components/ui/badge"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -3466,7 +3463,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isMobileView, setIsMobileView] = useState(false)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
   const [hasPublished, setHasPublished] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -3780,9 +3777,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Username is loaded from API in loadData
 
-  // Check mobile view
+  // Check mobile view. When the editor itself is being opened on a phone,
+  // force the preview into "mobile" device mode — otherwise we'd render the
+  // 1200-wide desktop layout inside a 390px viewport and every header row
+  // turns into a squished mess.
   useEffect(() => {
-    const checkMobile = () => setIsMobileView(window.innerWidth < 768)
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobileView(mobile)
+      if (mobile) setDevice("mobile")
+    }
     checkMobile()
     window.addEventListener("resize", checkMobile)
     return () => window.removeEventListener("resize", checkMobile)
@@ -5216,32 +5220,55 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               Live
             </Badge>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <ResponsiveActionMenu
+            title="Actions"
+            align="center"
+            menuWidth="w-52"
+            trigger={
               <button className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0" title="Theme options">
                 <MoreHorizontal className="h-4 w-4" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-52 z-[100]">
-              {websiteUrl && (
-                <DropdownMenuItem onClick={() => window.open(websiteUrl, "_blank")} className="cursor-pointer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  View Live
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }} className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                Theme Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => {
-                if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
-                router.push("/app")
-              }} className="cursor-pointer">
-                Back to Dashboard
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            }
+            items={[
+              ...(websiteUrl
+                ? [{
+                    label: "View Live",
+                    icon: <ExternalLink className="h-4 w-4" />,
+                    onClick: () => window.open(websiteUrl, "_blank"),
+                  }]
+                : []),
+              {
+                label: "Theme settings",
+                icon: <Settings className="h-4 w-4" />,
+                onClick: () => {
+                  setSidebarMode("settings")
+                  setPageBrowserOpen(false)
+                  setSelectedPanel({ type: "theme_settings" })
+                  if (isMobileView) setMobileSidebarOpen(true)
+                },
+              },
+              {
+                label: "Undo",
+                icon: <Undo2 className="h-4 w-4" />,
+                onClick: handleUndo,
+                separatorBefore: true,
+              },
+              {
+                label: "Redo",
+                icon: <Redo2 className="h-4 w-4" />,
+                onClick: handleRedo,
+              },
+              {
+                label: "Back to Dashboard",
+                icon: <ArrowLeft className="h-4 w-4" />,
+                onClick: () => {
+                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+                  router.push("/app")
+                },
+                separatorBefore: true,
+              },
+            ]}
+          />
           {isDirty && (
             <span className="text-xs text-amber-600 hidden md:inline ml-2">Unsaved changes</span>
           )}
@@ -5338,8 +5365,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TooltipContent side="bottom">Preview</TooltipContent>
           </Tooltip>
 
-          {/* Undo / Redo — sit next to the Save button per the mock */}
-          <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0">
+          {/* Undo / Redo — hidden on mobile (both actions live in the
+              three-dots sheet on mobile so the topbar has room for Save). */}
+          <div className="hidden sm:flex items-center border border-border rounded-lg overflow-hidden shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -5440,55 +5468,79 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           </div>
         ) : (
-          <>
-            {/* Mobile sidebar overlay — slides in from the left UNDER the topbar */}
-            <div
-              className={cn(
-                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[360px] bg-background border-r border-border flex will-change-transform",
-              )}
-              style={{
-                top: 0,
-                transform: mobileSidebarOpen ? "translateX(0)" : "translateX(-102%)",
-                transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
-              }}
+          /* Mobile — the sidebar is an iOS-style bottom sheet instead of a
+             left-slide overlay. The preview stays visible behind the dimmed
+             backdrop while you edit. Drag the handle down to dismiss. */
+          <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+            <SheetContent
+              side="bottom"
+              hideCloseButton
+              enableDragToClose
+              onDragClose={() => setMobileSidebarOpen(false)}
+              className="p-0 rounded-t-[20px] overflow-hidden flex flex-col gap-0 border-t-0 shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)] h-[82vh] max-h-[82vh]"
+              overlayClassName="bg-black/30"
             >
-              {/* Mobile icon rail */}
-              <div className="w-12 border-r border-border bg-muted/30 flex flex-col items-center py-3 gap-1 shrink-0">
-                <button
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "sections" && !pageBrowserOpen ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-neutral-100")}
-                  onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
-                >
-                  <Layers className="h-[18px] w-[18px]" />
-                </button>
-                <button
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", pageBrowserOpen ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-neutral-100")}
-                  onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
-                >
-                  <FileText className="h-[18px] w-[18px]" />
-                </button>
-                <button
-                  className={cn("h-10 w-10 flex items-center justify-center rounded-lg transition-colors", sidebarMode === "settings" && !pageBrowserOpen ? "bg-neutral-200/80 text-foreground" : "text-muted-foreground hover:bg-neutral-100")}
-                  onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
-                >
-                  <Settings className="h-[18px] w-[18px]" />
-                </button>
+              <SheetTitle className="sr-only">Editor menu</SheetTitle>
+              <SheetDescription className="sr-only">Switch pages, browse sections, and change theme settings.</SheetDescription>
+
+              {/* Drag handle */}
+              <div
+                className="flex justify-center pt-2.5 pb-1.5 shrink-0 touch-none cursor-grab active:cursor-grabbing bg-background"
+                data-drag-handle="true"
+              >
+                <div className="h-1 w-10 rounded-full bg-neutral-300" />
               </div>
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-                  {renderSidebarContent()}
+
+              {/* Segmented tabs — Sections / Pages / Settings */}
+              <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
+                <div className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
+                      sidebarMode === "sections" && !pageBrowserOpen
+                        ? "bg-white text-foreground shadow-sm"
+                        : "text-muted-foreground",
+                    )}
+                    onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    Sections
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
+                      pageBrowserOpen
+                        ? "bg-white text-foreground shadow-sm"
+                        : "text-muted-foreground",
+                    )}
+                    onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Pages
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
+                      sidebarMode === "settings" && !pageBrowserOpen
+                        ? "bg-white text-foreground shadow-sm"
+                        : "text-muted-foreground",
+                    )}
+                    onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    Settings
+                  </button>
                 </div>
               </div>
-            </div>
-            {/* Backdrop — transparent click-catcher to close the sidebar,
-                no visual darkening so the canvas stays fully visible. */}
-            <div
-              className="absolute inset-0 z-20"
-              style={{
-                pointerEvents: mobileSidebarOpen ? "auto" : "none",
-              }}
-              onClick={() => setMobileSidebarOpen(false)}
-            />
-          </>
+
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background pb-[env(safe-area-inset-bottom,_0px)]">
+                {renderSidebarContent()}
+              </div>
+            </SheetContent>
+          </Sheet>
         )}
 
         {/* ── Canvas ──
@@ -5504,36 +5556,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <main
           className={cn(
             "flex-1 min-w-0 bg-neutral-50 overflow-hidden flex justify-center",
-            // Center the phone vertically in mobile preview so the extra
-            // gray space on very tall / wide viewports doesn't bunch below
-            // the device. Desktop preview stays top-aligned. Desktop runs
-            // near-edge (Shopify-style): 8px left/right/top so the canvas
-            // almost touches the surrounding chrome.
-            device === "mobile" ? "items-center py-6 px-6" : "items-start pt-2 px-2",
+            // On an actual mobile viewport the preview fills the viewport
+            // (no gray gutter, no fixed 380px phone-chrome) — it IS the phone.
+            // On desktop the "mobile" device toggle still renders the phone-
+            // shaped 380px card centered vertically with gray gutters.
+            isMobileView
+              ? "items-start p-0"
+              : device === "mobile" ? "items-center py-6 px-6" : "items-start pt-2 px-2",
           )}
         >
           <div
             id="wb-preview-root"
             className={cn(
               "relative bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
-              device === "mobile"
-                ? "rounded-2xl"
-                : "rounded-t-xl w-full",
+              isMobileView
+                ? "w-full border-0 rounded-none"
+                : device === "mobile"
+                  ? "rounded-2xl"
+                  : "rounded-t-xl w-full",
             )}
             style={
-              device === "mobile"
+              isMobileView
                 ? {
-                    // Phone-shaped — fixed width keeps content from reflowing
-                    // while the height adapts to the available viewport.
-                    width: "380px",
-                    height: "min(800px, calc(100vh - 96px))",
-                    flex: "0 0 auto",
+                    // Real phone — the preview IS the viewport.
+                    width: "100%",
+                    height: "calc(100svh - 48px)",
                   }
-                : {
-                    // Desktop — card fills the canvas area and scrolls internally.
-                    // Height = viewport minus topbar (48) minus the pt-2 (8px).
-                    height: "calc(100svh - 48px - 8px)",
-                  }
+                : device === "mobile"
+                  ? {
+                      // Desktop "mobile preview" toggle — phone-shaped card.
+                      width: "380px",
+                      height: "min(800px, calc(100vh - 96px))",
+                      flex: "0 0 auto",
+                    }
+                  : {
+                      // Desktop — card fills the canvas area and scrolls internally.
+                      height: "calc(100svh - 48px - 8px)",
+                    }
             }
           >
             {/* Inner wrapper — used to be the scroll container; now just
