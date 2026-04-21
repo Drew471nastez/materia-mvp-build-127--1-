@@ -550,17 +550,17 @@ export default function WebsiteBuilderPage() {
   if (loading || initializing) {
     return (
       <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] skeleton-deferred">
-        <div className="max-w-[810px] mx-auto px-5 py-8">
+        <div className="max-w-[810px] mx-auto px-4 sm:px-5 py-6 sm:py-8">
         {/* Page header skeleton */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
               <div className="h-5 w-5 bg-neutral-200 rounded animate-pulse" />
               <div className="h-5 w-36 bg-neutral-200 rounded animate-pulse" />
             </div>
-            <div className="h-3 w-64 bg-neutral-100 rounded animate-pulse" />
+            <div className="h-3 w-64 max-w-full bg-neutral-100 rounded animate-pulse" />
           </div>
-          <div className="h-8 w-[230px] bg-neutral-100 rounded-lg animate-pulse" />
+          <div className="h-8 w-full sm:w-[230px] bg-neutral-100 rounded-lg animate-pulse" />
         </div>
 
         {/* Current Website card skeleton — matches the real layout */}
@@ -568,15 +568,15 @@ export default function WebsiteBuilderPage() {
           <div className="h-3 w-24 bg-neutral-200 rounded animate-pulse mb-4" />
           <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden">
             <div className="aspect-[16/7] bg-neutral-100 animate-pulse" />
-            <div className="bg-white border-t border-neutral-200/60 px-5 py-4 flex items-center justify-between">
+            <div className="bg-white border-t border-neutral-200/60 px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div className="space-y-2">
                 <div className="h-4 w-40 bg-neutral-200 rounded animate-pulse" />
                 <div className="h-3 w-28 bg-neutral-100 rounded animate-pulse" />
                 <div className="h-3 w-24 bg-neutral-100 rounded animate-pulse" />
               </div>
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse" />
-                <div className="h-8 w-36 bg-neutral-200 rounded-lg animate-pulse" />
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="h-8 flex-1 sm:flex-none sm:w-36 bg-neutral-200 rounded-lg animate-pulse order-2 sm:order-1" />
+                <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse shrink-0 order-1 sm:order-2" />
               </div>
             </div>
           </div>
@@ -587,17 +587,19 @@ export default function WebsiteBuilderPage() {
           <div className="h-3 w-20 bg-neutral-200 rounded animate-pulse mb-4" />
           <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden divide-y divide-neutral-100">
             {[0, 1, 2].map(i => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-                <div className="w-[110px] h-[72px] rounded-lg bg-neutral-100 animate-pulse shrink-0" style={{ animationDelay: `${i * 80}ms` }} />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-40 bg-neutral-200 rounded animate-pulse" />
-                  <div className="h-3 w-56 bg-neutral-100 rounded animate-pulse" />
-                  <div className="h-3 w-16 bg-neutral-100 rounded animate-pulse" />
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-3.5">
+                <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 w-full">
+                  <div className="w-[92px] h-[60px] sm:w-[110px] sm:h-[72px] rounded-lg bg-neutral-100 animate-pulse shrink-0" style={{ animationDelay: `${i * 80}ms` }} />
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="h-4 w-40 max-w-full bg-neutral-200 rounded animate-pulse" />
+                    <div className="h-3 w-56 max-w-full bg-neutral-100 rounded animate-pulse" />
+                    <div className="h-3 w-16 bg-neutral-100 rounded animate-pulse" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse" />
-                  <div className="h-8 w-16 bg-neutral-100 rounded-lg animate-pulse" />
-                  <div className="h-8 w-20 bg-neutral-200 rounded-lg animate-pulse" />
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 justify-end">
+                  <div className="h-8 w-8 bg-neutral-100 rounded-lg animate-pulse shrink-0" />
+                  <div className="h-8 flex-1 sm:flex-none sm:w-16 bg-neutral-100 rounded-lg animate-pulse" />
+                  <div className="h-8 flex-1 sm:flex-none sm:w-20 bg-neutral-200 rounded-lg animate-pulse" />
                 </div>
               </div>
             ))}
@@ -629,21 +631,21 @@ export default function WebsiteBuilderPage() {
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
-      <div className="max-w-[810px] mx-auto px-5 py-8">
+      <div className="max-w-[810px] mx-auto px-4 sm:px-5 py-6 sm:py-8">
       {/* ── Page header with View Live + URL ── */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <div className="min-w-0">
           <div className="flex items-center gap-2.5 mb-1">
-            <Layers className="h-5 w-5 text-neutral-700" />
+            <Layers className="h-5 w-5 text-neutral-700 shrink-0" />
             <h1 className="text-xl font-bold text-neutral-900">Website Builder</h1>
           </div>
           <p className="text-sm text-neutral-500">Manage and customize your store website</p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 sm:shrink-0 w-full sm:w-auto min-w-0">
           {websiteUrl && (
-            <div className="flex items-center gap-1.5 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-1.5 text-sm text-neutral-500 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5 w-full sm:w-auto min-w-0">
               <Globe className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-              <span className="truncate max-w-[220px] text-xs">{websiteDisplay}</span>
+              <span className="truncate flex-1 sm:max-w-[220px] text-xs">{websiteDisplay}</span>
               <button
                 className="text-purple-600 hover:text-purple-700 text-xs font-medium shrink-0 ml-1"
                 onClick={() => { navigator.clipboard.writeText(websiteUrl); toast({ title: "Link copied" }) }}
@@ -672,8 +674,8 @@ export default function WebsiteBuilderPage() {
             </div>
 
             {/* Info bar */}
-            <div className="bg-white border-t border-neutral-200/60 px-5 py-4">
-              <div className="flex items-center justify-between gap-4">
+            <div className="bg-white border-t border-neutral-200/60 px-4 sm:px-5 py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div className="min-w-0">
                   <h2 className="text-base font-semibold text-neutral-900 truncate">{liveTheme.name}</h2>
                   <p className="text-xs text-neutral-500 mt-0.5">
@@ -684,17 +686,17 @@ export default function WebsiteBuilderPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto">
                   <Button
                     size="sm"
                     onClick={() => goToEditor(liveTheme.id)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200"
+                    className="bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200 flex-1 sm:flex-none"
                   >
                     Customize Website
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 shrink-0">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -787,46 +789,48 @@ export default function WebsiteBuilderPage() {
 
           <div className="rounded-2xl border border-neutral-200/70 bg-white overflow-hidden divide-y divide-neutral-100">
             {draftThemes.map(install => (
-              <div key={install.id} className="relative group flex items-center gap-4 px-4 py-3.5 hover:bg-neutral-50/60 transition-colors">
+              <div key={install.id} className="relative group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-3.5 hover:bg-neutral-50/60 transition-colors">
                 {actionLoading?.startsWith(install.id) && (
                   <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
                     <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
                   </div>
                 )}
-                {/* Thumbnail — div (not button) because ThemePreview contains
-                    its own buttons (search/cart); nested buttons fail hydration. */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => goToEditor(install.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault()
-                      goToEditor(install.id)
-                    }
-                  }}
-                  className="shrink-0 w-[110px] h-[72px] rounded-lg overflow-hidden border border-neutral-200/80 bg-neutral-50 hover:border-neutral-300 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
-                >
-                  <ThemePreview install={install} aspectClass="aspect-[110/72]" />
-                </div>
-                {/* Metadata */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-neutral-900 truncate">{install.name}</p>
-                    <StatusBadge status={install.status} />
+                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1 w-full">
+                  {/* Thumbnail — div (not button) because ThemePreview contains
+                      its own buttons (search/cart); nested buttons fail hydration. */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => goToEditor(install.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        goToEditor(install.id)
+                      }
+                    }}
+                    className="shrink-0 w-[92px] h-[60px] sm:w-[110px] sm:h-[72px] rounded-lg overflow-hidden border border-neutral-200/80 bg-neutral-50 hover:border-neutral-300 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+                  >
+                    <ThemePreview install={install} aspectClass="aspect-[110/72]" />
                   </div>
-                  <p className="text-xs text-neutral-500 mt-1">
-                    Last saved {new Date(install.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date(install.updated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
-                  </p>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">
-                    v{install.theme?.version ?? "1.0.0"}
-                  </p>
+                  {/* Metadata */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-neutral-900 truncate">{install.name}</p>
+                      <StatusBadge status={install.status} />
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Last saved {new Date(install.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date(install.updated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase()}
+                    </p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      v{install.theme?.version ?? "1.0.0"}
+                    </p>
+                  </div>
                 </div>
                 {/* Actions */}
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 sm:shrink-0 w-full sm:w-auto justify-end">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -849,14 +853,14 @@ export default function WebsiteBuilderPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs font-medium"
+                    className="h-8 text-xs font-medium flex-1 sm:flex-none"
                     onClick={() => handleAction("publish", install)}
                   >
                     Publish
                   </Button>
                   <Button
                     size="sm"
-                    className="h-8 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white transition-colors duration-200"
+                    className="h-8 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white transition-colors duration-200 flex-1 sm:flex-none"
                     onClick={() => goToEditor(install.id)}
                   >
                     Edit theme
