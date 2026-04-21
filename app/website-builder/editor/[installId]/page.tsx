@@ -41,6 +41,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -5123,34 +5124,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     <div className="h-svh flex flex-col bg-muted/30 overflow-hidden">
       {/* ── Top bar ── */}
       <header className="relative h-12 bg-background border-b border-border flex items-center px-3 md:px-4 gap-2 shrink-0 z-50">
-        {/* LEFT: Back + sidebar mode toggles (desktop only) */}
+        {/* LEFT: Exit + sidebar mode toggles (desktop only) */}
         <div className="flex items-center gap-1.5 min-w-0">
-          {isMobileView && (
-            <button
-              type="button"
-              aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileSidebarOpen}
-              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-              className="h-8 w-8 shrink-0 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
-            >
-              <span className="relative block h-[14px] w-[18px]">
-                <span
-                  className="absolute left-0 h-[2px] w-full bg-current rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                  style={{ top: mobileSidebarOpen ? "6px" : "0px", transform: mobileSidebarOpen ? "rotate(45deg)" : "rotate(0deg)" }}
-                />
-                <span
-                  className="absolute left-0 top-[6px] h-[2px] w-full bg-current rounded-full transition-opacity duration-200 ease-out"
-                  style={{ opacity: mobileSidebarOpen ? 0 : 1 }}
-                />
-                <span
-                  className="absolute left-0 h-[2px] w-full bg-current rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                  style={{ top: mobileSidebarOpen ? "6px" : "12px", transform: mobileSidebarOpen ? "rotate(-45deg)" : "rotate(0deg)" }}
-                />
-              </span>
-            </button>
-          )}
-
-          {/* Back button */}
+          {/* Exit button — X on mobile (Shopify-style editor close), back arrow on desktop */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -5161,7 +5137,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 }}
                 aria-label="Exit"
               >
-                <BackWithBarIcon className="h-[15px] w-[15px]" />
+                {isMobileView ? (
+                  <X className="h-[17px] w-[17px]" />
+                ) : (
+                  <BackWithBarIcon className="h-[15px] w-[15px]" />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Exit</TooltipContent>
@@ -5468,79 +5448,63 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           </div>
         ) : (
-          /* Mobile — the sidebar is an iOS-style bottom sheet instead of a
-             left-slide overlay. The preview stays visible behind the dimmed
-             backdrop while you edit. Drag the handle down to dismiss. */
-          <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-            <SheetContent
-              side="bottom"
-              hideCloseButton
-              enableDragToClose
-              onDragClose={() => setMobileSidebarOpen(false)}
-              className="p-0 rounded-t-[20px] overflow-hidden flex flex-col gap-0 border-t-0 shadow-[0_-12px_40px_-12px_rgba(17,24,39,0.22)] h-[82vh] max-h-[82vh]"
-              overlayClassName="bg-black/30"
-            >
-              <SheetTitle className="sr-only">Editor menu</SheetTitle>
-              <SheetDescription className="sr-only">Switch pages, browse sections, and change theme settings.</SheetDescription>
-
-              {/* Drag handle */}
-              <div
-                className="flex justify-center pt-2.5 pb-1.5 shrink-0 touch-none cursor-grab active:cursor-grabbing bg-background"
-                data-drag-handle="true"
-              >
-                <div className="h-1 w-10 rounded-full bg-neutral-300" />
+          /* Mobile — persistent bottom sheet (Shopify-style). Always visible
+             with a small peek at the bottom when "closed", expands to ~50% of
+             the viewport when opened. Drag the pill handle to move between
+             states — finger tracks in real time. */
+          <MobileEditorSheet
+            open={mobileSidebarOpen}
+            onOpenChange={setMobileSidebarOpen}
+          >
+            {/* Segmented tabs — Sections / Pages / Settings */}
+            <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
+              <div className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
+                    sidebarMode === "sections" && !pageBrowserOpen
+                      ? "bg-white text-foreground shadow-sm"
+                      : "text-muted-foreground",
+                  )}
+                  onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }); setMobileSidebarOpen(true) }}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  Sections
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
+                    pageBrowserOpen
+                      ? "bg-white text-foreground shadow-sm"
+                      : "text-muted-foreground",
+                  )}
+                  onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }); setMobileSidebarOpen(true) }}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Pages
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
+                    sidebarMode === "settings" && !pageBrowserOpen
+                      ? "bg-white text-foreground shadow-sm"
+                      : "text-muted-foreground",
+                  )}
+                  onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }); setMobileSidebarOpen(true) }}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Settings
+                </button>
               </div>
+            </div>
 
-              {/* Segmented tabs — Sections / Pages / Settings */}
-              <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
-                <div className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
-                      sidebarMode === "sections" && !pageBrowserOpen
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground",
-                    )}
-                    onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }) }}
-                  >
-                    <Layers className="h-3.5 w-3.5" />
-                    Sections
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
-                      pageBrowserOpen
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground",
-                    )}
-                    onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Pages
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-all",
-                      sidebarMode === "settings" && !pageBrowserOpen
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground",
-                    )}
-                    onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }) }}
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                    Settings
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background pb-[env(safe-area-inset-bottom,_0px)]">
-                {renderSidebarContent()}
-              </div>
-            </SheetContent>
-          </Sheet>
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background">
+              {renderSidebarContent()}
+            </div>
+          </MobileEditorSheet>
         )}
 
         {/* ── Canvas ──
@@ -5578,9 +5542,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             style={
               isMobileView
                 ? {
-                    // Real phone — the preview IS the viewport.
+                    // Real phone — preview fills the space between the top bar
+                    // (48px) and the always-visible bottom-sheet peek (72px).
                     width: "100%",
-                    height: "calc(100svh - 48px)",
+                    height: "calc(100svh - 48px - 72px)",
                   }
                 : device === "mobile"
                   ? {
