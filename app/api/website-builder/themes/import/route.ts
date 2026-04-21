@@ -12,6 +12,12 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import JSZip from "jszip"
+import {
+  parseThemePackageManifest,
+  MAX_IMAGE_BYTES_IN_ZIP,
+  ALLOWED_IMAGE_EXTENSIONS,
+  type ThemePackageManifest,
+} from "@/lib/website-builder/theme-package-schema"
 
 const BUCKET = "store-builder-images"
 
@@ -66,25 +72,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing manifest.json — not a storelib export" }, { status: 400 })
   }
 
-  let manifest: {
-    format?: string
-    install?: { name?: string; theme_id?: string; sort_order?: number }
-    settings?: Record<string, unknown>
-    pages?: { page_key: string; sections: unknown }[]
-    image_map?: Record<string, string>
+  // Validate manifest with Zod. This covers: JSON parse errors,
+  // unknown/missing `format`, malformed `install`, malformed `pages`,
+  // and the optional Stage-3 `theme_pack` block. Any failure returns
+  // a helpful pointer (path + reason) so creators editing zips by
+  // hand get a clear error instead of a silent broken install.
+  const manifestRaw = await manifestFile.async("string")
+  const parsed = parseThemePackageManifest(manifestRaw)
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
-  try {
-    manifest = JSON.parse(await manifestFile.async("string"))
-  } catch {
-    return NextResponse.json({ error: "Could not parse manifest.json" }, { status: 400 })
-  }
-
-  if (manifest.format !== "storelib-theme/v1") {
-    return NextResponse.json({ error: `Unsupported format: ${manifest.format}` }, { status: 400 })
-  }
+  const manifest: ThemePackageManifest = parsed.manifest
 
   // Upload every bundled image to the creator's storage and build a
   // remap from "images/<sha>.<ext>" -> the new public URL.
+  // Safety belts:
+  //   • skip files whose extension isn't on the image allow-list
+  //     (nothing in the zip should execute, but belt-and-suspenders)
+  //   • skip files larger than MAX_IMAGE_BYTES_IN_ZIP so one giant
+  //     image can't dominate the 50 MB zip cap
   const localToRemote: Record<string, string> = {}
   const imagesFolder = zip.folder("images")
   if (imagesFolder) {
@@ -94,8 +100,10 @@ export async function POST(req: Request) {
     })
     await Promise.all(entries.map(async entry => {
       try {
+        const ext = (entry.name.split(".").pop() ?? "").toLowerCase()
+        if (!(ALLOWED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return
         const data = await entry.file.async("nodebuffer")
-        const ext = entry.name.split(".").pop()?.toLowerCase() ?? "bin"
+        if (data.byteLength > MAX_IMAGE_BYTES_IN_ZIP) return
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`
         const path = `${user.id}/imported/${safeName}`
         const { error: upErr } = await admin.storage.from(BUCKET).upload(path, data, {
@@ -115,6 +123,20 @@ export async function POST(req: Request) {
   // Rewrite manifest URLs back to the freshly uploaded URLs
   const importedSettings = rewriteUrls(manifest.settings ?? {}, localToRemote) as Record<string, unknown>
   const importedPages = rewriteUrls(manifest.pages ?? [], localToRemote) as { page_key: string; sections: unknown }[]
+
+  // Stage 3 forward-compat: if the manifest includes a `theme_pack`
+  // block (schema-only overrides shipped by the creator), stash it
+  // under a reserved key inside settings so downstream editor/
+  // renderer code can pick it up without needing a schema migration.
+  //
+  // Right now the renderer still resolves schemas from the built-in
+  // default theme (see lib/website-builder/section-schemas.ts).
+  // When that becomes pack-aware the reserved key `_theme_pack` is
+  // already populated on imported installs, so no second migration
+  // is needed on the data. This is deliberately a no-op for v1 zips.
+  if (manifest.theme_pack) {
+    importedSettings._theme_pack = manifest.theme_pack
+  }
 
   // Create a new install (unpublished, sorted to the end)
   const { data: maxRow } = await admin

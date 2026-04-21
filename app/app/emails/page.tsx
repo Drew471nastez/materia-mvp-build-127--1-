@@ -493,24 +493,19 @@ export default function EmailsPage() {
     const currentTab = overrideTab || activeTab
 
     setLoading(true)
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setLoading(false)
-      return
-    }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
 
-    const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+      const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
 
-    if (!creator) {
-      setLoading(false)
-      return
-    }
+      if (!creator) return
 
-    setCreatorId(creator.id)
+      setCreatorId(creator.id)
 
     // Load profile info for seller preview
     const { data: profile } = await supabase
@@ -646,8 +641,11 @@ export default function EmailsPage() {
         setCampaigns([])
       }
     }
-
-    setLoading(false)
+    } catch (err) {
+      console.error("[emails page] loadData failed:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleNewEmail = () => {

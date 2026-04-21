@@ -541,12 +541,41 @@ html.capacitor body {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
-  
+
   .onepage-no-scrollbar::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
   }
+
+  /* Website-builder slim scrollbar — used inside editor dropdowns (URL
+     picker, page/product pickers) where the standard chrome scrollbar
+     looks chunky and out of place. Modern light-gray thumb, no track,
+     rounds to the scrollbar's full width. 4px wide, fades in on hover. */
+  .wb-slim-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  }
+
+  .wb-slim-scroll::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .wb-slim-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .wb-slim-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+    transition: background-color 160ms ease-out;
+  }
+
+  .wb-slim-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.55);
+  }
+
   /* Snap scroll for smooth thumbnail navigation */
   .snap-x {
     scroll-snap-type: x mandatory;
@@ -1830,4 +1859,66 @@ html.capacitor:has([data-page="signup"]) .rotation-guard-overlay,
 html.capacitor:has([data-page="reset-password"]) .rotation-guard-overlay,
 html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   background-color: #ffffff;
+}
+
+/* ── Website-builder black slider (SliderNumberControl) ──
+   Overrides the shared shadcn Slider look: filled black range,
+   black thumb with subtle halo on hover/drag, bigger hit area for
+   smooth drag on mobile + desktop.
+
+   IMPORTANT: hide ticks via `:not([data-slot])` instead of `> div`.
+   The base Slider renders SliderPrimitive.Range as a direct <div> child
+   of Track (with data-slot="slider-range"), so `> div` would also hide
+   the filled range — leaving only a blank track. Targeting only
+   divs WITHOUT a data-slot isolates the tick markers cleanly. */
+.wb-black-slider [data-slot="slider-track"] {
+  background-color: #ececec !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+}
+.wb-black-slider [data-slot="slider-track"] > div:not([data-slot]) {
+  /* Hide the tick dots Slider adds so the filled range reads cleanly */
+  display: none !important;
+}
+.wb-black-slider [data-slot="slider-range"] {
+  background-color: #111111 !important;
+  border-radius: 999px !important;
+  display: block !important;
+}
+.wb-black-slider [data-slot="slider-thumb"] {
+  width: 20px !important;
+  height: 20px !important;
+  background-color: #111111 !important;
+  border: 3px solid #ffffff !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.06) !important;
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms ease !important;
+  cursor: grab !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:hover {
+  transform: scale(1.12) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:active,
+.wb-black-slider [data-slot="slider-thumb"][data-state="active"] {
+  transform: scale(1.18) !important;
+  cursor: grabbing !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3), 0 0 0 8px rgba(0,0,0,0.08) !important;
+  transition-duration: 90ms !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+}
+
+/* ── Website-builder Add-Section modal close animation ──
+   Overrides the base dialog duration so close feels smoother. */
+[data-wb-add-section-modal][data-state="open"] {
+  animation-duration: 260ms !important;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+}
+[data-wb-add-section-modal][data-state="closed"] {
+  animation-duration: 220ms !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
 }

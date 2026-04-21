@@ -130,9 +130,9 @@ export default async function WebsitePublicPage({ params }: PageProps) {
 
   const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
 
+  // No min-h-screen / flex-1 filler — see [sellername]/page.tsx for rationale.
   return (
     <div
-      className="min-h-screen flex flex-col"
       style={{
         backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
         fontFamily: String(themeSettings.font_body ?? "Inter"),
@@ -156,21 +156,19 @@ export default async function WebsitePublicPage({ params }: PageProps) {
         <SectionRenderer key={section.id} section={section} theme={themeSettings} />
       ))}
 
-      {/* Body sections — flex-1 pushes footer to bottom without trailing whitespace */}
-      <div className="flex-1">
-        {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
-          <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-        ))}
+      {/* Body sections — natural flow, no flex filler that creates a visible gap */}
+      {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
+        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
+      ))}
 
-        {sections.length === 0 && (
-          <div className="min-h-[50vh] flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <p className="text-lg font-medium">This website is being set up</p>
-              <p className="text-sm mt-1">Check back soon!</p>
-            </div>
+      {sections.length === 0 && (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-lg font-medium">This website is being set up</p>
+            <p className="text-sm mt-1">Check back soon!</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Footer sections */}
       {sections.filter(s => s.type === "footer").map((section) => (

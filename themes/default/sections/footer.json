@@ -1,0 +1,362 @@
+{
+  "type": "footer",
+  "name": "Footer",
+  "description": "Site footer with logo, links, newsletter, and social icons",
+  "icon": "layout-template",
+  "category": "structure",
+  "fields": [
+    {
+      "id": "hdr_content",
+      "label": "Content",
+      "type": "header"
+    },
+    {
+      "id": "logo_text",
+      "label": "Logo text",
+      "type": "text",
+      "placeholder": "My Store"
+    },
+    {
+      "id": "logo_url",
+      "label": "Logo image",
+      "type": "image"
+    },
+    {
+      "id": "tagline",
+      "label": "Tagline",
+      "type": "text",
+      "placeholder": "Quality products for modern life."
+    },
+    {
+      "id": "copyright",
+      "label": "Copyright text",
+      "type": "text",
+      "placeholder": "© 2026 My Store. All rights reserved."
+    },
+    {
+      "id": "hdr_newsletter",
+      "label": "Newsletter",
+      "type": "header"
+    },
+    {
+      "id": "show_newsletter",
+      "label": "Show newsletter signup",
+      "type": "toggle",
+      "default": false
+    },
+    {
+      "id": "newsletter_heading",
+      "label": "Newsletter heading",
+      "type": "text",
+      "placeholder": "Stay in the loop"
+    },
+    {
+      "id": "newsletter_subtext",
+      "label": "Newsletter subtext",
+      "type": "text",
+      "placeholder": "Get updates on new arrivals and exclusive offers."
+    },
+    {
+      "id": "newsletter_button_text",
+      "label": "Subscribe button text",
+      "type": "text",
+      "placeholder": "Subscribe"
+    },
+    {
+      "id": "hdr_social",
+      "label": "Social Links",
+      "type": "header"
+    },
+    {
+      "id": "show_social",
+      "label": "Show social icons",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "social_instagram",
+      "label": "Instagram URL",
+      "type": "link"
+    },
+    {
+      "id": "social_twitter",
+      "label": "Twitter / X URL",
+      "type": "link"
+    },
+    {
+      "id": "social_facebook",
+      "label": "Facebook URL",
+      "type": "link"
+    },
+    {
+      "id": "social_tiktok",
+      "label": "TikTok URL",
+      "type": "link"
+    },
+    {
+      "id": "social_youtube",
+      "label": "YouTube URL",
+      "type": "link"
+    },
+    {
+      "id": "hdr_style",
+      "label": "Style",
+      "type": "header"
+    },
+    {
+      "id": "bg_color",
+      "label": "Background",
+      "type": "color",
+      "default": "#0f172a"
+    },
+    {
+      "id": "text_color",
+      "label": "Text color",
+      "type": "color",
+      "default": "#94a3b8"
+    },
+    {
+      "id": "heading_color",
+      "label": "Column heading color",
+      "type": "color",
+      "default": "#f8fafc"
+    },
+    {
+      "id": "accent_color",
+      "label": "Accent / link hover color",
+      "type": "color",
+      "default": "#6366f1"
+    },
+    {
+      "id": "divider_color",
+      "label": "Divider color",
+      "type": "color",
+      "default": "#1e293b"
+    },
+    {
+      "id": "hdr_layout",
+      "label": "Layout",
+      "type": "header"
+    },
+    {
+      "id": "columns",
+      "label": "Link columns",
+      "type": "select",
+      "default": "3",
+      "options": [
+        {
+          "label": "1 column",
+          "value": "1"
+        },
+        {
+          "label": "2 columns",
+          "value": "2"
+        },
+        {
+          "label": "3 columns",
+          "value": "3"
+        },
+        {
+          "label": "4 columns",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "id": "max_width",
+      "label": "Container width",
+      "type": "select",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "id": "hdr_padding",
+      "label": "Padding",
+      "type": "header"
+    },
+    {
+      "id": "padding_top",
+      "label": "Padding top",
+      "type": "range",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "id": "padding_bottom",
+      "label": "Padding bottom",
+      "type": "range",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    }
+  ],
+  "blocks": [
+    {
+      "type": "footer_column",
+      "name": "Link column",
+      "fields": [
+        {
+          "id": "heading",
+          "label": "Column heading",
+          "type": "text",
+          "placeholder": "Company"
+        }
+      ]
+    },
+    {
+      "type": "footer_link",
+      "name": "Footer link",
+      "fields": [
+        {
+          "id": "label",
+          "label": "Label",
+          "type": "text",
+          "placeholder": "About us"
+        },
+        {
+          "id": "url",
+          "label": "URL",
+          "type": "link"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 20,
+  "presets": [
+    {
+      "name": "Dark footer with 3 columns",
+      "settings": {
+        "logo_text": "My Store",
+        "tagline": "Quality products for modern life.",
+        "copyright": "© 2026 My Store. All rights reserved.",
+        "show_newsletter": false,
+        "show_social": true,
+        "bg_color": "#0f172a",
+        "text_color": "#94a3b8",
+        "heading_color": "#f8fafc",
+        "accent_color": "#6366f1",
+        "divider_color": "#1e293b",
+        "columns": "3",
+        "padding_top": 60,
+        "padding_bottom": 40
+      },
+      "blocks": [
+        {
+          "id": "col-1",
+          "type": "footer_column",
+          "settings": {
+            "heading": "Shop"
+          }
+        },
+        {
+          "id": "fl-1",
+          "type": "footer_link",
+          "settings": {
+            "label": "All Products",
+            "url": "/products"
+          }
+        },
+        {
+          "id": "fl-2",
+          "type": "footer_link",
+          "settings": {
+            "label": "New Arrivals",
+            "url": "/new"
+          }
+        },
+        {
+          "id": "fl-3",
+          "type": "footer_link",
+          "settings": {
+            "label": "Sale",
+            "url": "/sale"
+          }
+        },
+        {
+          "id": "col-2",
+          "type": "footer_column",
+          "settings": {
+            "heading": "Company"
+          }
+        },
+        {
+          "id": "fl-4",
+          "type": "footer_link",
+          "settings": {
+            "label": "About",
+            "url": "/about"
+          }
+        },
+        {
+          "id": "fl-5",
+          "type": "footer_link",
+          "settings": {
+            "label": "Blog",
+            "url": "/blog"
+          }
+        },
+        {
+          "id": "fl-6",
+          "type": "footer_link",
+          "settings": {
+            "label": "Contact",
+            "url": "/contact"
+          }
+        },
+        {
+          "id": "col-3",
+          "type": "footer_column",
+          "settings": {
+            "heading": "Support"
+          }
+        },
+        {
+          "id": "fl-7",
+          "type": "footer_link",
+          "settings": {
+            "label": "FAQ",
+            "url": "/faq"
+          }
+        },
+        {
+          "id": "fl-8",
+          "type": "footer_link",
+          "settings": {
+            "label": "Shipping",
+            "url": "/shipping"
+          }
+        },
+        {
+          "id": "fl-9",
+          "type": "footer_link",
+          "settings": {
+            "label": "Returns",
+            "url": "/returns"
+          }
+        }
+      ]
+    }
+  ]
+}

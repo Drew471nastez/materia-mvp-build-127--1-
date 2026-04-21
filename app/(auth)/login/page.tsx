@@ -105,25 +105,61 @@ function LoginFormContent() {
     const user = gateSession.user
     const supabase = createClient()
 
+    // Hard safety: if we've been "redirecting" for >6s (DB hang, flaky network,
+    // unhandled error, etc.) force a full-page navigation to /app so the user
+    // is never stuck on the loader forever. This runs in addition to the
+    // per-call timeouts below.
+    const forceNavTimer = window.setTimeout(() => {
+      try {
+        const isNative =
+          typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+          (window as any).Capacitor.isNativePlatform()
+        if (isNative && gateSession.access_token && gateSession.refresh_token) {
+          window.location.assign(
+            `/auth/sync-session` +
+            `?access_token=${encodeURIComponent(gateSession.access_token)}` +
+            `&refresh_token=${encodeURIComponent(gateSession.refresh_token)}` +
+            `&next=${encodeURIComponent("/app")}`
+          )
+        } else {
+          window.location.assign("/app")
+        }
+      } catch {
+        window.location.assign("/app")
+      }
+    }, 6000)
+
+    // Per-query timeout so a hung DB round-trip can never block the redirect.
+    const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race<T | null>([
+        p,
+        new Promise<null>(resolve => window.setTimeout(() => resolve(null), ms)),
+      ])
+
     const determineAndRedirect = async () => {
-      // Check onboarding status to determine destination
-      const { data: creatorRow } = await supabase
-        .from("creators")
-        .select("id, onboarding_completed")
-        .eq("user_id", user.id)
-        .maybeSingle()
+      const creatorRes = await withTimeout(
+        supabase.from("creators").select("id, onboarding_completed").eq("user_id", user.id).maybeSingle(),
+        3500,
+      )
+      const creatorRow = (creatorRes as any)?.data as { id: string; onboarding_completed: boolean } | null | undefined
 
       let nextPath = "/signup/success"
       if (creatorRow?.onboarding_completed) {
         nextPath = "/app"
+      } else if (creatorRow === undefined) {
+        // Query timed out — assume creator to keep flow moving; layout will re-check.
+        nextPath = "/app"
       } else {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_creator, welcome_completed")
-          .eq("id", user.id)
-          .maybeSingle()
+        const profileRes = await withTimeout(
+          supabase.from("profiles").select("is_creator, welcome_completed").eq("id", user.id).maybeSingle(),
+          3500,
+        )
+        const profile = (profileRes as any)?.data as { is_creator: boolean; welcome_completed: boolean } | null | undefined
         if (profile?.welcome_completed) {
           nextPath = profile.is_creator ? "/app" : "/library"
+        } else if (profile === undefined) {
+          // Timed out — default to /app; /app layout will re-check.
+          nextPath = "/app"
         }
       }
 
@@ -136,6 +172,8 @@ function LoginFormContent() {
       if (nextPath === "/app" || nextPath === "/library") {
         cacheNativeHome(nextPath)
       }
+
+      window.clearTimeout(forceNavTimer)
 
       if (isNative) {
         window.location.assign(
@@ -151,8 +189,13 @@ function LoginFormContent() {
 
     determineAndRedirect().catch((err) => {
       console.error("Auth check error:", err)
+      window.clearTimeout(forceNavTimer)
       setIsRedirecting(false)
     })
+
+    return () => {
+      window.clearTimeout(forceNavTimer)
+    }
   }, [router, authGateLoading, nativeAuthInProgress, gateSession])
 
   useEffect(() => {

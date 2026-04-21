@@ -3548,7 +3548,11 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         <Card className={`border-[#e5e7eb] bg-white transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${isRefreshing ? "opacity-60 blur-[1px]" : showSampleData && !hasRealData ? "opacity-60 blur-0" : "opacity-100 blur-0"}`}>
           <CardHeader className="pb-0 pt-3">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
+              <InfoHoverLabel
+                label="Visitors by Country"
+                title="Visitors by Country"
+                description="Where your visitors are coming from, ranked by views."
+              />
               {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
             </div>
           </CardHeader>

@@ -15,16 +15,22 @@ export default function BlogAdminLoginClient() {
     setLoading(true)
     setError("")
 
-    const res = await fetch("/api/admin/blog/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    })
+    try {
+      const res = await fetch("/api/admin/blog/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      })
 
-    if (res.ok) {
-      router.push("/admin/blog/dashboard")
-    } else {
+      if (res.ok) {
+        router.push("/admin/blog/dashboard")
+        return
+      }
       setError("Invalid username or password")
+    } catch (err) {
+      console.error("[blog-admin] login failed:", err)
+      setError("Network error. Please try again.")
+    } finally {
       setLoading(false)
     }
   }

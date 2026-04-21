@@ -1,0 +1,71 @@
+"use client"
+
+// Timeline — vertical "our story" section. Supports left-aligned,
+// center-aligned, or alternating layouts with a connector line and
+// per-item highlight color.
+
+import { str, SectionWrapper, type SectionProps } from "../_shared"
+
+export function TimelineSection({ section, isEditing, isSelected, onClick }: SectionProps) {
+  const s = section.settings
+  const blocks = section.blocks ?? []
+  const bg = str(s.bg_color, "#ffffff")
+  const color = str(s.text_color, "#111111")
+  const connector = str(s.connector_color, "#d0d0d0")
+  const dotColor = str(s.dot_color, "#111111")
+  const dotSize = typeof s.dot_size === "number" ? s.dot_size : 16
+  const layout = str(s.layout, "alternating")
+  const padTop = typeof s.padding_top === "number" ? s.padding_top : 80
+  const padBottom = typeof s.padding_bottom === "number" ? s.padding_bottom : 80
+
+  return (
+    <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
+      <div className="max-w-5xl mx-auto px-6" style={{ color, paddingTop: padTop, paddingBottom: padBottom }}>
+        {(!!s.heading || !!s.subheading) && (
+          <div className="text-center mb-12">
+            {!!s.heading && <h2 className="text-3xl font-bold mb-2">{str(s.heading)}</h2>}
+            {!!s.subheading && <p className="opacity-70">{str(s.subheading)}</p>}
+          </div>
+        )}
+        <div className="relative">
+          <div
+            className={`absolute top-0 bottom-0 w-px ${layout === "center" || layout === "alternating" ? "left-1/2 -translate-x-1/2" : "left-5"}`}
+            style={{ background: connector }}
+          />
+          <div className="space-y-12">
+            {blocks.map((b, i) => {
+              const side = layout === "alternating" ? (i % 2 === 0 ? "left" : "right") : str(b.settings.side, layout === "left" ? "left" : "right")
+              const highlight = str(b.settings.highlight_color, "#e67e22")
+              const isRight = side === "right" && (layout === "center" || layout === "alternating")
+              return (
+                <div key={b.id} className="relative">
+                  <div
+                    className={`absolute ${layout === "left" ? "left-5 -translate-x-1/2" : "left-1/2 -translate-x-1/2"} rounded-full z-10`}
+                    style={{ width: dotSize, height: dotSize, background: dotColor, top: 6 }}
+                  />
+                  <div className={
+                    layout === "left"
+                      ? "pl-14"
+                      : isRight
+                        ? "md:ml-[50%] md:pl-10"
+                        : "md:mr-[50%] md:pr-10 md:text-right"
+                  }>
+                    <div className="text-sm font-semibold mb-1" style={{ color: highlight }}>{str(b.settings.year)}</div>
+                    <h3 className="text-xl font-bold mb-2">{str(b.settings.title)}</h3>
+                    <p className="text-sm opacity-80">{str(b.settings.description)}</p>
+                    {!!b.settings.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={str(b.settings.image)} alt="" className="mt-3 rounded w-full max-w-sm" />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </SectionWrapper>
+  )
+}
+
+export default TimelineSection

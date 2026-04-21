@@ -11,6 +11,10 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import JSZip from "jszip"
 import crypto from "crypto"
+import {
+  CURRENT_THEME_PACKAGE_FORMAT,
+  type ThemePackageManifest,
+} from "@/lib/website-builder/theme-package-schema"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -125,16 +129,20 @@ export async function GET(_req: Request, { params }: Params) {
   const exportSettings = rewriteImageUrls(settings, imageMap)
   const exportSections = rewriteImageUrls(exportPages, imageMap)
 
-  const manifest = {
-    format: "storelib-theme/v1",
+  // Build the manifest. Format bumped to v2 (supersets v1) so we
+  // can ship the optional `theme_pack` block for schema packs.
+  // This install currently uses the built-in default theme, so the
+  // theme_pack is omitted — the importer falls back to default.
+  const manifest: ThemePackageManifest = {
+    format: CURRENT_THEME_PACKAGE_FORMAT,
     exported_at: new Date().toISOString(),
     install: {
       name: install.name,
-      theme_id: install.theme_id,
+      theme_id: install.theme_id ?? undefined,
       sort_order: install.sort_order,
     },
-    settings: exportSettings,
-    pages: exportSections,
+    settings: exportSettings as Record<string, unknown>,
+    pages: exportSections as { page_key: string; sections: unknown }[],
     image_map: imageMap,
   }
 

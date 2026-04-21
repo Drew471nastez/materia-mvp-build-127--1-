@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
+
+// ── Request schema ───────────────────────────────────────────
+// We keep `settings` as a free-form record (section schemas vary widely)
+// but cap it to reasonable shapes so callers can't inject crazy payloads.
+const BlockSchema = z.object({
+  id: z.string().min(1).max(128),
+  type: z.string().min(1).max(64),
+  settings: z.record(z.unknown()),
+})
+
+const SectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  type: z.string().min(1).max(64),
+  name: z.string().max(256),
+  settings: z.record(z.unknown()),
+  blocks: z.array(BlockSchema).max(500).optional(),
+  hidden: z.boolean().optional(),
+})
+
+const PutBodySchema = z.object({
+  page_key: z.string().min(1).max(64),
+  sections: z.array(SectionSchema).max(500),
+  mode: z.enum(["draft", "publish"]).optional(),
+})
 
 async function getCreatorInstall(installId: string) {
   const supabase = await createClient()
@@ -56,15 +81,25 @@ export async function PUT(req: Request, { params }: Params) {
   const { error, status, supabase } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
-  const body = await req.json()
-  const { page_key, sections, mode } = body as {
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const parsed = PutBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid body", issues: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+  const { page_key, sections, mode } = parsed.data as {
     page_key: string
     sections: SectionInstance[]
     mode?: "draft" | "publish"
   }
-
-  if (!page_key) return NextResponse.json({ error: "page_key required" }, { status: 400 })
-  if (!Array.isArray(sections)) return NextResponse.json({ error: "sections must be array" }, { status: 400 })
 
   const update =
     mode === "publish"

@@ -1,0 +1,378 @@
+{
+  "type": "header",
+  "name": "Header",
+  "description": "Site-wide navigation bar with logo, links, and CTA",
+  "icon": "layout-template",
+  "category": "structure",
+  "fields": [
+    {
+      "id": "hdr_logo",
+      "label": "Logo",
+      "type": "header"
+    },
+    {
+      "id": "logo_text",
+      "label": "Store title",
+      "type": "text",
+      "placeholder": "My Store"
+    },
+    {
+      "id": "logo_url",
+      "label": "Logo image",
+      "type": "image"
+    },
+    {
+      "id": "logo_height",
+      "label": "Logo height",
+      "type": "range",
+      "min": 20,
+      "max": 160,
+      "step": 2,
+      "unit": "px",
+      "default": 64
+    },
+    {
+      "id": "logo_horizontal_offset_enabled",
+      "label": "Custom logo horizontal position",
+      "type": "toggle",
+      "default": false
+    },
+    {
+      "id": "logo_horizontal_offset_px",
+      "label": "Logo horizontal offset",
+      "type": "range",
+      "min": -120,
+      "max": 120,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "id": "use_mobile_logo",
+      "label": "Use different logo for mobile devices",
+      "type": "toggle",
+      "default": false
+    },
+    {
+      "id": "mobile_logo_url",
+      "label": "Mobile logo image",
+      "type": "image"
+    },
+    {
+      "id": "mobile_logo_height",
+      "label": "Mobile logo height",
+      "type": "range",
+      "min": 20,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 32
+    },
+    {
+      "id": "mobile_logo_horizontal_offset_enabled",
+      "label": "Custom mobile logo horizontal position",
+      "type": "toggle",
+      "default": false
+    },
+    {
+      "id": "mobile_logo_horizontal_offset_px",
+      "label": "Mobile logo horizontal offset",
+      "type": "range",
+      "min": -80,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+
+    {
+      "id": "hdr_layout",
+      "label": "Layout",
+      "type": "header"
+    },
+    {
+      "id": "header_layout",
+      "label": "Header layout",
+      "type": "select",
+      "default": "logo_left_nav_right",
+      "options": [
+        { "label": "Logo left, nav right",      "value": "logo_left_nav_right" },
+        { "label": "Logo left, nav inline",     "value": "logo_left_nav_inline" },
+        { "label": "Logo left, nav centered",   "value": "logo_left_nav_center" },
+        { "label": "Nav left, logo centered",   "value": "nav_left_logo_center" },
+        { "label": "Logo centered, nav below",  "value": "logo_center_nav_below" }
+      ]
+    },
+    {
+      "id": "mobile_header_layout",
+      "label": "Mobile header layout",
+      "type": "select",
+      "default": "logo_center_hamburger_left",
+      "options": [
+        { "label": "Logo centered · Hamburger left", "value": "logo_center_hamburger_left" },
+        { "label": "Hamburger left · Logo left",     "value": "hamburger_left_logo_left" }
+      ]
+    },
+    {
+      "id": "header_width",
+      "label": "Header width",
+      "type": "select",
+      "default": "wide",
+      "info": "Controls the maximum width of the header content on large (desktop) screens.",
+      "options": [
+        { "label": "Narrow",     "value": "narrow" },
+        { "label": "Medium",     "value": "medium" },
+        { "label": "Wide",       "value": "wide" },
+        { "label": "Full width", "value": "full" }
+      ]
+    },
+    {
+      "id": "vertical_padding_vw",
+      "label": "Vertical padding",
+      "type": "range",
+      "min": 0,
+      "max": 5,
+      "step": 0.1,
+      "unit": "vw",
+      "default": 1.2
+    },
+    {
+      "id": "link_spacing_vw",
+      "label": "Space between menu links",
+      "type": "range",
+      "min": 0.2,
+      "max": 5,
+      "step": 0.1,
+      "unit": "vw",
+      "default": 1.4
+    },
+
+    {
+      "id": "hdr_sticky",
+      "label": "Sticky behaviour",
+      "type": "header"
+    },
+    {
+      "id": "header_sticky_enabled",
+      "label": "Enable sticky header",
+      "type": "toggle",
+      "default": true,
+      "info": "Header stays pinned to the top as the visitor scrolls."
+    },
+    {
+      "id": "header_sticky_on_scroll_up",
+      "label": "Sticky on scroll up",
+      "type": "toggle",
+      "default": false,
+      "info": "Only reveal the sticky header when scrolling up — hides on scroll down."
+    },
+    {
+      "id": "header_transparent",
+      "label": "Make header transparent",
+      "type": "toggle",
+      "default": false
+    },
+
+    {
+      "id": "hdr_border",
+      "label": "Border & shadow",
+      "type": "header"
+    },
+    {
+      "id": "show_bottom_border",
+      "label": "Show bottom border",
+      "type": "toggle",
+      "default": true,
+      "info": "Shows a 1px line at the bottom of the header to visually separate it from the page content."
+    },
+    {
+      "id": "border_style",
+      "label": "Border style",
+      "type": "radio",
+      "default": "solid",
+      "options": [
+        { "label": "Solid",  "value": "solid" },
+        { "label": "Subtle", "value": "subtle" }
+      ]
+    },
+    {
+      "id": "border_visibility",
+      "label": "Show border on",
+      "type": "select",
+      "default": "all",
+      "options": [
+        { "label": "All pages",         "value": "all" },
+        { "label": "Homepage only",     "value": "home_only" },
+        { "label": "Inner pages only",  "value": "inner_only" },
+        { "label": "None",              "value": "none" }
+      ]
+    },
+    {
+      "id": "header_depth_shadow",
+      "label": "Subtle depth shadow",
+      "type": "toggle",
+      "default": true,
+      "info": "Adds a soft shadow underneath the header so it feels gently lifted off the page."
+    },
+
+    {
+      "id": "hdr_colors",
+      "label": "Colors",
+      "type": "header"
+    },
+    {
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "type": "select",
+      "default": "white",
+      "options": [
+        { "label": "White",     "value": "white" },
+        { "label": "Light",     "value": "light" },
+        { "label": "Dark",      "value": "dark" },
+        { "label": "Black",     "value": "black" },
+        { "label": "Highlight", "value": "highlight" }
+      ]
+    },
+    {
+      "id": "bg_color",
+      "label": "Background",
+      "type": "color",
+      "default": "#ffffff"
+    },
+    {
+      "id": "text_color",
+      "label": "Text color",
+      "type": "color",
+      "default": "#0f172a"
+    },
+    {
+      "id": "border_color",
+      "label": "Border color",
+      "type": "color",
+      "default": "#e2e8f0"
+    },
+    {
+      "id": "nav_link_color",
+      "label": "Nav link color",
+      "type": "color",
+      "default": "#000000"
+    },
+    {
+      "id": "menu_link_hover_style",
+      "label": "Menu link hover style",
+      "type": "select",
+      "default": "inherit",
+      "options": [
+        { "label": "Inherit (theme default)", "value": "inherit" },
+        { "label": "None",                    "value": "none" },
+        { "label": "Underline",               "value": "underline" },
+        { "label": "Underline (reverse)",     "value": "underline_reverse" },
+        { "label": "Fade siblings",           "value": "fade_siblings" }
+      ]
+    },
+
+    {
+      "id": "hdr_elements",
+      "label": "Header elements",
+      "type": "header"
+    },
+    {
+      "id": "show_search",
+      "label": "Show search icon",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "show_account_icon",
+      "label": "Show account icon",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "show_wishlist_icon",
+      "label": "Show wishlist icon",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "show_cart",
+      "label": "Show cart icon",
+      "type": "toggle",
+      "default": true
+    },
+
+    {
+      "id": "hdr_button",
+      "label": "Call to action button",
+      "type": "header"
+    },
+    {
+      "id": "show_cta_button",
+      "label": "Show call to action button",
+      "type": "toggle",
+      "default": true
+    },
+    {
+      "id": "cta_text",
+      "label": "Button text",
+      "type": "text",
+      "placeholder": "Shop Now",
+      "default": "Shop Now"
+    },
+    {
+      "id": "cta_url",
+      "label": "Button URL",
+      "type": "link"
+    },
+    {
+      "id": "cta_color",
+      "label": "Button color",
+      "type": "color",
+      "default": "#6366f1"
+    },
+    {
+      "id": "cta_text_color",
+      "label": "Button text color",
+      "type": "color",
+      "default": "#ffffff"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "nav_link",
+      "name": "Nav link",
+      "fields": [
+        {
+          "id": "label",
+          "label": "Label",
+          "type": "text",
+          "placeholder": "Home"
+        },
+        {
+          "id": "url",
+          "label": "URL",
+          "type": "link"
+        },
+        {
+          "id": "open_in_new_tab",
+          "label": "Open in new tab",
+          "type": "toggle",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "Default",
+      "settings": {},
+      "blocks": [
+        { "id": "nav-home",    "type": "nav_link", "settings": { "label": "Home",    "url": "/",         "link_type": "custom" } },
+        { "id": "nav-shop",    "type": "nav_link", "settings": { "label": "Shop",    "url": "/shop",     "link_type": "custom" } },
+        { "id": "nav-about",   "type": "nav_link", "settings": { "label": "About",   "url": "/about",    "link_type": "custom" } },
+        { "id": "nav-contact", "type": "nav_link", "settings": { "label": "Contact", "url": "/contact",  "link_type": "custom" } }
+      ]
+    }
+  ]
+}

@@ -221,9 +221,21 @@ export default async function SellerWebsitePage({ params }: PageProps) {
 
   const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
 
+  // NOTE on the "black gap" bug:
+  // Previously this page used `min-h-screen flex flex-col` + `flex-1` on
+  // the body container to pin the footer to the bottom of the viewport on
+  // short pages. The problem: when the user's page has less content than
+  // a full viewport, the `flex-1` body stretches to fill the gap and
+  // exposes the outer div's `backgroundColor` — which on dark themes
+  // renders as a visible BLACK band between the hero and the footer.
+  // The editor preview doesn't use this flex pattern (it's a contained
+  // scroll canvas), which is why the gap was live-only and invisible in
+  // the editor.
+  //
+  // Fix: let sections flow naturally. No fake vertical filler. If the
+  // user has a short page, the page is short — no gap is fabricated.
   return (
     <div
-      className="min-h-screen flex flex-col"
       style={{
         backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
         fontFamily: String(themeSettings.font_body ?? "Inter"),
@@ -247,21 +259,19 @@ export default async function SellerWebsitePage({ params }: PageProps) {
         <SectionRenderer key={section.id} section={section} theme={themeSettings} />
       ))}
 
-      {/* Body sections — flex-1 pushes footer to bottom without trailing whitespace */}
-      <div className="flex-1">
-        {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
-          <SectionRenderer key={section.id} section={section} theme={themeSettings} />
-        ))}
+      {/* Body sections — natural flow, no flex filler that creates a visible gap */}
+      {sections.filter(s => s.type !== "header" && s.type !== "footer").map((section) => (
+        <SectionRenderer key={section.id} section={section} theme={themeSettings} />
+      ))}
 
-        {sections.length === 0 && (
-          <div className="min-h-[50vh] flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <p className="text-lg font-medium">This website is being set up</p>
-              <p className="text-sm mt-1">Check back soon!</p>
-            </div>
+      {sections.length === 0 && (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-lg font-medium">This website is being set up</p>
+            <p className="text-sm mt-1">Check back soon!</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Footer sections */}
       {sections.filter(s => s.type === "footer").map((section) => (

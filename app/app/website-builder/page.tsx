@@ -256,9 +256,14 @@ function RenameDialog({
   const handleSave = async () => {
     if (!install || !name.trim()) return
     setLoading(true)
-    await onSave(install.id, name.trim())
-    setLoading(false)
-    onClose()
+    try {
+      await onSave(install.id, name.trim())
+    } catch (err) {
+      console.error("[website-builder] rename failed:", err)
+    } finally {
+      setLoading(false)
+      onClose()
+    }
   }
 
   return (
@@ -295,9 +300,14 @@ function DeleteDialog({
   const handleDelete = async () => {
     if (!install) return
     setLoading(true)
-    await onDelete(install.id)
-    setLoading(false)
-    onClose()
+    try {
+      await onDelete(install.id)
+    } catch (err) {
+      console.error("[website-builder] delete failed:", err)
+    } finally {
+      setLoading(false)
+      onClose()
+    }
   }
 
   return (
@@ -350,19 +360,29 @@ export default function WebsiteBuilderPage() {
   useEffect(() => {
     async function init() {
       setLoading(true)
-      const res = await fetch("/api/website-builder/themes")
-      if (!res.ok) { setLoading(false); return }
-      const data = await res.json()
-      if (data.username) setUsername(data.username)
-      if ((data.installs ?? []).length === 0) {
-        setInitializing(true)
-        await fetch("/api/website-builder/initialize", { method: "POST" })
-        setInitializing(false)
-        await loadInstalls()
-      } else {
-        setInstalls(data.installs)
+      try {
+        const res = await fetch("/api/website-builder/themes")
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.username) setUsername(data.username)
+        if ((data.installs ?? []).length === 0) {
+          setInitializing(true)
+          try {
+            await fetch("/api/website-builder/initialize", { method: "POST" })
+          } catch (err) {
+            console.error("[website-builder] initialize failed:", err)
+          } finally {
+            setInitializing(false)
+          }
+          await loadInstalls()
+        } else {
+          setInstalls(data.installs)
+        }
+      } catch (err) {
+        console.error("[website-builder] init failed:", err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     init()
   }, [loadInstalls])
@@ -375,7 +395,15 @@ export default function WebsiteBuilderPage() {
 
   const goToEditor = (installId: string) => {
     startNavigationLoading()
-    router.push(`/website-builder/editor/${installId}`)
+    // Canonical editor URL is the Shopify-style
+    //   /store/{creatorSlug}/themes/{installId}/editor?previewPath=/
+    // When we don't have a creator slug yet (rare race on first load), fall
+    // back to the legacy path — it's still wired up and will keep working.
+    if (username) {
+      router.push(`/store/${encodeURIComponent(username)}/themes/${installId}/editor?previewPath=%2F`)
+    } else {
+      router.push(`/website-builder/editor/${installId}?previewPath=%2F`)
+    }
   }
 
   const handleAction = async (action: string, install: ThemeInstall) => {
@@ -521,7 +549,8 @@ export default function WebsiteBuilderPage() {
 
   if (loading || initializing) {
     return (
-      <div className="max-w-[810px] mx-auto px-5 py-8 animate-in fade-in duration-200">
+      <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] skeleton-deferred">
+        <div className="max-w-[810px] mx-auto px-5 py-8">
         {/* Page header skeleton */}
         <div className="flex items-start justify-between mb-8">
           <div>
@@ -590,6 +619,7 @@ export default function WebsiteBuilderPage() {
             ))}
           </div>
         </section>
+        </div>
       </div>
     )
   }
@@ -598,7 +628,8 @@ export default function WebsiteBuilderPage() {
   const websiteDisplay = username ? getWebsiteUrlDisplay(username) : ""
 
   return (
-    <div className="max-w-[810px] mx-auto px-5 py-8">
+    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] app-page-enter">
+      <div className="max-w-[810px] mx-auto px-5 py-8">
       {/* ── Page header with View Live + URL ── */}
       <div className="flex items-start justify-between mb-8">
         <div>
@@ -657,9 +688,8 @@ export default function WebsiteBuilderPage() {
                   <Button
                     size="sm"
                     onClick={() => goToEditor(liveTheme.id)}
-                    className="gap-1.5 bg-neutral-900 hover:bg-neutral-800 text-white"
+                    className="bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200"
                   >
-                    <Palette className="h-3.5 w-3.5" />
                     Customize Website
                   </Button>
                   <DropdownMenu>
@@ -763,13 +793,22 @@ export default function WebsiteBuilderPage() {
                     <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
                   </div>
                 )}
-                {/* Thumbnail */}
-                <button
+                {/* Thumbnail — div (not button) because ThemePreview contains
+                    its own buttons (search/cart); nested buttons fail hydration. */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => goToEditor(install.id)}
-                  className="shrink-0 w-[110px] h-[72px] rounded-lg overflow-hidden border border-neutral-200/80 bg-neutral-50 hover:border-neutral-300 transition-colors cursor-pointer"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      goToEditor(install.id)
+                    }
+                  }}
+                  className="shrink-0 w-[110px] h-[72px] rounded-lg overflow-hidden border border-neutral-200/80 bg-neutral-50 hover:border-neutral-300 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
                 >
                   <ThemePreview install={install} aspectClass="aspect-[110/72]" />
-                </button>
+                </div>
                 {/* Metadata */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -817,7 +856,7 @@ export default function WebsiteBuilderPage() {
                   </Button>
                   <Button
                     size="sm"
-                    className="h-8 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white"
+                    className="h-8 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white transition-colors duration-200"
                     onClick={() => goToEditor(install.id)}
                   >
                     Edit theme
@@ -906,6 +945,7 @@ export default function WebsiteBuilderPage() {
         install={deleteInstall}
         onDelete={handleDelete}
       />
+      </div>
     </div>
   )
 }

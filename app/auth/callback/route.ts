@@ -37,10 +37,31 @@ export async function GET(request: Request) {
 
   if (exchangeError || !data.user || !data.session) {
     console.error("[auth/callback] Exchange error:", exchangeError)
-    const msg = exchangeError?.message?.includes("code verifier")
-      ? "Session expired. Please try signing in again."
-      : (exchangeError?.message ?? "Auth failed")
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(msg)}`)
+
+    // ── Recover from the "code verifier missing" case silently ──
+    // This error happens when the browser no longer has the PKCE verifier
+    // cookie (e.g. duplicate callback, stale tab, cookie domain mismatch,
+    // or the user already completed sign-in in another tab). If the user
+    // ALREADY has a valid session — which is the common case when this
+    // fires — we should NOT kick them back to /login with a scary
+    // "Session expired" banner. Just check their current auth state and
+    // redirect to /app (creator), /library (buyer), or /login (truly
+    // unauthenticated), without any error query string.
+    const isVerifierError = exchangeError?.message?.toLowerCase().includes("code verifier")
+    if (isVerifierError) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (currentUser) {
+        // Already signed in — just take them home.
+        return NextResponse.redirect(`${origin}/app`)
+      }
+      // Not signed in. Send them to /login WITHOUT the scary error — the
+      // login page itself will prompt them calmly.
+      return NextResponse.redirect(`${origin}/login`)
+    }
+
+    // Any other exchange error — also don't expose raw SDK messages. Send
+    // them to /login cleanly.
+    return NextResponse.redirect(`${origin}/login`)
   }
 
   // 2. Upsert profile

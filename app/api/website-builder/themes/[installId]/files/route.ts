@@ -1,8 +1,24 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
 
 type Params = { params: Promise<{ installId: string }> }
+
+// Max 1MB per file is plenty for theme source files (JSON / Liquid-ish).
+const MAX_FILE_BYTES = 1_000_000
+
+const FilesBodySchema = z.object({
+  path: z
+    .string()
+    .min(1)
+    .max(256)
+    // No path traversal, no absolute paths, no null bytes, no backslashes.
+    .refine(p => !p.includes("..") && !p.startsWith("/") && !p.includes("\0") && !p.includes("\\"), {
+      message: "Invalid path",
+    }),
+  content: z.string().max(MAX_FILE_BYTES),
+})
 
 async function getCreatorInstall(installId: string) {
   const supabase = await createClient()
@@ -65,16 +81,20 @@ export async function PUT(req: Request, { params }: Params) {
   const { error, status, supabase } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
-  const body = await req.json()
-  const { path, content } = body as { path?: string; content?: string }
-
-  if (!path?.trim()) return NextResponse.json({ error: "path required" }, { status: 400 })
-  if (content === undefined) return NextResponse.json({ error: "content required" }, { status: 400 })
-
-  // Basic path safety — no traversal
-  if (path.includes("..") || path.startsWith("/")) {
-    return NextResponse.json({ error: "Invalid path" }, { status: 400 })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
+  const parsed = FilesBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid body", issues: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+  const { path, content } = parsed.data
 
   // Upsert
   const { data, error: upsertErr } = await supabase
@@ -97,6 +117,11 @@ export async function DELETE(req: Request, { params }: Params) {
   const { searchParams } = new URL(req.url)
   const path = searchParams.get("path")
   if (!path) return NextResponse.json({ error: "path required" }, { status: 400 })
+  // Same path-safety rules as PUT — belt & suspenders even though we only
+  // equality-match against existing rows.
+  if (path.length > 256 || path.includes("..") || path.startsWith("/") || path.includes("\0") || path.includes("\\")) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 })
+  }
 
   await supabase
     .from("store_theme_custom_files")

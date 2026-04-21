@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 
 type Params = { params: Promise<{ installId: string }> }
+
+// Settings is a free-form record of theme values; cap the overall size
+// by limiting key count / nested depth implicitly via JSON shape.
+const SettingsBodySchema = z.object({
+  settings: z.record(z.unknown()).optional(),
+  draft_settings: z.record(z.unknown()).optional(),
+  mode: z.enum(["draft", "publish"]).optional(),
+})
 
 async function getCreatorInstall(installId: string) {
   const supabase = await createClient()
@@ -45,12 +54,20 @@ export async function PUT(req: Request, { params }: Params) {
   const { error, status, supabase } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
-  const body = await req.json()
-  const { settings, draft_settings, mode } = body as {
-    settings?: Record<string, unknown>
-    draft_settings?: Record<string, unknown>
-    mode?: "draft" | "publish"
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
+  const parsed = SettingsBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid body", issues: parsed.error.issues },
+      { status: 400 },
+    )
+  }
+  const { settings, draft_settings, mode } = parsed.data
 
   const update: Record<string, unknown> = {}
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef, use } from "react"
+import { useEffect, useState, useCallback, useMemo, useRef, use } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -15,6 +15,8 @@ import {
   Menu, Undo2, Redo2, PanelLeft, ExternalLink, Link2,
   Search, FileText, ArrowRight, FolderOpen, MoreHorizontal,
   Upload, ImageIcon, Info, RefreshCw, Crop, CheckCircle,
+  Type, Square, Rows3, Grid3x3, MousePointerClick,
+  MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon,
 } from "lucide-react"
 import {
   DndContext,
@@ -47,6 +49,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { Slider } from "@/components/ui/slider"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
   ThemeInstall, SectionInstance, ThemeSettingsValues,
   PageKey, EditorPanel, SchemaField, ColorSchemeValues, ColorSchemeKey,
@@ -57,6 +60,86 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+
+// ── Custom back-with-bar icon (topbar) ──────────────────────
+function BackWithBarIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 512 512"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect x="21.333" y="85.333" width="42.666" height="341.334" />
+      <path d="M490.667 234.667 H185.333 L316 104 L286.083 74.083 L104.833 255.333 L286.083 436.583 L316 406.667 L185.333 277.333 H490.667 Z" />
+    </svg>
+  )
+}
+
+// ── Thin page-load progress bar (single A→B sweep) ──────────
+// NProgress-style: while `active` is true, the bar creeps from 0 → ~90%
+// on an ease-out curve (never looping). When `active` flips false, the
+// bar snaps to 100% and fades out. There is NO repeating / double
+// animation — one clean sweep per load.
+function WbLoadProgressBar({ active }: { active: boolean }) {
+  const [progress, setProgress] = useState(0)
+  const [visible, setVisible] = useState(false)
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  useEffect(() => {
+    const clearTimers = () => {
+      timersRef.current.forEach(t => clearTimeout(t))
+      timersRef.current = []
+    }
+
+    if (active) {
+      clearTimers()
+      setVisible(true)
+      // Kick off the ease-out creep: 0 → 30 → 60 → 80 → 90.
+      // We never touch 100 while active so the bar can't visually "restart".
+      setProgress(0)
+      timersRef.current.push(setTimeout(() => setProgress(30), 30))
+      timersRef.current.push(setTimeout(() => setProgress(60), 350))
+      timersRef.current.push(setTimeout(() => setProgress(80), 900))
+      timersRef.current.push(setTimeout(() => setProgress(90), 1800))
+    } else if (visible) {
+      // Finish the sweep: snap to 100, fade out, then reset.
+      clearTimers()
+      setProgress(100)
+      timersRef.current.push(setTimeout(() => setVisible(false), 260))
+      timersRef.current.push(setTimeout(() => setProgress(0), 560))
+    }
+
+    return clearTimers
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  return (
+    <div
+      aria-hidden
+      className="relative h-[1.5px] w-full overflow-hidden bg-transparent pointer-events-none"
+      style={{
+        // Subtler overall opacity so the bar reads as a hint of progress,
+        // not a UI chrome element fighting for attention.
+        opacity: visible ? 0.9 : 0,
+        transition: "opacity 280ms ease-out",
+      }}
+    >
+      <div
+        className="h-full"
+        style={{
+          width: `${progress}%`,
+          // Flat, modern blue (Tailwind blue-500 → blue-600). No purple/indigo
+          // gradient and no glow — keeps it calm and subtle.
+          background: "#3b82f6",
+          transition: "width 380ms cubic-bezier(0.22, 1, 0.36, 1)",
+          willChange: "width",
+        }}
+      />
+    </div>
+  )
+}
 
 // ── Logo sync maps (header section ↔ theme settings) ────────
 const LOGO_SYNC_HEADER_TO_THEME: Record<string, string> = {
@@ -72,6 +155,128 @@ const LOGO_SYNC_THEME_TO_HEADER: Record<string, string> = {
   mobile_logo_url: "mobile_logo_url",
   mobile_logo_width: "mobile_logo_height",
   use_mobile_logo: "use_mobile_logo",
+}
+
+// ── URL ⇄ editor-state mapping (Shopify-style `previewPath`) ─
+// The canonical URL shape is
+//   /store/{creatorSlug}/themes/{installId}/editor?previewPath={path}
+// where `previewPath` is URL-encoded and mirrors the live-site path the
+// user is currently previewing. We also accept the legacy `?page=X[&product=Y]`
+// query string so existing deep-links keep working.
+type ParsedPreview = {
+  page: "home" | "product" | "about" | "contact"
+  productSlug?: string
+  productTitle?: string
+}
+
+function parsePreviewFromSearch(search: string): ParsedPreview {
+  const params = new URLSearchParams(search)
+
+  // Legacy format: ?page=home&product=My+Title
+  const legacyPage = params.get("page")
+  if (legacyPage) {
+    const title = params.get("product") ?? undefined
+    return { page: legacyPage as ParsedPreview["page"], productTitle: title }
+  }
+
+  // New format: ?previewPath=/products/my-slug  (URL-decoded by URLSearchParams)
+  const preview = params.get("previewPath")
+  if (!preview) return { page: "home" }
+  const normalized = preview.startsWith("/") ? preview : `/${preview}`
+  const pathOnly = normalized.split("?")[0].split("#")[0].replace(/\/$/, "") || "/"
+
+  if (pathOnly === "/") return { page: "home" }
+  if (pathOnly === "/about") return { page: "about" }
+  if (pathOnly === "/contact") return { page: "contact" }
+  if (pathOnly.startsWith("/products/")) {
+    const slug = pathOnly.slice("/products/".length).split("/")[0]
+    return { page: "product", productSlug: slug || undefined }
+  }
+  return { page: "home" }
+}
+
+function previewPathForState(page: string, productSlug?: string): string {
+  if (page === "about") return "/about"
+  if (page === "contact") return "/contact"
+  if (page === "product" && productSlug) return `/products/${productSlug}`
+  return "/"
+}
+
+// ── Shared black slider control with inline number input ────
+// Smooth drag on desktop + mobile (28px thumb, large hit area,
+// touch-none). Number input syncs live with drag via value prop.
+function SliderNumberControl({
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  unit,
+  className,
+}: {
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  step?: number
+  unit?: string
+  className?: string
+}) {
+  const [inputStr, setInputStr] = useState<string>(String(value))
+  const focusedRef = useRef(false)
+
+  // Keep input text in sync when drag updates value (but not while typing)
+  useEffect(() => {
+    if (!focusedRef.current) setInputStr(String(value))
+  }, [value])
+
+  const commit = (raw: string) => {
+    const n = Number(raw)
+    if (Number.isFinite(n)) {
+      const clamped = Math.min(max, Math.max(min, n))
+      const snapped = step > 0 ? Math.round(clamped / step) * step : clamped
+      onChange(snapped)
+      setInputStr(String(snapped))
+    } else {
+      setInputStr(String(value))
+    }
+  }
+
+  return (
+    <div className={cn("flex items-center gap-2.5", className)}>
+      <div className="flex-1 relative py-2 -my-2 touch-none select-none">
+        <Slider
+          value={[value]}
+          onValueChange={([v]) => onChange(v)}
+          min={min}
+          max={max}
+          step={step}
+          className="wb-black-slider"
+        />
+      </div>
+      <div className="relative shrink-0">
+        <input
+          type="text"
+          inputMode="numeric"
+          className="h-8 w-[58px] px-2 text-xs text-center border border-neutral-200 rounded-md bg-white text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-400 transition-colors"
+          value={inputStr + (focusedRef.current ? "" : unit ?? "")}
+          onFocus={e => {
+            focusedRef.current = true
+            setInputStr(String(value))
+            // Select on focus so user can type immediately
+            requestAnimationFrame(() => e.target.select())
+          }}
+          onChange={e => setInputStr(e.target.value.replace(unit ?? "", "").replace(/[^0-9.\-]/g, ""))}
+          onBlur={e => { focusedRef.current = false; commit(e.target.value.replace(unit ?? "", "")) }}
+          onKeyDown={e => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+            if (e.key === "ArrowUp") { e.preventDefault(); onChange(Math.min(max, value + step)) }
+            if (e.key === "ArrowDown") { e.preventDefault(); onChange(Math.max(min, value - step)) }
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 // ── Field editor ─────────────────────────────────────────────
@@ -90,7 +295,7 @@ function FieldEditor({
     return (
       <input
         type="text"
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
         placeholder={field.placeholder ?? ""}
         value={typeof raw === "string" ? raw : ""}
         onChange={e => onChange(e.target.value)}
@@ -101,7 +306,7 @@ function FieldEditor({
   if (field.type === "textarea" || field.type === "richtext") {
     return (
       <textarea
-        className="w-full min-h-[80px] px-3 py-2.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 resize-y transition-colors"
+        className="w-full min-h-[80px] px-3 py-2.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 resize-y transition-colors"
         placeholder={field.placeholder ?? ""}
         value={typeof raw === "string" ? raw : ""}
         onChange={e => onChange(e.target.value)}
@@ -122,7 +327,7 @@ function FieldEditor({
         </div>
         <input
           type="text"
-          className="flex-1 h-9 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          className="flex-1 h-9 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           value={typeof raw === "string" ? raw : ""}
           onChange={e => onChange(e.target.value)}
         />
@@ -132,15 +337,18 @@ function FieldEditor({
 
   if (field.type === "select") {
     return (
-      <select
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 appearance-none cursor-pointer transition-colors"
-        value={typeof raw === "string" ? raw : String(field.default ?? "")}
-        onChange={e => onChange(e.target.value)}
-      >
-        {field.options?.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+      <div className="relative">
+        <select
+          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+          value={typeof raw === "string" ? raw : String(field.default ?? "")}
+          onChange={e => onChange(e.target.value)}
+        >
+          {field.options?.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </div>
     )
   }
 
@@ -148,19 +356,16 @@ function FieldEditor({
     const checked = typeof raw === "boolean" ? raw : !!field.default
     return (
       <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
         className={cn(
-          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-          checked ? "bg-purple-600" : "bg-muted",
+          "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 cursor-pointer focus:outline-none",
+          checked ? "bg-purple-600" : "bg-gray-300",
         )}
         onClick={() => onChange(!checked)}
-        type="button"
       >
-        <span
-          className={cn(
-            "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-            checked ? "translate-x-4" : "translate-x-0.5",
-          )}
-        />
+        <span className={cn("inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md transition-transform duration-200", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
       </button>
     )
   }
@@ -168,20 +373,14 @@ function FieldEditor({
   if (field.type === "range") {
     const num = typeof raw === "number" ? raw : Number(field.default ?? 0)
     return (
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          className="flex-1 accent-purple-600"
-          min={field.min ?? 0}
-          max={field.max ?? 100}
-          step={field.step ?? 1}
-          value={num}
-          onChange={e => onChange(Number(e.target.value))}
-        />
-        <span className="text-xs text-muted-foreground w-12 text-right shrink-0 tabular-nums">
-          {num}{field.unit ?? ""}
-        </span>
-      </div>
+      <SliderNumberControl
+        value={num}
+        onChange={onChange}
+        min={field.min ?? 0}
+        max={field.max ?? 100}
+        step={field.step ?? 1}
+        unit={field.unit ?? ""}
+      />
     )
   }
 
@@ -189,7 +388,7 @@ function FieldEditor({
     return (
       <input
         type="number"
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
         min={field.min}
         max={field.max}
         step={field.step ?? 1}
@@ -241,7 +440,7 @@ function FieldEditor({
         )}
         <input
           type="text"
-          className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           placeholder="Paste video URL..."
           value={typeof raw === "string" ? raw : ""}
           onChange={e => onChange(e.target.value)}
@@ -253,7 +452,7 @@ function FieldEditor({
   if (field.type === "font") {
     return (
       <select
-        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 appearance-none cursor-pointer transition-colors"
+        className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
         value={typeof raw === "string" ? raw : String(field.default ?? "")}
         onChange={e => onChange(e.target.value)}
         style={{ fontFamily: typeof raw === "string" ? raw : String(field.default ?? "") }}
@@ -276,20 +475,39 @@ function FieldEditor({
   }
 
   if (field.type === "radio") {
+    const current = typeof raw === "string" ? raw : String(field.default ?? "")
+    const opts = field.options ?? []
+    // Fallback to a select when there are too many options for a segmented control
+    if (opts.length > 3) {
+      return (
+        <div className="relative">
+          <select
+            className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+            value={current}
+            onChange={e => onChange(e.target.value)}
+          >
+            {opts.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        </div>
+      )
+    }
     return (
-      <div className="flex flex-wrap gap-1.5">
-        {field.options?.map(opt => {
-          const isSelected = (typeof raw === "string" ? raw : String(field.default ?? "")) === opt.value
+      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
+        {opts.map(opt => {
+          const isSelected = current === opt.value
           return (
             <button
               key={opt.value}
               type="button"
               onClick={() => onChange(opt.value)}
               className={cn(
-                "px-3 py-1.5 text-xs rounded-lg border transition-all",
+                "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.97] active:duration-75",
                 isSelected
-                  ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                  : "bg-background text-foreground border-border hover:border-purple-400"
+                  ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
+                  : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
               )}
             >
               {opt.label}
@@ -313,54 +531,63 @@ function FieldEditor({
 
 // ── Section icon map ─────────────────────────────────────────
 const SECTION_ICONS: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
-  header: LayoutTemplate,
-  footer: LayoutTemplate,
-  hero: Star,
-  rich_text: AlignLeft,
+  header: Rows3,
+  footer: Rows3,
+  hero: Square,
+  rich_text: Type,
   image_banner: Image,
-  product: Star,
-  product_list: ShoppingBag,
+  product: Square,
+  product_list: Rows3,
   testimonials: MessageSquare,
   faq: HelpCircle,
-  cta: Megaphone,
+  cta: MousePointerClick,
   stats: BarChart2,
-  feature_grid: Grid,
-  logo_bar: Award,
-  gallery: LayoutGrid,
+  feature_grid: Grid3x3,
+  logo_bar: Rows3,
+  gallery: Grid3x3,
   pricing: DollarSign,
-  video_hero: Video,
+  video_hero: Play,
   split_content: Columns,
   image_section: Image,
   slideshow: Play,
-  slideshow: Play,
   team_members: Users,
-  countdown_timer: Timer,
+  countdown_timer: Clock,
   trust_badges: Shield,
   newsletter: Mail,
   social_feed: Rss,
   contact_form: Mail,
-  video_embed: Video,
+  video_embed: Play,
   timeline: Clock,
-  tabs_content: SlidersHorizontal,
+  tabs_content: Rows3,
   custom_html: Code,
   announcement_banner: Bell,
   press_mentions: Award,
-  process_steps: ChevronRight,
-  comparison_table: Grid,
+  process_steps: ArrowRight,
+  comparison_table: Grid3x3,
   ebook_showcase: BookOpen,
   author_bio: Users,
   chapter_preview: BookOpen,
-  lookbook: Image,
+  lookbook: Grid3x3,
   size_guide: Shirt,
-  collection_banner: Package,
+  collection_banner: Square,
   map_embed: MapPin,
-  sticky_bar: Bell,
-  social_proof_bar: BarChart2,
+  sticky_bar: Rows3,
+  social_proof_bar: Rows3,
+  // Ported from Shopify theme
+  scrolling_text: MoveHorizontal,
+  counter: Hash,
+  image_comparison: Columns2,
+  collection_list: Grid,
+  icon_box: LayoutGrid,
+  promotion_banner: Megaphone,
+  banner_packery: LayoutDashboard,
+  products_carousel: ShoppingBag,
+  brand_logo: BadgeIcon,
 }
 
 function SectionIcon({ type, className }: { type: string; className?: string }) {
-  const Icon = SECTION_ICONS[type] ?? Layout
-  return <Icon className={cn("h-4 w-4", className)} strokeWidth={1.5} />
+  const Icon = SECTION_ICONS[type] ?? Square
+  return <Icon className={cn("h-3.5 w-3.5", className)} strokeWidth={2} />
 }
 
 // ── Section Preview — renders the real section scaled down ───
@@ -583,6 +810,7 @@ function AddSectionModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        data-wb-add-section-modal
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
           "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
@@ -800,7 +1028,7 @@ function BrandingTabPanel({
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Store name</label>
         <input
           type="text"
-          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           placeholder="My Store"
           value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""}
           onChange={e => updateSetting("brand_name", e.target.value)}
@@ -877,7 +1105,7 @@ function BrandingTabPanel({
         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Tagline</label>
         <input
           type="text"
-          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           placeholder="Your trusted digital store"
           value={typeof settingsDraft.tagline === "string" ? settingsDraft.tagline : ""}
           onChange={e => updateSetting("tagline", e.target.value)}
@@ -942,7 +1170,7 @@ function WbColorPicker({
         </div>
         <input
           type="text"
-          className="flex-1 h-10 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          className="flex-1 h-10 px-3 text-sm border border-border rounded-lg bg-background font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           value={inputVal}
           onChange={e => handleInput(e.target.value)}
           onBlur={() => setInputVal(color)}
@@ -988,20 +1216,16 @@ function WbSlider({
 }) {
   const num = typeof value === "number" ? value : defaultValue
   return (
-    <div className="space-y-2 group">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <span className="text-sm text-muted-foreground tabular-nums">{num}{unit}</span>
-      </div>
-      <div className="py-1 cursor-grab active:cursor-grabbing hover:[&_[role=slider]]:scale-110 [&_[role=slider]]:transition-transform">
-        <Slider
-          value={[num]}
-          onValueChange={([v]) => onChange(v)}
-          min={min}
-          max={max}
-          step={step}
-        />
-      </div>
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <SliderNumberControl
+        value={num}
+        onChange={onChange}
+        min={min}
+        max={max}
+        step={step}
+        unit={unit}
+      />
     </div>
   )
 }
@@ -1022,7 +1246,7 @@ function WbToggle({
   return (
     <label className="flex items-center justify-between py-1.5 cursor-pointer select-none group">
       <div className="flex-1 min-w-0 pr-3">
-        <p className="text-sm font-medium text-foreground group-hover:text-purple-700 transition-colors">{label}</p>
+        <p className="text-sm font-medium text-foreground transition-colors">{label}</p>
         {info && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{info}</p>}
       </div>
       <button
@@ -1059,7 +1283,7 @@ function WbSelect({
       <p className="text-sm font-medium text-foreground">{label}</p>
       <div className="relative">
         <select
-          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 appearance-none cursor-pointer transition-colors"
+          className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
           value={selected}
           onChange={e => onChange(e.target.value)}
         >
@@ -1095,46 +1319,107 @@ function SchemePillList({
   value: string
   onChange: (v: string) => void
   themeSchemes: Record<string, ColorSchemeValues> | undefined
-  onEditScheme?: () => void
+  onEditScheme?: (schemeKey?: ColorSchemeKey) => void
   dense?: boolean
 }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", onDoc)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onDoc)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  const activeKey = (SCHEME_KEYS_ORDERED.includes(value as ColorSchemeKey)
+    ? (value as ColorSchemeKey)
+    : SCHEME_KEYS_ORDERED[0])
+  const activeScheme = { ...DEFAULT_COLOR_SCHEMES[activeKey], ...(themeSchemes?.[activeKey] ?? {}) }
+
   return (
-    <div className={cn("space-y-2", dense ? "" : "")}>
-      {SCHEME_KEYS_ORDERED.map(k => {
-        const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
-        const isActive = value === k
-        // Dynamic pill colors: background = scheme.bg, text = scheme.heading
-        const pillBg = sc.bg
-        const pillText = sc.heading
-        return (
-          <button
-            key={k}
-            type="button"
-            onClick={() => onChange(k)}
-            className={cn(
-              "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-xl border-2 transition-all cursor-pointer",
-              isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
-            )}
-            style={{ background: pillBg, color: pillText }}
-          >
-            <span className="flex items-center gap-2.5">
-              <span className="text-[16px] font-bold">Aa</span>
-              <span className="text-[14px] font-medium">{SCHEME_PILL_LABELS[k]}</span>
+    <div ref={rootRef} className="relative">
+      {/* Trigger — shows the currently selected scheme */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "w-full h-12 flex items-center justify-between gap-2 px-3 rounded-xl border transition-all cursor-pointer",
+          open ? "border-blue-500" : "border-neutral-200 hover:border-neutral-300",
+        )}
+        style={{ background: activeScheme.bg, color: activeScheme.heading }}
+      >
+        <span className="flex items-center gap-2.5 min-w-0">
+          <span className="text-[16px] font-bold">Aa</span>
+          <span className="text-[14px] font-medium truncate">{SCHEME_PILL_LABELS[activeKey]}</span>
+        </span>
+        <span className="flex items-center gap-2 shrink-0">
+          {onEditScheme && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={e => { e.stopPropagation(); onEditScheme(activeKey) }}
+              onKeyDown={e => { if (e.key === "Enter") { e.stopPropagation(); onEditScheme(activeKey) } }}
+              className="text-[12px] font-medium px-3 py-1 rounded-md bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
+            >
+              Edit
             </span>
-            {isActive && onEditScheme && (
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={e => { e.stopPropagation(); onEditScheme() }}
-                onKeyDown={e => { if (e.key === "Enter") { e.stopPropagation(); onEditScheme() } }}
-                className="text-[12px] font-medium px-3 py-1 rounded-md bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
-              >
-                Edit
-              </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 opacity-70 transition-transform duration-200 ease-out",
+              open && "rotate-180",
             )}
-          </button>
-        )
-      })}
+          />
+        </span>
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div
+          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-neutral-200 bg-popover shadow-lg p-1.5 space-y-1 origin-top"
+          style={{
+            animation: "scheme-dropdown-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both",
+          }}
+        >
+          <style jsx>{`
+            @keyframes scheme-dropdown-in {
+              from { opacity: 0; transform: translateY(-4px) scaleY(0.98); }
+              to   { opacity: 1; transform: translateY(0) scaleY(1); }
+            }
+          `}</style>
+          {SCHEME_KEYS_ORDERED.map(k => {
+            const sc = { ...DEFAULT_COLOR_SCHEMES[k], ...(themeSchemes?.[k] ?? {}) }
+            const isActive = value === k
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => { onChange(k); setOpen(false) }}
+                className={cn(
+                  "w-full h-11 flex items-center gap-2.5 px-3 rounded-lg border-2 transition-colors duration-150 cursor-pointer",
+                  isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
+                )}
+                style={{ background: sc.bg, color: sc.heading }}
+              >
+                <span className="text-[15px] font-bold">Aa</span>
+                <span className="text-[13px] font-medium truncate">{SCHEME_PILL_LABELS[k]}</span>
+                {isActive && <Check className="h-3.5 w-3.5 ml-auto opacity-70" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -1149,7 +1434,7 @@ function SectionColorSchemePicker({
   value: string
   onChange: (v: string) => void
   themeSchemes: Record<string, ColorSchemeValues> | undefined
-  onEditScheme?: () => void
+  onEditScheme?: (schemeKey?: ColorSchemeKey) => void
 }) {
   return (
     <div className="border-b border-border p-4 space-y-3">
@@ -1159,7 +1444,7 @@ function SectionColorSchemePicker({
         <p className="flex-1">
           Choose a color scheme for this section. Visit the{" "}
           {onEditScheme ? (
-            <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline inline">
+            <button type="button" onClick={() => onEditScheme()} className="text-blue-600 hover:underline inline">
               color scheme editor
             </button>
           ) : (
@@ -1634,11 +1919,22 @@ function ColorChip({
 function ColorSchemesEditor({
   value,
   onChange,
+  initialActive,
+  onInitialActiveConsumed,
 }: {
   value: Record<string, ColorSchemeValues> | undefined
   onChange: (v: Record<string, ColorSchemeValues>) => void
+  initialActive?: ColorSchemeKey | null
+  onInitialActiveConsumed?: () => void
 }) {
-  const [active, setActive] = useState<ColorSchemeKey>("white")
+  const [active, setActive] = useState<ColorSchemeKey>(initialActive ?? "white")
+  useEffect(() => {
+    if (initialActive) {
+      setActive(initialActive)
+      onInitialActiveConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActive])
   const [stepOneOpen, setStepOneOpen] = useState(false)
 
   // Merge defaults so we always have a complete shape to edit
@@ -1844,20 +2140,40 @@ function WbRadioSegment({
   options: { label: string; value: string }[]
 }) {
   const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
+  // Fallback to a select when there are too many options for a segmented control
+  if (options.length > 3) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <div className="relative">
+          <select
+            className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+            value={selected}
+            onChange={e => onChange(e.target.value)}
+          >
+            {options.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-foreground">{label}</p>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
         {options.map(opt => (
           <button
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex-1 py-2 text-sm font-medium rounded-lg border-2 transition-all text-center",
+              "flex-1 py-1.5 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,transform] duration-200 ease-out active:scale-[0.97] active:duration-75",
               selected === opt.value
-                ? "border-foreground bg-background text-foreground shadow-sm"
-                : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
+                ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
+                : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
             )}
           >
             {opt.label}
@@ -1956,7 +2272,7 @@ function NavLinkPicker({
       className="fixed z-[300] bg-white border border-border rounded-lg shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
       style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
     >
-      <div className="overflow-y-auto overscroll-contain">
+      <div className="overflow-y-auto overscroll-contain wb-slim-scroll">
         {!hasResults && search && (
           <div className="px-3 py-6 text-sm text-muted-foreground text-center">No results found</div>
         )}
@@ -2027,7 +2343,7 @@ function NavLinkPicker({
         <input
           ref={inputRef}
           type="text"
-          className="w-full h-9 pl-9 pr-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
+          className="w-full h-9 pl-9 pr-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
           placeholder="Paste your link (or type to search)"
           value={open ? search : (value || "")}
           onFocus={() => { setOpen(true); setSearch(value || "") }}
@@ -2049,6 +2365,10 @@ function NavLinkPicker({
 }
 
 // ── Sortable Nav Link Item ───────────────────────────────────
+// Supports 1-level nested submenus via `settings.parent_id` pointing to
+// the parent nav_link's id. Root items show a purple "Add Link to {label}"
+// button that creates a child. Children are draggable within their sibling
+// group and indented with a subtle left border.
 function SortableNavLink({
   block,
   idx,
@@ -2058,6 +2378,9 @@ function SortableNavLink({
   products,
   collections,
   customPages,
+  children,
+  isChild = false,
+  onAddChild,
 }: {
   block: { id: string; type: string; settings: Record<string, unknown> }
   idx: number
@@ -2067,6 +2390,9 @@ function SortableNavLink({
   products: { id: string; title: string; slug: string }[]
   collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
+  children?: React.ReactNode
+  isChild?: boolean
+  onAddChild?: () => void
 }) {
   const {
     attributes,
@@ -2084,13 +2410,22 @@ function SortableNavLink({
     zIndex: isDragging ? 50 : undefined,
   }
 
+  const label = String(block.settings.label || `Link ${idx + 1}`)
+
   return (
-    <details ref={setNodeRef} style={style} className="group border border-border rounded-lg overflow-hidden bg-background hover:border-purple-300 hover:shadow-sm transition-all">
+    <details
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group border border-border rounded-lg overflow-hidden bg-background hover:border-purple-300 hover:shadow-sm transition-all",
+        isChild && "bg-muted/20",
+      )}
+    >
       <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-purple-50/40 transition-colors">
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            className="cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded hover:bg-purple-100 text-muted-foreground hover:text-purple-600 transition-colors"
+            className="cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded hover:bg-neutral-100 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Drag to reorder"
             {...attributes}
             {...listeners}
@@ -2098,7 +2433,7 @@ function SortableNavLink({
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
-          <span className="text-sm font-medium truncate">{String(block.settings.label || `Link ${idx + 1}`)}</span>
+          <span className="text-sm font-medium truncate">{label}</span>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -2112,34 +2447,95 @@ function SortableNavLink({
         </div>
       </summary>
       <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-        {blockSchema?.fields.map((field: SchemaField) => (
-          <div key={field.id}>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-            {field.type === "toggle" ? (
-              <WbToggle
-                label=""
-                value={block.settings[field.id]}
-                onChange={val => onUpdateBlockSetting(block.id, field.id, val)}
-              />
-            ) : field.id === "url" ? (
-              <NavLinkPicker
-                value={typeof block.settings.url === "string" ? block.settings.url : ""}
-                onChange={val => onUpdateBlockSetting(block.id, "url", val)}
-                products={products}
-                collections={collections}
-                customPages={customPages}
-              />
-            ) : (
-              <input
-                type="text"
-                className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                placeholder={field.placeholder ?? ""}
-                value={typeof block.settings[field.id] === "string" ? (block.settings[field.id] as string) : ""}
-                onChange={e => onUpdateBlockSetting(block.id, field.id, e.target.value)}
-              />
+        {blockSchema?.fields.map((field: SchemaField) => {
+          // Toggles get their own inline row with the label on the left and
+          // the switch on the right — no redundant floating label above.
+          if (field.type === "toggle") {
+            const checked = typeof block.settings[field.id] === "boolean"
+              ? (block.settings[field.id] as boolean)
+              : false
+            // Special polish for `open_in_new_tab`: add a small external-link
+            // icon + subtle description so it reads as a proper setting.
+            const isOpenInNew = field.id === "open_in_new_tab"
+            return (
+              <label
+                key={field.id}
+                className="flex items-center justify-between gap-3 px-3 py-2.5 border border-border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {isOpenInNew && (
+                    <span className="h-7 w-7 shrink-0 rounded-md bg-background border border-border flex items-center justify-center text-muted-foreground">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-foreground leading-tight truncate">{field.label}</p>
+                    {isOpenInNew && (
+                      <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                        Opens the link in a separate browser tab.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={checked}
+                  onClick={e => { e.preventDefault(); onUpdateBlockSetting(block.id, field.id, !checked) }}
+                  className={cn(
+                    "relative inline-flex h-[22px] w-[38px] items-center rounded-full transition-colors shrink-0 focus:outline-none",
+                    checked ? "bg-purple-600" : "bg-gray-300",
+                  )}
+                >
+                  <span className={cn(
+                    "inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-md transition-transform duration-200",
+                    checked ? "translate-x-[18px]" : "translate-x-0.5",
+                  )} />
+                </button>
+              </label>
+            )
+          }
+          return (
+            <div key={field.id}>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+              {field.id === "url" ? (
+                <NavLinkPicker
+                  value={typeof block.settings.url === "string" ? block.settings.url : ""}
+                  onChange={val => onUpdateBlockSetting(block.id, "url", val)}
+                  products={products}
+                  collections={collections}
+                  customPages={customPages}
+                />
+              ) : (
+                <input
+                  type="text"
+                  className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                  placeholder={field.placeholder ?? ""}
+                  value={typeof block.settings[field.id] === "string" ? (block.settings[field.id] as string) : ""}
+                  onChange={e => onUpdateBlockSetting(block.id, field.id, e.target.value)}
+                />
+              )}
+            </div>
+          )
+        })}
+
+        {/* Children (submenu) — only on root items */}
+        {!isChild && (children || onAddChild) && (
+          <div className="pt-2 mt-2 border-t border-dashed border-border space-y-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Submenu links</p>
+            {children}
+            {onAddChild && (
+              <button
+                type="button"
+                onClick={e => { e.preventDefault(); onAddChild() }}
+                className="w-full flex items-center justify-center gap-1.5 py-2 text-[12.5px] font-medium text-blue-600 hover:text-blue-700 border border-dashed border-blue-300 hover:border-blue-400 rounded-lg transition-colors hover:bg-blue-50/50"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Link to {label}
+              </button>
             )}
           </div>
-        ))}
+        )}
       </div>
     </details>
   )
@@ -2205,14 +2601,14 @@ function HeaderSectionSettings({
   onBack: () => void
   onUpdateSetting: (key: string, value: unknown) => void
   onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
-  onAddBlock: (type: string) => void
+  onAddBlock: (type: string, initialSettings?: Record<string, unknown>) => void
   onRemoveBlock: (blockId: string) => void
   onReorderBlocks: (blocks: { id: string; type: string; settings: Record<string, unknown> }[]) => void
   products: { id: string; title: string; slug: string }[]
   collections: { id: string; name: string; slug: string }[]
   customPages: { name: string; key: string }[]
   themeSchemes: Record<string, ColorSchemeValues> | undefined
-  onEditScheme: () => void
+  onEditScheme: (schemeKey?: ColorSchemeKey) => void
 }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const s = section.settings
@@ -2226,6 +2622,9 @@ function HeaderSectionSettings({
     const { active, over } = event
     if (!over || active.id === over.id) return
     const blocks = section.blocks ?? []
+    // Only the root-level DnD context uses this handler — reorder by moving
+    // the active block (and its children, which stay pinned as a group
+    // right after their parent) within the full blocks array.
     const oldIndex = blocks.findIndex(b => b.id === active.id)
     const newIndex = blocks.findIndex(b => b.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
@@ -2235,9 +2634,7 @@ function HeaderSectionSettings({
   const tabs = [
     { id: "logo", label: "Store Logo" },
     { id: "nav", label: "Navigation Links" },
-    { id: "header", label: "Header Section" },
-    { id: "button", label: "Button" },
-    { id: "elements", label: "Elements" },
+    { id: "header", label: "Header Settings" },
   ]
 
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
@@ -2339,32 +2736,22 @@ function HeaderSectionSettings({
                 defaultValue={0}
               />
             )}
-
-            {/* Store title */}
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">STORE TITLE</p>
-              <input
-                type="text"
-                className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                placeholder="My Store"
-                value={typeof s.logo_text === "string" ? s.logo_text : ""}
-                onChange={e => onUpdateSetting("logo_text", e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 mt-1.5">
-                <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                Search engines like Google need the store title, so ensure you add one even when you use a logo. Logos replace the store title on all pages.
-              </p>
-            </div>
           </div>
         )
 
-      case "nav":
+      case "nav": {
+        const allBlocks = section.blocks ?? []
+        const blockSchema = schema?.blocks?.find((b: any) => b.type === "nav_link")
+        // Group: root blocks (no parent_id) + children grouped by parent id
+        const roots = allBlocks.filter(b => !(b.settings?.parent_id))
+        const childrenOf = (parentId: string) =>
+          allBlocks.filter(b => (b.settings?.parent_id as string | undefined) === parentId)
         return (
           <div className="space-y-3">
             <DndContext sensors={navSensors} collisionDetection={closestCenter} onDragEnd={handleNavDragEnd}>
-              <SortableContext items={(section.blocks ?? []).map(b => b.id)} strategy={verticalListSortingStrategy}>
-                {(section.blocks ?? []).map((block, idx) => {
-                  const blockSchema = schema?.blocks?.find((b: any) => b.type === block.type)
+              <SortableContext items={roots.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                {roots.map((block, idx) => {
+                  const kids = childrenOf(block.id)
                   return (
                     <SortableNavLink
                       key={block.id}
@@ -2376,12 +2763,49 @@ function HeaderSectionSettings({
                       products={products}
                       collections={collections}
                       customPages={customPages}
-                    />
+                      onAddChild={() => onAddBlock("nav_link", { parent_id: block.id, label: "New link", url: "#", link_type: "custom" })}
+                    >
+                      {kids.length > 0 && (
+                        <DndContext
+                          sensors={navSensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(e) => {
+                            const { active, over } = e
+                            if (!over || active.id === over.id) return
+                            // Reorder within siblings: splice children in place within `allBlocks`
+                            const nextAll = [...allBlocks]
+                            const activeIdx = nextAll.findIndex(b => b.id === active.id)
+                            const overIdx = nextAll.findIndex(b => b.id === over.id)
+                            if (activeIdx === -1 || overIdx === -1) return
+                            onReorderBlocks(arrayMove(nextAll, activeIdx, overIdx))
+                          }}
+                        >
+                          <SortableContext items={kids.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                            <div className="pl-3 border-l-2 border-purple-200 space-y-2">
+                              {kids.map((childBlock, childIdx) => (
+                                <SortableNavLink
+                                  key={childBlock.id}
+                                  block={childBlock}
+                                  idx={childIdx}
+                                  blockSchema={blockSchema}
+                                  onUpdateBlockSetting={onUpdateBlockSetting}
+                                  onRemoveBlock={onRemoveBlock}
+                                  products={products}
+                                  collections={collections}
+                                  customPages={customPages}
+                                  isChild
+                                />
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+                      )}
+                    </SortableNavLink>
                   )
                 })}
               </SortableContext>
             </DndContext>
-            {(!schema?.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
+            {(!schema?.max_blocks || roots.length < schema.max_blocks) && (
               <button
                 className="w-full flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-purple-600 hover:text-purple-700 border border-dashed border-purple-300 hover:border-purple-400 rounded-lg transition-colors hover:bg-purple-50/50"
                 onClick={() => onAddBlock("nav_link")}
@@ -2392,6 +2816,7 @@ function HeaderSectionSettings({
             )}
           </div>
         )
+      }
 
       case "header": {
         const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
@@ -2462,33 +2887,27 @@ function HeaderSectionSettings({
               </div>
             ),
           },
-          {
-            id: "logo_center_nav_below",
-            label: "Logo centered · Nav below",
-            preview: (
-              <div className="flex flex-col items-center justify-center w-full h-full gap-1.5">
-                <div className="h-3 w-8 bg-gray-700 rounded-sm" />
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                  <div className="h-1.5 w-4 bg-gray-500 rounded-full" />
-                </div>
-              </div>
-            ),
-          },
         ]
         const currentLayoutMeta = layoutOptions.find(l => l.id === currentLayout) ?? layoutOptions[0]
 
         const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
         const currentMobileLayoutLabel =
           currentMobileLayout === "hamburger_left_logo_left" ? "Hamburger left · Logo left"
-          : currentMobileLayout === "logo_left_hamburger_right" ? "Logo left · Hamburger right"
           : "Logo centered · Hamburger left"
         const mobilePreviewSummary = MOBILE_LAYOUT_PREVIEW_NODE(currentMobileLayout)
+        const showCta = s.show_cta_button !== false
+        // Border & shadow — preserve legacy `show_border` default (true) so a
+        // pre-existing store that never saved `show_bottom_border` keeps
+        // showing its border after the upgrade.
+        const bottomBorderEnabled = typeof s.show_bottom_border === "boolean"
+          ? s.show_bottom_border
+          : (typeof s.show_border === "boolean" ? s.show_border : true)
+        const borderStyleValue = typeof s.border_style === "string" ? s.border_style : "solid"
+        const borderVisibilityValue = typeof s.border_visibility === "string" ? s.border_visibility : "all"
+        const depthShadowEnabled = s.header_depth_shadow !== false
         return (
           <div className="space-y-6">
-            {/* ── Header layout (desktop) ── */}
+            {/* ── 1. Header layout (desktop) ── */}
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (desktop)</p>
               <button
@@ -2506,7 +2925,7 @@ function HeaderSectionSettings({
               </button>
             </div>
 
-            {/* ── Header layout (mobile) — opens its own sub-panel ── */}
+            {/* ── 2. Header layout (mobile) ── */}
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header layout (mobile)</p>
               <button
@@ -2526,19 +2945,18 @@ function HeaderSectionSettings({
 
             <div className="h-px bg-border" />
 
-            {/* ── Color Settings ── */}
+            {/* ── 3. Colors ──
+                Moved above Width & spacing so the section that "sets the
+                tone" of the header (scheme + hover style) sits right next to
+                the layout pickers — matches the visual priority ordering the
+                user asked for in the sidebar. */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Color Settings</p>
-              <WbToggle
-                label="Make header transparent"
-                value={s.header_transparent}
-                onChange={v => onUpdateSetting("header_transparent", v)}
-              />
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Colors</p>
               <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
                 <Info className="h-3 w-3 shrink-0 mt-0.5" />
                 <p className="flex-1">
                   Choose a color scheme for the header. Visit the{" "}
-                  <button type="button" onClick={onEditScheme} className="text-blue-600 hover:underline inline">
+                  <button type="button" onClick={() => onEditScheme()} className="text-blue-600 hover:underline inline">
                     color scheme editor
                   </button>{" "}
                   to customise colors.
@@ -2551,50 +2969,55 @@ function HeaderSectionSettings({
                 onEditScheme={onEditScheme}
                 dense
               />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground block">Menu link hover style</label>
+                <div className="relative">
+                  <select
+                    className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+                    value={typeof s.menu_link_hover_style === "string" ? s.menu_link_hover_style : "inherit"}
+                    onChange={e => onUpdateSetting("menu_link_hover_style", e.target.value)}
+                  >
+                    <option value="inherit">Inherit (theme default)</option>
+                    <option value="none">None</option>
+                    <option value="underline">Underline</option>
+                    <option value="underline_reverse">Underline (reverse)</option>
+                    <option value="fade_siblings">Fade siblings</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Controls how desktop menu links react when hovered.
+                </p>
+              </div>
             </div>
 
             <div className="h-px bg-border" />
 
-            {/* ── Advanced Settings ── */}
+            {/* ── 4. Width & spacing ── */}
             <div className="space-y-4">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Advanced Settings</p>
-              <WbRadioSegment
-                label="Header width"
-                value={s.header_width}
-                onChange={v => onUpdateSetting("header_width", v)}
-                options={[
-                  { label: "Full", value: "full" },
-                  { label: "Fixed", value: "fixed" },
-                ]}
-              />
-              <WbToggle
-                label="Enable sticky header"
-                value={!!s.header_sticky_enabled && !s.header_sticky_on_scroll_up}
-                onChange={v => {
-                  if (v) {
-                    // Turning plain sticky on — turn scroll-up variant off
-                    onUpdateSetting("header_sticky_enabled", true)
-                    onUpdateSetting("header_sticky_on_scroll_up", false)
-                  } else {
-                    onUpdateSetting("header_sticky_enabled", false)
-                  }
-                }}
-                info="Keep the header pinned to the top as the visitor scrolls."
-              />
-              <WbToggle
-                label="Sticky header on scroll up"
-                value={!!s.header_sticky_on_scroll_up}
-                onChange={v => {
-                  if (v) {
-                    // Turning scroll-up variant on — enable sticky, mark variant
-                    onUpdateSetting("header_sticky_enabled", true)
-                    onUpdateSetting("header_sticky_on_scroll_up", true)
-                  } else {
-                    onUpdateSetting("header_sticky_on_scroll_up", false)
-                  }
-                }}
-                info="Only reveal the header when scrolling up — hides on scroll down."
-              />
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Width &amp; spacing</p>
+              {/* Header width — controls the maximum width of the header
+                  content on desktop / large screens. Narrow/Medium/Wide map
+                  to 960/1140/1280px caps; Full is edge-to-edge. */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground block">Header width</label>
+                <div className="relative">
+                  <select
+                    className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+                    value={typeof s.header_width === "string" ? s.header_width : "wide"}
+                    onChange={e => onUpdateSetting("header_width", e.target.value)}
+                  >
+                    <option value="narrow">Narrow — 960px</option>
+                    <option value="medium">Medium — 1140px</option>
+                    <option value="wide">Wide — 1280px</option>
+                    <option value="full">Full width</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Controls the maximum width of the header on desktop (large) screens.
+                </p>
+              </div>
               <WbSlider
                 label="Vertical padding"
                 value={s.vertical_padding_vw}
@@ -2617,131 +3040,173 @@ function HeaderSectionSettings({
               />
             </div>
 
-          </div>
-        )
-      }
+            <div className="h-px bg-border" />
 
-      case "button":
-        return (
-          <div className="space-y-5">
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium text-foreground">Button text</p>
-              <input
-                type="text"
-                className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                placeholder="Shop Now"
-                value={typeof s.cta_text === "string" ? s.cta_text : ""}
-                onChange={e => onUpdateSetting("cta_text", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium text-foreground">Button URL</p>
-              <input
-                type="text"
-                className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                placeholder="/products"
-                value={typeof s.cta_url === "string" ? s.cta_url : ""}
-                onChange={e => onUpdateSetting("cta_url", e.target.value)}
-              />
-            </div>
-            <WbRadioSegment
-              label="Button style"
-              value={s.cta_style}
-              onChange={v => onUpdateSetting("cta_style", v)}
-              options={[
-                { label: "Filled", value: "filled" },
-                { label: "Outline", value: "outline" },
-                { label: "Ghost", value: "ghost" },
-              ]}
-            />
-            <WbSlider
-              label="Button radius"
-              value={s.cta_border_radius}
-              onChange={v => onUpdateSetting("cta_border_radius", v)}
-              min={0}
-              max={32}
-              step={2}
-              unit="px"
-              defaultValue={8}
-            />
-            <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
-              <Info className="h-3 w-3 shrink-0 mt-0.5" />
-              Button colors are controlled by the section&apos;s Color Scheme. Edit colors from General Settings → Color Schemes.
-            </p>
-          </div>
-        )
-
-      case "elements":
-        return (
-          <div className="space-y-6">
-            {/* ── Call To Action Button ── */}
+            {/* ── 4. Sticky behaviour ── */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Call To Action Button</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Sticky behaviour</p>
               <WbToggle
-                label="Show call to action button"
-                value={s.show_cta_button}
-                onChange={v => onUpdateSetting("show_cta_button", v)}
+                label="Enable sticky header"
+                value={!!s.header_sticky_enabled && !s.header_sticky_on_scroll_up}
+                onChange={v => {
+                  if (v) {
+                    onUpdateSetting("header_sticky_enabled", true)
+                    onUpdateSetting("header_sticky_on_scroll_up", false)
+                  } else {
+                    onUpdateSetting("header_sticky_enabled", false)
+                  }
+                }}
+                info="Keep the header pinned to the top as the visitor scrolls."
               />
-              {s.show_cta_button !== false && (
-                <>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">Button Text</p>
-                    <input
-                      type="text"
-                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                      placeholder="Discover"
-                      value={typeof s.cta_text === "string" ? s.cta_text : ""}
-                      onChange={e => onUpdateSetting("cta_text", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">Button Link</p>
-                    <input
-                      type="text"
-                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-colors"
-                      placeholder="/products"
-                      value={typeof s.cta_url === "string" ? s.cta_url : ""}
-                      onChange={e => onUpdateSetting("cta_url", e.target.value)}
-                    />
-                  </div>
-                  <WbRadioSegment
-                    label="Button style"
-                    value={s.cta_style}
-                    onChange={v => onUpdateSetting("cta_style", v)}
-                    options={[
-                      { label: "Filled", value: "filled" },
-                      { label: "Outline", value: "outline" },
-                      { label: "Ghost", value: "ghost" },
-                    ]}
-                  />
-                </>
-              )}
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                A call to action button lets you immediately draw a visitor&apos;s attention to the most important page.
-              </p>
+              <WbToggle
+                label="Sticky header on scroll up"
+                value={!!s.header_sticky_on_scroll_up}
+                onChange={v => {
+                  if (v) {
+                    onUpdateSetting("header_sticky_enabled", true)
+                    onUpdateSetting("header_sticky_on_scroll_up", true)
+                  } else {
+                    onUpdateSetting("header_sticky_on_scroll_up", false)
+                  }
+                }}
+                info="Only reveal the header when scrolling up — hides on scroll down."
+              />
+              <WbToggle
+                label="Make header transparent"
+                value={s.header_transparent}
+                onChange={v => onUpdateSetting("header_transparent", v)}
+              />
             </div>
 
             <div className="h-px bg-border" />
 
-            {/* ── Search & Cart ── */}
+            {/* ── 5. Border & shadow ──
+                Three controls for the bottom edge of the header:
+                  • toggle: is a bottom border drawn at all?
+                  • radio:  solid (uses inset_border) vs subtle (50% alpha)
+                  • select: where does it show (all / home only / inner only / none)
+                Plus a separate toggle for the smooth depth shadow under the
+                header (default ON — matches the "lifted off the page" feel). */}
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Search &amp; Cart</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Border &amp; shadow</p>
+              <WbToggle
+                label="Show bottom border"
+                value={bottomBorderEnabled}
+                onChange={v => onUpdateSetting("show_bottom_border", v)}
+                info="Shows a 1px line at the bottom of the header to visually separate it from the page content."
+              />
+              {bottomBorderEnabled && (
+                <>
+                  <WbRadioSegment
+                    label="Border style"
+                    value={borderStyleValue}
+                    onChange={v => onUpdateSetting("border_style", v)}
+                    options={[
+                      { label: "Solid",  value: "solid" },
+                      { label: "Subtle", value: "subtle" },
+                    ]}
+                  />
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground block">Show border on</label>
+                    <div className="relative">
+                      <select
+                        className="w-full h-10 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+                        value={borderVisibilityValue}
+                        onChange={e => onUpdateSetting("border_visibility", e.target.value)}
+                      >
+                        <option value="all">All pages</option>
+                        <option value="home_only">Homepage only</option>
+                        <option value="inner_only">Inner pages only</option>
+                        <option value="none">None</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                </>
+              )}
+              <WbToggle
+                label="Subtle depth shadow"
+                value={depthShadowEnabled}
+                onChange={v => onUpdateSetting("header_depth_shadow", v)}
+                info="Adds a soft shadow underneath the header so it feels gently lifted off the page."
+              />
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* ── 7. Header elements ── */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Header elements</p>
               <WbToggle
                 label="Show search icon"
                 value={s.show_search}
                 onChange={v => onUpdateSetting("show_search", v)}
               />
               <WbToggle
+                label="Show account icon"
+                value={s.show_account_icon}
+                onChange={v => onUpdateSetting("show_account_icon", v)}
+                info="Desktop header icon and the sidebar Log In button on mobile."
+              />
+              <WbToggle
+                label="Show wishlist icon"
+                value={s.show_wishlist_icon}
+                onChange={v => onUpdateSetting("show_wishlist_icon", v)}
+                info="Desktop header only. Also appears in the mobile sidebar footer."
+              />
+              <WbToggle
                 label="Show cart icon"
                 value={s.show_cart}
                 onChange={v => onUpdateSetting("show_cart", v)}
               />
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                We highly recommend you don&apos;t disable the cart icon, however in some cases you might need to.
-              </p>
             </div>
+
+            <div className="h-px bg-border" />
+
+            {/* ── 8. Call to action button (consolidated from former Button tab) ──
+                Toggle gates the button visibility on the live header. The URL
+                picker is the same component used by nav links, so users get
+                the same Pages/Products/Categories dropdown experience. */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Call to action button</p>
+              <WbToggle
+                label="Show call to action button"
+                value={s.show_cta_button !== false}
+                onChange={v => onUpdateSetting("show_cta_button", v)}
+              />
+              {showCta && (
+                <>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">Button text</p>
+                    <input
+                      type="text"
+                      className="w-full h-10 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                      placeholder="Shop Now"
+                      value={typeof s.cta_text === "string" ? s.cta_text : ""}
+                      onChange={e => onUpdateSetting("cta_text", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">Button URL</p>
+                    <NavLinkPicker
+                      value={typeof s.cta_url === "string" ? s.cta_url : ""}
+                      onChange={val => onUpdateSetting("cta_url", val)}
+                      products={products}
+                      collections={collections}
+                      customPages={customPages}
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
+                    <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                    Button style, radius and colors are inherited from your theme&apos;s global button settings.
+                  </p>
+                </>
+              )}
+            </div>
+
           </div>
         )
+      }
 
       default:
         return null
@@ -2753,11 +3218,10 @@ function HeaderSectionSettings({
     const mobileLayoutOptions: { id: string; label: string }[] = [
       { id: "logo_center_hamburger_left", label: "Logo centered · Hamburger left" },
       { id: "hamburger_left_logo_left",   label: "Hamburger left · Logo left" },
-      { id: "logo_left_hamburger_right",  label: "Logo left · Hamburger right" },
     ]
     const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
     return (
-      <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-200 ease-out">
+      <div className="flex flex-col h-full animate-in fade-in duration-150">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <button
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -2811,7 +3275,6 @@ function HeaderSectionSettings({
       { id: "logo_left_nav_inline",  label: "Logo left · Nav inline · Icons right" },
       { id: "logo_left_nav_center",  label: "Logo left · Nav centered · Icons right" },
       { id: "nav_left_logo_center",  label: "Nav left · Logo centered · Icons right" },
-      { id: "logo_center_nav_below", label: "Logo centered · Nav below" },
     ]
     const currentLayout = (typeof s.header_layout === "string" ? s.header_layout : "logo_left_nav_right")
     const renderPreview = (id: string) => {
@@ -2864,24 +3327,12 @@ function HeaderSectionSettings({
               <div className="h-2 w-2 bg-gray-800 rounded-full" />
             </div>
           )
-        case "logo_center_nav_below":
-          return (
-            <div className="flex flex-col items-center justify-center w-full h-full gap-2">
-              <div className="h-3 w-10 bg-gray-800 rounded-sm" />
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-                <div className="h-1.5 w-5 bg-gray-500 rounded-full" />
-              </div>
-            </div>
-          )
       }
       return null
     }
 
     return (
-      <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-200 ease-out">
+      <div className="flex flex-col h-full animate-in fade-in duration-150">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <button
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -2933,7 +3384,7 @@ function HeaderSectionSettings({
     return (
       <div
         key={`sub-${activeTab}`}
-        className="flex flex-col h-full animate-in fade-in slide-in-from-right-3 duration-200 ease-out"
+        className="flex flex-col h-full animate-in fade-in duration-150"
       >
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
           <button
@@ -2954,12 +3405,12 @@ function HeaderSectionSettings({
 
   // ── Main tab list ──────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full animate-in fade-in slide-in-from-left-3 duration-200 ease-out">
+    <div className="flex flex-col h-full animate-in fade-in duration-150">
       <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
         <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <span className="text-sm font-semibold">Header Section</span>
+        <span className="text-sm font-semibold">Header Settings</span>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -2991,20 +3442,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [settingsDraft, setSettingsDraft] = useState<ThemeSettingsValues>({})
   const [currentPage, setCurrentPage] = useState<PageKey>(() => {
     if (typeof window !== "undefined") {
-      const p = new URLSearchParams(window.location.search).get("page")
-      if (p) return p as PageKey
+      return parsePreviewFromSearch(window.location.search).page as PageKey
     }
     return "home"
   })
   const [selectedPanel, setSelectedPanel] = useState<Panel>({ type: "pages" })
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop")
+  // Inspector mode — when ON, hovering/clicking a section shows the blue
+  // selection rectangle and opens its settings panel. When OFF the canvas
+  // behaves like a plain preview (no outlines, no section-click interception).
+  // Defaults to ON so first-time users see the editing affordances.
+  const [inspectorEnabled, setInspectorEnabled] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [expandedSettings, setExpandedSettings] = useState<string | null>(null)
+  const [editSchemeKey, setEditSchemeKey] = useState<ColorSchemeKey | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(320)
+  // Absolute index in `sections` where a new section should be inserted.
+  // Set when the user clicks an "insert between" divider in the sidebar.
+  // null = append before the footer (default).
+  const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
+  const [sidebarWidth, setSidebarWidth] = useState(288)
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true)
   const [username, setUsername] = useState("")
@@ -3022,7 +3482,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
-  const [canvasLoading, setCanvasLoading] = useState(false)
+  // If the editor is opened directly on a product deep-link, keep the canvas
+  // in "loading" state from the very first render until the deep-link effect
+  // has injected `_product_data` — otherwise the canvas would briefly render
+  // the bare product template (placeholder "Product Title / $29.99 / Product
+  // image") between `loadData` finishing and `handleSelectProductPage` being
+  // called.
+  const [canvasLoading, setCanvasLoading] = useState(() => {
+    if (typeof window === "undefined") return false
+    const parsed = parsePreviewFromSearch(window.location.search)
+    return parsed.page === "product" && (!!parsed.productSlug || !!parsed.productTitle)
+  })
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -3101,11 +3571,50 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   // Returns sections array — callers can inject product data before setting state
+  // Home is the source of truth for header/footer across the entire site.
+  // Every non-home page in the editor (and on the live site) renders using
+  // home's header/footer rather than its own persisted copy, so custom/about/
+  // contact/product pages can never drift visually from home.
+  const fetchHomeHeaderFooter = useCallback(async (): Promise<{ header?: SectionInstance; footer?: SectionInstance }> => {
+    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=home`)
+    if (!res.ok) return {}
+    const data = await res.json()
+    const loaded: SectionInstance[] = data.sections ?? []
+    return {
+      header: loaded.find(s => s.type === "header"),
+      footer: loaded.find(s => s.type === "footer"),
+    }
+  }, [installId])
+
+  const mergeWithHomeHeaderFooter = (
+    pageSections: SectionInstance[],
+    home: { header?: SectionInstance; footer?: SectionInstance }
+  ): SectionInstance[] => {
+    const body = pageSections.filter(s => s.type !== "header" && s.type !== "footer")
+    return [
+      ...(home.header ? [home.header] : pageSections.filter(s => s.type === "header")),
+      ...body,
+      ...(home.footer ? [home.footer] : pageSections.filter(s => s.type === "footer")),
+    ]
+  }
+
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
     const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
     if (!res.ok) return []
     const data = await res.json()
     let loaded: SectionInstance[] = data.sections ?? []
+
+    // `_product_data` is a runtime-only injection used by the preview; it
+    // must never be trusted from storage (legacy installs persisted it). If
+    // we leave stale data in, switching between product pages shows the
+    // previous product because the injection only overwrites when the new
+    // productData resolves — a transient API failure would otherwise reveal
+    // the wrong product.
+    loaded = loaded.map(sec => {
+      if (!sec.settings || !("_product_data" in sec.settings)) return sec
+      const { _product_data: _omit, ...rest } = sec.settings as Record<string, unknown>
+      return { ...sec, settings: rest }
+    })
 
     // Ensure header and footer exist on every page
     if (!loaded.some(s => s.type === "header")) {
@@ -3153,9 +3662,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(loaded)
   }, [fetchPageSections])
 
-  // Load install data
+  // Load install data.
+  // Wrapped in try / finally so `loading` is ALWAYS cleared — even if the
+  // fetch throws on a network error, a 5xx, or if the response JSON is
+  // malformed. Without this the page would sit on the auth/loader spinner
+  // forever, which is exactly what the user reported.
   const loadData = useCallback(async () => {
     setLoading(true)
+    try {
     const res = await fetch(`/api/website-builder/themes/${installId}`)
     if (!res.ok) { setLoading(false); return }
     const data = await res.json()
@@ -3194,13 +3708,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     }
 
-    // Load sections for current page
-    const loaded = await fetchPageSections(currentPage)
+    // Load sections for current page. If not on home, fetch home's
+    // header/footer in parallel and splice them in — home is the universal
+    // source of truth for header/footer.
+    const [loadedRaw, homeHF] = await Promise.all([
+      fetchPageSections(currentPage),
+      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+    ])
+    const loaded = currentPage !== "home" ? mergeWithHomeHeaderFooter(loadedRaw, homeHF) : loadedRaw
 
     // Sync logo between header section and theme settings on initial load
     const header = loaded.find(s => s.type === "header")
     if (header) {
-      const headerLogo = header.settings.logo_url
+      // Settings bag values are typed loosely (unknown | Record<string, unknown>);
+      // coerce via string() to keep downstream types happy.
+      const headerLogo = typeof header.settings.logo_url === "string" ? header.settings.logo_url : ""
       const themeLogo = loadedSettings.logo_url
       // If header has a logo but theme settings doesn't, populate theme settings
       if (headerLogo && !themeLogo) {
@@ -3233,10 +3755,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     setSettingsDraft(loadedSettings)
     setSections(loaded)
-    setLoading(false)
-  }, [installId, currentPage, fetchPageSections])
+    } catch (err) {
+      console.error("[editor] loadData failed:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [installId, currentPage, fetchPageSections, fetchHomeHeaderFooter])
 
-  useEffect(() => { loadData() }, [loadData])
+  // `loadData` is intentionally fired exactly ONCE on mount. Re-running it
+  // whenever its dep identity changes (which happens every time
+  // `setCurrentPage` flips to a new page key) would refetch the bare page
+  // template and overwrite the `_product_data` that `handleSelectProductPage`
+  // just injected — producing the random "Product Title / $29.99 / Product
+  // image" placeholder flash when switching to a product page. Page
+  // navigation is already handled by `handlePageChange` /
+  // `handleSelectProductPage`, so we do not need an automatic refetch here.
+  const initialLoadRef = useRef(false)
+  useEffect(() => {
+    if (initialLoadRef.current) return
+    initialLoadRef.current = true
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Username is loaded from API in loadData
 
@@ -3293,22 +3833,62 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   useEffect(() => { loadProducts() }, [loadProducts])
 
-  // Update browser URL to reflect current page
-  const updatePageUrl = useCallback((page: string, productName?: string) => {
+  // Deep-link handler: when the editor is opened directly at
+  // `?page=product&product=<title>` (refresh, reopened tab, or shared link),
+  // the initial load path only fetches the generic product template — it
+  // never reads the `product=` param, so the canvas shows "Product Title /
+  // $29.99 / Product image" placeholders. Once the products list and the
+  // initial data have loaded, look up the product from the URL and run the
+  // same injection flow the sidebar click uses.
+  const deepLinkHandledRef = useRef(false)
+  useEffect(() => {
+    if (deepLinkHandledRef.current) return
+    if (loading) return
+    if (products.length === 0) return
+    if (currentPage !== "product") return
+    if (typeof window === "undefined") return
+    const parsed = parsePreviewFromSearch(window.location.search)
+    // New format supplies a product slug; legacy format supplies a title.
+    const match =
+      (parsed.productSlug && products.find(p => p.slug === parsed.productSlug)) ||
+      (parsed.productTitle && products.find(p => p.title === parsed.productTitle)) ||
+      null
+    if (!match) return
+    deepLinkHandledRef.current = true
+    handleSelectProductPage(match.id, match.title)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, products, currentPage])
+
+  // Update browser URL to reflect current page.
+  // Writes the canonical `?previewPath=…` format. We also clear the legacy
+  // `?page=` / `?product=` params so the URL bar doesn't grow stale junk.
+  const updatePageUrl = useCallback((page: string, productSlug?: string) => {
     const url = new URL(window.location.href)
-    url.searchParams.set("page", page)
-    if (productName) url.searchParams.set("product", productName)
-    else url.searchParams.delete("product")
+    url.searchParams.set("previewPath", previewPathForState(page, productSlug))
+    url.searchParams.delete("page")
+    url.searchParams.delete("product")
     window.history.replaceState({}, "", url.toString())
   }, [])
 
   const handlePageChange = async (page: PageKey) => {
+    // IMPORTANT: do NOT flip `canvasLoading` on for simple page switches —
+    // the skeleton should only appear on the very first editor mount
+    // (handled by the `loading` state) or on a direct product deep-link
+    // (handled by the `canvasLoading` useState initializer). Leave the
+    // previously-rendered sections on screen until the new page is ready
+    // so the editor feels instant instead of flashing a spinner every
+    // time the user clicks a different page.
     setSectionsLoading(true)
-    setCanvasLoading(true)
 
-    // Capture current header/footer before switching — they are universal
-    const currentHeader = sections.find(s => s.type === "header")
-    const currentFooter = sections.find(s => s.type === "footer")
+    // If leaving home, capture home's header/footer from in-memory state
+    // so they remain the universal version. Otherwise, fetch from API.
+    const leavingHomeHF =
+      currentPage === "home"
+        ? {
+            header: sections.find(s => s.type === "header"),
+            footer: sections.find(s => s.type === "footer"),
+          }
+        : null
 
     setCurrentPage(page)
     setSelectedPanel({ type: "pages" })
@@ -3317,14 +3897,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setEditAllProductPages(false)
     updatePageUrl(page)
 
-    // Load new page sections, then replace its header/footer with the shared ones
-    const loaded = await fetchPageSections(page)
-    const bodySections = loaded.filter(s => s.type !== "header" && s.type !== "footer")
-    const merged = [
-      ...(currentHeader ? [currentHeader] : loaded.filter(s => s.type === "header")),
-      ...bodySections,
-      ...(currentFooter ? [currentFooter] : loaded.filter(s => s.type === "footer")),
-    ]
+    // Load new page sections, then — if not home — splice in home's
+    // header/footer so every page renders identically to home.
+    const [loaded, homeHF] = await Promise.all([
+      fetchPageSections(page),
+      page !== "home"
+        ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
+        : Promise.resolve<{ header?: SectionInstance; footer?: SectionInstance }>({}),
+    ])
+    const merged = page !== "home" ? mergeWithHomeHeaderFooter(loaded, homeHF) : loaded
     setSections(merged)
 
     setSectionsLoading(false)
@@ -3333,21 +3914,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
     setSectionsLoading(true)
-    setCanvasLoading(true)
+    // Only flip `canvasLoading` on when the user is landing here via a
+    // product deep-link (URL already has product=...) — otherwise keep the
+    // previous page visible so switching to a product page feels instant.
+    // The deep-link case is already covered by the `canvasLoading` useState
+    // initializer, so we don't need to set it here.
 
-    // Capture current header/footer — they are universal
-    const currentHeader = sections.find(s => s.type === "header")
-    const currentFooter = sections.find(s => s.type === "footer")
+    // Product pages always use home's header/footer. If leaving home, grab
+    // them from in-memory state; otherwise refetch from the API.
+    const leavingHomeHF =
+      currentPage === "home"
+        ? {
+            header: sections.find(s => s.type === "header"),
+            footer: sections.find(s => s.type === "footer"),
+          }
+        : null
 
     setSelectedProductPage(productTitle)
     setCurrentPage("product")
     setSelectedPanel({ type: "pages" })
     setPageBrowserOpen(false)
-    updatePageUrl("product", productTitle)
+    // Prefer slug for the previewPath so the URL matches the live site's
+    // /products/{slug} shape; fall back to id if the product wasn't found
+    // in the in-memory list yet.
+    const slugForUrl =
+      products.find(p => p.id === productId)?.slug ?? productId
+    updatePageUrl("product", slugForUrl)
 
-    // Build fallback product data from the products list immediately
+    // Build fallback product data from the products list immediately. We
+    // include id + slug so the Buy Now / Add to Cart buttons remain wired
+    // up even when the dedicated product API call momentarily fails.
     const listProduct = products.find(p => p.id === productId)
     const fallbackData = listProduct ? {
+      id: listProduct.id,
+      slug: listProduct.slug,
       title: listProduct.title,
       description: listProduct.description,
       price_cents: listProduct.price_cents,
@@ -3358,41 +3958,121 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       files: [],
     } : null
 
-    // Fetch sections and full product data in parallel
-    const [pageSections, productRes] = await Promise.all([
+    // Fetch sections, product data, and home's header/footer in parallel.
+    // The product fetch retries once on a transient failure so a single flaky
+    // request doesn't strand the canvas on placeholder content.
+    const fetchProductWithRetry = async (): Promise<{ product?: unknown } | null> => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const r = await fetch(`/api/website-builder/products?id=${productId}`, { cache: "no-store" })
+          if (r.ok) return await r.json()
+        } catch {}
+      }
+      return null
+    }
+
+    const [pageSections, productRes, homeHF] = await Promise.all([
       fetchPageSections("product"),
-      fetch(`/api/website-builder/products?id=${productId}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
+      fetchProductWithRetry(),
+      leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
     ])
 
     // Use API response first, fall back to list data
     const productData = productRes?.product ?? fallbackData
 
-    // Inject into every product-type section
-    if (productData) {
-      for (let i = 0; i < pageSections.length; i++) {
-        if (pageSections[i].type === "product") {
-          pageSections[i] = {
-            ...pageSections[i],
-            settings: { ...pageSections[i].settings, _product_data: productData },
-          }
-        }
+    // Always clear any stale _product_data from the fetched template, then
+    // inject the new product. Without the clear step, switching products
+    // would show the prior product whenever the new product's API call
+    // fails — the screenshot bug where selecting "Deep House..." still
+    // rendered "Free Ambience Sample Pack Vol I".
+    for (let i = 0; i < pageSections.length; i++) {
+      if (pageSections[i].type !== "product") continue
+      const { _product_data: _omit, ...restSettings } = (pageSections[i].settings ?? {}) as Record<string, unknown>
+      pageSections[i] = {
+        ...pageSections[i],
+        settings: productData
+          ? { ...restSettings, _product_data: productData }
+          : restSettings,
       }
     }
 
-    // Replace header/footer with shared universal ones
-    const bodySections = pageSections.filter(s => s.type !== "header" && s.type !== "footer")
-    const merged = [
-      ...(currentHeader ? [currentHeader] : pageSections.filter(s => s.type === "header")),
-      ...bodySections,
-      ...(currentFooter ? [currentFooter] : pageSections.filter(s => s.type === "footer")),
-    ]
+    // Splice home's header/footer around this product template
+    const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
     setSections(merged)
     setSectionsLoading(false)
     setCanvasLoading(false)
   }
+
+  // ── Editor-internal navigation ─────────────────────────────
+  // Clicking a nav link / CTA inside a section while editing should NEVER
+  // perform a full browser navigation (that would blow the user out of the
+  // editor). Instead, map the href to the appropriate editor page/action.
+  // External URLs and `#` anchors are simply ignored in edit mode.
+  const handleEditorNavigate = useCallback((href: string) => {
+    if (!href) return
+    const trimmed = href.trim()
+    if (!trimmed || trimmed === "#") return
+    // External → ignore (we don't want to leave the editor)
+    if (/^https?:\/\//i.test(trimmed)) return
+    if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return
+
+    // Normalise path-only hrefs
+    const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+
+    // Product page deep-link
+    if (path.startsWith("/products/")) {
+      const slug = path.slice("/products/".length).split("?")[0].split("/")[0]
+      if (!slug) return
+      const match = products.find(p => p.slug === slug || p.id === slug)
+      if (match) handleSelectProductPage(match.id, match.title)
+      return
+    }
+
+    // Home + common platform routes
+    if (path === "/" || path === "") {
+      handlePageChange("home")
+      return
+    }
+    if (path === "/shop" || path.startsWith("/shop/") || path.startsWith("/collections")) {
+      // We don't have a dedicated shop page in the editor — treat it as home.
+      handlePageChange("home")
+      return
+    }
+    if (path === "/about" || path === "/about/") {
+      handlePageChange("about" as PageKey)
+      return
+    }
+    if (path === "/contact" || path === "/contact/") {
+      handlePageChange("contact" as PageKey)
+      return
+    }
+
+    // Custom page match — user-created pages stored in `customPages`.
+    const pageKeyGuess = path.replace(/^\//, "").replace(/\/$/, "") as PageKey
+    const customMatch = customPages.find(p => p.key === pageKeyGuess)
+    if (customMatch) {
+      handlePageChange(customMatch.key)
+      return
+    }
+    // Unknown internal path — silently ignore (keeps editor in current page).
+  }, [products, customPages])
+
+  // ── Memoized section buckets ─────────────────────────────────
+  // Splits `sections` into header / body / footer once per `sections`
+  // change instead of doing three `filter()` passes on every render.
+  const headerSections = useMemo(
+    () => sections.filter(s => s.type === "header"),
+    [sections],
+  )
+  const bodySections = useMemo(
+    () => sections.filter(s => s.type !== "header" && s.type !== "footer"),
+    [sections],
+  )
+  const footerSections = useMemo(
+    () => sections.filter(s => s.type === "footer"),
+    [sections],
+  )
 
   // Settings change (debounced undo push)
   const undoPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -3443,8 +4123,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
-  const addBlock = (sectionId: string, blockType: string) => {
-    const newBlock = { id: `block-${Date.now()}`, type: blockType, settings: {} }
+  const addBlock = (sectionId: string, blockType: string, initialSettings: Record<string, unknown> = {}) => {
+    const newBlock = { id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type: blockType, settings: initialSettings }
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, blocks: [...(s.blocks ?? []), newBlock] } : s
     ))
@@ -3459,9 +4139,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const removeBlock = (sectionId: string, blockId: string) => {
-    setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, blocks: s.blocks?.filter(b => b.id !== blockId) } : s
-    ))
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s
+      // Cascade-delete: also drop any children whose parent_id === blockId
+      // (used by header nav_link submenus).
+      const keep = (s.blocks ?? []).filter(b =>
+        b.id !== blockId && (b.settings?.parent_id as string | undefined) !== blockId,
+      )
+      return { ...s, blocks: keep }
+    }))
     setIsDirty(true)
   }
 
@@ -3491,6 +4177,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     next.splice(idx + 1, 0, copy)
     setSections(next)
     setIsDirty(true)
+    // Smoothly reveal the newly-duplicated section in the canvas.
+    // Two rAF ticks: one for React commit, one for layout post-paint.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollToSection(copy.id))
+    })
   }
 
   const addSection = (type: string) => {
@@ -3506,11 +4197,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       blocks: preset?.blocks ?? [],
       hidden: false,
     }
-    // Insert before footer if it exists
-    const footerIdx = sections.findIndex(s => s.type === "footer")
     const next = [...sections]
-    if (footerIdx !== -1) next.splice(footerIdx, 0, newSection)
-    else next.push(newSection)
+    if (pendingInsertIndex != null) {
+      // Clamp into the body range (between header and footer) so an insert
+      // divider can never land above the header or below the footer.
+      const headerIdx = sections.findIndex(s => s.type === "header")
+      const footerIdx = sections.findIndex(s => s.type === "footer")
+      const minIdx = headerIdx !== -1 ? headerIdx + 1 : 0
+      const maxIdx = footerIdx !== -1 ? footerIdx : sections.length
+      const clamped = Math.max(minIdx, Math.min(maxIdx, pendingInsertIndex))
+      next.splice(clamped, 0, newSection)
+      setPendingInsertIndex(null)
+    } else {
+      // Default — append before footer if it exists
+      const footerIdx = sections.findIndex(s => s.type === "footer")
+      if (footerIdx !== -1) next.splice(footerIdx, 0, newSection)
+      else next.push(newSection)
+    }
     setSections(next)
     setSelectedPanel({ type: "section", sectionId: newSection.id })
     setIsDirty(true)
@@ -3525,11 +4228,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const pageKey = newPageTitle.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") as PageKey
     const newPage = { id: `page-${Date.now()}`, name: newPageTitle.trim(), key: pageKey }
 
-    // Add default header + footer sections for new page
+    // Reuse the current session's header/footer so new pages inherit the
+    // exact same nav links, logo, colors, and footer that the rest of the
+    // site already uses. Falling back to the schema preset would show a
+    // blank factory header on the new page until the next sync, breaking
+    // the "universal header" contract.
+    const currentHeader = sections.find(s => s.type === "header")
+    const currentFooter = sections.find(s => s.type === "footer")
     const headerSchema = SECTION_SCHEMAS["header"]
     const footerSchema = SECTION_SCHEMAS["footer"]
     const defaultSections: SectionInstance[] = []
-    if (headerSchema) {
+    if (currentHeader) {
+      defaultSections.push(currentHeader)
+    } else if (headerSchema) {
       defaultSections.push({
         id: `header-${Date.now()}`,
         type: "header",
@@ -3539,7 +4250,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         hidden: false,
       })
     }
-    if (footerSchema) {
+    if (currentFooter) {
+      defaultSections.push(currentFooter)
+    } else if (footerSchema) {
       defaultSections.push({
         id: `footer-${Date.now() + 1}`,
         type: "footer",
@@ -3605,6 +4318,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }
 
+  // Strip runtime-only `_product_data` that the preview injects into
+  // product sections — we don't want a specific product's data baked into
+  // the page template because every product page renders from the same
+  // saved template and injects its own data at view time.
+  const sectionsForSave = (input: SectionInstance[]): SectionInstance[] =>
+    input.map(sec => {
+      if (!sec.settings || !("_product_data" in sec.settings)) return sec
+      const { _product_data: _omit, ...rest } = sec.settings as Record<string, unknown>
+      return { ...sec, settings: rest }
+    })
+
   const saveDraft = async () => {
     try {
       const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
@@ -3621,7 +4345,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections, mode: "draft" }),
+        body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
       })
       if (!sectionsRes.ok) {
         const d = await sectionsRes.json().catch(() => ({}))
@@ -3658,7 +4382,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections, mode: "draft" }),
+        body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
       })
       if (!sectionsRes.ok) {
         const d = await sectionsRes.json().catch(() => ({}))
@@ -3733,7 +4457,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     ].filter(p => p.name.toLowerCase().includes(search))
 
     return (
-      <div className="flex flex-col h-full animate-in fade-in duration-200">
+      <div className="flex flex-col h-full animate-in fade-in duration-150">
         {/* Header with back button */}
         <div className="px-4 py-3 border-b border-border shrink-0">
           <button
@@ -3886,6 +4610,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         <ColorSchemesEditor
                           value={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
                           onChange={v => updateSetting("color_schemes", v)}
+                          initialActive={editSchemeKey}
+                          onInitialActiveConsumed={() => setEditSchemeKey(null)}
                         />
                       ) : group.id === "branding" ? (
                         <BrandingTabPanel
@@ -4000,7 +4726,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               ))}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-3 space-y-0.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
+            <div className="flex-1 overflow-y-auto p-3 space-y-0.5 animate-in fade-in duration-150">
               {/* Header (global) */}
               {header && (
                 <div className="border border-border rounded-lg mb-3">
@@ -4019,28 +4745,44 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               {/* Body sections — no connector line */}
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={bodySection.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-0.5">
-                    {bodySection.map(section => (
-                      <SortableSectionRow
-                        key={section.id}
-                        section={section}
-                        isSelected={selectedSectionId === section.id}
-                        onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
-                        onToggleHide={() => toggleSectionHidden(section.id)}
-                        onDuplicate={() => duplicateSection(section.id)}
-                        onRemove={() => removeSection(section.id)}
-                      />
-                    ))}
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-purple-600 hover:bg-purple-50/60 rounded-lg transition-colors font-medium"
-                      onClick={() => setAddSectionOpen(true)}
-                    >
-                      <div className="h-8 w-8 rounded-lg border-2 border-dashed border-purple-300 flex items-center justify-center">
-                        <Plus className="h-4 w-4" />
+                  {(() => {
+                    const bodyStart = header ? 1 : 0
+                    const openInsert = (relIdx: number) => {
+                      setPendingInsertIndex(bodyStart + relIdx)
+                      setAddSectionOpen(true)
+                    }
+                    return (
+                      <div className="space-y-0.5">
+                        {/* Insert slot above the first body section */}
+                        {bodySection.length > 0 && (
+                          <InsertSectionDivider onClick={() => openInsert(0)} />
+                        )}
+                        {bodySection.map((section, idx) => (
+                          <div key={section.id}>
+                            <SortableSectionRow
+                              section={section}
+                              isSelected={selectedSectionId === section.id}
+                              onSelect={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                              onToggleHide={() => toggleSectionHidden(section.id)}
+                              onDuplicate={() => duplicateSection(section.id)}
+                              onRemove={() => removeSection(section.id)}
+                            />
+                            {/* Insert slot after this section (also before next, or before "Add section" button) */}
+                            <InsertSectionDivider onClick={() => openInsert(idx + 1)} />
+                          </div>
+                        ))}
+                        <button
+                          className="w-full flex items-center gap-2.5 px-3 py-3 text-sm text-purple-600 hover:bg-purple-50/60 rounded-lg transition-colors font-medium"
+                          onClick={() => { setPendingInsertIndex(null); setAddSectionOpen(true) }}
+                        >
+                          <div className="h-8 w-8 rounded-lg border-2 border-dashed border-purple-300 flex items-center justify-center">
+                            <Plus className="h-4 w-4" />
+                          </div>
+                          Add section
+                        </button>
                       </div>
-                      Add section
-                    </button>
-                  </div>
+                    )
+                  })()}
                 </SortableContext>
               </DndContext>
 
@@ -4079,7 +4821,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onBack={() => setSelectedPanel({ type: "pages" })}
             onUpdateSetting={(key, val) => updateSectionSetting(section.id, key, val)}
             onUpdateBlockSetting={(blockId, key, val) => updateBlockSetting(section.id, blockId, key, val)}
-            onAddBlock={(type) => addBlock(section.id, type)}
+            onAddBlock={(type, initialSettings) => addBlock(section.id, type, initialSettings)}
             onRemoveBlock={(blockId) => removeBlock(section.id, blockId)}
             onReorderBlocks={(blocks) => reorderBlocks(section.id, blocks)}
             products={products}
@@ -4091,7 +4833,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               ...customPages.map(p => ({ name: p.name, key: p.key as string })),
             ]}
             themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
-            onEditScheme={() => {
+            onEditScheme={(schemeKey) => {
+              if (schemeKey) setEditSchemeKey(schemeKey)
               setSidebarMode("settings")
               setExpandedSettings("color_schemes")
               setSelectedPanel({ type: "pages" })
@@ -4101,7 +4844,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       return (
-        <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-2 duration-150">
+        <div className="flex flex-col h-full animate-in fade-in duration-150">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
             <button
               className="text-muted-foreground hover:text-foreground transition-colors"
@@ -4121,7 +4864,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               value={typeof section.settings.color_scheme === "string" ? section.settings.color_scheme : "white"}
               onChange={v => updateSectionSetting(section.id, "color_scheme", v)}
               themeSchemes={settingsDraft.color_schemes as Record<string, ColorSchemeValues> | undefined}
-              onEditScheme={() => {
+              onEditScheme={(schemeKey) => {
+                if (schemeKey) setEditSchemeKey(schemeKey)
                 setSidebarMode("settings")
                 setExpandedSettings("color_schemes")
                 setSelectedPanel({ type: "pages" })
@@ -4212,7 +4956,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
                 {(!schema.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
                   <button
-                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-purple-400 rounded-lg transition-colors"
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
                     onClick={() => addBlock(section.id, schema.blocks![0].type)}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -4221,30 +4965,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 )}
               </div>
             )}
+          </div>
 
-            {/* Section actions */}
-            <div className="border-t border-border p-4 flex gap-2">
-              <button
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-foreground/30 rounded-lg transition-colors"
-                onClick={() => toggleSectionHidden(section.id)}
-              >
-                {section.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                {section.hidden ? "Show" : "Hide"}
-              </button>
-              <button
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-foreground/30 rounded-lg transition-colors"
-                onClick={() => duplicateSection(section.id)}
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Duplicate
-              </button>
-              <button
-                className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs text-red-400 hover:text-red-600 border border-border hover:border-red-200 rounded-lg transition-colors"
-                onClick={() => removeSection(section.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
+          {/* Sticky section actions footer */}
+          <div className="shrink-0 border-t border-border bg-background p-3 flex gap-2">
+            <button
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 text-xs border rounded-lg transition-all duration-150 active:scale-[0.97]",
+                section.hidden
+                  ? "bg-neutral-100 text-foreground border-neutral-200"
+                  : "text-muted-foreground hover:text-foreground border-border hover:border-foreground/30 hover:bg-neutral-50"
+              )}
+              onClick={() => toggleSectionHidden(section.id)}
+            >
+              {section.hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {section.hidden ? "Show" : "Hide"}
+            </button>
+            <button
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground border border-border hover:border-foreground/30 hover:bg-neutral-50 rounded-lg transition-all duration-150 active:scale-[0.97]"
+              onClick={() => duplicateSection(section.id)}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Duplicate
+            </button>
+            <button
+              className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs text-red-400 hover:text-red-600 border border-border hover:border-red-200 hover:bg-red-50/40 rounded-lg transition-all duration-150 active:scale-[0.94]"
+              onClick={() => removeSection(section.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       )
@@ -4398,34 +5147,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           )}
 
           {/* Back button */}
-          <button
-            className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0"
-            onClick={() => {
-              if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
-              router.push("/app/website-builder")
-            }}
-            title="Back to Website Builder"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors shrink-0 text-neutral-700"
+                onClick={() => {
+                  if (isDirty && !window.confirm("You have unsaved changes. Are you sure you want to leave?")) return
+                  router.push("/app/website-builder")
+                }}
+                aria-label="Exit"
+              >
+                <BackWithBarIcon className="h-[15px] w-[15px]" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Exit</TooltipContent>
+          </Tooltip>
 
           {/* Desktop: sidebar mode toggles (Pages / Sections / General Settings)
               Moved up from the old vertical rail so the sidebar gets the full
               horizontal space for its panel content. */}
           {!isMobileView && (
-            <div className="flex items-center gap-0.5 ml-1">
-              <button
-                className={cn(
-                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
-                  pageBrowserOpen
-                    ? "bg-neutral-200/80 text-foreground"
-                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
-                )}
-                onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
-                title="Pages"
-              >
-                <FileText className="h-[17px] w-[17px]" />
-              </button>
+            <div className="flex items-center gap-0.5 ml-2 pl-2 border-l border-neutral-200">
               <button
                 className={cn(
                   "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
@@ -4437,6 +5179,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 title="Sections"
               >
                 <Layers className="h-[17px] w-[17px]" />
+              </button>
+              <button
+                className={cn(
+                  "h-8 w-8 flex items-center justify-center rounded-md transition-colors",
+                  pageBrowserOpen
+                    ? "bg-neutral-200/80 text-foreground"
+                    : "text-muted-foreground hover:bg-neutral-100 hover:text-foreground",
+                )}
+                onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }) }}
+                title="Pages"
+              >
+                <FileText className="h-[17px] w-[17px]" />
               </button>
               <button
                 className={cn(
@@ -4459,7 +5213,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <span className="text-sm font-semibold text-foreground truncate hidden md:block max-w-[220px]">{install?.name}</span>
           {install?.status === "published" && (
             <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-200 text-[10px] font-semibold uppercase tracking-wide shrink-0 px-2 py-0">
-              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Live
             </Badge>
           )}
@@ -4498,65 +5251,122 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <div className="flex items-center gap-2 shrink-0">
           {/* View Live — globe icon only */}
           {websiteUrl && (
-            <button
-              className="h-9 w-9 hidden sm:flex items-center justify-center rounded-lg border border-neutral-200 bg-transparent hover:bg-neutral-100 transition-colors cursor-pointer"
-              onClick={() => window.open(websiteUrl, "_blank")}
-              title="View live website"
-            >
-              <Globe className="h-4 w-4 text-neutral-600" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-9 w-9 hidden sm:flex items-center justify-center rounded-lg border border-neutral-200 bg-transparent hover:bg-neutral-100 transition-colors cursor-pointer"
+                  onClick={() => window.open(websiteUrl, "_blank")}
+                  aria-label="View live website"
+                >
+                  <Globe className="h-4 w-4 text-neutral-600" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">View live website</TooltipContent>
+            </Tooltip>
           )}
 
           {/* Device Switcher — pill toggle */}
           <div className="hidden sm:flex items-center bg-neutral-100 rounded-lg p-0.5 shrink-0">
-            <button
-              className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "desktop" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-              onClick={() => setDevice("desktop")}
-              title="Desktop"
-            >
-              <Monitor className="h-3.5 w-3.5" />
-            </button>
-            <button
-              className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "mobile" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-              onClick={() => setDevice("mobile")}
-              title="Mobile"
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "desktop" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                  onClick={() => setDevice("desktop")}
+                  aria-label="Desktop"
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Desktop</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-all duration-150", device === "mobile" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                  onClick={() => setDevice("mobile")}
+                  aria-label="Mobile"
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Mobile</TooltipContent>
+            </Tooltip>
           </div>
 
+          {/* Inspector toggle — purple when on.
+              When ON (default): clicking a section highlights it with the
+              blue selection rectangle and opens its settings panel.
+              When OFF: canvas behaves like a pure preview — no outlines,
+              no section-click interception. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-all duration-150 shrink-0",
+                  inspectorEnabled
+                    ? "bg-purple-600 border-purple-600 text-white shadow-sm hover:bg-purple-700"
+                    : "bg-transparent border-neutral-200 text-neutral-600 hover:bg-neutral-100",
+                )}
+                onClick={() => setInspectorEnabled(v => !v)}
+                aria-label={inspectorEnabled ? "Disable section inspector" : "Enable section inspector"}
+                aria-pressed={inspectorEnabled}
+              >
+                <MousePointerClick className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {inspectorEnabled ? "Inspector: on — click to disable" : "Inspector: off — click to enable"}
+            </TooltipContent>
+          </Tooltip>
+
           {/* Preview */}
-          <button
-            className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors cursor-pointer"
-            onClick={() => {
-              if (!websiteUrl) return
-              const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
-              window.open(urlWithPreview, "_blank", "noopener,noreferrer")
-            }}
-            title="Preview"
-          >
-            <ExternalLink className="h-3.5 w-3.5 text-neutral-600" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors cursor-pointer"
+                onClick={() => {
+                  if (!websiteUrl) return
+                  const urlWithPreview = `${websiteUrl}${websiteUrl.includes("?") ? "&" : "?"}builder_preview=1&show_preview_bar=1`
+                  window.open(urlWithPreview, "_blank", "noopener,noreferrer")
+                }}
+                aria-label="Preview"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-neutral-600" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Preview</TooltipContent>
+          </Tooltip>
 
           {/* Undo / Redo — sit next to the Save button per the mock */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0">
-            <button
-              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              title="Undo (Ctrl+Z)"
-            >
-              <Undo2 className="h-4 w-4 text-neutral-600" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0}
+                  aria-label="Undo"
+                >
+                  <Undo2 className="h-4 w-4 text-neutral-600" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Undo (⌘Z)</TooltipContent>
+            </Tooltip>
             <div className="w-px h-5 bg-border" />
-            <button
-              className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              <Redo2 className="h-4 w-4 text-neutral-600" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="h-8 w-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0}
+                  aria-label="Redo"
+                >
+                  <Redo2 className="h-4 w-4 text-neutral-600" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Redo (⌘⇧Z)</TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Save button — publishes automatically if theme is live */}
@@ -4565,10 +5375,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             className={cn(
               "h-9 cursor-pointer min-w-[80px] transition-all duration-200 text-white",
               saving
-                ? "bg-purple-600 hover:bg-purple-600"
+                ? "bg-neutral-900 hover:bg-neutral-900"
                 : isDirty
-                  ? "bg-purple-600 hover:bg-purple-700"
-                  : "bg-purple-600/50 hover:bg-purple-600/50 cursor-default"
+                  ? "bg-neutral-900 hover:bg-black"
+                  : "bg-neutral-900/40 hover:bg-neutral-900/40 cursor-default"
             )}
             onClick={handleSave}
             disabled={saving || !isDirty}
@@ -4586,6 +5396,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </Button>
         </div>
       </header>
+
+      {/* ── Thin page-load progress bar ──
+          Single A→B sweep (NProgress-style), never looping. While the load
+          is in flight the bar creeps smoothly toward ~90% on an ease-out
+          curve; when the load finishes it snaps to 100% and fades out.
+          No repeating / "double" animation. */}
+      <WbLoadProgressBar active={sectionsLoading} />
 
       {/* ── Top notification bar ── */}
       <div
@@ -4616,7 +5433,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {/* ── Left sidebar (desktop — no vertical rail, switches live in topbar) ── */}
         {!isMobileView ? (
           <div className="relative flex-shrink-0 border-r border-border bg-background flex h-full overflow-hidden">
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth, minWidth: 280 }}>
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" style={{ width: sidebarWidth, minWidth: 260 }}>
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                 {renderSidebarContent()}
               </div>
@@ -4627,7 +5444,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             {/* Mobile sidebar overlay — slides in from the left UNDER the topbar */}
             <div
               className={cn(
-                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[360px] bg-background border-r border-border flex will-change-transform shadow-2xl",
+                "absolute inset-y-0 left-0 z-30 w-[85vw] max-w-[360px] bg-background border-r border-border flex will-change-transform",
               )}
               style={{
                 top: 0,
@@ -4662,13 +5479,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 </div>
               </div>
             </div>
-            {/* Backdrop — fade in/out smoothly */}
+            {/* Backdrop — transparent click-catcher to close the sidebar,
+                no visual darkening so the canvas stays fully visible. */}
             <div
-              className="absolute inset-0 z-20 bg-black/40"
+              className="absolute inset-0 z-20"
               style={{
-                opacity: mobileSidebarOpen ? 1 : 0,
                 pointerEvents: mobileSidebarOpen ? "auto" : "none",
-                transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}
               onClick={() => setMobileSidebarOpen(false)}
             />
@@ -4687,20 +5503,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */}
         <main
           className={cn(
-            "flex-1 min-w-0 bg-muted/50 overflow-hidden flex justify-center",
+            "flex-1 min-w-0 bg-neutral-50 overflow-hidden flex justify-center",
             // Center the phone vertically in mobile preview so the extra
             // gray space on very tall / wide viewports doesn't bunch below
-            // the device. Desktop preview stays top-aligned.
-            device === "mobile" ? "items-center py-6 px-6" : "items-start pt-6 px-6",
+            // the device. Desktop preview stays top-aligned. Desktop runs
+            // near-edge (Shopify-style): 8px left/right/top so the canvas
+            // almost touches the surrounding chrome.
+            device === "mobile" ? "items-center py-6 px-6" : "items-start pt-2 px-2",
           )}
         >
           <div
             id="wb-preview-root"
             className={cn(
-              "relative bg-white shadow-xl transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
+              "relative bg-white border border-neutral-200/70 transition-all duration-300 flex flex-col overflow-y-auto overflow-x-hidden",
               device === "mobile"
                 ? "rounded-2xl"
-                : "rounded-t-xl w-full max-w-[1400px]",
+                : "rounded-t-xl w-full",
             )}
             style={
               device === "mobile"
@@ -4713,7 +5531,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   }
                 : {
                     // Desktop — card fills the canvas area and scrolls internally.
-                    height: "calc(100svh - 48px - 24px)",
+                    // Height = viewport minus topbar (48) minus the pt-2 (8px).
+                    height: "calc(100svh - 48px - 8px)",
                   }
             }
           >
@@ -4753,30 +5572,51 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     `wrapperId` means the id lands on the SectionWrapper's
                     root div, so `position: sticky` has the full flex-col
                     above as its containing block instead of a tight
-                    wrapper that's exactly the header's own height. */}
-                {sections.filter(s => s.type === "header").map(section => (
+                    wrapper that's exactly the header's own height.
+
+                    Inspector toggle: `isEditing` and the click handler are
+                    both gated by `inspectorEnabled`. When the inspector is
+                    OFF the canvas is a pure preview — no outlines, no
+                    selection-on-click. `onEditorNavigate` stays on so links
+                    still route inside the editor instead of leaving. */}
+                {headerSections.map(section => (
                   <SectionRenderer
                     key={section.id}
                     wrapperId={`wb-section-${section.id}`}
                     section={section}
                     theme={activeThemeSettings}
-                    isEditing={true}
-                    isSelected={selectedSectionId === section.id}
-                    onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }}
+                    // `insideEditor` stays TRUE whether or not the user
+                    // has the Inspector toggled on — it tells sections
+                    // "you're rendering inside the canvas card, use the
+                    // editor-scoped sticky mode". `isEditing` flips with
+                    // the inspector toggle, but `insideEditor` does NOT,
+                    // which is what kept the header from flipping into
+                    // `position: fixed` and overlaying the editor chrome
+                    // when inspector was turned off.
+                    insideEditor
+                    isEditing={inspectorEnabled}
+                    isSelected={inspectorEnabled && selectedSectionId === section.id}
+                    onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined}
                     deviceMode={device}
+                    onEditorNavigate={handleEditorNavigate}
+                    // Match the canvas's `rounded-t-xl` (desktop, 12px) or
+                    // `rounded-2xl` (mobile, 16px) so the selection ring
+                    // curves into the canvas corners instead of getting
+                    // clipped as a square.
+                    canvasRoundedTopPx={device === "mobile" ? 16 : 12}
                   />
                 ))}
 
                 {/* Body sections — flex-1 so footer sticks to bottom without trailing whitespace */}
                 <div className="flex-1">
-                  {sections.filter(s => s.type !== "header" && s.type !== "footer").map(section => (
+                  {bodySections.map(section => (
                     <div key={section.id} id={`wb-section-${section.id}`}>
-                      <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
+                      <SectionRenderer section={section} theme={activeThemeSettings} insideEditor isEditing={inspectorEnabled} isSelected={inspectorEnabled && selectedSectionId === section.id} onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined} deviceMode={device} onEditorNavigate={handleEditorNavigate} />
                     </div>
                   ))}
 
                   {/* Empty page — between header and footer */}
-                  {sections.filter(s => s.type !== "header" && s.type !== "footer").length === 0 && (
+                  {bodySections.length === 0 && (
                     <div className="py-24 flex items-center justify-center text-center">
                       <div>
                         <p className="text-xl font-bold tracking-tight text-neutral-300 uppercase mb-1">Empty Page</p>
@@ -4790,10 +5630,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   )}
                 </div>
 
-                {/* Footer */}
-                {sections.filter(s => s.type === "footer").map(section => (
+                {/* Footer — also gated by the Inspector toggle. */}
+                {footerSections.map(section => (
                   <div key={section.id} id={`wb-section-${section.id}`}>
-                    <SectionRenderer section={section} theme={activeThemeSettings} isEditing={true} isSelected={selectedSectionId === section.id} onClick={() => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) }} deviceMode={device} />
+                    <SectionRenderer
+                      section={section}
+                      theme={activeThemeSettings}
+                      insideEditor
+                      isEditing={inspectorEnabled}
+                      isSelected={inspectorEnabled && selectedSectionId === section.id}
+                      onClick={inspectorEnabled ? () => { setSelectedPanel({ type: "section", sectionId: section.id }); scrollToSection(section.id) } : undefined}
+                      deviceMode={device}
+                      onEditorNavigate={handleEditorNavigate}
+                      // Only mobile canvas has rounded bottom (`rounded-2xl`);
+                      // desktop uses `rounded-t-xl` so bottom is flat.
+                      canvasRoundedBottomPx={device === "mobile" ? 16 : undefined}
+                    />
                   </div>
                 ))}
               </>
@@ -4806,7 +5658,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       {/* ── Add Section Modal ── */}
       <AddSectionModal
         open={addSectionOpen}
-        onOpenChange={setAddSectionOpen}
+        onOpenChange={(o) => {
+          setAddSectionOpen(o)
+          if (!o) setPendingInsertIndex(null)
+        }}
         onAddSection={addSection}
       />
 
@@ -4880,6 +5735,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// ── Insert-between-sections divider ──────────────────────────
+// A 16px tall hover target that reveals a thin line + plus button
+// exactly between two sections. Clicking it opens the Add Section
+// library with the insert position pre-set.
+function InsertSectionDivider({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="group relative h-3 -my-1 flex items-center justify-center cursor-pointer select-none" onClick={onClick}>
+      {/* Hover line */}
+      <div className="absolute inset-x-2 h-px bg-neutral-900/60 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+      {/* Plus pill in the centre */}
+      <div className="relative z-10 h-5 w-5 rounded-full bg-white border border-neutral-300 shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-[opacity,transform,box-shadow] duration-200 ease-out group-hover:shadow-md group-hover:scale-[1.08]">
+        <Plus className="h-3 w-3 text-neutral-900 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] group-hover:rotate-180" strokeWidth={2.5} />
+      </div>
     </div>
   )
 }

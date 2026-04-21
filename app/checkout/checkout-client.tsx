@@ -1095,7 +1095,13 @@ export default function CheckoutPageClient({
   const isFree = total === 0
 
   const tipOptions = [0, 1, 3, 5]
-  const productUrl = getProductUrl(creator.username, product.slug)
+  // If the checkout was opened from a website-builder product page, the
+  // Buy button appends `?from=/products/{slug}` so the "Back to product"
+  // link returns the visitor to the exact page they came from instead of
+  // bouncing them over to the marketplace product page.
+  const fromParam = searchParams.get("from") || ""
+  const isSafeReturnUrl = fromParam.startsWith("/") && !fromParam.startsWith("//")
+  const productUrl = isSafeReturnUrl ? fromParam : getProductUrl(creator.username, product.slug)
 
   // Contact validation
   const isContactValid = useMemo(() => {
