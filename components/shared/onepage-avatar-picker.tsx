@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, Upload, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { pickPhoto } from "@/lib/native-camera"
 
 interface OnepageAvatarPickerProps {
   open: boolean
@@ -32,7 +33,6 @@ export function OnepageAvatarPicker({
   const [isResizing, setIsResizing] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Sync open prop to upload modal
@@ -50,12 +50,12 @@ export function OnepageAvatarPicker({
     }
   }, [open])
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setTempImageUrl(url)
-    setTempImageFile(file)
+  const handlePickPhoto = async () => {
+    const photo = await pickPhoto("PROMPT")
+    if (!photo) return
+
+    setTempImageUrl(photo.dataUrl)
+    setTempImageFile(new File([photo.blob], `avatar.${photo.mimeType === "image/png" ? "png" : "jpg"}`, { type: photo.mimeType }))
     setShowUploadModal(false)
     setShowCropModal(true)
 
@@ -76,7 +76,7 @@ export function OnepageAvatarPicker({
         size: initialSize,
       })
     }
-    img.src = url
+    img.src = photo.dataUrl
   }
 
   const handleCropSave = async () => {
@@ -242,16 +242,15 @@ export function OnepageAvatarPicker({
             <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</DialogTitle>
           </DialogHeader>
           <div className="p-5">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+            <button
+              type="button"
+              onClick={handlePickPhoto}
+              className="w-full border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors bg-transparent"
             >
               <Upload className="h-12 w-12 text-gray-300 mb-4" />
-              <p className="font-medium text-gray-600">Select file to upload,</p>
-              <p className="font-medium text-gray-600">or drag-and-drop file</p>
-              <p className="text-sm text-gray-400 mt-2">Please upload an image</p>
-            </div>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+              <p className="font-medium text-gray-600">Tap to select a photo</p>
+              <p className="text-sm text-gray-400 mt-2">Camera or photo library</p>
+            </button>
           </div>
         </DialogContent>
       </Dialog>

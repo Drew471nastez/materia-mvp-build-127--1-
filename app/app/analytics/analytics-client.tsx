@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 
 // Custom Spotify Icon (brand SVG)
@@ -226,6 +227,26 @@ type TimeframeOption = {
   label: string
   shortLabel: string
   getDates: () => { start: Date; end: Date }
+}
+
+// ── Sample data for analytics chart ───────────────────────────────────────
+const ANALYTICS_SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const ANALYTICS_SAMPLE_TREND = ANALYTICS_SAMPLE_DAYS.map((d, i) => ({
+  date: d,
+  views:       [45, 78, 35, 92, 63, 88, 51][i],
+  sales:       [2, 5, 1, 7, 3, 6, 4][i],
+  revenue:     [1250, 3400, 900, 4500, 2500, 3800, 2000][i],
+  clicks:      [12, 22, 9, 31, 18, 28, 15][i],
+  subscribers: [1, 2, 0, 3, 1, 2, 1][i],
+  refunds:     0,
+  conversion:  0,
+  ctr:         0,
+}))
+const ANALYTICS_SAMPLE_SUMMARY: Summary = {
+  totalViews: 452, totalOrders: 28, totalRevenue: 34500,
+  conversionRate: 6.2, avgOrderValue: 1232, uniqueVisitors: 310,
+  prevPeriodViews: 380, prevPeriodOrders: 22, prevPeriodRevenue: 28900,
+  allTimeViews: 1660, allTimeOrders: 95, allTimeRevenue: 125000,
 }
 
 const timeframeOptions: TimeframeOption[] = [
@@ -777,6 +798,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
   const [kpiChartData, setKpiChartData] = useState<ChartDataPoint[]>([])
   const [isKpiChartLoading, setIsKpiChartLoading] = useState(false)
+
+  // Sample data toggle — session only, resets on page refresh
+  const [showSampleData, setShowSampleData] = useState(false)
 
   const [summary, setSummary] = useState<Summary>({
     totalViews: 0,
@@ -1971,11 +1995,62 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const totalRevenueInChart = summary.totalRevenue
 
   // Compute chart data with conversion rate and CTR added
-  const chartDisplayData = trendData.map(d => ({
+  const rawChartData = trendData.map(d => ({
     ...d,
     conversion: d.views > 0 ? Number(((d.sales / d.views) * 100).toFixed(2)) : 0,
     ctr: d.views > 0 && d.clicks ? Number(((d.clicks / d.views) * 100).toFixed(2)) : 0,
   }))
+
+  // ── Sample data overlay ─────────────────────────────────────────────────
+  const ANALYTICS_SAMPLE_ONEPAGE = {
+    views: 245, clicks: 89, subscribers: 12, ctr: 36.3,
+    prevViews: 198, prevClicks: 72, prevSubscribers: 9,
+    allTimeViews: 890, allTimeClicks: 312, allTimeSubscribers: 47,
+  }
+  const hasRealData = summary.allTimeViews > 0 || summary.allTimeOrders > 0 || summary.allTimeRevenue > 0
+    || onePageMetrics.allTimeViews > 0 || onePageMetrics.allTimeClicks > 0
+  const displaySummary = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_SUMMARY : summary
+  const displayOnePageMetrics = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_ONEPAGE : onePageMetrics
+  const chartDisplayData = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData
+  const SAMPLE_TRAFFIC_SOURCES: TrafficSource[] = [
+    { source: "instagram", views: 145, orders: 8, conversionRate: 5.5 },
+    { source: "tiktok", views: 98, orders: 4, conversionRate: 4.1 },
+    { source: "youtube", views: 72, orders: 3, conversionRate: 4.2 },
+    { source: "direct", views: 89, orders: 5, conversionRate: 5.6 },
+    { source: "twitter", views: 48, orders: 2, conversionRate: 4.2 },
+  ]
+  const SAMPLE_DEVICE_DATA: DeviceData[] = [
+    { device: "mobile", views: 285, orders: 12, conversionRate: 4.2 },
+    { device: "desktop", views: 142, orders: 14, conversionRate: 9.9 },
+    { device: "tablet", views: 25, orders: 2, conversionRate: 8.0 },
+  ]
+  const SAMPLE_BROWSER_DATA = [
+    { browser: "Chrome", views: 198 },
+    { browser: "Safari", views: 165 },
+    { browser: "Firefox", views: 45 },
+    { browser: "Edge", views: 44 },
+  ]
+  const SAMPLE_TOP_PRODUCTS: TopProductData[] = [
+    { id: "sp1", title: "Sample Pack Vol. 3", thumbnail_url: null, views: 142, orders: 12, revenue: 28800, conversionRate: 8.5 },
+    { id: "sp2", title: "Beat Kit (50 beats)", thumbnail_url: null, views: 98, orders: 8, revenue: 39200, conversionRate: 8.2 },
+    { id: "sp3", title: "Mix Template", thumbnail_url: null, views: 76, orders: 5, revenue: 0, conversionRate: 6.6 },
+  ]
+  const SAMPLE_COUNTRY_DATA: CountryData[] = [
+    { code: "US", name: "United States", views: 198, orders: 11, revenue: 26800, conversionRate: 5.6 },
+    { code: "GB", name: "United Kingdom", views: 87, orders: 5, revenue: 12200, conversionRate: 5.7 },
+    { code: "CA", name: "Canada", views: 56, orders: 3, revenue: 7400, conversionRate: 5.4 },
+    { code: "AU", name: "Australia", views: 42, orders: 3, revenue: 5800, conversionRate: 7.1 },
+    { code: "DE", name: "Germany", views: 29, orders: 2, revenue: 4800, conversionRate: 6.9 },
+  ]
+  const displayTrafficSources = showSampleData && !hasRealData ? SAMPLE_TRAFFIC_SOURCES : trafficSources
+  const displayTrafficPieData = displayTrafficSources.slice(0, 6).map(s => ({ name: formatSourceName(s.source), value: s.views }))
+  const displayTotalTrafficViews = displayTrafficSources.reduce((sum, s) => sum + s.views, 0)
+  const displayDeviceData = showSampleData && !hasRealData ? SAMPLE_DEVICE_DATA : deviceData
+  const displayTotalDeviceViews = displayDeviceData.reduce((sum, d) => sum + d.views, 0)
+  const displayBrowserData = showSampleData && !hasRealData ? SAMPLE_BROWSER_DATA : browserData
+  const displayTotalBrowserViews = displayBrowserData.reduce((sum, b) => sum + b.views, 0)
+  const displayTopProducts = showSampleData && !hasRealData ? SAMPLE_TOP_PRODUCTS : topProducts
+  const displayCountryData = showSampleData && !hasRealData ? SAMPLE_COUNTRY_DATA : countryData
 
   // KPI Modal Chart component (matching Dashboard UI exactly)
   const KPIModalChart = ({ kpiType, label }: { kpiType: KPIType; label: string }) => {
@@ -2192,6 +2267,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <div className="relative timeframe-dropdown">
               <button
                 onClick={() => {
+                  triggerHaptic("light")
                   if (isMobile) {
                     setIsTimeframeSheetOpen(true)
                   } else {
@@ -2308,7 +2384,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
           {/* KPI Metric Tabs */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
             {analyticsMode === "store" ? (
               <>
                 {/* Views */}
@@ -2321,10 +2397,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalViews")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalViews)}</span>
-                    {<PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalViews)}</span>
+                    {<PercentChangeIndicator current={displaySummary.totalViews} previous={displaySummary.prevPeriodViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Revenue */}
                 <button
@@ -2336,10 +2412,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalRevenue")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(summary.totalRevenue)}</span>
-                    {<PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(displaySummary.totalRevenue)}</span>
+                    {<PercentChangeIndicator current={displaySummary.totalRevenue} previous={displaySummary.prevPeriodRevenue} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(displaySummary.allTimeRevenue)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Orders */}
                 <button
@@ -2351,10 +2427,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
-                    {<PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalOrders)}</span>
+                    {<PercentChangeIndicator current={displaySummary.totalOrders} previous={displaySummary.prevPeriodOrders} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeOrders)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Conversion */}
                 <button
@@ -2366,7 +2442,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.conversionRate")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(summary.conversionRate)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displaySummary.conversionRate)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
                 </button>
@@ -2383,10 +2459,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.views)}</span>
-                    {<PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.views)}</span>
+                    {<PercentChangeIndicator current={displayOnePageMetrics.views} previous={displayOnePageMetrics.prevViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Clicks */}
                 <button
@@ -2398,10 +2474,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "clicks" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.clicks")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.clicks)}</span>
-                    {<PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.clicks)}</span>
+                    {<PercentChangeIndicator current={displayOnePageMetrics.clicks} previous={displayOnePageMetrics.prevClicks} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Subscribers */}
                 <button
@@ -2413,10 +2489,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "subscribers" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "subscribers" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.subscribers")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.subscribers)}</span>
-                    {<PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.subscribers)}</span>
+                    {<PercentChangeIndicator current={displayOnePageMetrics.subscribers} previous={displayOnePageMetrics.prevSubscribers} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* CTR */}
                 <button
@@ -2428,7 +2504,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "ctr" ? "text-[#374151]" : "text-[#6b7280]"}`}>CTR</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(onePageMetrics.ctr)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayOnePageMetrics.ctr)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
                 </button>
@@ -2438,6 +2514,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
           {/* Chart Area - always open */}
           <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
+            {(
+              <div className="relative">
+                <div className={`transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
@@ -2537,15 +2616,35 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   )}
                 </AreaChart>
               </ResponsiveContainer>
+                </div>
+                {!hasRealData && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                    <span className="text-[11px] text-[#c8ccd4]">
+                      {showSampleData ? "Sample data" : "No activity yet"}
+                    </span>
+                    <button
+                      onClick={() => setShowSampleData(prev => !prev)}
+                      className={`relative inline-flex h-4 w-7 rounded-full transition-colors cursor-pointer ${showSampleData ? "bg-indigo-300/80" : "bg-[#e9ecef]"}`}
+                      aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                    >
+                      <span className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 transition-transform ${showSampleData ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border-[#e5e7eb] bg-white">
+          <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
+                  {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+                </div>
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
                   <button
                     onClick={() => setTrafficViewMode("chart")}
@@ -2563,14 +2662,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              {trafficPieData.length > 0 ? (
+              {displayTrafficPieData.length > 0 ? (
                 <div className="relative">
                   <div className={`transition-all duration-300 ease-out ${trafficViewMode === "chart" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={trafficPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" animationBegin={0} animationDuration={600}>
-                            {trafficPieData.map((entry, index) => (
+                          <Pie data={displayTrafficPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" animationBegin={0} animationDuration={600}>
+                            {displayTrafficPieData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                             ))}
                           </Pie>
@@ -2586,8 +2685,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   </div>
                   <div className={`transition-all duration-300 ease-out ${trafficViewMode === "list" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
                     <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
-                      {trafficSources.slice(0, 10).map((source, idx) => {
-                        const percentage = totalTrafficViews > 0 ? (source.views / totalTrafficViews) * 100 : 0
+                      {displayTrafficSources.slice(0, 10).map((source, idx) => {
+                        const percentage = displayTotalTrafficViews > 0 ? (source.views / displayTotalTrafficViews) * 100 : 0
                         return (
                           <div key={source.source} className="flex items-center gap-3 p-2 bg-[#f9fafb] rounded-lg">
                             <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${PIE_COLORS[idx % PIE_COLORS.length]}15` }}>
@@ -2612,12 +2711,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             </CardContent>
           </Card>
 
-          <Card className="border-[#e5e7eb] bg-white">
+          <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
-                  {deviceTabMode === "device" ? "Device Breakdown" : "Browser Breakdown"}
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
+                    {deviceTabMode === "device" ? "Device Breakdown" : "Browser Breakdown"}
+                  </CardTitle>
+                  {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+                </div>
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
                   <button
                     onClick={() => setDeviceTabMode("device")}
@@ -2637,10 +2739,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <CardContent className="pt-2">
                 <div className="transition-opacity duration-300 ease-out" key={deviceTabMode}>
                   {deviceTabMode === "device" ? (
-                    deviceData.length > 0 ? (
+                    displayDeviceData.length > 0 ? (
                       <div className="space-y-2">
-                        {deviceData.map((device) => {
-                          const percentage = totalDeviceViews > 0 ? (device.views / totalDeviceViews) * 100 : 0
+                        {displayDeviceData.map((device) => {
+                          const percentage = displayTotalDeviceViews > 0 ? (device.views / displayTotalDeviceViews) * 100 : 0
                           return (
                             <div key={device.device} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
                               <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
@@ -2663,10 +2765,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </div>
                     )
                   ) : (
-                    browserData.length > 0 ? (
+                    displayBrowserData.length > 0 ? (
                       <div className="space-y-2">
-                        {browserData.map((browser) => {
-                          const percentage = totalBrowserViews > 0 ? (browser.views / totalBrowserViews) * 100 : 0
+                        {displayBrowserData.map((browser) => {
+                          const percentage = displayTotalBrowserViews > 0 ? (browser.views / displayTotalBrowserViews) * 100 : 0
                           return (
                             <div key={browser.browser} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
                               <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
@@ -2695,17 +2797,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </div>
 
         {/* Top Products / Most Clicked */}
-        <Card className="border-[#e5e7eb] bg-white">
+        <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
-            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
-              {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
+                {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
+              </CardTitle>
+              {showSampleData && !hasRealData && analyticsMode === "store" && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+            </div>
           </CardHeader>
           <CardContent className="pt-2">
             {analyticsMode === "store" ? (
-              topProducts.length > 0 ? (
+              displayTopProducts.length > 0 ? (
                 <div className="space-y-2">
-                  {topProducts.slice(0, 5).map((product, idx) => (
+                  {displayTopProducts.slice(0, 5).map((product, idx) => (
                     <div key={product.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
                       <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center overflow-hidden flex-shrink-0">
                         {product.thumbnail_url ? (
@@ -3027,15 +3132,18 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </Card>
 
         {/* Visitors by Country */}
-        <Card className="border-[#e5e7eb] bg-white">
+        <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
-            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
+              {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+            </div>
           </CardHeader>
           <CardContent className="pt-2">
-            {countryData.length > 0 ? (
+            {displayCountryData.length > 0 ? (
               <>
                 {/* Country Table */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[#e5e7eb]">
@@ -3050,7 +3158,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </tr>
                     </thead>
                     <tbody>
-                      {countryData.map((country) => (
+                      {displayCountryData.map((country) => (
                         <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
                           <td className="py-2.5">
                             <div className="flex items-center gap-2">

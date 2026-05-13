@@ -1,19 +1,32 @@
 "use client"
 
+import "@/lib/stripe-nav-guard"
 import { useCallback, useState } from "react"
-import { loadStripe } from "@stripe/stripe-js"
+import { loadStripe } from "@stripe/stripe-js/pure"
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js"
 import { X, ArrowLeft } from "lucide-react"
 
+// Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
+// The controller iframe triggers window.location.href navigation which in WebKit
+// is [LegacyUnforgeable] and can't be intercepted by JS — preventing the controller
+// from being created is the only reliable solution.
+const _isNative = typeof window !== "undefined" && (() => {
+  const cap = (window as any).Capacitor
+  if (cap?.isNativePlatform?.()) return true
+  const ua = navigator.userAgent || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+})()
 const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+  // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
+  _isNative ? { advancedFraudSignals: false } : undefined,
 )
 
 const STORELIB_LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 interface CheckoutModalProps {
   mode: "subscription" | "setup"
@@ -86,7 +99,7 @@ export function CheckoutModal({
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2"
+            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 rounded-[7px]"
           />
 
           {/* Close button */}

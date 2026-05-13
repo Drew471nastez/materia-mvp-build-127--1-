@@ -1,31 +1,60 @@
 "use client"
 
 import type React from "react"
+import { useState, useEffect } from "react"
 
 import { useStoreBuilder } from "./store-builder-context"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ListChecks, Type, Megaphone, Grid, ImageIcon, Package, CheckCircle, X, Star, Users, ShoppingBag } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { X } from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
-import type { SectionLibraryItem } from "@/lib/store-builder/types"
+import type { SectionLibraryItem, SectionSettings, Section } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
+import { UnifiedSectionRenderer } from "./unified-section-renderer"
 
 interface AddSectionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-const sectionIconsMap: Record<string, React.ReactNode> = {
-  "image-text": <ImageIcon className="h-5 w-5" />,
-  benefits: <ListChecks className="h-5 w-5" />,
-  "text-block": <Type className="h-5 w-5" />,
-  "announcement-bar": <Megaphone className="h-5 w-5" />,
-  "featured-products": <Grid className="h-5 w-5" />,
-  "more-from-seller": <Package className="h-5 w-5" />,
-  reviews: <CheckCircle className="h-5 w-5" />,
+const SECTION_CATEGORIES = [
+  { key: "all", label: "All" },
+  { key: "image-text", label: "Image + Text" },
+  { key: "content", label: "Content" },
+  { key: "marketing", label: "Marketing" },
+  { key: "commerce", label: "Products" },
+  { key: "info", label: "Information" },
+]
+
+const CATEGORY_FILTER: Record<string, string[]> = {
+  "image-text": ["image-text"],
+  content: ["text-block", "benefits"],
+  marketing: ["announcement-bar"],
+  commerce: ["featured-products"],
+  info: ["reviews"],
 }
 
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
-  const { draftConfig, addSection } = useStoreBuilder()
+  const { draftConfig, addSection, products } = useStoreBuilder()
+  const [activeCategory, setActiveCategory] = useState("all")
+  const [isMobileLayout, setIsMobileLayout] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobileLayout(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // Reset category when modal opens
+  useEffect(() => {
+    if (open) setActiveCategory("all")
+  }, [open])
 
   const handleAddSection = (libraryItem: SectionLibraryItem) => {
     const newSection = createSectionFromLibrary(libraryItem, draftConfig.sections.length)
@@ -33,53 +62,139 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
     onOpenChange(false)
   }
 
+  const filteredSections =
+    activeCategory === "all"
+      ? sectionLibrary
+      : sectionLibrary.filter((item) => CATEGORY_FILTER[activeCategory]?.includes(item.type))
+
+  // ── Mobile: bottom sheet ──────────────────────────────────────────────────
+  if (isMobileLayout) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          enableDragToClose
+          onDragClose={() => onOpenChange(false)}
+          className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
+          style={{ height: "80dvh" }}
+        >
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
+            <div className="w-10 h-1.5 rounded-full bg-foreground/10" />
+          </div>
+
+          {/* Mobile header */}
+          <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Add Section</h2>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Horizontal category pills */}
+          <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex gap-2 w-max">
+              {SECTION_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => setActiveCategory(cat.key)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
+                    activeCategory === cat.key
+                      ? "bg-foreground text-background shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-border/60 shrink-0" />
+
+          {/* Section list — single column */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-8">
+            <div className="flex flex-col gap-3">
+              {filteredSections.map((item) => (
+                <MobileSectionCard
+                  key={item.type}
+                  item={item}
+                  onAdd={handleAddSection}
+                  products={products}
+                />
+              ))}
+            </div>
+            {filteredSections.length === 0 && (
+              <div className="py-16 text-center text-muted-foreground">
+                <p className="text-sm">No sections in this category</p>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  // ── Desktop: centered modal ───────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          // Mobile: near full screen
-          "w-[calc(100vw-24px)] h-[85vh]",
-          // Desktop: constrained size
-          "sm:w-full sm:max-w-2xl sm:h-auto sm:max-h-[80vh]",
+          "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
+          "max-h-[88vh]"
         )}
       >
-        {/* Header - fixed */}
-        <DialogHeader className="px-5 py-4 border-b border-border shrink-0 bg-background">
-          <DialogTitle className="text-lg font-semibold">Add Section</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+          <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
+          <p className="text-sm text-muted-foreground">Choose a section type to add to your page</p>
         </DialogHeader>
 
-        {/* Content - scrollable */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/30">
-          <div className="p-4 sm:p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Filter out featured-products (automatically added and locked) and reviews (product page only) */}
-              {sectionLibrary
-                .filter((item) => item.type !== "featured-products" && item.type !== "reviews")
-                .map((item) => (
-                <button
+        {/* Body: sidebar + grid */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left categories sidebar */}
+          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto py-2 bg-muted/20">
+            {SECTION_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 text-sm font-medium transition-all relative",
+                  activeCategory === cat.key
+                    ? "text-foreground bg-background border-l-2 border-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Right: 1-column grid */}
+          <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+            <div className="grid grid-cols-1 gap-4">
+              {filteredSections.map((item) => (
+                <DesktopSectionCard
                   key={item.type}
-                  onClick={() => handleAddSection(item)}
-                  className="flex flex-col items-start rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-purple-400 hover:shadow-md hover:scale-[1.02] group focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 cursor-pointer"
-                >
-                  {/* Section Preview */}
-                  <div className="w-full aspect-[16/9] rounded-lg bg-muted mb-2.5 flex items-center justify-center overflow-hidden border border-border/50">
-                    <RealSectionPreview type={item.type} />
-                  </div>
-                  {/* Section Info */}
-                  <div className="flex items-center gap-2.5 w-full">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-purple-100 group-hover:text-purple-600 dark:group-hover:bg-purple-900 dark:group-hover:text-purple-400 shrink-0 transition-colors">
-                      {sectionIconsMap[item.type]}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{item.description}</p>
-                    </div>
-                  </div>
-                </button>
+                  item={item}
+                  onAdd={handleAddSection}
+                  products={products}
+                />
               ))}
             </div>
+            {filteredSections.length === 0 && (
+              <div className="py-16 text-center text-muted-foreground">
+                <p className="text-sm">No sections in this category</p>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -87,152 +202,276 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
   )
 }
 
-function RealSectionPreview({ type }: { type: string }) {
-  switch (type) {
-    case "image-text":
-      return (
-        <div className="w-full h-full p-2.5 flex gap-3 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          {/* Image side - more realistic with layered gradient */}
-          <div className="flex-1 bg-gradient-to-br from-purple-100 via-blue-50 to-emerald-100 dark:from-purple-900/30 dark:via-blue-900/30 dark:to-emerald-900/30 rounded-lg flex items-center justify-center shadow-sm">
-            <div className="w-8 h-8 rounded-lg bg-white/60 dark:bg-white/10 backdrop-blur-sm flex items-center justify-center">
-              <ImageIcon className="h-4 w-4 text-slate-400" />
+// ────────────────────────────────────────────────────────────────────────────
+// Desktop section card — title above, full-width preview below, no description
+// ────────────────────────────────────────────────────────────────────────────
+function DesktopSectionCard({
+  item,
+  onAdd,
+  products,
+}: {
+  item: SectionLibraryItem
+  onAdd: (item: SectionLibraryItem) => void
+  products: Array<{ id: string; title: string; thumbnail_url?: string }>
+}) {
+  return (
+    <button
+      onClick={() => onAdd(item)}
+      className={cn(
+        "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
+        "transition-all duration-200 ease-out will-change-transform",
+        "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5",
+        "active:scale-[0.99] active:shadow-sm",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
+        "group cursor-pointer"
+      )}
+    >
+      {/* Title above the preview */}
+      <div className="px-4 pt-3 pb-2.5 shrink-0">
+        <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
+      </div>
+
+      {/* Full-width section preview — shows the complete section */}
+      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
+        <SectionPreview
+          type={item.type}
+          settings={item.defaultSettings}
+          containerWidth={780}
+          products={products}
+        />
+      </div>
+    </button>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Mobile section card — title above, full-width preview below, no description
+// ────────────────────────────────────────────────────────────────────────────
+function MobileSectionCard({
+  item,
+  onAdd,
+  products,
+}: {
+  item: SectionLibraryItem
+  onAdd: (item: SectionLibraryItem) => void
+  products: Array<{ id: string; title: string; thumbnail_url?: string }>
+}) {
+  return (
+    <button
+      onClick={() => onAdd(item)}
+      className={cn(
+        "flex flex-col w-full rounded-2xl border border-border bg-background overflow-hidden text-left",
+        "transition-all duration-200 ease-out",
+        "active:scale-[0.98] active:opacity-80",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+        "group cursor-pointer shadow-sm"
+      )}
+    >
+      {/* Title above the preview */}
+      <div className="px-4 pt-3 pb-2.5 shrink-0">
+        <p className="font-semibold text-sm leading-tight text-foreground">{item.name}</p>
+      </div>
+
+      {/* Full-width section preview */}
+      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden relative">
+        <SectionPreview
+          type={item.type}
+          settings={item.defaultSettings}
+          containerWidth={340}
+          products={products}
+        />
+      </div>
+    </button>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Products placeholder preview — rendered inline without needing real product data
+// Shows a 2×2 grid of product cards with real thumbnails or gray placeholders
+// ────────────────────────────────────────────────────────────────────────────
+function ProductsPlaceholderPreview({
+  containerWidth = 220,
+  products = [],
+}: {
+  containerWidth?: number
+  products?: Array<{ id: string; title: string; thumbnail_url?: string }>
+}) {
+  const RENDER_WIDTH = 700
+  const scale = containerWidth / RENDER_WIDTH
+  const hasProducts = products.length > 0
+
+  return (
+    <div
+      style={{
+        width: RENDER_WIDTH,
+        zoom: scale,
+        pointerEvents: "none",
+        userSelect: "none",
+        padding: "44px 28px 28px",
+      }}
+    >
+      {/* Section headline bar */}
+      <div
+        style={{
+          height: 28,
+          width: 210,
+          background: "rgba(0,0,0,0.12)",
+          borderRadius: 7,
+          marginBottom: 32,
+        }}
+      />
+
+      {/* 2×2 product grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: 20,
+        }}
+      >
+        {[0, 1, 2, 3].map((i) => {
+          const product = hasProducts ? (products[i] ?? null) : null
+          return (
+            <div key={i}>
+              {/* Product image */}
+              <div
+                style={{
+                  width: "100%",
+                  paddingBottom: "100%",
+                  position: "relative",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginBottom: 12,
+                  background: product?.thumbnail_url ? undefined : "#f0f0f0",
+                }}
+              >
+                {product?.thumbnail_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={product.thumbnail_url}
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: i % 2 === 0 ? "#e8e8e8" : "#ebebeb",
+                    }}
+                  />
+                )}
+              </div>
+              {/* Title line */}
+              <div
+                style={{
+                  height: 16,
+                  width: product ? "80%" : `${60 + (i % 3) * 10}%`,
+                  background: "#d4d4d4",
+                  borderRadius: 5,
+                  marginBottom: 8,
+                }}
+              />
+              {/* Price line */}
+              <div
+                style={{
+                  height: 14,
+                  width: "42%",
+                  background: "#e8e8e8",
+                  borderRadius: 5,
+                }}
+              />
             </div>
-          </div>
-          {/* Text side - more realistic content structure */}
-          <div className="flex-1 flex flex-col gap-1.5 justify-center py-1">
-            <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-4/5" />
-            <div className="space-y-1 mt-1">
-              <div className="h-1.5 bg-slate-300 dark:bg-slate-600 rounded-sm w-full" />
-              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-sm w-5/6" />
-              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-sm w-3/4" />
-            </div>
-            <div className="h-5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-md w-3/5 mt-2 shadow-sm" />
-          </div>
-        </div>
-      )
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
-    case "benefits":
-      return (
-        <div className="w-full h-full p-2.5 flex flex-col gap-2 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-2/5 mx-auto" />
-          <div className="flex-1 grid grid-cols-3 gap-2 mt-1">
-            {[
-              { color: "from-emerald-400 to-emerald-500", bg: "bg-emerald-100 dark:bg-emerald-900/40" },
-              { color: "from-blue-400 to-blue-500", bg: "bg-blue-100 dark:bg-blue-900/40" },
-              { color: "from-purple-400 to-purple-500", bg: "bg-purple-100 dark:bg-purple-900/40" },
-            ].map((item, i) => (
-              <div key={i} className="flex flex-col items-center gap-1 p-1">
-                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center shadow-sm", item.bg)}>
-                  <CheckCircle className={cn("w-3.5 h-3.5 bg-gradient-to-br", item.color.replace("from-", "text-").split(" ")[0])} />
-                </div>
-                <div className="h-1.5 bg-slate-700 dark:bg-slate-200 rounded-sm w-full" />
-                <div className="h-1 bg-slate-300 dark:bg-slate-600 rounded-sm w-4/5" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-
-    case "text-block":
-      return (
-        <div className="w-full h-full p-3 flex flex-col gap-2 items-center justify-center bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-1/3" />
-          <div className="space-y-1.5 w-full max-w-[85%]">
-            <div className="h-1.5 bg-slate-300 dark:bg-slate-600 rounded-sm w-full mx-auto" />
-            <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-sm w-11/12 mx-auto" />
-            <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-sm w-full mx-auto" />
-            <div className="h-1.5 bg-slate-300 dark:bg-slate-600 rounded-sm w-4/5 mx-auto" />
-          </div>
-        </div>
-      )
-
-    case "announcement-bar":
-      return (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 p-3">
-          <div className="w-full h-7 bg-gradient-to-r from-slate-800 to-slate-900 dark:from-slate-200 dark:to-white rounded-md flex items-center justify-center gap-2 px-3 shadow-sm">
-            <Megaphone className="h-3 w-3 text-white/70 dark:text-slate-800/70" />
-            <div className="h-1.5 bg-white/80 dark:bg-slate-800/80 rounded-sm w-1/3" />
-            <div className="h-1.5 bg-white/50 dark:bg-slate-800/50 rounded-sm w-1/5" />
-            <X className="h-2.5 w-2.5 text-white/40 dark:text-slate-800/40 ml-auto" />
-          </div>
-        </div>
-      )
-
-    case "featured-products":
-      return (
-        <div className="w-full h-full p-2.5 flex flex-col gap-2 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-1/3" />
-          <div className="flex-1 grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white dark:bg-slate-800 rounded-lg flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex-1 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
-                  <Package className="h-4 w-4 text-slate-400/60" />
-                </div>
-                <div className="p-1.5 space-y-1 bg-white dark:bg-slate-800">
-                  <div className="h-1.5 bg-slate-600 dark:bg-slate-300 rounded-sm w-full" />
-                  <div className="h-1.5 bg-emerald-500 rounded-sm w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-
-    case "reviews":
-      return (
-        <div className="w-full h-full p-2.5 flex flex-col gap-2 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-1/4" />
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
-              ))}
-            </div>
-          </div>
-          <div className="flex-1 space-y-1.5">
-            {[1, 2].map((i) => (
-              <div key={i} className="bg-white dark:bg-slate-800 rounded-lg p-2 border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-purple-500" />
-                  <div className="h-1.5 bg-slate-600 dark:bg-slate-300 rounded-sm w-1/4" />
-                  <div className="flex gap-0.5 ml-auto">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="w-2 h-2 text-amber-400 fill-amber-400" />
-                    ))}
-                  </div>
-                </div>
-                <div className="h-1 bg-slate-300 dark:bg-slate-600 rounded-sm w-full" />
-                <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-sm w-4/5 mt-0.5" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-
-    case "more-from-seller":
-      return (
-        <div className="w-full h-full p-2.5 flex flex-col gap-2 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
-          <div className="flex items-center gap-1.5">
-            <div className="h-2.5 bg-slate-800 dark:bg-white rounded-sm w-1/4" />
-            <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 shadow-sm" />
-          </div>
-          <div className="flex-1 grid grid-cols-4 gap-1.5">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white dark:bg-slate-800 rounded-md flex flex-col overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex-1 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center aspect-square">
-                  <ShoppingBag className="h-3 w-3 text-slate-400/60" />
-                </div>
-                <div className="p-1 space-y-0.5">
-                  <div className="h-1 bg-slate-600 dark:bg-slate-300 rounded-sm w-full" />
-                  <div className="h-1 bg-emerald-500 rounded-sm w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-
-    default:
-      return <Package className="h-8 w-8 text-muted-foreground/30" />
+// ────────────────────────────────────────────────────────────────────────────
+// Section preview thumbnails
+// Uses CSS zoom to scale the section so it shows completely without clipping.
+// zoom affects layout (unlike transform: scale), so the section height is
+// naturally correct and the full section is visible.
+// ────────────────────────────────────────────────────────────────────────────
+export function SectionPreview({
+  type,
+  settings,
+  containerWidth = 220,
+  products = [],
+}: {
+  type: string
+  settings: SectionSettings
+  containerWidth?: number
+  products?: Array<{ id: string; title: string; thumbnail_url?: string }>
+}) {
+  // Products section needs special handling — full renderer returns null with no products
+  if (type === "featured-products") {
+    return <ProductsPlaceholderPreview containerWidth={containerWidth} products={products} />
   }
+
+  const RENDER_WIDTH = 700
+  const scale = containerWidth / RENDER_WIDTH
+
+  const section: Section = {
+    id: "preview",
+    type: type as Section["type"],
+    settings: { ...settings, visible: true },
+    order: 0,
+    locked: false,
+  }
+
+  // Announcement bar: render centered in the preview area
+  if (type === "announcement-bar") {
+    return (
+      <div
+        style={{
+          width: RENDER_WIDTH,
+          zoom: scale,
+          pointerEvents: "none",
+          userSelect: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 80,
+        }}
+      >
+        <div style={{ width: "100%" }}>
+          <UnifiedSectionRenderer
+            section={section}
+            isPreviewMode={true}
+            isMobile={false}
+            products={[]}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // All other sections: zoom scales both width and height so the full
+  // section is visible without any clipping.
+  return (
+    <div
+      style={{
+        width: RENDER_WIDTH,
+        zoom: scale,
+        pointerEvents: "none",
+        userSelect: "none",
+      }}
+    >
+      <UnifiedSectionRenderer
+        section={section}
+        isPreviewMode={true}
+        isMobile={false}
+        products={[]}
+      />
+    </div>
+  )
 }

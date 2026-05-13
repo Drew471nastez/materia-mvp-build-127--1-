@@ -29,7 +29,7 @@ export function CreatorQuickNav() {
   ]
 
   return (
-    <div ref={menuRef} className="fixed right-6 z-[60]" style={{ bottom: "50%" }}>
+    <div ref={menuRef} className="creator-quick-nav fixed right-6 z-[60]" style={{ bottom: "50%" }}>
       {/* Expanded menu */}
       <div
         className={cn(

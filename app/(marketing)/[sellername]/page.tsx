@@ -1,0 +1,187 @@
+import { notFound } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import type { Metadata } from "next"
+import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+
+interface PageProps {
+  params: Promise<{ sellername: string }>
+}
+
+// Known static paths that should NOT match this dynamic route
+const RESERVED_PATHS = new Set([
+  "account-deletion", "blog", "c", "explore", "faq", "features",
+  "l", "legal", "p", "pricing", "u", "w", "wishlist",
+  "app", "api", "login", "signup", "register", "auth",
+  "store", "store-builder", "website-builder", "admin",
+])
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { sellername } = await params
+
+  // Skip reserved paths
+  if (RESERVED_PATHS.has(sellername.toLowerCase())) return { title: "Not Found" }
+
+  const supabase = await createClient()
+
+  // Look up by profile username first, then by creator slug
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, display_name, username")
+    .eq("username", sellername.toLowerCase())
+    .maybeSingle()
+
+  if (profile) {
+    return {
+      title: `${profile.display_name || profile.username} - Website`,
+      description: `Visit ${profile.display_name || profile.username}'s website on Storelib`,
+    }
+  }
+
+  const { data: creator } = await supabase
+    .from("creators")
+    .select("id, slug, display_name")
+    .eq("slug", sellername.toLowerCase())
+    .maybeSingle()
+
+  if (!creator) return { title: "Not Found" }
+
+  return {
+    title: `${creator.display_name || creator.slug} - Website`,
+    description: `Visit ${creator.display_name || creator.slug}'s website on Storelib`,
+  }
+}
+
+export default async function SellerWebsitePage({ params }: PageProps) {
+  const { sellername } = await params
+
+  // Skip reserved paths
+  if (RESERVED_PATHS.has(sellername.toLowerCase())) notFound()
+
+  const supabase = await createClient()
+
+  // Try to find the creator by profile username first, then by creator slug
+  let creatorId: string | null = null
+  let displayName = ""
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, display_name, username")
+    .eq("username", sellername.toLowerCase())
+    .maybeSingle()
+
+  if (profile) {
+    // Find the creator linked to this profile
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("id, slug, display_name")
+      .eq("user_id", profile.id)
+      .maybeSingle()
+
+    if (creator) {
+      creatorId = creator.id
+      displayName = creator.display_name || profile.display_name || profile.username || sellername
+    }
+  }
+
+  if (!creatorId) {
+    // Fallback: look up by creator slug directly
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("id, slug, display_name")
+      .eq("slug", sellername.toLowerCase())
+      .maybeSingle()
+
+    if (creator) {
+      creatorId = creator.id
+      displayName = creator.display_name || creator.slug || sellername
+    }
+  }
+
+  if (!creatorId) notFound()
+
+  // Find the published theme install for this creator
+  const { data: install } = await supabase
+    .from("store_theme_installs")
+    .select(`
+      id,
+      name,
+      status,
+      store_theme_settings (
+        settings,
+        draft_settings
+      )
+    `)
+    .eq("creator_id", creatorId)
+    .eq("status", "published")
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (!install) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Website Coming Soon</h1>
+          <p className="text-gray-500">This website is currently being built.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Get published sections for the home page
+  const { data: pageData } = await supabase
+    .from("store_theme_pages")
+    .select("sections, draft_sections")
+    .eq("install_id", install.id)
+    .eq("page_key", "home")
+    .maybeSingle()
+
+  const themeSettings: ThemeSettingsValues =
+    (install as any).store_theme_settings?.[0]?.settings ??
+    (install as any).store_theme_settings?.settings ??
+    {}
+
+  const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
+
+  return (
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
+        fontFamily: String(themeSettings.font_body ?? "Inter"),
+      }}
+    >
+      {/* Announcement bar */}
+      {themeSettings.announcement_bar_enabled && themeSettings.announcement_bar_text && (
+        <div
+          className="w-full py-2 text-center text-sm font-medium"
+          style={{
+            background: String(themeSettings.announcement_bar_bg ?? "#6366f1"),
+            color: String(themeSettings.announcement_bar_color ?? "#ffffff"),
+          }}
+        >
+          {String(themeSettings.announcement_bar_text)}
+        </div>
+      )}
+
+      {/* Render all sections */}
+      {sections.map((section) => (
+        <SectionRenderer
+          key={section.id}
+          section={section}
+          theme={themeSettings}
+        />
+      ))}
+
+      {sections.length === 0 && (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-lg font-medium">This website is being set up</p>
+            <p className="text-sm mt-1">Check back soon!</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

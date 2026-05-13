@@ -1318,8 +1318,13 @@ function UnifiedImageTextSection({
     <SectionContainer isMobile={isMobile}>
       <div
         className={cn(
-          isMobile ? "flex flex-col gap-4" : "flex flex-col gap-8 items-center md:flex-row",
-          !isMobile && (settings.imagePosition === "left" ? "md:flex-row" : "md:flex-row-reverse"),
+          isMobile
+            ? "flex flex-col gap-4"
+            : isPreviewMode
+              ? "flex flex-row gap-8 items-center"
+              : "flex flex-col gap-8 items-center md:flex-row",
+          !isMobile && isPreviewMode && (settings.imagePosition === "left" ? "flex-row" : "flex-row-reverse"),
+          !isMobile && !isPreviewMode && (settings.imagePosition === "left" ? "md:flex-row" : "md:flex-row-reverse"),
         )}
         style={{
           paddingTop: spacing.paddingTop,
@@ -2554,7 +2559,9 @@ function UnifiedFeaturedProductsSection({
                         src={product.thumbnail_url || "/placeholder.svg"}
                         alt={product.title}
                         fill
-                        className="object-cover transition-transform group-hover:scale-105"
+                        className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105"
+                        ref={el => { if (el && !(el as any).complete) (el as any).style.opacity = "0" }}
+                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     ) : (
@@ -2610,7 +2617,7 @@ function UnifiedFeaturedProductsSection({
                   <div
                     key={product.id}
                     className={cn(
-                      "group overflow-hidden rounded-lg border transition-all hover:shadow-lg cursor-pointer",
+                      "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg cursor-pointer",
                       !cardBgColor && "bg-card border-border",
                     )}
                     style={{
@@ -2631,7 +2638,7 @@ function UnifiedFeaturedProductsSection({
                   key={product.id}
                   href={getProductHref(product)}
                   className={cn(
-                    "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
+                    "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
                     !cardBgColor && "bg-card border-border",
                   )}
                   style={{
@@ -2761,13 +2768,15 @@ export function UnifiedShopHeader({
           <img
             src={coverImageUrl}
             alt={`${profile?.display_name || "Creator"} cover`}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
             style={{
               objectPosition: settings.coverFocalPoint
                 ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
             }}
+            ref={el => { if (el && !el.complete) el.style.opacity = "0" }}
+            onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
           />
 
           {settings.showSocialMedia && settings.socialLinks && (!isMobile || settings.showSocialIconsOnMobile) && (
@@ -4146,7 +4155,9 @@ export function UnifiedProductsGrid({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
-                    className="object-cover transition-transform group-hover:scale-105"
+                    className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
+                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
+                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
@@ -4321,7 +4332,9 @@ function UnifiedMoreFromSellerSection({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
-                    className="object-cover transition-transform group-hover:scale-105"
+                    className="object-cover transition-all duration-500 [@media(hover:hover)]:group-hover:scale-105 opacity-0"
+                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
+                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
@@ -4386,7 +4399,7 @@ function UnifiedMoreFromSellerSection({
               <div
                 key={product.id}
                 className={cn(
-                  "group overflow-hidden rounded-lg border transition-all hover:shadow-lg cursor-pointer",
+                  "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg cursor-pointer",
                   !cardBgColor && "bg-card border-border",
                 )}
                 style={{
@@ -4405,9 +4418,9 @@ function UnifiedMoreFromSellerSection({
           return (
             <SmartLink
               key={product.id}
-              href={getProductHref(product)}
+              href={product.slug ? `/p/${product.slug}?recommended=1` : "#"}
               className={cn(
-                "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
+                "group overflow-hidden rounded-lg border transition-all [@media(hover:hover)]:hover:shadow-lg",
                 !cardBgColor && "bg-card border-border",
               )}
               style={{

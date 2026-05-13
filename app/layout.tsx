@@ -9,8 +9,11 @@ import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
-import { NativeStartupRouter } from "@/components/native-startup-router"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
+import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
+import { KeyboardGuard } from "@/components/platform/keyboard-guard"
+import { RotationGuard } from "@/components/platform/rotation-guard"
+import { NativePushInit } from "@/components/native-push-init"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -107,15 +110,11 @@ export const metadata: Metadata = {
     description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
     images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
   },
-  icons: {
-    icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
-    apple: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
-  },
   metadataBase: new URL("https://storelib.com"),
 }
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -130,13 +129,29 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
+      <head>
+        {/* Synchronous native-app intercept — runs before React hydrates.
+            1. Add the "capacitor" class to <html> immediately so all
+               html.capacitor CSS rules (overscroll, touch-action, etc.) activate
+               on the very first paint without waiting for NativeCookieKillSwitch.
+            2. Legacy "/" redirect: the old shipped iOS app loads "/" — hide and
+               redirect before any pixel paints. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var h=document.documentElement;h.classList.add('capacitor');if(window.location.pathname==='/'){h.style.visibility='hidden';window.location.replace('/native-start')}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}`,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         <PrefetchLinks />
         <BodyScrollRestorer />
         <NativeCookieKillSwitch />
+        <CapacitorBounceGuard />
+        <KeyboardGuard />
+        <RotationGuard />
+        <NativePushInit /> 
         <CookieConsentBanner />
-        <NativeStartupRouter />
         <NativeAuthHandler />
         <NativeOAuthBridge />
       </body>

@@ -24,7 +24,7 @@ import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 // Desktop category bar with icons
 const DEFAULT_CATEGORIES = [
@@ -311,12 +311,15 @@ function MobileTopSheet({
         ref={sheetRef}
         className="absolute top-0 left-0 right-0 bg-white rounded-b-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(-100%)",
+          // Use 'none' instead of translateY(0px) when fully open — CSS transforms
+          // create a new containing block on iOS which can offset touch coordinates,
+          // causing taps to register on the wrong list item.
+          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(-100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '75vh',
         }}
       >
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
+        <div className="mobile-top-sheet-scroll overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
           {children}
         </div>
         {/* Handle bar at bottom — the ONLY drag target */}
@@ -359,6 +362,7 @@ function MobileBottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -402,11 +406,17 @@ function MobileBottomSheet({
     }, 400)
   }
 
-  // ── Handle-bar-only drag handlers ──────────────────────────────────────
-  // Touch handlers are ONLY on the handle bar, NOT on the full overlay.
-  // This guarantees that touches on category buttons, subcategory links,
-  // search results, and any other interactive content inside the sheet
-  // are NEVER intercepted by the drag logic.
+  // ── Shared drag finisher ────────────────────────────────────────────────
+  const finishDrag = () => {
+    setIsDragging(false)
+    if (dragY > 80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  // ── Handle-bar drag (always active on handle) ───────────────────────────
   const handleHandleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY
     setIsDragging(true)
@@ -422,12 +432,34 @@ function MobileBottomSheet({
     }
   }
 
-  const handleHandleTouchEnd = () => {
+  // ── Full-sheet drag (active when scroll content is at the very top) ─────
+  // This lets users swipe down from anywhere in the sheet to dismiss it,
+  // not just from the narrow handle bar. Only activates when the scroll
+  // container is at scrollTop ≤ 2 px so normal upward scrolling is unaffected.
+  const handleSheetTouchStart = (e: React.TouchEvent) => {
+    const scrollEl = scrollRef.current
+    if (scrollEl && scrollEl.scrollTop > 2) return // content is scrolled — don't start drag
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+
+  const handleSheetTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) {
-      handleClose()
+    const scrollEl = scrollRef.current
+    if (scrollEl && scrollEl.scrollTop > 2) {
+      // Content scrolled away from top mid-gesture — cancel drag, let scroll run
+      setIsDragging(false)
+      setDragY(0)
+      return
+    }
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      e.preventDefault()
+      setDragY(diff * 0.8)
     } else {
+      // Moving upward — cancel drag so scroll container takes over
+      setIsDragging(false)
       setDragY(0)
     }
   }
@@ -444,22 +476,28 @@ function MobileBottomSheet({
         style={{ transitionDuration: '400ms' }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet */}
+      {/* Bottom Sheet — full-sheet drag active when scroll is at top */}
       <div
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        onTouchStart={handleSheetTouchStart}
+        onTouchMove={handleSheetTouchMove}
+        onTouchEnd={finishDrag}
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          // Use 'none' instead of translateY(0px) when fully open — CSS transforms
+          // create a new containing block on iOS which can offset touch coordinates,
+          // causing taps to register on the wrong list item.
+          transform: isAnimating ? (dragY !== 0 ? `translateY(${dragY}px)` : 'none') : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '74vh',
         }}
       >
-        {/* Handle bar — the ONLY drag target */}
+        {/* Handle bar — always a drag target regardless of scroll position */}
         <div
           className="pt-3 pb-2 touch-none"
           onTouchStart={handleHandleTouchStart}
           onTouchMove={handleHandleTouchMove}
-          onTouchEnd={handleHandleTouchEnd}
+          onTouchEnd={finishDrag}
         >
           <button
             onClick={handleClose}
@@ -477,6 +515,7 @@ function MobileBottomSheet({
             Without this, expanding a category while scrolled down makes the subcategory
             view appear blank because the scroll position is past the shorter content. */}
         <div
+          ref={scrollRef}
           key={contentKey ?? 'default'}
           className="overflow-y-auto overscroll-contain"
           style={{ maxHeight: 'calc(74vh - 80px)' }}
@@ -889,7 +928,7 @@ export function PlatformHeaderClient() {
 
   const onCategoryClick = (cat: string) => {
     const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
-    navigateReliably(url)
+    navigateToExploreCategory(url)
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
@@ -950,17 +989,33 @@ export function PlatformHeaderClient() {
         return
       }
       if (isNativePlatform()) {
-        // Always use window.location.href in Capacitor so paths starting with "/"
-        // are always resolved against the root, never against the current pathname.
-        // router.push() can produce URL mixing (e.g. /u/seller/explore?category=…)
-        // in some Capacitor WebView contexts. NativeAuthGate handles session restore.
-        window.location.href = targetPath
+        // Cross-layout routes (/app, /store-builder, /library) load a completely
+        // different layout and auth context — use full reload to ensure clean state.
+        // ALL other same-layout paths (/explore, /p/, /u/, /l/, /wishlist, etc.)
+        // use router.push() for smooth client-side transition, no white flash.
+        if (isCrossLayoutPath(targetPath)) {
+          window.location.href = targetPath
+          return
+        }
+        router.push(targetPath)
         return
       }
       router.push(targetPath)
     },
     [shouldForceCanonicalNav, navigateToCanonical, router],
   )
+
+  // Navigate to an /explore category URL using router.push() for smooth client-side
+  // transition regardless of current page — avoids full page reload / white flash on
+  // Capacitor. Seller subdomains use canonical storelib.com URL instead.
+  const navigateToExploreCategory = useCallback((url: string) => {
+    startNavigationLoading()
+    if (shouldForceCanonicalNav) {
+      navigateToCanonical(url)
+    } else {
+      router.push(url, { scroll: false })
+    }
+  }, [router, shouldForceCanonicalNav, navigateToCanonical])
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
@@ -976,15 +1031,20 @@ export function PlatformHeaderClient() {
         navigateToCanonical(targetPath) // window.location.assign("https://storelib.com/path")
         return
       }
-      // In Capacitor on the main storelib.com domain: use router.push for
-      // In Capacitor always use window.location.href to prevent URL mixing.
+      // In Capacitor: mirror navigateReliably — use router.push() for same-layout
+      // paths so the transition is smooth (loading.tsx skeleton shows, no white flash).
+      // Only cross-layout paths (/app, /store-builder, /library) need window.location.href.
       if (isNativePlatform()) {
         e.preventDefault()
-        window.location.href = targetPath
+        if (isCrossLayoutPath(targetPath)) {
+          window.location.href = targetPath
+          return
+        }
+        router.push(targetPath)
         return
       }
     },
-    [navigateToCanonical, shouldForceCanonicalNav],
+    [navigateToCanonical, shouldForceCanonicalNav, router],
   )
 
   const getCanonicalOrRelativePath = useCallback((targetPath: string) => {
@@ -1007,12 +1067,11 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black">
+      <div id="platform-header-root" className="z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black sticky top-0">
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
-          className="flex md:h-[81px] items-center justify-between gap-4 md:py-[3px] pb-3 md:pb-[3px]"
-          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
+          className="platform-header-row flex md:h-[81px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
@@ -1026,7 +1085,7 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[46px] w-auto"
+                    className="h-[46px] w-auto rounded-[7px]"
                     priority
                   />
                   <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
@@ -1114,7 +1173,7 @@ export function PlatformHeaderClient() {
                       alt="Storelib"
                       width={126}
                       height={42}
-                      className="h-[42px] w-auto"
+                      className="h-[42px] w-auto rounded-[7px]"
                       priority
                     />
                     <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
@@ -1144,7 +1203,7 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[46px] w-auto"
+                    className="h-[46px] w-auto rounded-[7px]"
                     priority
                   />
                   <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
@@ -1236,7 +1295,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    navigateReliably(cat.href + '&scroll=recommended')
+                                    navigateToExploreCategory(cat.href + '&scroll=recommended')
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1421,7 +1480,7 @@ export function PlatformHeaderClient() {
                   alt="Storelib"
                   width={114}
                   height={38}
-                  className="h-[38px] w-auto"
+                  className="h-[38px] w-auto rounded-[7px]"
                   priority
                 />
                 <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
@@ -1684,7 +1743,7 @@ export function PlatformHeaderClient() {
                       key={cat.label}
                       type="button"
                       onClick={() => {
-                        navigateReliably(cat.href + '&scroll=recommended')
+                        navigateToExploreCategory(cat.href + '&scroll=recommended')
                         setSearchModalOpen(false)
                       }}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
@@ -1947,7 +2006,7 @@ export function PlatformHeaderClient() {
                     <button
                       type="button"
                       onClick={() => {
-                        navigateReliably(cat.href + '&scroll=recommended')
+                        navigateToExploreCategory(cat.href + '&scroll=recommended')
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
                       }}
@@ -1962,7 +2021,7 @@ export function PlatformHeaderClient() {
                           key={sub.label}
                           type="button"
                           onClick={() => {
-                            navigateReliably(sub.href + '&scroll=recommended')
+                            navigateToExploreCategory(sub.href + '&scroll=recommended')
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
@@ -1990,7 +2049,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      navigateReliably(cat.href + '&scroll=recommended')
+                      navigateToExploreCategory(cat.href + '&scroll=recommended')
                       setMobileMenuOpen(false)
                     }
                   }

@@ -1,0 +1,126 @@
+import { notFound } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import type { Metadata } from "next"
+import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+
+interface PageProps {
+  params: Promise<{ username: string }>
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { username } = await params
+  const supabase = await createClient()
+
+  const { data: creator } = await supabase
+    .from("creators")
+    .select("id, slug, display_name")
+    .or(`slug.eq.${username},username.eq.${username}`)
+    .maybeSingle()
+
+  if (!creator) return { title: "Not Found" }
+
+  return {
+    title: `${creator.display_name || creator.slug} - Website`,
+    description: `Visit ${creator.display_name || creator.slug}'s website on Storelib`,
+  }
+}
+
+export default async function WebsitePublicPage({ params }: PageProps) {
+  const { username } = await params
+  const supabase = await createClient()
+
+  // Find the creator by slug or username
+  const { data: creator } = await supabase
+    .from("creators")
+    .select("id, slug, display_name, avatar_url")
+    .or(`slug.eq.${username},username.eq.${username}`)
+    .maybeSingle()
+
+  if (!creator) notFound()
+
+  // Find the published theme install for this creator
+  const { data: install } = await supabase
+    .from("store_theme_installs")
+    .select(`
+      id,
+      name,
+      status,
+      store_theme_settings (
+        settings,
+        draft_settings
+      )
+    `)
+    .eq("creator_id", creator.id)
+    .eq("status", "published")
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (!install) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Website Coming Soon</h1>
+          <p className="text-gray-500">This website is currently being built.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Get published sections for the home page
+  const { data: pageData } = await supabase
+    .from("store_theme_pages")
+    .select("sections, draft_sections")
+    .eq("install_id", install.id)
+    .eq("page_key", "home")
+    .maybeSingle()
+
+  const themeSettings: ThemeSettingsValues =
+    (install as any).store_theme_settings?.[0]?.settings ??
+    (install as any).store_theme_settings?.settings ??
+    {}
+
+  const sections: SectionInstance[] = pageData?.sections ?? pageData?.draft_sections ?? []
+
+  return (
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: String(themeSettings.background_color ?? "#ffffff"),
+        fontFamily: String(themeSettings.font_body ?? "Inter"),
+      }}
+    >
+      {/* Announcement bar */}
+      {themeSettings.announcement_bar_enabled && themeSettings.announcement_bar_text && (
+        <div
+          className="w-full py-2 text-center text-sm font-medium"
+          style={{
+            background: String(themeSettings.announcement_bar_bg ?? "#6366f1"),
+            color: String(themeSettings.announcement_bar_color ?? "#ffffff"),
+          }}
+        >
+          {String(themeSettings.announcement_bar_text)}
+        </div>
+      )}
+
+      {/* Render all sections */}
+      {sections.map((section) => (
+        <SectionRenderer
+          key={section.id}
+          section={section}
+          theme={themeSettings}
+        />
+      ))}
+
+      {sections.length === 0 && (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <p className="text-lg font-medium">This website is being set up</p>
+            <p className="text-sm mt-1">Check back soon!</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

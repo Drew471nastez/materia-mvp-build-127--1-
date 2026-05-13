@@ -628,7 +628,7 @@ function RevenueChart() {
           {!numReady ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
-            <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+            <p className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#1a1a2e]">
               {fmt(Math.max(0, totalGross), currency)}
             </p>
           )}
@@ -682,15 +682,10 @@ function RevenueChart() {
           <p className="text-[13px] text-rose-500">{error}</p>
         </div>
       ) : !hasData && !isHourly ? (
-        /* Daily mode, no sales yet — show empty state */
+        /* Daily mode, no sales yet — empty state */
         <div className="h-48 flex flex-col items-center justify-center gap-2 text-center">
           <TrendingUp className="h-8 w-8 text-[#d1d5db]" />
-          <p className="text-[14px] text-[#6b7280]">
-            No revenue in this period yet
-          </p>
-          <p className="text-[12px] text-[#9ca3af]">
-            Sales will appear here once processed
-          </p>
+          <p className="text-[14px] text-[#6b7280]">No revenue in this period yet</p>
         </div>
       ) : !isHourly && chartData.length <= 1 ? (
         /* Daily mode, single data point — a lone dot looks odd;
@@ -4723,10 +4718,7 @@ export function PayoutsClient({
                   <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
                 </div>
                 <button
-                  onClick={() => {
-                    const card = document.querySelector("[data-payout-card]");
-                    if (card) (card.querySelector("button") as HTMLElement)?.click();
-                  }}
+                  onClick={() => openAccountLink("update")}
                   className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
                 >
                   Update bank

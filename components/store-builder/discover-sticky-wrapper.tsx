@@ -7,18 +7,30 @@ import { isNativeApp } from "@/lib/platform-utils"
  * Wrapper for sticky elements (like the creator bar) that adjusts
  * the top offset when the platform header is visible in Capacitor apps.
  *
- * In Capacitor discover mode the platform header (68px tall on mobile)
- * is rendered above <main>.  Sticky children need top-[68px] so they
- * sit below the header rather than overlapping it.
+ * Measures the actual rendered height of the platform header so the
+ * sticky child sits flush below it regardless of safe-area size.
  */
 export function DiscoverStickyWrapper({ children }: { children: React.ReactNode }) {
   const [topOffset, setTopOffset] = useState("0px")
 
   useEffect(() => {
-    if (isNativeApp()) {
-      // Account for safe area (notch) + header height (68px on mobile)
-      setTopOffset("calc(env(safe-area-inset-top, 0px) + 68px)")
+    if (!isNativeApp()) return
+
+    function measure() {
+      const header = document.getElementById("platform-header-root")
+      if (header) {
+        setTopOffset(`${header.offsetHeight}px`)
+      }
     }
+
+    measure()
+
+    // Re-measure if the header resizes (e.g. orientation change)
+    const ro = new ResizeObserver(measure)
+    const header = document.getElementById("platform-header-root")
+    if (header) ro.observe(header)
+
+    return () => ro.disconnect()
   }, [])
 
   return (

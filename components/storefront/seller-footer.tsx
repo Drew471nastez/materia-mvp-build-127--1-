@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
+import { openExternal } from "@/lib/native-bridge"
 
 interface SellerFooterProps {
   isMobile?: boolean
@@ -20,11 +20,14 @@ interface SellerFooterProps {
  * the mobile layout regardless of the preview toggle state (uses CSS breakpoints).
  */
 export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
-  // In Capacitor apps, navigate within the app instead of opening external browser
-  const [storelibHref, setStorelibHref] = useState("https://storelib.com/explore")
-  useEffect(() => {
-    if (isNativeApp()) setStorelibHref("/explore")
-  }, [])
+  const storelibHref = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
+
+  const handleStorelibClick = (e: { preventDefault: () => void }) => {
+    if (isNativeApp()) {
+      e.preventDefault()
+      openExternal(storelibHref)
+    }
+  }
 
   // Determine layout mode
   const useMobileLayout = isMobile === true
@@ -39,13 +42,14 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
         <a
           href={storelibHref}
+          onClick={handleStorelibClick}
           className="inline-flex items-center gap-1 shrink-0"
           aria-label="Explore Storelib"
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
-            className="h-[15px] w-auto"
+            className="h-[15px] w-auto rounded-[4px]"
           />
           <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
@@ -77,13 +81,14 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <span className="text-sm text-gray-500 whitespace-nowrap">Powered by</span>
         <a
           href={storelibHref}
+          onClick={handleStorelibClick}
           className="inline-flex items-center gap-1.5 shrink-0"
           aria-label="Explore Storelib"
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
-            className="h-[18px] w-auto"
+            className="h-[18px] w-auto rounded-[4px]"
           />
           <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
@@ -117,13 +122,14 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
         <a
           href={storelibHref}
+          onClick={handleStorelibClick}
           className="inline-flex items-center gap-1 sm:gap-1.5 shrink-0"
           aria-label="Explore Storelib"
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
-            className="h-[15px] sm:h-[18px] w-auto"
+            className="h-[15px] sm:h-[18px] w-auto rounded-[4px]"
           />
           <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>

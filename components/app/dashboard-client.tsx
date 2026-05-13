@@ -1,6 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
+import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -57,7 +60,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal } from "@/lib/native-bridge"
+import { openExternal, isIOS } from "@/lib/native-bridge"
 import { useToast } from "@/hooks/use-toast"
 
 interface SetupStep {
@@ -77,6 +80,21 @@ interface ChartDataPoint {
 }
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
+
+// ── Sample data shown when the creator has zero real activity ──────────────
+const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
+  views:      SAMPLE_DAYS.map((d, i) => ({ label: d, value: [45, 78, 35, 92, 63, 88, 51][i], secondaryValue: [12, 22, 9, 31, 18, 28, 15][i] })),
+  orders:     SAMPLE_DAYS.map((d, i) => ({ label: d, value: [2, 5, 1, 7, 3, 6, 4][i], refunds: [0, 0, 0, 1, 0, 0, 0][i] })),
+  revenue:    SAMPLE_DAYS.map((d, i) => ({ label: d, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
+  conversion: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [4.2, 6.1, 2.8, 7.5, 4.8, 6.8, 7.8][i] })),
+}
+const SAMPLE_KPI = {
+  periodViews: 452, totalViews: 1660, prevPeriodViews: 380,
+  periodOrders: 28, totalOrders: 95, prevPeriodOrders: 22,
+  periodRevenue: 34500, totalRevenue: 125000, prevPeriodRevenue: 28900,
+  conversionRate: 6.2, prevConversionRate: 5.8,
+}
 
 // Icon mapping for setup steps
 const stepIcons: Record<string, any> = {
@@ -458,9 +476,6 @@ function TimeframeBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -468,20 +483,13 @@ function TimeframeBottomSheet({
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
+    return undefined
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -542,7 +550,9 @@ function TimeframeBottomSheet({
 
   return (
     <div
+      data-dashboard-sheet
       className="fixed inset-0 z-[100] md:hidden"
+      style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -554,7 +564,7 @@ function TimeframeBottomSheet({
           opacity: isAnimating ? 1 : 0,
           transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
-        onClick={handleClose}
+        onClick={isAnimating ? handleClose : undefined}
       />
       {/* Bottom Sheet - GPU accelerated */}
       <div
@@ -574,7 +584,7 @@ function TimeframeBottomSheet({
         </div>
         <div className="px-4 pb-4">
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{t("time.selectPeriod")}</h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain" style={{ touchAction: 'pan-y' }}>
             {options.map((option) => (
               <button
                 key={option.value}
@@ -640,26 +650,16 @@ function QuickAccessBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-    }
+    return undefined
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -708,14 +708,18 @@ function QuickAccessBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[110] md:hidden">
+    <div
+      data-dashboard-sheet
+      className="fixed inset-0 z-[110] md:hidden"
+      style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
+    >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         style={{
           opacity: isAnimating ? 1 : 0,
           transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
-        onClick={handleClose}
+        onClick={isAnimating ? handleClose : undefined}
       />
       <div
         ref={sheetRef}
@@ -764,12 +768,8 @@ function QuickAccessBottomSheet({
               }}
               onOpen={() => {
                 if (isOnePageReady) {
-                  const url = navOnePageUrl || onePageUrl
-                  if (isNativeApp()) {
-                    window.location.href = url
-                  } else {
-                    window.open(onePageUrl || url, "_blank", "noopener,noreferrer")
-                  }
+                  const url = onePageUrl || navOnePageUrl
+                  openExternal(url)
                 } else {
                   onSetupOnePage()
                 }
@@ -785,12 +785,8 @@ function QuickAccessBottomSheet({
               isCopied={isStoreCopied}
               onAction={onCopyStore}
               onOpen={() => {
-                const url = navStoreUrl || storeUrl
-                if (isNativeApp()) {
-                  window.location.href = url
-                } else {
-                  window.open(storeUrl || url, "_blank", "noopener,noreferrer")
-                }
+                const url = storeUrl || navStoreUrl
+                openExternal(url)
                 handleClose()
               }}
               icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
@@ -830,6 +826,8 @@ export function DashboardClient({
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
+  useHideNativeSplash()
+
   // Persist timeframe selection to localStorage
   useEffect(() => {
     localStorage.setItem("dashboard_timeframe", timeframe)
@@ -862,6 +860,8 @@ export function DashboardClient({
 
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
+  // Sample data toggle — session-only (resets on page refresh, no localStorage)
+  const [showSampleData, setShowSampleData] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
     totalOrders: initialTotalOrders,
@@ -925,6 +925,14 @@ export function DashboardClient({
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Sample data overlay ────────────────────────────────────────────────────
+  // True once any real metric exists — toggle and badge disappear permanently
+  const hasRealData = analyticsData.totalViews > 0 || analyticsData.totalOrders > 0 || analyticsData.totalRevenue > 0
+  const displayAnalytics = showSampleData && !hasRealData ? { ...analyticsData, ...SAMPLE_KPI } : analyticsData
+  const displayChartData = showSampleData && !hasRealData && openKPIModal
+    ? (SAMPLE_CHART[openKPIModal] ?? chartData)
+    : chartData
+
   const [liveVisitors, setLiveVisitors] = useState(0)
   const { t } = useLanguage()
   const { toast } = useToast()
@@ -959,6 +967,8 @@ export function DashboardClient({
     }
     return num.toLocaleString()
   }
+
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const isFirstLoadRef = useRef(true)
   const fetchAnalytics = async (selectedTimeframe: string) => {
@@ -1457,6 +1467,20 @@ export function DashboardClient({
   const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
   const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
+  // iOS App Store compliance (Guideline 3.1.1): hide upgrade CTAs on iOS.
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  const isIOSRef = useRef(false)
+  useEffect(() => {
+    const ios = isIOS()
+    setIsIOSApp(ios)
+    isIOSRef.current = ios
+    // On iOS, skip straight to the first non-upgrade announcement
+    if (ios) {
+      setAnnouncementType(!allCompleted ? "steps" : hasProducts && !hasPayouts ? "payouts" : "upgrade")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Announcement bar state
   const DURATION = 15000 // 15 seconds — matches the CSS transition below
   const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
@@ -1471,25 +1495,29 @@ export function DashboardClient({
     setProgressTarget(0)
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => setProgressTarget(100)))
 
-    // Rotate announcements
+    // Rotate announcements — 360 ms matches the CSS transition-duration (300 ms)
+    // plus a safety margin so opacity is fully 0 before content swaps.
     const rotateTimer = setTimeout(() => {
       setAnnouncementVisible(false)
       setTimeout(() => {
         setAnnouncementType((prev) => {
+          const onIOS = isIOSRef.current
           if (prev === "upgrade") {
             if (!allCompleted) return "steps"
             if (hasProducts && !hasPayouts) return "payouts"
             return "upgrade"
           } else if (prev === "steps") {
             if (hasProducts && !hasPayouts) return "payouts"
-            return "upgrade"
+            // On iOS never return "upgrade"
+            return onIOS ? (!allCompleted ? "steps" : "payouts") : "upgrade"
           } else {
-            return "upgrade"
+            // was "payouts"
+            return onIOS ? (!allCompleted ? "steps" : "payouts") : "upgrade"
           }
         })
         setProgressTarget(0)
         setAnnouncementVisible(true)
-      }, 300)
+      }, 360)
     }, DURATION)
 
     return () => {
@@ -1517,10 +1545,56 @@ export function DashboardClient({
     setExpandedStep(expandedStep === stepId ? null : stepId)
   }
 
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
+  // Wraps the dashboard's own scroll container so we can intercept touch events
+  // with { passive: false } — the only reliable way to block iOS rubber-band
+  // bounce on a child overflow-scroll element.
+  const handlePullRefresh = useCallback(async () => {
+    await fetchAnalytics(timeframe)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeframe])
+
+  const { pullDistance, phase: pullPhase } = usePullToRefresh(scrollRef, handlePullRefresh)
+
+  // Content translateY: slides down while pulling, snaps back when done.
+  // Small offset (34px) when refreshing — just enough to show the 20px spinner
+  // with breathing room, matching the compact iOS-style indicator.
+  const contentTranslateY =
+    pullPhase === "pulling" || pullPhase === "ready"
+      ? pullDistance
+      : pullPhase === "refreshing"
+        ? 34
+        : 0
+
+  // Ultra-smooth spring-like ease for the snap-back / pin animation.
+  // 0.4s with cubic-bezier(0.25,1,0.5,1) gives that native iOS feel:
+  // fast start, gentle deceleration, no bounce.
+  const contentTransition =
+    pullPhase === "idle" || pullPhase === "refreshing"
+      ? "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)"
+      : "none"
+
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
-      {/* Announcement Bar - positioned normally in document flow */}
-      <div className="bg-[#8b5cf6] text-white">
+    <div
+      ref={scrollRef}
+      className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container relative"
+    >
+      {/* Pull-to-refresh indicator floats above content */}
+      {/* topOffset=0 positions the indicator in the gap between the fixed header
+          and the announcement bar — the bar slides down with content on pull,
+          revealing that gap, and the indicator appears perfectly centred within it */}
+      <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} topOffset={0} />
+
+      {/* Content wrapper that slides down during pull */}
+      <div
+        style={{
+          transform: `translateY(${contentTranslateY}px)`,
+          transition: contentTransition,
+          willChange: "transform",
+        }}
+      >
+      {/* Announcement Bar — hidden on iOS when showing upgrade CTA (App Store Guideline 3.1.1) */}
+      {(!isIOSApp || announcementType !== "upgrade") && <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
@@ -1534,7 +1608,7 @@ export function DashboardClient({
                   <span className="hidden md:inline"> — {t("dashboard.proSubtitle")}</span>
                 </span>
                 <Link
-                  href="/upgrade"
+                  href="/app/settings/billing/upgrade"
                   className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
                 >
                   <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
@@ -1570,7 +1644,7 @@ export function DashboardClient({
                   <span className="hidden md:inline"> — {t("dashboard.connectPayoutsDesc")}</span>
                 </span>
                 <Link
-                  href="/app/payouts"
+                  href="/app/settings?tab=payments"
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
@@ -1590,7 +1664,7 @@ export function DashboardClient({
             }}
           />
         </div>
-      </div>
+      </div>}
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {copyNotice && (
@@ -1852,34 +1926,10 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Mobile Bottom Sheet */}
-        <TimeframeBottomSheet
-          isOpen={isMobileSheetOpen}
-          onClose={() => setIsMobileSheetOpen(false)}
-          options={timeframeOptions}
-          selectedValue={timeframe}
-          onSelect={setTimeframe}
-          t={t}
-        />
-        <QuickAccessBottomSheet
-          isOpen={isQuickAccessMobileOpen}
-          onClose={() => setIsQuickAccessMobileOpen(false)}
-          onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
-          storeUrl={publicStoreUrl}
-          navOnePageUrl={hasOnePageSetup ? navOnePageUrl : undefined}
-          navStoreUrl={navStoreUrl}
-          isOnePageCopied={copiedTarget === "onepage"}
-          isStoreCopied={copiedTarget === "store"}
-          onCopyOnePage={() => copyQuickAccessUrl("onepage")}
-          onCopyStore={() => copyQuickAccessUrl("store")}
-          isOnePageReady={hasOnePageSetup}
-          onSetupOnePage={() => router.push("/app/onepage")}
-        />
-
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
-          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}>
             {/* Views */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
@@ -1890,10 +1940,10 @@ export function DashboardClient({
               {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
-                <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodViews)}</span>
+                <PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalViews)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Revenue */}
@@ -1906,10 +1956,10 @@ export function DashboardClient({
               {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
-                <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.periodRevenue)}</span>
+                <PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.totalRevenue)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Orders */}
@@ -1922,10 +1972,10 @@ export function DashboardClient({
               {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
-                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodOrders)}</span>
+                <PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Conversion Rate - clickable */}
@@ -1938,8 +1988,8 @@ export function DashboardClient({
               {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(analyticsData.conversionRate)}%</span>
-                <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayAnalytics.conversionRate)}%</span>
+                <PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />
               </div>
               <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
             </button>
@@ -1963,7 +2013,7 @@ export function DashboardClient({
           {/* Shared Chart Area - smooth line chart, toggleable */}
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-              {isChartLoading && chartData.length === 0 ? (
+              {isChartLoading && displayChartData.length === 0 ? (
                 <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div
@@ -1974,11 +2024,12 @@ export function DashboardClient({
                   ))}
                 </div>
               ) : (
-                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : "opacity-100"}`}>
-                  <LazyAreaChart data={chartData}>
+                <div className="relative">
+                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                  <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                        <AreaChart data={displayChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                           <defs>
                             <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
@@ -2036,6 +2087,21 @@ export function DashboardClient({
                       </ResponsiveContainer>
                     )}
                   </LazyAreaChart>
+                  </div>
+                  {!hasRealData && (
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                      <span className="text-[11px] text-[#c8ccd4]">
+                        {showSampleData ? "Sample data" : "No activity yet"}
+                      </span>
+                      <button
+                        onClick={() => setShowSampleData(prev => !prev)}
+                        className={`relative inline-flex h-4 w-7 rounded-full transition-colors cursor-pointer ${showSampleData ? "bg-indigo-300/80" : "bg-[#e9ecef]"}`}
+                        aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                      >
+                        <span className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 transition-transform ${showSampleData ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2070,8 +2136,14 @@ export function DashboardClient({
                     </Link>
                   </div>
                 </>
+              ) : isIOSApp ? (
+                /* Free plan banner — iOS: no upgrade links (App Store Guideline 3.1.1) */
+                <>
+                  <p className="text-[14px] sm:text-[16px] font-medium text-white mb-1">Scale faster with Growth features</p>
+                  <p className="text-[13px] sm:text-[14px] text-white/80">Plan changes are managed on the web dashboard.</p>
+                </>
               ) : (
-                /* Free plan banner */
+                /* Free plan banner — web */
                 <>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[13px] sm:text-[15px] font-semibold text-white">Unlock Growth features</span>
@@ -2084,12 +2156,18 @@ export function DashboardClient({
                     >
                       Upgrade
                     </Link>
-                    <Link
-                      href="/features"
-                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
+                    <button
+                      onClick={() => {
+                        if (isNativeApp()) {
+                          openExternal("https://storelib.com/features")
+                        } else {
+                          window.open("/features", "_blank", "noopener,noreferrer")
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors cursor-pointer"
                     >
                       Features
-                    </Link>
+                    </button>
                   </div>
                 </>
               )}
@@ -2351,6 +2429,31 @@ export function DashboardClient({
           }
         }
       `}</style>
+      </div>{/* end content translateY wrapper */}
+
+      {/* Bottom sheets rendered OUTSIDE transform wrapper — iOS position:fixed requires no ancestor transform */}
+      <TimeframeBottomSheet
+        isOpen={isMobileSheetOpen}
+        onClose={() => setIsMobileSheetOpen(false)}
+        options={timeframeOptions}
+        selectedValue={timeframe}
+        onSelect={setTimeframe}
+        t={t}
+      />
+      <QuickAccessBottomSheet
+        isOpen={isQuickAccessMobileOpen}
+        onClose={() => setIsQuickAccessMobileOpen(false)}
+        onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
+        storeUrl={publicStoreUrl}
+        navOnePageUrl={hasOnePageSetup ? navOnePageUrl : undefined}
+        navStoreUrl={navStoreUrl}
+        isOnePageCopied={copiedTarget === "onepage"}
+        isStoreCopied={copiedTarget === "store"}
+        onCopyOnePage={() => copyQuickAccessUrl("onepage")}
+        onCopyStore={() => copyQuickAccessUrl("store")}
+        isOnePageReady={hasOnePageSetup}
+        onSetupOnePage={() => router.push("/app/onepage")}
+      />
     </div>
   )
 }

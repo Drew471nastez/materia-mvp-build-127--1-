@@ -96,6 +96,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
     },
+    alternates: {
+      canonical: `https://storelib.com/explore/${category}`,
+    },
   }
 }
 
@@ -168,8 +171,24 @@ export default async function CategoryPage({ params }: Props) {
 
   const categoryLabel = CATEGORY_LABELS[category] || category
 
+  const categoryDescription = CATEGORY_DESCRIPTIONS[category] || `Browse ${categoryLabel} products on Storelib`
+
   return (
     <main className="min-h-screen bg-white">
+      {/* JSON-LD structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            "name": categoryLabel,
+            "description": categoryDescription,
+            "url": `https://storelib.com/explore/${category}`
+          }),
+        }}
+      />
+
       <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <CategoryPageClient
           initialProducts={productsWithCreators}

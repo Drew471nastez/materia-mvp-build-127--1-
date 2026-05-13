@@ -18,6 +18,38 @@ const ProductMarquee = dynamic(() => import("@/components/marketing/product-marq
 export default function StorelibLanding() {
   return (
     <div className="bg-white overflow-x-hidden">
+      {/* JSON-LD structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Storelib",
+            "url": "https://storelib.com",
+            "logo": "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg",
+            "sameAs": [],
+            "description": "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience."
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Storelib",
+            "url": "https://storelib.com",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://storelib.com/explore?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          }),
+        }}
+      />
+
       {/* HERO SECTION */}
       <Hero />
 
@@ -37,7 +69,7 @@ export default function StorelibLanding() {
       <SplitFeaturesSection />
 
       {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
-      <CarouselSection />
+      {/* <CarouselSection /> */}
 
       {/* TOOL STACK COMPARISON */}
       <ToolStackSection />

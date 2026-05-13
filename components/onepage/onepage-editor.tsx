@@ -5,7 +5,7 @@ import { PhonePreview, MobilePreviewContent } from "./phone-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
-import { SettingsTab } from "./tabs/settings-tab"
+import { SettingsTab, type SettingsTabRef } from "./tabs/settings-tab"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -26,7 +26,8 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { getLinksUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { openExternal } from "@/lib/native-bridge"
 import {
   Dialog,
   DialogContent,
@@ -345,7 +346,38 @@ function EditorLayout() {
     updateSettings,
   } = useOnePage()
 
-  const [activeTab, setActiveTab] = useState<TabType>("links")
+  // --- Hash-based tab navigation ---
+  const HASH_TO_TAB: Record<string, TabType> = {
+    links: "links",
+    design: "design",
+    products: "products",
+    settings: "settings",
+  }
+  const getInitialTab = (): TabType => {
+    if (typeof window === "undefined") return "links"
+    const hash = window.location.hash.replace("#", "")
+    return (HASH_TO_TAB[hash] as TabType) || "links"
+  }
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
+
+  const handleTabChange = useCallback((tab: TabType) => {
+    setActiveTab(tab)
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", `#${tab}`)
+    }
+  }, [])
+
+  // Sync tab when browser back/forward changes the hash
+  useEffect(() => {
+    const onPopState = () => {
+      const hash = window.location.hash.replace("#", "")
+      const tab = (HASH_TO_TAB[hash] as TabType) || "links"
+      setActiveTab(tab)
+    }
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [copied, setCopied] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
@@ -388,6 +420,7 @@ function EditorLayout() {
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
+  const settingsTabRef = useRef<SettingsTabRef>(null)
   
   // Check onboarding status directly from database on mount
   useEffect(() => {
@@ -468,10 +501,16 @@ function EditorLayout() {
       return
     }
 
-    // No Pro features or user has Pro, proceed with save
+    // If on the settings tab, sync ALL local settings state to context+API first
+    // (basic info, SEO, subscribe, share, verified badge)
+    if (activeTab === "settings") {
+      await settingsTabRef.current?.saveAllSettings()
+    }
+
+    // Proceed with global save (persists all context state)
     await save()
     setSaveToastSequence((prev) => prev + 1)
-  }, [hasProFeaturesEnabled, save])
+  }, [hasProFeaturesEnabled, save, activeTab])
 
   // Handle upgrading to Pro — auto-saves non-pro changes, then sends user to pricing page
   const handleUpgradeToPro = useCallback(async () => {
@@ -591,6 +630,9 @@ function EditorLayout() {
     }
 
     setIsSavingForNav(true)
+    if (activeTab === "settings") {
+      await settingsTabRef.current?.saveSeo()
+    }
     await save()
     setIsSavingForNav(false)
     setShowUnsavedDialog(false)
@@ -601,7 +643,7 @@ function EditorLayout() {
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
@@ -644,7 +686,8 @@ function EditorLayout() {
     )
   }
 
-  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksUrl(onepage.slug)
+  // Always use the external (shareable) URL so the format is always username.storelib.com/links
+  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksShareUrl(onepage.slug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)
@@ -653,7 +696,7 @@ function EditorLayout() {
   }
 
   const viewLive = () => {
-    window.open(pageUrl, "_blank")
+    openExternal(pageUrl)
   }
 
   const tabs = [
@@ -759,7 +802,7 @@ function EditorLayout() {
                   <button
                     key={tab.id}
                     data-tab={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabChange(tab.id)}
                     className={cn(
                       "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
                       activeTab === tab.id
@@ -776,7 +819,7 @@ function EditorLayout() {
 
             {/* Settings Button - Desktop */}
             <button
-              onClick={() => setActiveTab("settings")}
+              onClick={() => handleTabChange("settings")}
               title="Settings"
               className={cn(
                 "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200 cursor-pointer",
@@ -883,7 +926,7 @@ function EditorLayout() {
             {activeTab === "design" && <DesignTab userPlan={userPlan} />}
             {activeTab === "links" && <LinksTab />}
             {activeTab === "products" && <ProductsTab />}
-            {activeTab === "settings" && <SettingsTab />}
+            {activeTab === "settings" && <SettingsTab ref={settingsTabRef} />}
           </div>
         </div>
 
@@ -924,7 +967,7 @@ function EditorLayout() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
                     activeTab === tab.id
@@ -939,7 +982,7 @@ function EditorLayout() {
             })}
             {/* Settings Button - Mobile - same height as other tab buttons */}
             <button
-              onClick={() => setActiveTab("settings")}
+              onClick={() => handleTabChange("settings")}
               className={cn(
                 "flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl transition-all shrink-0",
                 activeTab === "settings"

@@ -1,6 +1,8 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
+import { openExternal } from "@/lib/native-bridge"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -31,9 +33,6 @@ function toInternalHref(href: string): string {
     // sellername.storelib.com/ -> /u/sellername
     if (path === "/" || path === "") return `/u/${username}`
 
-    // sellername.storelib.com/p/slug -> /p/slug
-    if (path.startsWith("/p/")) return path
-
     // sellername.storelib.com/links -> /l/username
     if (path === "/links" || path === "/links/") return `/l/${username}`
 
@@ -58,33 +57,91 @@ const TOUCH_STYLES: React.CSSProperties = {
 export function SmartLink({
   href,
   children,
+  useClientNav,
   ...props
-}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+}: React.AnchorHTMLAttributes<HTMLAnchorElement> & { useClientNav?: boolean }) {
   const inApp = isNativeApp()
   const resolvedHref = inApp && href ? toInternalHref(href) : href
+  const router = useRouter()
 
-  // In Capacitor, ALWAYS use window.location.href for root-relative paths to
-  // prevent URL mixing. Next.js <Link> / router.push can resolve paths relative
-  // to the current route in some Capacitor WebView contexts — e.g. clicking a
-  // seller link on /p/slug would produce /p/slug/u/seller instead of /u/seller.
-  // window.location.href with a leading "/" is always root-relative.
-  // NativeAuthGate handles session restore on reload.
-  if (inApp && resolvedHref?.startsWith("/")) {
+  // In Capacitor, use router.push() for same-layout paths (smooth, no white flash).
+  // Cross-layout routes (/app, /store-builder, /library) and explicit
+  // useClientNav=false still use window.location.href (full reload for auth context).
+  // window.location.href remains the safe fallback for truly cross-context nav.
+  // target="_blank" on native always opens in the external system browser.
+  if (inApp) {
     const { target, rel, onClick, ...linkSafeProps } = props
-    return (
-      <a
-        {...linkSafeProps}
-        href={resolvedHref}
-        onClick={(e) => {
-          e.preventDefault()
-          if (typeof onClick === "function") onClick(e as any)
-          window.location.href = resolvedHref
-        }}
-        style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
-      >
-        {children}
-      </a>
-    )
+
+    // target="_blank" → open in external browser (SFSafariViewController / Chrome Custom Tab)
+    if (target === "_blank") {
+      const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+      const externalUrl =
+        href?.startsWith("/")
+          ? `https://${mainDomain}${href}`
+          : (href ?? "")
+      return (
+        <a
+          {...linkSafeProps}
+          href={href}
+          onClick={(e) => {
+            e.preventDefault()
+            if (typeof onClick === "function") onClick(e as any)
+            if (externalUrl) openExternal(externalUrl)
+          }}
+          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+        >
+          {children}
+        </a>
+      )
+    }
+
+    if (resolvedHref?.startsWith("/")) {
+      const needsHardNav =
+        useClientNav === false ||
+        resolvedHref.startsWith("/app") ||
+        resolvedHref.startsWith("/store-builder") ||
+        resolvedHref.startsWith("/library")
+      return (
+        <a
+          {...linkSafeProps}
+          href={resolvedHref}
+          onClick={(e) => {
+            e.preventDefault()
+            if (typeof onClick === "function") onClick(e as any)
+            if (needsHardNav) {
+              window.location.href = resolvedHref
+            } else {
+              router.push(resolvedHref)
+            }
+          }}
+          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+        >
+          {children}
+        </a>
+      )
+    }
+
+    // Absolute URL that toInternalHref could not convert to an internal path
+    // (e.g. a product page on a creator's subdomain store, or any external URL
+    // the app cannot route to). Open in the in-app browser (SFSafariViewController
+    // on iOS / Chrome Custom Tab on Android) so the user stays within the app
+    // shell rather than being sent to the system browser.
+    if (resolvedHref) {
+      return (
+        <a
+          {...linkSafeProps}
+          href={resolvedHref}
+          onClick={(e) => {
+            e.preventDefault()
+            if (typeof onClick === "function") onClick(e as any)
+            openExternal(resolvedHref)
+          }}
+          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+        >
+          {children}
+        </a>
+      )
+    }
   }
 
   return (

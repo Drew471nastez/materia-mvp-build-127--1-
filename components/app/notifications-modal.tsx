@@ -152,7 +152,7 @@ export function NotificationsModal({
     }
 
     // Payment setup notification - only show if not connected AND not dismissed
-    if ((!stripeConnected || stripeStatus !== "enabled") && !dismissedIds.includes("payment-setup")) {
+    if ((!stripeConnected || (stripeStatus !== "enabled" && stripeStatus !== "connected")) && !dismissedIds.includes("payment-setup")) {
       generatedNotifications.push({
         id: "payment-setup",
         type: "action",
@@ -228,7 +228,7 @@ export function NotificationsModal({
   }
 
   const NotificationsContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Tabs */}
       <div className="flex items-center gap-2 px-4 py-3 border-b overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => (
@@ -248,7 +248,7 @@ export function NotificationsModal({
       </div>
 
       {/* Notifications list */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <Loader2 className="w-8 h-8 text-neutral-400 animate-spin mb-4" />
@@ -279,12 +279,12 @@ export function NotificationsModal({
     </div>
   )
 
-  // Mobile: Custom GPU-accelerated bottom sheet with swipe-to-dismiss
+  // Mobile: Bottom sheet
   if (isMobile) {
     return (
-      <MobileNotificationSheet open={open} onClose={() => onOpenChange(false)}>
+      <MobileNotificationBottomSheet open={open} onClose={() => onOpenChange(false)}>
         <NotificationsContent />
-      </MobileNotificationSheet>
+      </MobileNotificationBottomSheet>
     )
   }
 
@@ -315,7 +315,7 @@ export function NotificationsModal({
   )
 }
 
-function MobileNotificationSheet({
+function MobileNotificationBottomSheet({
   open,
   onClose,
   children,
@@ -337,9 +337,6 @@ function MobileNotificationSheet({
   useEffect(() => {
     if (open && !isVisible) {
       setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = "none"
-      document.body.style.overscrollBehavior = "none"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -347,20 +344,13 @@ function MobileNotificationSheet({
       })
     } else if (!open && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
-    }
+    return undefined
   }, [open, isVisible])
 
   const handleClose = () => {
@@ -375,11 +365,12 @@ function MobileNotificationSheet({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+    const sheetEl = sheetRef.current
+    if (!sheetEl) return
+    const rect = sheetEl.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - rect.top
+    // Only start drag from handle + header area (~64px from top of sheet)
+    if (touchYInSheet >= 0 && touchYInSheet <= 64) {
       startYRef.current = touch.clientY
       lastYRef.current = touch.clientY
       lastTimeRef.current = Date.now()
@@ -419,6 +410,7 @@ function MobileNotificationSheet({
   return (
     <div
       className="fixed inset-0 z-[100] md:hidden"
+      style={{ pointerEvents: isVisible ? "auto" : "none" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -430,14 +422,14 @@ function MobileNotificationSheet({
           opacity: isAnimating ? 1 : 0,
           transition: isDragging ? "none" : "opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
-        onClick={handleClose}
+        onClick={isAnimating ? handleClose : undefined}
       />
-      {/* Bottom Sheet */}
+      {/* Bottom Sheet — GPU-accelerated */}
       <div
         ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col overflow-hidden"
         style={{
-          height: "68dvh",
+          maxHeight: "85dvh",
           transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
           transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
           willChange: "transform",
@@ -445,26 +437,29 @@ function MobileNotificationSheet({
           WebkitBackfaceVisibility: "hidden",
         }}
       >
-        {/* Handle bar */}
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none shrink-0">
+        {/* Drag handle */}
+        <div className="pt-3 pb-1 flex justify-center shrink-0 touch-none" data-sheet-handle>
           <div className="h-[5px] w-10 rounded-full bg-gray-300" />
         </div>
         {/* Header */}
-        <div className="px-4 py-2.5 border-b border-neutral-200/60 flex items-center justify-between shrink-0">
+        <div className="px-5 py-3 border-b border-neutral-100 flex items-center justify-between shrink-0">
           <h3 className="text-[16px] font-semibold text-neutral-900">Notifications</h3>
           <button
             onClick={handleClose}
-            className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center"
+            className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
           >
-            <X className="w-5 h-5 text-neutral-500" />
+            <X className="w-4 h-4 text-neutral-500" />
           </button>
         </div>
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+        {/* Content — flex-1 so NotificationsContent's inner scroll works */}
+        <div
+          className="flex-1 min-h-0 flex flex-col overflow-hidden"
+          style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+        >
           {children}
         </div>
-        {/* Safe area padding */}
-        <div className="h-[env(safe-area-inset-bottom)] shrink-0" />
+        {/* iOS safe area */}
+        <div className="shrink-0 h-[env(safe-area-inset-bottom)]" />
       </div>
     </div>
   )

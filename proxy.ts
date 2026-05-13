@@ -24,6 +24,7 @@ const RESERVED_PATHS = [
   "/wishlist",
   "/marketplace",
   "/library",
+  "/native-start",
   "/receipt",
   "/_next",
   "/favicon.ico",
@@ -234,6 +235,19 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
+  // Capacitor WebViews always include "Capacitor" in their User-Agent.
+  // Redirect the native app away from the marketing homepage before any
+  // page renders — the server redirect happens before a single byte of
+  // the marketing page is sent to the client.
+  if (
+    pathname === "/" &&
+    (request.headers.get("user-agent") || "").includes("Capacitor")
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/native-start"
+    return NextResponse.redirect(url)
+  }
+
   // Extract username from subdomain
   let username = extractUsernameFromHost(host)
   let isCustomDomain = false
@@ -418,6 +432,40 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
+  }
+
+  // ── Stripe controller CSP (Capacitor WKWebView only) ────────────────────────
+  // When Stripe.js initialises it creates a hidden controller iframe at
+  // js.stripe.com/v3/controller-with-preconnect-*.html. That iframe sends a
+  // postMessage; Stripe.js reacts by setting window.location.href = controllerUrl.
+  // In WebKit, window.location.href is [LegacyUnforgeable] — no JS patch can
+  // intercept it. The WebView navigates away from the checkout page.
+  //
+  // Fix: inject a Content-Security-Policy frame-src that only allows the Stripe
+  // iframe URL patterns actually needed. The controller URL (controller-with-
+  // preconnect-*.html) is intentionally absent → the browser engine blocks it
+  // before any JS runs → no postMessage is ever sent → window.location.href
+  // is never set → checkout stays inline.
+  //
+  // Allowed patterns (all live under js.stripe.com/v3/):
+  //   elements-*        CardNumberElement / CardExpiryElement / CardCvcElement
+  //   payment-request-* Apple Pay / Google Pay availability check iframe
+  //   three-ds-*        3DS v2 bank-auth challenge iframes
+  //   link-*            Stripe Link authentication iframes
+  //   hooks.stripe.com  3DS redirect-return host
+  //
+  // NOT allowed (intentionally blocked):
+  //   controller-with-preconnect-*  ← the cause of the top-level navigation
+  if ((request.headers.get("user-agent") || "").includes("Capacitor")) {
+    supabaseResponse.headers.set(
+      "Content-Security-Policy",
+      "frame-src 'self'" +
+      " https://js.stripe.com/v3/elements-*" +
+      " https://js.stripe.com/v3/payment-request-*" +
+      " https://js.stripe.com/v3/three-ds-*" +
+      " https://js.stripe.com/v3/link-*" +
+      " https://hooks.stripe.com",
+    )
   }
 
   return supabaseResponse

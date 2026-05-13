@@ -164,7 +164,7 @@ export default async function AppLayout({
     <OfflineGuard>
     <NativeBackHandler />
     <AppLayoutWrapper>
-      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
+      <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
           creatorSlug={creator.slug}
           username={profile?.username || creator.slug}
@@ -179,7 +179,8 @@ export default async function AppLayout({
         {/* md:pt accounts for the desktop header height (58 px) plus the
             safe-area-inset-top padding the header adds in Capacitor.
             In a browser env() = 0, so md:pt stays exactly 58 px. */}
-        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+        {/* bg-[#f8f9fa] matches dashboard bg so any momentary overscroll gap never shows white */}
+        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[220px] bg-[#f8f9fa] md:bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
           {/* pb ensures content at scroll-bottom is never hidden under the iOS home indicator
               or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it

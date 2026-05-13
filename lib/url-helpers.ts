@@ -104,10 +104,6 @@ export function getLinksUrl(username: string): string {
 export function getProductUrl(username: string, productSlug: string): string {
   if (!productSlug) return getStoreUrl(username)
 
-  if (isNativeApp()) {
-    return `/p/${productSlug}`
-  }
-
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
 
@@ -400,4 +396,103 @@ export function isLinksPage(pathname: string, host?: string): boolean {
 
   // Check path-based route
   return pathname.startsWith("/l/")
+}
+
+// ── Website Builder URL Helpers ────────────────────────────────
+// Website pages live at: storelib.com/sellername (path-based, NOT subdomain)
+// Store pages keep: sellername.storelib.com (subdomain-based)
+
+/**
+ * Get the URL for a seller's website page (path-based format)
+ * @param username - The seller's username
+ * @returns Full URL like "https://storelib.com/username"
+ */
+export function getWebsiteUrl(username: string): string {
+  if (!username) return getSiteUrl()
+
+  const sanitizedUsername = username
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  if (!sanitizedUsername) return getSiteUrl()
+
+  if (isNativeApp()) {
+    return `/w/${sanitizedUsername}`
+  }
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${getSiteUrl()}/w/${sanitizedUsername}`
+  }
+
+  return `https://${mainDomain}/${sanitizedUsername}`
+}
+
+/**
+ * Get the canonical website URL for sharing — always returns the full URL
+ */
+export function getWebsiteShareUrl(username: string): string {
+  if (!username) return getSiteUrl()
+
+  const sanitizedUsername = username
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  if (!sanitizedUsername) return getSiteUrl()
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${getSiteUrl()}/w/${sanitizedUsername}`
+  }
+
+  return `https://${mainDomain}/${sanitizedUsername}`
+}
+
+/**
+ * Get website URL display string
+ * @param username - The seller's username
+ * @returns Display string like "storelib.com/username"
+ */
+export function getWebsiteUrlDisplay(username: string): string {
+  if (!username) return getMainDomain()
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${mainDomain}/w/${username}`
+  }
+
+  return `${mainDomain}/${username.toLowerCase()}`
+}
+
+/**
+ * Get website page URL (for sub-pages of a website)
+ * @param username - The seller's username
+ * @param pageSlug - The page slug
+ * @returns Full URL like "https://storelib.com/username/about"
+ */
+export function getWebsitePageUrl(username: string, pageSlug: string): string {
+  if (!pageSlug) return getWebsiteUrl(username)
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${getSiteUrl()}/w/${username}/${pageSlug}`
+  }
+
+  if (!username) {
+    return `https://${mainDomain}/${pageSlug}`
+  }
+
+  return `https://${mainDomain}/${username.toLowerCase()}/${pageSlug}`
 }

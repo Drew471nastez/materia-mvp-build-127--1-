@@ -10,7 +10,10 @@ import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
+console.log("[checkout/process] NEW PUSH BUILD ACTIVE")
+
 export async function POST(request: Request) {
+  console.log("[checkout/process] handler entered")
   try {
     const supabase = await createClient()
     const admin = createAdminClient()
@@ -23,10 +26,12 @@ export async function POST(request: Request) {
     console.log("[checkout/process] Variant ID:", variantId || "none")
 
     if (!productId || !firstName || !lastName || !email) {
+      console.log("[checkout/process] RETURN: missing required fields")
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
     if (!email.includes("@") || !email.includes(".")) {
+      console.log("[checkout/process] RETURN: invalid email")
       return NextResponse.json({ error: "Valid email address is required" }, { status: 400 })
     }
 
@@ -45,9 +50,11 @@ export async function POST(request: Request) {
       .single()
 
     if (productError || !product) {
-      console.error("[checkout/process] Product not found:", productError)
+      console.error("[checkout/process] RETURN: product not found:", productError)
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
+
+    console.log("[checkout/process] creator.id:", product.creator.id, "creator.user_id:", (product.creator as any).user_id ?? "NULL — push will be skipped!")
 
     // Fetch variant if specified (include description for snapshot)
     let selectedVariant = null
@@ -70,7 +77,10 @@ export async function POST(request: Request) {
     const basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
     const total = basePriceCents + (tipCents || 0)
 
+    console.log("[checkout/process] basePriceCents:", basePriceCents, "tipCents:", tipCents, "total:", total, "— isFree:", total === 0)
+
     if (total > 0) {
+      console.log("[checkout/process] RETURN: total > 0 (" + total + "), redirecting to Stripe")
       return NextResponse.json({ error: "Paid products must use Stripe checkout" }, { status: 400 })
     }
 
@@ -186,8 +196,7 @@ export async function POST(request: Request) {
     }
 
     if (orderError || !order) {
-      console.error("[checkout/process] All order creation strategies failed:", orderError)
-      // Return detailed error for debugging
+      console.error("[checkout/process] RETURN: all order creation strategies failed:", orderError)
       return NextResponse.json(
         {
           error: "Failed to create order",
@@ -286,21 +295,46 @@ export async function POST(request: Request) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
-    const emailResults = await sendOrderEmails(admin, {
-      orderId: order.id,
-      buyerEmail: email.toLowerCase().trim(),
-      buyerFirstName: firstName.trim(),
-      buyerLastName: lastName.trim(),
-      productTitle: product.title,
-      receiptToken: receiptToken,
-      creatorId: product.creator.id,
-      amountCents: 0,
-      feeCents: 0,
-      baseUrl,
-      variantName: selectedVariant?.name || null,
-    })
+    let emailResults = { buyerSuccess: false }
+    try {
+      emailResults = await sendOrderEmails(admin, {
+        orderId: order.id,
+        buyerEmail: email.toLowerCase().trim(),
+        buyerFirstName: firstName.trim(),
+        buyerLastName: lastName.trim(),
+        productTitle: product.title,
+        receiptToken: receiptToken,
+        creatorId: product.creator.id,
+        amountCents: 0,
+        feeCents: 0,
+        baseUrl,
+        variantName: selectedVariant?.name || null,
+      })
+      console.log("[checkout/process] Email results:", emailResults)
+    } catch (emailErr) {
+      console.error("[checkout/process] sendOrderEmails threw (non-fatal):", emailErr)
+    }
 
-    console.log("[checkout/process] Email results:", emailResults)
+    // Push notification to seller — non-fatal
+    try {
+      const { notifySale } = await import("@/lib/push/notifications")
+      const creatorUserId = (product.creator as any).user_id as string | null
+      console.error("[push-debug] creatorUserId =", creatorUserId)
+      if (creatorUserId) {
+        console.error("[push-debug] ABOUT TO CALL NOTIFYSALE")
+        await notifySale(creatorUserId, {
+          productName: product.title,
+          amountCents: basePriceCents,
+          orderId: order.id,
+          productId: product.id,
+        })
+        console.error("[push-debug] NOTIFYSALE FINISHED OK")
+      } else {
+        console.log("[push] No user_id on creator — skipping push")
+      }
+    } catch (error) {
+      console.error("[push-debug] NOTIFYSALE ERROR", error)
+    }
 
     // Trigger email flows for purchase
     try {
@@ -317,7 +351,7 @@ export async function POST(request: Request) {
       console.error("[checkout/process] Email flow trigger error (non-fatal):", flowErr)
     }
 
-    console.log("[checkout/process] ✅ Checkout complete, redirecting to receipt")
+    console.log("[checkout/process] RETURN: success — checkout complete, order:", order.id)
 
     return NextResponse.json({
       success: true,
@@ -327,7 +361,7 @@ export async function POST(request: Request) {
       emailSent: emailResults.buyerSuccess,
     })
   } catch (error) {
-    console.error("[checkout/process] ❌ Checkout error:", error)
+    console.error("[checkout/process] RETURN: caught top-level error:", error)
     return NextResponse.json(
       {
         error: "Checkout failed",

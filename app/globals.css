@@ -46,12 +46,42 @@
      env() values in html.capacitor (set by NativeCookieKillSwitch on native) */
   --sat: 0px;
   --sab: 0px;
+  /* Software keyboard height — updated by AppLayoutWrapper via VisualViewport API.
+     0px default means no layout change when keyboard is closed. */
+  --keyboard-inset-height: 0px;
 }
 
-/* Native Capacitor: activate real safe-area env() values */
+/* Native Capacitor: activate real safe-area env() values.
+   background-color: #000 on the ROOT element paints to the full viewport
+   canvas (CSS spec: root element background covers the initial containing
+   block = full screen with viewport-fit:cover). This covers the safe-area
+   zone (y=0 → env(safe-area-inset-top), the Dynamic Island / status-bar
+   area) with black even when WKWebView's contentInset pushes the body
+   to start below the safe area. The body's own bg-background (white)
+   paints on top for all content areas, so page content stays white. */
 html.capacitor {
   --sat: env(safe-area-inset-top);
   --sab: env(safe-area-inset-bottom);
+  background-color: #000000;
+}
+
+/* On /app pages the header and layout background are #111111, not #000000.
+   This rule must be OUTSIDE any @layer so it beats the unlayered
+   html.capacitor rule above (layered styles lose to unlayered ones at equal
+   specificity). Without this, the html canvas that peeks through during
+   rotation transitions shows pure black, producing a jarring black bar above
+   the fixed header even though the rest of the UI is #111111. */
+html.capacitor.app-layout {
+  background-color: #111111;
+}
+
+/* Capacitor: disable iOS rubber-band overscroll on all pages.
+   Without this, bouncing at the top/bottom reveals the body background
+   (white) behind dark headers/footers — producing a jarring flash.
+   Native apps don't have browser-style bounce, so this feels correct. */
+html.capacitor,
+html.capacitor body {
+  overscroll-behavior: none;
 }
 
 .dark {
@@ -290,6 +320,27 @@ html.capacitor {
   html.app-layout body {
     background-color: #111111;
     overflow: hidden;
+  }
+
+  /* Library layout on mobile: lock document-level scroll so the fixed mobile
+     header cannot be scrolled by swiping on it (same behaviour as /app).
+     Only on mobile (<768px) — desktop library uses natural document flow.
+     Both the CSS :has() rule and the JS .library-layout class are used so
+     neither mechanism is a single point of failure. */
+  @media (max-width: 767px) {
+    html:has([data-page="library"]),
+    html.library-layout {
+      overflow: hidden;
+      scrollbar-width: none;
+    }
+    html:has([data-page="library"])::-webkit-scrollbar,
+    html.library-layout::-webkit-scrollbar {
+      display: none;
+    }
+    html:has([data-page="library"]) body,
+    html.library-layout body {
+      overflow: hidden;
+    }
   }
 
 }
@@ -944,6 +995,105 @@ html.capacitor {
   }
 }
 
+/* ── Keyboard-open: zero out body + scroll-container bottom padding ──────────
+ *
+ * On iOS Capacitor, env(safe-area-inset-bottom) does NOT automatically drop
+ * to 0 when the software keyboard opens (unlike Safari where the home indicator
+ * disappears). This means:
+ *   • body { padding-bottom: env(safe-area-inset-bottom) } adds ~34 px that
+ *     becomes visible as whitespace when the .app-content-scroll shrinks
+ *     (keyboard height is subtracted via --keyboard-inset-height).
+ *   • html.capacitor .app-content-scroll { padding-bottom: env(...) } adds
+ *     internal padding that also shows as whitespace inside the scroll area.
+ *
+ * KeyboardGuard (components/platform/keyboard-guard.tsx) adds `keyboard-open`
+ * to <html> via the VisualViewport API whenever the keyboard is open, and
+ * removes it when the keyboard closes. Never fires on desktop/browser where
+ * visualViewport.height === window.innerHeight.
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.keyboard-open body {
+  padding-bottom: 0 !important;
+}
+
+/* Also zero the scroll-container's own safe-area padding while keyboard is
+   open — prevents internal whitespace at the bottom of the scrollable area. */
+html.keyboard-open .app-content-scroll {
+  padding-bottom: 0 !important;
+}
+
+/* Zero the library layout's inner content padding-bottom while keyboard is
+   open — env(safe-area-inset-bottom) does not drop to 0 in Capacitor WKWebView
+   when the keyboard appears, so the ~34px safe-area padding becomes visible
+   as white blank space at the bottom of the settings/library pages. */
+html.keyboard-open .library-scroll-content {
+  padding-bottom: 0 !important;
+}
+
+/* When the keyboard is open on library pages (settings, etc.), collapse any
+   minimum-height constraints and extra bottom/top margin on child content
+   so the scroll container doesn't extend past the visual viewport, which would
+   leave blank space at the bottom on mobile. */
+html.keyboard-open .library-scroll-content > * {
+  min-height: 0 !important;
+}
+
+/* Prevent the parent flex column from forcing min-height on mobile when
+   keyboard is open — this eliminates the blank gap below the scroll area. */
+html.keyboard-open [data-page="library"] > div {
+  min-height: 0 !important;
+}
+
+/* Ensure the <main> scroll container uses overflow-anchor so the browser
+   doesn't jump the scroll position when elements resize during keyboard
+   open/close transitions. */
+html.keyboard-open [data-page="library"] main {
+  overflow-anchor: auto;
+}
+
+/* ── Scroll-margin for inputs: prevent content sliding under the fixed header ──
+ *
+ * On mobile (iOS/Android), focusing an input triggers the browser's built-in
+ * scroll-into-view logic. Without a scroll-margin-top hint, the browser can
+ * scroll the focused element flush to the top of the viewport, hiding it
+ * behind the fixed library header (3.5 rem + 1 px border + safe-area-inset-top).
+ *
+ * scroll-margin-top tells the browser's scroll-into-view algorithm to leave
+ * at least this much space above the element, so it lands below the header.
+ * scroll-margin-bottom reserves space above the keyboard (prevents the input
+ * from sitting right at the keyboard edge with no breathing room).
+ *
+ * Applied only inside [data-page="library"] so it has no effect on other pages.
+ * ──────────────────────────────────────────────────────────────────────────── */
+[data-page="library"] input,
+[data-page="library"] textarea,
+[data-page="library"] select {
+  scroll-margin-top: calc(3.5rem + 1px + env(safe-area-inset-top, 0px));
+  scroll-margin-bottom: 1rem;
+}
+
+/* ── Keyboard-open: clamp scroll containers to the visual viewport height ────
+ *
+ * On iOS Capacitor/WKWebView, `h-svh` on <main> does not shrink when the
+ * software keyboard opens — the layout viewport stays at full screen height
+ * while only the visual viewport (the area above the keyboard) shrinks.
+ *
+ * This means the <main> scroll container extends below the keyboard into an
+ * invisible region. iOS lets the user rubber-band / overscroll into that region,
+ * which appears as blank space at the bottom while the keyboard is visible.
+ *
+ * KeyboardGuard sets --vvh to visualViewport.height (px) whenever the keyboard
+ * is open. Clamping <main> and .app-content-scroll to that height makes the
+ * scroll container exactly as tall as the visible area, eliminating the blank
+ * space entirely.
+ *
+ * Safe on desktop — `keyboard-open` is never added there (kbHeight is always 0).
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.keyboard-open main,
+html.keyboard-open .app-content-scroll {
+  height: var(--vvh, 100svh) !important;
+  max-height: var(--vvh, 100svh) !important;
+}
+
 /* ─── Auth pages: mobile layout centering ────────────────────────
    Improves visual balance on small screens for login, signup, and
    verify-code. Does NOT affect sm+ (640px+) or desktop layout.
@@ -994,11 +1144,15 @@ html.native-auth-lock .auth-shell {
 html.native-auth-lock .auth-card {
   width: 100%;
   max-width: 420px;
-  max-height: calc(100dvh - 48px); /* viewport minus safe-area buffer */
+  max-height: calc(100dvh - env(safe-area-inset-top) - 16px); /* viewport minus notch + buffer */
   overflow-y: auto;
+  overflow-x: clip; /* clip without creating an x-scroll container — preserves focus ring */
   -webkit-overflow-scrolling: touch; /* native momentum scroll on iOS WKWebView */
   overscroll-behavior: contain;      /* bounce stays inside the card, not the page */
   touch-action: pan-y;               /* re-enable vertical touch scroll within card */
+  /* Extra horizontal breathing room so focus outlines aren't clipped */
+  padding-left: 3px;
+  padding-right: 3px;
 }
 
 /* iOS Safari adds a native blue focus glow that extends ~4 px OUTSIDE the
@@ -1032,10 +1186,65 @@ html.native-auth-lock .auth-card input {
    the dark #111111 body at the top or white main background at the bottom. */
 .app-content-scroll {
   overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch; /* momentum scroll on iOS WKWebView */
+  /* pan-x pan-y: allow both axes so nested horizontal scroll areas (KPI tabs,
+     analytics tables) aren't blocked by an ancestor that only advertises pan-y.
+     JavaScript (CapacitorBounceGuard + usePullToRefresh) is non-passive and
+     handles the actual bounce-prevention / pull-to-refresh logic. */
+  touch-action: pan-x pan-y;
+}
+
+/* Dashboard inner scroll container.
+   We use a JS touch-intercept hook for the custom pull-to-refresh, which calls
+   e.preventDefault() on touchmove when scrollTop === 0.  The CSS rule is a
+   belt-and-suspenders fallback for non-iOS or when the hook isn't mounted yet.
+   The background matches the dashboard so any brief overscroll gap looks clean. */
+.dashboard-scroll-container {
+  overscroll-behavior: none;
+  background-color: #f8f9fa; /* same as the dashboard body — no white flash */
 }
 
 html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent rubber-band scroll-chaining from the inner scroll container to the
+   document on both Capacitor and /app web. CSS overscroll-behavior does not
+   inherit, so it must be set on the scrollable element directly.
+   CapacitorBounceGuard (JS) is the primary guard; this is belt-and-suspenders. */
+html.app-layout .app-content-scroll,
+html.capacitor .app-content-scroll {
+  overscroll-behavior: none;
+}
+
+/* ── Keyboard-aware scroll container height ──────────────────────────────────
+ *
+ * When the software keyboard opens on iOS/Android (Capacitor or mobile browser),
+ * AppLayoutWrapper sets --keyboard-inset-height via the VisualViewport API.
+ * This shrinks the scroll container so its bottom edge is above the keyboard,
+ * keeping all content reachable without the fixed app header being overlapped.
+ *
+ * The !important overrides the Tailwind h-[calc(...)] utility on the element.
+ * Mobile (< 768px): header is 68px.  Desktop (≥ 768px): header is 58px.
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.app-layout .app-content-scroll {
+  height: calc(
+    100svh
+    - 68px
+    - env(safe-area-inset-top, 0px)
+    - var(--keyboard-inset-height, 0px)
+  ) !important;
+}
+
+@media (min-width: 768px) {
+  html.app-layout .app-content-scroll {
+    height: calc(
+      100svh
+      - 58px
+      - env(safe-area-inset-top, 0px)
+      - var(--keyboard-inset-height, 0px)
+    ) !important;
+  }
 }
 
 /* Any element explicitly marked as needing bottom clearance */
@@ -1053,9 +1262,322 @@ html.capacitor [data-safe-bottom] {
  * on Android — our :active styles replace it.
  * ──────────────────────────────────────────────────────────────────────────── */
 
+/* Fixed black shield that covers the safe-area-inset-top zone (the iOS notch /
+   status-bar area). Together with the html.capacitor { background-color:#000000 }
+   rule below, this ensures NO visible gap above the platform header:
+   - ::before (z-9999) covers the notch zone with solid black at all times.
+   - html background (#000000) is visible during any rubber-band overscroll bounce,
+     matching the black header so the gap is invisible.
+   On browser env(safe-area-inset-top) = 0px → zero visual effect. */
+html.capacitor::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background-color: #000000;
+  z-index: 9999;
+  pointer-events: none;
+}
+
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;
+  /* When iOS rubber-band overscroll exposes the html background, use black so
+     it matches the platform header. Any bounce gap above the header is invisible
+     since both the header and the html canvas are black. Body pages use their own
+     bg-* classes for content; the html background only shows during overscroll.
+     CapacitorBounceGuard (JS) also prevents rubber-band from firing in WKWebView. */
+  background-color: #000000;
+  /* Prevent rubber-band bounce at the root element level in addition to body.
+     overscroll-behavior: none works on iOS 16+; for older iOS the JS guard handles it. */
+  overscroll-behavior: none;
+}
+
+/* ── Platform header safe-area padding (web / desktop) ───────────────────────
+   Applied via a CSS class (not JS isNativePlatform()) — same style on SSR and
+   client, zero React hydration mismatch.
+
+   env(safe-area-inset-top) = 0px on web browsers → no visual change there.
+   Mobile:  max(0px, 14px) = 14px  (same as old pt-[14px] class)
+   Desktop: 3px media-query override (matches old md:pt-[3px]) */
+.platform-header-row {
+  padding-top: max(env(safe-area-inset-top, 0px), 14px);
+}
+@media (min-width: 768px) {
+  .platform-header-row {
+    padding-top: 3px;
+  }
+}
+
+/* ── Native Capacitor: match AppSidebar header exactly ────────────────────────
+   AppSidebar uses position:fixed + height:calc(68px+safe-area) + marginTop on
+   the inner row. We replicate the same pattern here for PlatformHeaderClient:
+
+   1. FIXED (not sticky) — header never moves during iOS rubber-band overscroll.
+   2. Explicit height = 68px content row + env(safe-area-inset-top) status zone.
+   3. Inner <header> pushed below status bar via margin-top (mirrors AppSidebar).
+   4. Icons centered in 68px → badge (-top-0.5) at ~54px from screen top,
+      well above the 44px ::before safe-area shield — no clipping.
+
+   html.capacitor is set before first paint in Capacitor so these rules apply
+   without any visible layout shift. */
+html.capacitor #platform-header-root {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: calc(68px + env(safe-area-inset-top, 0px));
+  /* Force GPU compositing layer — prevents WKWebView from visually jumping
+     the header during the native UIScrollView rubber-band bounce animation.
+     Without this, WKWebView re-composites position:fixed elements on the CPU
+     during overscroll, causing a brief gap above the header.              */
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+html.capacitor #platform-header-root > header {
+  margin-top: env(safe-area-inset-top, 0px);
+  height: 68px;
+}
+/* Zero out CSS padding on native — height is explicit above. */
+html.capacitor .platform-header-row {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  height: 68px;
+}
+/* Push ALL marketing layout content (category bar, search, main) below the
+   fixed header on native. Applied to the outermost flex wrapper so the
+   category bar, concave transition, and main content all start at y=112px.
+   :has() ensures the padding only applies when the header is in the DOM.
+   On web the header is sticky (in flow) so no wrapper padding is needed. */
+html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
+  padding-top: calc(68px + env(safe-area-inset-top, 0px));
+}
+
+/* Prevent the white body flash during page transitions in Capacitor.
+   When Next.js swaps routes the bare <body> is briefly visible; #f5f5f5
+   matches the explore/marketing skeleton background so the transition is
+   invisible instead of flashing a different shade.
+   Pages that need white use their own wrapper elements on top of this. */
+html.capacitor body {
+  background-color: #f5f5f5;
+  /* Prevent pull-to-refresh and overscroll bounce in Capacitor WebView.
+     The native app handles refresh natively; browser overscroll is unwanted.
+     overscroll-behavior: none works on iOS 16+; JS guard covers older iOS. */
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch; /* smooth momentum scrolling on iOS */
+}
+
+/* ── Discover back breadcrumb visibility ─────────────────────────────────────
+   The DiscoverBackBreadcrumb button is always rendered in the DOM (no JS
+   useEffect gating) and uses data-discover-breadcrumb to control display.
+   html.capacitor is set synchronously before first paint so these rules
+   activate immediately — no hydration timing race.                           */
+
+/* Hidden by default on all non-Capacitor pages and non-discover web URLs.
+   NOT !important so the JS backup (style.setProperty with important flag) can
+   always override it, even if html.capacitor class is applied late. */
+[data-discover-breadcrumb] {
+  display: none;
+}
+/* Always visible in the native Capacitor app (iOS + Android) */
+html.capacitor [data-discover-breadcrumb] {
+  display: flex !important;
+}
+/* Also visible on web when the product is opened from a discover/recommended URL,
+   but only on mobile — hidden on desktop (≥768px) where browser back exists */
+[data-discover-breadcrumb="web"] {
+  display: flex !important;
+}
+@media (min-width: 768px) {
+  [data-discover-breadcrumb="web"] {
+    display: none !important;
+  }
+}
+
+/* ── Search top sheet: push content below the safe-area shield ────────────────
+   The MobileTopSheet portal sits at z=100 (above the header at z=50) but the
+   html::before safe-area shield at z=9999 covers the top env(safe-area-inset-top)
+   pixels. Without padding-top, the search input renders inside that hidden zone.
+   Adding the same padding-top pushes the content below the shield so it's fully
+   visible. The non-scrollable handle-bar at the bottom is unaffected. */
+html.capacitor .mobile-top-sheet-scroll {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* On pages with a white header (checkout, library, auth) the fixed black
+   safe-area shield must match the header colour so no dark bar shows. */
+html.capacitor:has([data-page="checkout"])::before,
+html.capacitor:has([data-page="login"])::before,
+html.capacitor:has([data-page="signup"])::before,
+html.capacitor:has([data-page="reset-password"])::before,
+html.capacitor:has([data-page="auth"])::before {
+  background-color: #ffffff;
+}
+
+/* Auth pages (login, signup, reset-password, verify-email) in Capacitor:
+   prevent document-level vertical scroll — these are full-screen centered
+   pages that don't need scrolling, and overscroll shows jarring white gaps. */
+html.capacitor:has([data-page="auth"]) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+
+/* Library uses DashboardSidebar whose mobile header is white (bg-background).
+   The ::before shield must also be white so no black bar appears above it. */
+html.capacitor:has([data-page="library"])::before {
+  background-color: #ffffff;
+}
+
+/* /app layout: the mobile header background is #111111. The default ::before
+   shield is #000000 (pure black), which creates a visually distinct "black band"
+   above the dark-gray header content after rotating to portrait. Match the header
+   colour exactly so the safe-area zone is seamlessly the same shade. */
+html.capacitor.app-layout::before {
+  background-color: #111111;
+}
+
+/* On /app pages in Capacitor, html.capacitor { background-color:#000000 } (line
+   above) overrides the html.app-layout { background-color:#111111 } rule because
+   it appears later in the file and has equal specificity. This means any transient
+   gap between the visual viewport top and the fixed header after a landscape→portrait
+   rotation shows pure black (#000) rather than the dark-gray header colour (#111111).
+   Override back to #111111 so any brief viewport-offset gap is visually invisible —
+   it blends into the header background instead of appearing as a jarring black bar. */
+html.capacitor.app-layout {
+  background-color: #111111;
+}
+
+/* AppSidebar mobile header: GPU-composite the fixed element so WKWebView
+   renders it on the GPU compositor thread. Without this, WKWebView repaints
+   position:fixed elements on the CPU during native UIScrollView rubber-band
+   bounce and during the iOS rotation animation, causing a brief black gap
+   above the header. Mirrors the same treatment applied to #platform-header-root. */
+html.capacitor.app-layout header.fixed {
+  will-change: transform;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Capacitor native: hide elements that are irrelevant or disruptive in the
+   native app context (e.g. announcement / promotional banners).
+   html.capacitor is set synchronously before first paint so no visible flash. */
+html.capacitor .native-hidden {
+  display: none !important;
+}
+
+/* Library pages: override html.capacitor's black background (#000) to the
+   light library background. This prevents any black bleeding through in the
+   safe-area zones in both portrait (top) and landscape (left/right) on iOS.
+   CSS-only — applies before JS hydration, so no flash on first paint. */
+html.capacitor:has([data-page="library"]) {
+  background-color: #fafafa;
+}
+
+/* JS-driven counterpart: LibraryBgFix adds .library-layout to <html> and
+   re-applies it on every resize (device rotation). These rules mirror the
+   :has([data-page="library"]) versions above so that the fix is active via
+   BOTH mechanisms — neither is a single point of failure on rotation. */
+html.capacitor.library-layout {
+  background-color: #fafafa;
+}
+html.capacitor.library-layout::before {
+  background-color: #ffffff;
+}
+
+/* Hide the floating creator quick-nav button on iOS/Android — native apps
+   have their own sidebar navigation so the floating button is redundant. */
+html.capacitor .creator-quick-nav {
+  display: none !important;
+}
+
+/* ── Touch device: suppress hover-flash on cards and sheet menu items ─────────
+   On iOS/Android the :hover pseudo-class fires on tap and lingers until the
+   next tap. This causes card shadow/border/scale animations and sheet-row
+   background-color highlights to briefly flash when a finger touches — visually
+   jarring and unintended for touch.
+   @media (hover: none) targets touch-only devices (no mouse pointer).          */
+@media (hover: none) {
+  /* Remove shadow and border transitions that create the flash */
+  [class*="hover:shadow"],
+  [class*="hover:border"] {
+    transition-duration: 0ms !important;
+  }
+  [class*="hover:shadow"]:hover {
+    box-shadow: none !important;
+  }
+  /* Remove image/element scale-on-hover inside group cards */
+  [class*="group-hover:scale"] {
+    transition-property: none !important;
+    transform: none !important;
+  }
+  /* Remove opacity hover effects */
+  [class*="hover:opacity"]:hover {
+    opacity: inherit !important;
+    transition-duration: 0ms !important;
+  }
+
+  /* ── Sheet menu items: no full-row background flash on touch ─────────────
+     The mobile bottom/top sheets have menu items with hover:bg-gray-100.
+     On touch, :hover fires on tap and lights up the whole row — jarring.
+     Suppress all :hover background-color on tappable elements inside sheets.
+     active: state still works (provides sub-50ms tap confirmation). */
+  [data-mobile-bottom-sheet] button:hover,
+  [data-mobile-bottom-sheet] a:hover,
+  [data-mobile-top-sheet] button:hover,
+  [data-mobile-top-sheet] a:hover {
+    background-color: transparent !important;
+  }
+
+  /* Product card group: kill transitions entirely on touch.
+     The outer .group div has `transition-all duration-300` which triggers
+     a fade-out animation when :hover is released after a tap — the finger
+     lifts, :hover drops, and the border+shadow smoothly fades away.
+     Suppressing transition-property on the element itself (not just :hover)
+     prevents both the fade-in AND the fade-out on touch devices.           */
+  .group {
+    transition-property: none !important;
+  }
+  /* Also kill transitions on all descendants that use group-hover utilities */
+  .group * {
+    transition-property: none !important;
+    transform: none !important;
+  }
+  .group:hover {
+    box-shadow: none !important;
+    border-color: inherit !important;
+  }
+}
+
+/* Welcome page: safe-area shield matches the page background so no black bar
+   appears at the top. Also lock scroll since the page is fixed/full-screen. */
+html.capacitor:has([data-page="welcome"])::before {
+  background-color: #f2f2f2;
+}
+html.capacitor:has([data-page="welcome"]) {
+  overflow: hidden !important;
+}
+
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0%); }
+}
+
+/* Auth pages (login / signup): push content below the iOS notch/status-bar.
+   The html.capacitor root is painted black to cover the safe-area zone, so
+   auth pages must (a) fill their outer wrapper with white and (b) offset their
+   scrollable column by the safe-area-inset-top so text isn't hidden under the
+   Dynamic Island / status bar. */
+html.capacitor .auth-shell {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Per-element touch-action so nested elements can't override the root setting */
@@ -1076,4 +1598,114 @@ html.capacitor [tabindex="0"]:active {
   opacity: 0.65;
   /* scale(0.97) removed: transform on :active can trigger a relayout that delays
      the subsequent click event by one frame in some Android WebViews */
+}
+
+/* Blog page subtle entrance animations */
+@keyframes blog-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.blog-fade-up {
+  animation: blog-fade-up 0.45s ease-out both;
+}
+
+/* ── Native app: portrait-only orientation lock ───────────────────────────────
+   The Android layer sets screenOrientation="portrait" on MainActivity.
+   This CSS layer adds a full-screen overlay as a secondary enforcement for
+   iOS (where the web layer cannot call the native lock API directly) and as
+   a failsafe on Android. Only activates inside html.capacitor (native shell).
+   ──────────────────────────────────────────────────────────────────────────── */
+@media screen and (orientation: landscape) {
+  /* Block all touch-based scrolling and rubber-band overscroll in landscape.
+     `overscroll-behavior: none` alone cannot prevent WKWebView UIScrollView
+     bounce because iOS honours the CSS `touch-action` property before the JS
+     `touchmove` handler fires. Setting touch-action:none here removes the
+     browser's permission to initiate any pan gesture, so the native scroll
+     view never gets a chance to rubber-band, regardless of JS event handling.
+     `-webkit-overflow-scrolling: auto` disables the legacy momentum-scroll
+     model (which can re-enable bounce after a fast swipe on older iOS). */
+  html.capacitor {
+    overflow: hidden !important;
+    touch-action: none;
+  }
+  html.capacitor body {
+    overflow: hidden !important;
+    touch-action: none;
+    -webkit-overflow-scrolling: auto;
+  }
+  /* Lock every inner scroll container too — WKWebView UIScrollView ignores
+     inherited touch-action:none on elements with their own overflow:auto/scroll,
+     allowing them to rubber-band independently even when html/body are locked. */
+  html.capacitor .app-content-scroll,
+  html.capacitor .dashboard-scroll-container {
+    overflow: hidden !important;
+    touch-action: none !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
+  html.capacitor body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 999998;
+    background-color: #000000;
+    pointer-events: all;
+  }
+  html.capacitor body::after {
+    content: "Please rotate your device to portrait mode";
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 15px;
+    font-family: system-ui, -apple-system, sans-serif;
+    text-align: center;
+    padding: 24px;
+    pointer-events: none;
+    /* Vertical centering via padding since ::after content can't use flexbox in all browsers */
+    padding-top: 40vh;
+    box-sizing: border-box;
+    line-height: 1.5;
+  }
+}
+
+/* ── RotationGuard: full-screen overlay during device rotation ───────────────
+   Covers the screen while the page re-layouts after an orientation change,
+   preventing visual artifacts (black bars, colour flashes, layout jumps).
+   The overlay is shown/hidden exclusively by RotationGuard's JS listeners;
+   its colour is matched to each page's background so hiding it causes no
+   visible contrast jump. z-index 999997 sits below the landscape CSS overlay
+   (body::before at z-index 999998) so both coexist without conflict.
+   ──────────────────────────────────────────────────────────────────────────── */
+.rotation-guard-overlay {
+  /* Default hidden; JS sets display:block when rotation is detected */
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999997;
+  /* Default: match the Capacitor html background (dark app theme) */
+  background-color: #000000;
+  pointer-events: none;
+}
+
+/* /app pages: header is #111111, so match to avoid contrast jump on hide */
+html.capacitor.app-layout .rotation-guard-overlay {
+  background-color: #111111;
+}
+
+/* Library pages: light background — match so the overlay hides cleanly */
+html.capacitor:has([data-page="library"]) .rotation-guard-overlay,
+html.capacitor.library-layout .rotation-guard-overlay {
+  background-color: #fafafa;
+}
+
+/* Auth / checkout pages: white background */
+html.capacitor:has([data-page="checkout"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="login"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="signup"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="reset-password"]) .rotation-guard-overlay,
+html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
+  background-color: #ffffff;
 }

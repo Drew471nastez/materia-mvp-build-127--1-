@@ -6,6 +6,7 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
+import { LibraryBgFix } from "./library-bg-fix"
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -66,23 +67,47 @@ export default async function LibraryLayout({
 
   return (
     <NativeAuthGate>
-    <div className="min-h-svh bg-[#fafafa]">
+    <div className="bg-[#fafafa] min-h-svh" data-page="library">
+      <LibraryBgFix />
       <PurchaseSyncProvider />
       <DashboardSidebar />
 
       {/* Main content column — sits next to sidebar on desktop */}
-      <div className="flex min-h-svh flex-col md:ml-64">
-        {/* Content area — body scrolls naturally (no internal scroll container) */}
-        {/* Mobile: 3.5 rem header height + status-bar safe area.
-            Desktop: no fixed header above content, but the sidebar starts at
-            top-0 with its own pt-[env(safe-area-inset-top)]. The main content
-            must also clear the status bar, so we add env(safe-area-inset-top)
-            as desktop top-padding. In a browser env() = 0 → md:pt-0. */}
+      <div className="flex flex-col md:ml-64 md:min-h-svh bg-[#fafafa]">
+        {/* Mobile: fixed-height scroll container so overscroll-behavior is honoured
+            and iOS rubber-band bounce is fully suppressed.
+            Desktop: natural document flow (sidebar owns the full-height layout). */}
         <main
-          className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-[env(safe-area-inset-top,_0px)]"
-          style={{ WebkitOverflowScrolling: "touch" }}
+          className={[
+            // Mobile: full-viewport-height scroll container so that overscroll-behavior
+            // is honoured on the container itself and iOS rubber-band is suppressed.
+            // The content is pushed below the fixed header via padding-top.
+            "h-svh overflow-y-auto bg-[#fafafa]",
+            // Desktop: revert to natural document flow
+            "md:h-auto md:overflow-y-visible md:min-h-svh",
+            // Mobile top padding accounts for the fixed header (3.5rem) + 1px border-b + status bar
+            "pt-[calc(3.5rem+1px+env(safe-area-inset-top,_0px))]",
+            "md:pt-[env(safe-area-inset-top,_0px)]",
+          ].join(" ")}
+          style={{
+            // Prevent iOS rubber-band overscroll bounce on the scroll container.
+            // CSS overscroll-behavior works on iOS 16+; CapacitorBounceGuard
+            // in the root layout handles older versions via touchmove preventDefault.
+            // NOTE: WebkitOverflowScrolling is intentionally omitted — that legacy
+            // property conflicts with overscroll-behavior:none and can re-enable
+            // rubber-band bounce on some iOS versions.
+            overscrollBehavior: "none",
+            touchAction: "pan-y",
+            // In landscape mode, account for left/right safe areas (notch on left,
+            // home indicator on right). On mobile the sidebar is not present, so
+            // both insets must be respected. On desktop (md+) the sidebar covers
+            // the left safe area and the ml-64 class handles the offset, so only
+            // the right inset needs to be added via padding.
+            paddingLeft: "env(safe-area-inset-left, 0px)",
+            paddingRight: "env(safe-area-inset-right, 0px)",
+          }}
         >
-          <div className="px-4 py-6 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="px-4 pt-2 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))] library-scroll-content">
             {children}
           </div>
         </main>

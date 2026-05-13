@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
+import { isIOS } from "@/lib/native-bridge"
 
 interface SmartBuyButtonProps {
   productId: string
@@ -51,6 +52,8 @@ export function SmartBuyButton({
   const [assetId, setAssetId] = useState<string | null>(serverAssetId)
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
 
   // Check URL tokens, localStorage, and API for purchase status on mount
   useEffect(() => {
@@ -153,11 +156,11 @@ export function SmartBuyButton({
       }
     }
 
-    // Use window.location.href for reliable navigation
     let checkoutUrl = `/checkout?productId=${productId}`
     if (variantId) {
       checkoutUrl += `&variantId=${variantId}`
     }
+
     window.location.href = checkoutUrl
   }
 
@@ -224,6 +227,10 @@ export function SmartBuyButton({
       </Button>
     )
   }
+
+  // iOS App Store compliance (Guideline 3.1.1): hide purchase CTAs on iOS.
+  // Users who already own the product can still download (no payment involved).
+  if (isIOSApp) return null
 
   // Not purchased - show buy button
   return (

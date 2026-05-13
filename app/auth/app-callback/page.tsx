@@ -48,8 +48,8 @@ function AppCallbackContent() {
       const isNativeParam = searchParams.get("native") === "true"
 
       console.log("[app-callback] Bridge page mounted")
-      console.log("[app-callback]   token:", token ? `"${token.slice(0, 12)}…"` : "MISSING")
-      console.log("[app-callback]   refresh_token:", refreshToken ? `"${refreshToken.slice(0, 8)}…"` : "MISSING")
+      console.log("[app-callback]   token:", token ? "present" : "MISSING")
+      console.log("[app-callback]   refresh_token:", refreshToken ? "present" : "MISSING")
       console.log("[app-callback]   native:", isNativeParam)
       console.log("[app-callback]   next:", next)
       console.log("[app-callback]   userAgent:", typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : "N/A")

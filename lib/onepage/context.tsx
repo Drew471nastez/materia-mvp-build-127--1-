@@ -53,6 +53,7 @@ interface OnePageContextType {
 
   updateSettings: (updates: Partial<OnePage["settings"]>) => void
   updateSlug: (slug: string) => void
+  markDirty: () => void
 
   undo: () => void
   redo: () => void
@@ -518,6 +519,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
       if (!prev) return prev
       const newSettings = { ...prev.settings, ...updates }
       const newState = { ...prev, settings: newSettings }
+      // Sync ref immediately so save() called right after sees the new values
+      latestOnepageRef.current = newState
       addToHistory(newState)
       return newState
     })
@@ -600,6 +603,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         toggleBlockEnabled,
         updateSettings,
         updateSlug,
+        markDirty,
         undo,
         redo,
         save,

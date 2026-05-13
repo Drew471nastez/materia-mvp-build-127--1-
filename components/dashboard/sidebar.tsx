@@ -9,15 +9,19 @@ import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut, openExternal, isIOS } from "@/lib/native-bridge"
 
-const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
+
+const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
 
   // Close on navigation
   useEffect(() => {
@@ -80,7 +84,7 @@ export function DashboardSidebar() {
             alt="Storelib"
             width={37}
             height={37}
-            className="h-[37px] w-[37px] shrink-0"
+            className="h-[37px] w-[37px] shrink-0 rounded-[7px]"
           />
           <span className="text-xl font-semibold tracking-tight truncate">Storelib</span>
         </Link>
@@ -111,13 +115,18 @@ export function DashboardSidebar() {
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <Link
           href="/explore"
-          onClick={onItemClick}
+          onClick={(e) => {
+            if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+            onItemClick?.()
+          }}
           className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
         >
           <Compass className="h-4 w-4 shrink-0" />
           <span className="truncate">Discover</span>
         </Link>
-        {!isCreator && (
+        {/* Start Selling button: hidden on iOS — creator onboarding leads to Stripe Connect
+            which is blocked under App Store Guideline 3.1.1 */}
+        {!isCreator && !isIOSApp && (
           <Link
             href="/signup/success?action=become-creator"
             onClick={onItemClick}
@@ -140,12 +149,7 @@ export function DashboardSidebar() {
         <Link
           href="/library/settings"
           onClick={onItemClick}
-          className={cn(
-            "mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium transition-colors active:scale-[0.98]",
-            pathname === "/library/settings"
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-          )}
+          className="mb-1 flex items-center gap-3 px-3 py-3 min-h-[44px] text-sm font-medium text-muted-foreground hover:text-foreground transition-colors active:scale-[0.98]"
         >
           <Settings className="h-5 w-5 shrink-0" />
           <span className="truncate">Settings</span>
@@ -165,7 +169,14 @@ export function DashboardSidebar() {
   return (
     <>
       {/* Mobile header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background md:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <header
+        className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background md:hidden"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
+          paddingRight: "env(safe-area-inset-right, 0px)",
+        }}
+      >
         <div className="flex h-14 items-center justify-between px-4">
         <Link href="/library" className="flex items-center gap-2">
           <Image
@@ -173,13 +184,14 @@ export function DashboardSidebar() {
             alt="Storelib"
             width={37}
             height={37}
-            className="h-[37px] w-[37px] shrink-0"
+            className="h-[37px] w-[37px] shrink-0 rounded-[7px]"
           />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
         <div className="flex items-center gap-1">
           <Link
             href="/explore"
+            onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
             className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             aria-label="Discover"
           >
@@ -222,6 +234,7 @@ export function DashboardSidebar() {
         style={{
           transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
           paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
         }}
         role="dialog"
         aria-modal="true"
@@ -235,7 +248,7 @@ export function DashboardSidebar() {
       {/* Desktop sidebar — pt-[env(safe-area-inset-top)] pushes the logo
           row below the iOS/iPadOS status bar in Capacitor.
           In a browser env() = 0 so layout is unchanged. */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex pt-[env(safe-area-inset-top,_0px)]">
+      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex pt-[env(safe-area-inset-top,_0px)] pl-[env(safe-area-inset-left,_0px)]">
         <SidebarContent />
       </aside>
     </>

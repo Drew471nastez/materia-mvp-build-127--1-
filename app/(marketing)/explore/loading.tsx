@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ExploreLoading() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Featured banner skeleton */}
         <div className="relative w-full rounded-2xl overflow-hidden bg-neutral-100" style={{ aspectRatio: "2.5 / 1", minHeight: "280px", maxHeight: "400px" }}>

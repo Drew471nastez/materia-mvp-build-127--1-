@@ -13,6 +13,7 @@ import { defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/def
 import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
+import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 
 export const dynamic = "force-dynamic"
 
@@ -71,15 +72,27 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     socialPreviewImage = profile.avatar_url || undefined
   }
 
+  // Check for admin SEO overrides
+  const { data: seoOverride } = await supabase
+    .from("seo_overrides")
+    .select("seo_title, seo_description")
+    .eq("type", "creator")
+    .eq("identifier", username)
+    .maybeSingle()
+
   const siteUrl = `https://${username}.storelib.com`
   const displayTitle = profile.display_name || profile.username || "Creator"
-  const description = `Check out ${profile.display_name || profile.username}'s products on Storelib`
+  const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
+
+  // Use SEO overrides if set, otherwise use defaults
+  const title = seoOverride?.seo_title || `${displayTitle} | Storelib`
+  const description = seoOverride?.seo_description || defaultDescription
 
   return {
-    title: displayTitle,
+    title,
     description,
     openGraph: {
-      title: `${displayTitle} | Storelib`,
+      title,
       description,
       type: "website",
       url: siteUrl,
@@ -96,9 +109,12 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     },
     twitter: {
       card: socialPreviewImage ? "summary_large_image" : "summary",
-      title: `${displayTitle} | Storelib`,
+      title,
       description,
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
+    },
+    alternates: {
+      canonical: `https://storelib.com/u/${username}`,
     },
     ...(faviconUrl && {
       icons: {
@@ -398,15 +414,44 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     // Apply theme colors to all sections
     const themedSections = applySectionThemeColors(publishedConfig.sections)
 
+    const profilePageJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      mainEntity: {
+        "@type": "Person",
+        name: profile.display_name || username,
+        url: `https://storelib.com/u/${username}`,
+        ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
+      },
+    }
+
+    const breadcrumbJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Explore", item: "https://storelib.com/explore" },
+        { "@type": "ListItem", position: 2, name: profile.display_name || username },
+      ],
+    }
+
     return (
-      <div
-        className="min-h-screen overflow-x-hidden"
-        style={{
-          background: pageBackgroundColor || "var(--background)",
-          color: pageTextColor || "var(--foreground)",
-        }}
-      >
-        <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(profilePageJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        <div
+          className="min-h-screen overflow-x-hidden"
+          style={{
+            background: pageBackgroundColor || "var(--background)",
+            color: pageTextColor || "var(--foreground)",
+          }}
+        >
+          <DynamicFavicon avatarUrl={profile.avatar_url} faviconUrl={headerSettings.faviconUrl} />
         <TrackView type="store" creatorId={creator.id} />
 
         {subscribeBarSettings.visible && <SubscribeBar settings={subscribeBarSettings} creatorId={creator.id} />}
@@ -458,6 +503,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
         <SellerFooter />
       </div>
+      </>
     )
   }
 
@@ -475,9 +521,39 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   // Use default subscribe bar settings for stores without published config
   const defaultSubscribeSettings = buildSubscribeBarSettings()
 
+  const defaultProfilePageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    mainEntity: {
+      "@type": "Person",
+      name: profile.display_name || username,
+      url: `https://storelib.com/u/${username}`,
+      ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
+    },
+  }
+
+  const defaultBreadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Explore", item: "https://storelib.com/explore" },
+      { "@type": "ListItem", position: 2, name: profile.display_name || username },
+    ],
+  }
+
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <DynamicFavicon avatarUrl={profile.avatar_url} />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultProfilePageJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(defaultBreadcrumbJsonLd) }}
+      />
+      <div className="min-h-screen bg-background overflow-x-hidden">
+        <DynamicFavicon avatarUrl={profile.avatar_url} />
+        <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
 
       {defaultSubscribeSettings.visible && <SubscribeBar settings={defaultSubscribeSettings} creatorId={creator.id} />}
@@ -542,5 +618,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
       <SellerFooter />
     </div>
+    </>
   )
 }

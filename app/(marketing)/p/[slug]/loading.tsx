@@ -6,7 +6,7 @@ export default function ProductLoading() {
   return (
     <div
       className="min-h-screen"
-      style={{ backgroundColor: "var(--skeleton-bg, #ffffff)" }}
+      style={{ backgroundColor: "var(--skeleton-bg, #f2f2f2)" }}
     >
       {/* Main Content */}
       <div className="mx-auto max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
@@ -225,7 +225,7 @@ export default function ProductLoading() {
       {/* More From Seller Section */}
       <div
         className="py-12 px-4"
-        style={{ backgroundColor: "var(--skeleton-bg, #ffffff)" }}
+        style={{ backgroundColor: "var(--skeleton-bg, #f2f2f2)" }}
       >
         <div className="max-w-6xl mx-auto">
           <div
@@ -256,7 +256,7 @@ export default function ProductLoading() {
       {/* Reviews Section */}
       <div
         className="py-12 px-4"
-        style={{ backgroundColor: "var(--skeleton-bg, #ffffff)" }}
+        style={{ backgroundColor: "var(--skeleton-bg, #f2f2f2)" }}
       >
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
@@ -327,7 +327,7 @@ export default function ProductLoading() {
       <div
         className="py-8 px-4 border-t"
         style={{
-          backgroundColor: "var(--skeleton-bg, #ffffff)",
+          backgroundColor: "var(--skeleton-bg, #f2f2f2)",
           borderColor: "var(--skeleton-border, #e5e7eb)"
         }}
       >

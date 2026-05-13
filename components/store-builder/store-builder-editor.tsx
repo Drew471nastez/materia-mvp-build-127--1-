@@ -220,7 +220,7 @@ function EditorLayout({
 
   if (isMobileView) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-muted/30 pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
+      <div className="fixed inset-0 flex flex-col bg-white dark:bg-zinc-950 pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
         {/* Top Bar */}
         <EditorTopbar
           creatorSlug={creatorSlug}
@@ -272,7 +272,7 @@ function EditorLayout({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-muted/30 overflow-hidden pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
+    <div className="fixed inset-0 flex flex-col bg-white dark:bg-zinc-950 overflow-hidden pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
       {/* Top Bar - fixed height */}
       <EditorTopbar creatorSlug={creatorSlug} onPreview={() => setPreviewMode(true)} />
 
@@ -311,7 +311,7 @@ function EditorLayout({
         </div>
 
         {/* Preview Canvas - fills remaining space, scrollable */}
-        <div className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden bg-muted/50">
+        <div className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden bg-white dark:bg-zinc-950">
           <PreviewCanvas creatorId={creatorId} creator={creator} profile={profile} products={products} />
         </div>
       </div>

@@ -133,20 +133,54 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
 
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
-      {/* Back nav */}
-      <Link
-        href="/library/my-downloads"
-        className="mb-5 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to downloads
-      </Link>
+      {/* Page header card — same visual language as all library subpages */}
+      <section className="mb-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+        {/* Dark gradient banner */}
+        <div className="h-16 sm:h-20 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900" />
 
-      {/* Product card — side-by-side on desktop, stacked on mobile */}
+        <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+          {/* Icon tile overlapping the banner + Library back button */}
+          <div className="flex items-end justify-between -mt-6 sm:-mt-7 mb-3">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border-4 border-white bg-neutral-100 flex items-center justify-center shadow-sm shrink-0">
+              <Package className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-600" />
+            </div>
+            <Link
+              href="/library"
+              className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-8 sm:mt-0"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Library
+            </Link>
+          </div>
+
+          {/* Page title = product name */}
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 leading-tight">
+            {product?.title || "Product"}
+          </h1>
+          {/* Subtitle = creator byline */}
+          <p className="text-sm text-neutral-500 mt-0.5">
+            by{" "}
+            {sellerUrl ? (
+              <SmartLink
+                href={sellerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+              >
+                {creatorDisplayName}
+              </SmartLink>
+            ) : (
+              <span className="font-medium text-neutral-600">{creatorDisplayName}</span>
+            )}
+          </p>
+        </div>
+      </section>
+
+      {/* Product detail card — thumbnail + download section */}
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col md:flex-row">
-          {/* Left: Cover image — 480x360 (4:3) ratio, object-cover */}
-          <div className="relative w-full md:w-1/2 aspect-[4/3] md:aspect-auto md:min-h-[340px] bg-neutral-100 shrink-0">
+          {/* Left: Cover image — 4:3 ratio, object-cover */}
+          <div className="relative w-full md:w-1/2 aspect-[4/3] md:aspect-auto md:min-h-[280px] bg-neutral-100 shrink-0">
             {product?.thumbnail_url ? (
               <Image
                 src={product.thumbnail_url}
@@ -163,7 +197,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
             )}
           </div>
 
-          {/* Right: Content */}
+          {/* Right: Purchase info + downloads */}
           <div className="flex-1 p-5 sm:p-6 md:p-8 flex flex-col min-w-0">
             {/* Ownership badge */}
             <div className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-2.5 py-0.5 mb-3 w-fit">
@@ -171,40 +205,16 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               <span className="text-[11px] font-medium text-green-700">Purchased</span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 leading-tight">
-              {product?.title || "Untitled Product"}
-            </h1>
-
-            {/* Creator + date */}
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
-              <span>
-                by{" "}
-                {sellerUrl ? (
-                  <SmartLink
-                    href={sellerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-neutral-700 hover:text-neutral-900 underline-offset-2 hover:underline transition-colors"
-                  >
-                    {creatorDisplayName}
-                  </SmartLink>
-                ) : (
-                  <span className="font-medium text-neutral-700">{creatorDisplayName}</span>
-                )}
-              </span>
-              {purchaseDate && (
-                <>
-                  <span className="text-neutral-300">·</span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {purchaseDate}
-                  </span>
-                </>
-              )}
-            </div>
+            {/* Purchase date */}
+            {purchaseDate && (
+              <div className="flex items-center gap-1.5 text-sm text-neutral-500 mb-4">
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                <span>Purchased {purchaseDate}</span>
+              </div>
+            )}
 
             {/* Download section */}
-            <div className="mt-5 pt-4 border-t border-neutral-100">
+            <div className="mt-auto pt-4 border-t border-neutral-100">
               <h3 className="text-sm font-semibold text-neutral-900 mb-3">
                 Files{assets && assets.length > 0 ? ` (${assets.length})` : ""}
               </h3>

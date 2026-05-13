@@ -1,7 +1,24 @@
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
+
+// iOS App Store compliance (Guideline 3.1.1):
+// The upgrade/plan-selection page exposes Stripe checkout flows which are not
+// permitted in the iOS App Store. Detect Capacitor iOS builds via User-Agent
+// and redirect to the general settings page instead.
+async function isCapacitorIOS(): Promise<boolean> {
+  const headersList = await headers()
+  const ua = headersList.get("user-agent") || ""
+  // StorelibApp is injected by the native iOS wrapper; Capacitor is present in
+  // all Capacitor builds. Exclude Android (/wv/ + Android) because Android
+  // does not have the same App Store restriction (Play Store allows external
+  // payments for B2B / creator subscriptions).
+  const isCapacitor = /StorelibApp|Capacitor/.test(ua)
+  const isAndroid = /Android/.test(ua)
+  return isCapacitor && !isAndroid
+}
 
 const FREE_PLAN = {
   id: "free",
@@ -53,6 +70,11 @@ function getPlanIdFromPriceId(priceId: string): string | null {
 }
 
 export default async function UpgradePage() {
+  // iOS App Store compliance: block this page on iOS native builds
+  if (await isCapacitorIOS()) {
+    redirect("/app/settings")
+  }
+
   const supabase = await createClient()
 
   const {

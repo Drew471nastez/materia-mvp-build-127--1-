@@ -1,0 +1,22 @@
+require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+platform :ios, '14.0'
+use_frameworks!
+
+# Workaround to avoid Xcode caching of Pods that requires
+# temporary file info of the cocoapods lockfile
+def capacitor_pods
+  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
+  pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
+end
+
+target 'App' do
+  capacitor_pods
+
+  # Firebase: required to obtain FCM registration tokens on iOS.
+  # firebase-admin on the server expects FCM tokens, not raw APNs hex tokens.
+  pod 'FirebaseCore'
+  pod 'FirebaseMessaging'
+end

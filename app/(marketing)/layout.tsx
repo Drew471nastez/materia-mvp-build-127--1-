@@ -10,17 +10,15 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh flex-col overflow-x-hidden">
+    <div className="flex min-h-svh flex-col marketing-flex-wrapper">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
-      <Suspense fallback={null}>
-        <ConditionalHeader />
-      </Suspense>
+      <ConditionalHeader />
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 [overflow-x:clip]">{children}</main>
 
       <Suspense fallback={null}>
         <ConditionalFooter />

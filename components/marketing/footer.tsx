@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
 import { isNativeApp } from "@/lib/platform-utils"
 
-const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 // Social media icons
 function FacebookIcon({ className }: { className?: string }) {
@@ -90,7 +90,15 @@ export function MarketingFooter() {
   }
 
   return (
-    <footer className="bg-[#0f0f0f] text-white">
+    <footer
+      className="bg-[#0f0f0f] text-white"
+      style={{
+        /* Extend dark bg into body's safe-area-inset-bottom padding so
+           there is no white strip above the iOS home indicator */
+        marginBottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-12 md:pt-16 pb-6 md:pb-8">
         {/* Main Footer Content */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
@@ -103,7 +111,7 @@ export function MarketingFooter() {
                 alt="Storelib"
                 width={40}
                 height={40}
-                className="h-10 w-10"
+                className="h-10 w-10 rounded-[7px]"
               />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>

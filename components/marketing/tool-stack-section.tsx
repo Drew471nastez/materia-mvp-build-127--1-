@@ -148,8 +148,8 @@ export function ToolStackSection() {
             <div className="text-center max-w-[640px] mx-auto mb-9 sm:mb-[50px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=264&quality=45"
-                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=204&quality=40 204w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=264&quality=45 264w"
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=190&quality=28"
+                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=150&quality=25 204w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=190&quality=28 264w"
                 alt="Compare tools"
                 width={277}
                 height={56}
@@ -245,11 +245,11 @@ export function ToolStackSection() {
                 <span className="w-8 flex items-center justify-center shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
                     alt="Storelib"
                     width={31}
                     height={31}
-                    className="w-[31px] h-[31px]"
+                    className="w-[31px] h-[31px] rounded-[7px]"
                   />
                 </span>
                 <div className="flex-1 min-w-0">

@@ -77,6 +77,33 @@ function parseRecoveryTokens(): {
 }
 
 /**
+ * Exchange a bridge code (?code= query param) for recovery tokens.
+ * This is the PRIMARY flow: email links use ?code=<bridge_code> which is
+ * a query param (never stripped by email clients, unlike hash fragments).
+ * The API verifies the code server-side and returns fresh tokens.
+ */
+async function exchangeBridgeCode(code: string): Promise<{
+  accessToken: string | null
+  refreshToken: string | null
+  error: string | null
+}> {
+  try {
+    const res = await fetch("/api/auth/exchange-reset-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.access_token) {
+      return { accessToken: null, refreshToken: null, error: data.error || "Invalid reset code" }
+    }
+    return { accessToken: data.access_token, refreshToken: data.refresh_token, error: null }
+  } catch {
+    return { accessToken: null, refreshToken: null, error: "Network error. Please try again." }
+  }
+}
+
+/**
  * Dismiss native auth loading overlay and clear the nativeAuthInProgress flag.
  * Called when the reset-password page is ready to display content.
  */
@@ -97,6 +124,7 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string>("")
   const [deepLink, setDeepLink] = useState<string | null>(null)
+  const [pendingBridgeCode, setPendingBridgeCode] = useState<string | null>(null)
   const initRef = useRef(false)
 
   const establishSessionAndShowForm = useCallback(
@@ -146,12 +174,70 @@ function ResetPasswordContent() {
     initRef.current = true
 
     const init = async () => {
+      const searchParams = new URLSearchParams(window.location.search)
+      const bridgeCode = searchParams.get("code")
+      const isInCapacitor = isNativePlatform() || isNativeApp()
+
+      // ── PRIMARY FLOW: Bridge code (?code= query param) ─────────────
+      // Email links now use ?code=<bridge_code> which survives all email
+      // client proxies (Gmail, Outlook SafeLinks, etc.).
+      if (bridgeCode) {
+        console.log("[ResetPassword] Bridge code detected — exchanging for tokens")
+
+        // On mobile browser: try to hand off to the native app first
+        if (isMobileBrowser() && !isInCapacitor) {
+          // Build a deep link that includes the bridge code for the app
+          const appLink = `storelib://reset-password?code=${encodeURIComponent(bridgeCode)}`
+          setDeepLink(appLink)
+          setPendingBridgeCode(bridgeCode)
+          setPhase("handoff")
+          window.location.href = appLink
+
+          // Wait 6 s before falling back to browser exchange.
+          // The longer window prevents the race where the Android/iOS "Open in
+          // app?" prompt is still visible when the timer fires — which would
+          // consume the one-time bridge code BEFORE the native app can use it,
+          // causing "link expired" inside the app.
+          const timer = setTimeout(async () => {
+            // App not installed — continue in browser
+            const result = await exchangeBridgeCode(bridgeCode)
+            if (result.error || !result.accessToken || !result.refreshToken) {
+              setPhase("expired")
+              setError(result.error || "This reset link has expired. Please request a new one.")
+              dismissNativeOverlay()
+            } else {
+              await establishSessionAndShowForm(result.accessToken, result.refreshToken)
+            }
+          }, 6000)
+
+          // Cancel the auto-fallback when user taps "Allow" and leaves the page
+          const cancelTimer = () => clearTimeout(timer)
+          document.addEventListener("visibilitychange", () => { if (document.hidden) cancelTimer() })
+          window.addEventListener("pagehide", cancelTimer, { once: true })
+          return () => {
+            cancelTimer()
+          }
+        }
+
+        // Inside Capacitor or desktop browser — exchange directly
+        const result = await exchangeBridgeCode(bridgeCode)
+        if (result.error || !result.accessToken || !result.refreshToken) {
+          setPhase("expired")
+          setError(result.error || "This reset link has expired. Please request a new one.")
+          dismissNativeOverlay()
+          return
+        }
+        await establishSessionAndShowForm(result.accessToken, result.refreshToken)
+        return
+      }
+
+      // ── LEGACY FLOW: Hash fragment tokens ──────────────────────────
+      // Keeps backward compatibility with any previously sent emails
+      // that used the old Supabase action_link redirect approach.
       const tokens = parseRecoveryTokens()
 
-      // No tokens found — check if this is a legacy custom-token link
       if (!tokens.accessToken || !tokens.refreshToken) {
         // Check for old ?token= param (legacy flow)
-        const searchParams = new URLSearchParams(window.location.search)
         if (searchParams.get("token")) {
           setPhase("expired")
           setError("This reset link uses an older format. Please request a new one.")
@@ -160,13 +246,8 @@ function ResetPasswordContent() {
         }
 
         // On native, tokens may arrive AFTER page mount via appUrlOpen event.
-        // Wait briefly before showing expired — the nativeRecoveryTokensReady
-        // event listener (below) will handle late-arriving tokens.
-        const isInCapacitor = isNativePlatform() || isNativeApp()
         if (isInCapacitor) {
           console.log("[ResetPassword] No tokens yet in Capacitor — waiting for appUrlOpen delivery")
-          // Stay in "initializing" phase; the event listener below will handle it.
-          // Safety timeout: if no tokens arrive within 5 seconds, show expired.
           setTimeout(() => {
             setPhase((prev) => {
               if (prev === "initializing") {
@@ -187,33 +268,22 @@ function ResetPasswordContent() {
       }
 
       const { accessToken, refreshToken } = tokens
-      const isInCapacitor = isNativePlatform() || isNativeApp()
 
-      // ── App handoff logic ────────────────────────────────────────────
-      // If running in a normal mobile browser (NOT inside Capacitor),
-      // try to open the native app via deep link.
+      // ── App handoff logic (legacy hash-fragment flow) ──────────────
       if (isMobileBrowser() && !isInCapacitor) {
         const link = `storelib://auth/callback?type=recovery&access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`
         setDeepLink(link)
         setPhase("handoff")
-
-        // Attempt to open the app
         window.location.href = link
 
-        // If the page is still visible after 1200ms, the app isn't installed.
-        // Continue with the web reset flow.
         const timer = setTimeout(async () => {
           await establishSessionAndShowForm(accessToken, refreshToken)
         }, 1200)
 
-        // If the app opens, the page becomes hidden — clear the timer
         const handleVisibility = () => {
-          if (document.hidden) {
-            clearTimeout(timer)
-          }
+          if (document.hidden) clearTimeout(timer)
         }
         document.addEventListener("visibilitychange", handleVisibility)
-
         return () => {
           clearTimeout(timer)
           document.removeEventListener("visibilitychange", handleVisibility)
@@ -303,7 +373,7 @@ function ResetPasswordContent() {
   // ── Render: Full-screen loader while initializing ────────────────
   if (phase === "initializing") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
@@ -316,7 +386,7 @@ function ResetPasswordContent() {
   // ── Render: App handoff (trying to open native app) ──────────────
   if (phase === "handoff") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
@@ -332,7 +402,19 @@ function ResetPasswordContent() {
             </Button>
             <button
               onClick={async () => {
-                // Extract tokens from the deep link we built
+                // Bridge-code flow: exchange the code directly in browser
+                if (pendingBridgeCode) {
+                  const result = await exchangeBridgeCode(pendingBridgeCode)
+                  if (result.error || !result.accessToken || !result.refreshToken) {
+                    setPhase("expired")
+                    setError(result.error || "This reset link has expired. Please request a new one.")
+                    dismissNativeOverlay()
+                  } else {
+                    await establishSessionAndShowForm(result.accessToken, result.refreshToken)
+                  }
+                  return
+                }
+                // Legacy hash-fragment flow: extract tokens from the deep link
                 if (deepLink) {
                   const url = new URL(deepLink)
                   const at = url.searchParams.get("access_token")
@@ -355,7 +437,7 @@ function ResetPasswordContent() {
   // ── Render: Success ──────────────────────────────────────────────
   if (phase === "success") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
@@ -376,7 +458,7 @@ function ResetPasswordContent() {
   // ── Render: Expired / invalid link ───────────────────────────────
   if (phase === "expired") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
@@ -408,7 +490,7 @@ function ResetPasswordContent() {
 
   // ── Render: Reset form ───────────────────────────────────────────
   return (
-    <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+    <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
       <div className="w-full max-w-[440px] text-center">
         <AuthLogo />
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">

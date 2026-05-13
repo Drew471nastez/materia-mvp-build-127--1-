@@ -381,7 +381,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         <Button
           variant="outline"
           size="sm"
-          className="h-9 gap-1.5 bg-transparent shrink-0 cursor-pointer"
+          className="h-9 gap-1.5 bg-transparent shrink-0 cursor-pointer sm:px-[17px]"
           onClick={openAddSectionModal}
         >
           <Plus className="h-4 w-4" />

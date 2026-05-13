@@ -1,10 +1,21 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { loadStripe } from "@stripe/stripe-js"
+// Prevent Stripe.js Link prewarm from opening Safari in Capacitor WebViews.
+// Must be imported before any loadStripe() call.
+import "@/lib/stripe-nav-guard"
+import { isNativeApp } from "@/lib/platform-utils"
+
+// IMPORTANT: import from "@stripe/stripe-js/pure" NOT "@stripe/stripe-js".
+// The default "@stripe/stripe-js" injects <script src="https://js.stripe.com/v3/">
+// at module import time — before loadStripe() is even called — which triggers
+// the Stripe Link prewarm experiment and opens the browser.
+// /pure never touches the DOM until loadStripe() is explicitly invoked.
+import { loadStripe } from "@stripe/stripe-js/pure"
 import {
   Elements,
   CardNumberElement,
@@ -13,6 +24,43 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
+
+// Lazy Stripe loader — only calls loadStripe() when a paid checkout actually
+// needs it. Combined with the /pure import, Stripe.js is completely absent
+// on free checkout pages.
+//
+// In Capacitor WKWebView (native iOS/Android), Stripe.js normally creates a hidden
+// "controller" iframe (js.stripe.com/v3/controller-with-preconnect-*.html) for
+// advanced fraud signals collection. That iframe sends a postMessage to Stripe.js
+// which then sets window.location.href = controllerUrl — a [LegacyUnforgeable] WebIDL
+// property that cannot be intercepted in WKWebView. This navigates the main frame
+// away from the checkout page.
+//
+// Setting advancedFraudSignals: false prevents the controller iframe from being
+// created entirely, so window.location.href is never set. Card entry stays inline.
+// (The stripe-nav-guard.ts import above remains as a secondary defence.)
+let _stripePromise: ReturnType<typeof loadStripe> | null = null
+function getStripePromise() {
+  if (!_stripePromise) {
+    // Detect Capacitor native context at call-time (runs client-side only)
+    const isNative = typeof window !== "undefined" && (() => {
+      const cap = (window as any).Capacitor
+      if (cap?.isNativePlatform?.()) return true
+      const ua = navigator.userAgent || ""
+      return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+    })()
+
+    _stripePromise = loadStripe(
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+      // advancedFraudSignals is documented in the Stripe.js reference but not yet
+      // reflected in the @stripe/stripe-js TypeScript types — suppress the error.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      isNative ? { advancedFraudSignals: false } : undefined,
+    )
+  }
+  return _stripePromise
+}
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,8 +85,6 @@ import {
   Globe,
   Search,
 } from "lucide-react"
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 // ---------- Types ----------
 interface SelectedVariant {
@@ -430,6 +476,219 @@ function OrderSummaryMobileToggle({
   )
 }
 
+// ---------- Native Card Form (no Stripe.js) ----------
+// Used inside Capacitor WKWebView. Card inputs are plain HTML — no iframes,
+// no Stripe.js controller, no window.location.href navigation possible.
+function NativeCardForm({
+  onSubmit,
+  isSubmitting,
+  isFree,
+  total,
+  error,
+  setError,
+  nameOnCard,
+  setNameOnCard,
+  agreedToTerms,
+  setAgreedToTerms,
+  isContactValid,
+  cardNumber,
+  setCardNumber,
+  cardExpiry,
+  setCardExpiry,
+  cardCvc,
+  setCardCvc,
+  emailContent,
+  contactContent,
+}: {
+  onSubmit: () => void
+  isSubmitting: boolean
+  isFree: boolean
+  total: number
+  error: string | null
+  setError: (e: string | null) => void
+  nameOnCard: string
+  setNameOnCard: (v: string) => void
+  agreedToTerms: boolean
+  setAgreedToTerms: (v: boolean) => void
+  isContactValid: boolean
+  cardNumber: string
+  setCardNumber: (v: string) => void
+  cardExpiry: string
+  setCardExpiry: (v: string) => void
+  cardCvc: string
+  setCardCvc: (v: string) => void
+  emailContent?: React.ReactNode
+  contactContent?: React.ReactNode
+}) {
+  // Format card number: groups of 4 separated by spaces
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 16)
+    setCardNumber(digits.replace(/(.{4})/g, "$1 ").trim())
+  }
+
+  // Format expiry: MM/YY
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 4)
+    if (raw.length <= 2) setCardExpiry(raw)
+    else setCardExpiry(`${raw.slice(0, 2)}/${raw.slice(2)}`)
+  }
+
+  const isCardComplete = cardNumber.replace(/\s/g, "").length >= 13 &&
+    /^\d{2}\/\d{2}$/.test(cardExpiry) &&
+    cardCvc.length >= 3
+
+  return (
+    <div className="space-y-4">
+      {/* Express Checkout */}
+      {!isFree && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Google Pay */}
+            <div className="relative group">
+              <button type="button" disabled className="w-full flex items-center justify-center h-[48px] rounded-xl bg-black opacity-50 cursor-not-allowed">
+                <GooglePayIcon className="h-[22px] w-auto" />
+              </button>
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
+                <span className="text-xs text-white font-medium">Not available now</span>
+              </div>
+            </div>
+            {/* PayPal */}
+            <div className="relative group">
+              <button type="button" disabled className="w-full flex items-center justify-center h-[48px] rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed overflow-hidden">
+                <PayPalIcon className="h-[35px] w-auto" />
+              </button>
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
+                <span className="text-xs text-white font-medium">Not available now</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 mb-1 h-px bg-gray-100" />
+        </div>
+      )}
+
+      {/* Email input + marketing opt-in */}
+      {emailContent}
+
+      {/* Card Fields */}
+      {!isFree && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Card number</Label>
+            <Input
+              type="tel"
+              inputMode="numeric"
+              autoComplete="cc-number"
+              placeholder="1234 5678 9012 3456"
+              value={cardNumber}
+              onChange={handleCardNumberChange}
+              className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20 font-mono tracking-wider"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Expiry (MM/YY)</Label>
+              <Input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="cc-exp"
+                placeholder="MM/YY"
+                value={cardExpiry}
+                onChange={handleExpiryChange}
+                maxLength={5}
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">CVC</Label>
+              <Input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="cc-csc"
+                placeholder="123"
+                value={cardCvc}
+                onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                maxLength={4}
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20 font-mono"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+            <Input
+              placeholder="John Doe"
+              autoComplete="cc-name"
+              value={nameOnCard}
+              onChange={(e) => setNameOnCard(e.target.value)}
+              className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Contact Info + VAT */}
+      {contactContent}
+
+      {/* Error message */}
+      {error && (
+        <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Terms & Conditions */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="terms-native"
+            checked={agreedToTerms}
+            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+          />
+          <Label htmlFor="terms-native" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+            I agree to the{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+              Terms and Conditions
+            </Link>{" "}
+            *
+          </Label>
+        </div>
+      </div>
+
+      {/* Pay Button */}
+      <button
+        type="button"
+        onClick={() => { setError(null); onSubmit() }}
+        disabled={isSubmitting || !agreedToTerms || !isContactValid || (!isFree && !isCardComplete)}
+        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+      >
+        {isSubmitting ? (
+          <><Loader2 className="h-5 w-5 animate-spin" />Processing...</>
+        ) : isFree ? (
+          <>Get for Free <span className="ml-1">&rarr;</span></>
+        ) : (
+          <>Pay {formatPrice(total)}</>
+        )}
+      </button>
+
+      {/* Secured by Stripe */}
+      <div className="flex items-center justify-center gap-1.5 pt-2">
+        <Shield className="w-3 h-3 text-gray-300" />
+        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+      </div>
+
+      <div className="flex items-center justify-center gap-3 pt-1">
+        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+        <span className="text-gray-300 text-[8px]">&middot;</span>
+        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+        <span className="text-gray-300 text-[8px]">&middot;</span>
+        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+      </div>
+    </div>
+  )
+}
+
 // ---------- Stripe Card Form ----------
 // This renders INSIDE <Elements> but does NOT require clientSecret to render card inputs.
 // Card Elements render immediately. clientSecret is only needed for confirmCardPayment().
@@ -738,9 +997,17 @@ export default function CheckoutPageClient({
   const searchParams = useSearchParams()
 
   const urlEmail = searchParams.get("email") || ""
+  // URL params used when re-opening the checkout inside SFSafariViewController
+  // (the native Browser plugin passes these so the form is pre-filled)
+  const urlFirstName = searchParams.get("firstName") || ""
+  const urlLastName  = searchParams.get("lastName")  || ""
+  // ?directPay=1  → skip Phase-1 placeholder and mount Stripe Elements immediately.
+  // Set when the Capacitor WebView opens this URL in the in-app browser so the
+  // user lands directly on the card form (standard Safari, no WebView restrictions).
+  const urlDirectPay = searchParams.get("directPay") === "1"
 
-  const [firstName, setFirstName] = useState(() => loadSessionField(SESSION_KEYS.firstName))
-  const [lastName, setLastName] = useState(() => loadSessionField(SESSION_KEYS.lastName))
+  const [firstName, setFirstName] = useState(() => urlFirstName || loadSessionField(SESSION_KEYS.firstName))
+  const [lastName,  setLastName]  = useState(() => urlLastName  || loadSessionField(SESSION_KEYS.lastName))
   const [email, setEmail] = useState(() => urlEmail || "")
   const [vatId, setVatId] = useState(() => loadSessionField(SESSION_KEYS.vatId))
   const [country, setCountry] = useState(() => loadSessionField(SESSION_KEYS.country) || "US")
@@ -755,7 +1022,7 @@ export default function CheckoutPageClient({
   // Variant selection state
   const [selectedVariant, setSelectedVariant] = useState<SelectedVariant | null | undefined>(initialVariant)
 
-  const [discountCode, setDiscountCode] = useState(() => loadSessionField(SESSION_KEYS.discountCode))
+  const [discountCode, setDiscountCode] = useState(() => searchParams.get("discountCode") || loadSessionField(SESSION_KEYS.discountCode))
   const [discountApplied, setDiscountApplied] = useState(false)
   const [discountPercent, setDiscountPercent] = useState(0)
   const [appliedDiscountCents, setAppliedDiscountCents] = useState<number | null>(null)
@@ -770,6 +1037,21 @@ export default function CheckoutPageClient({
   const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
+  // Deferred Stripe gate: Stripe.js must NOT load until the user explicitly
+  // activates the card form.
+  const [cardFormActive, setCardFormActive] = useState(urlDirectPay)
+
+  // ── Native app: plain card inputs ────────────────────────────────────────────
+  // In Capacitor WKWebView, Stripe.js is completely bypassed. Card data is
+  // entered in plain HTML inputs and POSTed directly to the Stripe REST API
+  // (api.stripe.com/v1/payment_methods) using the publishable key — same
+  // security model as Stripe Elements (card data never reaches our server).
+  // No Stripe.js = no controller iframe = no window.location.href navigation.
+  const [nativeApp, setNativeApp] = useState(false)
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
+  const [nativeCardNumber, setNativeCardNumber] = useState("")
+  const [nativeCardExpiry, setNativeCardExpiry] = useState("")
+  const [nativeCardCvc, setNativeCardCvc]       = useState("")
 
   // Reset payment intent when variant changes (price may differ)
   useEffect(() => {
@@ -834,6 +1116,42 @@ export default function CheckoutPageClient({
     }
     router.push(`/checkout/receipt?token=${encodeURIComponent(receiptToken)}`)
   }, [router, appliedCouponId])
+
+  // Handle return from Stripe 3DS redirect (bank auth page → return_url → back here)
+  useEffect(() => {
+    const piClientSecret = searchParams.get('payment_intent_client_secret')
+    const piId = searchParams.get('payment_intent')
+    if (!piClientSecret || !piId) return
+    setIsSubmitting(true)
+    getStripePromise().then(async (stripe) => {
+      if (!stripe) { setIsSubmitting(false); return }
+      try {
+        const { paymentIntent } = await stripe.retrievePaymentIntent(piClientSecret)
+        if (paymentIntent?.status === 'succeeded') {
+          const res = await fetch('/api/checkout/confirm-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
+            body: JSON.stringify({ paymentIntentId: piId }),
+          })
+          const data = await res.json()
+          if (res.ok) {
+            const match = data.redirectUrl?.match(/\/receipt\/([^?]+)/)
+            router.push(`/checkout/receipt?token=${encodeURIComponent(match?.[1] || '')}`)
+          } else {
+            setError(data.error || 'Failed to complete order')
+            setIsSubmitting(false)
+          }
+        } else {
+          setError('Payment authentication failed or was cancelled. Please try again.')
+          setIsSubmitting(false)
+        }
+      } catch {
+        setError('Failed to verify payment. Please contact support.')
+        setIsSubmitting(false)
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // only run on mount — the params don't change after redirect
 
   // Full form validation: includes terms
   const isFormValid = useMemo(() => {
@@ -935,6 +1253,102 @@ export default function CheckoutPageClient({
     return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
   }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents, emailOptIn])
 
+  // ── Native paid checkout — no Stripe.js ──────────────────────────────────────
+  // 1. POSTs card data directly to api.stripe.com/v1/payment_methods (publishable
+  //    key only, card data never touches our server — PCI SAQ A-EP equivalent).
+  // 2. Calls /api/checkout/stripe-session to create the PaymentIntent.
+  // 3. Calls /api/checkout/confirm-with-pm to confirm server-side.
+  // 4. If 3DS required: navigates to hooks.stripe.com challenge page (in-app).
+  // 5. After 3DS: existing useEffect on mount handles the return and completes.
+  const handleNativePaidCheckout = async () => {
+    if (!isFormValid) {
+      if (!firstName.trim()) return setError("Please enter your first name")
+      if (!lastName.trim())  return setError("Please enter your last name")
+      if (!validateEmail(email)) return setError("Please enter a valid email address")
+      if (!agreedToTerms)    return setError("Please agree to the Terms and Conditions")
+      return
+    }
+
+    // Basic native card validation
+    const rawCard = nativeCardNumber.replace(/\s/g, "")
+    if (rawCard.length < 13 || rawCard.length > 19) return setError("Please enter a valid card number")
+    const [expMo, expYr] = nativeCardExpiry.split("/")
+    if (!expMo || !expYr || expMo.length !== 2 || expYr.length !== 2) return setError("Please enter a valid expiry date (MM/YY)")
+    if (!nativeCardCvc || nativeCardCvc.length < 3) return setError("Please enter a valid CVC")
+
+    if (isRateLimited()) { setError("Please wait a moment before trying again"); return }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      // Step 1 — create PaymentMethod via Stripe REST API (no Stripe.js)
+      const pmParams = new URLSearchParams()
+      pmParams.set("type", "card")
+      pmParams.set("card[number]", rawCard)
+      pmParams.set("card[exp_month]", expMo.trim())
+      pmParams.set("card[exp_year]", `20${expYr.trim()}`)
+      pmParams.set("card[cvc]", nativeCardCvc.trim())
+      const cardholderName = (nameOnCard || `${firstName} ${lastName}`).trim()
+      if (cardholderName) pmParams.set("billing_details[name]", cardholderName)
+
+      const pmRes = await fetch("https://api.stripe.com/v1/payment_methods", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: pmParams.toString(),
+      })
+      const pmData = await pmRes.json()
+      if (!pmRes.ok) throw new Error(pmData.error?.message || "Card declined. Please check your card details.")
+      const paymentMethodId: string = pmData.id
+
+      // Step 2 — create PaymentIntent server-side
+      let secret = clientSecret
+      let piId = paymentIntentId
+      if (!secret) {
+        const result = await createPaymentIntent()
+        secret = result.clientSecret
+        piId = result.paymentIntentId
+        setClientSecret(secret)
+        setPaymentIntentId(piId)
+      }
+
+      // Step 3 — confirm server-side
+      const returnUrl = typeof window !== "undefined" ? window.location.href : ""
+      const confirmRes = await fetch("/api/checkout/confirm-with-pm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify({ paymentIntentId: piId, paymentMethodId, returnUrl }),
+      })
+      const confirmData = await confirmRes.json()
+      if (!confirmRes.ok) throw new Error(confirmData.error || "Payment failed. Please try again.")
+
+      if (confirmData.status === "succeeded") {
+        // Step 4 — create order record
+        const completeRes = await fetch("/api/checkout/confirm-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+          body: JSON.stringify({ paymentIntentId: piId }),
+        })
+        const completeData = await completeRes.json()
+        if (!completeRes.ok) throw new Error(completeData.error || "Failed to complete order")
+        const tokenMatch = completeData.redirectUrl?.match(/\/receipt\/([^?]+)/)
+        await completeOrder(tokenMatch?.[1] || "")
+      } else if (confirmData.status === "requires_action" && confirmData.actionUrl) {
+        // Step 5 — 3DS: stay in WKWebView (hooks.stripe.com is in allowNavigation)
+        window.location.href = confirmData.actionUrl
+      } else {
+        throw new Error("Payment could not be completed. Please try again.")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   // Handle paid checkout
   const handlePaidCheckout = async (stripe: any, elements: any) => {
     if (!isFormValid) {
@@ -979,6 +1393,9 @@ export default function CheckoutPageClient({
             email: email,
           },
         },
+        // return_url is needed for redirect-based 3DS (some banks). After bank auth,
+        // Stripe redirects here with ?payment_intent=... so the page can complete the order.
+        return_url: typeof window !== 'undefined' ? window.location.href : undefined,
       })
 
       if (stripeError) {
@@ -1185,7 +1602,7 @@ export default function CheckoutPageClient({
       setPaymentIntentId(result.paymentIntentId)
 
       // Confirm with the payment method from Google Pay
-      const stripeInstance = await stripePromise
+      const stripeInstance = await getStripePromise()
       if (!stripeInstance) throw new Error("Stripe not loaded")
 
       const { error: stripeError, paymentIntent: confirmedIntent } = await stripeInstance.confirmCardPayment(
@@ -1263,11 +1680,11 @@ export default function CheckoutPageClient({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor={`firstName${idSuffix}`} className="text-xs font-medium text-gray-600">First Name *</Label>
-              <Input id={`firstName${idSuffix}`} type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+              <Input id={`firstName${idSuffix}`} type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`lastName${idSuffix}`} className="text-xs font-medium text-gray-600">Last Name *</Label>
-              <Input id={`lastName${idSuffix}`} type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+              <Input id={`lastName${idSuffix}`} type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -1284,11 +1701,22 @@ export default function CheckoutPageClient({
     </>
   )
 
-  // Payment content - Elements renders immediately without clientSecret
+  // Payment content.
+  // For paid products we use a two-phase approach:
+  //   Phase 1 (cardFormActive=false): render the full checkout form BUT with a
+  //     card-placeholder instead of the real Stripe Elements. Stripe.js is never
+  //     loaded. No Link prewarm, no controller iframe, no Safari popup — exactly
+  //     the same behaviour as a free product.
+  //   Phase 2 (cardFormActive=true): the user has explicitly tapped the card
+  //     area or the Pay button. Only NOW do we call getStripePromise() and mount
+  //     <Elements>. Stripe.js loads, card inputs appear, user enters details and
+  //     pays. The email/contact values captured in Phase 1 are preserved in
+  //     parent state and shown pre-filled inside StripeCardForm.
   const paymentElementsContent = !isFree ? (
-    <Elements stripe={stripePromise}>
-      <StripeCardForm
-        onSubmit={handleSubmit}
+    nativeApp ? (
+      // Native app path — plain HTML inputs + direct Stripe REST API, no Stripe.js, no iframes
+      <NativeCardForm
+        onSubmit={handleNativePaidCheckout}
         isSubmitting={isSubmitting}
         isFree={isFree}
         total={total}
@@ -1299,12 +1727,116 @@ export default function CheckoutPageClient({
         agreedToTerms={agreedToTerms}
         setAgreedToTerms={setAgreedToTerms}
         isContactValid={isContactValid}
-        productTitle={product.title}
-        onGooglePaySubmit={handleGooglePayPayment}
+        cardNumber={nativeCardNumber}
+        setCardNumber={setNativeCardNumber}
+        cardExpiry={nativeCardExpiry}
+        setCardExpiry={setNativeCardExpiry}
+        cardCvc={nativeCardCvc}
+        setCardCvc={setNativeCardCvc}
         emailContent={emailSectionContent("")}
         contactContent={contactSectionContent("")}
       />
-    </Elements>
+    ) : cardFormActive ? (
+      // Phase 2 — real Stripe card form (Stripe.js loads here for the first time)
+      <Elements stripe={getStripePromise()}>
+        <StripeCardForm
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          isFree={isFree}
+          total={total}
+          error={error}
+          setError={setError}
+          nameOnCard={nameOnCard}
+          setNameOnCard={setNameOnCard}
+          agreedToTerms={agreedToTerms}
+          setAgreedToTerms={setAgreedToTerms}
+          isContactValid={isContactValid}
+          productTitle={product.title}
+          onGooglePaySubmit={handleGooglePayPayment}
+          emailContent={emailSectionContent("")}
+          contactContent={contactSectionContent("")}
+        />
+      </Elements>
+    ) : (
+      // Phase 1 — Stripe-free placeholder. Collects email/contact so values
+      // are already in state when Phase 2 mounts.
+      <div className="space-y-4">
+        {emailSectionContent("-gate")}
+
+        {/* Card placeholder — tapping activates Stripe Elements inline */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFormActive(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCardFormActive(true) }}
+          className="bg-white rounded-2xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 transition-colors group"
+        >
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Payment details
+          </p>
+          <div className="space-y-3 pointer-events-none select-none">
+            <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-300 group-hover:border-blue-200 transition-colors">
+              Card number
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-300 group-hover:border-blue-200 transition-colors">
+                MM / YY
+              </div>
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-300 group-hover:border-blue-200 transition-colors">
+                CVC
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-1.5 mt-4">
+            <Lock className="w-3 h-3 text-blue-400" />
+            <span className="text-xs text-blue-500 font-medium">Tap to enter card details securely</span>
+          </div>
+        </div>
+
+        {contactSectionContent("-gate")}
+
+        {/* Terms */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="terms-gate"
+              checked={agreedToTerms}
+              onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+              className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+            />
+            <Label htmlFor="terms-gate" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+              I agree to the{" "}
+              <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+                Terms and Conditions
+              </Link>{" "}*
+            </Label>
+          </div>
+        </div>
+
+        {/* Pay button — activates Stripe Elements inline on all platforms */}
+        <button
+          type="button"
+          onClick={() => setCardFormActive(true)}
+          disabled={!agreedToTerms || !isContactValid}
+          className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+        >
+          <Lock className="w-4 h-4" />
+          Pay {formatPrice(total)}
+        </button>
+
+        <div className="flex items-center justify-center gap-1.5 pt-2">
+          <Shield className="w-3 h-3 text-gray-300" />
+          <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+          <span className="text-gray-300 text-[8px]">&middot;</span>
+          <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+          <span className="text-gray-300 text-[8px]">&middot;</span>
+          <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+        </div>
+      </div>
+    )
   ) : (
     <div className="space-y-4">
       {/* Email + opt-in for free products */}
@@ -1355,7 +1887,7 @@ export default function CheckoutPageClient({
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-page="checkout">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
@@ -1519,10 +2051,16 @@ function OrderSummaryContent({
 }) {
   const [variantOpen, setVariantOpen] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
+  const [sheetClosing, setSheetClosing] = useState(false)
+  const [portalMounted, setPortalMounted] = useState(false)
   const variantRef = useRef<HTMLDivElement>(null)
   const sheetDragStartY = useRef(0)
   const [sheetDragY, setSheetDragY] = useState(0)
   const [sheetIsDragging, setSheetIsDragging] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { setPortalMounted(true) }, [])
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }, [])
 
   // Close variant dropdown on outside click (desktop only)
   useEffect(() => {
@@ -1540,11 +2078,17 @@ function OrderSummaryContent({
 
   // Mobile bottom sheet open/close with smooth animation
   const openSheet = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    setSheetClosing(false)
     setSheetVisible(true)
   }
   const closeSheet = () => {
-    setSheetVisible(false)
+    setSheetClosing(true)
     setSheetDragY(0)
+    closeTimerRef.current = setTimeout(() => {
+      setSheetVisible(false)
+      setSheetClosing(false)
+    }, 320)
   }
 
   const handleSheetTouchStart = (e: React.TouchEvent) => {
@@ -1637,37 +2181,90 @@ function OrderSummaryContent({
                       </div>
                     </div>
                   )}
-                  {/* Mobile bottom sheet */}
-                  {sheetVisible && (
-                    <div className="lg:hidden fixed inset-0 z-[100]">
+                  {/* Mobile bottom sheet – rendered via portal so fixed covers the true viewport */}
+                  {sheetVisible && portalMounted && createPortal(
+                    <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
+                      {/* Backdrop */}
                       <div
-                        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                        className="absolute inset-0 backdrop-blur-sm"
+                        style={{
+                          backgroundColor: "rgba(0,0,0,0.5)",
+                          opacity: sheetClosing ? 0 : 1,
+                          transition: "opacity 0.3s ease",
+                        }}
                         onClick={closeSheet}
                       />
+                      {/* Sheet */}
                       <div
-                        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[70vh] flex flex-col"
+                        className="relative bg-white rounded-t-3xl shadow-2xl w-full max-h-[80vh] flex flex-col"
                         style={{
-                          transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
-                          transition: sheetIsDragging ? "none" : "transform 0.3s ease-out",
+                          transform: sheetClosing
+                            ? "translateY(100%)"
+                            : sheetDragY > 0
+                            ? `translateY(${sheetDragY}px)`
+                            : "translateY(0%)",
+                          transition: sheetIsDragging ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
+                          paddingBottom: "env(safe-area-inset-bottom)",
+                          animation: !sheetClosing && sheetDragY === 0 ? "sheetSlideUp 0.32s cubic-bezier(0.32,0.72,0,1)" : undefined,
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {/* Drag handle */}
                         <div
-                          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+                          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing"
                           onTouchStart={handleSheetTouchStart}
                           onTouchMove={handleSheetTouchMove}
                           onTouchEnd={handleSheetTouchEnd}
                         >
                           <div className="w-10 h-1 bg-gray-300 rounded-full" />
                         </div>
-                        <div className="px-4 pb-3">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
                           <h3 className="text-base font-semibold text-gray-900">Select variant</h3>
+                          <button type="button" onClick={closeSheet} className="p-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer">
+                            <X className="w-5 h-5 text-gray-400" />
+                          </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                          {variantListItems}
+                        {/* Variant list */}
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                          {allVariants?.map((v) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => { onVariantChange?.(v); closeSheet() }}
+                              className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 text-sm transition-all cursor-pointer ${
+                                selectedVariant?.id === v.id
+                                  ? "border-black bg-gray-50"
+                                  : "border-gray-200 bg-white active:border-gray-300"
+                              }`}
+                            >
+                              <span className="flex items-center gap-3">
+                                <div className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                  selectedVariant?.id === v.id ? "border-black" : "border-gray-300"
+                                }`}>
+                                  {selectedVariant?.id === v.id && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
+                                </div>
+                                <span className={`font-medium text-[15px] ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-700"}`}>{v.name}</span>
+                              </span>
+                              <span className={`font-semibold text-[15px] shrink-0 ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-500"}`}>
+                                {v.priceCents === 0 ? "Free" : formatPrice(v.priceCents)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        {/* Done button */}
+                        <div className="px-4 pt-2 pb-4 shrink-0">
+                          <button
+                            type="button"
+                            onClick={closeSheet}
+                            className="w-full h-[52px] rounded-2xl bg-black text-white font-semibold text-[15px] transition-colors active:bg-gray-900 cursor-pointer"
+                          >
+                            Done
+                          </button>
                         </div>
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </>
               ) : (

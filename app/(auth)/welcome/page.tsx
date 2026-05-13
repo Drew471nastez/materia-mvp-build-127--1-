@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
 const PHRASES = [
@@ -23,61 +24,41 @@ export default function WelcomePage() {
   const charIndex   = useRef(0)
   const isDeleting  = useRef(false)
 
-  // ── Session guard: if the native user is already logged in, skip this page ─
-  // This is a safety net for cases where NativeStartupRouter was bypassed
-  // (e.g. WebView restored at /welcome, OS killed the app during routing, etc.)
+  // /welcome is the final destination for logged-out native users — hide splash here.
+  useHideNativeSplash()
+
+  // Safety-net: /native-start routes logged-in users away before reaching here.
+  // If somehow a logged-in user arrives at /welcome, redirect them silently.
   useEffect(() => {
-    // Fast synchronous check — reads localStorage before any async work.
-    try {
+    async function checkSession() {
       const isNative =
         typeof (window as any).Capacitor?.isNativePlatform === "function" &&
         (window as any).Capacitor.isNativePlatform() === true
-      if (isNative) {
+      if (!isNative) return
+
+      try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         if (supabaseUrl) {
           const ref = new URL(supabaseUrl).hostname.split(".")[0]
           const session = localStorage.getItem(`sb-${ref}-auth-token`)
           if (session) {
-            const home = localStorage.getItem("sb-native-home") || "/app"
-            window.location.replace(home)
+            window.location.replace(localStorage.getItem("sb-native-home") || "/app")
             return
           }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
 
-    // Async fallback: check Supabase SDK + raw Preferences for edge cases
-    // (expired token that was in Preferences but not yet mirrored to localStorage)
-    async function redirectIfAuthenticated() {
       try {
-        const { Capacitor } = await import("@capacitor/core")
-        if (!Capacitor.isNativePlatform()) return
-
         const { createClient } = await import("@/lib/supabase/client")
         const { getCachedNativeHome } = await import("@/lib/native-bridge")
         const supabase = createClient()
-
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
-          const cached = await getCachedNativeHome()
-          window.location.replace(cached || "/app")
-          return
+          window.location.replace((await getCachedNativeHome()) || "/app")
         }
-
-        // Raw Preferences + localStorage check (token expired + no network)
-        const { Preferences } = await import("@capacitor/preferences")
-        const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
-        const authKey    = `sb-${projectRef}-auth-token`
-        const { value: rawPrefs } = await Preferences.get({ key: authKey })
-        let   rawLocal: string | null = null
-        try { rawLocal = localStorage.getItem(authKey) } catch { /* ignore */ }
-        if (rawPrefs || rawLocal) {
-          const cached = await getCachedNativeHome()
-          window.location.replace(cached || "/app")
-        }
-      } catch { /* non-native or unavailable — stay on /welcome */ }
+      } catch { /* ignore */ }
     }
-    redirectIfAuthenticated()
+    checkSession()
   }, [])
 
   // ── Typing animation ──────────────────────────────────────────────────────
@@ -150,6 +131,7 @@ export default function WelcomePage() {
       `}} />
 
       <div
+        data-page="welcome"
         className="fixed inset-0 flex flex-col items-center overflow-hidden select-none"
         style={{
           background:    "#f2f2f2",
@@ -165,11 +147,11 @@ export default function WelcomePage() {
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/5135%20(1).svg?width=70&quality=80"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/Untitled%20(512%20x%20512%20px).svg?width=70&quality=80"
             alt="Storelib"
             width={34}
             height={34}
-            style={{ width: 34, height: 34 }}
+            style={{ width: 34, height: 34, borderRadius: 5 }}
           />
           <span className="text-[23px] font-bold tracking-tight text-[#0a0a0a]">
             Storelib
@@ -191,7 +173,7 @@ export default function WelcomePage() {
         >
           <p
             className="font-bold text-[#0a0a0a] leading-tight"
-            style={{ fontSize: "clamp(19px, 6vw, 30px)", minHeight: "1.4em" }}
+            style={{ fontSize: "clamp(19px, 6vw, 30px)", minHeight: "2.8em" }}
           >
             {typedText}
             <span
@@ -203,7 +185,7 @@ export default function WelcomePage() {
 
         {/* Buttons */}
         <div className="wlc-fade-up-late shrink-0 w-full px-5 pb-4 flex flex-col items-center">
-          <div className="w-full max-w-[400px] flex flex-col gap-[10px]">
+          <div className="w-full max-w-[400px] flex flex-col gap-[16px]">
             <button
               onClick={goToSignup}
               className="w-full rounded-[10px] bg-[#7c3aed] text-white font-semibold text-base py-[15px] active:scale-[0.97] active:opacity-85 transition-transform border-none cursor-pointer"

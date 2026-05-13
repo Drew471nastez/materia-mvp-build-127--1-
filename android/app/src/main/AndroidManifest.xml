@@ -30,6 +30,7 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
 
             <!--
@@ -73,6 +74,16 @@
                     android:scheme="storelib"
                     android:host="auth"
                     android:pathPrefix="/callback" />
+            </intent-filter>
+
+            <!-- Custom scheme deep link for password reset with bridge code -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="storelib"
+                    android:host="reset-password" />
             </intent-filter>
 
             <!--

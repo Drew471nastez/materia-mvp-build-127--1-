@@ -1146,6 +1146,15 @@ export const defaultGlobalStoreSettings: GlobalStoreSettings = {
   verifiedBadgeEnabled: false,
   verifiedBadgeType: "verified_creator",
   themePreset: "default",
+  footerSettings: {
+    footerType: "simple",
+    columns: ["navigation"],
+    showPaymentIcons: false,
+    showPoweredBy: true,
+    sectionHeight: 80,
+    headingSize: "h3",
+    textFontSize: "medium",
+  },
 }
 
 // Button text presets for subscribe bar
@@ -1300,7 +1309,7 @@ export const defaultImageTextSettings: ImageTextSettings = {
   headline: "Welcome to my store",
   body: "Discover my amazing collection of digital products, crafted with care.",
   imageUrl: "",
-  imagePosition: "right",
+  imagePosition: "left",
   buttonText: "Browse Products",
   buttonUrl: "#products",
   showButton: true,

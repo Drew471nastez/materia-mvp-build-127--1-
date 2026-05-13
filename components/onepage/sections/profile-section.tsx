@@ -5,21 +5,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import { Camera, X } from "lucide-react"
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { pickPhoto } from "@/lib/native-camera"
 
 export function ProfileSection() {
   const { onepage, updateProfile, updateSlug } = useOnePage()
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   if (!onepage) return null
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleAvatarPick = async () => {
+    setUploadError(null)
+    const photo = await pickPhoto("PROMPT")
+    if (!photo) return
 
     setUploading(true)
     try {
@@ -27,12 +28,12 @@ export function ProfileSection() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const fileExt = file.name.split(".").pop()
-      const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`
+      const ext = photo.mimeType === "image/png" ? "png" : "jpg"
+      const fileName = `${user.id}/avatar-${Date.now()}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from("onepage-assets")
-        .upload(fileName, file, { upsert: true })
+        .upload(fileName, photo.blob, { upsert: true, contentType: photo.mimeType })
 
       if (uploadError) throw uploadError
 
@@ -41,8 +42,9 @@ export function ProfileSection() {
         .getPublicUrl(fileName)
 
       updateProfile({ avatar_url: publicUrl })
-    } catch (error) {
-      console.error("Avatar upload error:", error)
+    } catch (err) {
+      console.error("Avatar upload error:", err)
+      setUploadError("Upload failed. Please try again.")
     } finally {
       setUploading(false)
     }
@@ -71,32 +73,32 @@ export function ProfileSection() {
               <AvatarFallback>{onepage.title?.charAt(0) || "?"}</AvatarFallback>
             </Avatar>
             <button
-              onClick={() => fileInputRef.current?.click()}
+              type="button"
+              onClick={handleAvatarPick}
               className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
               disabled={uploading}
+              aria-label="Change profile picture"
             >
               <Camera className="h-6 w-6 text-white" />
             </button>
             {onepage.avatar_url && (
               <button
+                type="button"
                 onClick={removeAvatar}
                 className="absolute -top-1 -right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Remove profile picture"
               >
                 <X className="h-3 w-3" />
               </button>
             )}
           </div>
           <div className="text-sm text-muted-foreground">
-            {uploading ? "Uploading..." : "Click to change"}
+            {uploading ? "Uploading..." : "Tap to change"}
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleAvatarUpload}
-            className="hidden"
-          />
         </div>
+        {uploadError && (
+          <p className="text-sm text-destructive">{uploadError}</p>
+        )}
       </div>
 
       {/* Name */}

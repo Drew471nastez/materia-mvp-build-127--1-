@@ -8,6 +8,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { isNativeApp } from "@/lib/native-bridge"
 
 interface ShareButtonProps {
   productTitle: string
@@ -17,20 +18,20 @@ interface ShareButtonProps {
   iconSize?: string
 }
 
-export function ShareButton({ 
-  productTitle, 
-  productSlug, 
+export function ShareButton({
+  productTitle,
+  productSlug,
   className,
   size = "icon",
   iconSize = "h-5 w-5"
 }: ShareButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  
-  const shareUrl = typeof window !== "undefined" 
-    ? `${window.location.origin}/p/${productSlug}` 
+
+  const shareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/p/${productSlug}`
     : `/p/${productSlug}`
-  
+
   const shareText = `Check out ${productTitle}`
 
   const handleCopyLink = async () => {
@@ -43,14 +44,48 @@ export function ShareButton({
     }
   }
 
-  const handleShareTwitter = () => {
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`
-    window.open(twitterUrl, "_blank", "noopener,noreferrer")
+  /**
+   * Opens a social share URL.
+   * On native (iOS/Android): checks if the target app is installed via
+   * Capacitor's App.canOpenUrl(), opens the app directly if available,
+   * otherwise falls back to the system browser (which supports universal
+   * links so the OS may still route to the native app).
+   * On web: opens a new tab.
+   */
+  const openSocialUrl = async (appScheme: string, webUrl: string) => {
+    if (isNativeApp()) {
+      try {
+        const { App } = await import("@capacitor/app")
+        const { value: canOpen } = await App.canOpenUrl({ url: appScheme })
+        if (canOpen) {
+          await App.openUrl({ url: appScheme })
+          return
+        }
+      } catch {
+        // @capacitor/app unavailable — fall through
+      }
+      // App not installed: open in system browser so universal links can
+      // still route to the native app if the user installs it later.
+      window.open(webUrl, "_system")
+    } else {
+      window.open(webUrl, "_blank", "noopener,noreferrer")
+    }
   }
 
-  const handleShareFacebook = () => {
-    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
-    window.open(facebookUrl, "_blank", "noopener,noreferrer")
+  const handleShareTwitter = async () => {
+    // Web URL: opens x.com share intent (browser will show X.com or route to X app)
+    const webUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`
+    // App URL scheme: opens the X app directly if installed
+    const appScheme = `twitter://post?message=${encodeURIComponent(`${shareText} ${shareUrl}`)}`
+    await openSocialUrl(appScheme, webUrl)
+  }
+
+  const handleShareFacebook = async () => {
+    // Web URL: opens Facebook's share dialog with the link pre-filled as a post
+    const webUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`
+    // App URL scheme: opens the Facebook app's share sheet if installed
+    const appScheme = `fb://share?link=${encodeURIComponent(shareUrl)}`
+    await openSocialUrl(appScheme, webUrl)
   }
 
   return (

@@ -251,12 +251,27 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create entitlement
-    if (buyerId) {
+    // Create entitlement — resolve the buyer by ID or by email so that guest
+    // checkouts with a matching account email still grant library access.
+    let resolvedBuyerId = buyerId
+    if (!resolvedBuyerId && buyerEmail) {
+      const { data: profileByEmail } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("email", buyerEmail.toLowerCase().trim())
+        .maybeSingle()
+      if (profileByEmail) {
+        resolvedBuyerId = profileByEmail.id
+        // Also update the order with the resolved buyer_id
+        await admin.from("orders").update({ buyer_id: resolvedBuyerId }).eq("id", order.id)
+      }
+    }
+
+    if (resolvedBuyerId) {
       let entitlementQuery = admin
         .from("entitlements")
         .select("id")
-        .eq("buyer_id", buyerId)
+        .eq("buyer_id", resolvedBuyerId)
         .eq("product_id", productId)
 
       if (variantId) {
@@ -269,7 +284,7 @@ export async function POST(request: Request) {
 
       if (!existingEntitlement) {
         await admin.from("entitlements").insert({
-          buyer_id: buyerId,
+          buyer_id: resolvedBuyerId,
           creator_id: creatorId,
           product_id: productId,
           variant_id: variantId || null,
@@ -311,7 +326,7 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log("[confirm-payment] Complete. Receipt:", order.receipt_token)
+    console.log("[confirm-payment] Complete. Order confirmed, receipt token present:", !!order.receipt_token)
 
     return NextResponse.json({
       success: true,

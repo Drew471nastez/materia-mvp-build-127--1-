@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n";
+import { isIOS } from "@/lib/native-bridge";
 
 interface Product {
   id: string;
@@ -1669,6 +1670,22 @@ export function SalesClient({
   // KPI Modal states
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null);
 
+  // iOS App Store compliance (Guideline 3.1.1): hide upgrade CTAs on iOS.
+  const [isIOSApp, setIsIOSApp] = useState(false);
+  const isIOSRef = useRef(false);
+  useEffect(() => {
+    const ios = isIOS();
+    setIsIOSApp(ios);
+    isIOSRef.current = ios;
+    // On iOS, skip straight to payouts (if applicable) and never show upgrade
+    if (ios && !showPayoutsBanner) {
+      // No useful non-upgrade content; bar will be hidden by guard below
+    } else if (ios && showPayoutsBanner) {
+      setAnnouncementType("payouts");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Announcement bar state - rotating between messages
   const [announcementType, setAnnouncementType] = useState<
     "upgrade" | "payouts"
@@ -2543,7 +2560,7 @@ export function SalesClient({
       <body>
         <div class="header">
           <div class="header-left">
-            <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="Storelib" class="logo" />
+            <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg" alt="Storelib" class="logo" />
             <h1>Storelib - Sales Report</h1>
           </div>
           <div class="header-right">
@@ -2737,11 +2754,13 @@ export function SalesClient({
       setAnnouncementVisible(false);
       setTimeout(() => {
         setAnnouncementType((prev) => {
+          const onIOS = isIOSRef.current;
           if (prev === "upgrade") {
             if (showPayoutsBanner) return "payouts";
             return "upgrade";
           } else {
-            return "upgrade";
+            // was "payouts" — on iOS never go back to upgrade
+            return onIOS ? "payouts" : "upgrade";
           }
         });
         setProgressWidth(0);
@@ -2893,8 +2912,8 @@ export function SalesClient({
         </div>
       )}
 
-      {/* Rotating Announcement Bar — inline under header, not sticky */}
-      <div className="w-full bg-[#8b5cf6] text-white">
+      {/* Rotating Announcement Bar — hidden on iOS when type is "upgrade" (App Store Guideline 3.1.1) */}
+      {(!isIOSApp || announcementType !== "upgrade") && <div className="w-full bg-[#8b5cf6] text-white">
         <div className="h-[40px] md:h-[42px] flex items-center justify-center px-4">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
@@ -2945,7 +2964,7 @@ export function SalesClient({
             style={{ width: `${progressWidth}%` }}
           />
         </div>
-      </div>
+      </div>}
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}

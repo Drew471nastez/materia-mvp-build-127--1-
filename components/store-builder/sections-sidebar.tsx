@@ -62,6 +62,15 @@ import {
   Image as ImageLucide,
   HelpCircle,
   ExternalLink,
+  Navigation,
+  PanelBottom,
+  Columns,
+  AlignLeft,
+  CreditCard,
+  Link2,
+  ToggleLeft,
+  ToggleRight,
+  RefreshCw,
 } from "lucide-react"
 import type {
   Section,
@@ -89,6 +98,9 @@ import type {
   FAQItem,
   ThemePreset,
   VerifiedBadgeType,
+  NavLink,
+  FooterSettings,
+  FooterColumnType,
 } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import {
@@ -1330,12 +1342,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 : selectedSectionId === "sticky-add-to-cart"
                   ? "Sticky Add to Cart"
                   : selectedSectionId === "header"
-                    ? "Header"
+                    ? "Header Section"
                     : selectedSectionId === "product-content"
                       ? "Product Content"
-                      : selectedSectionType
-                        ? sectionNames[selectedSectionType]
-                        : "Section Settings"}
+                      : selectedSectionId === "footer"
+                        ? "Footer"
+                        : selectedSectionType
+                          ? sectionNames[selectedSectionType]
+                          : "Section Settings"}
           </h3>
         </div>
 
@@ -1398,6 +1412,19 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 settings={selectedSection.settings as FAQSettings}
                 onChange={(settings) => updateSectionSettings(selectedSectionId, settings)}
                 productId={selectedProductId}
+              />
+            ) : selectedSectionId === "footer" ? (
+              <FooterSettingsForm
+                settings={(draftConfig.globalSettings || defaultGlobalStoreSettings).footerSettings || {
+                  footerType: "simple",
+                  columns: ["navigation"],
+                  showPaymentIcons: false,
+                  showPoweredBy: true,
+                  sectionHeight: 80,
+                  headingSize: "h3",
+                  textFontSize: "medium",
+                }}
+                onChange={(footerSettings) => updateGlobalSettings({ footerSettings })}
               />
             ) : selectedSection ? (
               <SectionSettingsForm
@@ -1786,6 +1813,31 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     <span className="flex-1 text-sm font-medium">About</span>
                   </div>
                 )}
+
+                {/* Footer - always at bottom for shop pages */}
+                {currentPageType === "shop" && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5 cursor-pointer transition-all",
+                      selectedSectionId === "footer"
+                        ? "border-sky-500 bg-sky-50 dark:bg-sky-950/20"
+                        : "border-transparent hover:bg-muted/50",
+                    )}
+                    onClick={() => setSelectedSectionId("footer")}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
+                        selectedSectionId === "footer"
+                          ? "bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-400"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      <PanelBottom className="h-5 w-5" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium">Footer</span>
+                  </div>
+                )}
               </>
             )
           })()}
@@ -1856,6 +1908,188 @@ function FocalPointSelector({
         <span>Y: {value.y}%</span>
       </div>
     </div>
+  )
+}
+
+// ============================================
+// Navigation Links Editor Dialog
+// ============================================
+
+interface NavLinksEditorProps {
+  links: NavLink[]
+  onChange: (links: NavLink[]) => void
+}
+
+function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
+  const [open, setOpen] = useState(false)
+  const [localLinks, setLocalLinks] = useState<NavLink[]>(links)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editLabel, setEditLabel] = useState("")
+  const [editUrl, setEditUrl] = useState("")
+  const [addingNew, setAddingNew] = useState(false)
+  const [newLabel, setNewLabel] = useState("")
+  const [newUrl, setNewUrl] = useState("")
+
+  const handleOpen = () => {
+    setLocalLinks(links)
+    setOpen(true)
+  }
+
+  const handleClose = () => {
+    setOpen(false)
+    setEditingId(null)
+    setAddingNew(false)
+  }
+
+  const handleApply = () => {
+    onChange(localLinks)
+    setOpen(false)
+    setEditingId(null)
+    setAddingNew(false)
+  }
+
+  const handleStartEdit = (link: NavLink) => {
+    setEditingId(link.id)
+    setEditLabel(link.label)
+    setEditUrl(link.url)
+  }
+
+  const handleSaveEdit = (id: string) => {
+    setLocalLinks(localLinks.map(l => l.id === id ? { ...l, label: editLabel, url: editUrl } : l))
+    setEditingId(null)
+  }
+
+  const handleDelete = (id: string) => {
+    setLocalLinks(localLinks.filter(l => l.id !== id))
+  }
+
+  const handleAddLink = () => {
+    if (!newLabel.trim()) return
+    const newLink: NavLink = {
+      id: `nav-${Date.now()}`,
+      label: newLabel.trim(),
+      url: newUrl.trim(),
+    }
+    setLocalLinks([...localLinks, newLink])
+    setNewLabel("")
+    setNewUrl("")
+    setAddingNew(false)
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleOpen}
+        className="w-full py-2.5 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+      >
+        Edit Navigation Links
+      </button>
+
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="p-0 gap-0 flex flex-col overflow-hidden w-[95vw] sm:max-w-md max-h-[90vh]">
+          <DialogHeader className="px-5 py-4 border-b border-border shrink-0">
+            <DialogTitle className="text-lg font-semibold text-center">Navigation Links</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-3 space-y-0">
+              {localLinks.map((link, index) => (
+                <div key={link.id}>
+                  {editingId === link.id ? (
+                    <div className="p-3 space-y-2 border border-blue-200 rounded-lg bg-blue-50/50 m-1">
+                      <Input
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        placeholder="Link label"
+                        className="h-9 text-sm"
+                        autoFocus
+                      />
+                      <Input
+                        value={editUrl}
+                        onChange={(e) => setEditUrl(e.target.value)}
+                        placeholder="URL (e.g., /shop or https://...)"
+                        className="h-9 text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => handleSaveEdit(link.id)} className="flex-1 h-8 text-xs bg-blue-500 hover:bg-blue-600 text-white">
+                          Save
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="h-8 text-xs">
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 px-3 py-3.5 border-b border-border last:border-b-0">
+                      <GripVertical className="h-5 w-5 text-muted-foreground/50 shrink-0" />
+                      <span className="flex-1 text-sm font-medium">{link.label}</span>
+                      <button
+                        onClick={() => handleStartEdit(link)}
+                        className="flex items-center justify-center w-9 h-9 border border-border rounded-lg hover:bg-muted transition-colors shrink-0"
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(link.id)}
+                        className="flex items-center justify-center w-9 h-9 border border-border rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Add new link form */}
+              {addingNew ? (
+                <div className="p-3 space-y-2 border border-blue-200 rounded-lg bg-blue-50/50 m-1 mt-2">
+                  <Input
+                    value={newLabel}
+                    onChange={(e) => setNewLabel(e.target.value)}
+                    placeholder="Link label (e.g., Home)"
+                    className="h-9 text-sm"
+                    autoFocus
+                  />
+                  <Input
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    placeholder="URL (e.g., / or https://...)"
+                    className="h-9 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleAddLink} className="flex-1 h-8 text-xs bg-blue-500 hover:bg-blue-600 text-white">
+                      Add
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setAddingNew(false); setNewLabel(""); setNewUrl("") }} className="h-8 text-xs">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingNew(true)}
+                  className="flex items-center gap-2 w-full px-3 py-3.5 text-sm font-medium text-blue-500 hover:bg-blue-50 transition-colors border-t border-border mt-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Link
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-4 py-3 border-t border-border shrink-0">
+            <button
+              onClick={handleApply}
+              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              Apply Changes
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -1958,6 +2192,16 @@ function ShopHeaderSettingsForm({
 
   return (
     <div className="space-y-6">
+      {/* Store Title */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Store title</Label>
+        <Input
+          value={(settings as any).storeTitle || ""}
+          onChange={(e) => onChange({ storeTitle: e.target.value } as any)}
+          placeholder="Your Store Name"
+        />
+      </div>
+
       {/* Edit Settings Link */}
       <a
         href="/app/settings"

@@ -592,6 +592,30 @@ export async function POST(request: Request) {
       console.error("[Webhook] First sale email error (non-fatal):", firstSaleErr)
     }
 
+    // Push notification to seller — non-fatal
+    try {
+      const { notifySale } = await import("@/lib/push/notifications")
+      const { data: creatorRow } = await supabaseAdmin
+        .from("creators")
+        .select("user_id")
+        .eq("id", creatorId)
+        .single()
+      if (creatorRow?.user_id) {
+        console.log("[push] Sending sale notification to creator user:", creatorRow.user_id)
+        await notifySale(creatorRow.user_id, {
+          productName: productTitle,
+          amountCents: totalAmount,
+          orderId: order.id,
+          productId,
+        })
+        console.log("[push] Push send result: OK")
+      } else {
+        console.log("[push] No user_id found for creator:", creatorId, "— skipping push")
+      }
+    } catch (pushErr) {
+      console.error("[push] Sale notification error (non-fatal):", pushErr)
+    }
+
     return NextResponse.json({ received: true })
   }
 

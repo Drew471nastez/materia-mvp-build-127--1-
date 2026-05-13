@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
-import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
+import { getStoreUrl, getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { isNativeApp, isIOS } from "@/lib/native-bridge"
 
 interface WishlistItem {
   id: string
@@ -60,6 +61,8 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
   const [items, setItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
 
   const fetchWishlist = useCallback(async () => {
     try {
@@ -151,13 +154,15 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
         <p className="text-neutral-500 text-sm text-center max-w-xs mb-8">
           Products you save will appear here. Start exploring to find something you love.
         </p>
-        <Link
-          href="/explore"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
-        >
-          Explore Products
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+        {!isIOSApp && (
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+          >
+            Explore Products
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        )}
       </div>
     )
   }
@@ -177,7 +182,11 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
           const creatorName = product.creator_profile?.display_name || "Creator"
           const creatorUsername = product.creator_profile?.username || product.creators?.slug
-          const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`
+          const native = isNativeApp()
+          // On native apps, use the full share URL so SmartLink opens it in the external browser
+          const productUrl = native && creatorUsername
+            ? getProductShareUrl(creatorUsername, product.slug)
+            : creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`
           const isRemoving = removingId === product.id
 
           return (
@@ -188,7 +197,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
               }`}
             >
               {/* Thumbnail */}
-              <SmartLink href={productUrl} className="block">
+              <SmartLink href={productUrl} className="block" target={native ? "_blank" : undefined}>
                 <div className="relative aspect-[4/3] bg-neutral-50 overflow-hidden">
                   {product.thumbnail_url ? (
                     <Image
@@ -221,7 +230,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
               {/* Info */}
               <div className="p-3.5">
-                <SmartLink href={productUrl}>
+                <SmartLink href={productUrl} target={native ? "_blank" : undefined}>
                   <h3 className="font-medium text-neutral-900 text-sm truncate hover:text-violet-600 transition-colors">
                     {product.title}
                   </h3>
@@ -250,6 +259,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                   <SmartLink
                     href={productUrl}
                     className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors"
+                    target={native ? "_blank" : undefined}
                   >
                     View
                   </SmartLink>

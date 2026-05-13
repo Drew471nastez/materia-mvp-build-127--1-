@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { nativeLogOut } from "@/lib/native-bridge"
+import { nativeLogOut, isIOS } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -243,18 +243,28 @@ function MobileBottomSheet({
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const handleBarRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  // Refs for native non-passive touch handlers (avoids stale closures)
+  const isDraggingRef = useRef(false)
+  const startYRef = useRef(0)
+  const dragYRef = useRef(0)
+  const scrollYRef = useRef(0)
 
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      // Prevent layout shift by compensating for scrollbar
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+      scrollYRef.current = window.scrollY
+      // Lock scroll without position:fixed to prevent layout shifts on iOS Capacitor.
+      // position:fixed on body causes the sticky black platform header to jump and
+      // create extra black space above it. overflow:hidden is sufficient here because
+      // the sheet overlay already blocks all touch-through, and CapacitorBounceGuard
+      // handles rubber-band prevention at the document level.
+      document.documentElement.style.overflow = "hidden"
       document.body.style.overflow = "hidden"
-      document.body.style.paddingRight = `${scrollbarWidth}px`
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
+      document.documentElement.style.overscrollBehavior = "none"
+      document.body.style.overscrollBehavior = "none"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -263,62 +273,84 @@ function MobileBottomSheet({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       const timer = setTimeout(() => {
+        document.documentElement.style.overflow = ""
         document.body.style.overflow = ""
-        document.body.style.paddingRight = ""
-        document.documentElement.style.overscrollBehavior = ''
-        document.body.style.overscrollBehavior = ''
+        document.documentElement.style.overscrollBehavior = ""
+        document.body.style.overscrollBehavior = ""
         setIsVisible(false)
         setDragY(0)
+        dragYRef.current = 0
       }, 400)
       return () => clearTimeout(timer)
     }
     return () => {
+      document.documentElement.style.overflow = ""
       document.body.style.overflow = ""
-      document.body.style.paddingRight = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      document.documentElement.style.overscrollBehavior = ""
+      document.body.style.overscrollBehavior = ""
     }
   }, [isOpen, isVisible])
+
+  // Attach non-passive touchmove on the handle bar so preventDefault() actually works
+  useEffect(() => {
+    const handle = handleBarRef.current
+    if (!handle || !isVisible) return
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDraggingRef.current) return
+      const diff = e.touches[0].clientY - startYRef.current
+      if (diff > 0) {
+        e.preventDefault()
+        const newDrag = diff * 0.8
+        dragYRef.current = newDrag
+        setDragY(newDrag)
+      }
+    }
+    handle.addEventListener("touchmove", onTouchMove, { passive: false })
+    return () => handle.removeEventListener("touchmove", onTouchMove)
+  }, [isVisible])
+
+  // Prevent the backdrop overlay from letting touch events reach the page below
+  useEffect(() => {
+    const overlay = overlayRef.current
+    if (!overlay || !isVisible) return
+    const prevent = (e: TouchEvent) => e.preventDefault()
+    overlay.addEventListener("touchmove", prevent, { passive: false })
+    return () => overlay.removeEventListener("touchmove", prevent)
+  }, [isVisible])
 
   const handleClose = () => {
     setIsAnimating(false)
     setDragY(0)
+    dragYRef.current = 0
     setTimeout(() => {
       onClose()
     }, 400)
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    startY.current = touch.clientY
+    startYRef.current = e.touches[0].clientY
+    isDraggingRef.current = true
     setIsDragging(true)
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
-    if (diff > 0) {
-      e.preventDefault()
-      setDragY(diff * 0.8)
-    }
-  }
-
   const handleTouchEnd = () => {
-    if (!isDragging) return
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
     setIsDragging(false)
-    if (dragY > 80) {
+    if (dragYRef.current > 80) {
       handleClose()
     } else {
       setDragY(0)
+      dragYRef.current = 0
     }
   }
 
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" style={{ touchAction: "none" }}>
       <div
+        ref={overlayRef}
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
           isAnimating ? "opacity-100" : "opacity-0"
         }`}
@@ -330,7 +362,7 @@ function MobileBottomSheet({
           className={`relative bg-white rounded-2xl w-full max-w-md shadow-xl transition-all duration-400 ${
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
           }`}
-          style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)" }}
+          style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)", touchAction: "auto" }}
         >
           <div className="flex items-center justify-between p-4 border-b border-[#e5e7eb]">
             <h2 className="text-[18px] font-semibold text-[#1a1a2e]">{title}</h2>
@@ -341,7 +373,7 @@ function MobileBottomSheet({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{children}</div>
+          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>{children}</div>
         </div>
       </div>
       {/* Mobile Bottom Sheet */}
@@ -351,14 +383,16 @@ function MobileBottomSheet({
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
+          touchAction: "none",
         }}
       >
-        {/* Handle bar — drag target only, touch events restricted here so content buttons work */}
+        {/* Handle bar — drag target; native non-passive listener handles move */}
         <div
+          ref={handleBarRef}
           className="pt-3 pb-2"
           onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          style={{ touchAction: "none" }}
         >
           <button
             onClick={handleClose}
@@ -367,7 +401,7 @@ function MobileBottomSheet({
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
-        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]">
+        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]" style={{ touchAction: "pan-y" }}>
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{title}</h3>
           {children}
         </div>
@@ -877,6 +911,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
+  // iOS App Store compliance (Guideline 3.1.1): hide all purchase/upgrade CTAs on iOS.
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
+
   // Subscription plan (for feature gating)
   const [userPlan, setUserPlan] = useState<string | null>(null)
   const [planLoading, setPlanLoading] = useState(true)
@@ -1126,23 +1164,36 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         return
       }
       if (data?.url) {
-        // Open Stripe Connect in a popup window (like Stan.store)
-        const w = 1100
-        const h = 700
-        const left = window.screenX + (window.outerWidth - w) / 2
-        const top = window.screenY + (window.outerHeight - h) / 2
-        const popup = window.open(data.url, "stripe-connect", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
-        // Poll for popup close, then refresh status
-        if (popup) {
-          const pollTimer = setInterval(() => {
-            if (popup.closed) {
-              clearInterval(pollTimer)
-              loadStripeStatus()
-            }
-          }, 1000)
+        if (isNativeApp()) {
+          // On native: open in SFSafariViewController (iOS) / Chrome Custom Tab (Android)
+          openExternal(data.url)
+          // Refresh Stripe status when the user returns to the app
+          try {
+            const { App } = await import("@capacitor/app")
+            const handle = await App.addListener("appStateChange", ({ isActive }) => {
+              if (isActive) {
+                handle.remove()
+                loadStripeStatus()
+              }
+            })
+          } catch { /* @capacitor/app not available */ }
         } else {
-          // Popup blocked - fall back to redirect
-          window.location.href = data.url
+          // Web: open in a popup window so the user stays on the settings page
+          const w = 1100
+          const h = 700
+          const left = window.screenX + (window.outerWidth - w) / 2
+          const top = window.screenY + (window.outerHeight - h) / 2
+          const popup = window.open(data.url, "stripe-connect", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
+          if (popup) {
+            const pollTimer = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(pollTimer)
+                loadStripeStatus()
+              }
+            }, 1000)
+          } else {
+            window.location.href = data.url
+          }
         }
       } else {
         setError("No onboarding URL returned. Please try again.")
@@ -1169,22 +1220,34 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || "Failed to open account settings")
       if (data?.url) {
-        // Open in popup so user stays on settings page, refresh data when they return
-        const w = 1100, h = 700
-        const left = window.screenX + (window.outerWidth - w) / 2
-        const top = window.screenY + (window.outerHeight - h) / 2
-        const popup = window.open(data.url, "stripe-manage", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
-        if (popup) {
-          const pollTimer = setInterval(() => {
-            if (popup.closed) {
-              clearInterval(pollTimer)
-              loadStripeStatus()
-              loadStripeBankInfo()
-            }
-          }, 1000)
+        if (isNativeApp()) {
+          openExternal(data.url)
+          try {
+            const { App } = await import("@capacitor/app")
+            const handle = await App.addListener("appStateChange", ({ isActive }) => {
+              if (isActive) {
+                handle.remove()
+                loadStripeStatus()
+                loadStripeBankInfo()
+              }
+            })
+          } catch { /* @capacitor/app not available */ }
         } else {
-          // Popup blocked — redirect
-          window.location.href = data.url
+          const w = 1100, h = 700
+          const left = window.screenX + (window.outerWidth - w) / 2
+          const top = window.screenY + (window.outerHeight - h) / 2
+          const popup = window.open(data.url, "stripe-manage", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
+          if (popup) {
+            const pollTimer = setInterval(() => {
+              if (popup.closed) {
+                clearInterval(pollTimer)
+                loadStripeStatus()
+                loadStripeBankInfo()
+              }
+            }, 1000)
+          } else {
+            window.location.href = data.url
+          }
         }
       }
     } catch (err: any) {
@@ -1863,7 +1926,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
       </div>
 
-      <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
+      <div className="overflow-x-hidden bg-[#fafafa]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
         {/* Header with Handle pill */}
         <div className="mb-6 flex items-start justify-between gap-3">
@@ -1898,12 +1961,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   type="button"
                   onClick={() => {
                     setIsQuickAccessOpen(false)
-                    // In Capacitor navigate within the WebView; on web open a new tab
-                    if (isNativeApp()) {
-                      window.location.href = navOnepageUrl || onepageUrl
-                    } else {
-                      window.open(onepageUrl || navOnepageUrl, "_blank", "noopener,noreferrer")
-                    }
+                    openExternal(onepageUrl || navOnepageUrl)
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
@@ -1914,11 +1972,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   type="button"
                   onClick={() => {
                     setIsQuickAccessOpen(false)
-                    if (isNativeApp()) {
-                      window.location.href = navStoreUrlWithDomain || storeUrlWithDomain
-                    } else {
-                      window.open(storeUrlWithDomain || navStoreUrlWithDomain, "_blank", "noopener,noreferrer")
-                    }
+                    openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
@@ -1934,22 +1988,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           <div className="space-y-2">
             <button type="button" onClick={() => {
               setIsQuickAccessOpen(false)
-              if (isNativeApp()) {
-                window.location.href = navOnepageUrl || onepageUrl
-              } else {
-                window.open(onepageUrl || navOnepageUrl, "_blank", "noopener,noreferrer")
-              }
+              openExternal(onepageUrl || navOnepageUrl)
             }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
             </button>
             <button type="button" onClick={() => {
               setIsQuickAccessOpen(false)
-              if (isNativeApp()) {
-                window.location.href = navStoreUrlWithDomain || storeUrlWithDomain
-              } else {
-                window.open(storeUrlWithDomain || navStoreUrlWithDomain, "_blank", "noopener,noreferrer")
-              }
+              openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
             }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Store</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
@@ -2386,6 +2432,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <a
                     href="/help"
                     target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (isNativeApp()) {
+                        e.preventDefault()
+                        openExternal(`https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`)
+                      }
+                    }}
                     className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
@@ -2966,8 +3019,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {!isTabLoading && activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
 
-              {/* Upgrade banner — only shown for free/null plan, nothing while loading or paid */}
-              {!planLoading && (userPlan === "free" || userPlan === null) ? (
+              {/* iOS: plan management notice (no upgrade links on iOS per App Store Guideline 3.1.1) */}
+              {isIOSApp && (
+                <div className="flex items-center gap-3 rounded-2xl bg-[#f3f4f6] border border-[#e5e7eb] px-4 sm:px-5 py-3 sm:py-3.5">
+                  <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
+                  <p className="text-[13px] text-[#6b7280]">Plan changes are managed on the web dashboard.</p>
+                </div>
+              )}
+
+              {/* Upgrade banner — only shown for free/null plan on non-iOS, nothing while loading or paid */}
+              {/* iOS: hidden for App Store compliance (Guideline 3.1.1) */}
+              {!isIOSApp && !planLoading && (userPlan === "free" || userPlan === null) ? (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm">
                   <div className="flex items-center gap-3 min-w-0">
                     <Globe className="h-5 w-5 text-white shrink-0" />
@@ -2977,7 +3039,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </p>
                   </div>
                   <a
-                    href={`/pricing?source=upgrade&returnTo=${encodeURIComponent("/app/settings?tab=domains")}`}
+                    href="/app/settings/billing/upgrade"
                     className="shrink-0 inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-xl hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline whitespace-nowrap"
                   >
                     Upgrade

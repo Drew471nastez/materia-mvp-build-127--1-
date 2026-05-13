@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
-import { getLinksUrl } from "@/lib/url-helpers"
+import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -558,6 +558,37 @@ function ShareButton({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [avatarImgLoaded, setAvatarImgLoaded] = useState(false)
+  const [avatarImgError, setAvatarImgError] = useState(false)
+
+  // Returns true if a hex color is near-white (all channels > 200)
+  const isNearWhite = (hex: string): boolean => {
+    const m = hex.match(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/)
+    if (!m) return false
+    let h = m[1]
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("")
+    return parseInt(h.slice(0, 2), 16) > 200 && parseInt(h.slice(2, 4), 16) > 200 && parseInt(h.slice(4, 6), 16) > 200
+  }
+
+  // Compute contrast text color (white or dark) for a given background
+  const getContrastTextColor = (bg: string): "white" | "dark" => {
+    // For gradients, extract the first hex color to approximate
+    const hexMatch = bg.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/)
+    // Default to "dark" when we can't parse the color — dark text is always readable on unknown/light backgrounds
+    if (!hexMatch) return "dark"
+    let hex = hexMatch[1]
+    if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("")
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    // Relative luminance (WCAG)
+    const toLinear = (c: number) => {
+      const s = c / 255
+      return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    }
+    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+    return L > 0.35 ? "dark" : "white"
+  }
 
   // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
   const getPopupHeaderBackground = () => {
@@ -567,11 +598,19 @@ function ShareButton({
     if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
       return themeBackgroundColor
     }
-    // For image/video or white backgrounds, use accent color or default
-    return accentColor || "#8B5CF6"
+    // Use accent color only if it's not near-white (white accent on white bg = invisible text)
+    if (accentColor && !isNearWhite(accentColor)) {
+      return accentColor
+    }
+    return "#8B5CF6"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
+  const headerTextColor = getContrastTextColor(popupHeaderBackground)
+  const headerTextClass = headerTextColor === "white" ? "text-white" : "text-gray-900"
+  const headerSubTextClass = headerTextColor === "white" ? "text-white/80" : "text-gray-600"
+  const headerCloseClass = headerTextColor === "white" ? "bg-white/20 hover:bg-white/30" : "bg-black/10 hover:bg-black/20"
+  const headerCloseIconClass = headerTextColor === "white" ? "text-white" : "text-gray-700"
 
   const styles = {
     glass: {
@@ -605,10 +644,100 @@ function ShareButton({
   const s = styles[style as keyof typeof styles] || styles.glass
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(pageUrl)
+    try {
+      await navigator.clipboard.writeText(pageUrl)
+    } catch {
+      // Fallback for older browsers/Capacitor
+      const el = document.createElement("textarea")
+      el.value = pageUrl
+      el.style.position = "fixed"
+      el.style.opacity = "0"
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand("copy")
+      document.body.removeChild(el)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  const openExternalUrl = async (url: string) => {
+    if (isNativeApp()) {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url })
+    } else {
+      window.open(url, "_blank")
+    }
+  }
+
+  /**
+   * Open a share target.
+   *
+   * Native (Capacitor iOS / Android):
+   *   window.open(scheme, '_system') is called SYNCHRONOUSLY while we are
+   *   still inside the user-gesture. Capacitor intercepts '_system' and
+   *   routes custom schemes (whatsapp://, twitter://, …) straight to
+   *   UIApplication.shared.open() on iOS and Intent.ACTION_VIEW on Android —
+   *   the target app opens instantly with no in-app browser.
+   *   If no native scheme exists (e.g. Facebook) we fall back to Browser.open
+   *   so the web URL opens in the Capacitor in-app browser.
+   *
+   * Web (mobile / desktop browser):
+   *   window.location.href = nativeScheme lets the OS intercept the custom
+   *   URL scheme and open the app without creating a new browser tab.
+   *   A visibilitychange listener detects a successful hand-off; if the page
+   *   stays visible after 1.5 s (app not installed) we open the wa.me web
+   *   fallback in a new tab instead.
+   */
+  /**
+   * Open a share target — app-first with browser fallback.
+   *
+   * @param nativeScheme  Custom URL scheme (twitter://, whatsapp://, etc.)
+   *                      Pass null to skip app-scheme and go straight to web.
+   * @param webUrl        HTTPS fallback URL (opens if app is not installed).
+   * @param preferSystem  If true, open webUrl via system browser (_system) on
+   *                      Capacitor instead of the in-app browser.  This lets
+   *                      iOS Universal Links / Android App Links redirect to
+   *                      the native app (e.g. Facebook, whose custom scheme
+   *                      is unreliable but whose Universal Links work).
+   */
+  const openShareTarget = async (
+    nativeScheme: string | null,
+    webUrl: string,
+    preferSystem = false,
+  ) => {
+    if (isNativeApp()) {
+      if (nativeScheme) {
+        // Synchronous — keeps user-gesture context so the OS accepts the call.
+        window.open(nativeScheme, "_system")
+      } else if (preferSystem) {
+        // Open via the system browser so Universal Links / App Links can
+        // redirect to the native app (e.g. Facebook).  Falls back to the
+        // browser if the app is not installed.
+        window.open(webUrl, "_system")
+      } else {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: webUrl })
+      }
+    } else if (nativeScheme) {
+      // Web: navigate current page to native scheme — opens app, no new tab.
+      let appOpened = false
+      const onVisibilityChange = () => {
+        if (document.hidden) appOpened = true
+      }
+      document.addEventListener("visibilitychange", onVisibilityChange)
+      window.location.href = nativeScheme
+      setTimeout(() => {
+        document.removeEventListener("visibilitychange", onVisibilityChange)
+        if (!appOpened) window.open(webUrl, "_blank")
+      }, 1500)
+    } else {
+      window.open(webUrl, "_blank")
+    }
+  }
+
+  const shareText = `${pageTitle} ${pageUrl}`
+  const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}&quote=${encodeURIComponent(pageTitle)}`
 
   const shareOptions = [
     {
@@ -622,23 +751,29 @@ function ShareButton({
       iconType: "x" as const,
       color: "#000000",
       action: () =>
-        window.open(
-          `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
-          "_blank",
+        openShareTarget(
+          `twitter://post?message=${encodeURIComponent(shareText)}`,
+          `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`,
         ),
     },
     {
       name: "Facebook",
       iconType: "facebook" as const,
       color: "#1877F2",
-      action: () =>
-        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`, "_blank"),
+      // Use system browser on Capacitor so iOS Universal Links / Android App
+      // Links redirect to the Facebook app.  Falls back to browser if not
+      // installed.  The fb:// scheme is unreliable on modern iOS/Android.
+      action: () => openShareTarget(null, fbShareUrl, true),
     },
     {
       name: "WhatsApp",
       iconType: "whatsapp" as const,
       color: "#25D366",
-      action: () => window.open(`https://wa.me/?text=${encodeURIComponent(`${pageTitle} ${pageUrl}`)}`, "_blank"),
+      action: () =>
+        openShareTarget(
+          `whatsapp://send?text=${encodeURIComponent(shareText)}`,
+          `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+        ),
     },
   ]
 
@@ -781,9 +916,9 @@ function ShareButton({
           {/* Close button */}
           <button
             onClick={() => setIsOpen(false)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all cursor-pointer z-10"
+            className={cn("absolute top-4 right-4 p-2 rounded-full backdrop-blur-sm transition-all cursor-pointer z-10", headerCloseClass)}
           >
-            <X className="w-4 h-4 text-white" />
+            <X className={cn("w-4 h-4", headerCloseIconClass)} />
           </button>
 
           <div className="text-center">
@@ -796,15 +931,23 @@ function ShareButton({
                 />
               ) : avatarUrl ? (
                 <>
-                  <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                  <span className="text-3xl font-bold text-white absolute inset-0 flex items-center justify-center">{pageTitle.charAt(0).toUpperCase()}</span>
+                  <img
+                    src={avatarUrl}
+                    alt={pageTitle}
+                    className="w-full h-full object-cover"
+                    onLoad={() => setAvatarImgLoaded(true)}
+                    onError={() => { setAvatarImgError(true); setAvatarImgLoaded(false) }}
+                  />
+                  {(!avatarImgLoaded || avatarImgError) && (
+                    <span className={cn("text-3xl font-bold absolute inset-0 flex items-center justify-center", headerTextClass)}>{pageTitle.charAt(0).toUpperCase()}</span>
+                  )}
                 </>
               ) : (
-                <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
+                <span className={cn("text-3xl font-bold", headerTextClass)}>{pageTitle.charAt(0).toUpperCase()}</span>
               )}
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">{pageTitle}</h3>
-            <p className="text-white/80 text-sm truncate max-w-[200px] mx-auto">
+            <h3 className={cn("text-xl font-bold mb-1", headerTextClass)}>{pageTitle}</h3>
+            <p className={cn("text-sm truncate max-w-[200px] mx-auto", headerSubTextClass)}>
               {pageUrl.replace(/^https?:\/\//, "")}
             </p>
           </div>
@@ -831,7 +974,10 @@ function ShareButton({
           )}
         </div>
         <div className="px-5 pb-6 relative z-10">
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <div
+            className="bg-gray-50 rounded-2xl p-4 border border-gray-100 cursor-pointer"
+            onClick={() => openExternalUrl("https://storelib.com")}
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden">
                 <img
@@ -845,7 +991,7 @@ function ShareButton({
                 <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>
               </div>
               <button
-                onClick={() => window.open("https://storelib.com", "_blank")}
+                onClick={(e) => { e.stopPropagation(); openExternalUrl("https://storelib.com") }}
                 className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95 cursor-pointer"
               >
                 Join
@@ -1818,7 +1964,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return patterns[patternType] || null
   }
 
-  const pageUrl = getLinksUrl(onepage.slug)
+  const pageUrl = getLinksShareUrl(onepage.slug)
 
   // Page content component
   const PageContent = ({ isDesktop = false }: { isDesktop?: boolean }) => (

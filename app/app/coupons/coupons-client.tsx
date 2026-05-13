@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, Zap, HelpCircle } from "lucide-react"
+import { useSearchParams, useRouter } from "next/navigation"
+import Link from "next/link"
+import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -395,7 +397,7 @@ function CouponModal({
                   value={form.discount_value}
                   onChange={e => set("discount_value", e.target.value)}
                   placeholder={form.discount_type === "percentage" ? "10" : "5.00"}
-                  min="0.01"
+                  min={form.discount_type === "percentage" ? "1" : "0.01"}
                   max={form.discount_type === "percentage" ? "100" : undefined}
                   step={form.discount_type === "percentage" ? "1" : "0.01"}
                   className={cn(
@@ -732,38 +734,27 @@ function CouponRow({
 
 export function CouponsClient({ creatorId, initialCoupons, products }: CouponsClientProps) {
   const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons)
-  const [showModal, setShowModal] = useState(false)
   const [editTarget, setEditTarget] = useState<Coupon | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [pill, setPill] = useState<{ message: string; id: number } | null>(null)
   const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
   const showPill = useCallback((msg: string) => setPill({ message: msg, id: Date.now() }), [])
 
-  // ── Create ──────────────────────────────────────────────────────────────────
-
-  const handleCreate = async (form: ReturnType<typeof emptyForm>) => {
-    const res = await fetch("/api/coupons", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: form.code,
-        discount_type: form.discount_type,
-        discount_value: Number(form.discount_value),
-        product_ids: form.appliesTo === "specific" ? form.product_ids : null,
-        usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
-        starts_at: form.has_start_date && form.starts_at ? new Date(form.starts_at).toISOString() : null,
-        expires_at: form.has_expiry_date && form.expires_at ? new Date(form.expires_at).toISOString() : null,
-        min_purchase_cents: form.has_min_purchase && form.min_purchase_amount ? Math.round(Number(form.min_purchase_amount) * 100) : null,
-        is_active: form.is_active,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || "Failed to create coupon")
-    setCoupons(prev => [data.coupon, ...prev])
-    setShowModal(false)
-    showPill(`${data.coupon.code} — Coupon created`)
-  }
+  // Show pill when returning from the create subpage
+  useEffect(() => {
+    const created = searchParams.get("created")
+    if (created) {
+      showPill(`${created} — Coupon created`)
+      // Strip the query param from the URL without a re-render
+      const url = new URL(window.location.href)
+      url.searchParams.delete("created")
+      router.replace(url.pathname, { scroll: false })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Edit ────────────────────────────────────────────────────────────────────
 
@@ -843,23 +834,13 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
             <h1 className="text-[22px] font-bold text-gray-900 leading-tight">Coupons</h1>
             <p className="text-sm text-gray-500 mt-0.5">Create discount codes for your buyers.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors cursor-pointer shrink-0"
+          <Link
+            href="/app/coupons/new"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors shrink-0"
           >
             <Plus className="w-4 h-4" />
             New coupon
-          </button>
-        </div>
-
-        {/* Tips — shortened on mobile */}
-        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4 flex gap-3 items-start">
-          <Zap className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-purple-800">
-            <span className="hidden sm:inline">Share coupon codes with your audience to offer discounts at checkout. Buyers enter the code on the payment page.</span>
-            <span className="sm:hidden">Share discount codes with buyers for checkout.</span>
-          </p>
+          </Link>
         </div>
 
         {/* List */}
@@ -872,14 +853,13 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
             <p className="text-sm text-gray-400 mb-5 max-w-xs mx-auto">
               Create your first discount code to share with your audience.
             </p>
-            <button
-              type="button"
-              onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors cursor-pointer"
+            <Link
+              href="/app/coupons/new"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
             >
               <Plus className="w-4 h-4" />
               Create coupon
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-3">
@@ -896,17 +876,6 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
           </div>
         )}
       </div>
-
-      {/* Create modal */}
-      {showModal && (
-        <CouponModal
-          mode="create"
-          initial={emptyForm()}
-          products={products}
-          onClose={() => setShowModal(false)}
-          onSave={handleCreate}
-        />
-      )}
 
       {/* Edit modal */}
       {editTarget && (

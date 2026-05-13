@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
+import { isNativeApp, openExternal, isIOS } from "@/lib/native-bridge"
 
 const STORELIB_LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 interface UpgradePageClientProps {
   plans: any[]
@@ -26,6 +27,16 @@ export function UpgradePageClient({
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
+  const [isIOSApp, setIsIOSApp] = useState(false)
+
+  useEffect(() => {
+    if (isIOS()) {
+      // iOS App Store compliance: redirect immediately if the server guard was
+      // bypassed by a client-side navigation (e.g. router.push).
+      setIsIOSApp(true)
+      router.replace("/app/settings")
+    }
+  }, [router])
 
   const goBack = () => {
     if (closing) return
@@ -82,7 +93,11 @@ export function UpgradePageClient({
         }
         const { checkoutUrl } = await response.json()
         if (checkoutUrl) {
-          window.location.href = checkoutUrl
+          if (isNativeApp()) {
+            openExternal(checkoutUrl)
+          } else {
+            window.open(checkoutUrl, "_blank", "noopener,noreferrer")
+          }
         }
       }
     } catch (err: any) {
@@ -104,19 +119,22 @@ export function UpgradePageClient({
     pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
   }
 
+  // iOS: show blank while redirect fires (router.replace is async)
+  if (isIOSApp) return null
+
   return (
-    <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
-      {/* Smooth close overlay */}
+    <div className="relative bg-white min-h-full">
+      {/* Smooth close overlay — absolute so it stays within the scroll container */}
       {closing && (
-        <div className="fixed inset-0 z-[70] bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 animate-in fade-in">
+        <div className="fixed inset-0 z-[200] bg-white/95 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 text-[#7c3aed] animate-spin" />
             <p className="text-[13px] text-[#6b7280] font-medium">Going back...</p>
           </div>
         </div>
       )}
-      {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      {/* Top bar — sticky within the app layout's overflow-y-auto scroll container */}
+      <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <button
             onClick={goBack}
@@ -130,7 +148,7 @@ export function UpgradePageClient({
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 pointer-events-none"
+            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-[7px]"
           />
 
           <button

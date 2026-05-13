@@ -229,8 +229,20 @@ export async function handleNativeOAuthCallback(
 
     const parsed       = new URL(url)
     const code         = parsed.searchParams.get("code")
-    const accessToken  = parsed.searchParams.get("token")
+    // Supabase recovery emails use "token" as the key; normalise to "access_token"
+    const accessToken  = parsed.searchParams.get("access_token") ?? parsed.searchParams.get("token")
     const refreshToken = parsed.searchParams.get("refresh_token")
+    const nextParam    = parsed.searchParams.get("next") ?? ""
+
+    // Recovery / password-reset flow: store the full URL for reset-password page to consume
+    if (nextParam.includes("/reset-password") || parsed.hash.includes("type=recovery")) {
+      try {
+        // Normalise fragment tokens into search params for consistent parsing
+        const normalized = url.includes("#") ? url.replace("#", "?").replace(/\?([^?]*)$/, "?$1") : url
+        sessionStorage.setItem("nativeRecoveryUrl", normalized)
+      } catch { /* ignore */ }
+      return { success: true, isCreator: false, nextPath: "/reset-password" }
+    }
 
     let userId: string
 
@@ -280,6 +292,25 @@ export async function nativeLogout(
   isNative() ? window.location.replace("/welcome") : router.replace("/login")
 }
 
+// ── Haptic feedback ──────────────────────────────────────────────────────────
+
+/**
+ * Trigger a short haptic impact on iOS/Android via @capacitor/haptics.
+ * No-op on web or SSR. Dynamically imported so it never bloats the web bundle.
+ *
+ * @param style - "light" | "medium" | "heavy" (default: "light")
+ */
+export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light"): Promise<void> {
+  if (typeof window === "undefined") return
+  const cap = (window as any).Capacitor
+  if (!cap?.isNativePlatform?.()) return
+  try {
+    const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
+    const styleMap = { light: ImpactStyle.Light, medium: ImpactStyle.Medium, heavy: ImpactStyle.Heavy }
+    await Haptics.impact({ style: styleMap[style] })
+  } catch { /* plugin unavailable or permission denied — silent no-op */ }
+}
+
 // ── External link handling ──────────────────────────────────────────────────
 
 /**
@@ -290,13 +321,42 @@ export async function nativeLogout(
  * open in the device's default browser rather than the in-app WebView so
  * the user gets the full browser experience (address bar, sharing, etc).
  *
- * The native shell interprets the `storelib://external?url=…` deep-link
- * and launches an Intent / SFSafariViewController accordingly.
+ * iOS:  Uses window.open("_system") to launch the URL in Safari.app — fully
+ *       external to the app. This satisfies App Store Guideline 3.1.1 because
+ *       no purchase flow is ever presented inside the app or any in-app browser
+ *       (SFSafariViewController). Apple reviewers will see product pages open
+ *       in the user's default Safari browser, completely outside the app.
+ *
+ * Android: Uses @capacitor/browser (Chrome Custom Tab) with a _system fallback.
  */
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
-    window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+    if (isIOS()) {
+      // On iOS, open in the actual Safari browser (fully external).
+      // window.open("_system") in Capacitor's WKWebView delegates the URL to
+      // iOS's openURL, which launches Safari.app — never SFSafariViewController.
+      // This guarantees no checkout/payment UI ever appears inside the app,
+      // satisfying App Store Guideline 3.1.1.
+      try {
+        const w = window.open(url, "_system")
+        if (w) return
+      } catch { /* ignore */ }
+      // Fallback: deep-link scheme handled by the native layer
+      window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+    } else {
+      // Android: Chrome Custom Tab via @capacitor/browser, with _system fallback.
+      import("@capacitor/browser")
+        .then(({ Browser }) => Browser.open({ url, toolbarColor: "#ffffff" }))
+        .catch(() => {
+          try {
+            const w = window.open(url, "_system")
+            if (!w) throw new Error("blocked")
+          } catch {
+            window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+          }
+        })
+    }
   } else {
     window.open(url, "_blank", "noopener,noreferrer")
   }

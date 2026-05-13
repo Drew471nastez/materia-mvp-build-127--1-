@@ -37,8 +37,11 @@ import { createPortal } from "react-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
-import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut, openExternal, isIOS } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+
+const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
+const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -101,6 +104,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
+  const [isIOSApp, setIsIOSApp] = useState(false)
+  useEffect(() => { setIsIOSApp(isIOS()) }, [])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
@@ -144,7 +149,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // Calculate notification count (respecting dismissed notifications)
   let notificationCount = 0
-  if ((!stripeConnected || stripeStatus !== "enabled") && !dismissedNotifications.includes("payment-setup")) notificationCount++
+  if ((!stripeConnected || (stripeStatus !== "enabled" && stripeStatus !== "connected")) && !dismissedNotifications.includes("payment-setup")) notificationCount++
   if (!onePagePublished && !dismissedNotifications.includes("onepage-setup")) notificationCount++
 
   const handleSignOut = async () => {
@@ -175,8 +180,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const profileDropdownItems = [
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
-    { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
-    { href: "/help", label: "Help", icon: HelpCircle },
+    // Billing page links are hidden on iOS (App Store Guideline 3.1.1)
+    ...(!isIOSApp ? [{ href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard }] : []),
+    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
     { href: "/library", label: "Library", icon: Library },
   ]
@@ -347,12 +353,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
           {profileDropdownItems.map((item) => {
             const Icon = item.icon
+            const isExplore = item.href === "/explore"
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-                onClick={() => {
+                onClick={(e) => {
+                  if (isExplore && isNativeApp()) {
+                    e.preventDefault()
+                    openExternal(EXPLORE_FULL_URL)
+                  }
                   setProfileDropdownOpen(false)
                   onItemClick?.()
                 }}
@@ -388,6 +399,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const [headerProfileOpen, setHeaderProfileOpen] = useState(false)
 
   // Search shortcut items (pill buttons in modal)
+  // Billing/upgrade shortcuts are hidden on iOS (App Store Guideline 3.1.1)
   const searchShortcuts = [
     { label: "Dashboard", href: "/app", icon: LayoutDashboard },
     { label: "Products", href: "/app/products", icon: Package },
@@ -397,11 +409,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Settings", href: "/app/settings", icon: Settings },
     { label: "Emails", href: "/app/emails", icon: Mail },
     { label: "OnePage", href: "/app/onepage", icon: Link2 },
-    { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
-    { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
+    ...(!isIOSApp ? [
+      { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
+      { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
+    ] : []),
   ]
 
   // All searchable items
+  // Billing/upgrade items are hidden on iOS (App Store Guideline 3.1.1)
   const allSearchItems = [
     { label: "Dashboard", href: "/app", icon: LayoutDashboard, category: "Pages" },
     { label: "Products", href: "/app/products", icon: Package, category: "Pages" },
@@ -413,8 +428,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
-    { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
-    { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    ...(!isIOSApp ? [
+      { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+      { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    ] : []),
     { label: "Profile Settings", href: "/app/settings", icon: Settings, category: "Settings" },
     { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Data" },
     { label: "Customers", href: "/app/orders", icon: ShoppingCart, category: "Data" },
@@ -431,7 +448,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
     { label: "Library", href: "/library", icon: Library, category: "Other" },
     { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
-    { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
+    ...(!isIOSApp ? [
+      { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
+    ] : []),
   ]
 
   // Search handler
@@ -569,19 +588,22 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/* pb accounts for iOS home indicator / Android gesture-nav bar in Capacitor.
           env() = 0px in browsers — no layout change there. */}
       <div className="px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))] space-y-2">
-        <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
-            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
-          </div>
-        </Link>
+        {/* Upgrade to Pro widget hidden on iOS (App Store Guideline 3.1.1) */}
+        {!isIOSApp && (
+          <Link
+            href="/app/settings/billing/upgrade"
+            onClick={onItemClick}
+            className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
+          >
+            <div>
+              <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
+              <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
+            </div>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
+              <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
+            </div>
+          </Link>
+        )}
 
         <Link
           href="/app/settings"
@@ -655,21 +677,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3">
-        <Link
-          href="/app/settings/billing/upgrade"
-          onClick={onItemClick}
-          className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
-        >
-          <div>
-            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
-            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
-          </div>
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
-            <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
-          </div>
-        </Link>
-      </div>
+      {/* Upgrade to Pro widget hidden on iOS (App Store Guideline 3.1.1) */}
+      {!isIOSApp && (
+        <div className="px-3 pb-3">
+          <Link
+            href="/app/settings/billing/upgrade"
+            onClick={onItemClick}
+            className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
+          >
+            <div>
+              <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
+              <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
+            </div>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
+              <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* pt keeps existing 15px spacing; pb adds safe-area bottom so the branding
           bar clears the iOS home indicator / Android gesture nav in Capacitor.
@@ -678,20 +703,26 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="flex items-center justify-between">
           <Link
             href="/explore"
-            onClick={onItemClick}
+            onClick={(e) => {
+              if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+              onItemClick?.()
+            }}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
               alt="Storelib"
-              className="h-8 w-8"
+              className="h-[30px] w-[30px] rounded-[4px]"
             />
             <span className="text-[17px] font-semibold text-neutral-900">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <Link
               href="/explore"
-              onClick={onItemClick}
+              onClick={(e) => {
+                if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+                onItemClick?.()
+              }}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
               <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
@@ -751,7 +782,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           pt-[env(safe-area-inset-top)] pushes the 58 px content row below
           the iOS/iPadOS status bar in Capacitor. In a browser env() = 0
           so the header stays exactly 58 px — no visual change. */}
-      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]">
+      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]" style={{ touchAction: 'none', overscrollBehavior: 'none' }}>
         <div className="relative h-[58px] bg-[#131316] flex items-center px-5">
           {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
@@ -811,12 +842,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
+                  const isHelp = item.href === "/help"
+                  const isExploreItem = item.href === "/explore"
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
-                      onClick={() => setHeaderProfileOpen(false)}
+                      onClick={(e) => {
+                        if (isHelp && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(HELP_FULL_URL)
+                        } else if (isExploreItem && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(EXPLORE_FULL_URL)
+                        }
+                        setHeaderProfileOpen(false)
+                      }}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
@@ -861,6 +903,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="flex items-center gap-1.5">
               <Link
                 href="/explore"
+                onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Discover"
               >
@@ -887,9 +930,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
             <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
                 alt="Storelib"
-                className="h-7 w-7"
+                className="h-[27px] w-[27px] rounded-[4px]"
               />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
             </Link>
@@ -961,9 +1004,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                       key={item.href}
                       onClick={() => {
                         setSearchOpen(false)
-                        // In Capacitor, always use router.push to preserve auth session
-                        // On web, use window.location.href for cross-layout routes
-                        if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
+                        // /explore always opens in external browser on native
+                        if (isNativeApp() && item.href === "/explore") {
+                          openExternal(EXPLORE_FULL_URL)
+                        } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
                           router.push(item.href)
@@ -1001,9 +1045,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                             key={item.href + item.label}
                             onClick={() => {
                               setSearchOpen(false)
-                              // In Capacitor, always use router.push to preserve auth session
-                              // On web, use window.location.href for cross-layout routes
-                              if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
+                              // /explore always opens in external browser on native
+                              if (isNativeApp() && item.href === "/explore") {
+                                openExternal(EXPLORE_FULL_URL)
+                              } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
                                 router.push(item.href)
@@ -1039,7 +1084,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
       <header className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
-        style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))' }}>
+        style={{ height: 'calc(68px + env(safe-area-inset-top, 0px))', touchAction: 'none', overscrollBehavior: 'none', willChange: 'transform', WebkitTransform: 'translateZ(0)', transform: 'translateZ(0)', WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}>
         <div className="flex h-[68px] items-center justify-between px-4 py-[10px]"
           style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
           {/* Left side: Hamburger */}
@@ -1144,11 +1189,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
+                  const isExplore = item.href === "/explore"
+                  const isHelp = item.href === "/help"
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      onClick={() => setMobileProfileDropdownOpen(false)}
+                      {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
+                      onClick={(e) => {
+                        if (isHelp && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(HELP_FULL_URL)
+                        } else if (isExplore && isNativeApp()) {
+                          e.preventDefault()
+                          openExternal(EXPLORE_FULL_URL)
+                        }
+                        setMobileProfileDropdownOpen(false)
+                      }}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                     >
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />

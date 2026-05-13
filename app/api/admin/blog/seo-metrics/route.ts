@@ -1,0 +1,95 @@
+import { NextResponse } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
+
+export async function GET() {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const supabase = createAdminClient()
+
+  const [
+    { count: totalProducts },
+    { count: publishedProducts },
+    { count: totalBlogPosts },
+    { count: publishedBlogPosts },
+    { count: totalSellers },
+    { data: creatorProfiles },
+    { data: productCounts },
+    { data: blogPosts },
+    { data: onepages },
+  ] = await Promise.all([
+    supabase.from("products").select("*", { count: "exact", head: true }),
+    supabase.from("products").select("*", { count: "exact", head: true }).eq("status", "published"),
+    supabase.from("blog_posts").select("*", { count: "exact", head: true }),
+    supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("is_published", true),
+    supabase.from("profiles").select("*", { count: "exact", head: true }).not("username", "is", null),
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, created_at, country")
+      .not("username", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("products")
+      .select("creator_id, status")
+      .eq("status", "published"),
+    supabase
+      .from("blog_posts")
+      .select("id, slug, title, seo_title, seo_description, is_published, published_at, views")
+      .order("published_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("onepages")
+      .select("owner_id, slug, title"),
+  ])
+
+  const countByCreator: Record<string, number> = {}
+  for (const product of productCounts ?? []) {
+    if (product.creator_id) {
+      countByCreator[product.creator_id] = (countByCreator[product.creator_id] ?? 0) + 1
+    }
+  }
+
+  // Map owner_id → onepage slug
+  const onepageByOwner: Record<string, { slug: string; title: string | null }> = {}
+  for (const op of onepages ?? []) {
+    if (op.owner_id && !onepageByOwner[op.owner_id]) {
+      onepageByOwner[op.owner_id] = { slug: op.slug, title: op.title }
+    }
+  }
+
+  const creators = (creatorProfiles ?? []).map((profile) => {
+    const op = onepageByOwner[profile.id]
+    return {
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
+      joined_at: profile.created_at,
+      country: (profile as Record<string, unknown>).country as string | null ?? null,
+      product_count: countByCreator[profile.id] ?? 0,
+      has_published_products: (countByCreator[profile.id] ?? 0) > 0,
+      onepage_slug: op?.slug ?? null,
+      onepage_title: op?.title ?? null,
+    }
+  })
+
+  const categories = 14
+  const staticPages = 5
+  const pagesInSitemap =
+    (publishedProducts ?? 0) + (totalSellers ?? 0) + categories + staticPages + (publishedBlogPosts ?? 0)
+
+  return NextResponse.json({
+    totalProducts: totalProducts ?? 0,
+    publishedProducts: publishedProducts ?? 0,
+    totalBlogPosts: totalBlogPosts ?? 0,
+    publishedBlogPosts: publishedBlogPosts ?? 0,
+    totalSellers: totalSellers ?? 0,
+    pagesInSitemap,
+    indexablePages: (publishedProducts ?? 0) + (totalSellers ?? 0) + categories + staticPages,
+    creators,
+    recentPosts: blogPosts ?? [],
+  })
+}

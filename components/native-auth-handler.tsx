@@ -43,6 +43,20 @@ export function NativeAuthHandler() {
         // Only handle URLs that look like our OAuth callback.
         if (!url.includes("/auth/callback") && !url.includes("auth/callback")) return
 
+        // Cover the screen with a neutral overlay immediately so the user
+        // never sees the current page flash or partial loading states during
+        // the deep-link navigation. The overlay is removed once the destination
+        // page has painted (via its own loading/splash logic).
+        let overlay: HTMLDivElement | null = null
+        try {
+          overlay = document.createElement("div")
+          overlay.style.cssText =
+            "position:fixed;inset:0;z-index:999998;background:#f2f2f2;"
+          document.body.appendChild(overlay)
+          // Two rAF frames ensure the overlay paints before we navigate.
+          await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+        } catch { /* ignore — overlay is best-effort */ }
+
         try {
           const supabase = createClient()
           const { nextPath } = await handleNativeOAuthCallback(url, supabase)
@@ -51,6 +65,10 @@ export function NativeAuthHandler() {
         } catch (err) {
           console.error("[NativeAuthHandler] appUrlOpen error:", err)
           router.replace("/login?error=oauth_failed")
+        } finally {
+          // Remove overlay after navigation starts (generous timeout so
+          // loading.tsx and destination page have time to paint first).
+          setTimeout(() => { try { overlay?.remove() } catch {} }, 2000)
         }
       })
     }

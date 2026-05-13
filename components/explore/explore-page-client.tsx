@@ -370,29 +370,16 @@ function MobileFilterSheet({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  const hasBodyScrollLock = useRef(false)
-
   useEffect(() => {
     if (!isOpen) return
 
     setIsVisible(true)
-    if (!hasBodyScrollLock.current) {
-      lockBodyScroll()
-      hasBodyScrollLock.current = true
-    }
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setIsAnimating(true)
       })
     })
-
-    return () => {
-      if (hasBodyScrollLock.current) {
-        unlockBodyScroll()
-        hasBodyScrollLock.current = false
-      }
-    }
   }, [isOpen])
 
   useEffect(() => {
@@ -452,7 +439,7 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div className="fixed inset-0 z-[100] md:hidden" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -462,7 +449,11 @@ function MobileFilterSheet({
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transform: !isAnimating
+            ? 'translate3d(0, 100%, 0)'
+            : dragY > 0
+              ? `translate3d(0, ${dragY}px, 0)`
+              : 'none',
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '85vh',
         }}
@@ -482,7 +473,7 @@ function MobileFilterSheet({
           )}
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0">
+        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0" style={{ touchAction: 'pan-y' }}>
           {availableSubcategories.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
@@ -587,30 +578,17 @@ function CategorySelectorModal({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  const hasBodyScrollLock = useRef(false)
-
   useEffect(() => {
     if (!isOpen) return
 
     setIsVisible(true)
     setExpandedCategory(null)
-    if (!hasBodyScrollLock.current) {
-      lockBodyScroll()
-      hasBodyScrollLock.current = true
-    }
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setIsAnimating(true)
       })
     })
-
-    return () => {
-      if (hasBodyScrollLock.current) {
-        unlockBodyScroll()
-        hasBodyScrollLock.current = false
-      }
-    }
   }, [isOpen])
 
   useEffect(() => {
@@ -681,7 +659,7 @@ function CategorySelectorModal({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div className="fixed inset-0 z-[100]" style={{ touchAction: 'none' }}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -765,13 +743,22 @@ function CategorySelectorModal({
         ref={sheetRef}
         className="md:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transform: !isAnimating
+            ? 'translate3d(0, 100%, 0)'
+            : dragY > 0
+              ? `translate3d(0, ${dragY}px, 0)`
+              : 'none',
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '70vh',
         }}
       >
-        <div className="pt-3 pb-2">
-          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+        <div
+          className="pt-3 pb-2 touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer">
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
@@ -780,7 +767,7 @@ function CategorySelectorModal({
           <h3 className="text-lg font-semibold text-neutral-900">Select Category</h3>
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(70vh - 80px)' }}>
+        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(70vh - 80px)', touchAction: 'pan-y' }}>
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon
             const isSelected = selectedCategory === cat.id && !selectedSubcategory
@@ -970,6 +957,11 @@ export function ExplorePageClient({
     scrollLockCount = 0
     document.body.classList.remove("modal-open")
     document.body.style.removeProperty("--scroll-y")
+  }, [])
+
+  // Store back-label so product pages can show "< Explore" in their breadcrumb
+  useEffect(() => {
+    try { sessionStorage.setItem("backPageName", "Explore") } catch { /* ignore */ }
   }, [])
 
   // Search states
@@ -1332,20 +1324,29 @@ export function ExplorePageClient({
   }, [])
 
   // Handle scroll target from URL (set by header, hamburger, search bar, featured categories)
-  // Only fires on client-side navigation, never on initial page load/reload
+  // For client-side nav (already mounted): delegate to pendingCategoryAutoScrollRef so scroll
+  // fires only after content finishes loading — avoids scroll being interrupted by skeleton→real
+  // content swap. For initial page load: wait 800ms for content to render then scroll.
   useEffect(() => {
-    if (!hasMountedRef.current) return
     const scrollTarget = searchParams.get("scroll")
     const currentUrl = window.location.href
     if (scrollTarget === "recommended" && scrollTargetHandledRef.current !== currentUrl) {
       scrollTargetHandledRef.current = currentUrl
-      setTimeout(() => {
-        scrollRecommendedSectionWithRetry()
-        // Clean up scroll param without triggering re-render
-        const url = new URL(window.location.href)
-        url.searchParams.delete("scroll")
-        window.history.replaceState({}, '', url.pathname + url.search)
-      }, 200)
+      // Clean up scroll param immediately so it doesn't re-fire
+      const url = new URL(window.location.href)
+      url.searchParams.delete("scroll")
+      window.history.replaceState({}, '', url.pathname + url.search)
+      if (hasMountedRef.current) {
+        // Client-side nav: queue scroll to fire after isLoadingCategory becomes false
+        // This ensures content is stable before the smooth scroll animation starts
+        pendingCategoryAutoScrollRef.current = true
+      } else {
+        // Initial page load: content needs time to render from server
+        const timer = setTimeout(() => {
+          scrollRecommendedSectionWithRetry()
+        }, 800)
+        return () => clearTimeout(timer)
+      }
     }
   }, [searchParams, scrollRecommendedSectionWithRetry])
 
@@ -1666,6 +1667,7 @@ export function ExplorePageClient({
                     product={product}
                     srcParam="?src=platform"
                     priority={index < 3}
+                    clientNav
                   />
                 ))}
               </div>
@@ -1828,6 +1830,7 @@ export function ExplorePageClient({
                 product={product}
                 srcParam="?src=platform"
                 priority={index < 3}
+                clientNav
               />
             ))}
           </div>
@@ -1865,6 +1868,7 @@ export function ExplorePageClient({
                   product={product}
                   srcParam="?src=platform"
                   priority={index < 3}
+                  clientNav
                 />
               ))}
             </div>

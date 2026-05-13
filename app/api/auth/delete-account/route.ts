@@ -144,28 +144,79 @@ If you didn't request this, please ignore this email and secure your account imm
         .update({ verified: true })
         .eq("id", codeRecord.id)
 
-      // Delete user data in order (respecting foreign keys)
+      // ── Delete all user data (in dependency order) ─────────────────────────
       try {
-        // Delete related data first
+        // 1. Collect creator id (needed to delete products, analytics, etc.)
+        const { data: creatorRow } = await adminSupabase
+          .from("creators")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        const creatorId = creatorRow?.id ?? null
+
+        // 2. Delete storage files ─────────────────────────────────────────────
+        // avatars bucket
+        await deleteStorageFolder(adminSupabase, "avatars", user.id)
+        // onepage-assets bucket
+        await deleteStorageFolder(adminSupabase, "onepage-assets", user.id)
+        // product-images bucket
+        if (creatorId) {
+          await deleteStorageFolder(adminSupabase, "product-images", creatorId)
+        }
+
+        // 3. Analytics & engagement events ────────────────────────────────────
+        if (creatorId) {
+          // Delete all analytics events for this creator's products
+          const { data: productIds } = await adminSupabase
+            .from("products")
+            .select("id")
+            .eq("creator_id", creatorId)
+          if (productIds && productIds.length > 0) {
+            const ids = productIds.map((p: { id: string }) => p.id)
+            await adminSupabase.from("analytics_events").delete().in("product_id", ids)
+            await adminSupabase.from("analytics_daily_rollups").delete().in("product_id", ids)
+          }
+        }
+
+        // 4. Orders (buyer side — purchases made by this user) ─────────────────
+        await adminSupabase.from("orders").delete().eq("buyer_id", user.id)
+
+        // 5. Library items (purchased digital products) ───────────────────────
+        await adminSupabase.from("library_items").delete().eq("user_id", user.id)
+
+        // 6. Push tokens ──────────────────────────────────────────────────────
+        await adminSupabase.from("push_tokens").delete().eq("user_id", user.id)
+
+        // 7. Onepages ─────────────────────────────────────────────────────────
+        await adminSupabase.from("onepages").delete().eq("owner_id", user.id)
+
+        // 8. Creator-specific data ────────────────────────────────────────────
+        if (creatorId) {
+          await adminSupabase.from("digital_assets").delete().eq("creator_id", creatorId)
+          await adminSupabase.from("products").delete().eq("creator_id", creatorId)
+          await adminSupabase.from("payouts").delete().eq("creator_id", creatorId)
+          await adminSupabase.from("creators").delete().eq("id", creatorId)
+        }
+
+        // Also catch any digital_assets still linked by user_id
         await adminSupabase.from("digital_assets").delete().eq("user_id", user.id)
-        await adminSupabase.from("products").delete().eq("user_id", user.id)
-        await adminSupabase.from("creators").delete().eq("user_id", user.id)
+
+        // 9. Profiles ─────────────────────────────────────────────────────────
         await adminSupabase.from("profiles").delete().eq("id", user.id)
 
-        // Delete verification codes
+        // 10. Verification codes ──────────────────────────────────────────────
         await adminSupabase.from("account_delete_codes").delete().eq("user_id", user.id)
         await adminSupabase.from("email_change_codes").delete().eq("user_id", user.id)
 
-        // Finally delete the auth user
+        // 11. Finally delete the auth user ────────────────────────────────────
         const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
-
         if (deleteError) {
-          console.error("Error deleting user:", deleteError)
+          console.error("Error deleting auth user:", deleteError)
           return NextResponse.json({ error: "Failed to delete account" }, { status: 500 })
         }
       } catch (deleteError) {
         console.error("Error during account deletion:", deleteError)
-        return NextResponse.json({ error: "Failed to delete account" }, { status: 500 })
+        return NextResponse.json({ error: "Failed to delete account data" }, { status: 500 })
       }
 
       return NextResponse.json({
@@ -178,5 +229,24 @@ If you didn't request this, please ignore this email and secure your account imm
   } catch (error) {
     console.error("Delete account error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+// ── Storage helper ─────────────────────────────────────────────────────────────
+
+async function deleteStorageFolder(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adminSupabase: any,
+  bucket: string,
+  prefix: string
+): Promise<void> {
+  try {
+    const { data: files } = await adminSupabase.storage.from(bucket).list(prefix, { limit: 1000 })
+    if (!files || files.length === 0) return
+    const paths = files.map((f: { name: string }) => `${prefix}/${f.name}`)
+    await adminSupabase.storage.from(bucket).remove(paths)
+  } catch {
+    // Non-fatal: storage cleanup failure should not block account deletion
+    console.warn(`[delete-account] storage cleanup failed for ${bucket}/${prefix}`)
   }
 }

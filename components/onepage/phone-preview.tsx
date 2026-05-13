@@ -24,7 +24,8 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
-import { getLinksUrl } from "@/lib/url-helpers"
+import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
+import { isNativeApp } from "@/lib/platform-utils"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -399,6 +400,32 @@ function ShareButtonPreview({
 
   const size = scale === "small" ? { btn: 28, icon: 10, panel: 180 } : { btn: 36, icon: 14, panel: 220 }
 
+  // Returns true if a hex color is near-white (all channels > 200)
+  const isNearWhite = (hex: string): boolean => {
+    const m = hex.match(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/)
+    if (!m) return false
+    let h = m[1]
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("")
+    return parseInt(h.slice(0, 2), 16) > 200 && parseInt(h.slice(2, 4), 16) > 200 && parseInt(h.slice(4, 6), 16) > 200
+  }
+
+  // Compute contrast text color (white or dark) for a given background
+  const getContrastTextColor = (bg: string): "white" | "dark" => {
+    const hexMatch = bg.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/)
+    if (!hexMatch) return "dark"
+    let hex = hexMatch[1]
+    if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("")
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    const toLinear = (c: number) => {
+      const s = c / 255
+      return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    }
+    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+    return L > 0.35 ? "dark" : "white"
+  }
+
   // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
   const getPopupHeaderBackground = () => {
     if (themeBackgroundType === "gradient" && themeBackgroundGradient) {
@@ -407,11 +434,19 @@ function ShareButtonPreview({
     if (themeBackgroundType === "solid" && themeBackgroundColor && themeBackgroundColor !== "#ffffff") {
       return themeBackgroundColor
     }
-    // For image/video or white backgrounds, use accent color
-    return accentColor || "#8B5CF6"
+    // Use accent color only if it's not near-white
+    if (accentColor && !isNearWhite(accentColor)) {
+      return accentColor
+    }
+    return "#8B5CF6"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
+  const headerTextColor = getContrastTextColor(popupHeaderBackground)
+  const headerTextClass = headerTextColor === "white" ? "text-white" : "text-gray-900"
+  const headerSubTextClass = headerTextColor === "white" ? "text-white/80" : "text-gray-600"
+  const headerCloseClass = headerTextColor === "white" ? "bg-white/20 hover:bg-white/30" : "bg-black/10 hover:bg-black/20"
+  const headerCloseIconClass = headerTextColor === "white" ? "text-white" : "text-gray-700"
 
   const styles = {
     glass: {
@@ -440,18 +475,121 @@ function ShareButtonPreview({
   // Fallback to glass if style is not defined
   const s = styles[style as keyof typeof styles] || styles.glass
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(pageUrl)
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(pageUrl)
+    } catch {
+      const el = document.createElement("textarea")
+      el.value = pageUrl
+      el.style.position = "fixed"
+      el.style.opacity = "0"
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand("copy")
+      document.body.removeChild(el)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const openExternalUrl = async (url: string) => {
+    if (isNativeApp()) {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url })
+    } else {
+      window.open(url, "_blank")
+    }
+  }
+
+  /**
+   * Open a share target.
+   *
+   * Native (Capacitor iOS / Android):
+   *   window.open(scheme, '_system') is called SYNCHRONOUSLY while we are
+   *   still inside the user-gesture. Capacitor intercepts '_system' and
+   *   routes custom schemes (whatsapp://, twitter://, …) straight to
+   *   UIApplication.shared.open() on iOS and Intent.ACTION_VIEW on Android —
+   *   the target app opens instantly with no in-app browser.
+   *   If no native scheme exists (e.g. Facebook) we fall back to Browser.open
+   *   so the web URL opens in the Capacitor in-app browser.
+   *
+   * Web (mobile / desktop browser):
+   *   window.location.href = nativeScheme lets the OS intercept the custom
+   *   URL scheme and open the app without creating a new browser tab.
+   *   A visibilitychange listener detects a successful hand-off; if the page
+   *   stays visible after 1.5 s (app not installed) we open the wa.me web
+   *   fallback in a new tab instead.
+   */
+  /**
+   * Open a share target — app-first with browser fallback.
+   *
+   * @param nativeScheme  Custom URL scheme (twitter://, whatsapp://, etc.)
+   *                      Pass null to skip app-scheme and go straight to web.
+   * @param webUrl        HTTPS fallback URL (opens if app is not installed).
+   * @param preferSystem  If true, open webUrl via system browser (_system) on
+   *                      Capacitor instead of the in-app browser.  This lets
+   *                      iOS Universal Links / Android App Links redirect to
+   *                      the native app (e.g. Facebook, whose custom scheme
+   *                      is unreliable but whose Universal Links work).
+   */
+  const openShareTarget = async (
+    nativeScheme: string | null,
+    webUrl: string,
+    preferSystem = false,
+  ) => {
+    if (isNativeApp()) {
+      if (nativeScheme) {
+        // Synchronous — keeps user-gesture context so the OS accepts the call.
+        window.open(nativeScheme, "_system")
+      } else if (preferSystem) {
+        // Open via the system browser so Universal Links / App Links can
+        // redirect to the native app (e.g. Facebook).  Falls back to the
+        // browser if the app is not installed.
+        window.open(webUrl, "_system")
+      } else {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: webUrl })
+      }
+    } else {
+      // Web: always open the web URL directly in a new tab.
+      // (Skipping native scheme on web to avoid navigating the editor page away.)
+      window.open(webUrl, "_blank")
+    }
+  }
+
+  const shareText = `${sellerName} ${pageUrl}`
+  const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}&quote=${encodeURIComponent(sellerName)}`
+
   // REMOVED: LinkedIn from share options - only 4 icons in a row
   const shareOptions = [
     { name: "Copy", icon: copied ? "✓" : "🔗", color: copied ? "#22c55e" : "#6b7280", action: copyLink },
-    { name: "X", icon: "𝕏", color: "#000000", action: () => {} },
-    { name: "Facebook", icon: "f", color: "#1877F2", action: () => {} },
-    { name: "WhatsApp", icon: "💬", color: "#25D366", action: () => {} },
+    {
+      name: "X",
+      icon: "𝕏",
+      color: "#000000",
+      action: () => openShareTarget(
+        `twitter://post?message=${encodeURIComponent(shareText)}`,
+        `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(sellerName)}`,
+      ),
+    },
+    {
+      name: "Facebook",
+      icon: "f",
+      color: "#1877F2",
+      // Use system browser on Capacitor so iOS Universal Links / Android App
+      // Links redirect to the Facebook app.  Falls back to browser if not
+      // installed.  The fb:// scheme is unreliable on modern iOS/Android.
+      action: () => openShareTarget(null, fbShareUrl, true),
+    },
+    {
+      name: "WhatsApp",
+      icon: "💬",
+      color: "#25D366",
+      action: () => openShareTarget(
+        `whatsapp://send?text=${encodeURIComponent(shareText)}`,
+        `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+      ),
+    },
   ]
 
   return (
@@ -525,9 +663,9 @@ function ShareButtonPreview({
               {/* Close button */}
               <button
                 onClick={() => setIsOpen(false)}
-                className="absolute top-2 right-2 p-1 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all cursor-pointer z-10"
+                className={cn("absolute top-2 right-2 p-1 rounded-full backdrop-blur-sm transition-all cursor-pointer z-10", headerCloseClass)}
               >
-                <X size={scale === "small" ? 8 : 10} className="text-white" />
+                <X size={scale === "small" ? 8 : 10} className={headerCloseIconClass} />
               </button>
 
               <div className="text-center">
@@ -546,17 +684,18 @@ function ShareButtonPreview({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className={cn("font-bold text-white", scale === "small" ? "text-sm" : "text-base")}>
+                    <span className={cn("font-bold", headerTextClass, scale === "small" ? "text-sm" : "text-base")}>
                       {sellerName.charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                <h3 className={cn("font-bold text-white mb-0.5", scale === "small" ? "text-[10px]" : "text-xs")}>
+                <h3 className={cn("font-bold mb-0.5", headerTextClass, scale === "small" ? "text-[10px]" : "text-xs")}>
                   {sellerName}
                 </h3>
                 <p
                   className={cn(
-                    "text-white/80 truncate max-w-[140px] mx-auto",
+                    "truncate max-w-[140px] mx-auto",
+                    headerSubTextClass,
                     scale === "small" ? "text-[7px]" : "text-[8px]",
                   )}
                 >
@@ -622,7 +761,10 @@ function ShareButtonPreview({
 
             {/* Storelib CTA Section */}
             <div className="px-2 pb-2">
-              <div className="bg-gray-50 rounded-xl p-2 border border-gray-100">
+              <div
+                className="bg-gray-50 rounded-xl p-2 border border-gray-100 cursor-pointer"
+                onClick={() => openExternalUrl("https://storelib.com")}
+              >
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
@@ -645,6 +787,7 @@ function ShareButtonPreview({
                     </p>
                   </div>
                   <button
+                    onClick={(e) => { e.stopPropagation(); openExternalUrl("https://storelib.com") }}
                     className={cn(
                       "bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-all cursor-pointer",
                       scale === "small" ? "px-2 py-1 text-[6px]" : "px-2.5 py-1.5 text-[7px]",
@@ -1552,7 +1695,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 sellerName={sellerName}
                 avatarUrl={avatar_url}
                 avatarVideoUrl={avatar_video_url}
-                pageUrl={getLinksUrl((onepage as any).slug || "preview")}
+                pageUrl={getLinksShareUrl((onepage as any).slug || "preview")}
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
                 showSubscribe={settings?.subscribe_enabled !== false}
@@ -2274,7 +2417,7 @@ export function MobilePreviewContent() {
             sellerName={sellerName}
             avatarUrl={avatar_url}
             avatarVideoUrl={avatar_video_url}
-            pageUrl={getLinksUrl((onepage as any).slug || "preview")}
+            pageUrl={getLinksShareUrl((onepage as any).slug || "preview")}
             scale="normal"
             style={(settings as any)?.share_style || "white"}
             showSubscribe={settings?.subscribe_enabled !== false}

@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useState } from "react"
+import { memo, useState, useRef, useCallback } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -71,9 +71,39 @@ interface ProductCardProps {
   srcParam?: string
   /** Set to true for above-the-fold images for faster LCP */
   priority?: boolean
+  /** Use router.push() on native instead of window.location.href to avoid white flash */
+  clientNav?: boolean
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false }: ProductCardProps) {
+  // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
+  // Hooks must be declared before any early return (React rules).
+  const touchStartY = useRef(0)
+  const touchStartX = useRef(0)
+  const didScroll = useRef(false)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0]?.clientY ?? 0
+    touchStartX.current = e.touches[0]?.clientX ?? 0
+    didScroll.current = false
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const deltaY = Math.abs((e.touches[0]?.clientY ?? 0) - touchStartY.current)
+    const deltaX = Math.abs((e.touches[0]?.clientX ?? 0) - touchStartX.current)
+    // Lower threshold (5px) and check both axes so diagonal/horizontal scrolls
+    // don't trigger accidental card clicks on touch devices.
+    if (deltaY > 5 || deltaX > 5) didScroll.current = true
+  }, [])
+
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (didScroll.current) {
+      e.preventDefault()
+      e.stopPropagation()
+      didScroll.current = false
+    }
+  }, [])
+
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
@@ -98,15 +128,20 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const reviewsAverage = product.reviews_average ?? 0
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]">
-      <SmartLink href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
+    <div
+      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onClickCapture={onClickCapture}
+    >
+      <SmartLink href={productUrl} useClientNav={clientNav} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image
             src={product.thumbnail_url}
             alt={product.title || "Product"}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03]"
             priority={priority}
             loading={priority ? undefined : "lazy"}
           />
@@ -149,7 +184,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           )}
         </div>
 
-        <SmartLink href={productUrl} className="flex-1 flex flex-col">
+        <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-[17px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs capitalize">

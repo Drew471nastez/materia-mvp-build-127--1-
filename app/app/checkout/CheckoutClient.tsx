@@ -1,9 +1,10 @@
 "use client"
 
+import "@/lib/stripe-nav-guard"
 import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { loadStripe } from "@stripe/stripe-js"
+import { loadStripe } from "@stripe/stripe-js/pure"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { createClient } from "@/lib/supabase/client"
 
@@ -24,7 +25,18 @@ type CreatorRow = {
   username?: string | null
 }
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")
+// Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
+const _isNative = typeof window !== "undefined" && (() => {
+  const cap = (window as any).Capacitor
+  if (cap?.isNativePlatform?.()) return true
+  const ua = navigator.userAgent || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+})()
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+  // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
+  _isNative ? { advancedFraudSignals: false } : undefined,
+)
 
 function formatMoney(amountCents: number, currency: string) {
   const amount = (amountCents || 0) / 100

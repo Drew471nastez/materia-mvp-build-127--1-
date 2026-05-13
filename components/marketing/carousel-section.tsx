@@ -36,13 +36,7 @@ export function CarouselSection() {
   const [current, setCurrent] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const dragOffset = useRef(0)
-  const isDragging = useRef(false)
-  const isHorizontalSwipe = useRef<boolean | null>(null)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const rafRef = useRef<number>(0)
 
   const isMobile = useCallback(() => {
     return typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches
@@ -58,38 +52,39 @@ export function CarouselSection() {
     return Math.min(idx * slideWidth, maxOffset)
   }, [])
 
-  const applyTransform = useCallback((extraPx = 0) => {
+  const snapToSlide = useCallback((idx: number) => {
     if (!trackRef.current) return
     if (isMobile()) {
       const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth
-      const basePx = current * containerWidth
-      trackRef.current.style.transform = `translate3d(${-(basePx - extraPx)}px, 0, 0)`
+      trackRef.current.style.transform = `translate3d(${-(idx * containerWidth)}px, 0, 0)`
     } else {
-      const offset = getDesktopOffset(current)
-      trackRef.current.style.transform = `translate3d(${-(offset - extraPx)}px, 0, 0)`
-    }
-  }, [current, isMobile, getDesktopOffset])
-
-  const snapToSlide = useCallback(() => {
-    if (!trackRef.current) return
-    if (isMobile()) {
-      trackRef.current.style.transform = `translate3d(-${current * 100}%, 0, 0)`
-    } else {
-      const offset = getDesktopOffset(current)
+      const offset = getDesktopOffset(idx)
       trackRef.current.style.transform = `translate3d(-${offset}px, 0, 0)`
     }
-  }, [current, isMobile, getDesktopOffset])
+  }, [isMobile, getDesktopOffset])
 
   const goTo = useCallback((n: number) => {
-    setCurrent(((n % SLIDES.length) + SLIDES.length) % SLIDES.length)
-  }, [])
+    const next = ((n % SLIDES.length) + SLIDES.length) % SLIDES.length
+    setCurrent(next)
+    if (trackRef.current) {
+      trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+    }
+    snapToSlide(next)
+  }, [snapToSlide])
 
   const resetAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
     autoplayRef.current = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % SLIDES.length)
+      setCurrent((prev) => {
+        const next = (prev + 1) % SLIDES.length
+        if (trackRef.current) {
+          trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+        }
+        snapToSlide(next)
+        return next
+      })
     }, 6000)
-  }, [])
+  }, [snapToSlide])
 
   useEffect(() => {
     resetAutoplay()
@@ -97,16 +92,10 @@ export function CarouselSection() {
   }, [resetAutoplay])
 
   useEffect(() => {
-    if (!trackRef.current) return
-    trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
-    snapToSlide()
-  }, [current, snapToSlide])
-
-  useEffect(() => {
     const onResize = () => {
       if (!trackRef.current) return
       trackRef.current.style.transition = "none"
-      snapToSlide()
+      snapToSlide(current)
       requestAnimationFrame(() => {
         if (trackRef.current) {
           trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
@@ -115,65 +104,12 @@ export function CarouselSection() {
     }
     window.addEventListener("resize", onResize)
     return () => window.removeEventListener("resize", onResize)
-  }, [snapToSlide])
+  }, [current, snapToSlide])
 
   const handleGoTo = useCallback((n: number) => {
     goTo(n)
     resetAutoplay()
   }, [goTo, resetAutoplay])
-
-  /* ── Touch handlers for smooth finger-follow drag ── */
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-    dragOffset.current = 0
-    isDragging.current = true
-    isHorizontalSwipe.current = null
-    if (trackRef.current) {
-      trackRef.current.style.transition = "none"
-    }
-  }, [])
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current) return
-    const dx = e.touches[0].clientX - touchStartX.current
-    const dy = e.touches[0].clientY - touchStartY.current
-
-    // Determine swipe direction on first significant move
-    if (isHorizontalSwipe.current === null) {
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-        isHorizontalSwipe.current = Math.abs(dx) > Math.abs(dy)
-      }
-      return
-    }
-
-    // If vertical scroll, bail out
-    if (!isHorizontalSwipe.current) return
-
-    dragOffset.current = dx
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      applyTransform(dx)
-    })
-  }, [applyTransform])
-
-  const onTouchEnd = useCallback(() => {
-    isDragging.current = false
-    const diff = dragOffset.current
-    dragOffset.current = 0
-
-    if (trackRef.current) {
-      trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
-    }
-
-    if (isHorizontalSwipe.current && Math.abs(diff) > 50) {
-      handleGoTo(diff < 0 ? current + 1 : current - 1)
-    } else {
-      snapToSlide()
-    }
-    isHorizontalSwipe.current = null
-  }, [current, handleGoTo, snapToSlide])
 
   return (
     <section className="py-16 sm:py-22 bg-white">
@@ -183,7 +119,7 @@ export function CarouselSection() {
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
               🔗 OnePage
             </span>
-            <h2 className="text-[clamp(27px,3.6vw,40px)] lg:text-[60px] font-semibold leading-[1.15] tracking-tight mb-3.5">
+            <h2 className="text-[clamp(28px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
               The OnePage creators love
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
@@ -193,14 +129,12 @@ export function CarouselSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={150}>
-          <div ref={containerRef} className="relative overflow-hidden sm:px-6 sm:pl-10">
+          {/* touch-action: none disables all browser touch gestures on this area */}
+          <div ref={containerRef} className="relative overflow-hidden sm:px-6 sm:pl-10" style={{ touchAction: "none" }}>
             <div
               ref={trackRef}
               className="flex gap-0 sm:gap-6 py-4"
               style={{ willChange: "transform", backfaceVisibility: "hidden" }}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
             >
               {SLIDES.map((slide) => (
                 <div
@@ -214,7 +148,7 @@ export function CarouselSection() {
                       <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={slide.phoneImage + "?width=432&quality=70"}
+                          src={slide.phoneImage + "?width=300&quality=42"}
                           alt={slide.name}
                           width={216}
                           height={432}
@@ -265,7 +199,7 @@ export function CarouselSection() {
           </div>
         </AnimateOnScroll>
 
-        {/* Controls */}
+        {/* Controls — only way to navigate: buttons + dots */}
         <div className="flex items-center justify-center gap-3 mt-7 px-6">
           <button
             onClick={() => handleGoTo(current - 1)}

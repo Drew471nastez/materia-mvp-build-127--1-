@@ -268,16 +268,29 @@ export async function GET(request: Request) {
       }
     }
 
-    // Create entitlement for logged-in users (with variant_id for per-variant access)
-    if (buyerId) {
-      // Check if user already has entitlement for this specific variant (or product if no variant)
+    // Create entitlement — resolve the buyer by ID or by email so that guest
+    // checkouts with a matching account email still grant library access.
+    let resolvedBuyerId = buyerId
+    if (!resolvedBuyerId && buyerEmail) {
+      const { data: profileByEmail } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("email", buyerEmail.toLowerCase().trim())
+        .maybeSingle()
+      if (profileByEmail) {
+        resolvedBuyerId = profileByEmail.id
+        // Also update the order with the resolved buyer_id
+        await admin.from("orders").update({ buyer_id: resolvedBuyerId }).eq("id", order.id)
+      }
+    }
+
+    if (resolvedBuyerId) {
       let entitlementQuery = admin
         .from("entitlements")
         .select("id")
-        .eq("buyer_id", buyerId)
+        .eq("buyer_id", resolvedBuyerId)
         .eq("product_id", productId)
 
-      // If variant specified, check for that specific variant entitlement
       if (variantId) {
         entitlementQuery = entitlementQuery.eq("variant_id", variantId)
       } else {
@@ -288,7 +301,7 @@ export async function GET(request: Request) {
 
       if (!existingEntitlement) {
         await admin.from("entitlements").insert({
-          buyer_id: buyerId,
+          buyer_id: resolvedBuyerId,
           creator_id: creatorId,
           product_id: productId,
           variant_id: variantId || null,
@@ -333,6 +346,26 @@ export async function GET(request: Request) {
       })
 
       console.log("[checkout/complete] Email results:", emailResults)
+    }
+
+    // Push notification to seller — non-fatal
+    try {
+      const { notifySale } = await import("@/lib/push/notifications")
+      const creatorUserId = (product.creator as any).user_id as string | null
+      if (creatorUserId) {
+        console.log("[push] Sending sale notification to creator user:", creatorUserId)
+        await notifySale(creatorUserId, {
+          productName: product.title,
+          amountCents: totalAmount,
+          orderId: order.id,
+          productId,
+        })
+        console.log("[push] Push send result: OK")
+      } else {
+        console.log("[push] No user_id on creator — skipping push")
+      }
+    } catch (pushErr) {
+      console.error("[push] Sale notification error (non-fatal):", pushErr)
     }
 
     return NextResponse.redirect(`${baseUrl}/receipt/${order.receipt_token}?emailSent=1`)

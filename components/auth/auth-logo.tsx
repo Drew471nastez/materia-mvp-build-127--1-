@@ -4,14 +4,14 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 
-const LOGO_SRC = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+const LOGO_SRC = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 const logoInner = (
   <>
     <img
       src={LOGO_SRC}
       alt="Storelib"
-      className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px]"
+      className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px] rounded-[7px]"
     />
     <span className="text-[29px] md:text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">
       Storelib

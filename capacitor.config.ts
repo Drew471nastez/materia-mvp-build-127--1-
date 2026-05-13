@@ -26,16 +26,44 @@ const config: CapacitorConfig = {
   appName: 'Storelib',
   webDir: 'out',
   server: {
-    url: 'https://storelib.com',
+    url: 'https://storelib.com/native-start',
     cleartext: false,
+    // Append "Capacitor" to the WKWebView User-Agent header so the
+    // server (proxy.ts) can detect native requests and redirect "/" → "/native-start"
+    // as a safety net. Without this, the default WKWebView UA is a plain
+    // Safari-like string with no way to distinguish native from browser.
+    appendUserAgent: 'Capacitor',
+    // js.stripe.com  — must be listed so that IF the controller somehow escapes
+    //   the three-layer guard (advancedFraudSignals: false + CSP frame-src +
+    //   stripe-nav-guard.ts), any navigation stays INSIDE the WKWebView rather
+    //   than ejecting to the system Safari browser.  The primary fix is the CSP
+    //   middleware (middleware.ts) which blocks the controller iframe at the
+    //   browser-engine level before any JS runs.
+    // hooks.stripe.com — needed for 3DS bank-auth redirect pages so they stay
+    //   in-app rather than opening the system Safari browser.
+    allowNavigation: ['js.stripe.com', 'hooks.stripe.com'],
   },
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'never',
     scrollEnabled: true,
     allowsLinkPreview: false,
+    backgroundColor: '#f2f2f2',
   },
   android: {
     allowMixedContent: false,
+    backgroundColor: '#f2f2f2',
+  },
+  plugins: {
+    SplashScreen: {
+      // Do NOT auto-hide the splash — we call SplashScreen.hide() manually
+      // from the final destination page (/app, /library, /welcome) after
+      // the first stable paint, so the user never sees a loading flash.
+      launchAutoHide: false,
+    },
+    Camera: {
+      // Present the photo picker correctly on iPad (popover, not crash)
+      // saveToGallery is off by default — only save when user requests it
+    },
   },
 };
 
