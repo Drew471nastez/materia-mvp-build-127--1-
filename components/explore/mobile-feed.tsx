@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, SlidersHorizontal, LayoutGrid, GalleryVerticalEnd, Loader2, Heart } from "lucide-react"
+import { Search, SlidersHorizontal, LayoutGrid, GalleryVerticalEnd, Heart } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
+import { IosSpinner } from "./ios-spinner"
 import { MobileListingCard } from "./mobile-listing-card"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { ProductCard } from "./product-card"
@@ -32,6 +33,26 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Paint the native safe-area (status-bar) zone white while the feed is up, so
+  // there's no black "cutter" bar above the search on iOS/Android. Same proven
+  // approach as LibraryBgFix: inline html background (beats the html.capacitor
+  // #000 rule) re-applied on rotation so it can't flash black.
+  useEffect(() => {
+    const html = document.documentElement
+    const prev = html.style.backgroundColor
+    const apply = () => { html.style.backgroundColor = "#ffffff" }
+    apply()
+    html.classList.add("native-feed-bg")
+    window.addEventListener("resize", apply, { passive: true })
+    window.addEventListener("orientationchange", apply, { passive: true })
+    return () => {
+      html.style.backgroundColor = prev
+      html.classList.remove("native-feed-bg")
+      window.removeEventListener("resize", apply)
+      window.removeEventListener("orientationchange", apply)
+    }
+  }, [])
 
   // Measure the feed viewport so each reels card is EXACTLY one screen tall.
   // Percentage heights on flex children are unreliable across mobile browsers —
@@ -80,7 +101,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   return (
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
       {/* ---- Top: search (with view switcher inside) + filter ---- */}
-      <div className="shrink-0 px-4" style={{ paddingTop: "max(0.6rem, env(safe-area-inset-top, 0px))" }}>
+      <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <form onSubmit={submitSearch} className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -157,15 +178,16 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         className={cn("relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide", view === "reels" ? "snap-y snap-mandatory" : "")}
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
-        {/* iOS-style pull-to-refresh */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-2.5" style={{ height: Math.max(pullDistance, phase === "refreshing" ? 44 : 0) }}>
-          <Loader2
-            className={cn("h-5 w-5 text-neutral-300", phase === "refreshing" && "animate-spin")}
+        {/* iOS-style pull-to-refresh — native activity indicator */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-3" style={{ height: Math.max(pullDistance, phase === "refreshing" ? 48 : 0) }}>
+          <div
             style={{
-              opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 48),
-              transform: phase === "refreshing" ? undefined : `scale(${Math.min(1, 0.55 + pullDistance / 110)}) rotate(${pullDistance * 3}deg)`,
+              opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45),
+              transform: phase === "refreshing" ? undefined : `scale(${Math.min(1, 0.5 + pullDistance / 100)})`,
             }}
-          />
+          >
+            <IosSpinner size={26} />
+          </div>
         </div>
 
         {tab === "following" ? (

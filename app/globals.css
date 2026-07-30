@@ -83,6 +83,18 @@ html.capacitor body {
   overscroll-behavior: none;
 }
 
+/* Marketplace feed is white — paint the safe-area (status-bar) canvas white too,
+   so the notch/status-bar zone blends into the feed instead of showing the black
+   root background as a hard "cutter" bar above the search. Toggled by MobileFeed
+   while it is mounted. Two classes beats the single-class html.capacitor rule. */
+html.capacitor.native-feed-bg {
+  background-color: #ffffff;
+}
+
+/* iOS-style activity indicator (12-step tick, matches native UIActivityIndicator). */
+@keyframes ios-spin { to { transform: rotate(360deg); } }
+.ios-spin { animation: ios-spin 1s steps(12) infinite; }
+
 .dark {
   --background: oklch(0.1 0 0);
   --foreground: oklch(0.98 0 0);
