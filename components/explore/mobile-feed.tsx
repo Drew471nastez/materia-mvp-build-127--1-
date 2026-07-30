@@ -117,8 +117,8 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         </form>
       </div>
 
-      {/* ---- Tabs (full width, label-wide underline, smooth) ---- */}
-      <div className="shrink-0 flex items-stretch px-3 pt-3.5">
+      {/* ---- Tabs (full-width buttons, underline spans the whole button) ---- */}
+      <div className="shrink-0 flex items-stretch gap-1.5 px-3 pt-3.5">
         {TABS.map(([id, key]) => {
           const active = tab === id
           return (
@@ -126,12 +126,10 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              className={cn("flex flex-1 flex-col items-center pb-2.5 text-[15px] transition-colors duration-200", active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
+              className={cn("flex flex-1 flex-col items-center gap-2 text-[15px] transition-colors duration-200", active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
             >
-              <span className="relative inline-flex flex-col items-center">
-                {t(key)}
-                <span className={cn("mt-1.5 h-[3px] w-full rounded-full bg-neutral-900 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")} />
-              </span>
+              <span>{t(key)}</span>
+              <span className={cn("h-[3px] w-full rounded-full bg-neutral-900 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")} />
             </button>
           )
         })}
