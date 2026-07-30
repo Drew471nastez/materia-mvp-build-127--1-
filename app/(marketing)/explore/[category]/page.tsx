@@ -2,59 +2,23 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
+import { VALID_CATEGORY_IDS, categoryLabel as resolveCategoryLabel } from "@/lib/marketplace/categories"
 
-// Valid categories
-const VALID_CATEGORIES = [
-  "design",
-  "development",
-  "marketing",
-  "business",
-  "ai",
-  "social-media",
-  "productivity",
-  "photography",
-  "video",
-  "audio-music",
-  "education",
-  "ecommerce",
-  "freebies",
-  "other",
-]
+// Valid category slugs, from the shared taxonomy. "all" is excluded on purpose:
+// that is the feed at "/" (and /explore), so /explore/all would duplicate it.
+const VALID_CATEGORIES = VALID_CATEGORY_IDS.filter((id) => id !== "all")
 
-// Category labels for display
-const CATEGORY_LABELS: Record<string, string> = {
-  "design": "Design",
-  "development": "Development",
-  "marketing": "Marketing",
-  "business": "Business",
-  "ai": "AI",
-  "social-media": "Social Media",
-  "productivity": "Productivity",
-  "photography": "Photography",
-  "video": "Video",
-  "audio-music": "Audio & Music",
-  "education": "Education",
-  "ecommerce": "E-commerce",
-  "freebies": "Freebies",
-  "other": "Other",
-}
-
-// Category descriptions for SEO
+// Category descriptions for SEO — one per slug above
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  "design": "Browse premium design templates, UI kits, graphics, fonts, mockups and more. Find the perfect design resources for your next project.",
-  "development": "Discover web templates, mobile apps, scripts, plugins and development tools. Build faster with ready-made code resources.",
-  "marketing": "Find email templates, ad creatives, landing pages and SEO tools. Supercharge your marketing with professional templates.",
-  "business": "Get spreadsheets, presentations, documents and contracts. Professional business templates to streamline your workflow.",
-  "ai": "Explore AI prompts, ChatGPT templates and automation tools. Leverage AI with curated prompt libraries and tools.",
-  "social-media": "Download Instagram templates, TikTok content, YouTube assets and more. Grow your social media presence with stunning templates.",
-  "productivity": "Find Notion templates, calendars, planners and checklists. Boost your productivity with organized template systems.",
-  "photography": "Discover Lightroom presets, photo overlays, Photoshop actions and stock photos. Enhance your photography with professional tools.",
-  "video": "Find video templates, transitions, motion graphics and effects. Create stunning videos with premium assets.",
-  "audio-music": "Browse royalty-free music, sound effects, loops and samples. Find the perfect audio for your projects.",
-  "education": "Explore online courses, eBooks, tutorials and worksheets. Learn new skills with quality educational content.",
-  "ecommerce": "Get store themes, product photography templates and e-commerce tools. Build and grow your online store.",
-  "freebies": "Discover free digital products, templates, and resources. Get started with no cost - perfect for trying before you buy.",
-  "other": "Browse miscellaneous digital products and resources that don't fit into specific categories.",
+  "womenswear": "Shop pre-loved womenswear: dresses, tops, jeans, skirts, jackets and knitwear from independent sellers. Second-hand style at a fraction of retail.",
+  "menswear": "Shop second-hand menswear: t-shirts, shirts, hoodies, jeans, jackets and suits. Thousands of pre-loved pieces from sellers across the community.",
+  "sneakers": "Buy and sell used and deadstock sneakers - Jordan, Nike, Adidas, Yeezy, New Balance, Vans and more. Verified by the sellers who wore them.",
+  "bags-accessories": "Pre-loved bags and accessories: handbags, backpacks, wallets, belts, hats, scarves, sunglasses and watches. Second-hand finds you won't see twice.",
+  "jewellery": "Second-hand jewellery: rings, necklaces, earrings, bracelets, brooches and fine gold pieces. Vintage and pre-loved, from costume to fine.",
+  "beauty": "Barely-used and unopened beauty: skincare, makeup, fragrance, haircare, nails, tools and gift sets. Try something new for less.",
+  "books": "Used books for less: fiction, non-fiction, self-help, manga, comics, textbooks and rare collectible editions. Give a good book a second read.",
+  "home": "Second-hand homeware: decor, kitchen and dining, furniture, bedding, lighting, art prints and plants. Furnish your place with pre-loved pieces.",
+  "vintage": "Genuine vintage clothing: Y2K, 90s and 80s pieces, vintage streetwear, designer and band tees. One-of-one finds, curated by real sellers.",
 }
 
 type Props = {
@@ -70,8 +34,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   }
 
-  const label = CATEGORY_LABELS[category] || category
-  const description = CATEGORY_DESCRIPTIONS[category] || `Browse ${label} products on Storelib`
+  const label = resolveCategoryLabel(category)
+  const description = CATEGORY_DESCRIPTIONS[category] || `Buy and sell pre-loved ${label} on Storelib`
 
   return {
     title: label,
@@ -113,7 +77,7 @@ export default async function CategoryPage({ params }: Props) {
 
   const supabase = await createClient()
 
-  // Fetch ALL published products - same query as the working /explore page
+  // Fetch ALL published products - same select as the feed in app/(marketing)/_explore-feed.tsx
   // Category filtering is done client-side for relevance-based sorting
   const { data: products, error: productsError } = await supabase
     .from("products")
@@ -169,9 +133,9 @@ export default async function CategoryPage({ params }: Props) {
     })
   }
 
-  const categoryLabel = CATEGORY_LABELS[category] || category
+  const categoryLabel = resolveCategoryLabel(category)
 
-  const categoryDescription = CATEGORY_DESCRIPTIONS[category] || `Browse ${categoryLabel} products on Storelib`
+  const categoryDescription = CATEGORY_DESCRIPTIONS[category] || `Buy and sell pre-loved ${categoryLabel} on Storelib`
 
   return (
     <main className="min-h-screen bg-white">
@@ -194,6 +158,7 @@ export default async function CategoryPage({ params }: Props) {
           initialProducts={productsWithCreators}
           category={category}
           categoryLabel={categoryLabel}
+          categoryDescription={categoryDescription}
         />
       </div>
     </main>

@@ -87,10 +87,11 @@ const nextConfig = {
         ],
       },
       {
-        // Landing page
+        // Marketplace feed (homepage) — short CDN cache; it is a live product feed
+        // now, not the old static landing page, so the previous 1h s-maxage is wrong
         source: '/',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=7200' },
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
       {
@@ -116,6 +117,20 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=3600' },
         ],
       },
+    ]
+  },
+
+  // Marketing pages retired by the marketplace pivot — everything funnels to the feed on "/".
+  // `permanent: false` (307) on purpose: the pivot is still settling, and a 308 would be
+  // cached by browsers indefinitely, making a rollback impossible to push to existing users.
+  // Note /explore is deliberately NOT redirected — the native app treats it as a Discover
+  // route (lib/isDiscoverMode.ts) and "/" is intercepted to /native-start in proxy.ts.
+  // /legal/terms, /legal/privacy and /blog are untouched.
+  async redirects() {
+    return [
+      { source: '/pricing', destination: '/', permanent: false },
+      { source: '/features', destination: '/', permanent: false },
+      { source: '/faq', destination: '/', permanent: false },
     ]
   },
 }

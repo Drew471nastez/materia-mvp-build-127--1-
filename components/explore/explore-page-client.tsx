@@ -6,7 +6,26 @@ import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
-import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
+import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
+import {
+  SearchSuggestionsPanel,
+  type PersonSuggestion,
+  type SearchSuggestionsPanelHandle,
+} from "./search-suggestions-panel"
+import { WishlistProvider } from "./wishlist-context"
+import {
+  CATEGORIES,
+  categoryLabel,
+  getCategory,
+  getSubcategories,
+  normalizeCategoryToId,
+  type Category,
+  type Subcategory,
+} from "@/lib/marketplace/categories"
+import { useRecentSearches, type RecentSearch } from "@/lib/hooks/use-recent-searches"
+import { useRecentlyViewed, type RecentlyViewedProduct } from "@/lib/hooks/use-recently-viewed"
+import { getProductInternalPath, getStoreUrl } from "@/lib/url-helpers"
+import { Layers, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, ChevronDown, ArrowRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
@@ -45,272 +64,6 @@ function unlockBodyScroll() {
   }
 }
 
-// Categories with icons and subcategories - Extended list
-const CATEGORIES = [
-  {
-    id: "all",
-    label: "All",
-    icon: Layers,
-    subcategories: []
-  },
-  {
-    id: "design",
-    label: "Design",
-    icon: Sparkles,
-    subcategories: [
-      { id: "ui-ux", label: "UI/UX Templates" },
-      { id: "graphics", label: "Graphics & Illustrations" },
-      { id: "fonts", label: "Fonts & Typography" },
-      { id: "icons", label: "Icons & Elements" },
-      { id: "mockups", label: "Mockups" },
-      { id: "logos", label: "Logo Templates" },
-      { id: "branding", label: "Branding Kits" },
-      { id: "print", label: "Print Design" },
-    ]
-  },
-  {
-    id: "development",
-    label: "Development",
-    icon: Code,
-    subcategories: [
-      { id: "web", label: "Web Templates" },
-      { id: "mobile", label: "Mobile Apps" },
-      { id: "scripts", label: "Scripts & Plugins" },
-      { id: "apis", label: "APIs & Tools" },
-      { id: "wordpress", label: "WordPress Themes" },
-      { id: "shopify", label: "Shopify Themes" },
-      { id: "react", label: "React Components" },
-      { id: "nextjs", label: "Next.js Templates" },
-    ]
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    icon: Megaphone,
-    subcategories: [
-      { id: "email", label: "Email Templates" },
-      { id: "ads", label: "Ad Creatives" },
-      { id: "landing", label: "Landing Pages" },
-      { id: "seo", label: "SEO Tools" },
-      { id: "copywriting", label: "Copywriting Templates" },
-      { id: "funnels", label: "Sales Funnels" },
-    ]
-  },
-  {
-    id: "business",
-    label: "Business",
-    icon: Briefcase,
-    subcategories: [
-      { id: "spreadsheets", label: "Spreadsheets" },
-      { id: "presentations", label: "Presentations" },
-      { id: "documents", label: "Documents & Contracts" },
-      { id: "invoices", label: "Invoice Templates" },
-      { id: "proposals", label: "Proposal Templates" },
-      { id: "business-plans", label: "Business Plans" },
-    ]
-  },
-  {
-    id: "ai",
-    label: "AI",
-    icon: Bot,
-    subcategories: [
-      { id: "prompts", label: "AI Prompts" },
-      { id: "chatgpt", label: "ChatGPT Templates" },
-      { id: "midjourney", label: "Midjourney Prompts" },
-      { id: "automation", label: "Automation Tools" },
-      { id: "ai-tools", label: "AI-Powered Tools" },
-    ]
-  },
-  {
-    id: "social-media",
-    label: "Social Media",
-    icon: Share2,
-    subcategories: [
-      { id: "instagram", label: "Instagram Templates" },
-      { id: "tiktok", label: "TikTok Content" },
-      { id: "youtube", label: "YouTube Assets" },
-      { id: "twitter", label: "Twitter/X Templates" },
-      { id: "linkedin", label: "LinkedIn Templates" },
-      { id: "pinterest", label: "Pinterest Templates" },
-      { id: "reels", label: "Reels & Shorts" },
-    ]
-  },
-  {
-    id: "productivity",
-    label: "Productivity",
-    icon: Zap,
-    subcategories: [
-      { id: "notion", label: "Notion Templates" },
-      { id: "planners", label: "Calendars & Planners" },
-      { id: "checklists", label: "Checklists" },
-      { id: "trackers", label: "Habit Trackers" },
-      { id: "dashboards", label: "Dashboards" },
-      { id: "airtable", label: "Airtable Templates" },
-    ]
-  },
-  {
-    id: "photography",
-    label: "Photography",
-    icon: Camera,
-    subcategories: [
-      { id: "presets", label: "Lightroom Presets" },
-      { id: "overlays", label: "Photo Overlays" },
-      { id: "actions", label: "Photoshop Actions" },
-      { id: "luts", label: "Color LUTs" },
-      { id: "stock", label: "Stock Photos" },
-    ]
-  },
-  {
-    id: "video",
-    label: "Video",
-    icon: Video,
-    subcategories: [
-      { id: "templates", label: "Video Templates" },
-      { id: "transitions", label: "Transitions & Effects" },
-      { id: "motion", label: "Motion Graphics" },
-      { id: "after-effects", label: "After Effects" },
-      { id: "premiere", label: "Premiere Pro" },
-      { id: "davinci", label: "DaVinci Resolve" },
-    ]
-  },
-  {
-    id: "audio-music",
-    label: "Audio & Music",
-    icon: Music,
-    subcategories: [
-      { id: "music", label: "Royalty-Free Music" },
-      { id: "sfx", label: "Sound Effects" },
-      { id: "loops", label: "Loops & Samples" },
-      { id: "podcasts", label: "Podcast Templates" },
-    ]
-  },
-  {
-    id: "education",
-    label: "Education",
-    icon: GraduationCap,
-    subcategories: [
-      { id: "courses", label: "Online Courses" },
-      { id: "ebooks", label: "eBooks" },
-      { id: "tutorials", label: "Tutorials" },
-      { id: "worksheets", label: "Worksheets" },
-      { id: "guides", label: "Guides & How-tos" },
-    ]
-  },
-  {
-    id: "ecommerce",
-    label: "E-commerce",
-    icon: ShoppingBag,
-    subcategories: [
-      { id: "product-photos", label: "Product Photography" },
-      { id: "store-themes", label: "Store Themes" },
-      { id: "pricing", label: "Pricing Templates" },
-      { id: "emails", label: "E-commerce Emails" },
-    ]
-  },
-  {
-    id: "freebies",
-    label: "Freebies",
-    icon: Sparkles,
-    subcategories: []
-  },
-  {
-    id: "other",
-    label: "Other",
-    icon: Layers,
-    subcategories: []
-  },
-] as const
-
-// Map from DB category display values to our code category IDs
-// Products in the DB may have values like "Digital Art", "Other", "Productivity" etc.
-// This normalizes them to our URL-safe IDs like "design", "other", "productivity"
-const DB_CATEGORY_TO_ID: Record<string, string> = {
-  // Exact ID matches (after SQL migration has been run)
-  "productivity": "productivity",
-  "design": "design",
-  "development": "development",
-  "marketing": "marketing",
-  "business": "business",
-  "ai": "ai",
-  "social-media": "social-media",
-  "photography": "photography",
-  "video": "video",
-  "audio-music": "audio-music",
-  "education": "education",
-  "ecommerce": "ecommerce",
-  "freebies": "freebies",
-  "other": "other",
-  // Common display-name variants from the DB
-  "digital art": "design",
-  "graphic design": "design",
-  "graphics": "design",
-  "ui/ux": "design",
-  "ui ux": "design",
-  "ui/ux design": "design",
-  "web design": "design",
-  "illustration": "design",
-  "branding": "design",
-  "typography": "design",
-  "web development": "development",
-  "software": "development",
-  "software development": "development",
-  "coding": "development",
-  "programming": "development",
-  "web templates": "development",
-  "social media": "social-media",
-  "social": "social-media",
-  "audio & music": "audio-music",
-  "audio": "audio-music",
-  "music": "audio-music",
-  "sound": "audio-music",
-  "e-commerce": "ecommerce",
-  "online store": "ecommerce",
-  "photo": "photography",
-  "photos": "photography",
-  "photo editing": "photography",
-  "lightroom": "photography",
-  "presets": "photography",
-  "lightroom presets": "photography",
-  "video editing": "video",
-  "motion graphics": "video",
-  "animation": "video",
-  "artificial intelligence": "ai",
-  "machine learning": "ai",
-  "prompts": "ai",
-  "ai prompts": "ai",
-  "chatgpt": "ai",
-  "gpt": "ai",
-  "templates": "productivity",
-  "notion": "productivity",
-  "notion templates": "productivity",
-  "planners": "productivity",
-  "planner": "productivity",
-  "spreadsheets": "business",
-  "spreadsheet": "business",
-  "presentations": "business",
-  "presentation": "business",
-  "finance": "business",
-  "courses": "education",
-  "online courses": "education",
-  "ebooks": "education",
-  "ebook": "education",
-  "e-book": "education",
-  "tutorials": "education",
-  "tutorial": "education",
-  "free": "freebies",
-  "freebie": "freebies",
-  "digital marketing": "marketing",
-  "seo": "marketing",
-  "email marketing": "marketing",
-}
-
-// Normalize a DB category value to our code category ID
-function normalizeCategoryToId(dbCategory: string): string {
-  const lower = (dbCategory || "").toLowerCase().trim()
-  if (!lower) return ""
-  return DB_CATEGORY_TO_ID[lower] || lower
-}
-
 // Filter types for Recommended section
 const RECOMMENDATION_FILTERS = [
   { id: "curated", label: "Curated" },
@@ -335,7 +88,19 @@ const SORT_OPTIONS = [
   { id: "price-high", label: "Price: High to Low" },
 ] as const
 
-const PRODUCTS_PER_PAGE = 9 // 3 per row x 3 rows
+const PRODUCTS_PER_PAGE = 12 // 4 per row x 3 rows on desktop (portrait cards)
+
+// Debounce before the seller lookup fires — long enough that a fast typist
+// spends one request, short enough that the Sellers section still feels live.
+const PEOPLE_DEBOUNCE_MS = 250
+
+// Below this a people search matches half the marketplace; not worth the round trip.
+const MIN_PEOPLE_QUERY_LENGTH = 2
+
+// Stable references — an inline [] would rebuild the dropdown's memoised row list
+// on every keystroke.
+const NO_RECENT_SEARCHES: readonly RecentSearch[] = []
+const NO_RECENTLY_VIEWED: readonly RecentlyViewedProduct[] = []
 
 // Mobile Filter Bottom Sheet Component
 function MobileFilterSheet({
@@ -359,7 +124,7 @@ function MobileFilterSheet({
   setSortBy: (value: string) => void
   selectedSubcategories: string[]
   setSelectedSubcategories: (value: string[]) => void
-  availableSubcategories: { id: string; label: string }[]
+  availableSubcategories: readonly Subcategory[]
   resetFilters: () => void
   activeFilterCount: number
 }) {
@@ -648,7 +413,7 @@ function CategorySelectorModal({
     handleClose()
   }
 
-  const handleCategoryClick = (cat: typeof CATEGORIES[number]) => {
+  const handleCategoryClick = (cat: Category) => {
     if (cat.subcategories && cat.subcategories.length > 0) {
       setExpandedCategory(expandedCategory === cat.id ? null : cat.id)
     } else {
@@ -683,7 +448,9 @@ function CategorySelectorModal({
               const Icon = cat.icon
               const isSelected = selectedCategory === cat.id && !selectedSubcategory
               const isExpanded = expandedCategory === cat.id
-              const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+              // Widened out of the `as const` tuple so .map() resolves to one call signature
+              const subcategories: readonly Subcategory[] = cat.subcategories
+              const hasSubcats = subcategories.length > 0
 
               return (
                 <div key={cat.id}>
@@ -716,7 +483,7 @@ function CategorySelectorModal({
                         <span>All {cat.label}</span>
                         {selectedCategory === cat.id && !selectedSubcategory && <Check className="w-4 h-4 ml-auto" />}
                       </button>
-                      {cat.subcategories.map((sub) => (
+                      {subcategories.map((sub) => (
                         <button
                           key={sub.id}
                           onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
@@ -772,7 +539,9 @@ function CategorySelectorModal({
             const Icon = cat.icon
             const isSelected = selectedCategory === cat.id && !selectedSubcategory
             const isExpanded = expandedCategory === cat.id
-            const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+            // Widened out of the `as const` tuple so .map() resolves to one call signature
+            const subcategories: readonly Subcategory[] = cat.subcategories
+            const hasSubcats = subcategories.length > 0
 
             return (
               <div key={cat.id}>
@@ -805,7 +574,7 @@ function CategorySelectorModal({
                       <span>All {cat.label}</span>
                       {selectedCategory === cat.id && !selectedSubcategory && <Check className="w-4 h-4 ml-auto" />}
                     </button>
-                    {cat.subcategories.map((sub, index) => (
+                    {subcategories.map((sub, index) => (
                       <button
                         key={sub.id}
                         onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
@@ -831,51 +600,215 @@ function CategorySelectorModal({
   )
 }
 
-// Search Input Component
+// Marketplace search field: animated placeholder while idle, suggestions dropdown
+// (recent searches, recently viewed listings, sellers) while focused.
 function SearchInput({
-  isOpen,
-  onClose,
   searchQuery,
   setSearchQuery,
-  categoryName,
+  categoryId,
 }: {
-  isOpen: boolean
-  onClose: () => void
   searchQuery: string
   setSearchQuery: (value: string) => void
-  categoryName: string
+  categoryId: string
 }) {
+  const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<SearchSuggestionsPanelHandle>(null)
+  // A tap inside the panel blurs the input on touch, so the close has to be
+  // deferred or the tap never reaches the row underneath.
+  const blurTimeoutRef = useRef<number | null>(null)
 
+  const [isFocused, setIsFocused] = useState(false)
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+  const [activeOptionId, setActiveOptionId] = useState<string | null>(null)
+  const [people, setPeople] = useState<PersonSuggestion[]>([])
+  const [peopleLoading, setPeopleLoading] = useState(false)
+
+  const { searches, add: addSearch, remove: removeSearch, clear: clearSearches } = useRecentSearches()
+  const { products: recentlyViewed } = useRecentlyViewed()
+
+  const trimmedQuery = searchQuery.trim()
+  const isPeopleQuery = trimmedQuery.length >= MIN_PEOPLE_QUERY_LENGTH
+
+  // Debounced seller lookup — one in-flight request, aborted on every keystroke
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100)
+    if (!suggestionsOpen || !isPeopleQuery) {
+      setPeople([])
+      setPeopleLoading(false)
+      return
     }
-  }, [isOpen])
 
-  if (!isOpen) return null
+    const controller = new AbortController()
+    setPeopleLoading(true)
+
+    const timer = window.setTimeout(() => {
+      fetch(`/api/v2/search/people?q=${encodeURIComponent(trimmedQuery)}&limit=4`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then((data: { people?: PersonSuggestion[] }) => {
+          setPeople(Array.isArray(data.people) ? data.people : [])
+          setPeopleLoading(false)
+        })
+        .catch(() => {
+          // Aborted by the next keystroke, or offline — just drop the Sellers section
+          if (controller.signal.aborted) return
+          setPeople([])
+          setPeopleLoading(false)
+        })
+    }, PEOPLE_DEBOUNCE_MS)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [suggestionsOpen, isPeopleQuery, trimmedQuery])
+
+  const cancelDeferredClose = useCallback(() => {
+    if (blurTimeoutRef.current !== null) {
+      window.clearTimeout(blurTimeoutRef.current)
+      blurTimeoutRef.current = null
+    }
+  }, [])
+
+  const closeSuggestions = useCallback(() => {
+    cancelDeferredClose()
+    setSuggestionsOpen(false)
+    panelRef.current?.clearHighlight()
+  }, [cancelDeferredClose])
+
+  useEffect(() => cancelDeferredClose, [cancelDeferredClose])
+
+  const handleFocus = useCallback(() => {
+    cancelDeferredClose()
+    setIsFocused(true)
+    setSuggestionsOpen(true)
+  }, [cancelDeferredClose])
+
+  const handleBlur = useCallback(() => {
+    setIsFocused(false)
+    cancelDeferredClose()
+    blurTimeoutRef.current = window.setTimeout(() => {
+      blurTimeoutRef.current = null
+      setSuggestionsOpen(false)
+      panelRef.current?.clearHighlight()
+    }, 150)
+  }, [cancelDeferredClose])
+
+  // Seller stores live on a subdomain, so only internal paths can be pushed
+  const navigate = useCallback((href: string) => {
+    if (href.startsWith("/")) router.push(href)
+    else window.location.href = href
+  }, [router])
+
+  const dismiss = useCallback(() => {
+    closeSuggestions()
+    inputRef.current?.blur()
+  }, [closeSuggestions])
+
+  // A recent-search row replays with the category it was saved under; a fresh
+  // submit inherits whichever category the feed is currently showing.
+  const handleSelectSearch = useCallback((query: string, category?: string) => {
+    const q = query.trim()
+    if (!q) return
+
+    addSearch(q, category)
+    setSearchQuery(q)
+    dismiss()
+    router.push(`/explore?q=${encodeURIComponent(q)}${category ? `&category=${category}` : ""}`)
+  }, [addSearch, dismiss, router, setSearchQuery])
+
+  const submitSearch = useCallback(() => {
+    handleSelectSearch(searchQuery, categoryId !== "all" ? categoryId : undefined)
+  }, [categoryId, handleSelectSearch, searchQuery])
+
+  const handleSelectProduct = useCallback((product: RecentlyViewedProduct) => {
+    dismiss()
+    router.push(getProductInternalPath(product.slug))
+  }, [dismiss, router])
+
+  const handleSelectPerson = useCallback((person: PersonSuggestion) => {
+    const username = person.profile?.username
+    if (!username) return
+    dismiss()
+    navigate(getStoreUrl(username))
+  }, [dismiss, navigate])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setSuggestionsOpen(true)
+      panelRef.current?.moveHighlight(1)
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      panelRef.current?.moveHighlight(-1)
+    } else if (e.key === "Enter") {
+      e.preventDefault()
+      // A highlighted row wins over the raw query — that is what the user is looking at
+      if (panelRef.current?.commitHighlight()) return
+      submitSearch()
+    } else if (e.key === "Escape") {
+      closeSuggestions()
+    }
+  }, [closeSuggestions, submitSearch])
 
   return (
-    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-        <Input
-          ref={inputRef}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={`Search in ${categoryName}...`}
-          className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
-        />
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+      <Input
+        ref={inputRef}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        // Empty while idle so the animated overlay is the only placeholder on screen
+        placeholder={isFocused ? "Search Storelib" : ""}
+        aria-label="Search Storelib"
+        role="combobox"
+        aria-expanded={suggestionsOpen}
+        aria-controls="explore-search-suggestions"
+        aria-autocomplete="list"
+        aria-activedescendant={activeOptionId ?? undefined}
+        className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
+      />
+      {/* Kept mounted and toggled — unmounting would restart the phrase cursor on every blur */}
+      <AnimatedSearchPlaceholder
+        active={!searchQuery && !isFocused}
+        className="absolute left-10 right-10 top-1/2 -translate-y-1/2 text-sm"
+      />
+      {searchQuery && (
         <button
           onClick={() => {
             setSearchQuery("")
-            onClose()
+            inputRef.current?.focus()
           }}
+          aria-label="Clear search"
           className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
-      </div>
+      )}
+
+      <SearchSuggestionsPanel
+        ref={panelRef}
+        id="explore-search-suggestions"
+        open={suggestionsOpen}
+        // Recents and history are for an empty field; once typing starts the
+        // dropdown is about the query, not about the past.
+        recentSearches={trimmedQuery ? NO_RECENT_SEARCHES : searches}
+        recentlyViewed={trimmedQuery ? NO_RECENTLY_VIEWED : recentlyViewed}
+        people={people}
+        peopleLoading={peopleLoading}
+        onSelectSearch={handleSelectSearch}
+        onRemoveSearch={removeSearch}
+        onClearSearches={clearSearches}
+        onSelectProduct={handleSelectProduct}
+        onSelectPerson={handleSelectPerson}
+        onActiveOptionChange={setActiveOptionId}
+        onClose={dismiss}
+        // Above the desktop filters dropdown (z-50), which can briefly co-exist
+        // during the 150ms deferred close.
+        className="absolute left-0 right-0 top-full mt-2 z-[60]"
+      />
     </div>
   )
 }
@@ -964,9 +897,8 @@ export function ExplorePageClient({
     try { sessionStorage.setItem("backPageName", "Explore") } catch { /* ignore */ }
   }, [])
 
-  // Search states
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [localSearchQuery, setLocalSearchQuery] = useState("")
+  // Search states — seeded from ?q= so an inbound search reads back in the field
+  const [localSearchQuery, setLocalSearchQuery] = useState(urlSearchQuery || "")
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -977,10 +909,7 @@ export function ExplorePageClient({
   }, [mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
 
   // Get available subcategories for current main category
-  const availableSubcategories = useMemo(() => {
-    const cat = CATEGORIES.find(c => c.id === mainCategory)
-    return cat?.subcategories || []
-  }, [mainCategory])
+  const availableSubcategories = useMemo(() => getSubcategories(mainCategory), [mainCategory])
 
   // Products for featured section
   const featuredProducts = useMemo(() => {
@@ -991,12 +920,8 @@ export function ExplorePageClient({
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Special handling for "freebies" category - show free products
-    if (mainCategory === "freebies") {
-      products = products.filter(p => p.price_cents === 0)
-    }
-    // For all other categories (including "other"): strictly filter by normalized DB category
-    else if (mainCategory !== "all") {
+    // Every category except "all": strictly filter by normalized DB category
+    if (mainCategory !== "all") {
       products = products.filter(p => {
         // Primary: match via normalized DB category field
         const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
@@ -1151,7 +1076,7 @@ export function ExplorePageClient({
 
   const totalPages = Math.ceil(recommendedProducts.length / PRODUCTS_PER_PAGE)
 
-  // Get products for the Browse by Category section - 2 rows x 3 = 6 products
+  // Get products for the Browse by Category section - 2 rows x 4 = 8 products
   const browseSectionProducts = useMemo(() => {
     let products = [...initialProducts]
 
@@ -1171,7 +1096,7 @@ export function ExplorePageClient({
       return scoreB - scoreA
     })
 
-    return products.slice(0, 6)
+    return products.slice(0, 8)
   }, [initialProducts, browseCategory])
 
   // Get active filter count
@@ -1195,7 +1120,7 @@ export function ExplorePageClient({
     if (urlSearchQuery) return `Results for "${urlSearchQuery}"`
     if (selectedSubcategoryLabel) return selectedSubcategoryLabel
     if (mainCategory === "all") return "Recommended"
-    return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
+    return getCategory(mainCategory)?.label || "Items"
   }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
 
   const scrollRecommendedSectionWithRetry = useCallback((attempt = 0) => {
@@ -1379,14 +1304,23 @@ export function ExplorePageClient({
   const showSkeletons = isPending || isLoadingCategory
 
   // Get current browse category label
-  const browseCategoryLabel = CATEGORIES.find(c => c.id === browseCategory)?.label || "All"
+  const browseCategoryLabel = categoryLabel(browseCategory)
 
   return (
+    // One batched wishlist fetch for every card on the page instead of one per card
+    <WishlistProvider>
     <div className="space-y-8">
       {/* Featured Banner Carousel */}
       {!urlSearchQuery && featuredProducts.length > 0 && (
         <FeaturedBannerCarousel products={featuredProducts} />
       )}
+
+      {/* Search — stays mounted across search/browse so the placeholder keeps its cursor */}
+      <SearchInput
+        searchQuery={localSearchQuery}
+        setSearchQuery={setLocalSearchQuery}
+        categoryId={mainCategory}
+      />
 
       {/* Dynamic Category Section (Recommended) */}
       {!urlSearchQuery && (
@@ -1549,15 +1483,6 @@ export function ExplorePageClient({
               </div>
             </div>
 
-            {/* Search Input */}
-            <SearchInput
-              isOpen={searchOpen}
-              onClose={() => setSearchOpen(false)}
-              searchQuery={localSearchQuery}
-              setSearchQuery={setLocalSearchQuery}
-              categoryName={sectionTitle}
-            />
-
             {/* Filter Pills Row */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {RECOMMENDATION_FILTERS.map((filter) => {
@@ -1605,7 +1530,7 @@ export function ExplorePageClient({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  {selectedSubcategoryLabel || CATEGORIES.find(c => c.id === mainCategory)?.label || "Category"}
+                  {selectedSubcategoryLabel || getCategory(mainCategory)?.label || "Category"}
                 </button>
               </div>
             )}
@@ -1648,10 +1573,10 @@ export function ExplorePageClient({
             )}
           </div>
 
-          {/* Products Grid - 3 per row */}
+          {/* Products Grid - portrait cards, 2 per row on mobile up to 4 on desktop */}
           {showSkeletons ? (
-            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
-              {Array.from({ length: 9 }).map((_, i) => (
+            <div className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
+              {Array.from({ length: PRODUCTS_PER_PAGE }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
@@ -1659,14 +1584,14 @@ export function ExplorePageClient({
             <>
               <div
                 key={`products-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${priceFilter}-${sortBy}-${currentPage}`}
-                className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+                className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
               >
                 {paginatedProducts.map((product, index) => (
                   <ProductCard
                     key={product.id}
                     product={product}
                     srcParam="?src=platform"
-                    priority={index < 3}
+                    priority={index < 4}
                     clientNav
                   />
                 ))}
@@ -1720,7 +1645,7 @@ export function ExplorePageClient({
               )}
 
               <p className="text-sm text-neutral-500 mt-4 text-center">
-                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
+                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} items
               </p>
 
               {/* Show All Button */}
@@ -1733,7 +1658,7 @@ export function ExplorePageClient({
                     }
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
-                    <span>Show All {selectedSubcategoryLabel || sectionTitle} Products</span>
+                    <span>Show all {selectedSubcategoryLabel || sectionTitle}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
@@ -1743,10 +1668,10 @@ export function ExplorePageClient({
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">
                 {localSearchQuery
-                  ? `No products found for "${localSearchQuery}"`
+                  ? `No items found for "${localSearchQuery}"`
                   : priceFilter !== "all"
-                    ? "No products match your filters. Try adjusting your price range."
-                    : `No products found in ${sectionTitle}.`
+                    ? "No items match your filters. Try adjusting your price range."
+                    : `No items found in ${sectionTitle}.`
                 }
               </p>
               {(activeFilterCount > 0 || selectedSubcategoryId) && (
@@ -1799,7 +1724,7 @@ export function ExplorePageClient({
 
           {/* Category Pills */}
           <nav aria-label="Browse categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {CATEGORIES.slice(0, 8).map((category) => {
+            {CATEGORIES.map((category) => {
               const isSelected = browseCategory === category.id
               const Icon = category.icon
               return (
@@ -1821,22 +1746,22 @@ export function ExplorePageClient({
           </nav>
         </div>
 
-        {/* Products Grid - 2 rows x 3 products on desktop */}
+        {/* Products Grid - 2 rows on desktop */}
         {browseSectionProducts.length > 0 ? (
-          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+          <div className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
             {browseSectionProducts.map((product, index) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 srcParam="?src=platform"
-                priority={index < 3}
+                priority={index < 4}
                 clientNav
               />
             ))}
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
-            <p className="text-neutral-500">No products found in this category.</p>
+            <p className="text-neutral-500">No items found in this category.</p>
           </div>
         )}
 
@@ -1847,7 +1772,7 @@ export function ExplorePageClient({
               href={browseCategory === "all" ? "/explore" : `/explore/${browseCategory}`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
             >
-              <span>Show All {browseCategory !== "all" ? browseCategoryLabel : ""} Products</span>
+              <span>Show all {browseCategory !== "all" ? browseCategoryLabel : "items"}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -1861,20 +1786,20 @@ export function ExplorePageClient({
             Results for "{urlSearchQuery}"
           </h2>
           {recommendedProducts.length > 0 ? (
-            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
-              {recommendedProducts.slice(0, 15).map((product, index) => (
+            <div className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
+              {recommendedProducts.slice(0, 16).map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   srcParam="?src=platform"
-                  priority={index < 3}
+                  priority={index < 4}
                   clientNav
                 />
               ))}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-              <p className="text-neutral-500">No products found for "{urlSearchQuery}"</p>
+              <p className="text-neutral-500">No items found for "{urlSearchQuery}"</p>
             </div>
           )}
         </section>
@@ -1905,5 +1830,6 @@ export function ExplorePageClient({
         onSelectSubcategory={handleModalSubcategorySelect}
       />
     </div>
+    </WishlistProvider>
   )
 }

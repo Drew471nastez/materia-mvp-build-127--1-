@@ -2,19 +2,29 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 import { UserNav } from "@/components/marketing/user-nav"
-import { Type } from "lucide-react"
+import { Shirt } from "lucide-react"
 import { Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CATEGORIES } from "@/lib/marketplace/categories"
 
-// Secondary nav categories (shown under header)
-const SECONDARY_NAV_CATEGORIES = [
-  { label: "Fonts", href: "/explore?q=fonts" },
-  { label: "Images", href: "/explore?q=images" },
-  { label: "Paper Crafts", href: "/explore?q=paper+crafts" },
-  { label: "Needlework", href: "/explore?q=needlework" },
-  { label: "Laser Cutting", href: "/explore?q=laser+cutting" },
-  { label: "3D Printing", href: "/explore?q=3d+printing" },
+// Secondary nav categories (shown under header) — must stay in sync with the same
+// list in components/marketing/header-client.tsx, or the SSR markup flashes labels
+// the hydrated header then replaces. Both derive from the shared taxonomy.
+const SECONDARY_NAV_IDS: readonly string[] = [
+  "womenswear",
+  "menswear",
+  "sneakers",
+  "bags-accessories",
+  "jewellery",
+  "vintage",
 ]
+
+const SECONDARY_NAV_CATEGORIES = CATEGORIES.filter((category) => SECONDARY_NAV_IDS.includes(category.id)).map(
+  (category) => ({
+    label: category.label,
+    href: `/explore/${category.id}`,
+  })
+)
 
 export function MarketingHeaderSkeleton() {
   return (
@@ -132,8 +142,8 @@ export async function MarketingHeader() {
                 href={category.href}
                 className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white whitespace-nowrap transition-colors cursor-pointer"
               >
-                {/* Show icon only on first category */}
-                {index === 0 && <Type className="w-4 h-4" />}
+                {/* Show icon only on first category (Womenswear) */}
+                {index === 0 && <Shirt className="w-4 h-4" />}
                 <span>{category.label}</span>
               </Link>
             ))}

@@ -3,80 +3,37 @@
 import { useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, PenTool, Music, Video, MoreHorizontal, type LucideIcon } from "lucide-react"
+import { ArrowRight, type LucideIcon } from "lucide-react"
+import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 
-// Category configuration with gradients and icons for fallback images
+// Fallback gradients, used only until a category has a listing with a photo
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  "womenswear": "from-pink-500 via-rose-500 to-red-500",
+  "menswear": "from-blue-500 via-indigo-500 to-slate-600",
+  "sneakers": "from-orange-500 via-amber-500 to-yellow-500",
+  "bags-accessories": "from-amber-600 via-orange-700 to-stone-700",
+  "jewellery": "from-yellow-400 via-amber-500 to-orange-500",
+  "beauty": "from-fuchsia-500 via-pink-500 to-rose-400",
+  "books": "from-emerald-500 via-green-600 to-teal-600",
+  "home": "from-stone-500 via-neutral-500 to-zinc-600",
+  "vintage": "from-violet-500 via-purple-500 to-fuchsia-500",
+}
+
+// The layout below is fixed at 3 big + 6 small tiles, which is exactly the
+// taxonomy minus "All" — keep those two in step if a category is ever added.
 const CATEGORIES_CONFIG: Array<{
   id: string
   name: string
   slug: string
   gradient: string
   icon: LucideIcon
-}> = [
-  {
-    id: "design",
-    name: "Design",
-    slug: "design",
-    gradient: "from-pink-500 via-rose-500 to-red-500",
-    icon: Sparkles,
-  },
-  {
-    id: "development",
-    name: "Development",
-    slug: "development",
-    gradient: "from-blue-500 via-indigo-500 to-purple-500",
-    icon: Code,
-  },
-  {
-    id: "marketing",
-    name: "Marketing",
-    slug: "marketing",
-    gradient: "from-orange-500 via-amber-500 to-yellow-500",
-    icon: Megaphone,
-  },
-  {
-    id: "business",
-    name: "Business & Money",
-    slug: "business",
-    gradient: "from-emerald-500 via-green-500 to-teal-500",
-    icon: Briefcase,
-  },
-  {
-    id: "education",
-    name: "Education",
-    slug: "education",
-    gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
-    icon: GraduationCap,
-  },
-  {
-    id: "writing",
-    name: "Writing & Publishing",
-    slug: "writing",
-    gradient: "from-slate-500 via-gray-500 to-zinc-600",
-    icon: PenTool,
-  },
-  {
-    id: "music",
-    name: "Music & Sound Design",
-    slug: "music",
-    gradient: "from-cyan-500 via-sky-500 to-blue-500",
-    icon: Music,
-  },
-  {
-    id: "films",
-    name: "Films",
-    slug: "films",
-    gradient: "from-red-500 via-rose-600 to-pink-600",
-    icon: Video,
-  },
-  {
-    id: "other",
-    name: "Other",
-    slug: "other",
-    gradient: "from-neutral-500 via-stone-500 to-zinc-500",
-    icon: MoreHorizontal,
-  },
-]
+}> = CATEGORIES.filter((category) => category.id !== "all").map((category) => ({
+  id: category.id,
+  name: category.label,
+  slug: category.id,
+  gradient: CATEGORY_GRADIENTS[category.id] || "from-neutral-500 via-stone-500 to-zinc-500",
+  icon: category.icon,
+}))
 
 interface FeaturedCategoriesSectionProps {
   products?: any[]
@@ -87,9 +44,10 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
   const categoriesWithImages = useMemo(() => {
     return CATEGORIES_CONFIG.map(category => {
       // Find top product in this category with a thumbnail
+      // Normalized equality only — substring matching would let "bags-accessories"
+      // pick up a cover photo from any listing whose category merely contains it.
       const categoryProducts = products.filter(p => {
-        const productCategory = (p.category || p.categoryName || "").toLowerCase()
-        return productCategory === category.slug || productCategory.includes(category.slug)
+        return normalizeCategoryToId(p.category || p.categoryName) === category.id
       })
 
       const topProduct = categoryProducts.find(p => p.thumbnail_url)
@@ -114,7 +72,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
         <div className="lg:col-span-3 flex flex-col justify-center mb-2 lg:mb-0">
           <div className="flex items-start justify-between gap-3 lg:block">
             <h2 className="text-lg sm:text-2xl lg:text-4xl font-bold text-neutral-900 leading-tight mb-2 lg:mb-6">
-              Explore categories you can build with
+              Shop pre-loved by category
             </h2>
             {/* Mobile navigation arrows - inline with heading */}
             <div className="flex items-center gap-2 lg:hidden flex-shrink-0 mt-0.5">

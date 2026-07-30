@@ -11,51 +11,42 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Heart,
   Menu,
-  Layers,
-  Sparkles,
-  Code,
-  Megaphone,
-  Briefcase,
-  GraduationCap,
-  Music,
-  Film,
+  Shirt,
+  PersonStanding,
+  Footprints,
+  ShoppingBag,
+  Gem,
+  Recycle,
   BookOpen,
-  Palette,
-  Camera,
-  PenTool,
-  FileText,
   Zap,
   Users,
   Star,
-  Type,
-  Image as ImageIcon,
-  Scissors,
-  Cpu,
-  Printer,
   ChevronDown
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { CATEGORIES } from "@/lib/marketplace/categories"
 
-// Main categories for megamenu
-const MAIN_CATEGORIES = [
-  { id: "all", label: "All Products", icon: Layers, href: "/explore" },
-  { id: "design", label: "Design", icon: Sparkles, href: "/explore?category=design" },
-  { id: "development", label: "Development", icon: Code, href: "/explore?category=development" },
-  { id: "marketing", label: "Marketing", icon: Megaphone, href: "/explore?category=marketing" },
-  { id: "business", label: "Business & Money", icon: Briefcase, href: "/explore?category=business" },
-  { id: "education", label: "Education", icon: GraduationCap, href: "/explore?category=education" },
-]
+// Main categories for megamenu — the marketplace taxonomy, in taxonomy order.
+// Every id except "all" has a real /explore/<id> page, so these are route links
+// rather than ?q= searches. "all" points at the feed itself.
+const MAIN_CATEGORIES = CATEGORIES.map((category) => ({
+  id: category.id,
+  label: category.id === "all" ? "All items" : category.label,
+  icon: category.icon,
+  href: category.id === "all" ? "/explore" : `/explore/${category.id}`,
+}))
 
-// Popular subcategories for megamenu
+// Popular subcategories for megamenu — every `sub` is a real subcategory id from
+// the shared taxonomy, so these deep-link straight into a filtered category page.
 const POPULAR_SUBCATEGORIES = [
-  { label: "Templates", icon: FileText, href: "/explore?q=templates" },
-  { label: "Courses", icon: BookOpen, href: "/explore?q=courses" },
-  { label: "Graphics", icon: Palette, href: "/explore?q=graphics" },
-  { label: "Photography", icon: Camera, href: "/explore?q=photography" },
-  { label: "UI Kits", icon: PenTool, href: "/explore?q=ui+kits" },
-  { label: "Music", icon: Music, href: "/explore?q=music" },
-  { label: "Video", icon: Film, href: "/explore?q=video" },
-  { label: "eBooks", icon: BookOpen, href: "/explore?q=ebooks" },
+  { label: "Dresses", icon: Shirt, href: "/explore/womenswear?sub=dresses" },
+  { label: "Hoodies & Sweats", icon: PersonStanding, href: "/explore/menswear?sub=hoodies" },
+  { label: "Jordan", icon: Footprints, href: "/explore/sneakers?sub=jordan" },
+  { label: "Nike", icon: Footprints, href: "/explore/sneakers?sub=nike" },
+  { label: "Handbags", icon: ShoppingBag, href: "/explore/bags-accessories?sub=handbags" },
+  { label: "Rings", icon: Gem, href: "/explore/jewellery?sub=rings" },
+  { label: "Band Tees", icon: Recycle, href: "/explore/vintage?sub=band-tees" },
+  { label: "Fiction", icon: BookOpen, href: "/explore/books?sub=fiction" },
 ]
 
 // Discover/Extras for megamenu
@@ -65,15 +56,25 @@ const EXTRAS = [
   { label: "New Releases", icon: Star, href: "/explore" },
 ]
 
-// Secondary nav categories (shown under header)
-const SECONDARY_NAV_CATEGORIES = [
-  { label: "Fonts", icon: Type, href: "/explore?q=fonts" },
-  { label: "Images", icon: ImageIcon, href: "/explore?q=images" },
-  { label: "Paper Crafts", icon: Scissors, href: "/explore?q=paper+crafts" },
-  { label: "Needlework", icon: PenTool, href: "/explore?q=needlework" },
-  { label: "Laser Cutting", icon: Cpu, href: "/explore?q=laser+cutting" },
-  { label: "3D Printing", icon: Printer, href: "/explore?q=3d+printing" },
+// Secondary nav categories (shown under header) — the six most-shopped of the ten.
+// Mirrored (labels + hrefs) by components/marketing/header.tsx, which renders the
+// SSR skeleton; keep both lists at six entries so nothing shifts on hydration.
+const SECONDARY_NAV_IDS: readonly string[] = [
+  "womenswear",
+  "menswear",
+  "sneakers",
+  "bags-accessories",
+  "jewellery",
+  "vintage",
 ]
+
+const SECONDARY_NAV_CATEGORIES = CATEGORIES.filter((category) => SECONDARY_NAV_IDS.includes(category.id)).map(
+  (category) => ({
+    label: category.label,
+    icon: category.icon,
+    href: `/explore/${category.id}`,
+  })
+)
 
 export function MarketingHeaderClient() {
   const pathname = usePathname()
@@ -353,7 +354,7 @@ export function MarketingHeaderClient() {
                   href={category.href}
                   className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white whitespace-nowrap transition-colors cursor-pointer"
                 >
-                  {/* Show icon only on first category (Fonts) */}
+                  {/* Show icon only on first category (Womenswear) */}
                   {index === 0 && <Icon className="w-4 h-4 text-white/50" />}
                   <span>{category.label}</span>
                 </Link>

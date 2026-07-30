@@ -1,24 +1,68 @@
-import dynamic from "next/dynamic"
-import { Hero } from "@/components/marketing/hero"
-import { BentoGrid } from "@/components/marketing/bento-grid"
-import { StatsBar } from "@/components/marketing/stats-bar"
+import { Metadata } from "next"
+import {
+  ExploreFeed,
+  FEED_CANONICAL,
+  FEED_DESCRIPTION,
+  FEED_KEYWORDS,
+  FEED_OG_IMAGE,
+  FEED_OG_IMAGE_ALT,
+  type FeedSearchParams,
+} from "./_explore-feed"
 
-// Below-the-fold sections — dynamically imported to reduce initial JS bundle.
-// Hero + BentoGrid + StatsBar load eagerly (above the fold).
-const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
-const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-features-section").then(m => ({ default: m.SplitFeaturesSection })))
-const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
-const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
-const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
-const FeaturesBadgesSection = dynamic(() => import("@/components/marketing/features-badges-section").then(m => ({ default: m.FeaturesBadgesSection })))
-const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
-const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
-const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
+// SEO-optimized metadata — "/" is the primary marketplace surface.
+// The previous SaaS landing page lives on in ./_legacy-landing.tsx (not routed).
+export const metadata: Metadata = {
+  title: { absolute: "Storelib | Buy & Sell Second-Hand Fashion, Sneakers & Vintage" },
+  description: FEED_DESCRIPTION,
+  keywords: FEED_KEYWORDS,
+  openGraph: {
+    title: "Storelib | Buy & Sell Second-Hand Fashion, Sneakers & Vintage",
+    description: FEED_DESCRIPTION,
+    type: "website",
+    url: "/",
+    siteName: "Storelib",
+    images: [
+      {
+        url: FEED_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: FEED_OG_IMAGE_ALT,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Storelib | Buy & Sell Second-Hand Fashion, Sneakers & Vintage",
+    description: FEED_DESCRIPTION,
+    images: [FEED_OG_IMAGE],
+  },
+  alternates: {
+    canonical: FEED_CANONICAL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+}
 
-export default function StorelibLanding() {
+export const dynamic = "force-dynamic"
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<FeedSearchParams>
+}) {
   return (
-    <div className="bg-white overflow-x-hidden">
-      {/* JSON-LD structured data */}
+    <>
+      {/* Site-wide JSON-LD — Organization + WebSite are homepage-scoped signals,
+          carried over from the retired landing page so they aren't lost. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -29,7 +73,7 @@ export default function StorelibLanding() {
             "url": "https://storelib.com",
             "logo": "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg",
             "sameAs": [],
-            "description": "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience."
+            "description": "The marketplace for second-hand fashion, sneakers, bags, jewellery, books, homeware and vintage."
           }),
         }}
       />
@@ -43,48 +87,14 @@ export default function StorelibLanding() {
             "url": "https://storelib.com",
             "potentialAction": {
               "@type": "SearchAction",
-              "target": "https://storelib.com/explore?q={search_term_string}",
+              "target": "https://storelib.com/?q={search_term_string}",
               "query-input": "required name=search_term_string"
             }
           }),
         }}
       />
 
-      {/* HERO SECTION */}
-      <Hero />
-
-      {/* BENTO GRID */}
-      <BentoGrid />
-
-      {/* STATS BAR */}
-      <StatsBar />
-
-      {/* MANAGE YOUR BUSINESS */}
-      <ManageSection />
-
-      {/* PRODUCT CATEGORIES MARQUEE */}
-      <ProductMarquee />
-
-      {/* SPLIT FEATURE ROWS */}
-      <SplitFeaturesSection />
-
-      {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
-      {/* <CarouselSection /> */}
-
-      {/* TOOL STACK COMPARISON */}
-      <ToolStackSection />
-
-      {/* PRICING */}
-      <PricingSection />
-
-      {/* FEATURE BADGES */}
-      <FeaturesBadgesSection />
-
-      {/* FAQ */}
-      <FaqSection />
-
-      {/* CTA */}
-      <CtaSection />
-    </div>
+      <ExploreFeed searchParams={searchParams} />
+    </>
   )
 }

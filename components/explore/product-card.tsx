@@ -5,7 +5,58 @@ import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
-import { Star } from "lucide-react"
+import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
+import { CONDITIONS } from "@/lib/marketplace/categories"
+import { cn } from "@/lib/utils"
+import { Heart, Star } from "lucide-react"
+
+// Portrait grid: 2 columns on mobile, 3 on tablet, 4 on desktop (container max-w-[1400px]).
+const GRID_IMAGE_SIZES = "(max-width: 639px) 47vw, (max-width: 1023px) 31vw, (max-width: 1400px) 23vw, 336px"
+
+// 1x1 neutral grey, inlined by next/image — no extra request, no white flash on slow links.
+const BLUR_DATA_URL = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+
+// YouTube thumbnails can live in gallery_urls but are video posters, not product photos
+// (same rule the PDP gallery applies in app/(marketing)/p/[slug]/page.tsx).
+function isYouTubeThumbnailUrl(url: string): boolean {
+  return url.includes("img.youtube.com") || url.includes("i.ytimg.com")
+}
+
+/** Second real photo for the hover swap — skips video posters and the primary image. */
+function pickHoverImage(gallery: string[] | null | undefined, thumbnail: string | null | undefined): string | null {
+  // Array.isArray rather than ?.length: gallery_urls is jsonb and can arrive as a non-array.
+  if (!Array.isArray(gallery)) return null
+  return (
+    gallery.find(
+      (url) => typeof url === "string" && url.length > 0 && url !== thumbnail && !isYouTubeThumbnailUrl(url)
+    ) ?? null
+  )
+}
+
+// Best-effort size until products.size ships — anchored to "size:" so a stray "S" in
+// prose can't false-positive, and nothing renders when we aren't sure.
+const SIZE_IN_TITLE_RE = /\bsize[:\s]+([a-z0-9./]{1,6})\b/i
+const SIZE_TOKEN_RE = /^(XXS|XS|S|M|L|XL|XXL|XXXL|(UK|EU|US)\s?\d{1,2}(\.5)?|\d{1,3}(\.5)?)$/i
+// products.size_system is a UI hint — prefix a bare number so "9" reads as "UK 9".
+const SIZE_SYSTEM_PREFIX: Record<string, string> = { uk: "UK", eu: "EU", us: "US" }
+
+function getSizeLabel(product: { size?: string | null; size_system?: string | null; title?: string }): string | null {
+  const explicit = product.size?.trim()
+  if (explicit) {
+    const prefix = SIZE_SYSTEM_PREFIX[(product.size_system || "").toLowerCase()]
+    // Only prefix a bare number — "UK UK 9" and "EU One size" both read wrong.
+    return prefix && /^\d{1,3}(\.5)?$/.test(explicit) ? `${prefix} ${explicit}` : explicit
+  }
+  const token = product.title?.match(SIZE_IN_TITLE_RE)?.[1]?.trim()
+  return token && SIZE_TOKEN_RE.test(token) ? token.toUpperCase() : null
+}
+
+/** Maps products.condition to its display label; unknown values render nothing. */
+function getConditionLabel(condition: string | null | undefined): string | null {
+  if (!condition) return null
+  const key = condition.trim().toLowerCase().replace(/[\s-]+/g, "_")
+  return CONDITIONS.find((entry) => entry.id === key)?.label ?? null
+}
 
 function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
   const [failed, setFailed] = useState(false)
@@ -37,6 +88,43 @@ function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: st
   )
 }
 
+/**
+ * Card-sized wishlist toggle. Reads from the shared store, so a 30-card grid costs
+ * one request instead of one per card, and toggling is instant (optimistic).
+ */
+function WishlistHeartButton({ productId }: { productId: string }) {
+  const isWishlisted = useIsWishlisted(productId)
+  const toggleWishlist = useToggleWishlist()
+
+  const onClick = useCallback(
+    (e: React.MouseEvent) => {
+      // The heart floats over the product link — never let the click navigate.
+      e.preventDefault()
+      e.stopPropagation()
+      void toggleWishlist(productId)
+    },
+    [productId, toggleWishlist]
+  )
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={isWishlisted}
+      aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+      // after:-inset-1.5 widens the tap target past the 32px visual without moving it.
+      className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/80 shadow-sm backdrop-blur-sm transition-transform duration-150 ease-out after:absolute after:-inset-1.5 after:content-[''] motion-safe:active:scale-90 [@media(hover:hover)]:hover:bg-white"
+    >
+      <Heart
+        className={cn(
+          "h-4 w-4 transition-colors duration-150",
+          isWishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-700"
+        )}
+      />
+    </button>
+  )
+}
+
 interface ProductCardProps {
   product: {
     id: string
@@ -46,9 +134,16 @@ interface ProductCardProps {
     price_cents: number
     compare_at_cents?: number | null
     thumbnail_url?: string | null
+    /** jsonb string[] — the second real photo drives the hover swap. May hold YouTube posters. */
+    gallery_urls?: string[] | null
     type: string
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display
+    /** Marketplace attributes. Optional until the migration lands — never render them empty. */
+    size?: string | null
+    size_system?: string | null
+    brand?: string | null
+    condition?: string | null
     reviews_count?: number | null
     reviews_average?: number | null
     categories?: {
@@ -73,14 +168,17 @@ interface ProductCardProps {
   priority?: boolean
   /** Use router.push() on native instead of window.location.href to avoid white flash */
   clientNav?: boolean
+  /** Hide the seller row in dense carousels */
+  showSeller?: boolean
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false, showSeller = true }: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const touchStartY = useRef(0)
   const touchStartX = useRef(0)
   const didScroll = useRef(false)
+  const [hoverArmed, setHoverArmed] = useState(false)
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0
@@ -102,6 +200,14 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
       e.stopPropagation()
       didScroll.current = false
     }
+  }, [])
+
+  // The second photo is only mounted once the pointer arrives, so the grid never pays
+  // for 30 extra downloads up front and touch devices (no mouseenter) never fetch it.
+  const armHover = useCallback(() => {
+    // The crossfade is motion-safe only — don't spend a request when it can't play.
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    setHoverArmed(true)
   }, [])
 
   // Safety check - if product is null/undefined, don't render
@@ -127,79 +233,121 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const hasReviews = (product.reviews_count ?? 0) > 0
   const reviewsAverage = product.reviews_average ?? 0
 
+  const compareAtCents = product.compare_at_cents ?? 0
+  const hasDiscount = compareAtCents > product.price_cents
+
+  const hoverImage = pickHoverImage(product.gallery_urls, product.thumbnail_url)
+  const sizeLabel = getSizeLabel(product)
+  // Brand and condition sit on one subtle line, Depop-style — both are optional.
+  const detailLine = [product.brand?.trim() || null, getConditionLabel(product.condition)]
+    .filter(Boolean)
+    .join(" · ")
+
   return (
     <div
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      className="group flex flex-col"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}
+      // Armed from the whole card because group-hover fires from the whole card too.
+      onMouseEnter={hoverImage ? armHover : undefined}
     >
-      <SmartLink href={productUrl} useClientNav={clientNav} className="relative aspect-video bg-muted overflow-hidden">
-        {product.thumbnail_url ? (
-          <Image
-            src={product.thumbnail_url}
-            alt={product.title || "Product"}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03]"
-            priority={priority}
-            loading={priority ? undefined : "lazy"}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <span className="text-4xl">
-              {product.type === "digital" ? "📦" : product.type === "course" ? "📚" : "👥"}
-            </span>
-          </div>
-        )}
-        {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-          <Badge variant="destructive" className="absolute left-2 top-2 text-xs">
-            {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
+      {/* Image well — relative so the heart can sit beside (never inside) the link */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
+        <SmartLink href={productUrl} useClientNav={clientNav} className="absolute inset-0 block">
+          {product.thumbnail_url ? (
+            <>
+              <Image
+                src={product.thumbnail_url}
+                alt={product.title || "Product"}
+                fill
+                sizes={GRID_IMAGE_SIZES}
+                quality={70}
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
+                className={cn(
+                  "object-cover",
+                  hoverImage
+                    ? // Crossfade to the second photo; motion-safe so reduced motion keeps one still image.
+                      "transition-opacity duration-300 ease-out [@media(hover:hover)]:motion-safe:group-hover:opacity-0"
+                    : // Single-photo listings keep the subtle zoom the grid had before.
+                      "transition-transform duration-500 ease-out [@media(hover:hover)]:motion-safe:group-hover:scale-[1.03]"
+                )}
+                priority={priority}
+                loading={priority ? undefined : "lazy"}
+              />
+              {hoverImage && hoverArmed && (
+                <Image
+                  src={hoverImage}
+                  alt=""
+                  aria-hidden="true"
+                  fill
+                  sizes={GRID_IMAGE_SIZES}
+                  quality={70}
+                  loading="lazy"
+                  className="object-cover opacity-0 transition-opacity duration-300 ease-out [@media(hover:hover)]:motion-safe:group-hover:opacity-100"
+                />
+              )}
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <span className="text-4xl">👜</span>
+            </div>
+          )}
+        </SmartLink>
+        {hasDiscount && (
+          <Badge variant="destructive" className="pointer-events-none absolute left-2 top-2 px-1.5 py-0 text-[10px]">
+            {Math.round((1 - product.price_cents / compareAtCents) * 100)}% OFF
           </Badge>
         )}
-      </SmartLink>
-      <div className="flex flex-1 flex-col p-4">
-        {/* Seller info row - avatar, name (clickable), divider, rating */}
-        <div className="flex items-center gap-2 mb-2">
-          <SmartLink
-            href={storeUrl}
-            className="group/seller flex items-center gap-1.5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
-            <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
-              {creatorName}
-            </span>
-          </SmartLink>
-          {hasReviews && (
-            <>
-              <span className="h-3.5 w-px bg-border/60 shrink-0" />
-              <div className="flex items-center gap-1">
-                <Star className="h-3.5 w-3.5 fill-current text-foreground" />
-                <span className="text-[13px] text-muted-foreground">
-                  {reviewsAverage.toFixed(1)}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
+        <WishlistHeartButton productId={product.id} />
+      </div>
 
-        <SmartLink href={productUrl} useClientNav={clientNav} className="flex-1 flex flex-col">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[17px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
-            <Badge variant="secondary" className="shrink-0 text-xs capitalize">
-              {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
-            </Badge>
-          </div>
-          <div className="mt-auto pt-4">
-            <span className="font-semibold">{product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}</span>
-            {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-              <span className="ml-2 text-sm text-muted-foreground line-through">
-                {formatPrice(product.compare_at_cents)}
+      {/* Meta — no card chrome, the photo carries the card */}
+      <div className="flex flex-col px-0.5 pt-2.5">
+        <SmartLink href={productUrl} useClientNav={clientNav} className="flex flex-col gap-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[15px] font-semibold leading-none text-foreground">
+              {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+            </span>
+            {hasDiscount && (
+              <span className="text-[12px] leading-none text-muted-foreground line-through">
+                {formatPrice(compareAtCents)}
               </span>
             )}
           </div>
+          <h3 className="line-clamp-1 text-[13px] leading-snug text-muted-foreground">{product.title}</h3>
         </SmartLink>
+
+        {(sizeLabel || detailLine || hasReviews) && (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            {sizeLabel && (
+              <span className="inline-flex shrink-0 items-center rounded border border-border/70 px-1.5 py-px text-[11px] font-medium leading-[1.4] text-muted-foreground">
+                {sizeLabel}
+              </span>
+            )}
+            {detailLine && <span className="truncate text-[11px] text-muted-foreground">{detailLine}</span>}
+            {hasReviews && (
+              <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground">
+                <Star className="h-3 w-3 fill-current text-foreground" />
+                {reviewsAverage.toFixed(1)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {showSeller && (
+          <SmartLink
+            href={storeUrl}
+            className="group/seller mt-1.5 flex items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={16} />
+            <span className="truncate text-[11px] text-muted-foreground group-hover/seller:underline">
+              {creatorName}
+            </span>
+          </SmartLink>
+        )}
       </div>
     </div>
   )

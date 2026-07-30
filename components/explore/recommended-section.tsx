@@ -9,7 +9,8 @@ interface RecommendedSectionProps {
   filterType?: "curated" | "trending" | "hot-new"
 }
 
-const ITEMS_PER_PAGE = 6
+// 4 portrait cards per row x 2 rows on desktop
+const ITEMS_PER_PAGE = 8
 
 export function RecommendedSection({ products, filterType = "curated" }: RecommendedSectionProps) {
   const [currentPage, setCurrentPage] = useState(0)
@@ -123,7 +124,7 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
         <div
           key={`${filterType}-${currentPage}`}
           className={`
-            grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
+            grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4
             transition-all duration-200 ease-out
             ${isAnimating && slideDirection === "left" ? "opacity-95" : ""}
             ${isAnimating && slideDirection === "right" ? "opacity-95" : ""}
@@ -142,7 +143,7 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
               <ProductCard
                 product={product}
                 srcParam="?src=platform"
-                priority={index < 3}
+                priority={index < 4}
               />
             </div>
           ))}

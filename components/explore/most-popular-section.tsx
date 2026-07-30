@@ -21,7 +21,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         const isRecent48h = createdAt > fortyEightHoursAgo
         const isRecentWeek = createdAt > sevenDaysAgo
 
-        // Engagement score: purchases/downloads weighted heaviest, then reviews, then views
+        // Engagement score: sales weighted heaviest, then reviews, then views
         const salesScore = (p.sales_count || 0) * 5
         const reviewScore = (p.reviews_count || 0) * 3
         const ratingBonus = (p.reviews_average || 0) >= 4 ? (p.reviews_average || 0) * 2 : 0
@@ -174,14 +174,14 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
 
       </div>
 
-      {/* Desktop: Static 3x2 grid - no carousel, no dots */}
-      <div className="hidden md:grid grid-cols-3 gap-5">
-        {popularProducts.slice(0, 6).map((product, index) => (
+      {/* Desktop: Static 4x2 grid of portrait cards - no carousel, no dots */}
+      <div className="hidden md:grid grid-cols-4 gap-5">
+        {popularProducts.slice(0, 8).map((product, index) => (
           <ProductCard
             key={product.id}
             product={product}
             srcParam="?src=platform"
-            priority={index < 6}
+            priority={index < 4}
           />
         ))}
       </div>
@@ -199,9 +199,9 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <div className="flex gap-4">
-            <div className="flex-shrink-0 w-[7.5%]" aria-hidden="true" />
+            <div className="flex-shrink-0 w-[19%]" aria-hidden="true" />
             {mobileProducts.map((product, index) => (
-              <div key={product.id} data-popular-slide={index} className="flex-shrink-0 w-[85%] snap-center">
+              <div key={product.id} data-popular-slide={index} className="flex-shrink-0 w-[62%] snap-center">
                 <ProductCard
                   product={product}
                   srcParam="?src=platform"
@@ -209,7 +209,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
                 />
               </div>
             ))}
-            <div className="flex-shrink-0 w-[7.5%]" aria-hidden="true" />
+            <div className="flex-shrink-0 w-[19%]" aria-hidden="true" />
           </div>
         </div>
 

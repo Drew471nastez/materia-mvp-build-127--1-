@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
+import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
 
 export const dynamic = "force-dynamic"
 
@@ -13,33 +14,18 @@ const STATIC_BLOG_SLUGS = [
   "pricing-strategies-for-digital-products",
 ]
 
-const EXPLORE_CATEGORIES = [
-  "design",
-  "development",
-  "marketing",
-  "business",
-  "ai",
-  "social-media",
-  "productivity",
-  "photography",
-  "video",
-  "audio-music",
-  "education",
-  "ecommerce",
-  "freebies",
-  "other",
-]
+// Marketplace taxonomy, minus the "all" pseudo-category (that is just "/")
+const EXPLORE_CATEGORIES = VALID_CATEGORY_IDS.filter((id) => id !== "all")
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // "/" is the marketplace feed and the primary URL. /explore serves the same feed but
+  // canonicalises to "/", so it is intentionally not listed. /features, /pricing and
+  // /faq now redirect to "/" and are not advertised either.
   const routes: MetadataRoute.Sitemap = [
-    { url: BASE, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 },
+    { url: BASE, lastModified: new Date(), changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
-    { url: `${BASE}/explore`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
-    { url: `${BASE}/features`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
-    { url: `${BASE}/pricing`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/signup`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE}/faq`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
   ]
 
   // Explore category pages
@@ -96,16 +82,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Published products
   try {
+    // products has no `is_published` column — publication state lives in `status`,
+    // so the old filter silently errored and emitted zero product URLs
     const { data: products } = await supabase
       .from("products")
       .select("slug, updated_at")
-      .eq("is_published", true)
+      .eq("status", "published")
       .limit(5000)
 
     for (const product of products || []) {
       routes.push({
         url: `${BASE}/p/${product.slug}`,
-        lastModified: new Date(product.updated_at),
+        lastModified: new Date(product.updated_at || Date.now()),
         changeFrequency: "weekly",
         priority: 0.7,
       })

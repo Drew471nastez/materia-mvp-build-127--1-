@@ -4,277 +4,9 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ProductCard } from "./product-card"
-import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowLeft, Music, Camera, Video, ShoppingBag, GraduationCap, Code, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
+import { Layers, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, ArrowLeft, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
-
-// Categories with icons and subcategories
-const CATEGORIES = [
-  {
-    id: "design",
-    label: "Design",
-    icon: Sparkles,
-    description: "Beautiful templates, graphics, fonts, and design assets",
-    subcategories: [
-      { id: "ui-ux", label: "UI/UX Templates" },
-      { id: "graphics", label: "Graphics & Illustrations" },
-      { id: "fonts", label: "Fonts & Typography" },
-      { id: "icons", label: "Icons & Elements" },
-      { id: "mockups", label: "Mockups" },
-      { id: "logos", label: "Logo Templates" },
-      { id: "branding", label: "Branding Kits" },
-      { id: "print", label: "Print Design" },
-    ]
-  },
-  {
-    id: "development",
-    label: "Development",
-    icon: Code,
-    description: "Web templates, mobile apps, scripts, and developer tools",
-    subcategories: [
-      { id: "web", label: "Web Templates" },
-      { id: "mobile", label: "Mobile Apps" },
-      { id: "scripts", label: "Scripts & Plugins" },
-      { id: "apis", label: "APIs & Tools" },
-      { id: "wordpress", label: "WordPress Themes" },
-      { id: "shopify", label: "Shopify Themes" },
-      { id: "react", label: "React Components" },
-      { id: "nextjs", label: "Next.js Templates" },
-    ]
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    icon: Megaphone,
-    description: "Email templates, ad creatives, landing pages, and SEO tools",
-    subcategories: [
-      { id: "email", label: "Email Templates" },
-      { id: "ads", label: "Ad Creatives" },
-      { id: "landing", label: "Landing Pages" },
-      { id: "seo", label: "SEO Tools" },
-      { id: "copywriting", label: "Copywriting Templates" },
-      { id: "funnels", label: "Sales Funnels" },
-    ]
-  },
-  {
-    id: "business",
-    label: "Business",
-    icon: Briefcase,
-    description: "Spreadsheets, presentations, documents, and business tools",
-    subcategories: [
-      { id: "spreadsheets", label: "Spreadsheets" },
-      { id: "presentations", label: "Presentations" },
-      { id: "documents", label: "Documents & Contracts" },
-      { id: "invoices", label: "Invoice Templates" },
-      { id: "proposals", label: "Proposal Templates" },
-      { id: "business-plans", label: "Business Plans" },
-    ]
-  },
-  {
-    id: "ai",
-    label: "AI",
-    icon: Bot,
-    description: "AI prompts, ChatGPT templates, and automation tools",
-    subcategories: [
-      { id: "prompts", label: "AI Prompts" },
-      { id: "chatgpt", label: "ChatGPT Templates" },
-      { id: "midjourney", label: "Midjourney Prompts" },
-      { id: "automation", label: "Automation Tools" },
-      { id: "ai-tools", label: "AI-Powered Tools" },
-    ]
-  },
-  {
-    id: "social-media",
-    label: "Social Media",
-    icon: Share2,
-    description: "Instagram, TikTok, YouTube templates and content packs",
-    subcategories: [
-      { id: "instagram", label: "Instagram Templates" },
-      { id: "tiktok", label: "TikTok Content" },
-      { id: "youtube", label: "YouTube Assets" },
-      { id: "twitter", label: "Twitter/X Templates" },
-      { id: "linkedin", label: "LinkedIn Templates" },
-      { id: "pinterest", label: "Pinterest Templates" },
-      { id: "reels", label: "Reels & Shorts" },
-    ]
-  },
-  {
-    id: "productivity",
-    label: "Productivity",
-    icon: Zap,
-    description: "Notion templates, planners, checklists, and dashboards",
-    subcategories: [
-      { id: "notion", label: "Notion Templates" },
-      { id: "planners", label: "Calendars & Planners" },
-      { id: "checklists", label: "Checklists" },
-      { id: "trackers", label: "Habit Trackers" },
-      { id: "dashboards", label: "Dashboards" },
-      { id: "airtable", label: "Airtable Templates" },
-    ]
-  },
-  {
-    id: "photography",
-    label: "Photography",
-    icon: Camera,
-    description: "Lightroom presets, photo overlays, and Photoshop actions",
-    subcategories: [
-      { id: "presets", label: "Lightroom Presets" },
-      { id: "overlays", label: "Photo Overlays" },
-      { id: "actions", label: "Photoshop Actions" },
-      { id: "luts", label: "Color LUTs" },
-      { id: "stock", label: "Stock Photos" },
-    ]
-  },
-  {
-    id: "video",
-    label: "Video",
-    icon: Video,
-    description: "Video templates, transitions, motion graphics, and effects",
-    subcategories: [
-      { id: "templates", label: "Video Templates" },
-      { id: "transitions", label: "Transitions & Effects" },
-      { id: "motion", label: "Motion Graphics" },
-      { id: "after-effects", label: "After Effects" },
-      { id: "premiere", label: "Premiere Pro" },
-      { id: "davinci", label: "DaVinci Resolve" },
-    ]
-  },
-  {
-    id: "audio-music",
-    label: "Audio & Music",
-    icon: Music,
-    description: "Royalty-free music, sound effects, loops, and samples",
-    subcategories: [
-      { id: "music", label: "Royalty-Free Music" },
-      { id: "sfx", label: "Sound Effects" },
-      { id: "loops", label: "Loops & Samples" },
-      { id: "podcasts", label: "Podcast Templates" },
-    ]
-  },
-  {
-    id: "education",
-    label: "Education",
-    icon: GraduationCap,
-    description: "Online courses, eBooks, tutorials, and educational content",
-    subcategories: [
-      { id: "courses", label: "Online Courses" },
-      { id: "ebooks", label: "eBooks" },
-      { id: "tutorials", label: "Tutorials" },
-      { id: "worksheets", label: "Worksheets" },
-      { id: "guides", label: "Guides & How-tos" },
-    ]
-  },
-  {
-    id: "ecommerce",
-    label: "E-commerce",
-    icon: ShoppingBag,
-    description: "Store themes, product photography, and e-commerce tools",
-    subcategories: [
-      { id: "product-photos", label: "Product Photography" },
-      { id: "store-themes", label: "Store Themes" },
-      { id: "pricing", label: "Pricing Templates" },
-      { id: "emails", label: "E-commerce Emails" },
-    ]
-  },
-  {
-    id: "freebies",
-    label: "Freebies",
-    icon: Sparkles,
-    description: "Free digital products, templates, and resources",
-    subcategories: []
-  },
-  {
-    id: "other",
-    label: "Other",
-    icon: Layers,
-    description: "Miscellaneous digital products and resources",
-    subcategories: []
-  },
-] as const
-
-// Map from DB category display values to our code category IDs
-const DB_CATEGORY_TO_ID: Record<string, string> = {
-  "productivity": "productivity",
-  "design": "design",
-  "development": "development",
-  "marketing": "marketing",
-  "business": "business",
-  "ai": "ai",
-  "social-media": "social-media",
-  "photography": "photography",
-  "video": "video",
-  "audio-music": "audio-music",
-  "education": "education",
-  "ecommerce": "ecommerce",
-  "freebies": "freebies",
-  "other": "other",
-  "digital art": "design",
-  "graphic design": "design",
-  "graphics": "design",
-  "ui/ux": "design",
-  "ui ux": "design",
-  "ui/ux design": "design",
-  "web design": "design",
-  "illustration": "design",
-  "branding": "design",
-  "typography": "design",
-  "web development": "development",
-  "software": "development",
-  "software development": "development",
-  "coding": "development",
-  "programming": "development",
-  "web templates": "development",
-  "social media": "social-media",
-  "social": "social-media",
-  "audio & music": "audio-music",
-  "audio": "audio-music",
-  "music": "audio-music",
-  "sound": "audio-music",
-  "e-commerce": "ecommerce",
-  "online store": "ecommerce",
-  "photo": "photography",
-  "photos": "photography",
-  "photo editing": "photography",
-  "lightroom": "photography",
-  "presets": "photography",
-  "lightroom presets": "photography",
-  "video editing": "video",
-  "motion graphics": "video",
-  "animation": "video",
-  "artificial intelligence": "ai",
-  "machine learning": "ai",
-  "prompts": "ai",
-  "ai prompts": "ai",
-  "chatgpt": "ai",
-  "gpt": "ai",
-  "templates": "productivity",
-  "notion": "productivity",
-  "notion templates": "productivity",
-  "planners": "productivity",
-  "planner": "productivity",
-  "spreadsheets": "business",
-  "spreadsheet": "business",
-  "presentations": "business",
-  "presentation": "business",
-  "finance": "business",
-  "courses": "education",
-  "online courses": "education",
-  "ebooks": "education",
-  "ebook": "education",
-  "e-book": "education",
-  "tutorials": "education",
-  "tutorial": "education",
-  "free": "freebies",
-  "freebie": "freebies",
-  "digital marketing": "marketing",
-  "seo": "marketing",
-  "email marketing": "marketing",
-}
-
-function normalizeCategoryToId(dbCategory: string): string {
-  const lower = (dbCategory || "").toLowerCase().trim()
-  if (!lower) return ""
-  return DB_CATEGORY_TO_ID[lower] || lower
-}
+import { getCategory, getSubcategories, normalizeCategoryToId } from "@/lib/marketplace/categories"
 
 const PRICE_FILTERS = [
   { id: "all", label: "All Prices" },
@@ -291,7 +23,8 @@ const SORT_OPTIONS = [
   { id: "price-high", label: "Price: High to Low" },
 ] as const
 
-const PRODUCTS_PER_PAGE = 15
+// 16 = four full rows of the 4-column portrait grid below
+const PRODUCTS_PER_PAGE = 16
 const MAX_VISIBLE_PILLS = 7
 
 type ViewMode = "grid" | "compact"
@@ -739,6 +472,8 @@ interface CategoryPageClientProps {
   initialProducts: any[]
   category: string
   categoryLabel: string
+  /** SEO/intro copy — owned by the route so it isn't duplicated in the taxonomy */
+  categoryDescription?: string
   initialSubcategory?: string
 }
 
@@ -746,6 +481,7 @@ export function CategoryPageClient({
   initialProducts,
   category,
   categoryLabel,
+  categoryDescription = "",
   initialSubcategory,
 }: CategoryPageClientProps) {
   const router = useRouter()
@@ -772,12 +508,11 @@ export function CategoryPageClient({
   const [currentPage, setCurrentPage] = useState(1)
 
   // Get category info
-  const categoryInfo = CATEGORIES.find(c => c.id === category)
+  const categoryInfo = getCategory(category)
   const CategoryIcon = categoryInfo?.icon || Layers
-  const availableSubcategories = categoryInfo?.subcategories || []
-  const categoryDescription = categoryInfo?.description || ""
+  const availableSubcategories = getSubcategories(category)
 
-  // Store back-label so product pages can show "< Design" / "< Marketing" etc.
+  // Store back-label so product pages can show "< Womenswear" / "< Sneakers" etc.
   useEffect(() => {
     try { sessionStorage.setItem("backPageName", categoryLabel) } catch { /* ignore */ }
   }, [categoryLabel])
@@ -821,17 +556,13 @@ export function CategoryPageClient({
     let products = [...initialProducts]
 
     // Category filtering
-    if (category === "freebies") {
-      products = products.filter(p => p.price_cents === 0)
-    } else {
-      products = products.filter(p => {
-        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
-        if (normalizedCategory === category) return true
-        const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
-        if (creatorTags.includes(category)) return true
-        return false
-      })
-    }
+    products = products.filter(p => {
+      const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+      if (normalizedCategory === category) return true
+      const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
+      if (creatorTags.includes(category)) return true
+      return false
+    })
 
     // Filter by subcategories
     if (selectedSubcategories.length > 0) {
@@ -927,13 +658,15 @@ export function CategoryPageClient({
   }, [selectedSubcategories, availableSubcategories])
 
   // Grid class (only grid and compact — no list)
+  // Default matches the explore feed exactly so the 4:5 portrait card is sized
+  // identically on both surfaces; compact just adds a column at each breakpoint.
   const gridClass = useMemo(() => {
     switch (viewMode) {
       case "compact":
-        return "grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+        return "grid gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-5"
       case "grid":
       default:
-        return "grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+        return "grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
     }
   }, [viewMode])
 
@@ -959,7 +692,7 @@ export function CategoryPageClient({
             {currentSubcategoryLabel || categoryLabel}
           </h1>
           <p className="text-neutral-500 text-sm sm:text-base">{categoryDescription}</p>
-          <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} products available</p>
+          <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} items available</p>
         </div>
       </div>
 
@@ -1254,7 +987,7 @@ export function CategoryPageClient({
                 key={product.id}
                 product={product}
                 srcParam="?src=platform"
-                priority={index < 6}
+                priority={index < 4}
               />
             ))}
           </div>
@@ -1307,17 +1040,17 @@ export function CategoryPageClient({
           )}
 
           <p className="text-sm text-neutral-500 mt-4 text-center">
-            Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
+            Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} items
           </p>
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
           <p className="text-neutral-500 text-lg font-medium mb-2">
             {searchQuery
-              ? `No products found for "${searchQuery}"`
+              ? `No items found for "${searchQuery}"`
               : priceFilter !== "all"
-                ? "No products match your filters"
-                : `No products found in ${currentSubcategoryLabel || categoryLabel}`
+                ? "No items match your filters"
+                : `No items found in ${currentSubcategoryLabel || categoryLabel}`
             }
           </p>
           <p className="text-neutral-400 text-sm mb-4">Try adjusting your filters or search terms</p>
