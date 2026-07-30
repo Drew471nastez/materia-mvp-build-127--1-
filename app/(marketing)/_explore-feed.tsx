@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { getServerT } from "@/lib/i18n/server"
@@ -120,6 +121,30 @@ export async function ExploreFeed({
         productCreatorProfiles = pcProfiles || []
       }
 
+      // Total saves per product across ALL users (for the read-only count pill on
+      // each card). RLS hides other users' wishlist rows from the anon client, so
+      // this needs the service-role client. It's optional — cards render fine at 0.
+      const savesByProduct = new Map<string, number>()
+      try {
+        const adminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (adminUrl && adminKey) {
+          const admin = createAdminClient(adminUrl, adminKey)
+          const ids = products.map((p) => p.id).filter(Boolean)
+          const { data: saveRows } = await admin
+            .from("wishlist_items")
+            .select("product_id")
+            .in("product_id", ids)
+            .limit(50000)
+          for (const row of saveRows || []) {
+            const pid = (row as any).product_id
+            if (pid) savesByProduct.set(pid, (savesByProduct.get(pid) || 0) + 1)
+          }
+        }
+      } catch (e: any) {
+        console.error("[ExploreFeed] saves count skipped:", e?.message || e)
+      }
+
       // Build products with creator info
       productsWithCreators = products.map((product) => {
         const creator = productCreators.find((c) => c.id === product.creator_id)
@@ -131,6 +156,7 @@ export async function ExploreFeed({
           categoryName: product.category || null,
           reviews_count: (product as any).reviews_count || 0,
           reviews_average: (product as any).reviews_average || 0,
+          saves_count: savesByProduct.get(product.id) || 0,
         }
       })
     }

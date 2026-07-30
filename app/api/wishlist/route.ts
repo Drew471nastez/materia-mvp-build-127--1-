@@ -97,6 +97,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: [], count: 0, error: error.message })
     }
 
+    // Total saves per product across all users → read-only count pill on cards.
+    const savesByProduct = new Map<string, number>()
+    try {
+      const savedIds = (data || []).map((it: any) => it.product_id).filter(Boolean)
+      if (savedIds.length > 0) {
+        const { data: saveRows } = await adminClient
+          .from("wishlist_items")
+          .select("product_id")
+          .in("product_id", savedIds)
+          .limit(50000)
+        for (const row of saveRows || []) {
+          const pid = (row as any).product_id
+          if (pid) savesByProduct.set(pid, (savesByProduct.get(pid) || 0) + 1)
+        }
+      }
+    } catch {
+      /* counts optional */
+    }
+
     // Now fetch profile info for each creator
     const items = data || []
     const enrichedItems = []
@@ -125,7 +144,8 @@ export async function GET(request: NextRequest) {
         ...item,
         products: {
           ...item.products,
-          creator_profile: creatorInfo
+          creator_profile: creatorInfo,
+          saves_count: savesByProduct.get(item.products.id) || 0
         }
       })
     }

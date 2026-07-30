@@ -9,7 +9,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { useLocale } from "@/components/locale-provider"
 import { CONDITIONS } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
-import { Heart, Star } from "lucide-react"
+import { Heart } from "lucide-react"
 
 // Portrait grid: 2 columns on mobile, 3 on tablet, 4 on desktop (container max-w-[1400px]).
 const GRID_IMAGE_SIZES = "(max-width: 639px) 47vw, (max-width: 1023px) 31vw, (max-width: 1400px) 23vw, 336px"
@@ -59,35 +59,6 @@ function getConditionLabel(condition: string | null | undefined): string | null 
   return CONDITIONS.find((entry) => entry.id === key)?.label ?? null
 }
 
-function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
-  const [failed, setFailed] = useState(false)
-  const initial = name.charAt(0).toUpperCase()
-
-  if (!url || failed) {
-    return (
-      <div
-        className="rounded-full bg-muted flex items-center justify-center font-medium text-muted-foreground shrink-0 aspect-square"
-        style={{ width: size, height: size, fontSize: size * 0.5 }}
-      >
-        {initial}
-      </div>
-    )
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={name}
-      width={size}
-      height={size}
-      className="rounded-full object-cover shrink-0 aspect-square"
-      loading="lazy"
-      onError={() => setFailed(true)}
-      style={{ width: size, height: size }}
-    />
-  )
-}
 
 /**
  * Card-sized wishlist toggle. Reads from the shared store, so a 30-card grid costs
@@ -127,7 +98,7 @@ function WishlistHeartButton({ productId }: { productId: string }) {
       aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
       // after:-inset-3 widens the finger target well past the 36px visual, so a
       // tap near the heart still registers without enlarging the icon itself.
-      className="absolute right-2 top-2 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-150 ease-out after:absolute after:-inset-3 after:content-[''] motion-safe:active:scale-90 [@media(hover:hover)]:hover:bg-white"
+      className="absolute right-2 top-2 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-200 ease-out after:absolute after:-inset-3 after:content-[''] motion-safe:active:scale-[0.88] [@media(hover:hover)]:hover:bg-white"
     >
       {/* Bloom ring — one-shot, keyed so it restarts each save */}
       {burst && (
@@ -172,6 +143,8 @@ interface ProductCardProps {
     size_system?: string | null
     brand?: string | null
     condition?: string | null
+    /** Total saves across all users — drives the read-only count pill. */
+    saves_count?: number | null
     reviews_count?: number | null
     reviews_average?: number | null
     categories?: {
@@ -237,14 +210,12 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   // Only use the profile username — it's what /u/[username] routes look up.
   // creator.slug may differ from profile.username or be a UUID → broken URL.
   const creatorUsername = product.creator?.profile?.username || ""
-  const creatorAvatarUrl = product.creator?.profile?.avatar_url
   const baseProductUrl = getProductUrl(creatorUsername, product.slug || "")
   const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
   // "#" when username is unknown so the creator link is a safe no-op.
   const storeUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
 
-  const hasReviews = (product.reviews_count ?? 0) > 0
-  const reviewsAverage = product.reviews_average ?? 0
+  const savesCount = product.saves_count ?? 0
 
   const compareAtCents = product.compare_at_cents ?? 0
   const hasDiscount = compareAtCents > product.price_cents
@@ -294,6 +265,12 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             {Math.round((1 - product.price_cents / compareAtCents) * 100)}% OFF
           </Badge>
         )}
+        {savesCount > 0 && (
+          <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-white backdrop-blur-sm">
+            <Heart className="h-3 w-3 fill-white text-white" />
+            <span className="text-[11px] font-semibold leading-none">{savesCount}</span>
+          </div>
+        )}
         <WishlistHeartButton productId={product.id} />
       </div>
 
@@ -313,7 +290,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           <h3 className="line-clamp-1 text-[13px] leading-snug text-muted-foreground">{product.title}</h3>
         </SmartLink>
 
-        {(sizeLabel || detailLine || hasReviews) && (
+        {(sizeLabel || detailLine) && (
           <div className="mt-1.5 flex items-center gap-1.5">
             {sizeLabel && (
               <span className="inline-flex shrink-0 items-center rounded border border-border/70 px-1.5 py-px text-[11px] font-medium leading-[1.4] text-muted-foreground">
@@ -321,12 +298,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               </span>
             )}
             {detailLine && <span className="truncate text-[11px] text-muted-foreground">{detailLine}</span>}
-            {hasReviews && (
-              <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground">
-                <Star className="h-3 w-3 fill-current text-foreground" />
-                {reviewsAverage.toFixed(1)}
-              </span>
-            )}
           </div>
         )}
 
@@ -336,7 +307,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             className="group/seller mt-1.5 flex items-center gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={16} />
+            {/* Seller name only — no profile picture fetched on listings. */}
             <span className="truncate text-[11px] text-muted-foreground group-hover/seller:underline">
               {creatorName}
             </span>

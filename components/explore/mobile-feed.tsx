@@ -23,10 +23,37 @@ const TABS: ReadonlyArray<readonly [Tab, string]> = [
 ]
 
 // Module-scoped cache of the user's saved listings (full product objects). Kept
-// outside React so the Saved tab renders instantly on re-open — the iOS spinner
-// only ever shows on the very first load, never on every tab switch.
+// outside React (and mirrored to sessionStorage) so the Saved tab renders
+// instantly — no spinner on tab switches, and none across a same-session reload.
+const SAVED_SS_KEY = "storelib_saved_items_v1"
 let savedItemsCache: any[] | null = null
 let savedItemsInflight: Promise<any[]> | null = null
+
+function persistSavedCache(list: any[] | null) {
+  savedItemsCache = list
+  try {
+    if (list) sessionStorage.setItem(SAVED_SS_KEY, JSON.stringify(list))
+    else sessionStorage.removeItem(SAVED_SS_KEY)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Best-effort synchronous read so the tab can paint before any fetch resolves. */
+function readSavedCache(): any[] | null {
+  if (savedItemsCache) return savedItemsCache
+  try {
+    const raw = sessionStorage.getItem(SAVED_SS_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    if (Array.isArray(parsed)) {
+      savedItemsCache = parsed
+      return parsed
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
 
 function loadSavedItems(): Promise<any[]> {
   if (savedItemsInflight) return savedItemsInflight
@@ -34,7 +61,7 @@ function loadSavedItems(): Promise<any[]> {
     .then((r) => (r.ok ? r.json() : { items: [] }))
     .then((data) => {
       const mapped = ((data?.items ?? []) as any[]).map(mapWishlistItem).filter(Boolean)
-      savedItemsCache = mapped
+      persistSavedCache(mapped)
       return mapped
     })
     .catch(() => savedItemsCache ?? [])
@@ -287,6 +314,7 @@ function mapWishlistItem(item: any) {
     gallery_urls: p.gallery_urls ?? null,
     type: p.type,
     category: p.category ?? null,
+    saves_count: p.saves_count ?? 0,
     creator: {
       id: p.creators?.id,
       slug: p.creators?.slug,
@@ -304,9 +332,10 @@ function mapWishlistItem(item: any) {
  */
 function SavedTab({ t }: { t: (key: string) => string }) {
   const savedIds = useWishlistedIds()
-  // Seed from the module cache so re-opening the tab paints instantly — the
-  // spinner (items === null) only shows on the very first, uncached load.
-  const [items, setItems] = useState<any[] | null>(() => savedItemsCache)
+  // Seed from the cache (memory → sessionStorage) so re-opening the tab paints
+  // instantly — the skeleton (items === null) only shows on the very first,
+  // uncached load of a fresh session.
+  const [items, setItems] = useState<any[] | null>(() => readSavedCache())
   const [removing, setRemoving] = useState<Set<string>>(() => new Set())
   // Snapshot of the previous saved set so we only animate a card out when an id
   // goes present → absent (never on the initial empty → loaded fill).
@@ -338,7 +367,7 @@ function SavedTab({ t }: { t: (key: string) => string }) {
     const timer = setTimeout(() => {
       setItems((cur) => {
         const filtered = cur ? cur.filter((p) => savedIds.has(p.id)) : cur
-        savedItemsCache = filtered // keep the cache in sync with removals
+        persistSavedCache(filtered ?? null) // keep memory + sessionStorage in sync
         return filtered
       })
       setRemoving((cur) => {
@@ -351,9 +380,16 @@ function SavedTab({ t }: { t: (key: string) => string }) {
   }, [savedIds, items, removing])
 
   if (items === null) {
+    // First uncached load: a calm skeleton grid, not a jarring centered spinner.
     return (
-      <div className="flex min-h-[45vh] items-center justify-center">
-        <IosSpinner size={26} />
+      <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="animate-pulse">
+            <div className="aspect-[4/5] w-full rounded-xl bg-neutral-100" />
+            <div className="mt-2.5 h-3 w-1/2 rounded bg-neutral-100" />
+            <div className="mt-1.5 h-3 w-3/4 rounded bg-neutral-100" />
+          </div>
+        ))}
       </div>
     )
   }
