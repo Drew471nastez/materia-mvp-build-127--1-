@@ -6,6 +6,7 @@ import { Search, SlidersHorizontal, Heart } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { MobileBottomNav } from "./mobile-bottom-nav"
+import { MobileSearchOverlay } from "./mobile-search-overlay"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
 import { useWishlistedIds } from "./wishlist-context"
@@ -21,6 +22,28 @@ const TABS: ReadonlyArray<readonly [Tab, string]> = [
   ["saved", "mfeed.saved"],
 ]
 
+// Module-scoped cache of the user's saved listings (full product objects). Kept
+// outside React so the Saved tab renders instantly on re-open — the iOS spinner
+// only ever shows on the very first load, never on every tab switch.
+let savedItemsCache: any[] | null = null
+let savedItemsInflight: Promise<any[]> | null = null
+
+function loadSavedItems(): Promise<any[]> {
+  if (savedItemsInflight) return savedItemsInflight
+  savedItemsInflight = fetch("/api/wishlist", { credentials: "include" })
+    .then((r) => (r.ok ? r.json() : { items: [] }))
+    .then((data) => {
+      const mapped = ((data?.items ?? []) as any[]).map(mapWishlistItem).filter(Boolean)
+      savedItemsCache = mapped
+      return mapped
+    })
+    .catch(() => savedItemsCache ?? [])
+    .finally(() => {
+      savedItemsInflight = null
+    })
+  return savedItemsInflight
+}
+
 /**
  * Depop/Vinted-style mobile marketplace surface — a clean 2-column grid.
  * Full-screen overlay on phones (md:hidden); the desktop grid is untouched.
@@ -31,11 +54,9 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
   const [tab, setTab] = useState<Tab>("for-you")
   const [cat, setCat] = useState("all")
-  const [query, setQuery] = useState("")
-  const [focused, setFocused] = useState(false)
   const [seed, setSeed] = useState(0)
+  const [searchOpen, setSearchOpen] = useState(false)
 
-  const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Paint the native safe-area (status-bar) zone white while the feed is up.
@@ -87,6 +108,11 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" })
   }, [tab, cat])
 
+  // Warm the saved-listings cache up front so opening the Saved tab is instant.
+  useEffect(() => {
+    void loadSavedItems()
+  }, [])
+
   // The for-you grid is memoized so a pull-to-refresh drag (which fires many
   // state updates a second) never rebuilds 30 cards — React reuses this exact
   // element and skips the whole subtree, keeping the pull at full frame rate.
@@ -122,48 +148,34 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     )
   }, [products, revealNonce, t])
 
-  const submitSearch = useCallback(
-    (e?: React.FormEvent) => {
-      e?.preventDefault()
-      const q = query.trim()
-      router.push(q ? `/?q=${encodeURIComponent(q)}` : "/")
-      searchRef.current?.blur()
-    },
-    [query, router],
-  )
-
-  const focusSearch = useCallback(() => searchRef.current?.focus(), [])
+  // Tapping the search bar (or the bottom-nav search) opens the full-screen
+  // search overlay — the inline field is just a trigger, never typed into.
+  const openSearch = useCallback(() => setSearchOpen(true), [])
+  const focusSearch = openSearch
 
   return (
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
-        <form onSubmit={submitSearch} className="flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={openSearch}
+            aria-label={t("mfeed.search_placeholder")}
+            className="relative flex-1 h-11 rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-4 text-left transition-transform active:scale-[0.99]"
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              ref={searchRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              inputMode="search"
-              enterKeyHint="search"
-              aria-label={t("mfeed.search_placeholder")}
-              placeholder=""
-              className="h-11 w-full rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-4 text-sm text-neutral-900 outline-none focus:border-neutral-300"
-            />
             <AnimatedSearchPlaceholder
-              active={!query && !focused}
+              active
               prefix={`${t("mfeed.search_for")} `}
               quoted
               className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
             />
-          </div>
+          </button>
           <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95">
             <SlidersHorizontal className="h-[18px] w-[18px]" />
           </button>
-        </form>
+        </div>
       </div>
 
       {/* ---- Tabs (full-width buttons; slim underline hugs the word) ---- */}
@@ -250,6 +262,12 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
+
+      <MobileSearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelectCategory={setCat}
+      />
     </div>
   )
 }
@@ -286,7 +304,9 @@ function mapWishlistItem(item: any) {
  */
 function SavedTab({ t }: { t: (key: string) => string }) {
   const savedIds = useWishlistedIds()
-  const [items, setItems] = useState<any[] | null>(null) // null = still loading
+  // Seed from the module cache so re-opening the tab paints instantly — the
+  // spinner (items === null) only shows on the very first, uncached load.
+  const [items, setItems] = useState<any[] | null>(() => savedItemsCache)
   const [removing, setRemoving] = useState<Set<string>>(() => new Set())
   // Snapshot of the previous saved set so we only animate a card out when an id
   // goes present → absent (never on the initial empty → loaded fill).
@@ -294,15 +314,10 @@ function SavedTab({ t }: { t: (key: string) => string }) {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/wishlist", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((data) => {
-        if (cancelled) return
-        setItems(((data?.items ?? []) as any[]).map(mapWishlistItem).filter(Boolean))
-      })
-      .catch(() => {
-        if (!cancelled) setItems([])
-      })
+    // Revalidate in the background; cached content stays on screen meanwhile.
+    loadSavedItems().then((list) => {
+      if (!cancelled) setItems(list)
+    })
     return () => {
       cancelled = true
     }
@@ -321,7 +336,11 @@ function SavedTab({ t }: { t: (key: string) => string }) {
       return next
     })
     const timer = setTimeout(() => {
-      setItems((cur) => (cur ? cur.filter((p) => savedIds.has(p.id)) : cur))
+      setItems((cur) => {
+        const filtered = cur ? cur.filter((p) => savedIds.has(p.id)) : cur
+        savedItemsCache = filtered // keep the cache in sync with removals
+        return filtered
+      })
       setRemoving((cur) => {
         const next = new Set(cur)
         gone.forEach((p) => next.delete(p.id))
