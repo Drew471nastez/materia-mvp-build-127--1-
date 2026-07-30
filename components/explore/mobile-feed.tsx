@@ -64,8 +64,6 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
   const ptrOffset = phase === "refreshing" ? 52 : pullDistance
 
-  const savedIds = useWishlistedIds()
-
   const products = useMemo(() => {
     let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
     if (cat !== "all") list = list.filter((p) => normalizeCategoryToId(p?.category || "") === cat)
@@ -75,12 +73,6 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     }
     return list
   }, [initialProducts, cat, seed])
-
-  // The "Saved" tab surfaces the user's wishlisted listings from the loaded feed.
-  const savedProducts = useMemo(
-    () => products.filter((p) => p?.id && savedIds.has(p.id)),
-    [products, savedIds],
-  )
 
   // Switching tab or category should start from the top — never leave the user
   // scrolled halfway into a shorter list.
@@ -221,15 +213,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
             {tab === "following" ? (
               <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
             ) : tab === "saved" ? (
-              savedProducts.length === 0 ? (
-                <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
-              ) : (
-                <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-                  {savedProducts.map((p) => (
-                    <ProductCard key={p.id} product={p} clientNav />
-                  ))}
-                </div>
-              )
+              <SavedTab t={t} />
             ) : products.length === 0 ? (
               <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
             ) : (
@@ -245,6 +229,123 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
+    </div>
+  )
+}
+
+/** Reshapes a /api/wishlist GET item into the ProductCard product shape. */
+function mapWishlistItem(item: any) {
+  const p = item?.products
+  if (!p?.id) return null
+  const prof = p.creator_profile
+  return {
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    price_cents: p.price_cents,
+    compare_at_cents: p.compare_at_cents ?? null,
+    thumbnail_url: p.thumbnail_url ?? null,
+    gallery_urls: p.gallery_urls ?? null,
+    type: p.type,
+    category: p.category ?? null,
+    creator: {
+      id: p.creators?.id,
+      slug: p.creators?.slug,
+      profile: prof
+        ? { display_name: prof.display_name, username: prof.username, avatar_url: prof.avatar_url }
+        : null,
+    },
+  }
+}
+
+/**
+ * The "Saved" tab. Reads the user's saved listings straight from the database
+ * (independent of what the feed loaded), so every heart the user tapped shows
+ * here. Un-saving animates the card out cleanly before it leaves the grid.
+ */
+function SavedTab({ t }: { t: (key: string) => string }) {
+  const savedIds = useWishlistedIds()
+  const [items, setItems] = useState<any[] | null>(null) // null = still loading
+  const [removing, setRemoving] = useState<Set<string>>(() => new Set())
+  // Snapshot of the previous saved set so we only animate a card out when an id
+  // goes present → absent (never on the initial empty → loaded fill).
+  const prevSaved = useRef<ReadonlySet<string>>(savedIds)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/wishlist", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((data) => {
+        if (cancelled) return
+        setItems(((data?.items ?? []) as any[]).map(mapWishlistItem).filter(Boolean))
+      })
+      .catch(() => {
+        if (!cancelled) setItems([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const prev = prevSaved.current
+    prevSaved.current = savedIds
+    if (!items) return
+    const gone = items.filter((p) => prev.has(p.id) && !savedIds.has(p.id) && !removing.has(p.id))
+    if (gone.length === 0) return
+
+    setRemoving((cur) => {
+      const next = new Set(cur)
+      gone.forEach((p) => next.add(p.id))
+      return next
+    })
+    const timer = setTimeout(() => {
+      setItems((cur) => (cur ? cur.filter((p) => savedIds.has(p.id)) : cur))
+      setRemoving((cur) => {
+        const next = new Set(cur)
+        gone.forEach((p) => next.delete(p.id))
+        return next
+      })
+    }, 420)
+    return () => clearTimeout(timer)
+  }, [savedIds, items, removing])
+
+  if (items === null) {
+    return (
+      <div className="flex min-h-[45vh] items-center justify-center">
+        <IosSpinner size={26} />
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={<Heart className="h-7 w-7" />}
+        title={t("mfeed.saved_empty_title")}
+        sub={t("mfeed.saved_empty_sub")}
+      />
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+      {items.map((p) => {
+        const leaving = removing.has(p.id)
+        return (
+          <div
+            key={p.id}
+            className="transition-all duration-[420ms]"
+            style={{
+              transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+              opacity: leaving ? 0 : 1,
+              transform: leaving ? "scale(0.82)" : "scale(1)",
+            }}
+          >
+            <ProductCard product={p} clientNav />
+          </div>
+        )
+      })}
     </div>
   )
 }
