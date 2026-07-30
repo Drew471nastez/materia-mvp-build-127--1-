@@ -10,7 +10,7 @@ import {
   Lock, Pencil, ExternalLink, X, ArrowUpRight, ChevronDown, Globe,
 } from "lucide-react"
 import Link from "next/link"
-import { useLanguage } from "@/lib/i18n"
+import { useLocale } from "@/components/locale-provider"
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -37,7 +37,7 @@ interface BillingPageClientProps {
 export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { t } = useLanguage()
+  const { t } = useLocale()
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string; visible: boolean } | null>(null)
   const notifTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
@@ -120,15 +120,15 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     const canceled = searchParams.get("canceled")
 
     if (success === "1" || success === "true") {
-      showNotification("success", "Subscription activated successfully! Your plan has been updated.")
+      showNotification("success", t("settings.blSubActivated"))
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (setupSuccess === "1" || setupSuccess === "true") {
-      showNotification("success", "Payment method updated successfully!")
+      showNotification("success", t("settings.blPaymentUpdated"))
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (canceled === "1" || canceled === "true") {
-      showNotification("error", "Checkout was canceled. No changes were made.")
+      showNotification("error", t("settings.blCheckoutCanceled"))
       window.history.replaceState({}, "", "/app/settings/billing")
     }
   }, [searchParams])
@@ -158,12 +158,12 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       const response = await fetch("/api/billing/customer-portal", { method: "POST" })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || "Failed to open portal")
+        throw new Error(err.error || t("settings.blFailedPortal"))
       }
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to open billing portal")
+      showNotification("error", error.message || t("settings.blFailedBillingPortal"))
     } finally {
       setPortalLoading(false)
     }
@@ -175,12 +175,12 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       const response = await fetch("/api/billing/checkout/setup", { method: "POST" })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || "Failed to open payment setup")
+        throw new Error(err.error || t("settings.blFailedPaymentSetup"))
       }
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to open payment setup")
+      showNotification("error", error.message || t("settings.blFailedPaymentSetup"))
     } finally {
       setPortalLoading(false)
     }
@@ -192,12 +192,12 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       const response = await fetch("/api/billing/customer-portal", { method: "POST" })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || "Failed to open portal")
+        throw new Error(err.error || t("settings.blFailedPortal"))
       }
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to open billing portal")
+      showNotification("error", error.message || t("settings.blFailedBillingPortal"))
     } finally {
       setPortalLoading(false)
     }
@@ -216,7 +216,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
         body: JSON.stringify({ newPlanId: planId, previewOnly: true }),
       })
       const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "Failed to preview plan change")
+      if (!response.ok) throw new Error(result.error || t("settings.blFailedPreview"))
       setUpgradePreview({
         amountDueTodayCents: result.amountDueTodayCents || 0,
         nextBillingDate: result.nextBillingDate,
@@ -224,7 +224,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
         type: result.type,
       })
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to preview plan change")
+      showNotification("error", error.message || t("settings.blFailedPreview"))
     }
   }
 
@@ -236,7 +236,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       case "billing": return t("settings.billing")
       case "payments": return t("settings.payments")
       case "stores": return t("settings.stores")
-      case "domains": return "Domains"
+      case "domains": return t("settings.domains")
       default: return tabId
     }
   }
@@ -248,11 +248,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full"><CheckCircle className="h-3 w-3" />Paid</span>
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full"><CheckCircle className="h-3 w-3" />{t("settings.invPaid")}</span>
       case "open":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />Pending</span>
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />{t("settings.pending")}</span>
       case "void": case "uncollectible":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-50 px-2.5 py-1 rounded-full"><XCircle className="h-3 w-3" />Failed</span>
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-50 px-2.5 py-1 rounded-full"><XCircle className="h-3 w-3" />{t("settings.invFailed")}</span>
       default:
         return <span className="text-[11px] font-medium text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
     }
@@ -272,9 +272,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   // Plan benefits for Current Plan card
   const planBenefits: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
+    free: [t("settings.upFeeFree"), t("settings.upFeatOnepageBasic"), t("settings.upFeatUnlimited"), t("settings.upFeatEmails500")],
+    growth: [t("settings.upFeeGrowth"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepagePremium"), t("settings.upFeatCustomDomain")],
+    pro: [t("settings.upFeePro"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepagePremium"), t("settings.upFeatCustomDomain")],
   }
 
   // Determine the next upgrade target
@@ -317,22 +317,22 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
           {/* ---- SECTION 1: Subscription Overview ---- */}
           <div>
-            <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Subscription Overview</h2>
+            <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">{t("settings.blSubOverview")}</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Left: Current Plan */}
               <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Current Plan</h3>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("settings.currentPlan")}</h3>
                   {subscription?.status === "canceled" ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-red-700 bg-red-50 border border-red-200">
                       <XCircle className="h-3 w-3" />
-                      Canceled
+                      {t("settings.ssCanceled")}
                     </span>
                   ) : subscription?.cancel_at_period_end ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-amber-700 bg-amber-50 border border-amber-200">
                       <AlertCircle className="h-3 w-3" />
-                      Canceling
+                      {t("settings.ssCanceling")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white bg-[#1a1a2e]">
@@ -345,14 +345,14 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 {/* Pending downgrade info */}
                 {pendingPlan && subscription?.current_period_end && (
                   <p className="text-[12px] text-[#6b7280] mb-3">
-                    Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)} &middot; ${(pendingPlan.price_cents / 100).toFixed(2)}/mo
+                    {t("settings.blSwitchingTo")} {pendingPlan.name} {t("settings.blOn")} {formatDate(subscription.current_period_end)} &middot; ${(pendingPlan.price_cents / 100).toFixed(2)}{t("settings.perMonthShort")}
                   </p>
                 )}
 
                 <div className="mb-4">
                   <div className="flex items-baseline gap-1">
                     <span className="text-[36px] font-bold text-[#1a1a2e] leading-none">{planPrice}</span>
-                    {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">/month</span>}
+                    {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">{t("settings.perMonth")}</span>}
                   </div>
                 </div>
 
@@ -370,7 +370,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${subscription.cancel_at_period_end ? "bg-amber-100" : "bg-gray-100"}`}>
                         <Clock className={`h-2.5 w-2.5 ${subscription.cancel_at_period_end ? "text-amber-500" : "text-gray-500"}`} />
                       </div>
-                      {subscription.cancel_at_period_end ? "Cancels on" : "Renews"}: {formatDate(subscription.current_period_end)}
+                      {subscription.cancel_at_period_end ? t("settings.blCancelsOn") : t("settings.blRenews")}: {formatDate(subscription.current_period_end)}
                     </li>
                   )}
                 </ul>
@@ -379,7 +379,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   {/* Free plan -> Upgrade link */}
                   {currentPlan.id === "free" && (
                     <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      Upgrade
+                      {t("settings.upgrade")}
                     </Link>
                   )}
                   {/* Growth plan -> Upgrade to Pro */}
@@ -388,20 +388,20 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       onClick={() => openUpgradeModal(nextUpgradePlan.id, nextUpgradePlan.name, nextUpgradePlan.price_cents)}
                       className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
                     >
-                      Upgrade to {nextUpgradePlan.name}
+                      {t("settings.upUpgradeTo")} {nextUpgradePlan.name}
                     </button>
                   )}
                   {/* If cancel_at_period_end, show upgrade option to reactivate */}
                   {isSubscribed && subscription.cancel_at_period_end && (
                     <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      Upgrade
+                      {t("settings.upgrade")}
                     </Link>
                   )}
                   {/* Always show Manage Subscription for any active paid plan */}
                   {isSubscribed && (
                     <button onClick={openCustomerPortal} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                      Manage Subscription
+                      {t("settings.blManageSubscription")}
                     </button>
                   )}
                 </div>
@@ -410,9 +410,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl mt-3">
                     <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[13px] font-semibold text-amber-800">Subscription canceling</p>
+                      <p className="text-[13px] font-semibold text-amber-800">{t("settings.blSubCanceling")}</p>
                       <p className="text-[12px] text-amber-700 mt-0.5">
-                        Your plan remains active until {formatDate(subscription.current_period_end)}. No further charges will be made.
+                        {t("settings.blRemainsActiveA")} {formatDate(subscription.current_period_end)}. {t("settings.blNoFurtherCharges")}
                       </p>
                     </div>
                   </div>
@@ -422,15 +422,15 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-200 rounded-xl mt-3">
                     <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-red-800">Subscription canceled</p>
+                      <p className="text-[13px] font-semibold text-red-800">{t("settings.blSubCanceled")}</p>
                       <p className="text-[12px] text-red-700 mt-0.5">
                         {subscription.canceled_at
-                          ? `Your ${plans.find((p: any) => p.id === subscription.plan_id)?.name || "paid"} plan was canceled on ${formatDate(subscription.canceled_at)}.`
-                          : `Your paid plan has been canceled.`}{" "}
-                        You are now on the Free plan.
+                          ? `${t("settings.blYourPlanCanceledA")} ${plans.find((p: any) => p.id === subscription.plan_id)?.name || t("settings.blPaid")} ${t("settings.blYourPlanCanceledB")} ${formatDate(subscription.canceled_at)}.`
+                          : t("settings.blPaidPlanCanceled")}{" "}
+                        {t("settings.blNowOnFree")}
                       </p>
                       <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
-                        Reactivate a plan
+                        {t("settings.blReactivatePlan")}
                       </Link>
                     </div>
                   </div>
@@ -440,27 +440,27 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               {/* Right: Payment Details */}
               <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payment Details</h3>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("settings.blPaymentDetails")}</h3>
                   <div className="flex items-center gap-1.5 text-[11px] text-[#9ca3af]">
                     <Lock className="h-3 w-3" />
-                    Secured
+                    {t("settings.blSecured")}
                   </div>
                 </div>
 
                 {livePaymentMethod ? (
                   <div className="space-y-4">
                     <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider block mb-3">Card Number</span>
+                      <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider block mb-3">{t("settings.blCardNumber")}</span>
                       <div className="text-[16px] font-mono font-medium text-[#1a1a2e] tracking-widest mb-4">
                         &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; {livePaymentMethod.card_last4}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Brand</span>
-                          <span className="text-[13px] font-medium text-[#1a1a2e] capitalize">{livePaymentMethod.card_brand || "Card"}</span>
+                          <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">{t("settings.blBrand")}</span>
+                          <span className="text-[13px] font-medium text-[#1a1a2e] capitalize">{livePaymentMethod.card_brand || t("settings.blCard")}</span>
                         </div>
                         <div>
-                          <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Expires</span>
+                          <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">{t("settings.pmExpires")}</span>
                           <span className="text-[13px] font-medium text-[#1a1a2e]">{String(livePaymentMethod.card_exp_month).padStart(2, "0")}/{livePaymentMethod.card_exp_year}</span>
                         </div>
                       </div>
@@ -469,7 +469,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                     <div className="flex gap-3">
                       <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
                         {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
-                        Edit Payment
+                        {t("settings.blEditPayment")}
                       </button>
                     </div>
                   </div>
@@ -477,15 +477,15 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   <div className="space-y-4">
                     <div className="bg-[#f9fafb] rounded-xl p-6 text-center">
                       <CreditCard className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
-                      <p className="text-[13px] text-[#6b7280] mb-1">No payment method on file</p>
+                      <p className="text-[13px] text-[#6b7280] mb-1">{t("settings.pmNoMethod")}</p>
                       <p className="text-[12px] text-[#9ca3af]">
-                        Add a payment method to subscribe to paid plans
+                        {t("settings.pmAddToSubscribe")}
                       </p>
                     </div>
                     <TrustBadges />
                     <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                      Add Payment Method
+                      {t("settings.coAddPaymentMethod")}
                     </button>
                   </div>
                 )}
@@ -496,11 +496,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           {/* ---- SECTION 2: Billing History ---- */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
+              <h2 className="text-[17px] font-bold text-[#1a1a2e]">{t("settings.billingHistory")}</h2>
               {liveInvoices.length > 0 && (
                 <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
                   <ExternalLink className="h-3.5 w-3.5" />
-                  View All
+                  {t("settings.blViewAll")}
                 </button>
               )}
             </div>
@@ -509,11 +509,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             {subscription?.current_period_end && isSubscribed && !subscription.cancel_at_period_end && (
               <div className="mb-4 space-y-1">
                 <p className="text-[13px] text-[#6b7280]">
-                  Your next billing date is <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.
+                  {t("settings.blNextBillingA")} <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.
                 </p>
                 {pendingPlan && (
                   <p className="text-[13px] text-[#6b7280]">
-                    Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> (${(pendingPlan.price_cents / 100).toFixed(2)}/month).
+                    {t("settings.blPlanWillChangeA")} <span className="font-medium text-[#374151]">{pendingPlan.name}</span> (${(pendingPlan.price_cents / 100).toFixed(2)}{t("settings.perMonth")}).
                   </p>
                 )}
               </div>
@@ -522,7 +522,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
                 <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-[13px] text-amber-700">
-                  Plan cancelled — active until <span className="font-semibold text-amber-800">{formatDateLong(subscription.current_period_end)}</span>. No further charges.
+                  {t("settings.blPlanCancelledA")} <span className="font-semibold text-amber-800">{formatDateLong(subscription.current_period_end)}</span>. {t("settings.blNoFurtherChargesShort")}
                 </p>
               </div>
             )}
@@ -530,20 +530,20 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
                 <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                 <p className="text-[13px] text-red-700">
-                  Your subscription has been canceled.{" "}
-                  <Link href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</Link>
+                  {t("settings.blSubHasCanceled")}{" "}
+                  <Link href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">{t("settings.blReactivatePlan")}</Link>
                 </p>
               </div>
             )}
             {!isSubscribed && subscription?.status !== "canceled" && !subscription?.cancel_at_period_end && (
-              <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
+              <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.blNoActiveSub")}</p>
             )}
 
             {liveInvoices.length === 0 ? (
               <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
                 <FileText className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
-                <p className="text-[13px] text-[#6b7280] mb-1">No invoices yet</p>
-                <p className="text-[12px] text-[#9ca3af]">Your billing history will appear here</p>
+                <p className="text-[13px] text-[#6b7280] mb-1">{t("settings.invNoInvoices")}</p>
+                <p className="text-[12px] text-[#9ca3af]">{t("settings.invHistoryHere")}</p>
               </div>
             ) : (
               <>
@@ -561,7 +561,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                             </div>
                             {getStatusBadge(invoice.status)}
                           </div>
-                          <p className="text-[12px] text-[#6b7280]">{invoice.description || "Subscription"}</p>
+                          <p className="text-[12px] text-[#6b7280]">{invoice.description || t("settings.blSubscription")}</p>
                         </button>
                       )
                     })}
@@ -571,7 +571,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       onClick={() => setShowAllInvoices(!showAllInvoices)}
                       className="w-full mt-3 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-xl transition-colors cursor-pointer"
                     >
-                      {showAllInvoices ? "Show Less" : `See More (${liveInvoices.length - 3})`}
+                      {showAllInvoices ? t("settings.blShowLess") : `${t("settings.blSeeMore")} (${liveInvoices.length - 3})`}
                       <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
                     </button>
                   )}
@@ -582,11 +582,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[#e5e7eb]">
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Date</th>
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Description</th>
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Amount</th>
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Status</th>
-                        <th className="text-right text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Action</th>
+                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">{t("settings.invDate")}</th>
+                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">{t("settings.blDescription")}</th>
+                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">{t("settings.invAmount")}</th>
+                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">{t("settings.status")}</th>
+                        <th className="text-right text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">{t("settings.blAction")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -595,14 +595,14 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                         return (
                           <tr key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className={`border-b border-[#f3f4f6] last:border-0 hover:bg-[#f9fafb] transition-all duration-300 cursor-pointer ${isLastVisible ? "opacity-40" : ""}`}>
                             <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
-                            <td className="py-4 text-[13px] text-[#374151]">{invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} - ${formatDate(invoice.period_end)}` : "Subscription")}</td>
+                            <td className="py-4 text-[13px] text-[#374151]">{invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} - ${formatDate(invoice.period_end)}` : t("settings.blSubscription"))}</td>
                             <td className="py-4 text-[13px] font-medium text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</td>
                             <td className="py-4">{getStatusBadge(invoice.status)}</td>
                             <td className="py-4 text-right">
                               {invoice.invoice_pdf_url && (
                                 <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer">
                                   <Download className="h-3.5 w-3.5" />
-                                  Download
+                                  {t("settings.blDownload")}
                                 </a>
                               )}
                             </td>
@@ -616,7 +616,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       onClick={() => setShowAllInvoices(!showAllInvoices)}
                       className="w-full mt-3 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-xl transition-colors cursor-pointer"
                     >
-                      {showAllInvoices ? "Show Less" : `See More (${liveInvoices.length - 3})`}
+                      {showAllInvoices ? t("settings.blShowLess") : `${t("settings.blSeeMore")} (${liveInvoices.length - 3})`}
                       <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
                     </button>
                   )}
@@ -650,7 +650,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       {/* Invoice Detail Bottom Sheet (Mobile) */}
       {selectedInvoice && (
         <div className="sm:hidden">
-          <MobileBottomSheet isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title="Invoice Details">
+          <MobileBottomSheet isOpen={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} title={t("settings.blInvoiceDetails")}>
             <InvoiceContent invoice={selectedInvoice} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
           </MobileBottomSheet>
         </div>
@@ -664,10 +664,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             {notification.type === "success" ? <Check className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.5} /> : <X className="h-3.5 w-3.5 shrink-0 text-red-400" strokeWidth={2.5} />}
             <p className="text-[12px] font-medium hidden sm:block">{notification.message}</p>
             <p className="text-[12px] font-medium sm:hidden">{
-              notification.message.includes("Subscription activated") ? "Plan activated!" :
-              notification.message.includes("Payment method updated") ? "Payment updated!" :
-              notification.message.includes("Checkout was canceled") ? "Checkout canceled" :
-              notification.message.includes("Plan changed") ? "Plan updated!" :
+              notification.message === t("settings.blSubActivated") ? t("settings.blSubActivatedShort") :
+              notification.message === t("settings.blPaymentUpdated") ? t("settings.blPaymentUpdatedShort") :
+              notification.message === t("settings.blCheckoutCanceled") ? t("settings.blCheckoutCanceledShort") :
+              notification.message.includes(t("settings.blPlanChangedTo")) ? t("settings.blPlanUpdatedShort") :
               notification.message.length > 30 ? notification.message.slice(0, 28) + "..." :
               notification.message
             }</p>
@@ -693,8 +693,8 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               if (isSubscribed) {
                 const response = await fetch("/api/billing/subscription/change", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPlanId: showUpgradeModal.planId }) })
                 const result = await response.json()
-                if (!response.ok) { throw new Error(result.error || "Failed to change plan") }
-                showNotification("success", result.message || `Plan changed to ${showUpgradeModal.planName}!`)
+                if (!response.ok) { throw new Error(result.error || t("settings.upFailedChange")) }
+                showNotification("success", result.message || `${t("settings.blPlanChangedTo")} ${showUpgradeModal.planName}!`)
                 // Optimistically update state
                 if (result.type === "downgrade") {
                   setLiveSubscription((prev: any) => prev ? { ...prev, pending_plan_id: showUpgradeModal.planId } : prev)
@@ -711,7 +711,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 setTimeout(() => refreshBillingData(), 1000)
               } else {
                 const response = await fetch("/api/billing/subscription/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: showUpgradeModal.planId }) })
-                if (!response.ok) { const error = await response.json(); throw new Error(error.error || "Failed to create checkout session") }
+                if (!response.ok) { const error = await response.json(); throw new Error(error.error || t("settings.coFailedCheckout")) }
                 const { checkoutUrl } = await response.json()
                 if (checkoutUrl) {
                   if (isNativeApp()) {
@@ -723,7 +723,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               }
             } catch (error: any) {
               setShowUpgradeModal(null)
-              showNotification("error", error.message || "An error occurred")
+              showNotification("error", error.message || t("settings.upErrorOccurred"))
             } finally {
               setUpgradeLoading(false)
             }
@@ -792,6 +792,7 @@ function TrustBadges() {
    Invoice Detail Modal (Desktop)
    ============================================================ */
 function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBadge, currentPlan }: any) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
@@ -807,7 +808,7 @@ function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBad
     <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-200 ${isVisible ? "bg-black/40 backdrop-blur-[2px]" : "bg-black/0"}`} onClick={handleClose}>
       <div className={`bg-white rounded-2xl w-full max-w-lg shadow-xl transition-all duration-200 ${isVisible ? "opacity-100 scale-100" : "opacity-0 scale-95"}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[#e5e7eb]">
-          <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Invoice Details</h2>
+          <h2 className="text-[17px] font-semibold text-[#1a1a2e]">{t("settings.blInvoiceDetails")}</h2>
           <button onClick={handleClose} className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer">
             <X className="h-4 w-4" />
           </button>
@@ -824,6 +825,7 @@ function InvoiceModal({ invoice, onClose, formatDate, formatAmount, getStatusBad
    Invoice Content (shared between modal and bottom sheet)
    ============================================================ */
 function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, currentPlan }: any) {
+  const { t } = useLocale()
   return (
     <div className="space-y-4">
       {/* Header row */}
@@ -838,33 +840,33 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
       {/* Details */}
       <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
         <div className="flex justify-between text-[13px]">
-          <span className="text-[#6b7280]">Invoice ID</span>
+          <span className="text-[#6b7280]">{t("settings.blInvoiceId")}</span>
           <span className="text-[#1a1a2e] font-mono text-[12px]">{invoice.stripe_invoice_id || invoice.id}</span>
         </div>
         <div className="flex justify-between text-[13px]">
-          <span className="text-[#6b7280]">Description</span>
-          <span className="text-[#1a1a2e]">{invoice.description || "Subscription"}</span>
+          <span className="text-[#6b7280]">{t("settings.blDescription")}</span>
+          <span className="text-[#1a1a2e]">{invoice.description || t("settings.blSubscription")}</span>
         </div>
         {invoice.period_start && invoice.period_end && (
           <div className="flex justify-between text-[13px]">
-            <span className="text-[#6b7280]">Billing Period</span>
+            <span className="text-[#6b7280]">{t("settings.blBillingPeriod")}</span>
             <span className="text-[#1a1a2e]">{formatDate(invoice.period_start)} - {formatDate(invoice.period_end)}</span>
           </div>
         )}
         <div className="flex justify-between text-[13px]">
-          <span className="text-[#6b7280]">Plan</span>
-          <span className="text-[#1a1a2e]">{currentPlan?.name || "Subscription"}</span>
+          <span className="text-[#6b7280]">{t("settings.blPlan")}</span>
+          <span className="text-[#1a1a2e]">{currentPlan?.name || t("settings.blSubscription")}</span>
         </div>
         <div className="border-t border-[#e5e7eb] pt-3 flex justify-between text-[13px] font-semibold">
-          <span className="text-[#1a1a2e]">Total</span>
+          <span className="text-[#1a1a2e]">{t("settings.blTotal")}</span>
           <span className="text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</span>
         </div>
       </div>
 
       {/* Legal footer */}
       <div className="text-[11px] text-[#9ca3af] leading-relaxed">
-        <p>Billed by Storelib (storelib.com). Charges appear as &quot;STORELIB&quot; on your statement.</p>
-        <p className="mt-1">For billing questions, contact support@storelib.com.</p>
+        <p>{t("settings.blLegalBilled")}</p>
+        <p className="mt-1">{t("settings.blLegalContact")}</p>
       </div>
 
       {/* Actions — "View on Stripe" opens Stripe portal, hidden on iOS */}
@@ -872,13 +874,13 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
         {invoice.invoice_pdf_url && (
           <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" className="flex-1 h-10 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center justify-center gap-2 cursor-pointer">
             <Download className="h-3.5 w-3.5" />
-            Download PDF
+            {t("settings.invDownloadPdf")}
           </a>
         )}
         {invoice.hosted_invoice_url && (
           <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="flex-1 h-10 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] transition-colors flex items-center justify-center gap-2 cursor-pointer">
             <ExternalLink className="h-3.5 w-3.5" />
-            View on Stripe
+            {t("settings.blViewOnStripe")}
           </a>
         )}
       </div>
@@ -894,13 +896,14 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
   preview: { amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null;
   onConfirm: () => void; onClose: () => void; cancelAtPeriodEnd?: boolean
 }) {
+  const { t } = useLocale()
   // When cancel_at_period_end is true and user clicks a paid plan, treat as re-upgrade
   const isReUpgrade = cancelAtPeriodEnd && priceCents > 0
   const isUpgrade = isReUpgrade || priceCents > currentPlan.price_cents
   const isDowngrade = !isReUpgrade && priceCents < currentPlan.price_cents
 
   const nextChargeText = preview?.nextBillingDate
-    ? `Your next charge will be $${((preview?.nextAmountCents || priceCents) / 100).toFixed(2)} on ${new Date(preview.nextBillingDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
+    ? `${t("settings.ucNextChargeA")} $${((preview?.nextAmountCents || priceCents) / 100).toFixed(2)} ${t("settings.ucNextChargeB")} ${new Date(preview.nextBillingDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
     : ""
 
   return (
@@ -908,13 +911,13 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <h2 className="text-[18px] font-bold text-[#1a1a2e] mb-2">
-            {isReUpgrade ? `Upgrade Again to ${planName}` : isUpgrade ? `Upgrade to ${planName}` : isDowngrade ? `Downgrade to ${planName}` : `Switch to ${planName}`}
+            {isReUpgrade ? `${t("settings.ucUpgradeAgainTo")} ${planName}` : isUpgrade ? `${t("settings.upUpgradeTo")} ${planName}` : isDowngrade ? `${t("settings.upDowngradeTo")} ${planName}` : `${t("settings.ucSwitchTo")} ${planName}`}
           </h2>
 
           {isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                Your cancellation will be reversed and you&apos;ll continue on the <span className="font-semibold text-[#7c3aed]">{planName}</span> plan at <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}/month</span>.
+                {t("settings.ucReUpgradeA")} <span className="font-semibold text-[#7c3aed]">{planName}</span> {t("settings.ucReUpgradeB")} <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}{t("settings.perMonth")}</span>.
               </p>
             </div>
           )}
@@ -922,7 +925,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
           {isUpgrade && !isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                You&apos;ll be charged <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> today for the remaining time in your current billing cycle.
+                {t("settings.ucUpgradeChargeA")} <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> {t("settings.ucUpgradeChargeB")}
               </p>
               {nextChargeText && <p className="text-[13px] text-[#6b7280]">{nextChargeText}</p>}
             </div>
@@ -930,22 +933,22 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
 
           {isDowngrade && isSubscribed && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-              <p className="text-[13px] text-[#374151]">Your plan will downgrade at the end of your current billing cycle. You&apos;ll keep all current features until then.</p>
+              <p className="text-[13px] text-[#374151]">{t("settings.ucDowngradeNote")}</p>
             </div>
           )}
 
           {!isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4">
-              <p className="text-[13px] text-[#374151]">You&apos;ll be redirected to Stripe to complete your subscription of <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}/month</span>.</p>
+              <p className="text-[13px] text-[#374151]">{t("settings.ucRedirectA")} <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}{t("settings.perMonth")}</span>.</p>
             </div>
           )}
 
           <div className="flex gap-3 mt-5">
             <button onClick={onClose} disabled={loading} className="flex-1 h-10 text-[13px] font-medium text-[#374151] bg-white border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] transition-colors cursor-pointer">
-              Cancel
+              {t("common.cancel")}
             </button>
             <button onClick={onConfirm} disabled={loading} className="flex-1 h-10 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors flex items-center justify-center gap-2 cursor-pointer">
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : isReUpgrade ? "Confirm Upgrade" : isUpgrade ? "Confirm Upgrade" : isDowngrade ? "Confirm Downgrade" : "Confirm"}
+              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />{t("settings.ppProcessing")}</> : isReUpgrade ? t("settings.ucConfirmUpgrade") : isUpgrade ? t("settings.ucConfirmUpgrade") : isDowngrade ? t("settings.ucConfirmDowngrade") : t("settings.ucConfirm")}
             </button>
           </div>
         </div>
@@ -1020,6 +1023,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   onUpgradeClick: (planId: string, planName: string, priceCents: number) => void
   pendingPlanId?: string | null
 }) {
+  const { t } = useLocale()
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
 
   const handlePlanAction = (planId: string) => {
@@ -1028,20 +1032,20 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   const descriptions: Record<string, string> = {
-    free: "Perfect for getting started.",
-    growth: "For creators ready to scale and pay lower fees.",
-    pro: "For serious creators who want the lowest fees and priority support.",
+    free: t("settings.upDescFree"),
+    growth: t("settings.upDescGrowth"),
+    pro: t("settings.upDescPro"),
   }
 
   const featureLists: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
+    free: [t("settings.upFeeFree"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepageBasic"), t("settings.upFeatEmails500")],
+    growth: [t("settings.upFeeGrowth"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepagePremium"), t("settings.upFeatCustomDomain"), t("settings.upFeatVerified"), t("settings.upFeatEmails2000")],
+    pro: [t("settings.upFeePro"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepagePremium"), t("settings.upFeatCustomDomain"), t("settings.upFeatVerified"), t("settings.upFeatEmails5000"), t("settings.upFeatPriority")],
   }
 
   return (
     <div>
-      <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-5">Plans & Pricing</h2>
+      <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-5">{t("settings.ptPlansPricing")}</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:items-stretch">
         {plans.map((plan: any) => {
           const isCurrentPlan = plan.id === currentPlan.id
@@ -1054,14 +1058,14 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
           const isUpgrade = plan.price_cents > currentPlan.price_cents
           const isCanceling = subscription?.cancel_at_period_end === true
 
-          let buttonLabel = `Upgrade to ${plan.name}`
-          if (isCurrentPlan && isCanceling) buttonLabel = "Current Plan"
-          else if (isCurrentPlan) buttonLabel = "Current Plan"
-          else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
-          else if (isCanceling && isFree) buttonLabel = "Cancel Scheduled"
-          else if (isCanceling) buttonLabel = "Upgrade Again"
-          else if (isFree) buttonLabel = "Downgrade to Free"
-          else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
+          let buttonLabel = `${t("settings.upUpgradeTo")} ${plan.name}`
+          if (isCurrentPlan && isCanceling) buttonLabel = t("settings.currentPlan")
+          else if (isCurrentPlan) buttonLabel = t("settings.currentPlan")
+          else if (isPendingPlan) buttonLabel = t("settings.upDowngradeScheduled")
+          else if (isCanceling && isFree) buttonLabel = t("settings.upCancelScheduled")
+          else if (isCanceling) buttonLabel = t("settings.upUpgradeAgain")
+          else if (isFree) buttonLabel = `${t("settings.upDowngradeTo")} ${t("product.free")}`
+          else if (isDowngrade) buttonLabel = `${t("settings.upDowngradeTo")} ${plan.name}`
 
           const isDisabled = isCurrentPlan || (isCanceling && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
 
@@ -1077,12 +1081,12 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
               {/* Top badge */}
               {isGrowth && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-[11px] font-semibold px-3.5 py-1 rounded-full whitespace-nowrap shadow-sm">
-                  Most Popular
+                  {t("settings.upMostPopular")}
                 </span>
               )}
               {isPro && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[11px] font-semibold px-3.5 py-1 rounded-full whitespace-nowrap shadow-sm">
-                  Recommended
+                  {t("settings.upRecommended")}
                 </span>
               )}
 
@@ -1094,9 +1098,9 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
                 <span className="text-[40px] font-bold tracking-tight leading-none text-[#1a1a2e]">
                   {isFree ? "$0" : `$${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}`}
                 </span>
-                {!isFree && <span className="text-sm text-neutral-400">/mo</span>}
+                {!isFree && <span className="text-sm text-neutral-400">{t("settings.perMonthShort")}</span>}
               </div>
-              {isFree && <p className="text-[13px] text-neutral-400 mb-1">Free forever</p>}
+              {isFree && <p className="text-[13px] text-neutral-400 mb-1">{t("settings.upFreeForever")}</p>}
 
               {/* Description */}
               <p className="text-[13px] text-neutral-400 mb-5 leading-relaxed">{descriptions[plan.id] || ""}</p>
@@ -1115,7 +1119,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
                         : "bg-white text-[#1a1a2e] border-[1.5px] border-neutral-200 hover:border-neutral-400"
                 }`}
               >
-                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : buttonLabel}
+                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />{t("settings.ppProcessing")}</> : buttonLabel}
               </button>
 
               {/* Features */}
@@ -1135,7 +1139,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
       </div>
       <div className="mt-5 text-center">
         <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] bg-[#f9fafb] hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg transition-colors">
-          More Pricing
+          {t("settings.ptMorePricing")}
           <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>

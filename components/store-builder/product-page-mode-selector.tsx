@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Package, Check, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/components/locale-provider"
 
 interface ProductPageModeSelectorProps {
   open: boolean
@@ -22,6 +23,7 @@ interface ProductPageModeSelectorProps {
 }
 
 export function ProductPageModeSelector({ open, onOpenChange, products }: ProductPageModeSelectorProps) {
+  const { t } = useLocale()
   const router = useRouter()
   const { setCurrentPageType, setSelectedProductId, setIsEditingProductTemplate, templates, selectTemplate } =
     useStoreBuilder()
@@ -85,8 +87,8 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
         )}
       >
         <DialogHeader className="px-4 sm:px-6 py-4 border-b border-border shrink-0">
-          <DialogTitle>Select a Product to Edit</DialogTitle>
-          <DialogDescription>Choose a product to customize its page design</DialogDescription>
+          <DialogTitle>{t("builder.productSelect.title")}</DialogTitle>
+          <DialogDescription>{t("builder.productSelect.description")}</DialogDescription>
         </DialogHeader>
 
         {/* Search - fixed */}
@@ -94,7 +96,7 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder={t("builder.productSelect.searchProducts")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -108,13 +110,13 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
             {filteredProducts.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="h-8 w-8 mx-auto mb-3 opacity-50 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-3">No products found</p>
+                <p className="text-sm text-muted-foreground mb-3">{t("builder.productSelect.noProductsFound")}</p>
                 <button
                   onClick={handleAddNewProduct}
                   className="inline-flex items-center gap-1.5 text-sm text-sky-500 hover:text-sky-600 hover:underline font-medium"
                 >
                   <Plus className="h-4 w-4" />
-                  Add New Product
+                  {t("builder.productSelect.addNewProduct")}
                 </button>
               </div>
             ) : (
@@ -156,8 +158,8 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
                     <Plus className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-purple-600 dark:text-purple-400">Add New Product</p>
-                    <p className="text-sm text-muted-foreground">Create a new product to edit</p>
+                    <p className="font-medium text-sm text-purple-600 dark:text-purple-400">{t("builder.productSelect.addNewProduct")}</p>
+                    <p className="text-sm text-muted-foreground">{t("builder.productSelect.createNewToEdit")}</p>
                   </div>
                 </button>
               </>
@@ -168,14 +170,14 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
         {/* Footer - fixed */}
         <div className="px-4 sm:px-6 py-4 border-t border-border shrink-0 flex justify-end gap-2 bg-background">
           <Button variant="outline" onClick={handleClose}>
-            Cancel
+            {t("builder.common.cancel")}
           </Button>
-          <Button 
-            onClick={handleConfirmProduct} 
+          <Button
+            onClick={handleConfirmProduct}
             disabled={!selectedProduct}
             className="bg-purple-600 hover:bg-purple-700 text-white"
           >
-            Edit This Product
+            {t("builder.productSelect.editThisProduct")}
           </Button>
         </div>
       </DialogContent>

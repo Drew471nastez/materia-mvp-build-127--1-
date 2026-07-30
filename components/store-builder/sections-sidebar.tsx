@@ -2,6 +2,7 @@
 
 import React from "react"
 import { useStoreBuilder } from "./store-builder-context"
+import { useLocale } from "@/components/locale-provider"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -406,6 +407,7 @@ function SortableSectionItem({
   onToggleVisibility,
   onDelete,
 }: SortableSectionItemProps) {
+  const { t } = useLocale()
   // About and FAQ sections are not draggable - always fixed positions
   const isAboutSection = section.type === "about"
   const isFaqSection = section.type === "faq"
@@ -438,7 +440,7 @@ function SortableSectionItem({
           {...attributes}
           {...listeners}
           className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
-          aria-label="Drag to reorder"
+          aria-label={t("builder.sidebar.dragToReorder")}
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
@@ -460,7 +462,7 @@ function SortableSectionItem({
 
       {/* Fixed sections (About, FAQ) - show "Locked" indicator */}
       {isFaqSection && (
-        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">Locked</span>
+        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">{t("builder.common.locked")}</span>
       )}
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -472,7 +474,7 @@ function SortableSectionItem({
               onToggleVisibility()
             }}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={section.settings.visible ? "Hide section" : "Show section"}
+            aria-label={section.settings.visible ? t("builder.sidebar.hideSection") : t("builder.sidebar.showSection")}
           >
             {section.settings.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           </button>
@@ -486,7 +488,7 @@ function SortableSectionItem({
               onDelete()
             }}
             className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            aria-label="Delete section"
+            aria-label={t("builder.sidebar.deleteSection")}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -511,6 +513,7 @@ interface SectionsSidebarProps {
 }
 
 export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebarProps) {
+  const { t } = useLocale()
   const router = useRouter()
   const {
     currentPageType,
@@ -593,14 +596,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
     updateSectionSettings(section.id, { visible: !section.settings.visible })
   }
 
-  const pageTitle = currentPageType === "shop" ? "Home Page" : "Product Page"
+  const pageTitle = currentPageType === "shop" ? t("builder.topbar.homePage") : t("builder.topbar.productPage")
   const selectedProduct = products.find((p) => p.id === selectedProductId)
   const pageSubtitle =
     currentPageType === "shop"
-      ? "All Products"
+      ? t("builder.sidebar.allProducts")
       : isEditingProductTemplate && selectedProduct
         ? selectedProduct.title
-        : "Default Template"
+        : t("builder.sidebar.defaultTemplate")
 
   const selectedSection = draftConfig.sections.find((s) => s.id === selectedSectionId)
   const selectedSectionType = selectedSection?.type
@@ -629,12 +632,12 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
   if (sidebarMode === "global-settings") {
     // Theme tab is only shown for shop pages, not product pages
     const allSettingsTabs = [
-      { id: "basic" as const, label: "Basic Info", icon: Info },
-      { id: "theme" as const, label: "Theme Presets", icon: Palette },
-      { id: "social" as const, label: "Social Media", icon: Share2 },
-      { id: "seo" as const, label: "SEO", icon: Globe },
-      { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
-      { id: "domain" as const, label: "Custom Domain", icon: Globe },
+      { id: "basic" as const, label: t("builder.sidebar.tabBasicInfo"), icon: Info },
+      { id: "theme" as const, label: t("builder.sidebar.tabThemePresets"), icon: Palette },
+      { id: "social" as const, label: t("builder.sidebar.tabSocialMedia"), icon: Share2 },
+      { id: "seo" as const, label: t("builder.sidebar.tabSeo"), icon: Globe },
+      { id: "badge" as const, label: t("builder.sidebar.tabVerifiedBadge"), icon: BadgeCheck },
+      { id: "domain" as const, label: t("builder.sidebar.tabCustomDomain"), icon: Globe },
     ]
 
     // Theme tab is available for all page types (shop and product)
@@ -646,7 +649,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
           <button onClick={goBackToSections} className="rounded p-1.5 hover:bg-muted transition-colors">
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <h3 className="font-semibold">General Settings</h3>
+          <h3 className="font-semibold">{t("builder.sidebar.generalSettings")}</h3>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -693,7 +696,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       {tabButton}
                     </TooltipTrigger>
                     <TooltipContent side="right" sideOffset={8} className="max-w-[200px]">
-                      The theme styles for the product pages apply only for product pages
+                      {t("builder.sidebar.themeProductTooltip")}
                     </TooltipContent>
                   </Tooltip>
                 )
@@ -709,42 +712,42 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             {settingsTab === "basic" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="store-name">Store Name</Label>
+                  <Label htmlFor="store-name">{t("builder.sidebar.storeName")}</Label>
                   <Input
                     id="store-name"
                     value={globalSettings.storeName || (profile?.display_name || "")}
                     onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
-                    placeholder="My Store"
+                    placeholder={t("builder.sidebar.storeNamePlaceholder")}
                     className={!(globalSettings.storeName || profile?.display_name) ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
                   {!(globalSettings.storeName || profile?.display_name) ? (
-                    <p className="text-xs text-red-500">Store name cannot be empty</p>
+                    <p className="text-xs text-red-500">{t("builder.sidebar.storeNameEmpty")}</p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Updates your creator display name
+                      {t("builder.sidebar.storeNameHelp")}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="store-bio">Bio</Label>
+                  <Label htmlFor="store-bio">{t("builder.sidebar.bio")}</Label>
                   <Textarea
                     id="store-bio"
                     value={(headerSettings as any)?.bio ?? (creator?.bio || "")}
                     onChange={(e) => updateHeaderSettings({ bio: e.target.value })}
-                    placeholder="Enter your bio description..."
+                    placeholder={t("builder.sidebar.bioPlaceholder")}
                     rows={3}
                     className="resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Your bio description shown below your profile picture
+                    {t("builder.sidebar.bioHelp")}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Niche</Label>
+                  <Label>{t("builder.sidebar.niche")}</Label>
                   <p className="text-xs text-muted-foreground mb-1">
-                    Select 1 niche shown on your profile
+                    {t("builder.sidebar.nicheHelp")}
                   </p>
                   {(() => {
                     const currentTag: string = (globalSettings.storeNicheTags ?? creator?.niche_tags ?? [])[0] ?? ""
@@ -763,7 +766,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                               : "border-neutral-300 bg-white text-neutral-500 hover:border-purple-400"
                           )}
                         >
-                          <span>{currentTag || "Select niche..."}</span>
+                          <span>{currentTag || t("builder.sidebar.selectNiche")}</span>
                           {currentTag ? (
                             <X
                               className="w-3.5 h-3.5 shrink-0 text-purple-500 hover:text-purple-800"
@@ -789,7 +792,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                               >
                                 <ChevronLeft className="h-5 w-5" />
                               </button>
-                              <h2 className="text-base font-semibold flex-1 text-center pr-8">Select Niche</h2>
+                              <h2 className="text-base font-semibold flex-1 text-center pr-8">{t("builder.sidebar.selectNicheTitle")}</h2>
                             </div>
                             <div className="p-3 border-b">
                               <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-gray-100">
@@ -798,7 +801,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                                   type="text"
                                   value={nicheSearch}
                                   onChange={(e) => setNicheSearch(e.target.value)}
-                                  placeholder="Search niches..."
+                                  placeholder={t("builder.sidebar.searchNiches")}
                                   className="flex-1 text-sm outline-none bg-transparent"
                                 />
                               </div>
@@ -839,40 +842,40 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             {settingsTab === "seo" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="seo-title">Store Title</Label>
+                  <Label htmlFor="seo-title">{t("builder.sidebar.storeTitle")}</Label>
                   <Input
                     id="seo-title"
                     value={globalSettings.seoTitle || (profile?.display_name ? `${profile.display_name} | Storelib` : "")}
                     onChange={(e) => updateGlobalSettings({ seoTitle: e.target.value })}
-                    placeholder={profile?.display_name ? `${profile.display_name} | Storelib` : "Store Title for Search Engines"}
+                    placeholder={profile?.display_name ? `${profile.display_name} | Storelib` : t("builder.sidebar.storeTitleSeoPlaceholder")}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Appears in search results and browser tabs
+                    {t("builder.sidebar.seoTitleHelp")}
                     {profile?.display_name && !globalSettings.seoTitle && (
-                      <span className="block text-purple-600 mt-1">Uses "{profile.display_name} | Storelib" if left empty</span>
+                      <span className="block text-purple-600 mt-1">{t("builder.sidebar.usesPrefix")} "{profile.display_name} | Storelib" {t("builder.sidebar.usesSuffixIfEmpty")}</span>
                     )}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="meta-description">Meta Description</Label>
+                  <Label htmlFor="meta-description">{t("builder.sidebar.metaDescription")}</Label>
                   <Textarea
                     id="meta-description"
                     value={globalSettings.seoDescription || (creator?.headline || creator?.bio || "")}
                     onChange={(e) => updateGlobalSettings({ seoDescription: e.target.value })}
-                    placeholder={creator?.headline || creator?.bio || "Describe your store for search engines..."}
+                    placeholder={creator?.headline || creator?.bio || t("builder.sidebar.metaDescriptionPlaceholder")}
                     rows={3}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {(globalSettings.seoDescription || creator?.headline || creator?.bio || "").length}/160 characters recommended
+                    {(globalSettings.seoDescription || creator?.headline || creator?.bio || "").length}/160 {t("builder.sidebar.charsRecommended")}
                     {(creator?.headline || creator?.bio) && !globalSettings.seoDescription && (
-                      <span className="block text-purple-600 mt-1">Uses your bio/headline if left empty</span>
+                      <span className="block text-purple-600 mt-1">{t("builder.sidebar.usesBioIfEmpty")}</span>
                     )}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Social Image</Label>
+                  <Label>{t("builder.sidebar.socialImage")}</Label>
                   <ImageUpload
                     bucket="store-builder-images"
                     value={globalSettings.socialImageUrl || ""}
@@ -881,16 +884,16 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     aspectRatio="video"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Used when your store is shared on social media (1200x630 recommended)
+                    {t("builder.sidebar.socialImageHelp")}
                     {profile?.avatar_url && !globalSettings.socialImageUrl && (
-                      <span className="block text-purple-600 mt-1">Uses your profile avatar by default</span>
+                      <span className="block text-purple-600 mt-1">{t("builder.sidebar.usesAvatarByDefault")}</span>
                     )}
                   </p>
                 </div>
 
                 {/* Social Image Preview - show avatar as default if no custom image */}
                 <div className="space-y-2">
-                  <Label>Social Image Preview</Label>
+                  <Label>{t("builder.sidebar.socialImagePreview")}</Label>
                   <div className="rounded-lg border border-border overflow-hidden aspect-[1200/630] bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center">
                     {globalSettings.socialImageUrl ? (
                       <img
@@ -905,13 +908,13 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           alt="Default social preview"
                           className="w-20 h-20 rounded-full mx-auto mb-2 border-2 border-white shadow-lg object-cover"
                         />
-                        <p className="text-sm font-medium text-gray-700">{profile?.display_name || "Your Store"}</p>
-                        <p className="text-xs text-gray-500 mt-1">Default preview using profile avatar</p>
+                        <p className="text-sm font-medium text-gray-700">{profile?.display_name || t("builder.sidebar.yourStore")}</p>
+                        <p className="text-xs text-gray-500 mt-1">{t("builder.sidebar.defaultPreviewAvatar")}</p>
                       </div>
                     ) : (
                       <div className="text-center text-gray-400">
                         <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No image set</p>
+                        <p className="text-sm">{t("builder.sidebar.noImageSet")}</p>
                       </div>
                     )}
                   </div>
@@ -923,18 +926,18 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             {settingsTab === "social" && (
               <>
                 <div className="space-y-2">
-                  <h4 className="font-medium">Social Media Links</h4>
+                  <h4 className="font-medium">{t("builder.sidebar.socialMediaLinks")}</h4>
                   <p className="text-sm text-muted-foreground">
-                    Configure your social media links. These will appear on your store header and can be shown across all pages.
+                    {t("builder.sidebar.socialMediaLinksDesc")}
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-border p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5 flex-1 pr-4">
-                      <Label className="text-sm font-medium">Enable Social Media</Label>
+                      <Label className="text-sm font-medium">{t("builder.sidebar.enableSocialMedia")}</Label>
                       <p className="text-xs text-muted-foreground">
-                        Show social icons on your cover image
+                        {t("builder.sidebar.enableSocialMediaDesc")}
                       </p>
                     </div>
                     <Toggle
@@ -947,8 +950,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     <div className="space-y-4 pt-2 border-t border-border">
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5 flex-1 pr-4">
-                          <Label className="text-sm font-medium text-muted-foreground">Show on Mobile</Label>
-                          <p className="text-xs text-muted-foreground">Display icons on mobile devices</p>
+                          <Label className="text-sm font-medium text-muted-foreground">{t("builder.sidebar.showOnMobile")}</Label>
+                          <p className="text-xs text-muted-foreground">{t("builder.sidebar.showOnMobileDesc")}</p>
                         </div>
                         <Toggle
                           checked={(headerSettings as ShopHeaderSettings).showSocialIconsOnMobile ?? true}
@@ -957,18 +960,18 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       </div>
 
                       <ColorPicker
-                        label="Icon Color"
+                        label={t("builder.field.iconColor")}
                         value={(headerSettings as ShopHeaderSettings).socialMediaIconColor || "#ffffff"}
                         onChange={(value) => updateHeaderSettings({ socialMediaIconColor: value })}
                       />
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Icon Style</Label>
+                        <Label className="text-sm font-medium">{t("builder.sidebar.iconStyle")}</Label>
                         <div className="flex gap-2">
                           {[
-                            { id: "default" as const, label: "Default" },
-                            { id: "filled" as const, label: "Filled" },
-                            { id: "outlined" as const, label: "Outlined" },
+                            { id: "default" as const, label: t("builder.sidebar.iconStyleDefault") },
+                            { id: "filled" as const, label: t("builder.sidebar.iconStyleFilled") },
+                            { id: "outlined" as const, label: t("builder.sidebar.iconStyleOutlined") },
                           ].map((style) => (
                             <button
                               key={style.id}
@@ -985,7 +988,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           ))}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Choose how your social media icons appear
+                          {t("builder.sidebar.iconStyleHelp")}
                         </p>
                       </div>
                     </div>
@@ -994,7 +997,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
                 {(headerSettings as ShopHeaderSettings).showSocialMedia && (
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Social Platforms</Label>
+                    <Label className="text-sm font-medium">{t("builder.sidebar.socialPlatforms")}</Label>
                     {(["instagram", "tiktok", "youtube", "twitter", "spotify"] as const).map((platform) => {
                       const platformNames: Record<typeof platform, string> = {
                         instagram: "Instagram",
@@ -1067,17 +1070,17 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               <>
                 <div className="rounded-lg border border-border p-4 space-y-4">
                   <div className="space-y-1">
-                    <h4 className="font-medium">Verified Badge</h4>
+                    <h4 className="font-medium">{t("builder.sidebar.verifiedBadge")}</h4>
                     <p className="text-sm text-muted-foreground">
-                      Show a verification badge next to your name
+                      {t("builder.sidebar.verifiedBadgeDesc")}
                     </p>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5 flex-1 pr-4">
-                      <Label htmlFor="badge-enabled" className="text-sm font-medium">Enable Verified Badge</Label>
+                      <Label htmlFor="badge-enabled" className="text-sm font-medium">{t("builder.sidebar.enableVerifiedBadge")}</Label>
                       <p className="text-xs text-muted-foreground">
-                        Display a blue checkmark next to your page name
+                        {t("builder.sidebar.enableVerifiedBadgeDesc")}
                       </p>
                     </div>
                     <Toggle
@@ -1090,7 +1093,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 {globalSettings.verifiedBadgeEnabled && (
                   <>
                     <div className="space-y-2">
-                      <Label>Badge Type</Label>
+                      <Label>{t("builder.sidebar.badgeType")}</Label>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -1117,14 +1120,14 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <p className="text-xs text-muted-foreground">
-                        This text appears when hovering over the badge
+                        {t("builder.sidebar.badgeTypeHelp")}
                       </p>
                     </div>
 
                     <div className="rounded-xl bg-gray-50 p-4 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Preview</Label>
+                      <Label className="text-xs text-muted-foreground">{t("builder.common.preview")}</Label>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg text-gray-900">{globalSettings.storeName || profile?.display_name || "Your Store"}</span>
+                        <span className="font-bold text-lg text-gray-900">{globalSettings.storeName || profile?.display_name || t("builder.sidebar.yourStore")}</span>
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1149,7 +1152,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">Hover over the badge to see the tooltip</p>
+                      <p className="text-xs text-muted-foreground mt-2">{t("builder.sidebar.badgeHoverHelp")}</p>
                     </div>
                   </>
                 )}
@@ -1160,9 +1163,9 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             {settingsTab === "theme" && (
               <>
               <div className="space-y-2">
-                <Label>Theme Preset</Label>
+                <Label>{t("builder.sidebar.themePreset")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Choose a theme to change colors across your entire store
+                  {t("builder.sidebar.themePresetHelp")}
                 </p>
               </div>
 
@@ -1262,9 +1265,9 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 <div className="flex gap-2">
                   <Info className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
                   <div className="text-xs text-purple-800">
-                    <p className="font-medium">Note about custom colors</p>
+                    <p className="font-medium">{t("builder.sidebar.customColorsNote")}</p>
                     <p className="mt-1">
-                      Theme colors apply globally, but any custom colors you set on individual sections will override the theme.
+                      {t("builder.sidebar.customColorsNoteDesc")}
                     </p>
                   </div>
                 </div>
@@ -1281,36 +1284,36 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       <Globe className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-foreground">Custom Domain</p>
-                      <p className="text-xs text-muted-foreground">Use your own domain for your store</p>
+                      <p className="text-sm font-semibold text-foreground">{t("builder.sidebar.customDomain")}</p>
+                      <p className="text-xs text-muted-foreground">{t("builder.sidebar.customDomainDesc")}</p>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                    Connect a custom domain so visitors see <span className="font-mono font-medium text-purple-600">yourdomain.com</span> instead of <span className="font-mono text-muted-foreground">username.storelib.com</span>
+                    {t("builder.sidebar.customDomainIntro")} <span className="font-mono font-medium text-purple-600">yourdomain.com</span> {t("builder.sidebar.customDomainInsteadOf")} <span className="font-mono text-muted-foreground">username.storelib.com</span>
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Domain settings are managed in your account settings. Click below to open the Domains configuration page.</p>
+                  <p className="text-xs text-muted-foreground">{t("builder.sidebar.domainManagedHelp")}</p>
                   <Button
                     variant="outline"
                     className="w-full gap-2 cursor-pointer h-10 text-sm font-semibold border-[#d1d5db] hover:bg-[#f3f4f6] hover:border-[#9ca3af] transition-all"
                     onClick={() => {
-                      if (window.confirm("You may have unsaved changes. Open domain settings in a new tab?")) {
+                      if (window.confirm(t("builder.sidebar.domainConfirm"))) {
                         window.open("/app/settings?tab=domains", "_blank")
                       }
                     }}
                   >
                     <Globe className="h-4 w-4" />
-                    Open Domain Settings
+                    {t("builder.sidebar.openDomainSettings")}
                     <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
                   </Button>
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-1.5">What you get:</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">{t("builder.sidebar.whatYouGet")}</p>
                   <ul className="space-y-1.5">
-                    {["Custom URL for your store", "SSL certificate included", "Works with your OnePage too"].map((item) => (
+                    {[t("builder.sidebar.domainBenefit1"), t("builder.sidebar.domainBenefit2"), t("builder.sidebar.domainBenefit3")].map((item) => (
                       <li key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Check className="h-3 w-3 text-purple-500 shrink-0" />
                         {item}
@@ -1336,20 +1339,20 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
           <h3 className="font-semibold truncate">
             {selectedSectionId === "subscribe-bar"
-              ? "Subscribe Bar"
+              ? t("builder.sidebar.subscribeBar")
               : selectedSectionId === "creator-bar"
-                ? "Creator Bar"
+                ? t("builder.sidebar.creatorBar")
                 : selectedSectionId === "sticky-add-to-cart"
-                  ? "Sticky Add to Cart"
+                  ? t("builder.sidebar.stickyAddToCart")
                   : selectedSectionId === "header"
-                    ? "Header Section"
+                    ? t("builder.sidebar.headerSection")
                     : selectedSectionId === "product-content"
-                      ? "Product Content"
+                      ? t("builder.sidebar.productContent")
                       : selectedSectionId === "footer"
-                        ? "Footer"
+                        ? t("builder.sidebar.footer")
                         : selectedSectionType
                           ? sectionNames[selectedSectionType]
-                          : "Section Settings"}
+                          : t("builder.sidebar.sectionSettings")}
           </h3>
         </div>
 
@@ -1433,7 +1436,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               />
             ) : (
               <div className="text-center text-muted-foreground py-8">
-                <p>Select a section to edit its settings</p>
+                <p>{t("builder.sidebar.selectSectionToEdit")}</p>
               </div>
             )}
           </div>
@@ -1462,7 +1465,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>General Settings</p>
+                <p>{t("builder.sidebar.generalSettings")}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1485,8 +1488,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
       <Dialog open={showProductSelector} onOpenChange={setShowProductSelector}>
         <DialogContent className="p-0 gap-0 flex flex-col overflow-hidden w-[95vw] h-[85vh] sm:w-full sm:max-w-md sm:h-auto sm:max-h-[80vh]">
           <DialogHeader className="px-4 sm:px-5 py-4 border-b border-border shrink-0">
-            <DialogTitle>Select a Product to Edit</DialogTitle>
-            <DialogDescription>Choose a product to customize its page design</DialogDescription>
+            <DialogTitle>{t("builder.productSelect.title")}</DialogTitle>
+            <DialogDescription>{t("builder.productSelect.description")}</DialogDescription>
           </DialogHeader>
 
           {/* Search */}
@@ -1494,7 +1497,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search products..."
+                placeholder={t("builder.productSelect.searchProducts")}
                 value={productSearchQuery}
                 onChange={(e) => setProductSearchQuery(e.target.value)}
                 className="pl-9"
@@ -1508,7 +1511,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               {filteredProducts.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="h-8 w-8 mx-auto mb-3 opacity-50 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">No products found</p>
+                  <p className="text-sm text-muted-foreground">{t("builder.productSelect.noProductsFound")}</p>
                 </div>
               ) : (
                 filteredProducts.map((product: any) => (
@@ -1546,7 +1549,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
           {/* Footer */}
           <div className="px-4 sm:px-5 py-3 border-t border-border shrink-0 bg-background">
             <Button variant="outline" onClick={() => setShowProductSelector(false)} className="w-full">
-              Cancel
+              {t("builder.common.cancel")}
             </Button>
           </div>
         </DialogContent>
@@ -1575,7 +1578,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               >
                 <Mail className="h-5 w-5" />
               </span>
-              <span className="flex-1 text-sm font-medium">Subscribe Bar</span>
+              <span className="flex-1 text-sm font-medium">{t("builder.sidebar.subscribeBar")}</span>
 
               {/* Eye icon to toggle visibility */}
               <button
@@ -1619,7 +1622,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               >
                 <Layout className="h-5 w-5" />
               </span>
-              <span className="flex-1 text-sm font-medium">Header</span>
+              <span className="flex-1 text-sm font-medium">{t("builder.sidebar.header")}</span>
             </div>
           )}
 
@@ -1647,7 +1650,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 >
                   <User className="h-5 w-5" />
                 </span>
-                <span className="flex-1 text-sm font-medium">Creator Bar</span>
+                <span className="flex-1 text-sm font-medium">{t("builder.sidebar.creatorBar")}</span>
 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -1661,7 +1664,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       })
                     }}
                     className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label={productCreatorBarSettings?.visible ? "Hide creator bar" : "Show creator bar"}
+                    aria-label={productCreatorBarSettings?.visible ? t("builder.sidebar.hideCreatorBar") : t("builder.sidebar.showCreatorBar")}
                   >
                     {productCreatorBarSettings?.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
@@ -1689,7 +1692,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 >
                   <ShoppingCart className="h-5 w-5" />
                 </span>
-                <span className="flex-1 text-sm font-medium">Sticky Add to Cart</span>
+                <span className="flex-1 text-sm font-medium">{t("builder.sidebar.stickyAddToCart")}</span>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
@@ -1702,7 +1705,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                       })
                     }}
                     className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label={stickyAddToCartSettings?.visible ? "Hide sticky add to cart" : "Show sticky add to cart"}
+                    aria-label={stickyAddToCartSettings?.visible ? t("builder.sidebar.hideStickyAddToCart") : t("builder.sidebar.showStickyAddToCart")}
                   >
                     {stickyAddToCartSettings?.visible !== false ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
@@ -1729,8 +1732,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 >
                   <Package className="h-5 w-5" />
                 </span>
-                <span className="flex-1 text-sm font-medium">Product Content</span>
-                <span className="text-xs text-muted-foreground">Locked</span>
+                <span className="flex-1 text-sm font-medium">{t("builder.sidebar.productContent")}</span>
+                <span className="text-xs text-muted-foreground">{t("builder.common.locked")}</span>
               </div>
 
               {/* FAQ Section - always positioned under Product Content, locked */}
@@ -1758,8 +1761,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     >
                       <HelpCircle className="h-5 w-5" />
                     </span>
-                    <span className="flex-1 text-sm font-medium">FAQ</span>
-                    <span className="text-xs text-muted-foreground">Locked</span>
+                    <span className="flex-1 text-sm font-medium">{t("builder.sidebar.faq")}</span>
+                    <span className="text-xs text-muted-foreground">{t("builder.common.locked")}</span>
                   </div>
                 )
               })()}
@@ -1810,7 +1813,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     >
                       <Info className="h-5 w-5" />
                     </span>
-                    <span className="flex-1 text-sm font-medium">About</span>
+                    <span className="flex-1 text-sm font-medium">{t("builder.sidebar.about")}</span>
                   </div>
                 )}
 
@@ -1835,7 +1838,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     >
                       <PanelBottom className="h-5 w-5" />
                     </span>
-                    <span className="flex-1 text-sm font-medium">Footer</span>
+                    <span className="flex-1 text-sm font-medium">{t("builder.sidebar.footer")}</span>
                   </div>
                 )}
               </>
@@ -1850,7 +1853,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/20 transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
-          Add section
+          {t("builder.sidebar.addSection")}
         </button>
       </div>
     </div>
@@ -1870,6 +1873,7 @@ function FocalPointSelector({
   onChange: (point: { x: number; y: number }) => void
   imageUrl?: string
 }) {
+  const { t } = useLocale()
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1884,7 +1888,7 @@ function FocalPointSelector({
     <div className="space-y-2">
       <Label className="text-sm font-normal flex items-center gap-2">
         <Move className="h-3.5 w-3.5" />
-        Focal Point
+        {t("builder.field.focalPoint")}
       </Label>
       <div
         ref={containerRef}
@@ -1894,7 +1898,7 @@ function FocalPointSelector({
         {imageUrl ? (
           <img src={imageUrl || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">{t("builder.field.noImage")}</div>
         )}
         <div
           className="absolute w-4 h-4 -ml-2 -mt-2 rounded-full border-2 border-white shadow-lg bg-sky-500"
@@ -1921,6 +1925,7 @@ interface NavLinksEditorProps {
 }
 
 function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [localLinks, setLocalLinks] = useState<NavLink[]>(links)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -1982,13 +1987,13 @@ function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
         onClick={handleOpen}
         className="w-full py-2.5 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
       >
-        Edit Navigation Links
+        {t("builder.nav.editNavLinks")}
       </button>
 
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="p-0 gap-0 flex flex-col overflow-hidden w-[95vw] sm:max-w-md max-h-[90vh]">
           <DialogHeader className="px-5 py-4 border-b border-border shrink-0">
-            <DialogTitle className="text-lg font-semibold text-center">Navigation Links</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-center">{t("builder.nav.title")}</DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto">
@@ -2000,22 +2005,22 @@ function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
                       <Input
                         value={editLabel}
                         onChange={(e) => setEditLabel(e.target.value)}
-                        placeholder="Link label"
+                        placeholder={t("builder.nav.linkLabel")}
                         className="h-9 text-sm"
                         autoFocus
                       />
                       <Input
                         value={editUrl}
                         onChange={(e) => setEditUrl(e.target.value)}
-                        placeholder="URL (e.g., /shop or https://...)"
+                        placeholder={t("builder.nav.urlPlaceholder")}
                         className="h-9 text-sm"
                       />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleSaveEdit(link.id)} className="flex-1 h-8 text-xs bg-blue-500 hover:bg-blue-600 text-white">
-                          Save
+                          {t("builder.common.save")}
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => setEditingId(null)} className="h-8 text-xs">
-                          Cancel
+                          {t("builder.common.cancel")}
                         </Button>
                       </div>
                     </div>
@@ -2046,22 +2051,22 @@ function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
                   <Input
                     value={newLabel}
                     onChange={(e) => setNewLabel(e.target.value)}
-                    placeholder="Link label (e.g., Home)"
+                    placeholder={t("builder.nav.linkLabelHome")}
                     className="h-9 text-sm"
                     autoFocus
                   />
                   <Input
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
-                    placeholder="URL (e.g., / or https://...)"
+                    placeholder={t("builder.nav.urlPlaceholderRoot")}
                     className="h-9 text-sm"
                   />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleAddLink} className="flex-1 h-8 text-xs bg-blue-500 hover:bg-blue-600 text-white">
-                      Add
+                      {t("builder.common.add")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => { setAddingNew(false); setNewLabel(""); setNewUrl("") }} className="h-8 text-xs">
-                      Cancel
+                      {t("builder.common.cancel")}
                     </Button>
                   </div>
                 </div>
@@ -2071,7 +2076,7 @@ function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
                   className="flex items-center gap-2 w-full px-3 py-3.5 text-sm font-medium text-blue-500 hover:bg-blue-50 transition-colors border-t border-border mt-1"
                 >
                   <Plus className="h-4 w-4" />
-                  Add Link
+                  {t("builder.nav.addLink")}
                 </button>
               )}
             </div>
@@ -2084,7 +2089,7 @@ function NavLinksEditorDialog({ links, onChange }: NavLinksEditorProps) {
               className="flex items-center justify-center gap-2 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-lg transition-colors"
             >
               <Check className="h-4 w-4" />
-              Apply Changes
+              {t("builder.common.applyChanges")}
             </button>
           </div>
         </DialogContent>
@@ -2677,16 +2682,17 @@ function ProductSpacingSettings({
   spacing: SpacingConfig
   onChange: (spacing: SpacingConfig) => void
 }) {
+  const { t } = useLocale()
   const paddingTop = spacing.paddingTop ?? 0
   const paddingBottom = spacing.paddingBottom ?? 0
 
   return (
     <div className="space-y-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("builder.group.spacing")}</h4>
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Top</Label>
+            <Label className="text-sm font-normal">{t("builder.field.top")}</Label>
             <span className="text-xs text-muted-foreground">{paddingTop}px</span>
           </div>
           <PremiumSlider
@@ -2699,7 +2705,7 @@ function ProductSpacingSettings({
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Bottom</Label>
+            <Label className="text-sm font-normal">{t("builder.field.bottom")}</Label>
             <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
           </div>
           <PremiumSlider
@@ -2722,6 +2728,7 @@ function SpacingSettings({
   spacing: SpacingConfig
   onChange: (spacing: SpacingConfig) => void
 }) {
+  const { t } = useLocale()
   const paddingTop = spacing.paddingTop ?? 0
   const paddingBottom = spacing.paddingBottom ?? 0
   const paddingLeft = spacing.paddingLeft ?? 0
@@ -2729,11 +2736,11 @@ function SpacingSettings({
 
   return (
     <div className="space-y-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Spacing</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("builder.group.spacing")}</h4>
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Top</Label>
+            <Label className="text-sm font-normal">{t("builder.field.top")}</Label>
             <span className="text-xs text-muted-foreground">{paddingTop}px</span>
           </div>
           <PremiumSlider
@@ -2746,7 +2753,7 @@ function SpacingSettings({
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Bottom</Label>
+            <Label className="text-sm font-normal">{t("builder.field.bottom")}</Label>
             <span className="text-xs text-muted-foreground">{paddingBottom}px</span>
           </div>
           <PremiumSlider
@@ -2759,7 +2766,7 @@ function SpacingSettings({
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Left</Label>
+            <Label className="text-sm font-normal">{t("builder.field.left")}</Label>
             <span className="text-xs text-muted-foreground">{paddingLeft}px</span>
           </div>
           <PremiumSlider
@@ -2772,7 +2779,7 @@ function SpacingSettings({
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Right</Label>
+            <Label className="text-sm font-normal">{t("builder.field.right")}</Label>
             <span className="text-xs text-muted-foreground">{paddingRight}px</span>
           </div>
           <PremiumSlider
@@ -2795,17 +2802,18 @@ function ColorSettings({
   colors: ColorConfig
   onChange: (colors: ColorConfig) => void
 }) {
+  const { t } = useLocale()
   return (
     <div className="space-y-4">
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colors</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("builder.group.colors")}</h4>
       <div className="space-y-4">
         <ColorPicker
-          label="Background"
+          label={t("builder.field.background")}
           value={colors.backgroundColor || "#ffffff"}
           onChange={(value) => onChange({ ...colors, backgroundColor: value })}
         />
         <ColorPicker
-          label="Text"
+          label={t("builder.field.textColor")}
           value={colors.textColor || "#000000"}
           onChange={(value) => onChange({ ...colors, textColor: value })}
         />
@@ -2823,20 +2831,21 @@ function SectionSettingsForm({
 }) {
   const settings = section.settings
   const { products } = useStoreBuilder()
+  const { t } = useLocale()
 
   return (
     <div className="space-y-6">
       {/* Reviews is mandatory (can't be hidden) */}
       {section.type !== "reviews" ? (
-        <ToggleField label="Visible" checked={settings.visible} onChange={(visible) => onChange({ visible })} />
+        <ToggleField label={t("builder.toggle.visible")} checked={settings.visible} onChange={(visible) => onChange({ visible })} />
       ) : (
         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20 p-3">
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
             <div className="text-xs text-amber-800 dark:text-amber-200">
-              <p className="font-medium">Reviews is required</p>
+              <p className="font-medium">{t("builder.reviews.requiredTitle")}</p>
               <p className="mt-1 text-amber-700 dark:text-amber-300">
-                This section can’t be hidden or deleted, but you can still change its settings below.
+                {t("builder.reviews.requiredDesc")}
               </p>
             </div>
           </div>
@@ -2891,6 +2900,7 @@ function ImageTextSettingsForm({
   onChange: (settings: Partial<ImageTextSettings>) => void
   products?: Array<{ id: string; title: string; slug?: string; thumbnail_url?: string }>
 }) {
+  const { t } = useLocale()
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [productSearchQuery, setProductSearchQuery] = useState("")
 
@@ -2910,7 +2920,7 @@ function ImageTextSettingsForm({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Image</Label>
+        <Label className="text-sm font-normal">{t("builder.field.image")}</Label>
         <ImageUpload
           bucket="store-builder-images"
           folder="store-builder"
@@ -2922,40 +2932,40 @@ function ImageTextSettingsForm({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Image Position</Label>
+        <Label className="text-sm font-normal">{t("builder.field.imagePosition")}</Label>
         <Select value={settings.imagePosition} onValueChange={(value) => onChange({ imagePosition: value as "left" | "right" })}>
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="left">Left</SelectItem>
-            <SelectItem value="right">Right</SelectItem>
+            <SelectItem value="left">{t("builder.field.left")}</SelectItem>
+            <SelectItem value="right">{t("builder.field.right")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Headline</Label>
+        <Label className="text-sm font-normal">{t("builder.field.headline")}</Label>
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Body</Label>
+        <Label className="text-sm font-normal">{t("builder.field.body")}</Label>
         <Textarea value={settings.body} onChange={(e) => onChange({ body: e.target.value })} rows={4} className="resize-none" />
       </div>
 
-      <ToggleField label="Enable Button" checked={settings.showButton} onChange={(checked) => onChange({ showButton: checked })} />
+      <ToggleField label={t("builder.toggle.enableButton")} checked={settings.showButton} onChange={(checked) => onChange({ showButton: checked })} />
 
       {settings.showButton && (
         <>
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Button Text</Label>
+            <Label className="text-sm font-normal">{t("builder.field.buttonText")}</Label>
             <Input value={settings.buttonText || ""} onChange={(e) => onChange({ buttonText: e.target.value })} className="h-9" />
           </div>
 
           {/* Button Link Type Selector */}
           <div className="space-y-3">
-            <Label className="text-sm font-normal">Button Link</Label>
+            <Label className="text-sm font-normal">{t("builder.field.buttonLink")}</Label>
             <Select
               value={buttonLinkType}
               onValueChange={(value: "product" | "custom") => {
@@ -2972,8 +2982,8 @@ function ImageTextSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="product">Link to product</SelectItem>
-                <SelectItem value="custom">Custom URL</SelectItem>
+                <SelectItem value="product">{t("builder.field.linkToProduct")}</SelectItem>
+                <SelectItem value="custom">{t("builder.field.customUrl")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -2981,7 +2991,7 @@ function ImageTextSettingsForm({
           {/* Product Selector - shows when "Link to product" is selected */}
           {buttonLinkType === "product" && (
             <div className="space-y-2">
-              <Label className="text-sm font-normal">Select Product</Label>
+              <Label className="text-sm font-normal">{t("builder.field.selectProduct")}</Label>
               <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
                 <DialogTrigger asChild>
                   <button
@@ -3005,7 +3015,7 @@ function ImageTextSettingsForm({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{selectedProduct.title}</p>
-                          <p className="text-xs text-muted-foreground">Click to change</p>
+                          <p className="text-xs text-muted-foreground">{t("builder.field.clickToChange")}</p>
                         </div>
                       </>
                     ) : (
@@ -3014,7 +3024,7 @@ function ImageTextSettingsForm({
                           <Package className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-muted-foreground">Select a product...</p>
+                          <p className="text-sm text-muted-foreground">{t("builder.field.selectProductPlaceholder")}</p>
                         </div>
                       </>
                     )}
@@ -3024,9 +3034,9 @@ function ImageTextSettingsForm({
                 <DialogContent className="w-[calc(100vw-32px)] max-w-md sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0 rounded-2xl">
                   <div className="px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border/50">
                     <DialogHeader className="space-y-1">
-                      <DialogTitle className="text-lg sm:text-xl font-semibold">Select Product</DialogTitle>
+                      <DialogTitle className="text-lg sm:text-xl font-semibold">{t("builder.field.selectProduct")}</DialogTitle>
                       <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
-                        Choose a product to link the button to
+                        {t("builder.field.chooseProductForButton")}
                       </DialogDescription>
                     </DialogHeader>
                   </div>
@@ -3037,7 +3047,7 @@ function ImageTextSettingsForm({
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                          placeholder="Search products..."
+                          placeholder={t("builder.productSelect.searchProducts")}
                           value={productSearchQuery}
                           onChange={(e) => setProductSearchQuery(e.target.value)}
                           className="pl-9 h-10 sm:h-11 text-sm rounded-xl bg-muted/50 border-0 focus-visible:ring-1"
@@ -3098,7 +3108,7 @@ function ImageTextSettingsForm({
                           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                             <Package className="w-10 h-10 mb-3 opacity-40" />
                             <p className="text-sm">
-                              {productSearchQuery ? `No products found for "${productSearchQuery}"` : "No products available"}
+                              {productSearchQuery ? `${t("builder.field.noProductsForQuery")} "${productSearchQuery}"` : t("builder.field.noProductsAvailable")}
                             </p>
                           </div>
                         )}
@@ -3113,7 +3123,7 @@ function ImageTextSettingsForm({
           {/* Custom URL Input - shows when "Custom URL" is selected */}
           {buttonLinkType === "custom" && (
             <div className="space-y-2">
-              <Label className="text-sm font-normal">Custom URL</Label>
+              <Label className="text-sm font-normal">{t("builder.field.customUrl")}</Label>
               <Input
                 value={settings.buttonUrl || ""}
                 onChange={(e) =>
@@ -3126,13 +3136,13 @@ function ImageTextSettingsForm({
                 className="h-9"
                 placeholder="https://"
               />
-              <p className="text-xs text-muted-foreground">Opens in a new tab when clicked</p>
+              <p className="text-xs text-muted-foreground">{t("builder.field.opensInNewTab")}</p>
             </div>
           )}
 
           {/* Button Color Customizer */}
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Button Color</Label>
+            <Label className="text-sm font-normal">{t("builder.field.buttonColor")}</Label>
             <ColorPicker
               value={settings.buttonColor || "#374151"}
               onChange={(value) => onChange({ buttonColor: value })}
@@ -3142,7 +3152,7 @@ function ImageTextSettingsForm({
 
           {/* Button Text Color Customizer */}
           <div className="space-y-2">
-            <Label className="text-sm font-normal">Button Text Color</Label>
+            <Label className="text-sm font-normal">{t("builder.field.buttonTextColor")}</Label>
             <ColorPicker
               value={settings.buttonTextColor || "#ffffff"}
               onChange={(value) => onChange({ buttonTextColor: value })}
@@ -3248,6 +3258,7 @@ function BenefitIconPicker({
   onSelectIcon: (icon: string, type: "preset" | "custom", customUrl?: string) => void
   onUploadImage: (url: string) => void
 }) {
+  const { t } = useLocale()
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<"icons" | "upload">(iconType === "custom" ? "upload" : "icons")
@@ -3352,16 +3363,16 @@ function BenefitIconPicker({
               <IconComponent className="w-4 h-4 text-violet-500" />
             )}
           </div>
-          <span className="text-xs text-muted-foreground">Change icon</span>
+          <span className="text-xs text-muted-foreground">{t("builder.benefits.changeIcon")}</span>
         </button>
       </DialogTrigger>
       <DialogContent className="w-[calc(100vw-24px)] max-w-[420px] sm:max-w-lg overflow-hidden flex flex-col p-0 gap-0 rounded-xl sm:rounded-2xl mx-auto">
         {/* Header */}
         <div className="px-4 pt-4 pb-2 sm:px-5 sm:pt-5 sm:pb-3 border-b border-border/50 flex-shrink-0">
           <DialogHeader className="space-y-0.5">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Choose Icon</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-semibold">{t("builder.benefits.chooseIcon")}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Select an icon or upload your own
+              {t("builder.benefits.chooseIconDesc")}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -3383,7 +3394,7 @@ function BenefitIconPicker({
                 >
                   <Sparkles className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "icons" ? "text-violet-500" : "text-muted-foreground")} />
                   <span className={cn("text-sm font-medium", activeTab === "icons" ? "text-foreground" : "text-muted-foreground")}>
-                    Icons
+                    {t("builder.benefits.tabIcons")}
                   </span>
                 </button>
                 <button
@@ -3398,7 +3409,7 @@ function BenefitIconPicker({
                 >
                   <ImageLucide className={cn("w-4 h-4 sm:w-5 sm:h-5", activeTab === "upload" ? "text-violet-500" : "text-muted-foreground")} />
                   <span className={cn("text-sm font-medium", activeTab === "upload" ? "text-foreground" : "text-muted-foreground")}>
-                    Upload
+                    {t("builder.benefits.tabUpload")}
                   </span>
                 </button>
               </div>
@@ -3408,7 +3419,7 @@ function BenefitIconPicker({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search icons..."
+                    placeholder={t("builder.benefits.searchIcons")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9 h-9 text-sm rounded-lg bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-violet-500"
@@ -3446,7 +3457,7 @@ function BenefitIconPicker({
                   {filteredIcons.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
                       <Search className="w-6 h-6 mb-2 opacity-40" />
-                      <p className="text-xs">No icons found for "{searchQuery}"</p>
+                      <p className="text-xs">{t("builder.benefits.noIconsFound")} "{searchQuery}"</p>
                     </div>
                   )}
                 </div>
@@ -3454,7 +3465,7 @@ function BenefitIconPicker({
 
               <TabsContent value="upload" className="mt-0 space-y-3 data-[state=inactive]:hidden">
                 <p className="text-xs text-muted-foreground">
-                  Upload a custom image to use as the icon.
+                  {t("builder.benefits.uploadCustomIcon")}
                 </p>
 
                 {/* Current custom icon with remove button */}
@@ -3464,8 +3475,8 @@ function BenefitIconPicker({
                       <img src={customImageUrl} alt="Preview" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-foreground block">Current icon</span>
-                      <span className="text-xs text-muted-foreground">Custom image uploaded</span>
+                      <span className="text-sm font-medium text-foreground block">{t("builder.benefits.currentIcon")}</span>
+                      <span className="text-xs text-muted-foreground">{t("builder.benefits.customImageUploaded")}</span>
                     </div>
                     <button
                       type="button"
@@ -3474,7 +3485,7 @@ function BenefitIconPicker({
                         onUploadImage("")
                       }}
                       className="flex-shrink-0 p-2 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
-                      title="Remove custom image"
+                      title={t("builder.benefits.removeCustomImage")}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -3513,6 +3524,7 @@ function BenefitsSettingsForm({
   settings: BenefitsSettings
   onChange: (settings: Partial<BenefitsSettings>) => void
 }) {
+  const { t } = useLocale()
   const updateBenefit = (index: number, field: string, value: any) => {
     const newBenefits = [...settings.benefits]
     newBenefits[index] = { ...newBenefits[index], [field]: value }
@@ -3552,15 +3564,15 @@ function BenefitsSettingsForm({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Headline</Label>
+        <Label className="text-sm font-normal">{t("builder.field.headline")}</Label>
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
       {/* Carousel Toggle - Mobile Only */}
       <div className="flex items-center justify-between py-2">
         <div className="space-y-0.5">
-          <Label className="text-sm font-normal">Enable Carousel (Mobile)</Label>
-          <p className="text-xs text-muted-foreground">Display benefits in a sliding carousel on mobile devices with swipe support</p>
+          <Label className="text-sm font-normal">{t("builder.benefits.enableCarousel")}</Label>
+          <p className="text-xs text-muted-foreground">{t("builder.benefits.enableCarouselDesc")}</p>
         </div>
         <Switch
           checked={settings.enableCarousel ?? false}
@@ -3572,8 +3584,8 @@ function BenefitsSettingsForm({
       {settings.enableCarousel && (
         <div className="flex items-center justify-between py-2 pl-4 border-l-2 border-primary/20">
           <div className="space-y-0.5">
-            <Label className="text-sm font-normal">Autoplay</Label>
-            <p className="text-xs text-muted-foreground">Automatically cycle through benefits</p>
+            <Label className="text-sm font-normal">{t("builder.benefits.autoplay")}</Label>
+            <p className="text-xs text-muted-foreground">{t("builder.benefits.autoplayDesc")}</p>
           </div>
           <Switch
             checked={settings.autoplay ?? false}
@@ -3584,15 +3596,15 @@ function BenefitsSettingsForm({
 
       {/* Columns - always show since it's for desktop layout */}
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Columns (Desktop)</Label>
+        <Label className="text-sm font-normal">{t("builder.benefits.columnsDesktop")}</Label>
         <Select value={String(settings.columns)} onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 | 4 })}>
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="2">2 Columns</SelectItem>
-            <SelectItem value="3">3 Columns</SelectItem>
-            <SelectItem value="4">4 Columns</SelectItem>
+            <SelectItem value="2">{t("builder.benefits.col2")}</SelectItem>
+            <SelectItem value="3">{t("builder.benefits.col3")}</SelectItem>
+            <SelectItem value="4">{t("builder.benefits.col4")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -3601,7 +3613,7 @@ function BenefitsSettingsForm({
       <div className="space-y-4 pt-2">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Horizontal Gap</Label>
+            <Label className="text-sm font-normal">{t("builder.benefits.horizontalGap")}</Label>
             <span className="text-xs text-muted-foreground">{settings.horizontalGap ?? 24}px</span>
           </div>
           <Slider
@@ -3616,7 +3628,7 @@ function BenefitsSettingsForm({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Vertical Gap</Label>
+            <Label className="text-sm font-normal">{t("builder.benefits.verticalGap")}</Label>
             <span className="text-xs text-muted-foreground">{settings.verticalGap ?? 24}px</span>
           </div>
           <Slider
@@ -3631,7 +3643,7 @@ function BenefitsSettingsForm({
       </div>
 
       <div className="space-y-3">
-        <Label className="text-sm font-normal">Benefits</Label>
+        <Label className="text-sm font-normal">{t("builder.benefits.benefits")}</Label>
 
         {settings.benefits.map((benefit, index) => (
           <div key={benefit.id} className="relative p-3 rounded-lg bg-muted/50">
@@ -3641,7 +3653,7 @@ function BenefitsSettingsForm({
               size="icon"
               onClick={() => removeBenefit(index)}
               className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              aria-label="Remove benefit"
+              aria-label={t("builder.benefits.removeBenefit")}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -3649,7 +3661,7 @@ function BenefitsSettingsForm({
             <div className="space-y-3 pr-8">
               {/* Icon Picker */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Icon</Label>
+                <Label className="text-xs text-muted-foreground">{t("builder.benefits.icon")}</Label>
                 <BenefitIconPicker
                   selectedIcon={benefit.icon}
                   customImageUrl={benefit.customImageUrl}
@@ -3662,13 +3674,13 @@ function BenefitsSettingsForm({
               <Input
                 value={benefit.title}
                 onChange={(e) => updateBenefit(index, "title", e.target.value)}
-                placeholder="Title"
+                placeholder={t("builder.benefits.titlePlaceholder")}
                 className="h-8 text-sm"
               />
               <Textarea
                 value={benefit.description}
                 onChange={(e) => updateBenefit(index, "description", e.target.value)}
-                placeholder="Description"
+                placeholder={t("builder.benefits.descriptionPlaceholder")}
                 rows={2}
                 className="text-sm resize-none"
               />
@@ -3678,7 +3690,7 @@ function BenefitsSettingsForm({
 
         <Button variant="outline" size="sm" onClick={addBenefit} className="w-full bg-transparent">
           <Plus className="h-4 w-4 mr-1" />
-          Add Benefit
+          {t("builder.benefits.addBenefit")}
         </Button>
       </div>
     </div>
@@ -3692,20 +3704,21 @@ function TextBlockSettingsForm({
   settings: TextBlockSettings
   onChange: (settings: Partial<TextBlockSettings>) => void
 }) {
+  const { t } = useLocale()
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Headline (optional)</Label>
+        <Label className="text-sm font-normal">{t("builder.field.headlineOptional")}</Label>
         <Input value={settings.headline || ""} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Body</Label>
+        <Label className="text-sm font-normal">{t("builder.field.body")}</Label>
         <Textarea value={settings.body} onChange={(e) => onChange({ body: e.target.value })} rows={6} className="resize-none" />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Max Width</Label>
+        <Label className="text-sm font-normal">{t("builder.field.maxWidth")}</Label>
         <Select
           value={settings.maxWidth}
           onValueChange={(value) => onChange({ maxWidth: value as "sm" | "md" | "lg" | "full" })}
@@ -3714,16 +3727,16 @@ function TextBlockSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="sm">Small</SelectItem>
-            <SelectItem value="md">Medium</SelectItem>
-            <SelectItem value="lg">Large</SelectItem>
-            <SelectItem value="full">Full Width</SelectItem>
+            <SelectItem value="sm">{t("builder.field.small")}</SelectItem>
+            <SelectItem value="md">{t("builder.field.medium")}</SelectItem>
+            <SelectItem value="lg">{t("builder.field.large")}</SelectItem>
+            <SelectItem value="full">{t("builder.field.fullWidth")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Text Align</Label>
+        <Label className="text-sm font-normal">{t("builder.field.textAlign")}</Label>
         <Select
           value={settings.typography.textAlign}
           onValueChange={(value) =>
@@ -3734,9 +3747,9 @@ function TextBlockSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="left">Left</SelectItem>
-            <SelectItem value="center">Center</SelectItem>
-            <SelectItem value="right">Right</SelectItem>
+            <SelectItem value="left">{t("builder.field.left")}</SelectItem>
+            <SelectItem value="center">{t("builder.field.center")}</SelectItem>
+            <SelectItem value="right">{t("builder.field.right")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -3753,6 +3766,7 @@ function AnnouncementBarSettingsForm({
   onChange: (settings: Partial<AnnouncementBarSettings>) => void
   products?: Array<{ id: string; title: string; slug?: string }>
 }) {
+  const { t } = useLocale()
   const [linkMode, setLinkMode] = useState<"none" | "product" | "custom">(
     settings.linkProductSlug ? "product" : settings.linkUrl ? "custom" : "none",
   )
@@ -3760,13 +3774,13 @@ function AnnouncementBarSettingsForm({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>Text</Label>
-        <Input value={settings.text} onChange={(e) => onChange({ text: e.target.value })} placeholder="Announcement text" />
+        <Label>{t("builder.field.text")}</Label>
+        <Input value={settings.text} onChange={(e) => onChange({ text: e.target.value })} placeholder={t("builder.announcement.textPlaceholder")} />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-normal">Text Size</Label>
+          <Label className="text-sm font-normal">{t("builder.field.textSize")}</Label>
           <span className="text-xs text-muted-foreground">{settings.textSize || 14}px</span>
         </div>
         <PremiumSlider
@@ -3779,14 +3793,14 @@ function AnnouncementBarSettingsForm({
       </div>
 
       <ToggleField
-        label="Enable Underline Text"
+        label={t("builder.announcement.enableUnderline")}
         checked={settings.enableUnderline || false}
         onChange={(checked) => onChange({ enableUnderline: checked })}
-        description="Underline text to indicate it's clickable"
+        description={t("builder.announcement.enableUnderlineDesc")}
       />
 
       <div className="space-y-3">
-        <Label>Link Destination</Label>
+        <Label>{t("builder.announcement.linkDestination")}</Label>
         <div className="flex flex-col gap-2">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input
@@ -3798,7 +3812,7 @@ function AnnouncementBarSettingsForm({
               }}
               className="text-primary"
             />
-            <span>No link</span>
+            <span>{t("builder.announcement.noLink")}</span>
           </label>
 
           <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -3808,7 +3822,7 @@ function AnnouncementBarSettingsForm({
               onChange={() => setLinkMode("product")}
               className="text-primary"
             />
-            <span>Link to product</span>
+            <span>{t("builder.field.linkToProduct")}</span>
           </label>
 
           <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -3818,14 +3832,14 @@ function AnnouncementBarSettingsForm({
               onChange={() => setLinkMode("custom")}
               className="text-primary"
             />
-            <span>Custom URL</span>
+            <span>{t("builder.field.customUrl")}</span>
           </label>
         </div>
       </div>
 
       {linkMode === "product" && (
         <div className="space-y-2">
-          <Label>Select Product</Label>
+          <Label>{t("builder.field.selectProduct")}</Label>
           <select
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={settings.linkProductSlug || ""}
@@ -3838,7 +3852,7 @@ function AnnouncementBarSettingsForm({
               })
             }}
           >
-            <option value="">Select a product...</option>
+            <option value="">{t("builder.field.selectProductPlaceholder")}</option>
             {products?.map((product) => (
               <option key={product.id} value={product.slug || product.id}>
                 {product.title}
@@ -3850,7 +3864,7 @@ function AnnouncementBarSettingsForm({
 
       {linkMode === "custom" && (
         <div className="space-y-2">
-          <Label>Custom URL</Label>
+          <Label>{t("builder.field.customUrl")}</Label>
           <Input
             value={settings.linkUrl || ""}
             onChange={(e) =>
@@ -3860,7 +3874,7 @@ function AnnouncementBarSettingsForm({
                 linkProductId: undefined,
               })
             }
-            placeholder="https://example.com"
+            placeholder={t("builder.announcement.exampleUrl")}
           />
         </div>
       )}
@@ -3878,15 +3892,16 @@ function FeaturedProductsSettingsForm({
   settings: FeaturedProductsSettings
   onChange: (settings: Partial<FeaturedProductsSettings>) => void
 }) {
+  const { t } = useLocale()
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Headline</Label>
+        <Label className="text-sm font-normal">{t("builder.field.headline")}</Label>
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Mobile Version Listing</Label>
+        <Label className="text-sm font-normal">{t("builder.featured.mobileListing")}</Label>
         <Select
           value={String(settings.mobileListing ?? 1)}
           onValueChange={(value) => onChange({ mobileListing: Number(value) as 1 | 2 })}
@@ -3895,22 +3910,22 @@ function FeaturedProductsSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1">1 item per row</SelectItem>
-            <SelectItem value="2">2 items per row</SelectItem>
+            <SelectItem value="1">{t("builder.featured.onePerRow")}</SelectItem>
+            <SelectItem value="2">{t("builder.featured.twoPerRow")}</SelectItem>
           </SelectContent>
         </Select>
 
-        <p className="text-xs text-muted-foreground">Applies only on mobile screens.</p>
+        <p className="text-xs text-muted-foreground">{t("builder.featured.appliesMobileOnly")}</p>
       </div>
 
-      <ToggleField label="Show Price" checked={settings.showPrice} onChange={(checked) => onChange({ showPrice: checked })} />
+      <ToggleField label={t("builder.toggle.showPrice")} checked={settings.showPrice} onChange={(checked) => onChange({ showPrice: checked })} />
       <ToggleField
-        label="Show Compare at Price"
+        label={t("builder.toggle.showCompareAtPrice")}
         checked={settings.showCompareAtPrice ?? false}
         onChange={(checked) => onChange({ showCompareAtPrice: checked })}
       />
       <ToggleField
-        label="Hide Category Filter"
+        label={t("builder.toggle.hideCategoryFilter")}
         checked={settings.hideCategoryFilter ?? false}
         onChange={(checked) => onChange({ hideCategoryFilter: checked })}
       />
@@ -3925,17 +3940,18 @@ function MoreFromSellerSettingsForm({
   settings: MoreFromSellerSettings
   onChange: (settings: Partial<MoreFromSellerSettings>) => void
 }) {
+  const { t } = useLocale()
   const spacing = settings.spacing || { paddingTop: 48, paddingBottom: 48, paddingLeft: 16, paddingRight: 16 }
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Headline</Label>
+        <Label className="text-sm font-normal">{t("builder.field.headline")}</Label>
         <Input value={settings.headline} onChange={(e) => onChange({ headline: e.target.value })} className="h-9" />
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Columns</Label>
+        <Label className="text-sm font-normal">{t("builder.field.columns")}</Label>
         <Select
           value={String(Math.min(Number(settings.columns ?? 3), 3))}
           onValueChange={(value) => onChange({ columns: Number(value) as 2 | 3 })}
@@ -3944,14 +3960,14 @@ function MoreFromSellerSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="2">2 Columns</SelectItem>
-            <SelectItem value="3">3 Columns</SelectItem>
+            <SelectItem value="2">{t("builder.benefits.col2")}</SelectItem>
+            <SelectItem value="3">{t("builder.benefits.col3")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Mobile Products Per Row</Label>
+        <Label className="text-sm font-normal">{t("builder.more.mobileProductsPerRow")}</Label>
         <Select
           value={String(settings.mobileProductsPerRow ?? 1)}
           onValueChange={(value) => onChange({ mobileProductsPerRow: Number(value) as 1 | 2 })}
@@ -3960,31 +3976,31 @@ function MoreFromSellerSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1">1 Product per Row</SelectItem>
-            <SelectItem value="2">2 Products per Row</SelectItem>
+            <SelectItem value="1">{t("builder.more.oneProductPerRow")}</SelectItem>
+            <SelectItem value="2">{t("builder.more.twoProductsPerRow")}</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">Applies only on mobile screens.</p>
+        <p className="text-xs text-muted-foreground">{t("builder.featured.appliesMobileOnly")}</p>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-normal">Max Products</Label>
+        <Label className="text-sm font-normal">{t("builder.more.maxProducts")}</Label>
         <Select value={String(settings.maxProducts)} onValueChange={(value) => onChange({ maxProducts: Number(value) })}>
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="3">3 Products</SelectItem>
-            <SelectItem value="4">4 Products</SelectItem>
-            <SelectItem value="6">6 Products</SelectItem>
-            <SelectItem value="8">8 Products</SelectItem>
+            <SelectItem value="3">{t("builder.more.products3")}</SelectItem>
+            <SelectItem value="4">{t("builder.more.products4")}</SelectItem>
+            <SelectItem value="6">{t("builder.more.products6")}</SelectItem>
+            <SelectItem value="8">{t("builder.more.products8")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-normal">Top Padding</Label>
+          <Label className="text-sm font-normal">{t("builder.more.topPadding")}</Label>
           <span className="text-xs text-muted-foreground">{spacing.paddingTop ?? 48}px</span>
         </div>
         <PremiumSlider
@@ -3998,7 +4014,7 @@ function MoreFromSellerSettingsForm({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-normal">Bottom Padding</Label>
+          <Label className="text-sm font-normal">{t("builder.more.bottomPadding")}</Label>
           <span className="text-xs text-muted-foreground">{spacing.paddingBottom ?? 48}px</span>
         </div>
         <PremiumSlider
@@ -4010,14 +4026,14 @@ function MoreFromSellerSettingsForm({
         />
       </div>
 
-      <ToggleField label="Show Price" checked={settings.showPrice} onChange={(checked) => onChange({ showPrice: checked })} />
+      <ToggleField label={t("builder.toggle.showPrice")} checked={settings.showPrice} onChange={(checked) => onChange({ showPrice: checked })} />
       <ToggleField
-        label="Show Compare at Price"
+        label={t("builder.toggle.showCompareAtPrice")}
         checked={settings.showCompareAtPrice ?? false}
         onChange={(checked) => onChange({ showCompareAtPrice: checked })}
       />
       <ToggleField
-        label="Show Description"
+        label={t("builder.toggle.showDescription")}
         checked={settings.showDescription}
         onChange={(checked) => onChange({ showDescription: checked })}
       />

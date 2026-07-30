@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
 import { isNativeApp } from "@/lib/native-bridge"
+import { useLocale } from "@/components/locale-provider"
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
@@ -24,6 +25,7 @@ export function UpgradePageClient({
   cancelAtPeriodEnd = false,
 }: UpgradePageClientProps) {
   const router = useRouter()
+  const { t } = useLocale()
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
@@ -67,7 +69,7 @@ export function UpgradePageClient({
         const response = await fetch("/api/billing/subscription/cancel", { method: "POST" })
         if (!response.ok) {
           const err = await response.json()
-          throw new Error(err.error || "Failed to cancel subscription")
+          throw new Error(err.error || t("settings.upFailedCancel"))
         }
         router.push("/app/settings/billing?success=1")
         return
@@ -82,7 +84,7 @@ export function UpgradePageClient({
         })
         if (!response.ok) {
           const err = await response.json()
-          throw new Error(err.error || "Failed to change plan")
+          throw new Error(err.error || t("settings.upFailedChange"))
         }
         router.push("/app/settings/billing?success=1")
       } else {
@@ -99,7 +101,7 @@ export function UpgradePageClient({
         })
         const data = await response.json()
         if (!response.ok) {
-          throw new Error(data.error || "Failed to create checkout session")
+          throw new Error(data.error || t("settings.coFailedCheckout"))
         }
         const { checkoutUrl } = data
         if (checkoutUrl) {
@@ -126,22 +128,22 @@ export function UpgradePageClient({
         }
       }
     } catch (err: any) {
-      setError(err.message || "An error occurred")
+      setError(err.message || t("settings.upErrorOccurred"))
     } finally {
       setLoading(null)
     }
   }
 
   const descriptions: Record<string, string> = {
-    free: "Perfect for getting started.",
-    growth: "For creators ready to scale and pay lower fees.",
-    pro: "For serious creators who want the lowest fees and priority support.",
+    free: t("settings.upDescFree"),
+    growth: t("settings.upDescGrowth"),
+    pro: t("settings.upDescPro"),
   }
 
   const featureLists: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
+    free: [t("settings.upFeeFree"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepageBasic"), t("settings.upFeatEmails500")],
+    growth: [t("settings.upFeeGrowth"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepagePremium"), t("settings.upFeatCustomDomain"), t("settings.upFeatVerified"), t("settings.upFeatEmails2000")],
+    pro: [t("settings.upFeePro"), t("settings.upFeatUnlimited"), t("settings.upFeatOnepagePremium"), t("settings.upFeatCustomDomain"), t("settings.upFeatVerified"), t("settings.upFeatEmails5000"), t("settings.upFeatPriority")],
   }
 
   return (
@@ -151,7 +153,7 @@ export function UpgradePageClient({
         <div className="fixed inset-0 z-[200] bg-white/95 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 text-[#7c3aed] animate-spin" />
-            <p className="text-[13px] text-[#6b7280] font-medium">Going back...</p>
+            <p className="text-[13px] text-[#6b7280] font-medium">{t("settings.upGoingBack")}</p>
           </div>
         </div>
       )}
@@ -163,8 +165,8 @@ export function UpgradePageClient({
             className="flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer relative z-10"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back to billing</span>
-            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">{t("settings.upBackToBilling")}</span>
+            <span className="sm:hidden">{t("settings.coBack")}</span>
           </button>
 
           <img
@@ -186,8 +188,8 @@ export function UpgradePageClient({
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         {/* Title */}
         <div className="text-center mb-10">
-          <h1 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">Choose Your Plan</h1>
-          <p className="text-[15px] text-[#6b7280] mt-2">Scale your business with the right plan for you</p>
+          <h1 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">{t("settings.ppChoosePlan")}</h1>
+          <p className="text-[15px] text-[#6b7280] mt-2">{t("settings.upSubtitle")}</p>
         </div>
 
         {/* Error */}
@@ -210,17 +212,17 @@ export function UpgradePageClient({
             const monthlyPrice = plan.price_cents / 100
             const isDisabled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
 
-            const badge = isGrowth ? "Most Popular" : plan.id === "pro" ? "Recommended" : null
+            const badge = isGrowth ? t("settings.upMostPopular") : plan.id === "pro" ? t("settings.upRecommended") : null
 
             let buttonLabel: string
-            if (loading === plan.id) buttonLabel = "Processing..."
-            else if (isCurrentPlan) buttonLabel = "Current Plan"
-            else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
-            else if (cancelAtPeriodEnd && isFree) buttonLabel = "Cancel Scheduled"
-            else if (cancelAtPeriodEnd) buttonLabel = "Upgrade Again"
-            else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
-            else if (hasActiveSubscription) buttonLabel = `Upgrade to ${plan.name}`
-            else buttonLabel = `Get ${plan.name}`
+            if (loading === plan.id) buttonLabel = t("settings.ppProcessing")
+            else if (isCurrentPlan) buttonLabel = t("settings.currentPlan")
+            else if (isPendingPlan) buttonLabel = t("settings.upDowngradeScheduled")
+            else if (cancelAtPeriodEnd && isFree) buttonLabel = t("settings.upCancelScheduled")
+            else if (cancelAtPeriodEnd) buttonLabel = t("settings.upUpgradeAgain")
+            else if (isDowngrade) buttonLabel = `${t("settings.upDowngradeTo")} ${plan.name}`
+            else if (hasActiveSubscription) buttonLabel = `${t("settings.upUpgradeTo")} ${plan.name}`
+            else buttonLabel = `${t("settings.upGet")} ${plan.name}`
 
             return (
               <div
@@ -243,9 +245,9 @@ export function UpgradePageClient({
                   <span className="text-[42px] font-bold tracking-tight leading-none">
                     {isFree ? "$0" : `$${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}`}
                   </span>
-                  {!isFree && <span className="text-sm text-neutral-400">/mo</span>}
+                  {!isFree && <span className="text-sm text-neutral-400">{t("settings.perMonthShort")}</span>}
                 </div>
-                {isFree && <p className="text-[13px] text-neutral-400 mb-1">Free forever</p>}
+                {isFree && <p className="text-[13px] text-neutral-400 mb-1">{t("settings.upFreeForever")}</p>}
 
                 <p className="text-[13px] text-neutral-400 mb-5 leading-relaxed">{descriptions[plan.id] || ""}</p>
 
@@ -265,7 +267,7 @@ export function UpgradePageClient({
                   )}
                   <span className="relative z-[1] flex items-center gap-2">
                     {loading === plan.id ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
+                      <><Loader2 className="h-4 w-4 animate-spin" />{t("settings.ppProcessing")}</>
                     ) : (
                       <>{buttonLabel}{!isCurrentPlan && !isPendingPlan && !(cancelAtPeriodEnd && isFree) && <ArrowRight className="h-4 w-4" />}</>
                     )}
@@ -289,7 +291,7 @@ export function UpgradePageClient({
 
         <div className="text-center mt-10">
           <p className="text-[13px] text-[#9ca3af]">
-            All plans include core features. Upgrade or downgrade anytime.
+            {t("settings.upAllPlans")}
           </p>
         </div>
       </div>

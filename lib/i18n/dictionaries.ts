@@ -16,6 +16,8 @@ import { authDict } from "./dict/auth"
 import { checkoutDict } from "./dict/checkout"
 import { dashboardDict } from "./dict/dashboard"
 import { marketplaceDict } from "./dict/marketplace"
+import { settingsDict } from "./dict/settings"
+import { builderDict } from "./dict/builder"
 
 export type LocaleCode = "ro" | "en" | "es" | "de" | "pt-BR" | "fr" | "it" | "nl" | "pl"
 
@@ -26,6 +28,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     ...checkoutDict.ro,
     ...dashboardDict.ro,
     ...marketplaceDict.ro,
+    ...settingsDict.ro,
+    ...builderDict.ro,
     // Header / nav
     "nav.library": "Biblioteca",
     "nav.dashboard": "Panou",
@@ -82,6 +86,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     ...checkoutDict.en,
     ...dashboardDict.en,
     ...marketplaceDict.en,
+    ...settingsDict.en,
+    ...builderDict.en,
     "nav.library": "Library",
     "nav.dashboard": "Dashboard",
     "nav.sign_in": "Sign in",

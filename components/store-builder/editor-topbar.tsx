@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
 import { getStoreUrl, getStoreShareUrl, getProductUrl, getProductShareUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
 import { openExternal } from "@/lib/native-bridge"
+import { useLocale } from "@/components/locale-provider"
 
 interface EditorTopbarProps {
   creatorSlug: string
@@ -38,6 +39,7 @@ interface EditorTopbarProps {
 }
 
 export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile }: EditorTopbarProps) {
+  const { t } = useLocale()
   const router = useRouter()
   const {
     currentPageType,
@@ -184,12 +186,12 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   }
 
   const getPageLabel = () => {
-    if (currentPageType === "shop") return "Home Page"
+    if (currentPageType === "shop") return t("builder.topbar.homePage")
     if (selectedProductId) {
       const product = products.find((p) => p.id === selectedProductId)
-      return product ? product.title : "Product Page"
+      return product ? product.title : t("builder.topbar.productPage")
     }
-    return "Product Page"
+    return t("builder.topbar.productPage")
   }
 
   const pageLabel = getPageLabel()
@@ -211,7 +213,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Save className="mr-1.5 h-4 w-4" />
-                <span>Save</span>
+                <span>{t("builder.common.save")}</span>
               </>
             )}
           </Button>
@@ -231,7 +233,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                <span>Saving...</span>
+                <span>{t("builder.common.saving")}</span>
               </>
             )}
           </Button>
@@ -251,7 +253,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Check className="mr-1.5 h-4 w-4" />
-                <span>Saved</span>
+                <span>{t("builder.common.saved")}</span>
               </>
             )}
           </Button>
@@ -271,7 +273,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                <span>Saving...</span>
+                <span>{t("builder.common.saving")}</span>
               </>
             )}
           </Button>
@@ -291,7 +293,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Check className="mr-1.5 h-4 w-4" />
-                <span>Saved</span>
+                <span>{t("builder.common.saved")}</span>
               </>
             )}
           </Button>
@@ -327,16 +329,16 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
               {isNavigating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Returning...
+                  {t("builder.topbar.returning")}
                 </>
               ) : (
-                "Back to Dashboard"
+                t("builder.topbar.backToDashboard")
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleViewLiveStore} className="cursor-pointer">
               <ExternalLink className="mr-2 h-4 w-4" />
-              View Live Store
+              {t("builder.topbar.viewLiveStore")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -363,7 +365,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
               onClick={() => setCurrentPageType("shop")}
               className="cursor-pointer"
             >
-              Home Page
+              {t("builder.topbar.homePage")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -372,7 +374,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
               }}
               className="cursor-pointer"
             >
-              Product Page
+              {t("builder.topbar.productPage")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -385,7 +387,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           onClick={openAddSectionModal}
         >
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add</span>
+          <span className="hidden sm:inline">{t("builder.common.add")}</span>
         </Button>
 
         {/* Undo/Redo - hide on very small screens */}
@@ -396,7 +398,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             className="h-9 w-9"
             onClick={undo}
             disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
+            title={t("builder.topbar.undo")}
           >
             <Undo2 className={cn("h-4 w-4", canUndo ? "text-purple-600" : "opacity-40")} />
           </Button>
@@ -406,7 +408,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             className="h-9 w-9"
             onClick={redo}
             disabled={!canRedo}
-            title="Redo (Ctrl+Shift+Z)"
+            title={t("builder.topbar.redo")}
           >
             <Redo2 className={cn("h-4 w-4", canRedo ? "text-purple-600" : "opacity-40")} />
           </Button>
@@ -416,7 +418,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
       {/* Right side */}
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
         {saveState === "unsaved" && (
-          <span className="hidden md:inline text-xs text-amber-600 dark:text-amber-500">Unsaved changes</span>
+          <span className="hidden md:inline text-xs text-amber-600 dark:text-amber-500">{t("builder.topbar.unsavedChanges")}</span>
         )}
 
         {/* View Live Store Button - desktop only, before device switcher */}
@@ -425,10 +427,10 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           size="sm"
           className="h-9 gap-1.5 bg-transparent hidden sm:flex cursor-pointer"
           onClick={handleViewLiveStore}
-          title={currentPageType === "product" ? "View live product page" : "View live store"}
+          title={currentPageType === "product" ? t("builder.topbar.viewLiveProductTitle") : t("builder.topbar.viewLiveStoreTitle")}
         >
           <ExternalLink className="h-4 w-4" />
-          <span className="hidden md:inline">View Live</span>
+          <span className="hidden md:inline">{t("builder.topbar.viewLive")}</span>
         </Button>
 
         {/* Device Switcher - hide on mobile */}
@@ -442,18 +444,18 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           <DropdownMenuContent align="end" className="z-[100]">
             <DropdownMenuItem onClick={() => setPreviewDevice("desktop")} className="cursor-pointer">
               <Monitor className="mr-2 h-4 w-4" />
-              Desktop
+              {t("builder.topbar.desktop")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setPreviewDevice("mobile")} className="cursor-pointer">
               <Smartphone className="mr-2 h-4 w-4" />
-              Mobile
+              {t("builder.topbar.mobile")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* Preview Button - icon only on mobile */}
         <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer" onClick={onPreview}>
-          <span className="hidden sm:inline">Preview</span>
+          <span className="hidden sm:inline">{t("builder.common.preview")}</span>
           <Monitor className="h-4 w-4 sm:hidden" />
         </Button>
 
@@ -474,7 +476,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-white/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-            <p className="text-sm text-gray-600 font-medium">Returning to dashboard...</p>
+            <p className="text-sm text-gray-600 font-medium">{t("builder.topbar.returningToDashboard")}</p>
           </div>
         </div>
       )}

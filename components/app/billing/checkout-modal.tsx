@@ -8,6 +8,7 @@ import {
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js"
 import { X, ArrowLeft } from "lucide-react"
+import { useLocale } from "@/components/locale-provider"
 
 // Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
 // The controller iframe triggers window.location.href navigation which in WebKit
@@ -43,6 +44,7 @@ export function CheckoutModal({
   visible,
   onClose,
 }: CheckoutModalProps) {
+  const { t } = useLocale()
   const [error, setError] = useState<string | null>(null)
 
   const fetchClientSecret = useCallback(async () => {
@@ -54,7 +56,7 @@ export function CheckoutModal({
         })
         if (!response.ok) {
           const err = await response.json()
-          throw new Error(err.error || "Failed to create setup session")
+          throw new Error(err.error || t("settings.coFailedSetup"))
         }
         const data = await response.json()
         return data.clientSecret
@@ -68,12 +70,12 @@ export function CheckoutModal({
       })
       if (!response.ok) {
         const err = await response.json()
-        throw new Error(err.error || "Failed to create checkout session")
+        throw new Error(err.error || t("settings.coFailedCheckout"))
       }
       const data = await response.json()
       return data.clientSecret
     } catch (err: any) {
-      setError(err.message || "Something went wrong")
+      setError(err.message || t("settings.pmtSomethingWrong"))
       throw err
     }
   }, [mode, planId])
@@ -91,8 +93,8 @@ export function CheckoutModal({
             className="flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Back to plans</span>
-            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">{t("settings.coBackToPlans")}</span>
+            <span className="sm:hidden">{t("settings.coBack")}</span>
           </button>
 
           {/* Storelib Logo */}
@@ -117,16 +119,16 @@ export function CheckoutModal({
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-[24px] sm:text-[32px] font-bold text-[#1a1a2e]">
-            {mode === "setup" ? "Add Payment Method" : "Complete your upgrade"}
+            {mode === "setup" ? t("settings.coAddPaymentMethod") : t("settings.coCompleteUpgrade")}
           </h1>
           {planName && mode === "subscription" && (
             <p className="text-[14px] sm:text-[15px] text-[#6b7280] mt-2">
-              Subscribe to the {planName} plan
+              {t("settings.coSubscribeTo")} {planName}
             </p>
           )}
           {mode === "setup" && (
             <p className="text-[14px] sm:text-[15px] text-[#6b7280] mt-2">
-              Securely add your card details. You won&apos;t be charged now.
+              {t("settings.coSetupDesc")}
             </p>
           )}
         </div>
