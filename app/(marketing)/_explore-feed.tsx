@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
+import { getServerT } from "@/lib/i18n/server"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 
@@ -140,6 +141,10 @@ export async function ExploreFeed({
   // Search filtering is now done server-side via ILIKE in the Supabase query
   const filteredProducts = productsWithCreators
 
+  // Server-side locale (this page is already force-dynamic, so reading the
+  // cookie is free) — renders the SEO heading in the visitor's language.
+  const { t } = await getServerT()
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* JSON-LD structured data */}
@@ -159,9 +164,7 @@ export async function ExploreFeed({
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
-        <h1 className="sr-only">
-          Buy & Sell Second-Hand Fashion, Sneakers, Bags & Vintage | Storelib
-        </h1>
+        <h1 className="sr-only">{t("feed.seo_h1")}</h1>
 
         {/* Main content */}
         <ExplorePageClient

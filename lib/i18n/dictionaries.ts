@@ -62,6 +62,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "feed.trending": "În tendințe",
     "feed.new": "Noutăți",
     "feed.featured_categories": "Categorii recomandate",
+    "feed.seo_h1": "Cumpără și vinde modă second-hand, sneakers, genți și vintage | Storelib",
     // Product / listing
     "product.free": "Gratis",
     "product.size": "Mărime",
@@ -116,6 +117,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "feed.trending": "Trending",
     "feed.new": "New",
     "feed.featured_categories": "Featured categories",
+    "feed.seo_h1": "Buy & Sell Second-Hand Fashion, Sneakers, Bags & Vintage | Storelib",
     "product.free": "Free",
     "product.size": "Size",
     "product.condition": "Condition",

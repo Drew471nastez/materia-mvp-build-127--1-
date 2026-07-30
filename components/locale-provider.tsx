@@ -66,8 +66,15 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       const savedLang = window.localStorage.getItem(STORAGE_KEYS.language) as SupportedLanguage | null
       const savedCur = window.localStorage.getItem(STORAGE_KEYS.currency) as SupportedCurrency | null
 
-      if (savedLang && LANGUAGES.some((l) => l.code === savedLang)) setLanguageState(savedLang)
-      if (savedCur && CURRENCIES.some((c) => c.code === savedCur)) setCurrencyState(savedCur)
+      if (savedLang && LANGUAGES.some((l) => l.code === savedLang)) {
+        setLanguageState(savedLang)
+        // Sync the cookie so the next server render matches the stored choice.
+        document.cookie = `${STORAGE_KEYS.language}=${savedLang}; path=/; max-age=31536000; samesite=lax`
+      }
+      if (savedCur && CURRENCIES.some((c) => c.code === savedCur)) {
+        setCurrencyState(savedCur)
+        document.cookie = `${STORAGE_KEYS.currency}=${savedCur}; path=/; max-age=31536000; samesite=lax`
+      }
     } catch {
       // ignore
     }
@@ -83,6 +90,16 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [language, currency])
 
+  // Mirror the choice into a cookie so server components can render in the
+  // same language (localStorage is client-only and invisible to the server).
+  const writeCookie = (name: string, value: string) => {
+    try {
+      document.cookie = `${name}=${value}; path=/; max-age=31536000; samesite=lax`
+    } catch {
+      // ignore
+    }
+  }
+
   const setLanguage = useCallback((lang: SupportedLanguage) => {
     setLanguageState(lang)
     try {
@@ -90,6 +107,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    writeCookie(STORAGE_KEYS.language, lang)
   }, [])
 
   const setCurrency = useCallback((cur: SupportedCurrency) => {
@@ -99,6 +117,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    writeCookie(STORAGE_KEYS.currency, cur)
   }, [])
 
   const t = useCallback(
