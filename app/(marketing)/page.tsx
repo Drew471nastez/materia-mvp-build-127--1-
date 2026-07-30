@@ -143,7 +143,7 @@ export default function StorelibLanding() {
             <p className="text-[15px] text-[#666] mb-8 max-w-md mx-auto leading-relaxed">
               Bring your vision to life.
               <br />
-              Create Storelib experiences.
+              Create beautiful Storelib experiences.
             </p>
             
             <Link href="/signup" className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a1a1a] text-white text-[14px] font-medium rounded-lg hover:bg-[#333] transition-colors">
