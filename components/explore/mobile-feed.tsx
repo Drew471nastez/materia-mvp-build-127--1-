@@ -2,30 +2,33 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, SlidersHorizontal, LayoutGrid, GalleryVerticalEnd, Heart } from "lucide-react"
+import { Search, SlidersHorizontal, Heart } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
-import { IosSpinner } from "./ios-spinner"
-import { ReelsPager } from "./reels-pager"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { ProductCard } from "./product-card"
+import { IosSpinner } from "./ios-spinner"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
-type View = "reels" | "grid"
+
+const TABS: ReadonlyArray<readonly [Tab, string]> = [
+  ["for-you", "mfeed.for_you"],
+  ["following", "mfeed.following"],
+  ["saved", "mfeed.saved"],
+]
 
 /**
- * Depop/Vinted/TikTok-style mobile marketplace surface. Full-screen overlay on
- * phones (md:hidden); the desktop grid is rendered separately and untouched.
+ * Depop/Vinted-style mobile marketplace surface — a clean 2-column grid.
+ * Full-screen overlay on phones (md:hidden); the desktop grid is untouched.
  */
 export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   const { t } = useLocale()
   const router = useRouter()
 
   const [tab, setTab] = useState<Tab>("for-you")
-  const [view, setView] = useState<View>("reels")
   const [cat, setCat] = useState("all")
   const [query, setQuery] = useState("")
   const [focused, setFocused] = useState(false)
@@ -33,12 +36,8 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const bodyRef = useRef<HTMLDivElement>(null)
 
-  // Paint the native safe-area (status-bar) zone white while the feed is up, so
-  // there's no black "cutter" bar above the search on iOS/Android. Same proven
-  // approach as LibraryBgFix: inline html background (beats the html.capacitor
-  // #000 rule) re-applied on rotation so it can't flash black.
+  // Paint the native safe-area (status-bar) zone white while the feed is up.
   useEffect(() => {
     const html = document.documentElement
     const prev = html.style.backgroundColor
@@ -55,19 +54,6 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     }
   }, [])
 
-  // Measure the feed viewport so each reels card is EXACTLY one screen tall.
-  // Percentage heights on flex children are unreliable across mobile browsers —
-  // this guarantees snap pages to one whole listing (no free-scroll / sliver).
-  const [slotH, setSlotH] = useState(0)
-  useEffect(() => {
-    const el = bodyRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setSlotH(el.clientHeight))
-    ro.observe(el)
-    setSlotH(el.clientHeight)
-    return () => ro.disconnect()
-  }, [])
-
   const onRefresh = useCallback(async () => {
     setSeed((s) => s + 1)
     router.refresh()
@@ -75,8 +61,6 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   }, [router])
 
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
-  // How far the feed content is pushed down: follows the finger while pulling,
-  // holds at 52px while refreshing (so the spinner is visible), 0 at rest.
   const ptrOffset = phase === "refreshing" ? 52 : pullDistance
 
   const products = useMemo(() => {
@@ -100,11 +84,10 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   )
 
   const focusSearch = useCallback(() => searchRef.current?.focus(), [])
-  const toggleView = useCallback(() => setView((v) => (v === "reels" ? "grid" : "reels")), [])
 
   return (
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
-      {/* ---- Top: search (with view switcher inside) + filter ---- */}
+      {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <form onSubmit={submitSearch} className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -119,99 +102,95 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
               enterKeyHint="search"
               aria-label={t("mfeed.search_placeholder")}
               placeholder=""
-              className="h-11 w-full rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-11 text-sm text-neutral-900 outline-none focus:border-neutral-300"
+              className="h-11 w-full rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-4 text-sm text-neutral-900 outline-none focus:border-neutral-300"
             />
             <AnimatedSearchPlaceholder
               active={!query && !focused}
               prefix={`${t("mfeed.search_for")} `}
               quoted
-              className="absolute left-10 right-11 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
+              className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
             />
-            {/* View switcher — lives inside the search bar */}
-            <button
-              type="button"
-              onClick={toggleView}
-              aria-label={t(view === "reels" ? "mfeed.view_grid" : "mfeed.view_reels")}
-              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 active:text-neutral-700 transition-colors"
-            >
-              {view === "reels" ? <LayoutGrid className="h-[18px] w-[18px]" /> : <GalleryVerticalEnd className="h-[18px] w-[18px]" />}
-            </button>
           </div>
-          <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 active:scale-95 transition-transform">
+          <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95">
             <SlidersHorizontal className="h-[18px] w-[18px]" />
           </button>
         </form>
       </div>
 
-      {/* ---- Tabs (full width, evenly distributed) ---- */}
-      <div className="shrink-0 flex items-stretch px-3 pt-2.5">
-        {([["for-you", "mfeed.for_you"], ["following", "mfeed.following"], ["saved", "mfeed.saved"]] as const).map(([id, key]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTab(id)}
-            className={cn("relative flex-1 pb-2 text-center text-[15px] transition-colors", tab === id ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
-          >
-            {t(key)}
-            {tab === id && <span className="absolute left-1/2 -bottom-px h-0.5 w-9 -translate-x-1/2 rounded-full bg-neutral-900" />}
-          </button>
-        ))}
+      {/* ---- Tabs (full width, label-wide underline, smooth) ---- */}
+      <div className="shrink-0 flex items-stretch px-3 pt-3.5">
+        {TABS.map(([id, key]) => {
+          const active = tab === id
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={cn("flex flex-1 flex-col items-center pb-2.5 text-[15px] transition-colors duration-200", active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
+            >
+              <span className="relative inline-flex flex-col items-center">
+                {t(key)}
+                <span className={cn("mt-1.5 h-[3px] w-full rounded-full bg-neutral-900 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")} />
+              </span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* ---- Category pills (under the tabs) ---- */}
-      <div className="shrink-0 flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-1.5 pb-2.5" style={{ scrollbarWidth: "none" }}>
+      {/* ---- Category pills ---- */}
+      <div className="shrink-0 flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
             type="button"
             onClick={() => setCat(c.id)}
             className={cn(
-              "shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors",
-              cat === c.id ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
+              "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
+              cat === c.id ? "bg-neutral-900 text-white shadow-sm" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
             )}
           >
             {t(`category.${c.id}`)}
           </button>
         ))}
       </div>
-      <div className="shrink-0 h-px bg-neutral-100" />
 
-      {/* ---- Feed body ---- */}
-      <div ref={bodyRef} className="relative flex-1 min-h-0 overflow-hidden">
-        {tab === "following" ? (
-          <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
-        ) : tab === "saved" ? (
-          <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
-        ) : products.length === 0 ? (
-          <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
-        ) : view === "reels" ? (
-          // Touch-driven pager → guaranteed one-swipe-one-listing, TikTok-smooth.
-          <ReelsPager products={products} height={slotH} onRefresh={onRefresh} />
-        ) : (
-          // Grid view — native scroll with iOS pull-to-refresh.
-          <div
-            ref={scrollRef}
-            className="relative h-full overflow-y-auto overscroll-contain scrollbar-hide"
-            style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
-          >
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3" style={{ opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45) }}>
-              <IosSpinner size={24} />
-            </div>
-            <div
-              className="relative z-10 min-h-full bg-white"
-              style={{
-                transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
-                transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.45s cubic-bezier(0.22,1,0.36,1)",
-              }}
-            >
+      {/* Subtle light-green divider */}
+      <div className="shrink-0 h-px" style={{ backgroundColor: "rgba(16, 160, 110, 0.14)" }} />
+
+      {/* ---- Grid feed with iOS pull-to-refresh ---- */}
+      <div
+        ref={scrollRef}
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3" style={{ opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45) }}>
+          <IosSpinner size={24} />
+        </div>
+
+        <div
+          className="relative z-10 min-h-full bg-white"
+          style={{
+            transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
+            transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+          }}
+        >
+          {/* key on tab+cat → a subtle fade when switching tabs or categories */}
+          <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-200">
+            {tab === "following" ? (
+              <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
+            ) : tab === "saved" ? (
+              <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
+            ) : products.length === 0 ? (
+              <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
+            ) : (
               <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
                 {products.map((p) => (
                   <ProductCard key={p.id} product={p} clientNav />
                 ))}
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
@@ -221,7 +200,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
 function EmptyState({ icon, title, sub }: { icon?: React.ReactNode; title: string; sub: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center px-8 text-center">
       {icon && <div className="mb-3 text-neutral-300">{icon}</div>}
       <p className="text-[15px] font-semibold text-neutral-800">{title}</p>
       <p className="mt-1 text-[13px] text-neutral-500">{sub}</p>

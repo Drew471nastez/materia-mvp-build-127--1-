@@ -6,7 +6,7 @@ export default function ProductLoading() {
   return (
     <div
       className="min-h-screen"
-      style={{ backgroundColor: "var(--skeleton-bg, #f2f2f2)" }}
+      style={{ backgroundColor: "var(--skeleton-bg, #ffffff)" }}
     >
       {/* Main Content */}
       <div className="mx-auto max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
