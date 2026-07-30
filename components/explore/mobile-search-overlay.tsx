@@ -217,34 +217,13 @@ export function MobileSearchOverlay({
     }
   }, [mounted])
 
-  // iOS keyboard handling: a `position: fixed` overlay drifts up under the notch
-  // when the keyboard opens (the whole doc scrolls). We pin the sheet to the
-  // VISUAL viewport (the area above the keyboard) and hold the window at the top,
-  // so the header never gets cut off and content sits cleanly above the keyboard.
-  const [vp, setVp] = useState<{ h: number; top: number } | null>(null)
+  // Lock the page behind the sheet so the underlying feed can't scroll through.
   useEffect(() => {
     if (!mounted) return
-    const vv = window.visualViewport
-    // Lock the page while the sheet is up.
     const body = document.body
     const prevOverflow = body.style.overflow
     body.style.overflow = "hidden"
-
-    if (!vv) {
-      return () => {
-        body.style.overflow = prevOverflow
-      }
-    }
-    const update = () => setVp({ h: vv.height, top: vv.offsetTop })
-    update()
-    const holdTop = () => window.scrollTo(0, 0)
-    vv.addEventListener("resize", update)
-    vv.addEventListener("scroll", update)
-    window.addEventListener("scroll", holdTop, { passive: true })
     return () => {
-      vv.removeEventListener("resize", update)
-      vv.removeEventListener("scroll", update)
-      window.removeEventListener("scroll", holdTop)
       body.style.overflow = prevOverflow
     }
   }, [mounted])
@@ -340,11 +319,11 @@ export function MobileSearchOverlay({
 
   return (
     <div
-      className="md:hidden fixed left-0 right-0 z-[90] flex flex-col bg-white"
+      className="md:hidden fixed inset-0 z-[90] flex flex-col bg-white"
       style={{
-        // Pin to the visual viewport so the keyboard never pushes the header off.
-        top: vp ? vp.top : 0,
-        height: vp ? vp.h : "100%",
+        // Full-screen, same pattern as the feed (white behind the status bar, no
+        // black bar at the clock/5G). The keyboard overlays the bottom.
+        height: "100dvh",
         opacity: shown ? 1 : 0,
         // Grows out of the search bar (top) and settles — a visible, smooth blend.
         transform: shown ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
