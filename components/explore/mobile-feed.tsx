@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, SlidersHorizontal, Heart, X } from "lucide-react"
+import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
+import { ReelsPager } from "./reels-pager"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
 import { useWishlistedIds } from "./wishlist-context"
@@ -83,8 +84,26 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   const [cat, setCat] = useState("all")
   const [seed, setSeed] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
+  // Browsing style for the For You feed. Default is the 2-col grid; "reels" is the
+  // full-screen TikTok/Reels-style vertical pager. Toggled from the search row.
+  const [view, setView] = useState<"grid" | "reels">("grid")
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const feedAreaRef = useRef<HTMLDivElement>(null)
+  const [areaHeight, setAreaHeight] = useState(0)
+
+  // Measure the feed area so the reels pager can size one listing per screen.
+  useEffect(() => {
+    const el = feedAreaRef.current
+    if (!el) return
+    const measure = () => setAreaHeight(el.clientHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const reelsActive = view === "reels" && tab === "for-you"
   // Remembers each tab's scroll offset so returning to For You keeps your place.
   const tabScroll = useRef<Record<Tab, number>>({ "for-you": 0, following: 0, saved: 0 })
 
@@ -250,6 +269,25 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
               />
             )}
           </button>
+          {/* View switcher: grid ↔ reels (shows the icon of the view you'll get) */}
+          <button
+            type="button"
+            aria-label={view === "grid" ? t("mfeed.view_reels") : t("mfeed.view_grid")}
+            aria-pressed={view === "reels"}
+            onClick={() => setView((v) => (v === "grid" ? "reels" : "grid"))}
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-transform active:scale-95",
+              view === "reels"
+                ? "border-transparent bg-neutral-900 text-white"
+                : "border-neutral-200 bg-neutral-100 text-neutral-700",
+            )}
+          >
+            {view === "grid" ? (
+              <GalleryVerticalEnd className="h-[18px] w-[18px]" />
+            ) : (
+              <LayoutGrid className="h-[18px] w-[18px]" />
+            )}
+          </button>
           {searchQuery ? (
             <button
               type="button"
@@ -308,8 +346,19 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
         ))}
       </div>
 
-      {/* ---- Grid feed with iOS pull-to-refresh ---- */}
-      <div className="relative flex-1 min-h-0">
+      {/* ---- Feed area: grid (default) or reels pager ---- */}
+      <div ref={feedAreaRef} className="relative flex-1 min-h-0">
+        {reelsActive ? (
+          <div className="absolute inset-0 bg-black">
+            {areaHeight > 0 && products.length > 0 ? (
+              <ReelsPager products={products} height={areaHeight} onRefresh={onRefresh} />
+            ) : products.length === 0 ? (
+              <div className="flex h-full items-center justify-center bg-white">
+                <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
+              </div>
+            ) : null}
+          </div>
+        ) : (
         <div
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto overscroll-contain scrollbar-hide"
@@ -351,9 +400,10 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
             )}
           </div>
         </div>
+        )}
 
         {/* Subtle auto-hiding scroll indicator (shows on scroll, fades when idle) */}
-        <FeedScrollbar containerRef={scrollRef} />
+        {!reelsActive && <FeedScrollbar containerRef={scrollRef} />}
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
