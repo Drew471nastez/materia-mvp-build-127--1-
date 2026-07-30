@@ -167,11 +167,14 @@ export function MobileSearchOverlay({
   open,
   onClose,
   onSelectCategory,
+  onSearchSubmit,
   initialQuery = "",
 }: {
   open: boolean
   onClose: () => void
   onSelectCategory: (id: string) => void
+  /** Fired right when a search is run, so the feed can jump to the results tab. */
+  onSearchSubmit?: () => void
   /** Pre-fills the field when opened (e.g. an active search on the feed). */
   initialQuery?: string
 }) {
@@ -267,10 +270,11 @@ export function MobileSearchOverlay({
       const v = q.trim()
       if (!v) return
       addSearch(v)
+      onSearchSubmit?.() // switch the feed to the results tab immediately
       onClose()
       router.push(`/?q=${encodeURIComponent(v)}`)
     },
-    [addSearch, onClose, router],
+    [addSearch, onSearchSubmit, onClose, router],
   )
 
   const pickCategory = useCallback(

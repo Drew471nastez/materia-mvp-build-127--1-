@@ -350,6 +350,10 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
           setCat(id)
           setTab("for-you")
         }}
+        onSearchSubmit={() => {
+          tabScroll.current["for-you"] = 0
+          setTab("for-you")
+        }}
         initialQuery={searchQuery}
       />
     </div>
@@ -469,23 +473,33 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
   }, [savedIds])
 
   const items = useMemo(() => {
+    // Product objects can come from the feed pool (instant) or the DB fetch.
     const byId = new Map<string, any>()
     for (const p of pool) if (p?.id) byId.set(p.id, p)
-    for (const p of fetched ?? []) if (p?.id && !byId.has(p.id)) byId.set(p.id, p)
-    const order: string[] = []
+    for (const p of fetched ?? []) if (p?.id) byId.set(p.id, p)
+
+    // ORDER is driven strictly by the saved-recency list (fetched/cache), so it
+    // never reshuffles when the background fetch resolves. Brand-new saves that
+    // the fetch hasn't returned yet are pinned to the front (they're the most
+    // recent) — exactly where the fetch will place them, so nothing jumps.
+    const show = (id: string) => byId.has(id) && (savedIds.has(id) || removing.has(id))
+    const fetchedOrder = (fetched ?? []).map((p) => p.id)
+    const fetchedSet = new Set(fetchedOrder)
+    const result: string[] = []
     const seen = new Set<string>()
-    const add = (id: string) => {
-      if (seen.has(id) || !byId.has(id)) return
-      // Show it if it's saved, or currently animating out.
-      if (!savedIds.has(id) && !removing.has(id)) return
-      seen.add(id)
-      order.push(id)
+    for (const id of savedIds) {
+      if (!fetchedSet.has(id) && show(id) && !seen.has(id)) {
+        seen.add(id)
+        result.push(id)
+      }
     }
-    // Recency-ish order: cached/fetched (DB order) first, then the rest.
-    for (const p of fetched ?? []) add(p.id)
-    for (const id of savedIds) add(id)
-    for (const id of removing) add(id)
-    return order.map((id) => byId.get(id))
+    for (const id of fetchedOrder) {
+      if (show(id) && !seen.has(id)) {
+        seen.add(id)
+        result.push(id)
+      }
+    }
+    return result.map((id) => byId.get(id))
   }, [pool, fetched, savedIds, removing])
 
   // FLIP: when a card leaves and the grid reflows, slide the remaining cards from
