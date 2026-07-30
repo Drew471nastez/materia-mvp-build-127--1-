@@ -204,6 +204,19 @@ export function MobileSearchOverlay({
     return () => clearTimeout(timer)
   }, [open])
 
+  // Keep the native safe-area (status bar) zone white while the sheet is up, so
+  // the top never shows the black html.capacitor background behind the clock/5G.
+  useEffect(() => {
+    if (!mounted) return
+    const html = document.documentElement
+    const prev = html.style.backgroundColor
+    html.style.backgroundColor = "#ffffff"
+    html.classList.add("native-feed-bg")
+    return () => {
+      html.style.backgroundColor = prev
+    }
+  }, [mounted])
+
   // Focus the field (and seed / reset state) each time it opens.
   useEffect(() => {
     if (!open) return
@@ -269,10 +282,14 @@ export function MobileSearchOverlay({
     (q: string) => {
       const v = q.trim()
       if (!v) return
+      setQuery(v) // reflect the chosen term in the field before it closes
+      inputRef.current?.blur() // dismiss the keyboard so the close reads clean
       addSearch(v)
       onSearchSubmit?.() // switch the feed to the results tab immediately
-      onClose()
-      router.push(`/?q=${encodeURIComponent(v)}`)
+      onClose() // begin the smooth close blend
+      // Navigate once the blend is under way, so results reveal behind the fade
+      // instead of snapping in the instant you tap.
+      window.setTimeout(() => router.push(`/?q=${encodeURIComponent(v)}`), 170)
     },
     [addSearch, onSearchSubmit, onClose, router],
   )
