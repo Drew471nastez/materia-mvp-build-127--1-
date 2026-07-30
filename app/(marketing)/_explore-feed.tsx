@@ -65,21 +65,33 @@ export async function ExploreFeed({
 
     // Fetch published products — apply search filter server-side via ILIKE
     // to avoid fetching 100 rows when only a few match the query
-    let query = supabase
-      .from("products")
-      .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(100)
+    // Resale attributes (size/condition/brand) exist only after
+    // 20260730_marketplace_physical_attributes.sql. Fetch them when present, but
+    // fall back to the base columns if the migration hasn't run yet, so the feed
+    // never 400s on unknown columns. The card renders the badges only when set.
+    const BASE_COLS =
+      "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
+    const FEED_COLS = `${BASE_COLS}, size, size_system, condition, brand`
 
-    if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+    const runProductsQuery = (cols: string) => {
+      let q = supabase
+        .from("products")
+        .select(cols)
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(100)
+      if (searchQuery) {
+        q = q.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+      }
+      return q
     }
 
-    const { data: products, error: productsError } = await query
-
+    let { data: products, error: productsError } = await runProductsQuery(FEED_COLS)
     if (productsError) {
-      console.error("[ExploreFeed] Products error:", productsError.message)
+      console.error("[ExploreFeed] Products error (retrying without resale columns):", productsError.message)
+      const retry = await runProductsQuery(BASE_COLS)
+      products = retry.data
+      productsError = retry.error
     }
 
     if (products && products.length > 0) {

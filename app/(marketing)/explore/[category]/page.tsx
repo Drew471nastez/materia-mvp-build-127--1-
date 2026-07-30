@@ -78,16 +78,25 @@ export default async function CategoryPage({ params }: Props) {
   const supabase = await createClient()
 
   // Fetch ALL published products - same select as the feed in app/(marketing)/_explore-feed.tsx
-  // Category filtering is done client-side for relevance-based sorting
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(100)
+  // Category filtering is done client-side for relevance-based sorting.
+  // Resale columns exist only after 20260730_marketplace_physical_attributes.sql;
+  // fall back to base columns if the migration hasn't run yet so the page never 400s.
+  const BASE_COLS =
+    "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
+  const runProductsQuery = (cols: string) =>
+    supabase
+      .from("products")
+      .select(cols)
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(100)
 
+  let { data: products, error: productsError } = await runProductsQuery(`${BASE_COLS}, size, size_system, condition, brand`)
   if (productsError) {
-    console.error("[CategoryPage] Products error:", productsError.message)
+    console.error("[CategoryPage] Products error (retrying without resale columns):", productsError.message)
+    const retry = await runProductsQuery(BASE_COLS)
+    products = retry.data
+    productsError = retry.error
   }
 
   // Build products with creator info
