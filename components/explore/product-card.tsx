@@ -96,15 +96,27 @@ function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: st
 function WishlistHeartButton({ productId }: { productId: string }) {
   const isWishlisted = useIsWishlisted(productId)
   const toggleWishlist = useToggleWishlist()
+  // Replays the pop/burst on every toggle. `nonce` bumps so the same class
+  // re-triggers the CSS animation even on rapid taps.
+  const [nonce, setNonce] = useState(0)
+  const [burst, setBurst] = useState(false)
 
   const onClick = useCallback(
     (e: React.MouseEvent) => {
       // The heart floats over the product link — never let the click navigate.
       e.preventDefault()
       e.stopPropagation()
+      const willSave = !isWishlisted
+      setNonce((n) => n + 1)
+      // The bloom only reads right when saving — skip it on un-save.
+      if (willSave) {
+        setBurst(false)
+        // next frame so the node remounts and the animation restarts
+        requestAnimationFrame(() => setBurst(true))
+      }
       void toggleWishlist(productId)
     },
-    [productId, toggleWishlist]
+    [productId, isWishlisted, toggleWishlist]
   )
 
   return (
@@ -113,12 +125,25 @@ function WishlistHeartButton({ productId }: { productId: string }) {
       onClick={onClick}
       aria-pressed={isWishlisted}
       aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-      // after:-inset-1.5 widens the tap target past the 32px visual without moving it.
-      className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/80 shadow-sm backdrop-blur-sm transition-transform duration-150 ease-out after:absolute after:-inset-1.5 after:content-[''] motion-safe:active:scale-90 [@media(hover:hover)]:hover:bg-white"
+      // after:-inset-2 widens the tap target past the visual without moving it.
+      className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-150 ease-out after:absolute after:-inset-2 after:content-[''] motion-safe:active:scale-90 [@media(hover:hover)]:hover:bg-white"
     >
+      {/* Bloom ring — one-shot, keyed so it restarts each save */}
+      {burst && (
+        <span
+          key={nonce}
+          aria-hidden="true"
+          className="heart-burst pointer-events-none absolute inset-0 rounded-full"
+          style={{ boxShadow: "0 0 0 2px rgba(244, 63, 94, 0.55)" }}
+          onAnimationEnd={() => setBurst(false)}
+        />
+      )}
       <Heart
+        key={nonce}
         className={cn(
-          "h-4 w-4 transition-colors duration-150",
+          "h-4 w-4 transition-colors duration-200",
+          // Only pop after a real toggle — never on the grid's first paint.
+          nonce > 0 && "motion-safe:heart-pop",
           isWishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-700"
         )}
       />
@@ -247,8 +272,9 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
       // Armed from the whole card because group-hover fires from the whole card too.
       onMouseEnter={hoverImage ? armHover : undefined}
     >
-      {/* Image well — relative so the heart can sit beside (never inside) the link */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
+      {/* Image well — relative so the heart can sit beside (never inside) the link.
+          Subtle ring + shadow give the flat white grid a bit of depth. */}
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted shadow-sm ring-1 ring-black/[0.06]">
         <SmartLink href={productUrl} useClientNav={clientNav} className="absolute inset-0 block">
           {product.thumbnail_url ? (
             <>

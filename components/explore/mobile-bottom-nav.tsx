@@ -1,6 +1,8 @@
 "use client"
 
+import { useCallback, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Home, Search, Plus, MessageSquare, User } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
@@ -18,6 +20,19 @@ export function MobileBottomNav({
   onSearch?: () => void
 }) {
   const { t } = useLocale()
+  const router = useRouter()
+  const [launching, setLaunching] = useState(false)
+  const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sell button: play the spin-and-swell once, then glide to the new-product page.
+  // The short delay lets the animation land so the transition feels intentional,
+  // not a hard cut.
+  const onSell = useCallback(() => {
+    if (launching) return
+    setLaunching(true)
+    if (navTimer.current) clearTimeout(navTimer.current)
+    navTimer.current = setTimeout(() => router.push("/app/products/new"), 260)
+  }, [launching, router])
 
   const item = (key: string, icon: React.ReactNode, isActive: boolean) => (
     <span className={cn("flex flex-col items-center gap-1 text-[10px] font-medium", isActive ? "text-neutral-900" : "text-neutral-400")}>
@@ -38,11 +53,25 @@ export function MobileBottomNav({
           {item("mfeed.search", <Search className="h-6 w-6" />, active === "search")}
         </button>
 
-        <Link href="/app/products/new" aria-label={t("mfeed.sell")} className="flex flex-col items-center gap-1">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-white shadow-sm active:scale-95 transition-transform">
-            <Plus className="h-6 w-6" strokeWidth={2.5} />
+        <button
+          type="button"
+          onClick={onSell}
+          aria-label={t("mfeed.sell")}
+          className="flex flex-col items-center gap-1"
+        >
+          <span
+            className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform duration-200",
+              !launching && "active:scale-95",
+            )}
+            style={{
+              background: "linear-gradient(150deg, #8b5cf6 0%, #7c3aed 100%)",
+              boxShadow: "0 6px 18px -4px rgba(124, 58, 237, 0.55), 0 2px 6px -1px rgba(124, 58, 237, 0.35)",
+            }}
+          >
+            <Plus className={cn("h-6 w-6", launching && "plus-launch")} strokeWidth={2.6} />
           </span>
-        </Link>
+        </button>
 
         <Link href="/app" aria-label={t("mfeed.inbox")} className="relative">
           {item("mfeed.inbox", <MessageSquare className="h-6 w-6" />, active === "inbox")}

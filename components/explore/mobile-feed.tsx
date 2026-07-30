@@ -8,6 +8,7 @@ import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
+import { useWishlistedIds } from "./wishlist-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
@@ -63,6 +64,8 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
   const ptrOffset = phase === "refreshing" ? 52 : pullDistance
 
+  const savedIds = useWishlistedIds()
+
   const products = useMemo(() => {
     let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
     if (cat !== "all") list = list.filter((p) => normalizeCategoryToId(p?.category || "") === cat)
@@ -72,6 +75,18 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     }
     return list
   }, [initialProducts, cat, seed])
+
+  // The "Saved" tab surfaces the user's wishlisted listings from the loaded feed.
+  const savedProducts = useMemo(
+    () => products.filter((p) => p?.id && savedIds.has(p.id)),
+    [products, savedIds],
+  )
+
+  // Switching tab or category should start from the top — never leave the user
+  // scrolled halfway into a shorter list.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "auto" })
+  }, [tab, cat])
 
   const submitSearch = useCallback(
     (e?: React.FormEvent) => {
@@ -152,16 +167,27 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         ))}
       </div>
 
-      {/* Subtle light-green divider */}
-      <div className="shrink-0 h-px" style={{ backgroundColor: "rgba(16, 160, 110, 0.14)" }} />
+      {/* Subtle light-green divider + a soft drop-shadow that lifts the sticky
+          header off the feed for a touch of depth. */}
+      <div
+        className="shrink-0 h-px"
+        style={{ backgroundColor: "rgba(16, 160, 110, 0.16)", boxShadow: "0 6px 14px -10px rgba(16, 24, 40, 0.18)" }}
+      />
 
       {/* ---- Grid feed with iOS pull-to-refresh ---- */}
       <div
         ref={scrollRef}
-        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide bg-neutral-50/40"
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3" style={{ opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45) }}>
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3.5"
+          style={{
+            opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 40),
+            transform: `scale(${phase === "refreshing" ? 1 : 0.7 + Math.min(1, pullDistance / 70) * 0.3})`,
+            transition: phase === "pulling" ? "none" : "opacity 0.3s ease-out, transform 0.3s ease-out",
+          }}
+        >
           <IosSpinner size={24} />
         </div>
 
@@ -169,15 +195,23 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
           className="relative z-10 min-h-full bg-white"
           style={{
             transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
-            transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+            transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.5s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
-          {/* key on tab+cat → a subtle fade when switching tabs or categories */}
-          <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-200">
+          {/* key on tab+cat → a soft cross-fade when switching tabs or categories */}
+          <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-300 ease-out">
             {tab === "following" ? (
               <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
             ) : tab === "saved" ? (
-              <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
+              savedProducts.length === 0 ? (
+                <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
+              ) : (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+                  {savedProducts.map((p) => (
+                    <ProductCard key={p.id} product={p} clientNav />
+                  ))}
+                </div>
+              )
             ) : products.length === 0 ? (
               <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
             ) : (

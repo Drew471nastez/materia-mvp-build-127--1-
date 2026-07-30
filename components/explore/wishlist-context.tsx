@@ -134,6 +134,26 @@ export function useIsWishlisted(productId: string): boolean {
   )
 }
 
+// Stable empty snapshot for SSR / first paint so useSyncExternalStore doesn't loop.
+const EMPTY_IDS: ReadonlySet<string> = new Set()
+
+/**
+ * The full set of wishlisted ids. Identity only changes when the set changes
+ * (toggles build a fresh Set), so consumers re-render exactly when needed.
+ * Used by the mobile feed's "Saved" tab to show the user's saved listings.
+ */
+export function useWishlistedIds(): ReadonlySet<string> {
+  useEffect(() => {
+    void ensureLoaded()
+  }, [])
+
+  return useSyncExternalStore(
+    subscribe,
+    () => wishlistedIds as ReadonlySet<string>,
+    () => EMPTY_IDS,
+  )
+}
+
 /** Optimistic add/remove. Guests are covered by the materia_guest_id cookie. */
 export function useToggleWishlist(): (productId: string) => Promise<void> {
   return useCallback(async (productId: string) => {
