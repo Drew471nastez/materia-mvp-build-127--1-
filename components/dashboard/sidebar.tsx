@@ -113,7 +113,7 @@ export function DashboardSidebar() {
         <Link
           href="/explore"
           onClick={(e) => {
-            if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+            if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" }
             onItemClick?.()
           }}
           className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
@@ -186,7 +186,7 @@ export function DashboardSidebar() {
         <div className="flex items-center gap-1">
           <Link
             href="/explore"
-            onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
+            onClick={(e) => { if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" } }}
             className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             aria-label="Discover"
           >

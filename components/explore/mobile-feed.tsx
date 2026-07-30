@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, LayoutGrid, GalleryVerticalEnd, Loader2, Heart } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -9,6 +9,7 @@ import { MobileListingCard } from "./mobile-listing-card"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { ProductCard } from "./product-card"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
@@ -24,6 +25,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
   const [tab, setTab] = useState<Tab>("for-you")
   const [view, setView] = useState<View>("reels")
+  const [cat, setCat] = useState("all")
   const [query, setQuery] = useState("")
   const [focused, setFocused] = useState(false)
   const [seed, setSeed] = useState(0)
@@ -31,8 +33,19 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Pull-to-refresh: reshuffle the feed (cheap, offline, feels live) and pull
-  // fresh server data in the background.
+  // Measure the feed viewport so each reels card is EXACTLY one screen tall.
+  // Percentage heights on flex children are unreliable across mobile browsers —
+  // this guarantees snap pages to one whole listing (no free-scroll / sliver).
+  const [slotH, setSlotH] = useState(0)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setSlotH(el.clientHeight))
+    ro.observe(el)
+    setSlotH(el.clientHeight)
+    return () => ro.disconnect()
+  }, [])
+
   const onRefresh = useCallback(async () => {
     setSeed((s) => s + 1)
     router.refresh()
@@ -41,14 +54,15 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
 
-  // "For You" reshuffles on each refresh; a stable rotation keeps it deterministic
-  // for SSR (no Math.random) yet visibly different after a pull.
   const products = useMemo(() => {
-    const list = Array.isArray(initialProducts) ? initialProducts.filter(Boolean) : []
-    if (seed === 0 || list.length === 0) return list
-    const offset = seed % list.length
-    return [...list.slice(offset), ...list.slice(0, offset)]
-  }, [initialProducts, seed])
+    let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
+    if (cat !== "all") list = list.filter((p) => normalizeCategoryToId(p?.category || "") === cat)
+    if (seed > 0 && list.length > 0) {
+      const off = seed % list.length
+      list = [...list.slice(off), ...list.slice(0, off)]
+    }
+    return list
+  }, [initialProducts, cat, seed])
 
   const submitSearch = useCallback(
     (e?: React.FormEvent) => {
@@ -60,15 +74,13 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     [query, router],
   )
 
-  const focusSearch = useCallback(() => {
-    searchRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
-    searchRef.current?.focus()
-  }, [])
+  const focusSearch = useCallback(() => searchRef.current?.focus(), [])
+  const toggleView = useCallback(() => setView((v) => (v === "reels" ? "grid" : "reels")), [])
 
   return (
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
-      {/* ---- Top bar: search + filter ---- */}
-      <div className="shrink-0 px-4 pt-3" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top, 0px))" }}>
+      {/* ---- Top: search (with view switcher inside) + filter ---- */}
+      <div className="shrink-0 px-4" style={{ paddingTop: "max(0.6rem, env(safe-area-inset-top, 0px))" }}>
         <form onSubmit={submitSearch} className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -82,14 +94,23 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
               enterKeyHint="search"
               aria-label={t("mfeed.search_placeholder")}
               placeholder=""
-              className="h-11 w-full rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-4 text-sm text-neutral-900 outline-none focus:border-neutral-300"
+              className="h-11 w-full rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-11 text-sm text-neutral-900 outline-none focus:border-neutral-300"
             />
             <AnimatedSearchPlaceholder
               active={!query && !focused}
               prefix={`${t("mfeed.search_for")} `}
               quoted
-              className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
+              className="absolute left-10 right-11 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
             />
+            {/* View switcher — lives inside the search bar */}
+            <button
+              type="button"
+              onClick={toggleView}
+              aria-label={t(view === "reels" ? "mfeed.view_grid" : "mfeed.view_reels")}
+              className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-neutral-400 active:text-neutral-700 transition-colors"
+            >
+              {view === "reels" ? <LayoutGrid className="h-[18px] w-[18px]" /> : <GalleryVerticalEnd className="h-[18px] w-[18px]" />}
+            </button>
           </div>
           <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 active:scale-95 transition-transform">
             <SlidersHorizontal className="h-[18px] w-[18px]" />
@@ -97,52 +118,47 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         </form>
       </div>
 
-      {/* ---- Tabs (centered) + subtle view switcher ---- */}
-      <div className="relative shrink-0 px-4 pt-2">
-        <div className="flex items-center justify-center gap-7">
-          {([["for-you", "mfeed.for_you"], ["following", "mfeed.following"], ["saved", "mfeed.saved"]] as const).map(([id, key]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "relative pb-2 text-[15px] transition-colors",
-                tab === id ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
-              )}
-            >
-              {t(key)}
-              {tab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-neutral-900" />}
-            </button>
-          ))}
-        </div>
-        {/* Subtle reels/grid switcher — tucked to the edge, low-contrast so the
-            centered tabs stay the focus. */}
-        <button
-          type="button"
-          onClick={() => setView((v) => (v === "reels" ? "grid" : "reels"))}
-          aria-label={t(view === "reels" ? "mfeed.view_grid" : "mfeed.view_reels")}
-          className="absolute right-2 top-1.5 flex h-8 w-8 items-center justify-center rounded-full text-neutral-300 transition-colors active:text-neutral-600"
-        >
-          {view === "reels" ? <LayoutGrid className="h-[18px] w-[18px]" /> : <GalleryVerticalEnd className="h-[18px] w-[18px]" />}
-        </button>
+      {/* ---- Tabs (centered) ---- */}
+      <div className="shrink-0 flex items-center justify-center gap-7 px-4 pt-2.5">
+        {([["for-you", "mfeed.for_you"], ["following", "mfeed.following"], ["saved", "mfeed.saved"]] as const).map(([id, key]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={cn("relative pb-2 text-[15px] transition-colors", tab === id ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
+          >
+            {t(key)}
+            {tab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-neutral-900" />}
+          </button>
+        ))}
+      </div>
+
+      {/* ---- Category pills (under the tabs) ---- */}
+      <div className="shrink-0 flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-1.5 pb-2.5" style={{ scrollbarWidth: "none" }}>
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => setCat(c.id)}
+            className={cn(
+              "shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+              cat === c.id ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
+            )}
+          >
+            {t(`category.${c.id}`)}
+          </button>
+        ))}
       </div>
       <div className="shrink-0 h-px bg-neutral-100" />
 
       {/* ---- Feed body ---- */}
       <div
         ref={scrollRef}
-        className={cn(
-          "relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide",
-          view === "reels" ? "snap-y snap-mandatory" : "",
-        )}
-        style={{ scrollbarWidth: "none" }}
+        className={cn("relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide", view === "reels" ? "snap-y snap-mandatory" : "")}
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
-        {/* Pull-to-refresh — iOS-style: light-grey spinner that fades + scales in
-            as you pull, then spins smoothly while refreshing. */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-2.5"
-          style={{ height: Math.max(pullDistance, phase === "refreshing" ? 44 : 0) }}
-        >
+        {/* iOS-style pull-to-refresh */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-2.5" style={{ height: Math.max(pullDistance, phase === "refreshing" ? 44 : 0) }}>
           <Loader2
             className={cn("h-5 w-5 text-neutral-300", phase === "refreshing" && "animate-spin")}
             style={{
@@ -160,9 +176,8 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
           <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
         ) : view === "reels" ? (
           products.map((p, i) => (
-            // Full-height slot so each swipe snaps to exactly one whole listing
-            // (TikTok-style) — no vertical padding, so no sliver of the next card.
-            <div key={p.id} className="h-full w-full snap-start snap-always px-2">
+            // Explicit one-screen height → clean TikTok snap, one whole listing per swipe.
+            <div key={p.id} className="w-full snap-start snap-always px-2 py-2" style={{ height: slotH || undefined }}>
               <MobileListingCard
                 product={p}
                 priority={false}

@@ -309,7 +309,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
     { href: "/help", label: t("dashboard.help"), icon: HelpCircle, target: "_blank" as const },
-    { href: "/explore", label: t("dashboard.explore"), icon: Compass, target: "_blank" as const },
+    { href: "/explore", label: t("dashboard.explore"), icon: Compass },
     { href: "/library", label: t("nav.library"), icon: Library },
   ]
 
@@ -627,7 +627,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 onClick={(e) => {
                   if (isExplore && isNativeApp()) {
                     e.preventDefault()
-                    openExternal(EXPLORE_FULL_URL)
+                    window.location.href = "/explore"
                   }
                   setProfileDropdownOpen(false)
                   onItemClick?.()
@@ -952,7 +952,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/explore"
             onClick={(e) => {
-              if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+              if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" }
               onItemClick?.()
             }}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -968,7 +968,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <Link
               href="/explore"
               onClick={(e) => {
-                if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+                if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" }
                 onItemClick?.()
               }}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
@@ -1103,7 +1103,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                           openExternal(HELP_FULL_URL)
                         } else if (isExploreItem && isNativeApp()) {
                           e.preventDefault()
-                          openExternal(EXPLORE_FULL_URL)
+                          window.location.href = "/explore"
                         }
                         setHeaderProfileOpen(false)
                       }}
@@ -1151,7 +1151,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="flex items-center gap-1.5">
               <Link
                 href="/explore"
-                onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
+                onClick={(e) => { if (isNativeApp()) { e.preventDefault(); window.location.href = "/explore" } }}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title={t("dashboard.discover")}
               >
@@ -1254,7 +1254,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                         setSearchOpen(false)
                         // /explore always opens in external browser on native
                         if (isNativeApp() && item.href === "/explore") {
-                          openExternal(EXPLORE_FULL_URL)
+                          window.location.href = "/explore"
                         } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
@@ -1295,7 +1295,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                               setSearchOpen(false)
                               // /explore always opens in external browser on native
                               if (isNativeApp() && item.href === "/explore") {
-                                openExternal(EXPLORE_FULL_URL)
+                                window.location.href = "/explore"
                               } else if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
@@ -1450,7 +1450,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                           openExternal(HELP_FULL_URL)
                         } else if (isExplore && isNativeApp()) {
                           e.preventDefault()
-                          openExternal(EXPLORE_FULL_URL)
+                          window.location.href = "/explore"
                         }
                         setMobileProfileDropdownOpen(false)
                       }}
