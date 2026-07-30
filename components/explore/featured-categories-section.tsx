@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, type LucideIcon } from "lucide-react"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { useLocale } from "@/components/locale-provider"
 
 // Fallback gradients, used only until a category has a listing with a photo
 const CATEGORY_GRADIENTS: Record<string, string> = {
@@ -40,6 +41,7 @@ interface FeaturedCategoriesSectionProps {
 }
 
 export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesSectionProps) {
+  const { t } = useLocale()
   // Get cover images from top products in each category
   const categoriesWithImages = useMemo(() => {
     return CATEGORIES_CONFIG.map(category => {
@@ -72,14 +74,14 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
         <div className="lg:col-span-3 flex flex-col justify-center mb-2 lg:mb-0">
           <div className="flex items-start justify-between gap-3 lg:block">
             <h2 className="text-lg sm:text-2xl lg:text-4xl font-bold text-neutral-900 leading-tight mb-2 lg:mb-6">
-              Shop pre-loved by category
+              {t("marketplace.shop_preloved")}
             </h2>
             {/* Mobile navigation arrows - inline with heading */}
             <div className="flex items-center gap-2 lg:hidden flex-shrink-0 mt-0.5">
               <button
                 type="button"
                 className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
-                aria-label="Previous"
+                aria-label={t("marketplace.previous")}
                 onClick={() => {
                   const container = document.getElementById('mobile-categories-scroll')
                   if (container) container.scrollBy({ left: -container.clientWidth * 0.7, behavior: 'smooth' })
@@ -90,7 +92,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
               <button
                 type="button"
                 className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
-                aria-label="Next"
+                aria-label={t("marketplace.next")}
                 onClick={() => {
                   const container = document.getElementById('mobile-categories-scroll')
                   if (container) container.scrollBy({ left: container.clientWidth * 0.7, behavior: 'smooth' })
@@ -104,7 +106,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
             href="/explore"
             className="hidden lg:inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-full hover:bg-neutral-800 transition-colors w-fit"
           >
-            Browse categories
+            {t("marketplace.browse_categories")}
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

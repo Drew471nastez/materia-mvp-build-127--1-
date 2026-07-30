@@ -18,6 +18,8 @@ import { dashboardDict } from "./dict/dashboard"
 import { marketplaceDict } from "./dict/marketplace"
 import { settingsDict } from "./dict/settings"
 import { builderDict } from "./dict/builder"
+import { feedDict } from "./dict/feed"
+import { catpageDict } from "./dict/catpage"
 
 export type LocaleCode = "ro" | "en" | "es" | "de" | "pt-BR" | "fr" | "it" | "nl" | "pl"
 
@@ -30,6 +32,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     ...marketplaceDict.ro,
     ...settingsDict.ro,
     ...builderDict.ro,
+    ...feedDict.ro,
+    ...catpageDict.ro,
     // Header / nav
     "nav.library": "Biblioteca",
     "nav.dashboard": "Panou",
@@ -89,6 +93,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     ...marketplaceDict.en,
     ...settingsDict.en,
     ...builderDict.en,
+    ...feedDict.en,
+    ...catpageDict.en,
     "nav.library": "Library",
     "nav.dashboard": "Dashboard",
     "nav.sign_in": "Sign in",

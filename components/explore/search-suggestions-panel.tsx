@@ -4,6 +4,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 import Image from "next/image"
 import { Clock, Store, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useLocale } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
 import type { RecentSearch } from "@/lib/hooks/use-recent-searches"
 import type { RecentlyViewedProduct } from "@/lib/hooks/use-recently-viewed"
@@ -148,6 +149,7 @@ export function SearchSuggestionsPanel({
   className,
   children,
 }: SearchSuggestionsPanelProps) {
+  const { t } = useLocale()
   const [activeIndex, setActiveIndex] = useState(-1)
   const rowRefs = useRef(new Map<number, HTMLElement>())
 
@@ -240,7 +242,7 @@ export function SearchSuggestionsPanel({
     <div
       id={id}
       role="listbox"
-      aria-label="Search suggestions"
+      aria-label={t("marketplace.search_suggestions")}
       // The input keeps focus, so a mouse click here must not blur it first.
       // Touch is left alone — preventing default there would kill the scroll strip.
       onPointerDown={(event) => {
@@ -262,14 +264,14 @@ export function SearchSuggestionsPanel({
       {hasRecent && (
         <section>
           <div className="flex items-center justify-between px-4 pb-1 pt-1.5">
-            <h3 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">Recent</h3>
+            <h3 className="text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t("marketplace.recent")}</h3>
             {onClearSearches && (
               <button
                 type="button"
                 onClick={onClearSearches}
                 className="text-[11px] font-medium text-neutral-400 transition-colors hover:text-neutral-700 cursor-pointer touch-manipulation"
               >
-                Clear
+                {t("search.clear")}
               </button>
             )}
           </div>
@@ -300,7 +302,7 @@ export function SearchSuggestionsPanel({
                 {onRemoveSearch && (
                   <button
                     type="button"
-                    aria-label={`Remove ${entry.q} from recent searches`}
+                    aria-label={`${t("marketplace.remove_x_prefix")} ${entry.q} ${t("marketplace.remove_x_recent_suffix")}`}
                     onClick={() => onRemoveSearch(entry.q)}
                     // Always visible on touch (no hover), fades in on pointer devices.
                     className="shrink-0 rounded-full p-2 text-neutral-400 transition-colors hover:text-neutral-700 cursor-pointer touch-manipulation [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
@@ -318,7 +320,7 @@ export function SearchSuggestionsPanel({
       {hasViewed && (
         <section className={cn(hasRecent && "mt-1 border-t border-neutral-100 pt-2")}>
           <h3 className="px-4 pb-2 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400">
-            Recently viewed
+            {t("search.recently_viewed")}
           </h3>
           <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recentlyViewed.map((product, index) => {
@@ -357,7 +359,7 @@ export function SearchSuggestionsPanel({
                     )}
                   </div>
                   <span className="mt-1.5 block truncate text-[11px] font-semibold leading-tight text-neutral-900">
-                    {formatPrice(product.price)}
+                    {product.price === 0 ? t("product.free") : formatPrice(product.price)}
                   </span>
                   <span className="block truncate text-[11px] leading-tight text-neutral-500">{product.title}</span>
                 </button>
@@ -370,7 +372,7 @@ export function SearchSuggestionsPanel({
       {/* ── People ──────────────────────────────────────────────────────── */}
       {hasPeople && (
         <section className={cn((hasRecent || hasViewed) && "mt-1 border-t border-neutral-100 pt-2")}>
-          <h3 className="px-4 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400">Sellers</h3>
+          <h3 className="px-4 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400">{t("marketplace.sellers")}</h3>
 
           {people.length === 0 && peopleLoading ? (
             <div className="flex items-center gap-3 px-4 py-3">
@@ -384,7 +386,7 @@ export function SearchSuggestionsPanel({
             <div className="px-2">
               {people.map((person, index) => {
                 const flatIndex = peopleOffset + index
-                const displayName = person.profile?.display_name || person.profile?.username || "Seller"
+                const displayName = person.profile?.display_name || person.profile?.username || t("marketplace.seller")
                 const username = person.profile?.username
                 const productsCount = person.products_count || 0
 
@@ -414,7 +416,7 @@ export function SearchSuggestionsPanel({
                       <span className="block truncate text-sm text-neutral-900">{displayName}</span>
                       <span className="block truncate text-xs text-neutral-500">
                         {username ? `@${username}` : person.slug}
-                        {productsCount > 0 && ` · ${productsCount} ${productsCount === 1 ? "item" : "items"}`}
+                        {productsCount > 0 && ` · ${productsCount} ${productsCount === 1 ? t("marketplace.item") : t("marketplace.items")}`}
                       </span>
                     </span>
                     <Store className="h-4 w-4 shrink-0 text-neutral-300" />

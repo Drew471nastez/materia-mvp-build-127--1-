@@ -27,6 +27,7 @@ import { useRecentlyViewed, type RecentlyViewedProduct } from "@/lib/hooks/use-r
 import { getProductInternalPath, getStoreUrl } from "@/lib/url-helpers"
 import { Layers, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, ChevronDown, ArrowRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { useLocale } from "@/components/locale-provider"
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
@@ -128,6 +129,7 @@ function MobileFilterSheet({
   resetFilters: () => void
   activeFilterCount: number
 }) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
@@ -230,10 +232,10 @@ function MobileFilterSheet({
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
-          <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
+          <h3 className="text-lg font-semibold text-neutral-900">{t("marketplace.filters")}</h3>
           {activeFilterCount > 0 && (
             <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">
-              Reset all
+              {t("marketplace.reset_all")}
             </button>
           )}
         </div>
@@ -241,7 +243,7 @@ function MobileFilterSheet({
         <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0" style={{ touchAction: 'pan-y' }}>
           {availableSubcategories.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
+              <h4 className="text-sm font-semibold text-neutral-900 mb-3">{t("marketplace.subcategories")}</h4>
               <div className="flex flex-wrap gap-2">
                 {availableSubcategories.map((sub) => (
                   <button
@@ -262,7 +264,7 @@ function MobileFilterSheet({
           )}
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
+            <h4 className="text-sm font-semibold text-neutral-900 mb-3">{t("marketplace.price_range")}</h4>
             <div className="flex flex-wrap gap-2">
               {PRICE_FILTERS.map((filter) => (
                 <button
@@ -275,14 +277,14 @@ function MobileFilterSheet({
                   }`}
                 >
                   {priceFilter === filter.id && <Check className="w-3.5 h-3.5" />}
-                  {filter.label}
+                  {t(`marketplace.price_${filter.id}`)}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Sort By</h4>
+            <h4 className="text-sm font-semibold text-neutral-900 mb-3">{t("marketplace.sort_by")}</h4>
             <div className="space-y-1">
               {SORT_OPTIONS.map((option) => (
                 <button
@@ -292,7 +294,7 @@ function MobileFilterSheet({
                     sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
                   }`}
                 >
-                  <span>{option.label}</span>
+                  <span>{t(`marketplace.sort_${option.id}`)}</span>
                   {sortBy === option.id && <Check className="w-5 h-5 text-violet-600" />}
                 </button>
               ))}
@@ -305,13 +307,13 @@ function MobileFilterSheet({
             onClick={resetFilters}
             className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
           >
-            Reset
+            {t("marketplace.reset")}
           </button>
           <button
             onClick={handleClose}
             className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
           >
-            Apply Filters
+            {t("marketplace.apply_filters")}
           </button>
         </div>
       </div>
@@ -335,6 +337,7 @@ function CategorySelectorModal({
   onSelectCategory: (categoryId: string, subcategoryId?: string, subcategoryLabel?: string) => void
   onSelectSubcategory: (categoryId: string, subcategoryId: string, subcategoryLabel: string) => void
 }) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
@@ -438,7 +441,7 @@ function CategorySelectorModal({
           }`}
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
-            <h3 className="text-lg font-semibold text-neutral-900">Select Category</h3>
+            <h3 className="text-lg font-semibold text-neutral-900">{t("marketplace.select_category")}</h3>
             <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
               <X className="w-5 h-5 text-neutral-500" />
             </button>
@@ -480,7 +483,7 @@ function CategorySelectorModal({
                             : "text-neutral-600 hover:bg-neutral-50"
                         }`}
                       >
-                        <span>All {cat.label}</span>
+                        <span>{t("feed.all")} {cat.label}</span>
                         {selectedCategory === cat.id && !selectedSubcategory && <Check className="w-4 h-4 ml-auto" />}
                       </button>
                       {subcategories.map((sub) => (
@@ -531,7 +534,7 @@ function CategorySelectorModal({
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100">
-          <h3 className="text-lg font-semibold text-neutral-900">Select Category</h3>
+          <h3 className="text-lg font-semibold text-neutral-900">{t("marketplace.select_category")}</h3>
         </div>
 
         <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(70vh - 80px)', touchAction: 'pan-y' }}>
@@ -571,7 +574,7 @@ function CategorySelectorModal({
                           : "text-neutral-600 hover:bg-neutral-50"
                       }`}
                     >
-                      <span>All {cat.label}</span>
+                      <span>{t("feed.all")} {cat.label}</span>
                       {selectedCategory === cat.id && !selectedSubcategory && <Check className="w-4 h-4 ml-auto" />}
                     </button>
                     {subcategories.map((sub, index) => (
@@ -611,6 +614,7 @@ function SearchInput({
   setSearchQuery: (value: string) => void
   categoryId: string
 }) {
+  const { t } = useLocale()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<SearchSuggestionsPanelHandle>(null)
@@ -761,8 +765,8 @@ function SearchInput({
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         // Empty while idle so the animated overlay is the only placeholder on screen
-        placeholder={isFocused ? "Search Storelib" : ""}
-        aria-label="Search Storelib"
+        placeholder={isFocused ? t("marketplace.search_storelib") : ""}
+        aria-label={t("marketplace.search_storelib")}
         role="combobox"
         aria-expanded={suggestionsOpen}
         aria-controls="explore-search-suggestions"
@@ -781,7 +785,7 @@ function SearchInput({
             setSearchQuery("")
             inputRef.current?.focus()
           }}
-          aria-label="Clear search"
+          aria-label={t("marketplace.clear_search")}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
         >
           <X className="w-4 h-4" />
@@ -849,6 +853,7 @@ export function ExplorePageClient({
   initialCategory,
   searchQuery: urlSearchQuery,
 }: ExplorePageClientProps) {
+  const { t } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
@@ -1117,11 +1122,11 @@ export function ExplorePageClient({
 
   // Get section title - shows subcategory label if selected
   const sectionTitle = useMemo(() => {
-    if (urlSearchQuery) return `Results for "${urlSearchQuery}"`
+    if (urlSearchQuery) return `${t("marketplace.results_for")} "${urlSearchQuery}"`
     if (selectedSubcategoryLabel) return selectedSubcategoryLabel
-    if (mainCategory === "all") return "Recommended"
-    return getCategory(mainCategory)?.label || "Items"
-  }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
+    if (mainCategory === "all") return t("feed.recommended")
+    return getCategory(mainCategory)?.label || t("marketplace.items_title")
+  }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery, t])
 
   const scrollRecommendedSectionWithRetry = useCallback((attempt = 0) => {
     if (urlSearchQuery) return
@@ -1344,7 +1349,7 @@ export function ExplorePageClient({
                     className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer"
                   >
                     <X className="w-3 h-3" />
-                    Clear
+                    {t("search.clear")}
                   </button>
                 )}
               </div>
@@ -1364,7 +1369,7 @@ export function ExplorePageClient({
                   className="hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
                 >
                   <Layers className="w-4 h-4" />
-                  <span>By Category</span>
+                  <span>{t("marketplace.by_category")}</span>
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
 
@@ -1381,7 +1386,7 @@ export function ExplorePageClient({
                   }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
-                  <span className="hidden sm:inline">Filters</span>
+                  <span className="hidden sm:inline">{t("marketplace.filters")}</span>
                   {activeFilterCount > 0 && (
                     <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-white text-neutral-900 text-[11px] font-bold">
                       {activeFilterCount}
@@ -1395,7 +1400,7 @@ export function ExplorePageClient({
                     <div className="fixed inset-0 z-40 hidden md:block" onClick={() => setFiltersOpen(false)} />
                     <div className="hidden md:block absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
-                        <h3 className="text-sm font-semibold text-neutral-900">Filters</h3>
+                        <h3 className="text-sm font-semibold text-neutral-900">{t("marketplace.filters")}</h3>
                         <button onClick={() => setFiltersOpen(false)} className="p-1 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
                           <X className="w-4 h-4 text-neutral-500" />
                         </button>
@@ -1404,7 +1409,7 @@ export function ExplorePageClient({
                       <div className="p-4 space-y-5 max-h-[60vh] overflow-y-auto">
                         {availableSubcategories.length > 0 && (
                           <div>
-                            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Subcategories</h4>
+                            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">{t("marketplace.subcategories")}</h4>
                             <div className="flex flex-wrap gap-2">
                               {availableSubcategories.map((sub) => (
                                 <button
@@ -1431,7 +1436,7 @@ export function ExplorePageClient({
                         )}
 
                         <div>
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Price</h4>
+                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">{t("marketplace.price")}</h4>
                           <div className="flex flex-wrap gap-2">
                             {PRICE_FILTERS.map((filter) => (
                               <button
@@ -1444,14 +1449,14 @@ export function ExplorePageClient({
                                 }`}
                               >
                                 {priceFilter === filter.id && <Check className="w-3 h-3" />}
-                                {filter.label}
+                                {t(`marketplace.price_${filter.id}`)}
                               </button>
                             ))}
                           </div>
                         </div>
 
                         <div>
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Sort By</h4>
+                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">{t("marketplace.sort_by")}</h4>
                           <div className="space-y-1">
                             {SORT_OPTIONS.map((option) => (
                               <button
@@ -1461,7 +1466,7 @@ export function ExplorePageClient({
                                   sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
                                 }`}
                               >
-                                <span>{option.label}</span>
+                                <span>{t(`marketplace.sort_${option.id}`)}</span>
                                 {sortBy === option.id && <Check className="w-4 h-4 text-violet-600" />}
                               </button>
                             ))}
@@ -1471,10 +1476,10 @@ export function ExplorePageClient({
 
                       <div className="flex items-center gap-3 px-4 py-3 border-t border-neutral-100 bg-neutral-50">
                         <button onClick={resetFilters} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">
-                          Reset
+                          {t("marketplace.reset")}
                         </button>
                         <button onClick={() => setFiltersOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">
-                          Apply
+                          {t("marketplace.apply")}
                         </button>
                       </div>
                     </div>
@@ -1497,7 +1502,7 @@ export function ExplorePageClient({
                         : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     }`}
                   >
-                    {filter.label}
+                    {t(`marketplace.rec_${filter.id}`)}
                   </button>
                 )
               })}
@@ -1517,7 +1522,7 @@ export function ExplorePageClient({
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  Clear
+                  {t("search.clear")}
                 </button>
                 {/* Black category/subcategory name badge */}
                 <button
@@ -1530,7 +1535,7 @@ export function ExplorePageClient({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  {selectedSubcategoryLabel || getCategory(mainCategory)?.label || "Category"}
+                  {selectedSubcategoryLabel || getCategory(mainCategory)?.label || t("marketplace.category")}
                 </button>
               </div>
             )}
@@ -1538,7 +1543,7 @@ export function ExplorePageClient({
             {/* Active Filters Pills */}
             {activeFilterCount > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-neutral-500">Active:</span>
+                <span className="text-xs text-neutral-500">{t("marketplace.active")}</span>
                 {selectedSubcategories.map(subId => {
                   const sub = availableSubcategories.find(s => s.id === subId)
                   return sub ? (
@@ -1552,7 +1557,7 @@ export function ExplorePageClient({
                 })}
                 {priceFilter !== "all" && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
-                    {PRICE_FILTERS.find(f => f.id === priceFilter)?.label}
+                    {t(`marketplace.price_${priceFilter}`)}
                     <button onClick={() => setPriceFilter("all")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
                       <X className="w-3 h-3" />
                     </button>
@@ -1560,14 +1565,14 @@ export function ExplorePageClient({
                 )}
                 {sortBy !== "newest" && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
-                    {SORT_OPTIONS.find(o => o.id === sortBy)?.label}
+                    {t(`marketplace.sort_${sortBy}`)}
                     <button onClick={() => setSortBy("newest")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
                 )}
                 <button onClick={resetFilters} className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer">
-                  Clear all
+                  {t("marketplace.clear_all")}
                 </button>
               </div>
             )}
@@ -1645,7 +1650,7 @@ export function ExplorePageClient({
               )}
 
               <p className="text-sm text-neutral-500 mt-4 text-center">
-                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} items
+                {t("marketplace.showing")} {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} {t("marketplace.of")} {recommendedProducts.length} {t("marketplace.items")}
               </p>
 
               {/* Show All Button */}
@@ -1658,7 +1663,7 @@ export function ExplorePageClient({
                     }
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
-                    <span>Show all {selectedSubcategoryLabel || sectionTitle}</span>
+                    <span>{t("marketplace.show_all")} {selectedSubcategoryLabel || sectionTitle}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
@@ -1668,10 +1673,10 @@ export function ExplorePageClient({
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">
                 {localSearchQuery
-                  ? `No items found for "${localSearchQuery}"`
+                  ? `${t("marketplace.no_items_for")} "${localSearchQuery}"`
                   : priceFilter !== "all"
-                    ? "No items match your filters. Try adjusting your price range."
-                    : `No items found in ${sectionTitle}.`
+                    ? t("marketplace.no_items_match")
+                    : `${t("marketplace.no_items_in")} ${sectionTitle}.`
                 }
               </p>
               {(activeFilterCount > 0 || selectedSubcategoryId) && (
@@ -1683,7 +1688,7 @@ export function ExplorePageClient({
                   }}
                   className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer"
                 >
-                  Clear filters
+                  {t("marketplace.clear_filters")}
                 </button>
               )}
             </div>
@@ -1701,7 +1706,7 @@ export function ExplorePageClient({
               onClick={() => { setCategorySelectorSource('browse'); setCategorySelectorOpen(true) }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
-              <span>By Category</span>
+              <span>{t("marketplace.by_category")}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
           </div>
@@ -1709,7 +1714,7 @@ export function ExplorePageClient({
           {/* Desktop: Title and By Category button on same row */}
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-neutral-900">
-              {browseCategory === "all" ? "Browse by Category" : browseCategoryLabel}
+              {browseCategory === "all" ? t("marketplace.browse_by_category") : browseCategoryLabel}
             </h3>
 
             {/* Desktop: By Category button */}
@@ -1717,13 +1722,13 @@ export function ExplorePageClient({
               onClick={() => { setCategorySelectorSource('browse'); setCategorySelectorOpen(true) }}
               className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
-              <span>By Category</span>
+              <span>{t("marketplace.by_category")}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
           </div>
 
           {/* Category Pills */}
-          <nav aria-label="Browse categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <nav aria-label={t("marketplace.browse_categories")} className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {CATEGORIES.map((category) => {
               const isSelected = browseCategory === category.id
               const Icon = category.icon
@@ -1761,7 +1766,7 @@ export function ExplorePageClient({
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
-            <p className="text-neutral-500">No items found in this category.</p>
+            <p className="text-neutral-500">{t("marketplace.no_items_category")}</p>
           </div>
         )}
 
@@ -1772,7 +1777,7 @@ export function ExplorePageClient({
               href={browseCategory === "all" ? "/explore" : `/explore/${browseCategory}`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
             >
-              <span>Show all {browseCategory !== "all" ? browseCategoryLabel : "items"}</span>
+              <span>{t("marketplace.show_all")} {browseCategory !== "all" ? browseCategoryLabel : t("marketplace.items")}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -1783,7 +1788,7 @@ export function ExplorePageClient({
       {urlSearchQuery && (
         <section className="mt-6">
           <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900 mb-5">
-            Results for "{urlSearchQuery}"
+            {t("marketplace.results_for")} "{urlSearchQuery}"
           </h2>
           {recommendedProducts.length > 0 ? (
             <div className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
@@ -1799,7 +1804,7 @@ export function ExplorePageClient({
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-              <p className="text-neutral-500">No items found for "{urlSearchQuery}"</p>
+              <p className="text-neutral-500">{t("marketplace.no_items_for")} "{urlSearchQuery}"</p>
             </div>
           )}
         </section>

@@ -7,6 +7,7 @@ import { ProductCard } from "./product-card"
 import { Layers, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, ArrowLeft, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { getCategory, getSubcategories, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { useLocale } from "@/components/locale-provider"
 
 const PRICE_FILTERS = [
   { id: "all", label: "All Prices" },
@@ -55,6 +56,7 @@ function MobileFilterSheet({
   resetFilters: () => void
   activeFilterCount: number
 }) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
@@ -146,16 +148,16 @@ function MobileFilterSheet({
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
-          <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
+          <h3 className="text-lg font-semibold text-neutral-900">{t("marketplace.filters")}</h3>
           {activeFilterCount > 0 && (
-            <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">Reset all</button>
+            <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">{t("marketplace.reset_all")}</button>
           )}
         </div>
 
         <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0">
           {availableSubcategories.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
+              <h4 className="text-sm font-semibold text-neutral-900 mb-3">{t("marketplace.subcategories")}</h4>
               <div className="flex flex-wrap gap-2">
                 {availableSubcategories.map((sub) => (
                   <button
@@ -176,7 +178,7 @@ function MobileFilterSheet({
           )}
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
+            <h4 className="text-sm font-semibold text-neutral-900 mb-3">{t("marketplace.price_range")}</h4>
             <div className="flex flex-wrap gap-2">
               {PRICE_FILTERS.map((filter) => (
                 <button
@@ -189,14 +191,14 @@ function MobileFilterSheet({
                   }`}
                 >
                   {priceFilter === filter.id && <Check className="w-3.5 h-3.5" />}
-                  {filter.label}
+                  {t(`marketplace.price_${filter.id}`)}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Sort By</h4>
+            <h4 className="text-sm font-semibold text-neutral-900 mb-3">{t("marketplace.sort_by")}</h4>
             <div className="space-y-1">
               {SORT_OPTIONS.map((option) => (
                 <button
@@ -206,7 +208,7 @@ function MobileFilterSheet({
                     sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
                   }`}
                 >
-                  <span>{option.label}</span>
+                  <span>{t(`marketplace.sort_${option.id}`)}</span>
                   {sortBy === option.id && <Check className="w-5 h-5 text-violet-600" />}
                 </button>
               ))}
@@ -215,8 +217,8 @@ function MobileFilterSheet({
         </div>
 
         <div className="flex items-center gap-3 px-4 pt-4 border-t border-neutral-100 bg-white shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          <button onClick={resetFilters} className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer">Reset</button>
-          <button onClick={handleClose} className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">Apply Filters</button>
+          <button onClick={resetFilters} className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer">{t("marketplace.reset")}</button>
+          <button onClick={handleClose} className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">{t("marketplace.apply_filters")}</button>
         </div>
       </div>
     </div>
@@ -241,6 +243,7 @@ function MobileSubcategorySheet({
   onSelectAll: () => void
   categoryLabel: string
 }) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
@@ -324,7 +327,7 @@ function MobileSubcategorySheet({
         </div>
 
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
-          <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} Subcategories</h3>
+          <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} {t("marketplace.subcategories")}</h3>
           <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
             <X className="w-5 h-5 text-neutral-500" />
           </button>
@@ -340,7 +343,7 @@ function MobileSubcategorySheet({
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               }`}
             >
-              All {categoryLabel}
+              {t("marketplace.all_prefix")} {categoryLabel}
             </button>
             {subcategories.map((sub) => {
               const isSelected = selectedSubcategories.includes(sub.id)
@@ -384,6 +387,7 @@ function DesktopSubcategoryModal({
   onSelectAll: () => void
   categoryLabel: string
 }) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
 
@@ -427,7 +431,7 @@ function DesktopSubcategoryModal({
         }`}
       >
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
-            <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} Subcategories</h3>
+            <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} {t("marketplace.subcategories")}</h3>
             <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
               <X className="w-5 h-5 text-neutral-500" />
             </button>
@@ -442,7 +446,7 @@ function DesktopSubcategoryModal({
                     : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                 }`}
               >
-                All {categoryLabel}
+                {t("marketplace.all_prefix")} {categoryLabel}
               </button>
               {subcategories.map((sub) => {
                 const isSelected = selectedSubcategories.includes(sub.id)
@@ -484,6 +488,7 @@ export function CategoryPageClient({
   categoryDescription = "",
   initialSubcategory,
 }: CategoryPageClientProps) {
+  const { t } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -684,7 +689,7 @@ export function CategoryPageClient({
           className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Explore</span>
+          <span>{t("marketplace.back_to_explore")}</span>
         </Link>
 
         <div className="text-center">
@@ -692,7 +697,7 @@ export function CategoryPageClient({
             {currentSubcategoryLabel || categoryLabel}
           </h1>
           <p className="text-neutral-500 text-sm sm:text-base">{categoryDescription}</p>
-          <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} items available</p>
+          <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} {t("marketplace.items_available")}</p>
         </div>
       </div>
 
@@ -702,7 +707,7 @@ export function CategoryPageClient({
       {/* Desktop Subcategory Pills — hidden on mobile */}
       {availableSubcategories.length > 0 && (
         <div className="hidden md:flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-neutral-700">Browse Subcategories</h3>
+          <h3 className="text-sm font-semibold text-neutral-700">{t("marketplace.browse_subcategories")}</h3>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleSelectAll}
@@ -712,7 +717,7 @@ export function CategoryPageClient({
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               }`}
             >
-              All {categoryLabel}
+              {t("marketplace.all_prefix")} {categoryLabel}
             </button>
             {visibleSubcategories.map((sub) => {
               const isSelected = selectedSubcategories.includes(sub.id)
@@ -736,7 +741,7 @@ export function CategoryPageClient({
                 onClick={() => setSubcategorySelectorOpen(true)}
                 className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer select-none transition-all duration-150 whitespace-nowrap"
               >
-                Show all
+                {t("marketplace.show_all")}
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
             )}
@@ -756,7 +761,7 @@ export function CategoryPageClient({
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
+                  placeholder={`${t("marketplace.search_in")} ${currentSubcategoryLabel || categoryLabel}...`}
                   className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
                 />
                 <button
@@ -810,7 +815,7 @@ export function CategoryPageClient({
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span>Filters</span>
+            <span>{t("marketplace.filters")}</span>
             {activeFilterCount > 0 && (
               <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-white text-neutral-900 text-[11px] font-bold">
                 {activeFilterCount}
@@ -827,7 +832,7 @@ export function CategoryPageClient({
                     autoFocus
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
+                    placeholder={`${t("marketplace.search_in")} ${currentSubcategoryLabel || categoryLabel}...`}
                     className="h-10 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
                   />
                   <button
@@ -870,7 +875,7 @@ export function CategoryPageClient({
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span>Filters</span>
+            <span>{t("marketplace.filters")}</span>
             {activeFilterCount > 0 && (
               <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-white text-neutral-900 text-[11px] font-bold">
                 {activeFilterCount}
@@ -884,7 +889,7 @@ export function CategoryPageClient({
               <div className="fixed inset-0 z-40 hidden md:block" onClick={() => setFiltersOpen(false)} />
               <div className="hidden md:block absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
-                  <h3 className="text-sm font-semibold text-neutral-900">Filters</h3>
+                  <h3 className="text-sm font-semibold text-neutral-900">{t("marketplace.filters")}</h3>
                   <button onClick={() => setFiltersOpen(false)} className="p-1 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
                     <X className="w-4 h-4 text-neutral-500" />
                   </button>
@@ -892,7 +897,7 @@ export function CategoryPageClient({
 
                 <div className="p-4 space-y-5 max-h-[60vh] overflow-y-auto">
                   <div>
-                    <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Price</h4>
+                    <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">{t("marketplace.price")}</h4>
                     <div className="flex flex-wrap gap-2">
                       {PRICE_FILTERS.map((filter) => (
                         <button
@@ -905,14 +910,14 @@ export function CategoryPageClient({
                           }`}
                         >
                           {priceFilter === filter.id && <Check className="w-3 h-3" />}
-                          {filter.label}
+                          {t(`marketplace.price_${filter.id}`)}
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Sort By</h4>
+                    <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">{t("marketplace.sort_by")}</h4>
                     <div className="space-y-1">
                       {SORT_OPTIONS.map((option) => (
                         <button
@@ -922,7 +927,7 @@ export function CategoryPageClient({
                             sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
                           }`}
                         >
-                          <span>{option.label}</span>
+                          <span>{t(`marketplace.sort_${option.id}`)}</span>
                           {sortBy === option.id && <Check className="w-4 h-4 text-violet-600" />}
                         </button>
                       ))}
@@ -931,8 +936,8 @@ export function CategoryPageClient({
                 </div>
 
                 <div className="flex items-center gap-3 px-4 py-3 border-t border-neutral-100 bg-neutral-50">
-                  <button onClick={resetFilters} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">Reset</button>
-                  <button onClick={() => setFiltersOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">Apply</button>
+                  <button onClick={resetFilters} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">{t("marketplace.reset")}</button>
+                  <button onClick={() => setFiltersOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">{t("marketplace.apply")}</button>
                 </div>
               </div>
             </>
@@ -943,7 +948,7 @@ export function CategoryPageClient({
       {/* Active Filters Pills */}
       {activeFilterCount > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-neutral-500">Active:</span>
+          <span className="text-xs text-neutral-500">{t("marketplace.active")}</span>
           {selectedSubcategories.map(subId => {
             const sub = availableSubcategories.find(s => s.id === subId)
             return sub ? (
@@ -957,7 +962,7 @@ export function CategoryPageClient({
           })}
           {priceFilter !== "all" && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
-              {PRICE_FILTERS.find(f => f.id === priceFilter)?.label}
+              {t(`marketplace.price_${priceFilter}`)}
               <button onClick={() => setPriceFilter("all")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
                 <X className="w-3 h-3" />
               </button>
@@ -965,13 +970,13 @@ export function CategoryPageClient({
           )}
           {sortBy !== "newest" && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
-              {SORT_OPTIONS.find(o => o.id === sortBy)?.label}
+              {t(`marketplace.sort_${sortBy}`)}
               <button onClick={() => setSortBy("newest")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
                 <X className="w-3 h-3" />
               </button>
             </span>
           )}
-          <button onClick={resetFilters} className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer">Clear all</button>
+          <button onClick={resetFilters} className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer">{t("marketplace.clear_all")}</button>
         </div>
       )}
 
@@ -1040,23 +1045,23 @@ export function CategoryPageClient({
           )}
 
           <p className="text-sm text-neutral-500 mt-4 text-center">
-            Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} items
+            {t("marketplace.showing")} {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} {t("marketplace.of")} {filteredProducts.length} {t("marketplace.items")}
           </p>
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
           <p className="text-neutral-500 text-lg font-medium mb-2">
             {searchQuery
-              ? `No items found for "${searchQuery}"`
+              ? `${t("marketplace.no_items_for")} "${searchQuery}"`
               : priceFilter !== "all"
-                ? "No items match your filters"
-                : `No items found in ${currentSubcategoryLabel || categoryLabel}`
+                ? t("marketplace.no_items_match_short")
+                : `${t("marketplace.no_items_in")} ${currentSubcategoryLabel || categoryLabel}`
             }
           </p>
-          <p className="text-neutral-400 text-sm mb-4">Try adjusting your filters or search terms</p>
+          <p className="text-neutral-400 text-sm mb-4">{t("marketplace.try_adjusting")}</p>
           {activeFilterCount > 0 && (
             <button onClick={resetFilters} className="text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer">
-              Clear all filters
+              {t("marketplace.clear_all_filters")}
             </button>
           )}
         </div>

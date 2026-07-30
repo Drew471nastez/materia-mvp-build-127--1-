@@ -2,12 +2,14 @@
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react"
 import { ProductCard } from "./product-card"
+import { useLocale } from "@/components/locale-provider"
 
 interface MostPopularSectionProps {
   products: any[]
 }
 
 export function MostPopularSection({ products }: MostPopularSectionProps) {
+  const { t } = useLocale()
   // Get most popular products — prioritize recent activity (last 48 hours) with engagement scoring
   const popularProducts = useMemo(() => {
     const now = Date.now()
@@ -164,11 +166,11 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
       <div className="flex items-center justify-between mb-5 md:mb-6">
         <div className="flex items-center gap-3">
           <h2 className="text-lg sm:text-2xl font-bold text-neutral-900">
-            Most popular
+            {t("feed.most_popular")}
           </h2>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 md:gap-1.5 md:px-3.5 md:py-2 rounded-full text-xs md:text-sm font-semibold bg-neutral-900 text-white">
             <span>🔥</span>
-            <span>Hot</span>
+            <span>{t("marketplace.hot")}</span>
           </span>
         </div>
 
@@ -227,7 +229,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
                       ? "w-6 h-2 bg-neutral-900"
                       : "w-2 h-2 bg-neutral-300 hover:bg-neutral-400"
                   }`}
-                  aria-label={`Go to product ${index + 1}`}
+                  aria-label={`${t("marketplace.go_to_product")} ${index + 1}`}
                 />
               )
             })}

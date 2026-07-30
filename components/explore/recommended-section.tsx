@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ProductCard } from "./product-card"
+import { useLocale } from "@/components/locale-provider"
 
 interface RecommendedSectionProps {
   products: any[]
@@ -13,6 +14,7 @@ interface RecommendedSectionProps {
 const ITEMS_PER_PAGE = 8
 
 export function RecommendedSection({ products, filterType = "curated" }: RecommendedSectionProps) {
+  const { t } = useLocale()
   const [currentPage, setCurrentPage] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right" | null>(null)
@@ -72,7 +74,7 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
       {/* Header row */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
-          Recommended
+          {t("feed.recommended")}
         </h2>
 
         {/* Navigation controls */}
@@ -93,7 +95,7 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
                     ? "hover:bg-neutral-100 text-neutral-700 cursor-pointer active:scale-95"
                     : "text-neutral-300 cursor-not-allowed"
                 }`}
-                aria-label="Previous page"
+                aria-label={t("marketplace.previous_page")}
                 type="button"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -106,7 +108,7 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
                     ? "hover:bg-neutral-100 text-neutral-700 cursor-pointer active:scale-95"
                     : "text-neutral-300 cursor-not-allowed"
                 }`}
-                aria-label="Next page"
+                aria-label={t("marketplace.next_page")}
                 type="button"
               >
                 <ChevronRight className="w-5 h-5" />
