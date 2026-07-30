@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -295,45 +295,50 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
       </div>
 
       {/* ---- Grid feed with iOS pull-to-refresh ---- */}
-      <div
-        ref={scrollRef}
-        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
-        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
-      >
+      <div className="relative flex-1 min-h-0">
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3.5"
-          style={{
-            opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 40),
-            transform: `scale(${phase === "refreshing" ? 1 : 0.7 + Math.min(1, pullDistance / 70) * 0.3})`,
-            transition: phase === "pulling" ? "none" : "opacity 0.3s ease-out, transform 0.3s ease-out",
-          }}
+          ref={scrollRef}
+          className="absolute inset-0 overflow-y-auto overscroll-contain scrollbar-hide"
+          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
         >
-          <IosSpinner size={24} />
-        </div>
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3.5"
+            style={{
+              opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 40),
+              transform: `scale(${phase === "refreshing" ? 1 : 0.7 + Math.min(1, pullDistance / 70) * 0.3})`,
+              transition: phase === "pulling" ? "none" : "opacity 0.3s ease-out, transform 0.3s ease-out",
+            }}
+          >
+            <IosSpinner size={24} />
+          </div>
 
-        <div
-          className="relative z-10 min-h-full bg-white will-change-transform"
-          style={{
-            // translate3d forces a GPU layer so the pull + spring-back run on the
-            // compositor (buttery, off the main thread) instead of triggering layout.
-            transform: `translate3d(0, ${ptrOffset}px, 0)`,
-            transition:
-              phase === "pulling" || phase === "ready"
-                ? "none"
-                : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
-          }}
-        >
-          {/* key on tab+cat → a soft cross-fade when switching tabs or categories */}
-          <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-300 ease-out">
-            {tab === "following" ? (
-              <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
-            ) : tab === "saved" ? (
-              <SavedTab t={t} pool={initialProducts} />
-            ) : (
-              forYouGrid
-            )}
+          <div
+            className="relative z-10 min-h-full bg-white will-change-transform"
+            style={{
+              // translate3d forces a GPU layer so the pull + spring-back run on the
+              // compositor (buttery, off the main thread) instead of triggering layout.
+              transform: `translate3d(0, ${ptrOffset}px, 0)`,
+              transition:
+                phase === "pulling" || phase === "ready"
+                  ? "none"
+                  : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          >
+            {/* key on tab+cat → a soft cross-fade when switching tabs or categories */}
+            <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-300 ease-out">
+              {tab === "following" ? (
+                <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
+              ) : tab === "saved" ? (
+                <SavedTab t={t} pool={initialProducts} />
+              ) : (
+                forYouGrid
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Subtle auto-hiding scroll indicator (shows on scroll, fades when idle) */}
+        <FeedScrollbar containerRef={scrollRef} />
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
@@ -483,6 +488,31 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
     return order.map((id) => byId.get(id))
   }, [pool, fetched, savedIds, removing])
 
+  // FLIP: when a card leaves and the grid reflows, slide the remaining cards from
+  // their previous positions to their new ones (GPU transform, 120fps) instead of
+  // a hard jump. Leaving cards are skipped — they run their own exit transition.
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const prevRects = useRef<Map<string, DOMRect>>(new Map())
+  useLayoutEffect(() => {
+    const natural = new Map<string, DOMRect>()
+    cardRefs.current.forEach((el, id) => natural.set(id, el.getBoundingClientRect()))
+    cardRefs.current.forEach((el, id) => {
+      if (removing.has(id)) return // its own exit animation owns the transform
+      const first = prevRects.current.get(id)
+      const last = natural.get(id)
+      if (!first || !last) return
+      const dx = first.left - last.left
+      const dy = first.top - last.top
+      if (!dx && !dy) return
+      el.style.transition = "none"
+      el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`
+      void el.getBoundingClientRect() // flush the inverted position
+      el.style.transition = "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)"
+      el.style.transform = "translate3d(0, 0, 0)"
+    })
+    prevRects.current = natural
+  })
+
   // Skeleton only when we genuinely have nothing resolved yet (cold first load).
   if (fetched === null && items.length === 0) {
     return (
@@ -515,21 +545,95 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
         return (
           <div
             key={p.id}
-            className="transition-all duration-[560ms] will-change-transform"
-            style={{
-              // easeOutQuint — the card glides away and settles into nothing,
-              // rather than blinking out.
-              transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-              opacity: leaving ? 0 : 1,
-              transform: leaving ? "scale(0.84) translateY(-6px)" : "scale(1) translateY(0)",
-              filter: leaving ? "blur(2px)" : "blur(0px)",
+            ref={(el) => {
+              if (el) cardRefs.current.set(p.id, el)
+              else cardRefs.current.delete(p.id)
             }}
+            // Non-leaving cards carry NO inline transform so FLIP fully owns it;
+            // leaving cards run a self-contained fade/scale/blur exit.
+            style={
+              leaving
+                ? {
+                    transitionProperty: "opacity, transform, filter",
+                    transitionDuration: "500ms",
+                    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                    opacity: 0,
+                    transform: "scale(0.84) translateY(-6px)",
+                    filter: "blur(2px)",
+                    willChange: "transform, opacity",
+                  }
+                : { willChange: "transform" }
+            }
           >
             <ProductCard product={p} clientNav />
           </div>
         )
       })}
     </div>
+  )
+}
+
+/**
+ * A slim, light-grey scroll indicator that appears while scrolling and fades out
+ * after a short idle, reappearing on the next scroll — iOS-overlay-style, but ours
+ * so it survives `scrollbar-hide`. Positioned via transform for 120fps.
+ */
+function FeedScrollbar({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
+  const thumbRef = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rafRef = useRef(0)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const update = () => {
+      rafRef.current = 0
+      const thumb = thumbRef.current
+      if (!thumb) return
+      const { scrollTop, scrollHeight, clientHeight } = el
+      if (scrollHeight <= clientHeight + 4) {
+        thumb.style.opacity = "0"
+        return
+      }
+      const inset = 6
+      const trackH = clientHeight - inset * 2
+      const thumbH = Math.max(40, (clientHeight / scrollHeight) * trackH)
+      const ratio = scrollTop / (scrollHeight - clientHeight)
+      const top = inset + ratio * (trackH - thumbH)
+      thumb.style.height = `${thumbH}px`
+      thumb.style.transform = `translate3d(0, ${top}px, 0)`
+    }
+
+    const onScroll = () => {
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(update)
+      setVisible(true)
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+      hideTimer.current = setTimeout(() => setVisible(false), 1600)
+    }
+
+    update()
+    el.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      el.removeEventListener("scroll", onScroll)
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [containerRef])
+
+  return (
+    <div
+      ref={thumbRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute right-[3px] top-0 z-20 w-[3px] rounded-full"
+      style={{
+        backgroundColor: "rgba(0,0,0,0.22)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.5s ease",
+        willChange: "transform, opacity, height",
+      }}
+    />
   )
 }
 
