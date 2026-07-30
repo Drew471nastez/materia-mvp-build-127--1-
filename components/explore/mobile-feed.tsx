@@ -327,7 +327,7 @@ function SavedTab({ t }: { t: (key: string) => string }) {
         gone.forEach((p) => next.delete(p.id))
         return next
       })
-    }, 420)
+    }, 560)
     return () => clearTimeout(timer)
   }, [savedIds, items, removing])
 
@@ -356,11 +356,14 @@ function SavedTab({ t }: { t: (key: string) => string }) {
         return (
           <div
             key={p.id}
-            className="transition-all duration-[420ms]"
+            className="transition-all duration-[560ms] will-change-transform"
             style={{
-              transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+              // easeOutQuint — the card glides away and settles into nothing,
+              // rather than blinking out.
+              transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
               opacity: leaving ? 0 : 1,
-              transform: leaving ? "scale(0.82)" : "scale(1)",
+              transform: leaving ? "scale(0.84) translateY(-6px)" : "scale(1) translateY(0)",
+              filter: leaving ? "blur(2px)" : "blur(0px)",
             }}
           >
             <ProductCard product={p} clientNav />

@@ -125,8 +125,9 @@ function WishlistHeartButton({ productId }: { productId: string }) {
       onClick={onClick}
       aria-pressed={isWishlisted}
       aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-      // after:-inset-2 widens the tap target past the visual without moving it.
-      className="absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-150 ease-out after:absolute after:-inset-2 after:content-[''] motion-safe:active:scale-90 [@media(hover:hover)]:hover:bg-white"
+      // after:-inset-3 widens the finger target well past the 36px visual, so a
+      // tap near the heart still registers without enlarging the icon itself.
+      className="absolute right-2 top-2 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-150 ease-out after:absolute after:-inset-3 after:content-[''] motion-safe:active:scale-90 [@media(hover:hover)]:hover:bg-white"
     >
       {/* Bloom ring — one-shot, keyed so it restarts each save */}
       {burst && (
@@ -134,14 +135,15 @@ function WishlistHeartButton({ productId }: { productId: string }) {
           key={nonce}
           aria-hidden="true"
           className="heart-burst pointer-events-none absolute inset-0 rounded-full"
-          style={{ boxShadow: "0 0 0 2px rgba(244, 63, 94, 0.55)" }}
+          style={{ boxShadow: "0 0 0 2px rgba(244, 63, 94, 0.5)" }}
           onAnimationEnd={() => setBurst(false)}
         />
       )}
       <Heart
         key={nonce}
         className={cn(
-          "h-4 w-4 transition-colors duration-200",
+          // Slow, observable red fill — transitions over 450ms so you watch it fill.
+          "h-[19px] w-[19px] transition-colors duration-[450ms] ease-out",
           // Only pop after a real toggle — never on the grid's first paint.
           nonce > 0 && "motion-safe:heart-pop",
           isWishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-700"
@@ -204,7 +206,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const touchStartY = useRef(0)
   const touchStartX = useRef(0)
   const didScroll = useRef(false)
-  const [hoverArmed, setHoverArmed] = useState(false)
   const { t, formatPrice } = useLocale()
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
@@ -229,14 +230,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
     }
   }, [])
 
-  // The second photo is only mounted once the pointer arrives, so the grid never pays
-  // for 30 extra downloads up front and touch devices (no mouseenter) never fetch it.
-  const armHover = useCallback(() => {
-    // The crossfade is motion-safe only — don't spend a request when it can't play.
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    setHoverArmed(true)
-  }, [])
-
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
@@ -256,7 +249,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const compareAtCents = product.compare_at_cents ?? 0
   const hasDiscount = compareAtCents > product.price_cents
 
-  const hoverImage = pickHoverImage(product.gallery_urls, product.thumbnail_url)
   const sizeLabel = getSizeLabel(product)
   // Brand and condition sit on one subtle line, Depop-style — both are optional.
   const detailLine = [product.brand?.trim() || null, getConditionLabel(product.condition)]
@@ -269,47 +261,28 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}
-      // Armed from the whole card because group-hover fires from the whole card too.
-      onMouseEnter={hoverImage ? armHover : undefined}
     >
       {/* Image well — relative so the heart can sit beside (never inside) the link.
-          Subtle ring + shadow give the flat white grid a bit of depth. */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted shadow-sm ring-1 ring-black/[0.06]">
+          Subtle ring + shadow give the flat white grid a bit of depth. The
+          no-touch-callout class kills iOS long-press "save/copy image", text
+          selection and image dragging so the photo feels like a native tile. */}
+      <div className="no-touch-callout relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted shadow-sm ring-1 ring-black/[0.06]">
         <SmartLink href={productUrl} useClientNav={clientNav} className="absolute inset-0 block">
           {product.thumbnail_url ? (
-            <>
-              <Image
-                src={product.thumbnail_url}
-                alt={product.title || "Product"}
-                fill
-                sizes={GRID_IMAGE_SIZES}
-                quality={70}
-                placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
-                className={cn(
-                  "object-cover",
-                  hoverImage
-                    ? // Crossfade to the second photo; motion-safe so reduced motion keeps one still image.
-                      "transition-opacity duration-300 ease-out [@media(hover:hover)]:motion-safe:group-hover:opacity-0"
-                    : // Single-photo listings keep the subtle zoom the grid had before.
-                      "transition-transform duration-500 ease-out [@media(hover:hover)]:motion-safe:group-hover:scale-[1.03]"
-                )}
-                priority={priority}
-                loading={priority ? undefined : "lazy"}
-              />
-              {hoverImage && hoverArmed && (
-                <Image
-                  src={hoverImage}
-                  alt=""
-                  aria-hidden="true"
-                  fill
-                  sizes={GRID_IMAGE_SIZES}
-                  quality={70}
-                  loading="lazy"
-                  className="object-cover opacity-0 transition-opacity duration-300 ease-out [@media(hover:hover)]:motion-safe:group-hover:opacity-100"
-                />
-              )}
-            </>
+            <Image
+              src={product.thumbnail_url}
+              alt={product.title || "Product"}
+              fill
+              sizes={GRID_IMAGE_SIZES}
+              quality={70}
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+              // No hover crossfade / zoom — the photo stays clean and still.
+              className="object-cover select-none"
+              draggable={false}
+              priority={priority}
+              loading={priority ? undefined : "lazy"}
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <span className="text-4xl">👜</span>
