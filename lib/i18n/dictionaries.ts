@@ -10,10 +10,22 @@
  * A translation workflow extends this map across the rest of the app.
  */
 
+// Per-surface translations authored by the RO/EN sweep. Merged below; the
+// curated base keys in this file win on any key collision.
+import { authDict } from "./dict/auth"
+import { checkoutDict } from "./dict/checkout"
+import { dashboardDict } from "./dict/dashboard"
+import { marketplaceDict } from "./dict/marketplace"
+
 export type LocaleCode = "ro" | "en" | "es" | "de" | "pt-BR" | "fr" | "it" | "nl" | "pl"
 
 export const dictionaries: Record<LocaleCode, Record<string, string>> = {
   ro: {
+    // Merged per-surface keys (base keys below override on collision)
+    ...authDict.ro,
+    ...checkoutDict.ro,
+    ...dashboardDict.ro,
+    ...marketplaceDict.ro,
     // Header / nav
     "nav.library": "Biblioteca",
     "nav.dashboard": "Panou",
@@ -65,6 +77,11 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     currency: "Monedă",
   },
   en: {
+    // Merged per-surface keys (base keys below override on collision)
+    ...authDict.en,
+    ...checkoutDict.en,
+    ...dashboardDict.en,
+    ...marketplaceDict.en,
     "nav.library": "Library",
     "nav.dashboard": "Dashboard",
     "nav.sign_in": "Sign in",

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Bell, CreditCard, ChevronRight, X, Link2, Star, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { useLanguage } from "@/lib/i18n"
+import { useLocale } from "@/components/locale-provider"
 
 interface Notification {
   id: string
@@ -76,7 +76,7 @@ export function NotificationsModal({
   const [isLoading, setIsLoading] = useState(false)
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
-  const { t } = useLanguage()
+  const { t } = useLocale()
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -324,6 +324,7 @@ function MobileNotificationBottomSheet({
   onClose: () => void
   children: React.ReactNode
 }) {
+  const { t } = useLocale()
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
@@ -443,7 +444,7 @@ function MobileNotificationBottomSheet({
         </div>
         {/* Header */}
         <div className="px-5 py-3 border-b border-neutral-100 flex items-center justify-between shrink-0">
-          <h3 className="text-[16px] font-semibold text-neutral-900">Notifications</h3>
+          <h3 className="text-[16px] font-semibold text-neutral-900">{t("notifications.title")}</h3>
           <button
             onClick={handleClose}
             className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
 import { isNativeApp } from "@/lib/platform-utils"
+import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
@@ -69,6 +70,7 @@ function CPRABadge() {
 }
 
 export function MarketingFooter() {
+  const { t } = useLocale()
   const [email, setEmail] = useState("")
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
@@ -119,7 +121,7 @@ export function MarketingFooter() {
             {/* Copyright and Email */}
             <div className="space-y-2">
               <p className="text-sm text-gray-400">
-                Copyright {new Date().getFullYear()} Storelib Inc. All rights reserved.
+                {t("marketplace.footer_copyright")} {new Date().getFullYear()} Storelib Inc. {t("marketplace.footer_all_rights")}
               </p>
               <a
                 href="mailto:team@storelib.com"

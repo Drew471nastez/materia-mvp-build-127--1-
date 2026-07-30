@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { useLocale } from "@/components/locale-provider"
 import Image from "next/image"
 
 // Store/Creator icon - matches UserIcon style
@@ -25,6 +26,7 @@ const UserIcon = () => (
 )
 
 function SuccessContent() {
+  const { t } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [hoveredCard, setHoveredCard] = useState<"creator" | "buyer" | null>(null)
@@ -279,10 +281,10 @@ function SuccessContent() {
             {/* Title & Subtext */}
             <div className="text-center mb-6">
               <h1 className="text-[28px] sm:text-[32px] font-bold leading-tight mb-1.5">
-                Welcome
+                {t("auth.welcome_heading")}
               </h1>
               <p className="text-gray-500 text-sm">
-                Choose how you want to use Storelib.
+                {t("auth.welcome_choose")}
               </p>
             </div>
 
@@ -309,9 +311,9 @@ function SuccessContent() {
                     <StoreIcon />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base font-semibold mb-0.5">I'm a creator</h3>
+                    <h3 className="text-base font-semibold mb-0.5">{t("auth.im_creator")}</h3>
                     <p className="text-gray-500 text-sm">
-                      Create pages and sell products.
+                      {t("auth.creator_desc")}
                     </p>
                   </div>
                   <button
@@ -327,7 +329,7 @@ function SuccessContent() {
                     {isLoading && selectedChoice === "creator" ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      "Continue"
+                      t("auth.continue")
                     )}
                   </button>
                 </div>
@@ -351,9 +353,9 @@ function SuccessContent() {
                     <UserIcon />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-base font-semibold mb-0.5">I'm a buyer</h3>
+                    <h3 className="text-base font-semibold mb-0.5">{t("auth.im_buyer")}</h3>
                     <p className="text-gray-500 text-sm">
-                      Explore and purchase from creators.
+                      {t("auth.buyer_desc")}
                     </p>
                   </div>
                   <button
@@ -369,7 +371,7 @@ function SuccessContent() {
                     {isLoading && selectedChoice === "buyer" ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      "Continue"
+                      t("auth.continue")
                     )}
                   </button>
                 </div>
@@ -378,7 +380,7 @@ function SuccessContent() {
 
             {/* Footer */}
             <p className="text-center text-gray-400 text-xs">
-              You can switch later.
+              {t("auth.switch_later")}
             </p>
           </div>
         </div>

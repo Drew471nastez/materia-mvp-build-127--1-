@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { DownloadButton } from "@/components/download-button"
+import { useLocale } from "@/components/locale-provider"
 
 // localStorage key for purchased products
 const PURCHASED_PRODUCTS_KEY = "materia_purchased_products"
@@ -51,6 +52,7 @@ export function PurchaseAwareButtons({
   notPurchasedContent,
   purchasedContent,
 }: PurchaseAwareButtonsProps) {
+  const { t } = useLocale()
   const [hasPurchased, setHasPurchased] = useState(serverHasPurchased)
   const [assetId, setAssetId] = useState<string | null>(serverAssetId)
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
@@ -138,7 +140,7 @@ export function PurchaseAwareButtons({
           }}
         >
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading...
+          {t("checkout.loading")}
         </Button>
       </div>
     )
@@ -158,7 +160,7 @@ export function PurchaseAwareButtons({
             color: downloadButtonTextColor || textColor || undefined,
           }}
         >
-          Download File
+          {t("checkout.download_file")}
         </DownloadButton>
         {purchasedContent}
       </div>

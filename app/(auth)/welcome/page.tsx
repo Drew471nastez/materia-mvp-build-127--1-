@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
+import { useLocale } from "@/components/locale-provider"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
-const PHRASES = [
-  "Start monetizing your passion...",
-  "Build link in bio pages...",
-  "Sell digital products...",
-  "Share your passion...",
-  "Build your online store...",
+const PHRASE_KEYS = [
+  "auth.phrase_monetize",
+  "auth.phrase_link_bio",
+  "auth.phrase_sell_digital",
+  "auth.phrase_share_passion",
+  "auth.phrase_online_store",
 ]
 const TYPING_SPEED   = 70
 const DELETING_SPEED = 35
@@ -18,6 +19,7 @@ const PAUSE_MS       = 2000
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function WelcomePage() {
+  const { t } = useLocale()
   const router = useRouter()
   const [typedText, setTypedText] = useState("")
   const phraseIndex = useRef(0)
@@ -65,7 +67,7 @@ export default function WelcomePage() {
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>
     function tick() {
-      const phrase = PHRASES[phraseIndex.current]
+      const phrase = t(PHRASE_KEYS[phraseIndex.current])
       if (!isDeleting.current) {
         charIndex.current++
         setTypedText(phrase.substring(0, charIndex.current))
@@ -80,7 +82,7 @@ export default function WelcomePage() {
         setTypedText(phrase.substring(0, charIndex.current))
         if (charIndex.current === 0) {
           isDeleting.current = false
-          phraseIndex.current = (phraseIndex.current + 1) % PHRASES.length
+          phraseIndex.current = (phraseIndex.current + 1) % PHRASE_KEYS.length
           timeout = setTimeout(tick, 300)
           return
         }
@@ -89,7 +91,7 @@ export default function WelcomePage() {
     }
     timeout = setTimeout(tick, 600)
     return () => clearTimeout(timeout)
-  }, [])
+  }, [t])
 
   // Client-side navigation — stays in WebView, never opens Safari
   const goToSignup = () => router.push("/signup")
@@ -190,13 +192,13 @@ export default function WelcomePage() {
               onClick={goToSignup}
               className="w-full rounded-[10px] bg-[#7c3aed] text-white font-semibold text-base py-[15px] active:scale-[0.97] active:opacity-85 transition-transform border-none cursor-pointer"
             >
-              Sign up
+              {t("nav.sign_up")}
             </button>
             <button
               onClick={goToLogin}
               className="w-full rounded-[10px] bg-[#0a0a0a] text-white/90 font-semibold text-base py-[14px] active:scale-[0.97] active:opacity-85 transition-transform border-none cursor-pointer"
             >
-              Log in
+              {t("auth.log_in")}
             </button>
           </div>
         </div>
