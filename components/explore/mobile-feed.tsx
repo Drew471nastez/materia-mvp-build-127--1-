@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -9,7 +9,6 @@ import { MobileBottomNav } from "./mobile-bottom-nav"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
-import { useWishlistedIds } from "./wishlist-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
@@ -343,7 +342,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
               {tab === "following" ? (
                 <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
               ) : tab === "saved" ? (
-                <SavedTab t={t} pool={initialProducts} reloadSignal={savedReload} />
+                <SavedTab t={t} reloadSignal={savedReload} />
               ) : (
                 forYouGrid
               )}
@@ -410,164 +409,50 @@ function mapWishlistItem(item: any) {
  */
 function SavedTab({
   t,
-  pool,
   reloadSignal = 0,
 }: {
   t: (key: string) => string
-  pool: any[]
   /** Bumped by pull-to-refresh to force a fresh DB revalidation. */
   reloadSignal?: number
 }) {
-  const savedIds = useWishlistedIds()
-  // Product objects fetched from the DB (covers saved items not in the feed).
-  // Seeded from cache so a returning session has data with zero flicker.
-  const [fetched, setFetched] = useState<any[] | null>(() => readSavedCache())
-  const [removing, setRemoving] = useState<Set<string>>(() => new Set())
-  const prevSaved = useRef<ReadonlySet<string>>(savedIds)
-  // Per-id exit timers, held in a ref so the effect can depend on savedIds only
-  // (depending on `removing` would let the effect cancel its own clear-timer,
-  // stranding invisible cells and leaving a permanent empty gap in the grid).
-  const removeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  // The Saved list is a FROZEN SNAPSHOT of the DB fetch. Un-saving a card does
+  // NOT remove it live — it only unfills the heart (the heart reads the live
+  // wishlist store). A card leaves the list on the next rebuild: pull-to-refresh,
+  // page refresh, or coming back to the tab (this component re-mounts on switch).
+  const [snapshot, setSnapshot] = useState<any[] | null>(() => readSavedCache())
+  // Bumped when the snapshot is rebuilt via refresh, to stagger the cards in
+  // like the For You reload.
+  const [revealNonce, setRevealNonce] = useState(0)
 
+  // Build the snapshot on mount (i.e. every time the tab is opened).
   useEffect(() => {
     let cancelled = false
     loadSavedItems().then((list) => {
-      if (!cancelled) setFetched(list)
+      if (!cancelled) setSnapshot(list)
     })
     return () => {
       cancelled = true
     }
   }, [])
 
-  // Pull-to-refresh → revalidate from the DB while the current list stays on
-  // screen (no white flash), then swap in the fresh data.
+  // Pull-to-refresh → refetch, then rebuild + rise-in animation. The current
+  // list stays on screen until the fresh data arrives (no white flash).
   useEffect(() => {
     if (reloadSignal === 0) return
     let cancelled = false
     savedItemsInflight = null // force past the in-flight guard for a fresh request
     loadSavedItems().then((list) => {
-      if (!cancelled) setFetched(list)
+      if (cancelled) return
+      setSnapshot(list)
+      setRevealNonce((n) => n + 1)
     })
     return () => {
       cancelled = true
     }
   }, [reloadSignal])
 
-  // On unmount, clear any pending exit timers.
-  useEffect(
-    () => () => {
-      removeTimers.current.forEach((tm) => clearTimeout(tm))
-      removeTimers.current.clear()
-    },
-    [],
-  )
-
-  // Animate a card out only when its id transitions present → absent in savedIds;
-  // and cancel a pending exit if the same id gets re-saved mid-animation.
-  useEffect(() => {
-    const prev = prevSaved.current
-    prevSaved.current = savedIds
-
-    // Re-saved while animating out → cancel its exit, put it back instantly.
-    const readd: string[] = []
-    for (const id of savedIds) {
-      const tm = removeTimers.current.get(id)
-      if (tm) {
-        clearTimeout(tm)
-        removeTimers.current.delete(id)
-        readd.push(id)
-      }
-    }
-    if (readd.length) {
-      setRemoving((cur) => {
-        const next = new Set(cur)
-        readd.forEach((id) => next.delete(id))
-        return next
-      })
-    }
-
-    // Newly un-saved → mark removing and schedule a single exit timer per id.
-    const gone: string[] = []
-    for (const id of prev) if (!savedIds.has(id) && !removeTimers.current.has(id)) gone.push(id)
-    if (gone.length === 0) return
-
-    setRemoving((cur) => {
-      const next = new Set(cur)
-      gone.forEach((id) => next.add(id))
-      return next
-    })
-    gone.forEach((id) => {
-      const tm = setTimeout(() => {
-        removeTimers.current.delete(id)
-        setRemoving((cur) => {
-          const next = new Set(cur)
-          next.delete(id)
-          return next
-        })
-      }, 560)
-      removeTimers.current.set(id, tm)
-    })
-  }, [savedIds])
-
-  const items = useMemo(() => {
-    // Product objects can come from the feed pool (instant) or the DB fetch.
-    const byId = new Map<string, any>()
-    for (const p of pool) if (p?.id) byId.set(p.id, p)
-    for (const p of fetched ?? []) if (p?.id) byId.set(p.id, p)
-
-    // ORDER is driven strictly by the saved-recency list (fetched/cache), so it
-    // never reshuffles when the background fetch resolves. Brand-new saves that
-    // the fetch hasn't returned yet are pinned to the front (they're the most
-    // recent) — exactly where the fetch will place them, so nothing jumps.
-    const show = (id: string) => byId.has(id) && (savedIds.has(id) || removing.has(id))
-    const fetchedOrder = (fetched ?? []).map((p) => p.id)
-    const fetchedSet = new Set(fetchedOrder)
-    const result: string[] = []
-    const seen = new Set<string>()
-    for (const id of savedIds) {
-      if (!fetchedSet.has(id) && show(id) && !seen.has(id)) {
-        seen.add(id)
-        result.push(id)
-      }
-    }
-    for (const id of fetchedOrder) {
-      if (show(id) && !seen.has(id)) {
-        seen.add(id)
-        result.push(id)
-      }
-    }
-    return result.map((id) => byId.get(id))
-  }, [pool, fetched, savedIds, removing])
-
-  // FLIP: when a card leaves and the grid reflows, slide the remaining cards from
-  // their previous slot to their new one. We measure `offsetLeft/offsetTop`
-  // (layout coords relative to the positioned wrapper) — NOT getBoundingClientRect
-  // — so scrolling and the pull-to-refresh transform can't corrupt the delta and
-  // send cards flying. Leaving cards run their own exit and are skipped.
-  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const prevPos = useRef<Map<string, { l: number; t: number }>>(new Map())
-  useLayoutEffect(() => {
-    const cur = new Map<string, { l: number; t: number }>()
-    cardRefs.current.forEach((el, id) => cur.set(id, { l: el.offsetLeft, t: el.offsetTop }))
-    cardRefs.current.forEach((el, id) => {
-      if (removing.has(id)) return // its own exit animation owns the transform
-      const first = prevPos.current.get(id)
-      const last = cur.get(id)
-      if (!first || !last) return
-      const dx = first.l - last.l
-      const dy = first.t - last.t
-      if (!dx && !dy) return
-      el.style.transition = "none"
-      el.style.transform = `translate(${dx}px, ${dy}px)`
-      void el.offsetWidth // flush the inverted position
-      el.style.transition = "transform 0.42s cubic-bezier(0.22, 1, 0.36, 1)"
-      el.style.transform = "translate(0, 0)"
-    })
-    prevPos.current = cur
-  })
-
-  // Skeleton only when we genuinely have nothing resolved yet (cold first load).
-  if (fetched === null && items.length === 0) {
+  if (snapshot === null) {
+    // Cold first load: a calm skeleton grid, not a jarring centered spinner.
     return (
       <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -581,7 +466,7 @@ function SavedTab({
     )
   }
 
-  if (items.length === 0) {
+  if (snapshot.length === 0) {
     return (
       <EmptyState
         icon={<Heart className="h-7 w-7" />}
@@ -593,35 +478,25 @@ function SavedTab({
 
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-      {items.map((p) => {
-        const leaving = removing.has(p.id)
-        return (
-          <div
-            key={p.id}
-            ref={(el) => {
-              if (el) cardRefs.current.set(p.id, el)
-              else cardRefs.current.delete(p.id)
-            }}
-            // Non-leaving cards carry NO inline transform so FLIP fully owns it;
-            // leaving cards run a self-contained fade/scale/blur exit.
-            style={
-              leaving
-                ? {
-                    transitionProperty: "opacity, transform, filter",
-                    transitionDuration: "500ms",
-                    transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-                    opacity: 0,
-                    transform: "scale(0.84) translateY(-6px)",
-                    filter: "blur(2px)",
-                    willChange: "transform, opacity",
-                  }
-                : { willChange: "transform" }
-            }
-          >
-            <ProductCard product={p} clientNav />
-          </div>
-        )
-      })}
+      {snapshot.map((p, i) => (
+        <div
+          key={p.id}
+          style={
+            revealNonce > 0
+              ? {
+                  animationName: revealNonce % 2 === 0 ? "card-reveal-a" : "card-reveal-b",
+                  animationDuration: "0.66s",
+                  animationTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  animationFillMode: "both",
+                  animationDelay: `${Math.min(i, 11) * 26}ms`,
+                  willChange: "transform, opacity",
+                }
+              : undefined
+          }
+        >
+          <ProductCard product={p} clientNav />
+        </div>
+      ))}
     </div>
   )
 }
