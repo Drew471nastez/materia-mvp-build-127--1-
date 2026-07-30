@@ -1316,7 +1316,7 @@ export function ExplorePageClient({
     // One batched wishlist fetch for every card on the page instead of one per card
     <WishlistProvider>
     {/* Mobile: Depop/TikTok-style full-screen feed. Desktop keeps the grid below. */}
-    <MobileFeed initialProducts={initialProducts} />
+    <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} />
     <div className="space-y-8 hidden md:block">
       {/* Featured Banner Carousel */}
       {!urlSearchQuery && featuredProducts.length > 0 && (

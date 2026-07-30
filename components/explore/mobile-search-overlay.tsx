@@ -19,60 +19,135 @@ const TABS: ReadonlyArray<readonly [SearchTab, string]> = [
 ]
 
 // Popular query expansions — the "platform knows what people search" signal.
-// Typing a token surfaces the popular full queries people actually run.
+// Typing a token surfaces the popular full queries people actually run. Broad
+// coverage across sneakers, streetwear, luxury, denim, outerwear, bags, womens-
+// wear and vintage so almost any query lands on relevant, richer suggestions.
 const POPULAR_EXPANSIONS: Record<string, string[]> = {
-  jordan: ["jordan 4", "jordan 4 black", "jordan 4 white", "jordan 1", "jordan 1 chicago", "jordan retro"],
-  "air force": ["air force 1", "air force 1 white", "air force 1 shadow"],
+  // ── Jordan / Nike ──
+  jordan: ["jordan 4", "jordan 4 black cat", "jordan 4 white cement", "jordan 1 chicago", "jordan 1 low", "jordan 3", "jordan 11", "jordan retro"],
+  "jordan 4": ["jordan 4 black cat", "jordan 4 white cement", "jordan 4 bred", "jordan 4 military black", "jordan 4 thunder"],
+  "jordan 1": ["jordan 1 chicago", "jordan 1 low", "jordan 1 mocha", "jordan 1 unc", "jordan 1 shadow"],
+  nike: ["nike air max", "nike dunk low", "nike tech fleece", "nike air force 1", "nike vomero", "nike shox", "nike vintage"],
+  "air force": ["air force 1", "air force 1 white", "air force 1 shadow", "air force 1 low"],
   airforce: ["air force 1", "air force 1 white"],
-  nike: ["nike air max", "nike dunk", "nike tech fleece", "nike vintage"],
-  dunk: ["nike dunk low", "dunk panda", "dunk low"],
-  adidas: ["adidas samba", "adidas gazelle", "adidas spezial", "adidas campus"],
-  samba: ["adidas samba", "samba og"],
-  gazelle: ["adidas gazelle", "gazelle indoor"],
-  yeezy: ["yeezy 350", "yeezy slide", "yeezy boost"],
-  newbalance: ["new balance 550", "new balance 990", "new balance 2002r"],
-  "new balance": ["new balance 550", "new balance 990", "new balance 2002r"],
-  polo: ["polo ralph lauren", "polo shirt", "polo vintage"],
-  ralph: ["polo ralph lauren", "ralph lauren vintage"],
-  "north face": ["north face jacket", "north face puffer", "north face nuptse"],
-  northface: ["north face jacket", "north face puffer"],
-  carhartt: ["carhartt jacket", "carhartt pants", "carhartt vintage"],
-  stone: ["stone island", "stone island jacket"],
-  levis: ["levis 501", "levis vintage", "levis denim"],
+  "air max": ["air max 90", "air max 95", "air max plus tn", "air max 1"],
+  dunk: ["nike dunk low", "dunk panda", "dunk low retro", "dunk unc"],
+  tn: ["air max plus tn", "nike tn triple black"],
+  vomero: ["nike vomero 5", "nike zoom vomero"],
+  "tech fleece": ["nike tech fleece", "nike tech fleece grey", "nike tech fleece set"],
+  // ── Adidas / New Balance / others ──
+  adidas: ["adidas samba", "adidas gazelle", "adidas spezial", "adidas campus", "adidas superstar", "adidas handball spezial"],
+  samba: ["adidas samba og", "samba black", "samba white"],
+  gazelle: ["adidas gazelle", "gazelle indoor", "gazelle bold"],
+  spezial: ["adidas handball spezial", "spezial blue"],
+  campus: ["adidas campus 00s", "campus grey"],
+  yeezy: ["yeezy 350", "yeezy slide", "yeezy boost 700", "yeezy foam runner"],
+  "new balance": ["new balance 550", "new balance 990", "new balance 2002r", "new balance 9060", "new balance 530"],
+  newbalance: ["new balance 550", "new balance 990", "new balance 2002r", "new balance 9060"],
+  "550": ["new balance 550", "new balance 550 green"],
+  asics: ["asics gel kayano", "asics gel 1130", "asics gel nyc"],
+  salomon: ["salomon xt6", "salomon speedcross"],
+  converse: ["converse chuck 70", "converse vintage"],
+  vans: ["vans old skool", "vans knu skool", "vans vintage"],
+  // ── Streetwear / brands ──
+  supreme: ["supreme box logo", "supreme hoodie", "supreme tee", "supreme vintage"],
+  "stone island": ["stone island jacket", "stone island hoodie", "stone island vintage"],
+  stone: ["stone island jacket", "stone island hoodie"],
+  "north face": ["north face puffer", "north face nuptse", "north face jacket", "north face vintage"],
+  northface: ["north face puffer", "north face nuptse"],
+  carhartt: ["carhartt jacket", "carhartt double knee", "carhartt beanie", "carhartt vintage"],
+  arcteryx: ["arcteryx beta", "arcteryx jacket"],
+  "arc'teryx": ["arcteryx beta", "arcteryx jacket"],
+  corteiz: ["corteiz cargos", "corteiz hoodie", "corteiz tracksuit"],
+  trapstar: ["trapstar hoodie", "trapstar tracksuit"],
+  nocta: ["nocta hoodie", "nocta tech fleece"],
+  essentials: ["fear of god essentials", "essentials hoodie"],
+  "fear of god": ["fear of god essentials", "fear of god hoodie"],
+  // ── Denim / Levis ──
+  levis: ["levis 501", "levis 501 vintage", "levis 550", "levis denim jacket", "levis vintage"],
   "levi's": ["levis 501", "levis vintage"],
-  vintage: ["vintage tee", "vintage jacket", "vintage denim", "vintage nike"],
-  tee: ["vintage tee", "graphic tee", "band tee"],
-  hoodie: ["nike hoodie", "vintage hoodie", "champion hoodie"],
-  bag: ["shoulder bag", "tote bag", "vintage bag"],
-  dress: ["summer dress", "vintage dress", "mini dress"],
-  jeans: ["baggy jeans", "levis jeans", "vintage jeans"],
+  jeans: ["baggy jeans", "levis 501", "vintage jeans", "wide leg jeans", "carpenter jeans"],
+  denim: ["denim jacket", "vintage denim", "baggy denim"],
+  // ── Luxury / bags ──
+  gucci: ["gucci bag", "gucci belt", "gucci vintage"],
+  prada: ["prada bag", "prada nylon bag", "prada re edition"],
+  "louis vuitton": ["louis vuitton bag", "louis vuitton speedy", "louis vuitton vintage"],
+  dior: ["dior saddle bag", "dior bag"],
+  chanel: ["chanel bag", "chanel vintage", "chanel flap"],
+  coach: ["coach bag", "coach vintage"],
+  bag: ["shoulder bag", "tote bag", "crossbody bag", "vintage bag", "mini bag"],
+  // ── Garments ──
+  hoodie: ["nike hoodie", "vintage hoodie", "champion hoodie", "essentials hoodie", "zip hoodie"],
+  tee: ["vintage tee", "graphic tee", "band tee", "boxy tee"],
+  "t-shirt": ["vintage t-shirt", "graphic t-shirt", "band t-shirt"],
+  tshirt: ["vintage tshirt", "graphic tshirt"],
+  polo: ["polo ralph lauren", "polo shirt", "ralph lauren polo", "vintage polo"],
+  ralph: ["polo ralph lauren", "ralph lauren vintage", "ralph lauren jumper"],
+  jacket: ["denim jacket", "leather jacket", "bomber jacket", "puffer jacket", "vintage jacket"],
+  puffer: ["north face puffer", "puffer jacket", "cropped puffer"],
+  jumper: ["knitted jumper", "vintage jumper", "ralph lauren jumper"],
+  cargos: ["cargo pants", "corteiz cargos", "parachute cargos"],
+  cargo: ["cargo pants", "cargo trousers"],
+  tracksuit: ["nike tracksuit", "adidas tracksuit", "corteiz tracksuit"],
+  // ── Womenswear ──
+  dress: ["summer dress", "vintage dress", "mini dress", "maxi dress", "midi dress"],
+  skirt: ["mini skirt", "denim skirt", "pleated skirt"],
+  top: ["corset top", "crop top", "going out top"],
+  heels: ["black heels", "vintage heels"],
+  // ── Vintage ──
+  vintage: ["vintage tee", "vintage nike", "vintage jacket", "vintage denim", "vintage jumper", "y2k vintage"],
+  y2k: ["y2k tops", "y2k jeans", "y2k accessories"],
 }
+
+// Generic modifiers appended to a query when nothing more specific matches, so
+// even an unknown brand still yields useful, varied suggestions.
+const GENERIC_MODIFIERS = ["vintage", "black", "white", "hoodie", "jacket", "tee", "y2k"]
 
 function buildKeywordSuggestions(raw: string, realTitles: string[]): string[] {
   const query = raw.trim().toLowerCase()
   if (!query) return []
   const out: string[] = []
   const push = (s: string) => {
-    const v = s.trim()
-    if (v && v.length <= 44 && !out.some((x) => x.toLowerCase() === v.toLowerCase())) out.push(v)
+    const v = s.trim().replace(/\s+/g, " ")
+    if (v && v.length <= 46 && !out.some((x) => x.toLowerCase() === v.toLowerCase())) out.push(v)
   }
 
-  // 1. Popular expansions for any token the query touches.
+  const tokens = query.split(/\s+/).filter(Boolean)
+
+  // 1. Popular expansions — match the whole query or any of its tokens.
+  const scored: { v: string; score: number }[] = []
   for (const [key, vals] of Object.entries(POPULAR_EXPANSIONS)) {
-    if (query.includes(key) || key.includes(query)) {
-      for (const v of vals) if (v.toLowerCase().includes(query) || query.includes(v.toLowerCase())) push(v)
-      for (const v of vals) push(v)
+    const keyMatch =
+      query.includes(key) || key.includes(query) || tokens.some((tk) => key.includes(tk) || tk.includes(key))
+    if (!keyMatch) continue
+    for (const v of vals) {
+      const lv = v.toLowerCase()
+      // Rank: starts-with query > contains query > loosely related.
+      const score = lv.startsWith(query) ? 3 : lv.includes(query) ? 2 : 1
+      scored.push({ v, score })
     }
   }
+  scored.sort((a, b) => b.score - a.score)
+  for (const s of scored) push(s.v)
+
   // 2. Real listing titles that match — reflects actual on-platform inventory.
   for (const title of realTitles) {
-    if (out.length >= 8) break
+    if (out.length >= 9) break
     if (title && title.toLowerCase().includes(query)) push(title)
   }
-  // 3. Always let the user search exactly what they typed.
-  push(raw.trim())
 
-  return out.slice(0, 6)
+  // 3. Fallback so short/unknown queries still feel rich.
+  if (out.length < 4) {
+    for (const m of GENERIC_MODIFIERS) {
+      push(`${raw.trim()} ${m}`)
+      if (out.length >= 6) break
+    }
+  }
+
+  // 4. Always let the user search exactly what they typed, up top.
+  const exact = raw.trim()
+  const rest = out.filter((s) => s.toLowerCase() !== exact.toLowerCase())
+  return [exact, ...rest].slice(0, 8)
 }
 
 interface Person {
@@ -92,10 +167,13 @@ export function MobileSearchOverlay({
   open,
   onClose,
   onSelectCategory,
+  initialQuery = "",
 }: {
   open: boolean
   onClose: () => void
   onSelectCategory: (id: string) => void
+  /** Pre-fills the field when opened (e.g. an active search on the feed). */
+  initialQuery?: string
 }) {
   const { t } = useLocale()
   const router = useRouter()
@@ -119,19 +197,30 @@ export function MobileSearchOverlay({
       return () => cancelAnimationFrame(r)
     }
     setShown(false)
-    const timer = setTimeout(() => setMounted(false), 300)
+    const timer = setTimeout(() => setMounted(false), 420)
     return () => clearTimeout(timer)
   }, [open])
 
-  // Focus the field (and reset transient state) each time it opens.
+  // Focus the field (and seed / reset state) each time it opens.
   useEffect(() => {
     if (!open) return
     setTab("items")
-    setQuery("")
+    setQuery(initialQuery)
     setPeople([])
-    const timer = setTimeout(() => inputRef.current?.focus(), 120)
+    const timer = setTimeout(() => {
+      const el = inputRef.current
+      if (!el) return
+      el.focus()
+      // Caret to the end so an active query is easy to edit.
+      const len = el.value.length
+      try {
+        el.setSelectionRange(len, len)
+      } catch {
+        /* some input types disallow this */
+      }
+    }, 140)
     return () => clearTimeout(timer)
-  }, [open])
+  }, [open, initialQuery])
 
   const trimmed = query.trim()
 
@@ -202,9 +291,12 @@ export function MobileSearchOverlay({
       style={{
         height: "100dvh",
         opacity: shown ? 1 : 0,
-        transform: shown ? "scale(1)" : "scale(0.97)",
-        transformOrigin: "50% 42%",
-        transition: "opacity 300ms cubic-bezier(0.22,1,0.36,1), transform 300ms cubic-bezier(0.22,1,0.36,1)",
+        // Grows out of the search bar (top) and settles — a visible, smooth blend.
+        transform: shown ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
+        transformOrigin: "50% 6%",
+        transition:
+          "opacity 400ms cubic-bezier(0.22,1,0.36,1), transform 420ms cubic-bezier(0.22,1,0.36,1)",
+        willChange: "opacity, transform",
       }}
     >
       {/* Header: search field + close */}
@@ -269,7 +361,7 @@ export function MobileSearchOverlay({
                 {t(key)}
                 <span
                   className={cn(
-                    "mt-2 h-[2px] w-full rounded-full bg-neutral-900 transition-all duration-300 ease-out",
+                    "mt-2 h-[2px] w-full rounded-full bg-[#7c3aed] transition-all duration-300 ease-out",
                     active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0",
                   )}
                 />

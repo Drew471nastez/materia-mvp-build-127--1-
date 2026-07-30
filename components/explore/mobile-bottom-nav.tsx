@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Home, Search, Plus, MessageSquare, User } from "lucide-react"
@@ -24,14 +24,18 @@ export function MobileBottomNav({
   const [launching, setLaunching] = useState(false)
   const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Sell button: play the spin-and-swell once, then glide to the new-product page.
-  // The short delay lets the animation land so the transition feels intentional,
-  // not a hard cut.
+  // Prefetch the new-product page so the tap navigates near-instantly.
+  useEffect(() => {
+    router.prefetch("/app/products/new")
+  }, [router])
+
+  // Sell button: play the smooth spin once, then glide to the new-product page.
+  // A short delay lets the spin read as intentional without feeling slow.
   const onSell = useCallback(() => {
     if (launching) return
     setLaunching(true)
     if (navTimer.current) clearTimeout(navTimer.current)
-    navTimer.current = setTimeout(() => router.push("/app/products/new"), 260)
+    navTimer.current = setTimeout(() => router.push("/app/products/new"), 170)
   }, [launching, router])
 
   const item = (key: string, icon: React.ReactNode, isActive: boolean) => (

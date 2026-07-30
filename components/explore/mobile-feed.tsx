@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, SlidersHorizontal, Heart } from "lucide-react"
+import { Search, SlidersHorizontal, Heart, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { MobileBottomNav } from "./mobile-bottom-nav"
@@ -75,7 +75,7 @@ function loadSavedItems(): Promise<any[]> {
  * Depop/Vinted-style mobile marketplace surface — a clean 2-column grid.
  * Full-screen overlay on phones (md:hidden); the desktop grid is untouched.
  */
-export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
+export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProducts: any[]; searchQuery?: string }) {
   const { t } = useLocale()
   const router = useRouter()
 
@@ -189,19 +189,37 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
             type="button"
             onClick={openSearch}
             aria-label={t("mfeed.search_placeholder")}
-            className="relative flex-1 h-11 rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-4 text-left transition-transform active:scale-[0.99]"
+            className="relative flex-1 h-11 rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-10 text-left transition-transform active:scale-[0.99]"
           >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <AnimatedSearchPlaceholder
-              active
-              prefix={`${t("mfeed.search_for")} `}
-              quoted
-              className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
-            />
+            {searchQuery ? (
+              // Active search — show what was searched, so it never looks empty.
+              <span className="absolute left-10 right-10 top-1/2 -translate-y-1/2 truncate text-sm font-medium text-neutral-900">
+                {searchQuery}
+              </span>
+            ) : (
+              <AnimatedSearchPlaceholder
+                active
+                prefix={`${t("mfeed.search_for")} `}
+                quoted
+                className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
+              />
+            )}
           </button>
-          <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95">
-            <SlidersHorizontal className="h-[18px] w-[18px]" />
-          </button>
+          {searchQuery ? (
+            <button
+              type="button"
+              aria-label={t("mfeed.clear_all")}
+              onClick={() => router.push("/")}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95"
+            >
+              <X className="h-[18px] w-[18px]" />
+            </button>
+          ) : (
+            <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95">
+              <SlidersHorizontal className="h-[18px] w-[18px]" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -218,8 +236,8 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
             >
               <span className="relative inline-flex flex-col items-center">
                 {t(key)}
-                {/* Slim, modern underline the exact width of the word */}
-                <span className={cn("mt-2 h-[2px] w-full rounded-full bg-neutral-900 transition-all duration-300 ease-out", active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0")} />
+                {/* Slim, modern purple-accent underline the exact width of the word */}
+                <span className={cn("mt-2 h-[2px] w-full rounded-full bg-[#7c3aed] transition-all duration-300 ease-out", active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0")} />
               </span>
             </button>
           )
@@ -294,6 +312,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         onSelectCategory={setCat}
+        initialQuery={searchQuery}
       />
     </div>
   )
