@@ -84,7 +84,12 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
               placeholder=""
               className="h-11 w-full rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-4 text-sm text-neutral-900 outline-none focus:border-neutral-300"
             />
-            <AnimatedSearchPlaceholder active={!query && !focused} className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500" />
+            <AnimatedSearchPlaceholder
+              active={!query && !focused}
+              prefix={`${t("mfeed.search_for")} `}
+              quoted
+              className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
+            />
           </div>
           <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 active:scale-95 transition-transform">
             <SlidersHorizontal className="h-[18px] w-[18px]" />
@@ -92,9 +97,9 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         </form>
       </div>
 
-      {/* ---- Tabs + view switcher ---- */}
-      <div className="shrink-0 flex items-center justify-between px-4 pt-2">
-        <div className="flex items-center gap-5">
+      {/* ---- Tabs (centered) + subtle view switcher ---- */}
+      <div className="relative shrink-0 px-4 pt-2">
+        <div className="flex items-center justify-center gap-7">
           {([["for-you", "mfeed.for_you"], ["following", "mfeed.following"], ["saved", "mfeed.saved"]] as const).map(([id, key]) => (
             <button
               key={id}
@@ -110,14 +115,15 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
             </button>
           ))}
         </div>
-        {/* Subtle reels/grid switcher */}
+        {/* Subtle reels/grid switcher — tucked to the edge, low-contrast so the
+            centered tabs stay the focus. */}
         <button
           type="button"
           onClick={() => setView((v) => (v === "reels" ? "grid" : "reels"))}
           aria-label={t(view === "reels" ? "mfeed.view_grid" : "mfeed.view_reels")}
-          className="mb-2 flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 active:scale-95 transition-transform"
+          className="absolute right-2 top-1.5 flex h-8 w-8 items-center justify-center rounded-full text-neutral-300 transition-colors active:text-neutral-600"
         >
-          {view === "reels" ? <LayoutGrid className="h-5 w-5" /> : <GalleryVerticalEnd className="h-5 w-5" />}
+          {view === "reels" ? <LayoutGrid className="h-[18px] w-[18px]" /> : <GalleryVerticalEnd className="h-[18px] w-[18px]" />}
         </button>
       </div>
       <div className="shrink-0 h-px bg-neutral-100" />
@@ -131,12 +137,19 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         )}
         style={{ scrollbarWidth: "none" }}
       >
-        {/* Pull-to-refresh indicator */}
+        {/* Pull-to-refresh — iOS-style: light-grey spinner that fades + scales in
+            as you pull, then spins smoothly while refreshing. */}
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-center"
-          style={{ height: pullDistance, opacity: pullDistance > 8 ? 1 : 0 }}
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-2.5"
+          style={{ height: Math.max(pullDistance, phase === "refreshing" ? 44 : 0) }}
         >
-          <Loader2 className={cn("h-5 w-5 text-neutral-400", phase === "refreshing" ? "animate-spin" : "")} style={{ transform: `rotate(${pullDistance * 3}deg)` }} />
+          <Loader2
+            className={cn("h-5 w-5 text-neutral-300", phase === "refreshing" && "animate-spin")}
+            style={{
+              opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 48),
+              transform: phase === "refreshing" ? undefined : `scale(${Math.min(1, 0.55 + pullDistance / 110)}) rotate(${pullDistance * 3}deg)`,
+            }}
+          />
         </div>
 
         {tab === "following" ? (
@@ -147,7 +160,9 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
           <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
         ) : view === "reels" ? (
           products.map((p, i) => (
-            <div key={p.id} className="h-full w-full snap-start snap-always px-3 py-3">
+            // Full-height slot so each swipe snaps to exactly one whole listing
+            // (TikTok-style) — no vertical padding, so no sliver of the next card.
+            <div key={p.id} className="h-full w-full snap-start snap-always px-2">
               <MobileListingCard
                 product={p}
                 priority={false}

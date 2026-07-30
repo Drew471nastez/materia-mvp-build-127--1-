@@ -69,6 +69,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "feed.seo_h1": "Cumpără și vinde modă second-hand, sneakers, genți și vintage | Storelib",
     // Mobile feed (Depop/TikTok-style)
     "mfeed.search_placeholder": "Caută vintage, mărci, stiluri...",
+    "mfeed.search_for": "Caută",
     "mfeed.filters": "Filtre",
     "mfeed.for_you": "Pentru tine",
     "mfeed.following": "Urmărești",
@@ -148,6 +149,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "feed.seo_h1": "Buy & Sell Second-Hand Fashion, Sneakers, Bags & Vintage | Storelib",
     // Mobile feed (Depop/TikTok-style)
     "mfeed.search_placeholder": "Search vintage, brands, styles...",
+    "mfeed.search_for": "Search for",
     "mfeed.filters": "Filters",
     "mfeed.for_you": "For You",
     "mfeed.following": "Following",

@@ -22,6 +22,13 @@ function toInternalHref(href: string): string {
     const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
     const host = url.hostname
 
+    // Main domain (storelib.com / www.storelib.com): keep the URL as an INTERNAL
+    // path so the native app navigates inside its own WebView instead of ejecting
+    // to the system browser. Covers "/" and marketplace routes like /explore.
+    if (host === mainDomain || host === `www.${mainDomain}`) {
+      return (url.pathname || "/") + url.search
+    }
+
     // Only rewrite storelib.com subdomains
     if (!host.endsWith(`.${mainDomain}`)) return href
 
