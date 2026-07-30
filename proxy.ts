@@ -273,18 +273,10 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
-  // Capacitor WebViews always include "Capacitor" in their User-Agent.
-  // Redirect the native app away from the marketing homepage before any
-  // page renders — the server redirect happens before a single byte of
-  // the marketing page is sent to the client.
-  if (
-    pathname === "/" &&
-    (request.headers.get("user-agent") || "").includes("Capacitor")
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/native-start"
-    return NextResponse.redirect(url)
-  }
+  // The native app opens to the marketplace feed at "/" (Depop/Vinted-style).
+  // Cold start still loads /native-start via the Capacitor server.url to resolve
+  // the session, then redirects here. We intentionally DON'T bounce "/" back to
+  // /native-start anymore — that would loop now that /native-start lands on "/".
 
   // Extract username from subdomain
   let username = extractUsernameFromHost(host)

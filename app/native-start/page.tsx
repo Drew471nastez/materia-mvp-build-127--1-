@@ -76,7 +76,9 @@ export default function NativeStartPage() {
           const sessionRaw = localStorage.getItem(`sb-${ref}-auth-token`)
           const cachedHome = localStorage.getItem("sb-native-home")
           if (sessionRaw && cachedHome) {
-            safeRedirect(cachedHome)
+            // Depop/Vinted-style: open straight to the marketplace feed for any
+            // signed-in user (not the seller dashboard).
+            safeRedirect("/")
             return
           }
         }
@@ -94,7 +96,7 @@ export default function NativeStartPage() {
           // Use cached destination if available — avoids a DB round-trip.
           const cached = await getCachedNativeHome()
           if (cached) {
-            safeRedirect(cached)
+            safeRedirect("/")
             return
           }
 
@@ -108,8 +110,8 @@ export default function NativeStartPage() {
             .maybeSingle()
 
           if (creator?.onboarding_completed) {
-            await cacheNativeHome("/app")
-            safeRedirect("/app")
+            await cacheNativeHome("/")
+            safeRedirect("/")
             return
           }
 
@@ -120,9 +122,8 @@ export default function NativeStartPage() {
             .maybeSingle()
 
           if (profile?.welcome_completed) {
-            const dest = profile.is_creator ? "/app" : "/library"
-            await cacheNativeHome(dest)
-            safeRedirect(dest)
+            await cacheNativeHome("/")
+            safeRedirect("/")
             return
           }
 
@@ -142,8 +143,7 @@ export default function NativeStartPage() {
         try { rawLocal = localStorage.getItem(authKey) } catch { /* ignore */ }
 
         if (rawPrefs || rawLocal) {
-          const cached = await getCachedNativeHome()
-          safeRedirect(cached || "/app")
+          safeRedirect("/")
           return
         }
       } catch (err) {
@@ -153,7 +153,7 @@ export default function NativeStartPage() {
         try {
           const cachedHome = localStorage.getItem("sb-native-home")
           if (cachedHome) {
-            safeRedirect(cachedHome)
+            safeRedirect("/")
             return
           }
         } catch { /* ignore */ }
