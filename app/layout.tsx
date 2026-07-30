@@ -128,7 +128,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="light" style={{ colorScheme: "light" }}>
+    <html lang="ro" className="light" style={{ colorScheme: "light" }}>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
             1. Add the "capacitor" class to <html> immediately so all

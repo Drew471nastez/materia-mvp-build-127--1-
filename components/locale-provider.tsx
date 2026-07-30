@@ -1,19 +1,24 @@
 "use client"
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { dictionaries, type LocaleCode } from "@/lib/i18n/dictionaries"
+import { formatMoney, type CurrencyCode } from "@/lib/i18n/currency"
 
-export type SupportedLanguage = "en" | "es" | "de" | "pt-BR" | "fr" | "it" | "nl" | "pl"
-export type SupportedCurrency = "USD" | "EUR" | "GBP" | "RON" | "CAD" | "AUD"
+export type SupportedLanguage = LocaleCode
+export type SupportedCurrency = CurrencyCode
 
 const STORAGE_KEYS = {
   language: "storelib_language",
   currency: "storelib_currency",
 }
 
-const DEFAULT_LANGUAGE: SupportedLanguage = "en"
-const DEFAULT_CURRENCY: SupportedCurrency = "USD"
+// Romanian-first marketplace: default to RO + RON. The choice persists in
+// localStorage, so returning users keep whatever they last selected.
+const DEFAULT_LANGUAGE: SupportedLanguage = "ro"
+const DEFAULT_CURRENCY: SupportedCurrency = "RON"
 
 const LANGUAGES: Array<{ code: SupportedLanguage; label: string; short: string }> = [
+  { code: "ro", label: "Română", short: "RO" },
   { code: "en", label: "English", short: "EN" },
   { code: "es", label: "Español", short: "ES" },
   { code: "de", label: "Deutsch", short: "DE" },
@@ -33,82 +38,7 @@ const CURRENCIES: Array<{ code: SupportedCurrency; label: string; symbol: string
   { code: "AUD", label: "AUD ($)", symbol: "$" },
 ]
 
-// Small shared dictionary (header/UI). As you expand the platform, replace hardcoded
-// strings with t("...") and extend this map.
-const DICT: Record<SupportedLanguage, Record<string, string>> = {
-  en: {
-    search_placeholder: "Search fonts, graphics, embroidery, crafts, and more",
-    wishlist: "Wishlist",
-    library: "Library",
-    start_selling: "Start selling",
-    dashboard: "Dashboard",
-    language: "Language",
-    currency: "Currency",
-  },
-  es: {
-    search_placeholder: "Buscar fuentes, gráficos, bordado, manualidades y más",
-    wishlist: "Lista",
-    library: "Biblioteca",
-    start_selling: "Empezar a vender",
-    dashboard: "Panel",
-    language: "Idioma",
-    currency: "Moneda",
-  },
-  de: {
-    search_placeholder: "Schriftarten, Grafiken, Stickerei, Basteln und mehr suchen",
-    wishlist: "Wunschliste",
-    library: "Bibliothek",
-    start_selling: "Verkaufen",
-    dashboard: "Dashboard",
-    language: "Sprache",
-    currency: "Währung",
-  },
-  "pt-BR": {
-    search_placeholder: "Buscar fontes, gráficos, bordado, artesanato e mais",
-    wishlist: "Lista",
-    library: "Biblioteca",
-    start_selling: "Começar a vender",
-    dashboard: "Painel",
-    language: "Idioma",
-    currency: "Moeda",
-  },
-  fr: {
-    search_placeholder: "Rechercher des polices, graphiques, broderie, loisirs créatifs…",
-    wishlist: "Favoris",
-    library: "Bibliothèque",
-    start_selling: "Vendre",
-    dashboard: "Tableau de bord",
-    language: "Langue",
-    currency: "Devise",
-  },
-  it: {
-    search_placeholder: "Cerca font, grafiche, ricamo, hobby e altro",
-    wishlist: "Preferiti",
-    library: "Libreria",
-    start_selling: "Inizia a vendere",
-    dashboard: "Dashboard",
-    language: "Lingua",
-    currency: "Valuta",
-  },
-  nl: {
-    search_placeholder: "Zoek lettertypen, graphics, borduurwerk, knutselen en meer",
-    wishlist: "Verlanglijst",
-    library: "Bibliotheek",
-    start_selling: "Begin met verkopen",
-    dashboard: "Dashboard",
-    language: "Taal",
-    currency: "Valuta",
-  },
-  pl: {
-    search_placeholder: "Szukaj czcionek, grafik, haftu, rękodzieła i więcej",
-    wishlist: "Lista",
-    library: "Biblioteka",
-    start_selling: "Zacznij sprzedawać",
-    dashboard: "Panel",
-    language: "Język",
-    currency: "Waluta",
-  },
-}
+// Translatable strings live in lib/i18n/dictionaries.ts (ro + en maintained).
 
 type LocaleContextValue = {
   language: SupportedLanguage
@@ -118,6 +48,8 @@ type LocaleContextValue = {
   setLanguage: (lang: SupportedLanguage) => void
   setCurrency: (cur: SupportedCurrency) => void
   t: (key: string) => string
+  /** Format a USD-cents price in the currently selected currency. */
+  formatPrice: (usdCents: number) => string
   currencySymbol: string
   languageShort: string
 }
@@ -171,10 +103,12 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback(
     (key: string) => {
-      return DICT[language]?.[key] ?? DICT.en[key] ?? key
+      return dictionaries[language]?.[key] ?? dictionaries.en[key] ?? key
     },
     [language],
   )
+
+  const formatPrice = useCallback((usdCents: number) => formatMoney(usdCents, currency), [currency])
 
   const currencySymbol = useMemo(() => CURRENCIES.find((c) => c.code === currency)?.symbol ?? "$", [currency])
   const languageShort = useMemo(() => LANGUAGES.find((l) => l.code === language)?.short ?? "EN", [language])
@@ -188,10 +122,11 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       setLanguage,
       setCurrency,
       t,
+      formatPrice,
       currencySymbol,
       languageShort,
     }),
-    [language, currency, setLanguage, setCurrency, t, currencySymbol, languageShort],
+    [language, currency, setLanguage, setCurrency, t, formatPrice, currencySymbol, languageShort],
   )
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>

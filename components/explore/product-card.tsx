@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
+import { useLocale } from "@/components/locale-provider"
 import { CONDITIONS } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 import { Heart, Star } from "lucide-react"
@@ -179,6 +180,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const touchStartX = useRef(0)
   const didScroll = useRef(false)
   const [hoverArmed, setHoverArmed] = useState(false)
+  const { t, formatPrice } = useLocale()
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0
@@ -212,13 +214,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
 
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
-
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format((cents || 0) / 100)
-  }
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
   // Only use the profile username — it's what /u/[username] routes look up.
@@ -308,7 +303,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
         <SmartLink href={productUrl} useClientNav={clientNav} className="flex flex-col gap-1">
           <div className="flex items-baseline gap-1.5">
             <span className="text-[15px] font-semibold leading-none text-foreground">
-              {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+              {product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}
             </span>
             {hasDiscount && (
               <span className="text-[12px] leading-none text-muted-foreground line-through">

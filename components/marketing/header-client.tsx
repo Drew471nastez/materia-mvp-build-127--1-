@@ -25,6 +25,9 @@ import {
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { CATEGORIES } from "@/lib/marketplace/categories"
+import { useLocale } from "@/components/locale-provider"
+import { LanguageCurrencyModal } from "@/components/platform/language-currency-modal"
+import { Globe } from "lucide-react"
 
 // Main categories for megamenu — the marketplace taxonomy, in taxonomy order.
 // Every id except "all" has a real /explore/<id> page, so these are route links
@@ -85,6 +88,7 @@ export function MarketingHeaderClient() {
   const [loading, setLoading] = useState(true)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null)
+  const { t, languageShort, currencySymbol } = useLocale()
 
   // Logo always links to /explore
   const logoLink = '/explore'
@@ -299,6 +303,23 @@ export function MarketingHeaderClient() {
                   </Tooltip>
                 )}
 
+                {/* Language / currency switcher */}
+                <LanguageCurrencyModal
+                  trigger={
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 px-2.5 py-2 text-sm font-medium text-white/70 hover:text-white transition-colors cursor-pointer"
+                      aria-label={`${t("settings.language")} / ${t("settings.currency")}`}
+                    >
+                      <Globe className="w-4 h-4" />
+                      <span>{languageShort}</span>
+                      <span className="text-white/40" aria-hidden>·</span>
+                      <span>{currencySymbol}</span>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  }
+                />
+
                 {/* Library link */}
                 {user && (
                   <Link
@@ -306,18 +327,18 @@ export function MarketingHeaderClient() {
                     className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white/70 hover:text-white transition-colors cursor-pointer"
                   >
                     <BookOpen className="w-4 h-4" />
-                    <span>Library</span>
+                    <span>{t("nav.library")}</span>
                   </Link>
                 )}
 
                 {/* Dashboard button for sellers, Library for buyers */}
                 {user && isCreator ? (
                   <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
-                    <Link href="/app">Dashboard</Link>
+                    <Link href="/app">{t("nav.dashboard")}</Link>
                   </Button>
                 ) : user ? (
                   <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
-                    <Link href="/library">Library</Link>
+                    <Link href="/library">{t("nav.library")}</Link>
                   </Button>
                 ) : null}
 
@@ -326,12 +347,12 @@ export function MarketingHeaderClient() {
                 ) : (
                   <>
                     <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white hover:bg-white/10">
-                      <Link href="/login">Sign in</Link>
+                      <Link href="/login">{t("nav.sign_in")}</Link>
                     </Button>
                     <Button size="sm" asChild>
                       <Link href="/signup" className="whitespace-nowrap">
-                        <span className="hidden xs:inline">Start selling</span>
-                        <span className="xs:hidden">Sign up</span>
+                        <span className="hidden xs:inline">{t("nav.start_selling")}</span>
+                        <span className="xs:hidden">{t("nav.sign_up")}</span>
                       </Link>
                     </Button>
                   </>
