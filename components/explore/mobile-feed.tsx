@@ -140,6 +140,16 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
     void loadSavedItems()
   }, [])
 
+  // A search always shows results in the main feed — never leave the user on the
+  // Saved/Following tab (where they'd see saved items, not what they searched).
+  // Bumping the reveal makes the results settle in with the staggered animation.
+  useEffect(() => {
+    if (searchQuery) {
+      setTab("for-you")
+      setRevealNonce((n) => n + 1)
+    }
+  }, [searchQuery])
+
   // The for-you grid is memoized so a pull-to-refresh drag (which fires many
   // state updates a second) never rebuilds 30 cards — React reuses this exact
   // element and skips the whole subtree, keeping the pull at full frame rate.
@@ -311,7 +321,10 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
       <MobileSearchOverlay
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onSelectCategory={setCat}
+        onSelectCategory={(id) => {
+          setCat(id)
+          setTab("for-you")
+        }}
         initialQuery={searchQuery}
       />
     </div>
@@ -359,6 +372,10 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
   const [fetched, setFetched] = useState<any[] | null>(() => readSavedCache())
   const [removing, setRemoving] = useState<Set<string>>(() => new Set())
   const prevSaved = useRef<ReadonlySet<string>>(savedIds)
+  // Per-id exit timers, held in a ref so the effect can depend on savedIds only
+  // (depending on `removing` would let the effect cancel its own clear-timer,
+  // stranding invisible cells and leaving a permanent empty gap in the grid).
+  const removeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -370,12 +387,42 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
     }
   }, [])
 
-  // Animate a card out only when its id transitions present → absent in savedIds.
+  // On unmount, clear any pending exit timers.
+  useEffect(
+    () => () => {
+      removeTimers.current.forEach((tm) => clearTimeout(tm))
+      removeTimers.current.clear()
+    },
+    [],
+  )
+
+  // Animate a card out only when its id transitions present → absent in savedIds;
+  // and cancel a pending exit if the same id gets re-saved mid-animation.
   useEffect(() => {
     const prev = prevSaved.current
     prevSaved.current = savedIds
+
+    // Re-saved while animating out → cancel its exit, put it back instantly.
+    const readd: string[] = []
+    for (const id of savedIds) {
+      const tm = removeTimers.current.get(id)
+      if (tm) {
+        clearTimeout(tm)
+        removeTimers.current.delete(id)
+        readd.push(id)
+      }
+    }
+    if (readd.length) {
+      setRemoving((cur) => {
+        const next = new Set(cur)
+        readd.forEach((id) => next.delete(id))
+        return next
+      })
+    }
+
+    // Newly un-saved → mark removing and schedule a single exit timer per id.
     const gone: string[] = []
-    for (const id of prev) if (!savedIds.has(id) && !removing.has(id)) gone.push(id)
+    for (const id of prev) if (!savedIds.has(id) && !removeTimers.current.has(id)) gone.push(id)
     if (gone.length === 0) return
 
     setRemoving((cur) => {
@@ -383,15 +430,18 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
       gone.forEach((id) => next.add(id))
       return next
     })
-    const timer = setTimeout(() => {
-      setRemoving((cur) => {
-        const next = new Set(cur)
-        gone.forEach((id) => next.delete(id))
-        return next
-      })
-    }, 560)
-    return () => clearTimeout(timer)
-  }, [savedIds, removing])
+    gone.forEach((id) => {
+      const tm = setTimeout(() => {
+        removeTimers.current.delete(id)
+        setRemoving((cur) => {
+          const next = new Set(cur)
+          next.delete(id)
+          return next
+        })
+      }, 560)
+      removeTimers.current.set(id, tm)
+    })
+  }, [savedIds])
 
   const items = useMemo(() => {
     const byId = new Map<string, any>()

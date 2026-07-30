@@ -287,9 +287,10 @@ export function MobileSearchOverlay({
 
   return (
     <div
-      className="md:hidden fixed inset-0 z-[80] flex flex-col bg-white"
+      className="md:hidden fixed inset-0 z-[90] flex flex-col bg-white"
       style={{
-        height: "100dvh",
+        // inset-0 (not a fixed dvh height) so the sheet always fills the layout
+        // viewport — the iOS keyboard overlays it instead of leaving a black gap.
         opacity: shown ? 1 : 0,
         // Grows out of the search bar (top) and settles — a visible, smooth blend.
         transform: shown ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
@@ -372,7 +373,10 @@ export function MobileSearchOverlay({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
+        style={{ scrollbarWidth: "none", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+      >
         <div key={`${tab}-${trimmed ? "q" : "e"}`} className="animate-in fade-in-0 duration-200 ease-out">
           {tab === "items" && (
             <ItemsTab
