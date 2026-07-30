@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -89,6 +89,19 @@ export function MarketingHeaderClient() {
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null)
   const { t, languageShort, currencySymbol } = useLocale()
+  const router = useRouter()
+
+  // Warm the auth route bundles for signed-out visitors so tapping Sign in /
+  // Start selling navigates instantly instead of loading the heavy login chunk
+  // on click (which showed a resolving spinner for a beat).
+  useEffect(() => {
+    if (!loading && !user) {
+      try {
+        router.prefetch("/login")
+        router.prefetch("/signup")
+      } catch {}
+    }
+  }, [loading, user, router])
 
   // Logo always links to /explore
   const logoLink = '/explore'
@@ -105,19 +118,22 @@ export function MarketingHeaderClient() {
         setUser(user)
 
         // profiles.avatar_url is the single source of truth for avatar.
-        // Both /app/settings and Store Builder sync avatar changes to this field.
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("display_name, avatar_url, username, is_creator")
-          .eq("id", user.id)
-          .single()
-
-        // Check creator record for onboarding_completed (source of truth for seller status)
-        const { data: creatorData } = await supabase
-          .from("creators")
-          .select("slug, onboarding_completed")
-          .eq("user_id", user.id)
-          .maybeSingle()
+        // Fetch profile + creator record in parallel — they only depend on the
+        // user id, so awaiting them sequentially just doubled the header's
+        // time-to-avatar (the flicker where a logged-in user briefly saw the
+        // signed-out header).
+        const [{ data: profileData }, { data: creatorData }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("display_name, avatar_url, username, is_creator")
+            .eq("id", user.id)
+            .single(),
+          supabase
+            .from("creators")
+            .select("slug, onboarding_completed")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ])
 
         const isSeller = !!creatorData?.onboarding_completed
 
@@ -342,7 +358,7 @@ export function MarketingHeaderClient() {
                   </Button>
                 ) : null}
 
-                {user && profile ? (
+                {user ? (
                   <UserNavClient user={user} profile={{...profile, avatar_url: resolvedAvatarUrl || profile?.avatar_url}} isCreator={isCreator} creatorSlug={creatorSlug} />
                 ) : (
                   <>

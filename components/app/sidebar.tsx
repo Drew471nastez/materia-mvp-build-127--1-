@@ -287,7 +287,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
@@ -686,7 +685,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: t("nav.analytics"), href: "/app/analytics", icon: BarChart3, category: t("dashboard.catPages") },
     { label: t("nav.sales"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catPages") },
     { label: t("nav.onepage"), href: "/app/onepage", icon: Link2, category: t("dashboard.catPages") },
-    { label: t("nav.storeBuilder"), href: "/store-builder", icon: Store, category: t("dashboard.catPages") },
     { label: t("nav.emails"), href: "/app/emails", icon: Mail, category: t("dashboard.catPages") },
     { label: t("nav.payouts"), href: "/app/payouts", icon: Wallet, category: t("dashboard.catPages") },
     { label: t("nav.settings"), href: "/app/settings", icon: Settings, category: t("nav.settings") },

@@ -131,6 +131,13 @@ const nextConfig = {
       { source: '/pricing', destination: '/', permanent: false },
       { source: '/features', destination: '/', permanent: false },
       { source: '/faq', destination: '/', permanent: false },
+      // Website Builder retired for the marketplace pivot — hidden from the UI
+      // and unreachable by direct URL. 307 so it's reversible.
+      // NOTE: Store Builder is removed from the nav but its route is left alive
+      // on purpose — the "change profile photo" links in settings open it to
+      // edit the avatar, so redirecting it would break avatar editing.
+      { source: '/app/website-builder', destination: '/app', permanent: false },
+      { source: '/website-builder/:path*', destination: '/app', permanent: false },
     ]
   },
 }
