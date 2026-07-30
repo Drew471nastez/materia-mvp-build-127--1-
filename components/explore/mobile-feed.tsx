@@ -298,7 +298,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
             {tab === "following" ? (
               <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
             ) : tab === "saved" ? (
-              <SavedTab t={t} />
+              <SavedTab t={t} pool={initialProducts} />
             ) : (
               forYouGrid
             )}
@@ -345,61 +345,76 @@ function mapWishlistItem(item: any) {
 }
 
 /**
- * The "Saved" tab. Reads the user's saved listings straight from the database
- * (independent of what the feed loaded), so every heart the user tapped shows
- * here. Un-saving animates the card out cleanly before it leaves the grid.
+ * The "Saved" tab. The visible list is derived from `savedIds` — the wishlist
+ * store, which is the source of truth and is kept optimistically in sync — and
+ * resolved against every product object we already have (the feed `pool`, plus
+ * the sessionStorage-cached DB fetch). So the count is exactly right the instant
+ * the tab paints; the background DB fetch only fills product data we were
+ * missing, never surprises the user with an extra card popping in a second later.
  */
-function SavedTab({ t }: { t: (key: string) => string }) {
+function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
   const savedIds = useWishlistedIds()
-  // Seed from the cache (memory → sessionStorage) so re-opening the tab paints
-  // instantly — the skeleton (items === null) only shows on the very first,
-  // uncached load of a fresh session.
-  const [items, setItems] = useState<any[] | null>(() => readSavedCache())
+  // Product objects fetched from the DB (covers saved items not in the feed).
+  // Seeded from cache so a returning session has data with zero flicker.
+  const [fetched, setFetched] = useState<any[] | null>(() => readSavedCache())
   const [removing, setRemoving] = useState<Set<string>>(() => new Set())
-  // Snapshot of the previous saved set so we only animate a card out when an id
-  // goes present → absent (never on the initial empty → loaded fill).
   const prevSaved = useRef<ReadonlySet<string>>(savedIds)
 
   useEffect(() => {
     let cancelled = false
-    // Revalidate in the background; cached content stays on screen meanwhile.
     loadSavedItems().then((list) => {
-      if (!cancelled) setItems(list)
+      if (!cancelled) setFetched(list)
     })
     return () => {
       cancelled = true
     }
   }, [])
 
+  // Animate a card out only when its id transitions present → absent in savedIds.
   useEffect(() => {
     const prev = prevSaved.current
     prevSaved.current = savedIds
-    if (!items) return
-    const gone = items.filter((p) => prev.has(p.id) && !savedIds.has(p.id) && !removing.has(p.id))
+    const gone: string[] = []
+    for (const id of prev) if (!savedIds.has(id) && !removing.has(id)) gone.push(id)
     if (gone.length === 0) return
 
     setRemoving((cur) => {
       const next = new Set(cur)
-      gone.forEach((p) => next.add(p.id))
+      gone.forEach((id) => next.add(id))
       return next
     })
     const timer = setTimeout(() => {
-      setItems((cur) => {
-        const filtered = cur ? cur.filter((p) => savedIds.has(p.id)) : cur
-        persistSavedCache(filtered ?? null) // keep memory + sessionStorage in sync
-        return filtered
-      })
       setRemoving((cur) => {
         const next = new Set(cur)
-        gone.forEach((p) => next.delete(p.id))
+        gone.forEach((id) => next.delete(id))
         return next
       })
     }, 560)
     return () => clearTimeout(timer)
-  }, [savedIds, items, removing])
+  }, [savedIds, removing])
 
-  if (items === null) {
-    // First uncached load: a calm skeleton grid, not a jarring centered spinner.
+  const items = useMemo(() => {
+    const byId = new Map<string, any>()
+    for (const p of pool) if (p?.id) byId.set(p.id, p)
+    for (const p of fetched ?? []) if (p?.id && !byId.has(p.id)) byId.set(p.id, p)
+    const order: string[] = []
+    const seen = new Set<string>()
+    const add = (id: string) => {
+      if (seen.has(id) || !byId.has(id)) return
+      // Show it if it's saved, or currently animating out.
+      if (!savedIds.has(id) && !removing.has(id)) return
+      seen.add(id)
+      order.push(id)
+    }
+    // Recency-ish order: cached/fetched (DB order) first, then the rest.
+    for (const p of fetched ?? []) add(p.id)
+    for (const id of savedIds) add(id)
+    for (const id of removing) add(id)
+    return order.map((id) => byId.get(id))
+  }, [pool, fetched, savedIds, removing])
+
+  // Skeleton only when we genuinely have nothing resolved yet (cold first load).
+  if (fetched === null && items.length === 0) {
     return (
       <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
         {Array.from({ length: 4 }).map((_, i) => (
