@@ -503,28 +503,30 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
   }, [pool, fetched, savedIds, removing])
 
   // FLIP: when a card leaves and the grid reflows, slide the remaining cards from
-  // their previous positions to their new ones (GPU transform, 120fps) instead of
-  // a hard jump. Leaving cards are skipped — they run their own exit transition.
+  // their previous slot to their new one. We measure `offsetLeft/offsetTop`
+  // (layout coords relative to the positioned wrapper) — NOT getBoundingClientRect
+  // — so scrolling and the pull-to-refresh transform can't corrupt the delta and
+  // send cards flying. Leaving cards run their own exit and are skipped.
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const prevRects = useRef<Map<string, DOMRect>>(new Map())
+  const prevPos = useRef<Map<string, { l: number; t: number }>>(new Map())
   useLayoutEffect(() => {
-    const natural = new Map<string, DOMRect>()
-    cardRefs.current.forEach((el, id) => natural.set(id, el.getBoundingClientRect()))
+    const cur = new Map<string, { l: number; t: number }>()
+    cardRefs.current.forEach((el, id) => cur.set(id, { l: el.offsetLeft, t: el.offsetTop }))
     cardRefs.current.forEach((el, id) => {
       if (removing.has(id)) return // its own exit animation owns the transform
-      const first = prevRects.current.get(id)
-      const last = natural.get(id)
+      const first = prevPos.current.get(id)
+      const last = cur.get(id)
       if (!first || !last) return
-      const dx = first.left - last.left
-      const dy = first.top - last.top
+      const dx = first.l - last.l
+      const dy = first.t - last.t
       if (!dx && !dy) return
       el.style.transition = "none"
-      el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`
-      void el.getBoundingClientRect() // flush the inverted position
-      el.style.transition = "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)"
-      el.style.transform = "translate3d(0, 0, 0)"
+      el.style.transform = `translate(${dx}px, ${dy}px)`
+      void el.offsetWidth // flush the inverted position
+      el.style.transition = "transform 0.42s cubic-bezier(0.22, 1, 0.36, 1)"
+      el.style.transform = "translate(0, 0)"
     })
-    prevRects.current = natural
+    prevPos.current = cur
   })
 
   // Skeleton only when we genuinely have nothing resolved yet (cold first load).
