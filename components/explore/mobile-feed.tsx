@@ -132,8 +132,8 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         </form>
       </div>
 
-      {/* ---- Tabs (full-width buttons, underline spans the whole button) ---- */}
-      <div className="shrink-0 flex items-stretch gap-1.5 px-3 pt-3.5">
+      {/* ---- Tabs (full-width buttons; slim underline hugs the word) ---- */}
+      <div className="shrink-0 flex items-stretch px-3 pt-3.5">
         {TABS.map(([id, key]) => {
           const active = tab === id
           return (
@@ -141,10 +141,13 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              className={cn("flex flex-1 flex-col items-center gap-2 text-[15px] transition-colors duration-200", active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
+              className={cn("flex flex-1 flex-col items-center pb-2.5 text-[15px] transition-colors duration-200", active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
             >
-              <span>{t(key)}</span>
-              <span className={cn("h-[3px] w-full rounded-full bg-neutral-900 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")} />
+              <span className="relative inline-flex flex-col items-center">
+                {t(key)}
+                {/* Slim, modern underline the exact width of the word */}
+                <span className={cn("mt-2 h-[2px] w-full rounded-full bg-neutral-900 transition-all duration-300 ease-out", active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0")} />
+              </span>
             </button>
           )
         })}
@@ -192,12 +195,27 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         </div>
 
         <div
-          className="relative z-10 min-h-full bg-white"
+          className="relative z-10 min-h-full bg-white will-change-transform"
           style={{
-            transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
-            transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.5s cubic-bezier(0.22,1,0.36,1)",
+            // translate3d forces a GPU layer so the pull + spring-back run on the
+            // compositor (buttery, off the main thread) instead of triggering layout.
+            transform: `translate3d(0, ${ptrOffset}px, 0)`,
+            transition:
+              phase === "pulling" || phase === "ready"
+                ? "none"
+                : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
+          {/* While refreshing, dip the content and glide it back so the freshly
+              loaded listings reveal with a clean fade instead of snapping in. */}
+          <div
+            className="transition-opacity"
+            style={{
+              opacity: phase === "refreshing" ? 0.35 : 1,
+              transitionDuration: phase === "refreshing" ? "180ms" : "500ms",
+              transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
           {/* key on tab+cat → a soft cross-fade when switching tabs or categories */}
           <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-300 ease-out">
             {tab === "following" ? (
@@ -221,6 +239,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
                 ))}
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>
