@@ -112,6 +112,18 @@ html.capacitor.native-feed-bg {
 }
 .heart-burst { animation: heart-burst 0.5s ease-out forwards; }
 
+/* Staggered "settle in" for feed cards after a pull-to-refresh. Two identical
+   keyframes let us flip the animation-name to restart the reveal on each refresh
+   without remounting the card (so images never reload / flash). */
+@keyframes card-reveal-a {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes card-reveal-b {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* Plus (sell) button: spin-and-swell on tap for a satisfying launch. */
 @keyframes plus-launch {
   0%   { transform: scale(1) rotate(0deg); }

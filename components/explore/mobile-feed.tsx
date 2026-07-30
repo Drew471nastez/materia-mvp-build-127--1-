@@ -55,10 +55,17 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
     }
   }, [])
 
+  // Bumped once per refresh to (re)trigger the staggered card reveal.
+  const [revealNonce, setRevealNonce] = useState(0)
+
   const onRefresh = useCallback(async () => {
-    setSeed((s) => s + 1)
     router.refresh()
-    await new Promise((r) => setTimeout(r, 650))
+    // Hold the current listings, untouched, while the spinner spins — no fade.
+    await new Promise((r) => setTimeout(r, 600))
+    // Swap in the fresh order and fire the reveal in the same tick, so the new
+    // cards rise into place instead of blinking.
+    setSeed((s) => s + 1)
+    setRevealNonce((n) => n + 1)
   }, [router])
 
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
@@ -79,6 +86,41 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" })
   }, [tab, cat])
+
+  // The for-you grid is memoized so a pull-to-refresh drag (which fires many
+  // state updates a second) never rebuilds 30 cards — React reuses this exact
+  // element and skips the whole subtree, keeping the pull at full frame rate.
+  // On refresh, `revealNonce` flips the animation name so every card replays a
+  // staggered rise-in from its new position — a clean settle, never a blink.
+  const forYouGrid = useMemo(() => {
+    if (products.length === 0) {
+      return <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
+    }
+    return (
+      <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+        {products.map((p, i) => (
+          <div
+            key={p.id}
+            style={
+              revealNonce > 0
+                ? {
+                    animationName: revealNonce % 2 === 0 ? "card-reveal-a" : "card-reveal-b",
+                    animationDuration: "0.66s",
+                    animationTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                    animationFillMode: "both",
+                    // Cap the stagger so a long list still finishes quickly.
+                    animationDelay: `${Math.min(i, 11) * 26}ms`,
+                    willChange: "transform, opacity",
+                  }
+                : undefined
+            }
+          >
+            <ProductCard product={p} clientNav priority={i < 4} />
+          </div>
+        ))}
+      </div>
+    )
+  }, [products, revealNonce, t])
 
   const submitSearch = useCallback(
     (e?: React.FormEvent) => {
@@ -145,6 +187,9 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         })}
       </div>
 
+      {/* Subtle divider sits BETWEEN the tabs and the category pills. */}
+      <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />
+
       {/* ---- Category pills ---- */}
       <div className="shrink-0 flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
         {CATEGORIES.map((c) => (
@@ -162,17 +207,10 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         ))}
       </div>
 
-      {/* Subtle light-green divider + a soft drop-shadow that lifts the sticky
-          header off the feed for a touch of depth. */}
-      <div
-        className="shrink-0 h-px"
-        style={{ backgroundColor: "rgba(16, 160, 110, 0.16)", boxShadow: "0 6px 14px -10px rgba(16, 24, 40, 0.18)" }}
-      />
-
       {/* ---- Grid feed with iOS pull-to-refresh ---- */}
       <div
         ref={scrollRef}
-        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide bg-neutral-50/40"
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
         <div
@@ -198,32 +236,15 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
                 : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {/* While refreshing, dip the content and glide it back so the freshly
-              loaded listings reveal with a clean fade instead of snapping in. */}
-          <div
-            className="transition-opacity"
-            style={{
-              opacity: phase === "refreshing" ? 0.35 : 1,
-              transitionDuration: phase === "refreshing" ? "180ms" : "500ms",
-              transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
-          >
           {/* key on tab+cat → a soft cross-fade when switching tabs or categories */}
           <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-300 ease-out">
             {tab === "following" ? (
               <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
             ) : tab === "saved" ? (
               <SavedTab t={t} />
-            ) : products.length === 0 ? (
-              <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
             ) : (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} clientNav />
-                ))}
-              </div>
+              forYouGrid
             )}
-          </div>
           </div>
         </div>
       </div>
