@@ -64,13 +64,18 @@ function getConditionLabel(condition: string | null | undefined): string | null 
  * Card-sized wishlist toggle. Reads from the shared store, so a 30-card grid costs
  * one request instead of one per card, and toggling is instant (optimistic).
  */
-function WishlistHeartButton({ productId }: { productId: string }) {
+function WishlistHeartButton({ productId, savesCount = 0 }: { productId: string; savesCount?: number }) {
   const isWishlisted = useIsWishlisted(productId)
   const toggleWishlist = useToggleWishlist()
   // Replays the pop/burst on every toggle. `nonce` bumps so the same class
   // re-triggers the CSS animation even on rapid taps.
   const [nonce, setNonce] = useState(0)
   const [burst, setBurst] = useState(false)
+  // The user's own saves/un-saves since load — the server `savesCount` already
+  // includes the user's initial save (if any), so ±1 per tap keeps it accurate.
+  const [userDelta, setUserDelta] = useState(0)
+
+  const displayed = Math.max(0, savesCount + userDelta)
 
   const onClick = useCallback(
     (e: React.MouseEvent) => {
@@ -79,6 +84,7 @@ function WishlistHeartButton({ productId }: { productId: string }) {
       e.stopPropagation()
       const willSave = !isWishlisted
       setNonce((n) => n + 1)
+      setUserDelta((d) => d + (willSave ? 1 : -1))
       // The bloom only reads right when saving — skip it on un-save.
       if (willSave) {
         setBurst(false)
@@ -96,9 +102,13 @@ function WishlistHeartButton({ productId }: { productId: string }) {
       onClick={onClick}
       aria-pressed={isWishlisted}
       aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-      // after:-inset-3 widens the finger target well past the 36px visual, so a
-      // tap near the heart still registers without enlarging the icon itself.
-      className="absolute right-2 top-2 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-200 ease-out after:absolute after:-inset-3 after:content-[''] motion-safe:active:scale-[0.88] [@media(hover:hover)]:hover:bg-white"
+      // after:-inset-3 widens the finger target well past the visual, so a tap
+      // near the heart still registers without enlarging the icon itself.
+      className={cn(
+        "absolute right-2 top-2 z-10 flex h-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-sm backdrop-blur-sm transition-transform duration-200 ease-out after:absolute after:-inset-3 after:content-[''] motion-safe:active:scale-[0.88] [@media(hover:hover)]:hover:bg-white",
+        // Count sits inside the heart control as a pill; plain circle when 0.
+        displayed > 0 ? "gap-1 pl-2 pr-2.5" : "w-9",
+      )}
     >
       {/* Bloom ring — one-shot, keyed so it restarts each save */}
       {burst && (
@@ -114,12 +124,15 @@ function WishlistHeartButton({ productId }: { productId: string }) {
         key={nonce}
         className={cn(
           // Slow, observable red fill — transitions over 450ms so you watch it fill.
-          "h-[19px] w-[19px] transition-colors duration-[450ms] ease-out",
+          "h-[19px] w-[19px] shrink-0 transition-colors duration-[450ms] ease-out",
           // Only pop after a real toggle — never on the grid's first paint.
           nonce > 0 && "motion-safe:heart-pop",
           isWishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-700"
         )}
       />
+      {displayed > 0 && (
+        <span className="text-[12px] font-semibold leading-none text-neutral-800 tabular-nums">{displayed}</span>
+      )}
     </button>
   )
 }
@@ -265,13 +278,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             {Math.round((1 - product.price_cents / compareAtCents) * 100)}% OFF
           </Badge>
         )}
-        {savesCount > 0 && (
-          <div className="pointer-events-none absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-white backdrop-blur-sm">
-            <Heart className="h-3 w-3 fill-white text-white" />
-            <span className="text-[11px] font-semibold leading-none">{savesCount}</span>
-          </div>
-        )}
-        <WishlistHeartButton productId={product.id} />
+        <WishlistHeartButton productId={product.id} savesCount={savesCount} />
       </div>
 
       {/* Meta — no card chrome, the photo carries the card */}

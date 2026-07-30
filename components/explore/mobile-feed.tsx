@@ -85,6 +85,19 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   const [searchOpen, setSearchOpen] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Remembers each tab's scroll offset so returning to For You keeps your place.
+  const tabScroll = useRef<Record<Tab, number>>({ "for-you": 0, following: 0, saved: 0 })
+
+  // Switch tabs while saving the outgoing tab's scroll position.
+  const switchTab = useCallback(
+    (next: Tab) => {
+      setTab((cur) => {
+        if (cur !== next && scrollRef.current) tabScroll.current[cur] = scrollRef.current.scrollTop
+        return next
+      })
+    },
+    [],
+  )
 
   // Paint the native safe-area (status-bar) zone white while the feed is up.
   useEffect(() => {
@@ -129,11 +142,17 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
     return list
   }, [initialProducts, cat, seed])
 
-  // Switching tab or category should start from the top — never leave the user
-  // scrolled halfway into a shorter list.
+  // Category change → back to the top (a different set of listings).
   useEffect(() => {
+    tabScroll.current["for-you"] = 0
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" })
-  }, [tab, cat])
+  }, [cat])
+
+  // Tab change → restore that tab's remembered scroll position (For You keeps
+  // your place instead of reloading to the top).
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: tabScroll.current[tab] ?? 0, behavior: "auto" })
+  }, [tab])
 
   // Warm the saved-listings cache up front so opening the Saved tab is instant.
   useEffect(() => {
@@ -145,6 +164,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   // Bumping the reveal makes the results settle in with the staggered animation.
   useEffect(() => {
     if (searchQuery) {
+      tabScroll.current["for-you"] = 0 // fresh results start at the top
       setTab("for-you")
       setRevealNonce((n) => n + 1)
     }
@@ -241,7 +261,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => switchTab(id)}
               className={cn("flex flex-1 flex-col items-center pb-2.5 text-[15px] transition-colors duration-200", active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
             >
               <span className="relative inline-flex flex-col items-center">
