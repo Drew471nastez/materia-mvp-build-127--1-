@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
 import { VALID_CATEGORY_IDS, categoryLabel as resolveCategoryLabel } from "@/lib/marketplace/categories"
+import { selectFeedProducts } from "@/lib/marketplace/product-select"
 
 // Valid category slugs, from the shared taxonomy. "all" is excluded on purpose:
 // that is the feed at "/" (and /explore), so /explore/all would duplicate it.
@@ -23,6 +24,14 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 
 type Props = {
   params: Promise<{ category: string }>
+}
+
+// Only the fields this file reads by name — everything else is passed through to
+// CategoryPageClient / ProductCard untouched.
+type CategoryProductRow = {
+  creator_id: string | null
+  category: string | null
+  [column: string]: unknown
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -77,23 +86,28 @@ export default async function CategoryPage({ params }: Props) {
 
   const supabase = await createClient()
 
-  // Fetch ALL published products - same select as the feed in app/(marketing)/_explore-feed.tsx
+  // Fetch ALL published products - same column list as the feed in
+  // app/(marketing)/_explore-feed.tsx, shared via lib/marketplace/product-select.
   // Category filtering is done client-side for relevance-based sorting
-  const { data: products, error: productsError } = await supabase
-    .from("products")
-    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(100)
+  const { products, error: productsError } = await selectFeedProducts<CategoryProductRow>(
+    (columns) =>
+      supabase
+        .from("products")
+        .select(columns)
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(100),
+    "CategoryPage",
+  )
 
   if (productsError) {
-    console.error("[CategoryPage] Products error:", productsError.message)
+    console.error("[CategoryPage] Products error:", productsError)
   }
 
   // Build products with creator info
   let productsWithCreators: any[] = []
 
-  if (products && products.length > 0) {
+  if (products.length > 0) {
     // Get creators for products
     const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
     let productCreators: any[] = []

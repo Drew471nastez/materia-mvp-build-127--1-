@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, type LucideIcon } from "lucide-react"
-import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { CATEGORIES, resolveProductCategoryId } from "@/lib/marketplace/categories"
 
 // Fallback gradients, used only until a category has a listing with a photo
 const CATEGORY_GRADIENTS: Record<string, string> = {
@@ -44,10 +44,10 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
   const categoriesWithImages = useMemo(() => {
     return CATEGORIES_CONFIG.map(category => {
       // Find top product in this category with a thumbnail
-      // Normalized equality only — substring matching would let "bags-accessories"
+      // Resolved equality only — substring matching would let "bags-accessories"
       // pick up a cover photo from any listing whose category merely contains it.
       const categoryProducts = products.filter(p => {
-        return normalizeCategoryToId(p.category || p.categoryName) === category.id
+        return resolveProductCategoryId(p.category || p.categoryName) === category.id
       })
 
       const topProduct = categoryProducts.find(p => p.thumbnail_url)

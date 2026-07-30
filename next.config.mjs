@@ -126,11 +126,36 @@ const nextConfig = {
   // Note /explore is deliberately NOT redirected — the native app treats it as a Discover
   // route (lib/isDiscoverMode.ts) and "/" is intercepted to /native-start in proxy.ts.
   // /legal/terms, /legal/privacy and /blog are untouched.
+  //
+  // The 14 digital category slugs below were all in the previous app/sitemap.ts
+  // EXPLORE_CATEGORIES list, so they are indexed. app/(marketing)/explore/[category]/page.tsx
+  // now notFound()s anything outside the new taxonomy, which would turn 14 indexed,
+  // sitemap-advertised URLs into hard 404s and drop their link equity on the floor.
+  // Each is pointed at the closest surviving surface instead — the same mapping
+  // LEGACY_DIGITAL_TO_ID uses in lib/marketplace/categories.ts, and "/" (the feed)
+  // where there is no analogue at all.
   async redirects() {
     return [
       { source: '/pricing', destination: '/', permanent: false },
       { source: '/features', destination: '/', permanent: false },
       { source: '/faq', destination: '/', permanent: false },
+      // Visual/printable goods → Home (which owns "Art & Prints")
+      { source: '/explore/design', destination: '/explore/home', permanent: false },
+      { source: '/explore/photography', destination: '/explore/home', permanent: false },
+      { source: '/explore/video', destination: '/explore/home', permanent: false },
+      // Anything read rather than worn → Books
+      { source: '/explore/education', destination: '/explore/books', permanent: false },
+      // No analogue in a second-hand taxonomy — send these to the feed
+      { source: '/explore/development', destination: '/', permanent: false },
+      { source: '/explore/marketing', destination: '/', permanent: false },
+      { source: '/explore/business', destination: '/', permanent: false },
+      { source: '/explore/ai', destination: '/', permanent: false },
+      { source: '/explore/social-media', destination: '/', permanent: false },
+      { source: '/explore/productivity', destination: '/', permanent: false },
+      { source: '/explore/audio-music', destination: '/', permanent: false },
+      { source: '/explore/ecommerce', destination: '/', permanent: false },
+      { source: '/explore/freebies', destination: '/', permanent: false },
+      { source: '/explore/other', destination: '/', permanent: false },
     ]
   },
 }

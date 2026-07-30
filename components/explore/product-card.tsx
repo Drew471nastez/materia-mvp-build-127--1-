@@ -7,7 +7,7 @@ import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { useLocale } from "@/components/locale-provider"
-import { CONDITIONS } from "@/lib/marketplace/categories"
+import { CONDITIONS, sizeSystemPrefix } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 import { Heart, Star } from "lucide-react"
 
@@ -38,13 +38,12 @@ function pickHoverImage(gallery: string[] | null | undefined, thumbnail: string 
 // prose can't false-positive, and nothing renders when we aren't sure.
 const SIZE_IN_TITLE_RE = /\bsize[:\s]+([a-z0-9./]{1,6})\b/i
 const SIZE_TOKEN_RE = /^(XXS|XS|S|M|L|XL|XXL|XXXL|(UK|EU|US)\s?\d{1,2}(\.5)?|\d{1,3}(\.5)?)$/i
-// products.size_system is a UI hint — prefix a bare number so "9" reads as "UK 9".
-const SIZE_SYSTEM_PREFIX: Record<string, string> = { uk: "UK", eu: "EU", us: "US" }
 
 function getSizeLabel(product: { size?: string | null; size_system?: string | null; title?: string }): string | null {
   const explicit = product.size?.trim()
   if (explicit) {
-    const prefix = SIZE_SYSTEM_PREFIX[(product.size_system || "").toLowerCase()]
+    // products.size_system is a UI hint — prefix a bare number so "9" reads as "UK 9".
+    const prefix = sizeSystemPrefix(product.size_system)
     // Only prefix a bare number — "UK UK 9" and "EU One size" both read wrong.
     return prefix && /^\d{1,3}(\.5)?$/.test(explicit) ? `${prefix} ${explicit}` : explicit
   }

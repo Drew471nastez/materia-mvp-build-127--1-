@@ -195,15 +195,9 @@ export function MarketingFooter() {
               <Link href="/login" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Sign In
               </Link>
-              <Link href="/pricing" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Pricing
-              </Link>
-              <Link href="/features" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Features
-              </Link>
-              <Link href="/blog" className="block text-sm text-gray-400 hover:text-white transition-colors">
-                Blog
-              </Link>
+              {/* Pricing / Features removed: next.config.mjs now 307s both to "/", so on the
+                  homepage (where this footer renders) they only reloaded the current page.
+                  The duplicate second "Blog" link went with them. */}
             </div>
           </div>
 

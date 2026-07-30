@@ -175,13 +175,15 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
       </div>
 
       {/* Desktop: Static 4x2 grid of portrait cards - no carousel, no dots */}
+      {/* No `priority`: this section renders below ExplorePageClient and
+          FeaturedCategoriesSection, so eager-loading it would compete for bandwidth with
+          the real LCP image at the top of the feed. */}
       <div className="hidden md:grid grid-cols-4 gap-5">
-        {popularProducts.slice(0, 8).map((product, index) => (
+        {popularProducts.slice(0, 8).map((product) => (
           <ProductCard
             key={product.id}
             product={product}
             srcParam="?src=platform"
-            priority={index < 4}
           />
         ))}
       </div>
@@ -205,7 +207,6 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
                 <ProductCard
                   product={product}
                   srcParam="?src=platform"
-                  priority={index < 3}
                 />
               </div>
             ))}

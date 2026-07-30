@@ -11,6 +11,7 @@ import { VariantSelector, type ProductVariant } from "@/components/product/varia
 import { Badge } from "@/components/ui/badge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
+import { useLocale } from "@/components/locale-provider"
 
 interface PurchaseStatusWrapperProps {
   productId: string
@@ -93,6 +94,7 @@ export function PurchaseStatusWrapper({
   pwywMinPriceCents = null,
   pwywSuggestedPriceCents = null,
 }: PurchaseStatusWrapperProps) {
+  const { t, formatPrice } = useLocale()
   const {
     hasPurchased,
     assetId: hookAssetId,
@@ -205,14 +207,6 @@ export function PurchaseStatusWrapper({
     setPwywError(null)
   }, [])
 
-  const formatPrice = (cents: number) => {
-    if (cents === 0) return "Free"
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
-  }
-
   // Format minimum price as hint text like "$10+"
   const formatMinHint = (cents: number): string => {
     if (cents === 0) return "$0+"
@@ -257,7 +251,7 @@ export function PurchaseStatusWrapper({
           }}
         >
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading...
+          {t("checkout.loading")}
         </Button>
       </div>
     )
@@ -281,7 +275,7 @@ export function PurchaseStatusWrapper({
             className="text-lg font-semibold mb-2"
             style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
           >
-            Name a fair price
+            {t("checkout.name_fair_price")}
           </p>
           <div className="relative">
             <span
@@ -316,7 +310,7 @@ export function PurchaseStatusWrapper({
               className="text-sm mt-1"
               style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
             >
-              Pay what you want (including free)
+              {t("checkout.pwyw_including_free")}
             </p>
           )}
         </div>
@@ -330,7 +324,7 @@ export function PurchaseStatusWrapper({
             className="text-2xl sm:text-3xl font-bold"
             style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
           >
-            {currentPrice === 0 ? "Free" : formatPrice(currentPrice)}
+            {currentPrice === 0 ? t("checkout.free") : formatPrice(currentPrice)}
           </div>
           {!!effectiveCompareAtPrice && effectiveCompareAtPrice > currentPrice && (
             <div className="mt-1 flex items-center gap-2">
@@ -341,7 +335,7 @@ export function PurchaseStatusWrapper({
                 {formatPrice(effectiveCompareAtPrice)}
               </span>
               <Badge variant="destructive">
-                {Math.round((1 - currentPrice / effectiveCompareAtPrice) * 100)}% OFF
+                {Math.round((1 - currentPrice / effectiveCompareAtPrice) * 100)}% {t("checkout.off")}
               </Badge>
             </div>
           )}
@@ -363,7 +357,7 @@ export function PurchaseStatusWrapper({
                 }}
               >
                 <DownloadIcon className="mr-2 h-4 w-4" />
-                Download Files ({downloadFiles.length})
+                {t("checkout.download_files")} ({downloadFiles.length})
               </Button>
             ) : (
               <DownloadButton
@@ -376,7 +370,7 @@ export function PurchaseStatusWrapper({
                   color: downloadButtonTextColor || undefined,
                 }}
               >
-                Download File
+                {t("checkout.download_file")}
               </DownloadButton>
             )
           ) : (
@@ -390,7 +384,7 @@ export function PurchaseStatusWrapper({
                 opacity: 0.7,
               }}
             >
-              No files available yet
+              {t("checkout.no_files_yet")}
             </Button>
           )}
           {purchasedExtraContent}
@@ -418,7 +412,7 @@ export function PurchaseStatusWrapper({
         <DownloadFilesSheet
           isOpen={showDownloadFilesModal}
           onClose={() => setShowDownloadFilesModal(false)}
-          title={selectedVariant?.name || "Download files"}
+          title={selectedVariant?.name || t("checkout.download_files")}
           files={downloadFiles}
           downloadingFileId={downloadingFileId}
           onDownload={handleDownloadFile}
@@ -433,7 +427,7 @@ export function PurchaseStatusWrapper({
               className="text-sm font-medium mb-3"
               style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
             >
-              Select option
+              {t("checkout.select_option")}
             </p>
           )}
           <VariantSelector

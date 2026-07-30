@@ -1,6 +1,8 @@
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
+import { selectFeedProducts } from "@/lib/marketplace/product-select"
+import { sanitizeSearchTerm } from "@/lib/search/sanitize-term"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
@@ -40,6 +42,14 @@ export const FEED_OG_IMAGE_ALT = "Storelib - Buy & Sell Second-Hand Fashion"
 
 export type FeedSearchParams = { q?: string; category?: string }
 
+// Only the fields this file reads by name — the rest of the select list is passed
+// straight through to ProductCard, which validates its own props.
+type FeedProductRow = {
+  creator_id: string | null
+  category: string | null
+  [column: string]: unknown
+}
+
 export async function ExploreFeed({
   searchParams,
 }: {
@@ -57,6 +67,11 @@ export async function ExploreFeed({
   const rawCategory = (params?.category || "all").toLowerCase()
   const category = VALID_CATEGORY_IDS.includes(rawCategory) ? rawCategory : "all"
 
+  // `,` `.` `(` `)` `%` are all PostgREST filter grammar, so the raw ?q= cannot be
+  // interpolated into .or() below — "nike, size 9" would make the whole filter
+  // unparseable and blank the feed. Same sanitiser as /api/v2/search.
+  const filterQuery = sanitizeSearchTerm(searchQuery)
+
   // Initialize data
   let productsWithCreators: any[] = []
 
@@ -64,25 +79,32 @@ export async function ExploreFeed({
     const supabase = await createClient()
 
     // Fetch published products — apply search filter server-side via ILIKE
-    // to avoid fetching 100 rows when only a few match the query
-    let query = supabase
-      .from("products")
-      .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(100)
+    // to avoid fetching 100 rows when only a few match the query.
+    // selectFeedProducts degrades to the pre-migration column list if the physical
+    // attribute columns are not in the target database yet.
+    const { products, error: productsError } = await selectFeedProducts<FeedProductRow>(
+      (columns) => {
+        let query = supabase
+          .from("products")
+          .select(columns)
+          .eq("status", "published")
+          .order("created_at", { ascending: false })
+          .limit(100)
 
-    if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
-    }
+        if (filterQuery) {
+          query = query.or(`title.ilike.%${filterQuery}%,description.ilike.%${filterQuery}%`)
+        }
 
-    const { data: products, error: productsError } = await query
+        return query
+      },
+      "ExploreFeed",
+    )
 
     if (productsError) {
-      console.error("[ExploreFeed] Products error:", productsError.message)
+      console.error("[ExploreFeed] Products error:", productsError)
     }
 
-    if (products && products.length > 0) {
+    if (products.length > 0) {
       // Get creators for products
       const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
       let productCreators: any[] = []

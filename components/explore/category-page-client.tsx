@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ProductCard } from "./product-card"
 import { Layers, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, ArrowLeft, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { getCategory, getSubcategories, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { getCategory, getSubcategories, normalizeCategoryToId, resolveProductCategoryId } from "@/lib/marketplace/categories"
 
 const PRICE_FILTERS = [
   { id: "all", label: "All Prices" },
@@ -555,9 +555,11 @@ export function CategoryPageClient({
   const filteredProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Category filtering
+    // Category filtering. resolveProductCategoryId (not normalizeCategoryToId) so a
+    // listing still carrying a pre-pivot category lands in a real bucket rather than
+    // matching nothing and leaving every category page empty.
     products = products.filter(p => {
-      const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+      const normalizedCategory = resolveProductCategoryId(p.category || p.categoryName)
       if (normalizedCategory === category) return true
       const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
       if (creatorTags.includes(category)) return true

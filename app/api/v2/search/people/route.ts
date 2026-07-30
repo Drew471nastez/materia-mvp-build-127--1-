@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sanitizeSearchTerm } from "@/lib/search/sanitize-term"
 
 /**
  * GET /api/v2/search/people?q=term&limit=8
@@ -38,6 +39,13 @@ const DEFAULT_LIMIT = 8
 /** Longer than this is a paste, not a search. */
 const MAX_QUERY_LENGTH = 100
 
+/**
+ * Shorter than this and the trigram scan is a directory dump, not a search.
+ * Mirrors MIN_PEOPLE_QUERY_LENGTH in components/explore/explore-page-client.tsx —
+ * that one saves a round-trip, this one is the actual guarantee.
+ */
+const MIN_QUERY_LENGTH = 2
+
 /** Over-fetch so the JS ranking has something to choose between. */
 const MAX_CANDIDATES = 60
 
@@ -70,25 +78,6 @@ interface PersonResult {
   products_count: number
   profile: ProfileEmbed
   rank: number
-}
-
-/**
- * Strip characters that are grammar in a PostgREST filter (`,` `.` `(` `)` `:`
- * `"` `*`) or wildcards in a LIKE pattern (`%`, and the `\` escape). Replaced
- * with a space rather than removed so "st. john" still matches "St. John".
- *
- * `_` is deliberately kept: it is a single-character LIKE wildcard, so it can
- * only ever widen the match (usernames legitimately contain it) and carries no
- * injection risk. Values are URL-encoded by supabase-js and parameterised by
- * PostgREST — this is defence against a broken filter, not against SQL.
- */
-function sanitizeTerm(raw: string): string {
-  return raw
-    .slice(0, MAX_QUERY_LENGTH)
-    .replace(/[%\\]/g, " ")
-    .replace(/[,().:"*]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
 }
 
 /** Embedded to-one relations arrive as an object, but tolerate an array too. */
@@ -139,10 +128,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing search query" }, { status: 400 })
   }
 
-  const term = sanitizeTerm(query)
+  // A leading "@" is how people write a handle; scorePerson() is built around exact
+  // handle matching, so "@nastees" must search for "nastees" rather than matching nothing.
+  const term = sanitizeSearchTerm(query.replace(/^@+/, ""), MAX_QUERY_LENGTH)
 
   // Everything the user typed was punctuation — nothing to match on.
-  if (!term) {
+  // The minimum length is enforced here and not only in the client (see
+  // MIN_PEOPLE_QUERY_LENGTH in components/explore/explore-page-client.tsx): a
+  // single-character `ilike '%a%'` scans the whole seller directory, and iterating
+  // a..z would otherwise enumerate it 24 rows at a time.
+  if (term.length < MIN_QUERY_LENGTH) {
     return NextResponse.json({ people: [], total: 0, query })
   }
 

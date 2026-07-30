@@ -20,6 +20,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Download, Loader2, X, FileText } from "lucide-react"
+import { useLocale } from "@/components/locale-provider"
 
 export interface DownloadFileEntry {
   id: string
@@ -41,6 +42,7 @@ export function DownloadFilesSheet({
   downloadingFileId: string | null
   onDownload: (id: string) => void
 }) {
+  const { t } = useLocale()
   const [animateIn, setAnimateIn] = useState(false)
   const [mounted, setMounted] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -149,7 +151,7 @@ export function DownloadFilesSheet({
               paddingRight: 12,
             }}
           >
-            {file.file_name || "File"}
+            {file.file_name || t("checkout.file")}
           </span>
           {/* Download indicator */}
           <div
@@ -210,7 +212,7 @@ export function DownloadFilesSheet({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Download files"
+          aria-label={t("checkout.download_files")}
           onClick={(e) => e.stopPropagation()}
           style={{
             position: "relative",
@@ -272,14 +274,14 @@ export function DownloadFilesSheet({
                   {title}
                 </h2>
                 <p style={{ margin: 0, marginTop: 2, fontSize: 13, color: "#71717a" }}>
-                  {files.length} file{files.length !== 1 ? "s" : ""} — click any to download
+                  {files.length} {files.length !== 1 ? t("checkout.files_word") : t("checkout.file_word")} — {t("checkout.click_any_to_download")}
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t("checkout.close")}
               style={{
                 display: "flex",
                 alignItems: "center",

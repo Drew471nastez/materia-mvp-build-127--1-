@@ -19,173 +19,48 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, ArrowRight, User as UserIcon, Compass } from "lucide-react"
+import { CATEGORIES } from "@/lib/marketplace/categories"
 import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
-// Desktop category bar with icons
-const DEFAULT_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid, badge: null },
-  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
-  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
-  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
-  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
-  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
-]
+// Header category surfaces, all derived from the single marketplace taxonomy in
+// lib/marketplace/categories.ts. Deriving rather than re-declaring is the point: the
+// pre-pivot copy of this list advertised "Notion Templates" / "AI Prompts" and linked to
+// /explore?category=design, which app/(marketing)/_explore-feed.tsx rejects as an invalid
+// ID and silently downgrades to the unfiltered feed.
+//
+// Two link shapes, on purpose:
+//   the pill rows go through onCategoryClick() → /explore?category=<id>, the feed's own
+//     client-side filter, so tapping a pill keeps the feed, its sort and its filter sheet
+//     on screen instead of navigating away;
+//   `pageHref` → /explore/<id>, the indexable per-category page, used by the megamenu and
+//     the search-modal chips where the user asked to *go* to a category.
+// Both forms are read back by activeCategoryId below, so the active pill stays correct
+// whichever route the user arrived on.
+const HEADER_CATEGORIES = CATEGORIES.map((category) => ({
+  id: category.id,
+  label: category.label,
+  icon: category.icon,
+  pageHref: category.id === "all" ? "/explore" : `/explore/${category.id}`,
+  subcategories: category.subcategories.map((sub) => ({
+    label: sub.label,
+    // /explore/[category] reads ?sub= (see components/explore/category-page-client.tsx)
+    href: `/explore/${category.id}?sub=${sub.id}`,
+  })),
+}))
 
-// Mobile category pills - 6 categories as pill buttons with icons
-const MOBILE_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid, badge: null },
-  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
-  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
-  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
-  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
-  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
-]
+// Categories with subcategories for the dropdown. "All" is excluded: it has no
+// subcategories and no /explore/all page — that is the feed itself.
+const CATEGORIES_WITH_SUBS = HEADER_CATEGORIES.filter((category) => category.id !== "all")
 
-// Categories with subcategories for the dropdown
-const CATEGORIES_WITH_SUBS = [
-  {
-    label: "Design",
-    href: "/explore?category=design",
-    icon: Sparkles,
-    subcategories: [
-      { label: "UI/UX Templates", href: "/explore?category=design&sub=ui-ux" },
-      { label: "Graphics & Illustrations", href: "/explore?category=design&sub=graphics" },
-      { label: "Fonts & Typography", href: "/explore?category=design&sub=fonts" },
-      { label: "Icons & Elements", href: "/explore?category=design&sub=icons" },
-      { label: "Mockups", href: "/explore?category=design&sub=mockups" },
-    ]
-  },
-  {
-    label: "Development",
-    href: "/explore?category=development",
-    icon: Code,
-    subcategories: [
-      { label: "Web Templates", href: "/explore?category=development&sub=web" },
-      { label: "Mobile Apps", href: "/explore?category=development&sub=mobile" },
-      { label: "Scripts & Plugins", href: "/explore?category=development&sub=scripts" },
-      { label: "APIs & Tools", href: "/explore?category=development&sub=apis" },
-      { label: "Code Snippets", href: "/explore?category=development&sub=snippets" },
-    ]
-  },
-  {
-    label: "Marketing",
-    href: "/explore?category=marketing",
-    icon: Megaphone,
-    subcategories: [
-      { label: "Email Templates", href: "/explore?category=marketing&sub=email" },
-      { label: "Ad Creatives", href: "/explore?category=marketing&sub=ads" },
-      { label: "Landing Pages", href: "/explore?category=marketing&sub=landing" },
-      { label: "SEO Tools", href: "/explore?category=marketing&sub=seo" },
-    ]
-  },
-  {
-    label: "Business",
-    href: "/explore?category=business",
-    icon: Briefcase,
-    subcategories: [
-      { label: "Spreadsheets", href: "/explore?category=business&sub=spreadsheets" },
-      { label: "Presentations", href: "/explore?category=business&sub=presentations" },
-      { label: "Documents & Contracts", href: "/explore?category=business&sub=documents" },
-      { label: "Finance Tools", href: "/explore?category=business&sub=finance" },
-    ]
-  },
-  {
-    label: "AI",
-    href: "/explore?category=ai",
-    icon: Bot,
-    isHot: true,
-    subcategories: [
-      { label: "AI Prompts", href: "/explore?category=ai&sub=prompts" },
-      { label: "ChatGPT Templates", href: "/explore?category=ai&sub=chatgpt" },
-      { label: "AI Art Prompts", href: "/explore?category=ai&sub=art-prompts" },
-      { label: "Automation Tools", href: "/explore?category=ai&sub=automation" },
-      { label: "AI Workflows", href: "/explore?category=ai&sub=workflows" },
-    ]
-  },
-  {
-    label: "Social Media",
-    href: "/explore?category=social-media",
-    icon: Share2,
-    subcategories: [
-      { label: "Instagram Templates", href: "/explore?category=social-media&sub=instagram" },
-      { label: "TikTok Content", href: "/explore?category=social-media&sub=tiktok" },
-      { label: "YouTube Assets", href: "/explore?category=social-media&sub=youtube" },
-      { label: "Social Media Kits", href: "/explore?category=social-media&sub=kits" },
-    ]
-  },
-  {
-    label: "Music & Audio",
-    href: "/explore?category=music",
-    icon: Music,
-    subcategories: [
-      { label: "Sound Effects", href: "/explore?category=music&sub=sfx" },
-      { label: "Music Loops", href: "/explore?category=music&sub=loops" },
-      { label: "Podcast Templates", href: "/explore?category=music&sub=podcast" },
-    ]
-  },
-  {
-    label: "Photography",
-    href: "/explore?category=photography",
-    icon: Camera,
-    subcategories: [
-      { label: "Presets & Filters", href: "/explore?category=photography&sub=presets" },
-      { label: "Stock Photos", href: "/explore?category=photography&sub=stock" },
-      { label: "Overlays & Textures", href: "/explore?category=photography&sub=overlays" },
-    ]
-  },
-  {
-    label: "Video & Film",
-    href: "/explore?category=video",
-    icon: Video,
-    subcategories: [
-      { label: "Video Templates", href: "/explore?category=video&sub=templates" },
-      { label: "Motion Graphics", href: "/explore?category=video&sub=motion" },
-      { label: "LUTs & Color Grades", href: "/explore?category=video&sub=luts" },
-    ]
-  },
-  {
-    label: "Productivity",
-    href: "/explore?category=productivity",
-    icon: Zap,
-    subcategories: [
-      { label: "Notion Templates", href: "/explore?category=productivity&sub=notion" },
-      { label: "Calendars & Planners", href: "/explore?category=productivity&sub=planners" },
-      { label: "Checklists", href: "/explore?category=productivity&sub=checklists" },
-    ]
-  },
-  {
-    label: "E-commerce",
-    href: "/explore?category=ecommerce",
-    icon: ShoppingBag,
-    subcategories: [
-      { label: "Shopify Themes", href: "/explore?category=ecommerce&sub=shopify" },
-      { label: "Product Mockups", href: "/explore?category=ecommerce&sub=mockups" },
-      { label: "Store Templates", href: "/explore?category=ecommerce&sub=stores" },
-    ]
-  },
-  {
-    label: "Education",
-    href: "/explore?category=education",
-    icon: Lightbulb,
-    subcategories: [
-      { label: "Online Courses", href: "/explore?category=education&sub=courses" },
-      { label: "Ebooks & Guides", href: "/explore?category=education&sub=ebooks" },
-      { label: "Worksheets", href: "/explore?category=education&sub=worksheets" },
-    ]
-  },
-]
-
-// Simple search categories for search modal
-const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
+// Simple search categories for the search modal chips
+const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.map(cat => ({
   label: cat.label,
-  href: cat.href,
-  icon: cat.icon,
-  isHot: cat.isHot,
+  href: cat.pageHref,
 }))
 
 // Product type for search results
@@ -1093,12 +968,12 @@ export function PlatformHeaderClient() {
 
                 {/* Center - Nav Links (show for all users) */}
                 <nav className="flex items-center gap-2">
+                  {/* Pricing and FAQ are not listed: next.config.mjs 307s both to "/", so on
+                      the homepage they were links that reloaded the page you were already on. */}
                   {[
                     { href: "/", label: "Home", active: pathname === '/' },
                     { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
                     { href: "/blog", label: "Blog", active: isBlogRoute },
-                    { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
-                    { href: "/faq", label: "FAQ", active: isFaqRoute },
                   ].map((item) => (
                     <Link
                       key={item.href}
@@ -1251,15 +1126,9 @@ export function PlatformHeaderClient() {
                         <div className="flex items-center gap-3 px-3 py-2 mb-2">
                           <selectedCategoryData.icon className="h-5 w-5 text-violet-500" />
                           <span className="text-base font-semibold text-gray-900">{selectedCategoryData.label}</span>
-                          {selectedCategoryData.isHot && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                              <Flame className="h-3 w-3" />
-                              Hot
-                            </span>
-                          )}
                         </div>
                         <Link
-                          href={getCanonicalOrRelativePath(selectedCategoryData.href + '&scroll=recommended')}
+                          href={getCanonicalOrRelativePath(selectedCategoryData.pageHref)}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
@@ -1270,7 +1139,7 @@ export function PlatformHeaderClient() {
                           {selectedCategoryData.subcategories.map((sub) => (
                             <Link
                               key={sub.label}
-                              href={getCanonicalOrRelativePath(sub.href + '&scroll=recommended')}
+                              href={getCanonicalOrRelativePath(sub.href)}
                               onClick={() => setCategoriesDropdownOpen(false)}
                               className="block px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
                             >
@@ -1295,7 +1164,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    navigateToExploreCategory(cat.href + '&scroll=recommended')
+                                    navigateToExploreCategory(cat.pageHref)
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1304,12 +1173,6 @@ export function PlatformHeaderClient() {
                                 <div className="flex items-center gap-3">
                                   <Icon className="h-4 w-4 text-gray-400" />
                                   <span>{cat.label}</span>
-                                  {cat.isHot && (
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                                      <Flame className="h-3 w-3" />
-                                      Hot
-                                    </span>
-                                  )}
                                 </div>
                                 {hasSubcats && (
                                   <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -1368,9 +1231,9 @@ export function PlatformHeaderClient() {
                         {SEARCH_CATEGORIES.map((cat) => (
                           <Link
                             key={cat.label}
-                            href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
+                            href={getCanonicalOrRelativePath(cat.href)}
                             onClick={(e) => {
-                              onCanonicalNav(e, cat.href + '&scroll=recommended')
+                              onCanonicalNav(e, cat.href)
                               setSearchModalOpen(false)
                             }}
                             className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
@@ -1743,7 +1606,7 @@ export function PlatformHeaderClient() {
                       key={cat.label}
                       type="button"
                       onClick={() => {
-                        navigateToExploreCategory(cat.href + '&scroll=recommended')
+                        navigateToExploreCategory(cat.href)
                         setSearchModalOpen(false)
                       }}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
@@ -1996,17 +1859,11 @@ export function PlatformHeaderClient() {
                     <div className="flex items-center gap-3 px-2 py-2 mb-3">
                       <Icon className="h-5 w-5 text-violet-500" />
                       <span className="text-base font-semibold text-gray-900">{cat.label}</span>
-                      {cat.isHot && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                          <Flame className="h-3 w-3" />
-                          Hot
-                        </span>
-                      )}
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        navigateToExploreCategory(cat.href + '&scroll=recommended')
+                        navigateToExploreCategory(cat.pageHref)
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
                       }}
@@ -2021,7 +1878,7 @@ export function PlatformHeaderClient() {
                           key={sub.label}
                           type="button"
                           onClick={() => {
-                            navigateToExploreCategory(sub.href + '&scroll=recommended')
+                            navigateToExploreCategory(sub.href)
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
@@ -2049,7 +1906,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      navigateToExploreCategory(cat.href + '&scroll=recommended')
+                      navigateToExploreCategory(cat.pageHref)
                       setMobileMenuOpen(false)
                     }
                   }
@@ -2064,12 +1921,6 @@ export function PlatformHeaderClient() {
                       <div className="flex items-center gap-3 pointer-events-none">
                         <Icon className="h-5 w-5 text-gray-400" />
                         <span>{cat.label}</span>
-                        {cat.isHot && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                            <Flame className="h-3 w-3" />
-                            Hot
-                          </span>
-                        )}
                       </div>
                       <ChevronRight className="h-5 w-5 text-gray-400 pointer-events-none" />
                     </button>
@@ -2237,7 +2088,7 @@ export function PlatformHeaderClient() {
             {showCategories && (
               <div className="md:hidden px-0 pt-1 pb-2 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-2 whitespace-nowrap">
-                  {MOBILE_CATEGORIES.map((cat) => {
+                  {HEADER_CATEGORIES.map((cat) => {
                     const Icon = cat.icon
                     const isActive = activeCategoryId === cat.id
                     return (
@@ -2253,11 +2104,6 @@ export function PlatformHeaderClient() {
                       >
                         <Icon className="w-3.5 h-3.5" />
                         {cat.label}
-                        {cat.badge && (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
-                            {cat.badge}
-                          </span>
-                        )}
                       </button>
                     )
                   })}
@@ -2270,7 +2116,7 @@ export function PlatformHeaderClient() {
               <nav className="hidden md:block">
                 <div className="overflow-x-auto scrollbar-hide">
                   <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-6">
-                    {DEFAULT_CATEGORIES.map((cat) => {
+                    {HEADER_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
                       const isActive = activeCategoryId === cat.id
@@ -2287,11 +2133,6 @@ export function PlatformHeaderClient() {
                         >
                           {isAll && <Icon className="w-[18px] h-[18px]" />}
                           {cat.label}
-                          {cat.badge && (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
-                              {cat.badge}
-                            </span>
-                          )}
                         </button>
                       )
                     })}

@@ -14,11 +14,13 @@ import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
+import { useLocale } from "@/components/locale-provider"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 
 function SignUpFormContent() {
+  const { t } = useLocale()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [agreeToTerms, setAgreeToTerms] = useState(false)
@@ -141,7 +143,7 @@ function SignUpFormContent() {
 
     if (!showPasswordField) {
       if (!email.trim()) {
-        setError("Please enter your email")
+        setError(t("auth.enter_email"))
         return
       }
 
@@ -150,11 +152,11 @@ function SignUpFormContent() {
         const origin = await lookupAccountOrigin(email)
         if (origin?.exists && origin?.googleOnly) {
           setGoogleOnlyEmail(email.trim().toLowerCase())
-          setError("This email already exists via Google. Continue with Google instead.")
+          setError(t("auth.email_exists_google"))
           return
         }
         if (origin?.exists && origin?.passwordEnabled) {
-          setError("An account with this email already exists. Please log in.")
+          setError(t("auth.account_exists_login"))
           return
         }
       } catch {}
@@ -176,7 +178,7 @@ function SignUpFormContent() {
     const trimmedPassword = password
 
     if (trimmedPassword.length < 6) {
-      setError("Password must be at least 6 characters")
+      setError(t("auth.password_min_6"))
       setIsLoading(false)
       return
     }
@@ -246,7 +248,7 @@ function SignUpFormContent() {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "An error occurred"
       if (msg.toLowerCase().includes("already registered")) {
-        setError("This email is already registered. Please log in or continue with Google.")
+        setError(t("auth.email_registered"))
       } else {
         setError(msg)
       }
@@ -314,7 +316,7 @@ function SignUpFormContent() {
       window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
       return
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Failed to sign in with Google")
+      setError(error instanceof Error ? error.message : t("auth.google_signin_failed"))
       ;(window as any).__oauthStarting = false
       setIsGoogleLoading(false)
       setIsGoogleRedirecting(false)
@@ -366,7 +368,7 @@ function SignUpFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__appleOAuthStarting = false
           setIsAppleLoading(false)
-          setError("Sign in timed out. Please try again.")
+          setError(t("auth.signin_timeout"))
         }, 20_000)
 
         try {
@@ -391,7 +393,7 @@ function SignUpFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Apple")
+      setError(err instanceof Error ? err.message : t("auth.apple_signin_failed"))
     }
     ;(window as any).__appleOAuthStarting = false
     setIsAppleLoading(false)
@@ -400,7 +402,7 @@ function SignUpFormContent() {
 
   // Block rendering while auth state is resolving or redirect is in progress.
   if (authGateLoading || nativeAuthInProgress) {
-    return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
+    return <AuthResolvingScreen message={nativeAuthInProgress ? t("auth.signing_in") : undefined} />
   }
 
   if (isRedirecting || isGoogleRedirecting || isAppleRedirecting) {
@@ -413,15 +415,15 @@ function SignUpFormContent() {
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
           <AuthLogo />
 
-          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Join Storelib</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">Sign up for free!</p>
+          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.join_storelib")}</h1>
+          <p className="mb-8 text-[15px] text-neutral-500">{t("auth.signup_free")}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               <Input
                 id="email"
                 type="email"
-                placeholder="Email"
+                placeholder={t("auth.email_placeholder")}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -436,7 +438,7 @@ function SignUpFormContent() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password (min 6 characters)"
+                    placeholder={t("auth.password_placeholder_min6")}
                     required
                     minLength={6}
                     value={password}
@@ -464,7 +466,7 @@ function SignUpFormContent() {
                 className="mt-0.5 h-4 w-4 rounded border-neutral-300"
               />
               <label htmlFor="terms" className="text-[13px] text-neutral-600 leading-tight cursor-pointer">
-                I agree to receive offers, news and updates from Storelib.
+                {t("auth.agree_offers")}
               </label>
             </div>
 
@@ -472,7 +474,7 @@ function SignUpFormContent() {
 
             {googleOnlyEmail && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-                <p className="text-xs text-blue-800">This email is linked to Google sign-in: <span className="font-medium">{googleOnlyEmail}</span>.</p>
+                <p className="text-xs text-blue-800">{t("auth.email_linked_google")} <span className="font-medium">{googleOnlyEmail}</span>.</p>
               </div>
             )}
 
@@ -485,25 +487,25 @@ function SignUpFormContent() {
                 color: "#fff",
               }}
             >
-              {isLoading ? "Creating account..." : isContinueLoading ? "Checking..." : "Continue"}
+              {isLoading ? t("auth.creating_account") : isContinueLoading ? t("auth.checking") : t("auth.continue")}
             </Button>
           </form>
 
           <p className="mt-4 text-[12px] text-neutral-500 leading-relaxed">
-            By clicking <strong>Create account</strong>, you agree to Storelib&apos;s{" "}
+            {t("auth.terms_by_clicking")} <strong>{t("auth.terms_create_account")}</strong>{t("auth.terms_agree_storelib")}{" "}
             <Link href="/legal/privacy" className="underline underline-offset-2 hover:text-neutral-700">
-              privacy notice
+              {t("auth.privacy_notice")}
             </Link>
             ,{" "}
             <Link href="/legal/terms" className="underline underline-offset-2 hover:text-neutral-700">
-              T&Cs
+              {t("auth.tcs")}
             </Link>{" "}
-            and to receive offers, news and updates.
+            {t("auth.terms_suffix")}
           </p>
 
           <div className="my-6 flex items-center gap-4">
             <div className="h-px flex-1 bg-neutral-200" />
-            <span className="text-[13px] font-medium text-neutral-400">OR</span>
+            <span className="text-[13px] font-medium text-neutral-400">{t("auth.or")}</span>
             <div className="h-px flex-1 bg-neutral-200" />
           </div>
 
@@ -537,7 +539,7 @@ function SignUpFormContent() {
                   />
                 </svg>
               )}
-              {isGoogleLoading ? "Connecting..." : "Continue with Google"}
+              {isGoogleLoading ? t("auth.connecting") : t("auth.continue_google")}
             </Button>
             <AppleSignInButton
               onClick={handleAppleSignIn}
@@ -547,9 +549,9 @@ function SignUpFormContent() {
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
-            Already have an account?{" "}
+            {t("auth.have_account")}{" "}
             <Link href="/login" className="font-medium text-purple-600 hover:text-purple-700">
-              Log in
+              {t("auth.log_in")}
             </Link>
           </p>
         </div>

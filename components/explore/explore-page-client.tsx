@@ -19,12 +19,13 @@ import {
   getCategory,
   getSubcategories,
   normalizeCategoryToId,
+  resolveProductCategoryId,
   type Category,
   type Subcategory,
 } from "@/lib/marketplace/categories"
 import { useRecentSearches, type RecentSearch } from "@/lib/hooks/use-recent-searches"
 import { useRecentlyViewed, type RecentlyViewedProduct } from "@/lib/hooks/use-recently-viewed"
-import { getProductInternalPath, getStoreUrl } from "@/lib/url-helpers"
+import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
 import { Layers, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, ChevronDown, ArrowRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
@@ -693,12 +694,6 @@ function SearchInput({
     }, 150)
   }, [cancelDeferredClose])
 
-  // Seller stores live on a subdomain, so only internal paths can be pushed
-  const navigate = useCallback((href: string) => {
-    if (href.startsWith("/")) router.push(href)
-    else window.location.href = href
-  }, [router])
-
   const dismiss = useCallback(() => {
     closeSuggestions()
     inputRef.current?.blur()
@@ -729,8 +724,11 @@ function SearchInput({
     const username = person.profile?.username
     if (!username) return
     dismiss()
-    navigate(getStoreUrl(username))
-  }, [dismiss, navigate])
+    // /u/<username>, never the https://<username>.storelib.com form: a full-page
+    // navigation to a seller subdomain root is intercepted by proxy.ts in the Capacitor
+    // WebView and bounced to /native-start, ejecting the user out of their search.
+    router.push(getStoreInternalPath(username))
+  }, [dismiss, router])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
@@ -923,8 +921,10 @@ export function ExplorePageClient({
     // Every category except "all": strictly filter by normalized DB category
     if (mainCategory !== "all") {
       products = products.filter(p => {
-        // Primary: match via normalized DB category field
-        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+        // Primary: match via the product's resolved category. resolveProductCategoryId
+        // (not normalizeCategoryToId) so a listing still carrying a pre-pivot category
+        // lands in a real bucket instead of matching nothing.
+        const normalizedCategory = resolveProductCategoryId(p.category || p.categoryName)
         if (normalizedCategory === mainCategory) return true
 
         // Secondary: match via creator niche tags
@@ -1082,7 +1082,7 @@ export function ExplorePageClient({
 
     if (browseCategory !== "all") {
       products = products.filter(p => {
-        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+        const normalizedCategory = resolveProductCategoryId(p.category || p.categoryName)
         if (normalizedCategory === browseCategory) return true
         const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
         if (creatorTags.includes(browseCategory)) return true
@@ -1749,12 +1749,12 @@ export function ExplorePageClient({
         {/* Products Grid - 2 rows on desktop */}
         {browseSectionProducts.length > 0 ? (
           <div className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
-            {browseSectionProducts.map((product, index) => (
+            {/* No `priority` — this grid is below the recommended grid, which owns the LCP */}
+            {browseSectionProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 srcParam="?src=platform"
-                priority={index < 4}
                 clientNav
               />
             ))}
@@ -1787,12 +1787,11 @@ export function ExplorePageClient({
           </h2>
           {recommendedProducts.length > 0 ? (
             <div className="grid gap-x-3 gap-y-6 sm:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
-              {recommendedProducts.slice(0, 16).map((product, index) => (
+              {recommendedProducts.slice(0, 16).map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   srcParam="?src=platform"
-                  priority={index < 4}
                   clientNav
                 />
               ))}

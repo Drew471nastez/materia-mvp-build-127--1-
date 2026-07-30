@@ -68,6 +68,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getProductUrl } from "@/lib/url-helpers"
+import { useLocale } from "@/components/locale-provider"
 import {
   ArrowLeft,
   Package,
@@ -128,9 +129,6 @@ function sanitizeInput(value: string): string {
 function validateEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
-
-const formatPrice = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 
 // Session storage keys
 const SESSION_KEYS = {
@@ -281,6 +279,7 @@ function CountrySelector({
   value: string
   onChange: (code: string) => void
 }) {
+  const { t } = useLocale()
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [dragY, setDragY] = useState(0)
@@ -345,7 +344,7 @@ function CountrySelector({
         <span className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-gray-400" />
           <span className={selectedCountry ? "text-gray-900" : "text-gray-400"}>
-            {selectedCountry ? selectedCountry.name : "Select country"}
+            {selectedCountry ? selectedCountry.name : t("checkout.select_country")}
           </span>
         </span>
         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
@@ -359,7 +358,7 @@ function CountrySelector({
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder={t("checkout.search")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full h-9 pl-8 pr-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-gray-400"
@@ -383,7 +382,7 @@ function CountrySelector({
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-4">No countries found</p>
+              <p className="text-sm text-gray-400 text-center py-4">{t("checkout.no_countries_found")}</p>
             )}
           </div>
         </div>
@@ -409,12 +408,12 @@ function CountrySelector({
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
             <div className="px-4 pb-3">
-              <h3 className="text-base font-semibold text-gray-900 mb-3">Select country</h3>
+              <h3 className="text-base font-semibold text-gray-900 mb-3">{t("checkout.select_country")}</h3>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search countries..."
+                  placeholder={t("checkout.search_countries")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400/20"
@@ -438,7 +437,7 @@ function CountrySelector({
                 </button>
               ))}
               {filtered.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-6">No countries found</p>
+                <p className="text-sm text-gray-400 text-center py-6">{t("checkout.no_countries_found")}</p>
               )}
             </div>
           </div>
@@ -458,6 +457,7 @@ function OrderSummaryMobileToggle({
   onToggle: () => void
   total: number
 }) {
+  const { t, formatPrice } = useLocale()
   return (
     <button
       onClick={onToggle}
@@ -466,7 +466,7 @@ function OrderSummaryMobileToggle({
     >
       <span className="flex items-center gap-2">
         <Package className="w-4 h-4 text-gray-500" />
-        {isOpen ? "Hide" : "Show"} order summary
+        {isOpen ? t("checkout.hide_order_summary") : t("checkout.show_order_summary")}
       </span>
       <span className="flex items-center gap-2">
         <span className="font-semibold">{formatPrice(total)}</span>
@@ -520,6 +520,7 @@ function NativeCardForm({
   emailContent?: React.ReactNode
   contactContent?: React.ReactNode
 }) {
+  const { t, formatPrice } = useLocale()
   // Format card number: groups of 4 separated by spaces
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, "").slice(0, 16)
@@ -542,7 +543,7 @@ function NativeCardForm({
       {/* Express Checkout */}
       {!isFree && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">{t("checkout.express_checkout")}</p>
           <div className="grid grid-cols-2 gap-3">
             {/* Google Pay */}
             <div className="relative group">
@@ -550,7 +551,7 @@ function NativeCardForm({
                 <GooglePayIcon className="h-[22px] w-auto" />
               </button>
               <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
-                <span className="text-xs text-white font-medium">Not available now</span>
+                <span className="text-xs text-white font-medium">{t("checkout.not_available_now")}</span>
               </div>
             </div>
             {/* PayPal */}
@@ -559,7 +560,7 @@ function NativeCardForm({
                 <PayPalIcon className="h-[35px] w-auto" />
               </button>
               <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
-                <span className="text-xs text-white font-medium">Not available now</span>
+                <span className="text-xs text-white font-medium">{t("checkout.not_available_now")}</span>
               </div>
             </div>
           </div>
@@ -574,7 +575,7 @@ function NativeCardForm({
       {!isFree && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-gray-600">Card number</Label>
+            <Label className="text-xs font-medium text-gray-600">{t("checkout.card_number")}</Label>
             <Input
               type="tel"
               inputMode="numeric"
@@ -587,7 +588,7 @@ function NativeCardForm({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-gray-600">Expiry (MM/YY)</Label>
+              <Label className="text-xs font-medium text-gray-600">{t("checkout.expiry_mmyy")}</Label>
               <Input
                 type="tel"
                 inputMode="numeric"
@@ -600,7 +601,7 @@ function NativeCardForm({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-gray-600">CVC</Label>
+              <Label className="text-xs font-medium text-gray-600">{t("checkout.cvc")}</Label>
               <Input
                 type="tel"
                 inputMode="numeric"
@@ -614,9 +615,9 @@ function NativeCardForm({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+            <Label className="text-xs font-medium text-gray-600">{t("checkout.name_on_card")}</Label>
             <Input
-              placeholder="John Doe"
+              placeholder={t("checkout.name_on_card_placeholder")}
               autoComplete="cc-name"
               value={nameOnCard}
               onChange={(e) => setNameOnCard(e.target.value)}
@@ -647,9 +648,9 @@ function NativeCardForm({
             className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
           />
           <Label htmlFor="terms-native" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-            I agree to the{" "}
+            {t("checkout.i_agree_to")}{" "}
             <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-              Terms and Conditions
+              {t("checkout.terms_and_conditions")}
             </Link>{" "}
             *
           </Label>
@@ -664,26 +665,26 @@ function NativeCardForm({
         className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
       >
         {isSubmitting ? (
-          <><Loader2 className="h-5 w-5 animate-spin" />Processing...</>
+          <><Loader2 className="h-5 w-5 animate-spin" />{t("checkout.processing")}</>
         ) : isFree ? (
-          <>Get for Free <span className="ml-1">&rarr;</span></>
+          <>{t("checkout.get_for_free")} <span className="ml-1">&rarr;</span></>
         ) : (
-          <>Pay {formatPrice(total)}</>
+          <>{t("checkout.pay")} {formatPrice(total)}</>
         )}
       </button>
 
       {/* Secured by Stripe */}
       <div className="flex items-center justify-center gap-1.5 pt-2">
         <Shield className="w-3 h-3 text-gray-300" />
-        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+        <span className="text-[11px] text-gray-300 font-medium">{t("checkout.secured_by_stripe")}</span>
       </div>
 
       <div className="flex items-center justify-center gap-3 pt-1">
-        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.terms")}</Link>
         <span className="text-gray-300 text-[8px]">&middot;</span>
-        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.privacy")}</Link>
         <span className="text-gray-300 text-[8px]">&middot;</span>
-        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.refund_policy")}</Link>
       </div>
     </div>
   )
@@ -725,6 +726,7 @@ function StripeCardForm({
   emailContent?: React.ReactNode
   contactContent?: React.ReactNode
 }) {
+  const { t, formatPrice } = useLocale()
   const stripe = useStripe()
   const elements = useElements()
   const [cardComplete, setCardComplete] = useState({
@@ -803,15 +805,15 @@ function StripeCardForm({
 
   const handleSubmit = () => {
     if (!stripe || !elements) {
-      setError("Payment system is loading. Please wait.")
+      setError(t("checkout.err_payment_loading"))
       return
     }
     if (!agreedToTerms) {
-      setError("Please agree to the Terms and Conditions")
+      setError(t("checkout.err_agree_terms"))
       return
     }
     if (!isContactValid) {
-      setError("Please fill in your contact information")
+      setError(t("checkout.err_fill_contact"))
       return
     }
     onSubmit(stripe, elements)
@@ -819,7 +821,7 @@ function StripeCardForm({
 
   const handleGooglePayClick = () => {
     if (!paymentRequestRef.current) {
-      setError("Google Pay is not available. Please use card payment instead.")
+      setError(t("checkout.err_googlepay_unavailable"))
       return
     }
     setError(null)
@@ -831,7 +833,7 @@ function StripeCardForm({
       {/* Express Checkout */}
       {!isFree && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">{t("checkout.express_checkout")}</p>
           <div className="grid grid-cols-2 gap-3">
             {/* Google Pay - Black button with white logo */}
             <button
@@ -852,7 +854,7 @@ function StripeCardForm({
                 <PayPalIcon className="h-[35px] w-auto" />
               </button>
               <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
-                <span className="text-xs text-white font-medium">Not available now</span>
+                <span className="text-xs text-white font-medium">{t("checkout.not_available_now")}</span>
               </div>
             </div>
           </div>
@@ -869,7 +871,7 @@ function StripeCardForm({
       {!isFree && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-gray-600">Card number</Label>
+            <Label className="text-xs font-medium text-gray-600">{t("checkout.card_number")}</Label>
             <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
               <CardNumberElement
                 options={{ ...CARD_ELEMENT_OPTIONS, showIcon: true }}
@@ -880,7 +882,7 @@ function StripeCardForm({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
+              <Label className="text-xs font-medium text-gray-600">{t("checkout.expiration_date")}</Label>
               <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
                 <CardExpiryElement
                   options={CARD_ELEMENT_OPTIONS}
@@ -890,7 +892,7 @@ function StripeCardForm({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-gray-600">Security code</Label>
+              <Label className="text-xs font-medium text-gray-600">{t("checkout.security_code")}</Label>
               <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
                 <CardCvcElement
                   options={CARD_ELEMENT_OPTIONS}
@@ -901,9 +903,9 @@ function StripeCardForm({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+            <Label className="text-xs font-medium text-gray-600">{t("checkout.name_on_card")}</Label>
             <Input
-              placeholder="John Doe"
+              placeholder={t("checkout.name_on_card_placeholder")}
               value={nameOnCard}
               onChange={(e) => setNameOnCard(e.target.value)}
               className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
@@ -933,9 +935,9 @@ function StripeCardForm({
             className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
           />
           <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-            I agree to the{" "}
+            {t("checkout.i_agree_to")}{" "}
             <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-              Terms and Conditions
+              {t("checkout.terms_and_conditions")}
             </Link>{" "}
             *
           </Label>
@@ -952,31 +954,31 @@ function StripeCardForm({
         {isSubmitting ? (
           <>
             <Loader2 className="h-5 w-5 animate-spin" />
-            Processing...
+            {t("checkout.processing")}
           </>
         ) : isFree ? (
           <>
-            Get for Free
+            {t("checkout.get_for_free")}
             <span className="ml-1">&rarr;</span>
           </>
         ) : (
-          <>Pay {formatPrice(total)}</>
+          <>{t("checkout.pay")} {formatPrice(total)}</>
         )}
       </button>
 
       {/* Secured by Stripe */}
       <div className="flex items-center justify-center gap-1.5 pt-2">
         <Shield className="w-3 h-3 text-gray-300" />
-        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+        <span className="text-[11px] text-gray-300 font-medium">{t("checkout.secured_by_stripe")}</span>
       </div>
 
       {/* Policy links */}
       <div className="flex items-center justify-center gap-3 pt-1">
-        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.terms")}</Link>
         <span className="text-gray-300 text-[8px]">&middot;</span>
-        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.privacy")}</Link>
         <span className="text-gray-300 text-[8px]">&middot;</span>
-        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.refund_policy")}</Link>
       </div>
     </div>
   )
@@ -993,6 +995,7 @@ export default function CheckoutPageClient({
   customPriceCents,
   allVariants = [],
 }: CheckoutPageClientProps) {
+  const { t, formatPrice } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -1142,15 +1145,15 @@ export default function CheckoutPageClient({
             const match = data.redirectUrl?.match(/\/receipt\/([^?]+)/)
             router.push(`/checkout/receipt?token=${encodeURIComponent(match?.[1] || '')}`)
           } else {
-            setError(data.error || 'Failed to complete order')
+            setError(data.error || t("checkout.err_complete_order"))
             setIsSubmitting(false)
           }
         } else {
-          setError('Payment authentication failed or was cancelled. Please try again.')
+          setError(t("checkout.err_auth_failed"))
           setIsSubmitting(false)
         }
       } catch {
-        setError('Failed to verify payment. Please contact support.')
+        setError(t("checkout.err_verify_payment"))
         setIsSubmitting(false)
       }
     })
@@ -1172,15 +1175,15 @@ export default function CheckoutPageClient({
   // Handle free checkout
   const handleFreeCheckout = async () => {
     if (!isFormValid) {
-      if (!firstName.trim()) return setError("Please enter your first name")
-      if (!lastName.trim()) return setError("Please enter your last name")
-      if (!validateEmail(email)) return setError("Please enter a valid email address")
-      if (!agreedToTerms) return setError("Please agree to the Terms and Conditions")
+      if (!firstName.trim()) return setError(t("checkout.err_first_name"))
+      if (!lastName.trim()) return setError(t("checkout.err_last_name"))
+      if (!validateEmail(email)) return setError(t("checkout.err_email"))
+      if (!agreedToTerms) return setError(t("checkout.err_agree_terms"))
       return
     }
 
     if (isRateLimited()) {
-      setError("Please wait a moment before trying again")
+      setError(t("checkout.err_rate_limited"))
       return
     }
 
@@ -1212,12 +1215,12 @@ export default function CheckoutPageClient({
       if (!response.ok) {
         const errorDetails = data.details ? ` (${data.details})` : ""
         const errorCode = data.code ? ` [${data.code}]` : ""
-        throw new Error((data.error || "Checkout failed") + errorDetails + errorCode)
+        throw new Error((data.error || t("checkout.err_checkout_failed")) + errorDetails + errorCode)
       }
 
       await completeOrder(data.receiptToken, data.orderId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Checkout failed. Please try again.")
+      setError(err instanceof Error ? err.message : t("checkout.err_checkout_retry"))
     } finally {
       setIsSubmitting(false)
     }
@@ -1251,7 +1254,7 @@ export default function CheckoutPageClient({
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to create payment session")
+      throw new Error(data.error || t("checkout.err_payment_session"))
     }
 
     return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
@@ -1266,21 +1269,21 @@ export default function CheckoutPageClient({
   // 5. After 3DS: existing useEffect on mount handles the return and completes.
   const handleNativePaidCheckout = async () => {
     if (!isFormValid) {
-      if (!firstName.trim()) return setError("Please enter your first name")
-      if (!lastName.trim())  return setError("Please enter your last name")
-      if (!validateEmail(email)) return setError("Please enter a valid email address")
-      if (!agreedToTerms)    return setError("Please agree to the Terms and Conditions")
+      if (!firstName.trim()) return setError(t("checkout.err_first_name"))
+      if (!lastName.trim())  return setError(t("checkout.err_last_name"))
+      if (!validateEmail(email)) return setError(t("checkout.err_email"))
+      if (!agreedToTerms)    return setError(t("checkout.err_agree_terms"))
       return
     }
 
     // Basic native card validation
     const rawCard = nativeCardNumber.replace(/\s/g, "")
-    if (rawCard.length < 13 || rawCard.length > 19) return setError("Please enter a valid card number")
+    if (rawCard.length < 13 || rawCard.length > 19) return setError(t("checkout.err_card_number"))
     const [expMo, expYr] = nativeCardExpiry.split("/")
-    if (!expMo || !expYr || expMo.length !== 2 || expYr.length !== 2) return setError("Please enter a valid expiry date (MM/YY)")
-    if (!nativeCardCvc || nativeCardCvc.length < 3) return setError("Please enter a valid CVC")
+    if (!expMo || !expYr || expMo.length !== 2 || expYr.length !== 2) return setError(t("checkout.err_expiry"))
+    if (!nativeCardCvc || nativeCardCvc.length < 3) return setError(t("checkout.err_cvc"))
 
-    if (isRateLimited()) { setError("Please wait a moment before trying again"); return }
+    if (isRateLimited()) { setError(t("checkout.err_rate_limited")); return }
 
     setIsSubmitting(true)
     setError(null)
@@ -1305,7 +1308,7 @@ export default function CheckoutPageClient({
         body: pmParams.toString(),
       })
       const pmData = await pmRes.json()
-      if (!pmRes.ok) throw new Error(pmData.error?.message || "Card declined. Please check your card details.")
+      if (!pmRes.ok) throw new Error(pmData.error?.message || t("checkout.err_card_declined"))
       const paymentMethodId: string = pmData.id
 
       // Step 2 — create PaymentIntent server-side
@@ -1327,7 +1330,7 @@ export default function CheckoutPageClient({
         body: JSON.stringify({ paymentIntentId: piId, paymentMethodId, returnUrl }),
       })
       const confirmData = await confirmRes.json()
-      if (!confirmRes.ok) throw new Error(confirmData.error || "Payment failed. Please try again.")
+      if (!confirmRes.ok) throw new Error(confirmData.error || t("checkout.err_payment_failed"))
 
       if (confirmData.status === "succeeded") {
         // Step 4 — create order record
@@ -1337,17 +1340,17 @@ export default function CheckoutPageClient({
           body: JSON.stringify({ paymentIntentId: piId }),
         })
         const completeData = await completeRes.json()
-        if (!completeRes.ok) throw new Error(completeData.error || "Failed to complete order")
+        if (!completeRes.ok) throw new Error(completeData.error || t("checkout.err_complete_order"))
         const tokenMatch = completeData.redirectUrl?.match(/\/receipt\/([^?]+)/)
         await completeOrder(tokenMatch?.[1] || "")
       } else if (confirmData.status === "requires_action" && confirmData.actionUrl) {
         // Step 5 — 3DS: stay in WKWebView (hooks.stripe.com is in allowNavigation)
         window.location.href = confirmData.actionUrl
       } else {
-        throw new Error("Payment could not be completed. Please try again.")
+        throw new Error(t("checkout.err_payment_incomplete"))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed. Please try again.")
+      setError(err instanceof Error ? err.message : t("checkout.err_payment_failed"))
     } finally {
       setIsSubmitting(false)
     }
@@ -1356,15 +1359,15 @@ export default function CheckoutPageClient({
   // Handle paid checkout
   const handlePaidCheckout = async (stripe: any, elements: any) => {
     if (!isFormValid) {
-      if (!firstName.trim()) return setError("Please enter your first name")
-      if (!lastName.trim()) return setError("Please enter your last name")
-      if (!validateEmail(email)) return setError("Please enter a valid email address")
-      if (!agreedToTerms) return setError("Please agree to the Terms and Conditions")
+      if (!firstName.trim()) return setError(t("checkout.err_first_name"))
+      if (!lastName.trim()) return setError(t("checkout.err_last_name"))
+      if (!validateEmail(email)) return setError(t("checkout.err_email"))
+      if (!agreedToTerms) return setError(t("checkout.err_agree_terms"))
       return
     }
 
     if (isRateLimited()) {
-      setError("Please wait a moment before trying again")
+      setError(t("checkout.err_rate_limited"))
       return
     }
 
@@ -1386,7 +1389,7 @@ export default function CheckoutPageClient({
 
       const cardElement = elements.getElement(CardNumberElement)
       if (!cardElement) {
-        throw new Error("Card input not ready. Please try again.")
+        throw new Error(t("checkout.err_card_not_ready"))
       }
 
       const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(secret, {
@@ -1404,9 +1407,9 @@ export default function CheckoutPageClient({
 
       if (stripeError) {
         if (stripeError.type === "card_error" || stripeError.type === "validation_error") {
-          setError(stripeError.message || "Your card was declined. Please try another card.")
+          setError(stripeError.message || t("checkout.err_card_declined_retry"))
         } else {
-          setError("An unexpected error occurred. Please try again.")
+          setError(t("checkout.err_unexpected"))
         }
         return
       }
@@ -1424,7 +1427,7 @@ export default function CheckoutPageClient({
         const completeData = await completeResponse.json()
 
         if (!completeResponse.ok) {
-          throw new Error(completeData.error || "Failed to complete order")
+          throw new Error(completeData.error || t("checkout.err_complete_order"))
         }
 
         // Extract receipt token from redirect URL
@@ -1432,10 +1435,10 @@ export default function CheckoutPageClient({
         const token = receiptTokenMatch?.[1] || ""
         await completeOrder(token)
       } else if (confirmedIntent?.status === "requires_action") {
-        setError("Additional authentication required. Please complete the verification.")
+        setError(t("checkout.err_additional_auth"))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process payment")
+      setError(err instanceof Error ? err.message : t("checkout.err_process_payment"))
     } finally {
       setIsSubmitting(false)
     }
@@ -1467,7 +1470,7 @@ export default function CheckoutPageClient({
       })
       const data = await res.json()
       if (!data.ok) {
-        setDiscountError(data.error || "Invalid coupon code")
+        setDiscountError(data.error || t("checkout.err_invalid_coupon"))
         return
       }
       const label = data.discount_type === "percentage"
@@ -1479,7 +1482,7 @@ export default function CheckoutPageClient({
       setDiscountApplied(true)
       setDiscountPercent(data.discount_type === "percentage" ? data.discount_value : 0)
     } catch {
-      setDiscountError("Could not validate coupon. Please try again.")
+      setDiscountError(t("checkout.err_validate_coupon"))
     } finally {
       setIsApplyingDiscount(false)
     }
@@ -1607,7 +1610,7 @@ export default function CheckoutPageClient({
 
       // Confirm with the payment method from Google Pay
       const stripeInstance = await getStripePromise()
-      if (!stripeInstance) throw new Error("Stripe not loaded")
+      if (!stripeInstance) throw new Error(t("checkout.err_stripe_not_loaded"))
 
       const { error: stripeError, paymentIntent: confirmedIntent } = await stripeInstance.confirmCardPayment(
         result.clientSecret,
@@ -1615,7 +1618,7 @@ export default function CheckoutPageClient({
       )
 
       if (stripeError) {
-        setError(stripeError.message || "Payment failed. Please try again.")
+        setError(stripeError.message || t("checkout.err_payment_failed"))
         return
       }
 
@@ -1632,7 +1635,7 @@ export default function CheckoutPageClient({
         const completeData = await completeResponse.json()
 
         if (!completeResponse.ok) {
-          throw new Error(completeData.error || "Failed to complete order")
+          throw new Error(completeData.error || t("checkout.err_complete_order"))
         }
 
         const receiptTokenMatch = completeData.redirectUrl?.match(/\/receipt\/([^?]+)/)
@@ -1640,7 +1643,7 @@ export default function CheckoutPageClient({
         await completeOrder(token)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process Google Pay payment")
+      setError(err instanceof Error ? err.message : t("checkout.err_process_googlepay"))
     } finally {
       setIsSubmitting(false)
     }
@@ -1809,9 +1812,9 @@ export default function CheckoutPageClient({
               className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
             />
             <Label htmlFor="terms-gate" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-              I agree to the{" "}
+              {t("checkout.i_agree_to")}{" "}
               <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-                Terms and Conditions
+                {t("checkout.terms_and_conditions")}
               </Link>{" "}*
             </Label>
           </div>
@@ -1830,14 +1833,14 @@ export default function CheckoutPageClient({
 
         <div className="flex items-center justify-center gap-1.5 pt-2">
           <Shield className="w-3 h-3 text-gray-300" />
-          <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+          <span className="text-[11px] text-gray-300 font-medium">{t("checkout.secured_by_stripe")}</span>
         </div>
         <div className="flex items-center justify-center gap-3 pt-1">
-          <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+          <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.terms")}</Link>
           <span className="text-gray-300 text-[8px]">&middot;</span>
-          <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+          <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.privacy")}</Link>
           <span className="text-gray-300 text-[8px]">&middot;</span>
-          <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+          <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.refund_policy")}</Link>
         </div>
       </div>
     )
@@ -1859,8 +1862,8 @@ export default function CheckoutPageClient({
             className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
           />
           <Label htmlFor="terms-free" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-            I agree to the{" "}
-            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">Terms and Conditions</Link>{" "}*
+            {t("checkout.i_agree_to")}{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">{t("checkout.terms_and_conditions")}</Link>{" "}*
           </Label>
         </div>
       </div>
@@ -1870,22 +1873,22 @@ export default function CheckoutPageClient({
         disabled={isSubmitting || !isFormValid}
         className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
       >
-        {isSubmitting ? (<><Loader2 className="h-5 w-5 animate-spin" />Processing...</>) : (<>Get for Free<span className="ml-1">&rarr;</span></>)}
+        {isSubmitting ? (<><Loader2 className="h-5 w-5 animate-spin" />{t("checkout.processing")}</>) : (<>{t("checkout.get_for_free")}<span className="ml-1">&rarr;</span></>)}
       </button>
 
       {/* Secured by Stripe */}
       <div className="flex items-center justify-center gap-1.5 pt-2">
         <Shield className="w-3 h-3 text-gray-300" />
-        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+        <span className="text-[11px] text-gray-300 font-medium">{t("checkout.secured_by_stripe")}</span>
       </div>
 
       {/* Policy links */}
       <div className="flex items-center justify-center gap-3 pt-1">
-        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.terms")}</Link>
         <span className="text-gray-300 text-[8px]">&middot;</span>
-        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.privacy")}</Link>
         <span className="text-gray-300 text-[8px]">&middot;</span>
-        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">{t("checkout.refund_policy")}</Link>
       </div>
     </div>
   )
@@ -2053,6 +2056,7 @@ function OrderSummaryContent({
   allVariants?: SelectedVariant[]
   onVariantChange?: (variant: SelectedVariant) => void
 }) {
+  const { t } = useLocale()
   const [variantOpen, setVariantOpen] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [sheetClosing, setSheetClosing] = useState(false)

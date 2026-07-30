@@ -12,11 +12,13 @@ import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
+import { useLocale } from "@/components/locale-provider"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 
 function LoginFormContent() {
+  const { t } = useLocale()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -226,7 +228,7 @@ function LoginFormContent() {
 
     if (!showPasswordField) {
       if (!email.trim()) {
-        setError("Please enter your email")
+        setError(t("auth.enter_email"))
         return
       }
 
@@ -236,7 +238,7 @@ function LoginFormContent() {
         if (origin?.googleOnly) {
           setGoogleOnlyEmail(email.trim().toLowerCase())
           setShowPasswordField(false)
-          setError("This account was created with Google. Continue with Google to sign in.")
+          setError(t("auth.google_account_login"))
           return
         }
       } catch {}
@@ -261,7 +263,7 @@ function LoginFormContent() {
       const origin = await lookupAccountOrigin(trimmedEmail)
       if (origin?.googleOnly) {
         setGoogleOnlyEmail(trimmedEmail)
-        setError("No password exists for this account. Continue with Google.")
+        setError(t("auth.no_password_google"))
         setIsLoading(false)
         return
       }
@@ -366,12 +368,12 @@ function LoginFormContent() {
         router.refresh()
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Invalid email or password"
+      const errorMessage = error instanceof Error ? error.message : t("auth.invalid_credentials")
       // Clean up error message
       if (errorMessage.includes("Invalid login credentials")) {
-        setError("Invalid email or password")
+        setError(t("auth.invalid_credentials"))
       } else if (errorMessage.includes("Email not confirmed")) {
-        setError("Please verify your email first")
+        setError(t("auth.verify_email_first"))
       } else {
         setError(errorMessage)
       }
@@ -474,7 +476,7 @@ function LoginFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__oauthStarting = false
           setIsGoogleLoading(false)
-          setError("Sign in timed out. Please try again.")
+          setError(t("auth.signin_timeout"))
         }, 20_000)
 
         try {
@@ -520,7 +522,7 @@ function LoginFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Google")
+      setError(err instanceof Error ? err.message : t("auth.google_signin_failed"))
     }
     ;(window as any).__oauthStarting = false
     setIsGoogleLoading(false)
@@ -577,7 +579,7 @@ function LoginFormContent() {
           browserFinishedHandle?.remove()
           ;(window as any).__appleOAuthStarting = false
           setIsAppleLoading(false)
-          setError("Sign in timed out. Please try again.")
+          setError(t("auth.signin_timeout"))
         }, 20_000)
 
         try {
@@ -608,7 +610,7 @@ function LoginFormContent() {
         return
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign in with Apple")
+      setError(err instanceof Error ? err.message : t("auth.apple_signin_failed"))
     }
     ;(window as any).__appleOAuthStarting = false
     setIsAppleLoading(false)
@@ -617,7 +619,7 @@ function LoginFormContent() {
   // Block rendering while auth state is resolving or redirect is in progress.
   // This guarantees the login form is never shown after auth succeeds.
   if (authGateLoading || nativeAuthInProgress) {
-    return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
+    return <AuthResolvingScreen message={nativeAuthInProgress ? t("auth.signing_in") : undefined} />
   }
 
   if (isRedirecting || gateSession || isGoogleRedirecting || isAppleRedirecting) {
@@ -630,15 +632,15 @@ function LoginFormContent() {
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
           <AuthLogo />
 
-          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
-          <p className="mb-8 text-[15px] text-neutral-500">Log in to your account</p>
+          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{t("auth.welcome_back")}</h1>
+          <p className="mb-8 text-[15px] text-neutral-500">{t("auth.login_subtitle")}</p>
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">
               <Input
                 id="email"
                 type="email"
-                placeholder="Email"
+                placeholder={t("auth.email_placeholder")}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -653,7 +655,7 @@ function LoginFormContent() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
+                    placeholder={t("auth.password_placeholder")}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -676,7 +678,7 @@ function LoginFormContent() {
 
             {googleOnlyEmail && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-                <p className="text-xs text-blue-800">Use Google sign-in for <span className="font-medium">{googleOnlyEmail}</span>.</p>
+                <p className="text-xs text-blue-800">{t("auth.use_google_signin_for")} <span className="font-medium">{googleOnlyEmail}</span>.</p>
               </div>
             )}
 
@@ -685,13 +687,13 @@ function LoginFormContent() {
               className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || isContinueLoading}
             >
-              {isLoading ? "Logging in..." : isContinueLoading ? "Checking..." : "Continue"}
+              {isLoading ? t("auth.logging_in") : isContinueLoading ? t("auth.checking") : t("auth.continue")}
             </Button>
           </form>
 
           <div className="my-6 flex items-center gap-4">
             <div className="h-px flex-1 bg-neutral-200" />
-            <span className="text-[13px] font-medium text-neutral-400">OR</span>
+            <span className="text-[13px] font-medium text-neutral-400">{t("auth.or")}</span>
             <div className="h-px flex-1 bg-neutral-200" />
           </div>
 
@@ -725,7 +727,7 @@ function LoginFormContent() {
                   />
                 </svg>
               )}
-              {isGoogleLoading ? "Connecting..." : "Continue with Google"}
+              {isGoogleLoading ? t("auth.connecting") : t("auth.continue_google")}
             </Button>
 
             <AppleSignInButton
@@ -737,14 +739,14 @@ function LoginFormContent() {
 
           <div className="mt-4 text-center">
             <Link href="/request" className="text-[13px] text-neutral-400 hover:text-neutral-600">
-              Forgot password?
+              {t("auth.forgot_password")}
             </Link>
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
-            Don&apos;t have an account?{" "}
+            {t("auth.no_account")}{" "}
             <Link href="/signup" className="font-medium text-purple-600 hover:text-purple-700">
-              Sign up
+              {t("nav.sign_up")}
             </Link>
           </p>
         </div>

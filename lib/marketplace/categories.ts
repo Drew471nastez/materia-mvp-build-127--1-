@@ -224,23 +224,80 @@ export const DB_CATEGORY_TO_ID: Record<string, string> = {
   "secondhand": "vintage",
   "pre-loved": "vintage",
   "preloved": "vintage",
-  // Catch-all buckets
-  "other": "all",
-  "misc": "all",
-  "miscellaneous": "all",
-  "uncategorized": "all",
-  "uncategorised": "all",
 }
 
-// Normalize a DB category value to our code category ID
-// Anything unrecognised (including the ~600 legacy digital-product strings) falls back
-// to "all" rather than to itself, so a stale value can never match a real category filter
+// Bucket for a listing whose category is not part of the taxonomy — every row still
+// carrying a pre-pivot digital category ("design", "ai", "Notion Templates", …) plus
+// anything explicitly filed as "other"/"uncategorised".
+//
+// Deliberately NOT "all": "all" is the feed, not a category, so a product routed there
+// is invisible on every category surface at once — nine empty category pages and nine
+// gradient placeholder tiles, which is exactly the state this constant exists to avoid.
+// "vintage" is the taxonomy's genuine grab-bag, so a mis-bucketed item still reads as
+// plausible to a shopper.
+//
+// supabase/migrations/20260730_marketplace_category_backfill.sql performs the same
+// mapping in the database. Once it has run (and sellers have re-categorised), this
+// only covers rows written by an out-of-date client.
+export const FALLBACK_CATEGORY_ID = "vintage"
+
+// Pre-pivot digital taxonomy → closest physical bucket. Kept separate from
+// DB_CATEGORY_TO_ID (which is real second-hand vocabulary) so it is obvious what is a
+// pivot artefact, and so it can be deleted wholesale once the catalogue is clean.
+// Anything not listed here lands in FALLBACK_CATEGORY_ID.
+const LEGACY_DIGITAL_TO_ID: Record<string, string> = {
+  // Visual/printable goods sit closest to Home → Art & Prints
+  "design": "home",
+  "graphics": "home",
+  "graphic design": "home",
+  "illustration": "home",
+  "illustrations": "home",
+  "photography": "home",
+  "photos": "home",
+  "video": "home",
+  "video & film": "home",
+  "film": "home",
+  "art": "home",
+  // Anything read rather than worn → Books
+  "education": "books",
+  "courses": "books",
+  "course": "books",
+  "ebooks": "books",
+  "ebook": "books",
+  "writing": "books",
+  "writing & publishing": "books",
+  "notion templates": "books",
+}
+
+/**
+ * Normalize a DB category value to a taxonomy ID for *matching*.
+ *
+ * Strict on purpose: anything unrecognised returns "" so it can never satisfy a
+ * category filter. This is also applied to free-text `creators.niche_tags`, where a
+ * lenient fallback would make every seller's whole catalogue appear under one category.
+ * Use resolveProductCategoryId() for the category a product should be *filed under*.
+ */
 export function normalizeCategoryToId(dbCategory: string | null | undefined): string {
   const lower = (dbCategory || "").toLowerCase().trim()
   if (!lower) return ""
   const mapped = DB_CATEGORY_TO_ID[lower]
   if (mapped) return mapped
-  return VALID_CATEGORY_ID_SET.has(lower) ? lower : "all"
+  return VALID_CATEGORY_ID_SET.has(lower) ? lower : ""
+}
+
+/**
+ * The taxonomy ID a product is filed under — always one of VALID_CATEGORY_IDS, never
+ * "" and never "all". Legacy and missing categories resolve to a real bucket so no
+ * listing is dropped from the category pages, the category tiles or the feed's pills.
+ *
+ * Only ever call this with `products.category`; niche tags and user-supplied filters
+ * must go through normalizeCategoryToId().
+ */
+export function resolveProductCategoryId(dbCategory: string | null | undefined): string {
+  const normalized = normalizeCategoryToId(dbCategory)
+  if (normalized && normalized !== "all") return normalized
+  const lower = (dbCategory || "").toLowerCase().trim()
+  return LEGACY_DIGITAL_TO_ID[lower] ?? FALLBACK_CATEGORY_ID
 }
 
 export function getCategory(id: string): Category | undefined {
@@ -255,47 +312,81 @@ export function categoryLabel(id: string): string {
   return getCategory(id)?.label ?? "All"
 }
 
-// Size systems - `options` are the exact labels stored on products.size
+// The closed vocabulary products.size_system is allowed to hold — must stay in step with
+// the products_size_system_check constraint in
+// supabase/migrations/20260730_marketplace_physical_attributes.sql.
+export const SIZE_SYSTEM_DB_VALUES = ["alpha", "eu", "uk", "us", "numeric", "one-size"] as const
+
+export type SizeSystemDbValue = (typeof SIZE_SYSTEM_DB_VALUES)[number]
+
+// Size systems the seller picks from. `id` is a UI key (there are two garment-numeric
+// systems with different option sets but the same stored value), `dbValue` is what gets
+// written to products.size_system, and `options` are the exact labels stored on
+// products.size. `dbValue` is what the CHECK constraint sees — never persist `id`.
 export const SIZE_SYSTEMS = [
   {
     id: "alpha",
+    dbValue: "alpha",
     label: "Alpha (XS - XXXL)",
     options: ["XS", "S", "M", "L", "XL", "XXL", "XXXL"],
   },
   {
     id: "womens-numeric",
+    dbValue: "numeric",
     label: "Women's (UK)",
     options: ["4", "6", "8", "10", "12", "14", "16", "18", "20", "22", "24"],
   },
   {
     id: "mens-numeric",
+    dbValue: "numeric",
     label: "Men's (waist, in)",
     options: ["28", "30", "32", "34", "36", "38", "40", "42", "44"],
   },
   {
     id: "shoe-uk",
+    dbValue: "uk",
     label: "Shoes (UK)",
     options: ["3", "3.5", "4", "4.5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11", "11.5", "12", "13"],
   },
   {
     id: "shoe-eu",
+    dbValue: "eu",
     label: "Shoes (EU)",
     options: ["35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47"],
   },
   {
     id: "shoe-us",
+    dbValue: "us",
     label: "Shoes (US)",
     options: ["4", "4.5", "5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11", "11.5", "12", "12.5", "13", "14"],
   },
   {
     id: "one-size",
+    dbValue: "one-size",
     label: "One size",
     options: ["One size"],
   },
-] as const
+] as const satisfies readonly { id: string; dbValue: SizeSystemDbValue; label: string; options: readonly string[] }[]
 
 export type SizeSystem = (typeof SIZE_SYSTEMS)[number]
 export type SizeSystemId = SizeSystem["id"]
+
+// Short prefix for a bare numeric size, so "9" reads as "UK 9" on a card. Keyed by the
+// stored dbValue *and* by the picker id, because a listing written before dbValue existed
+// may still hold "shoe-uk". Alpha / numeric / one-size get no prefix — "UK M" reads wrong.
+const SIZE_SYSTEM_PREFIXES: Record<string, string> = {
+  "uk": "UK",
+  "eu": "EU",
+  "us": "US",
+  "shoe-uk": "UK",
+  "shoe-eu": "EU",
+  "shoe-us": "US",
+}
+
+/** Display prefix for products.size_system, or null when the size stands on its own. */
+export function sizeSystemPrefix(sizeSystem: string | null | undefined): string | null {
+  return SIZE_SYSTEM_PREFIXES[(sizeSystem || "").toLowerCase().trim()] ?? null
+}
 
 // How a category is sized: garments, footwear, or nothing to pick (books, home, beauty)
 export type CategorySizing = "clothing" | "shoes" | "unsized"

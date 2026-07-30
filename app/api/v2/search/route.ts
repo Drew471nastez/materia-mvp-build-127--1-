@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sanitizeSearchTerm } from "@/lib/search/sanitize-term"
 
 /**
  * GET /api/v2/search?q=term&category=sneakers&sort=relevance&limit=30&offset=0
@@ -86,22 +87,6 @@ interface ProductRow {
   reviews_count: number | null
   reviews_average: number | null
   created_at: string | null
-}
-
-/**
- * Strip characters that are grammar in a PostgREST filter (`,` `.` `(` `)` `:`
- * `"` `*`) or wildcards in a LIKE pattern (`%`, and the `\` escape). Replaced
- * with a space rather than removed so "st. john" still matches "St. John".
- * Values are URL-encoded by supabase-js and parameterised by PostgREST — this
- * guards the filter grammar, not SQL.
- */
-function sanitizeTerm(raw: string): string {
-  return raw
-    .slice(0, MAX_QUERY_LENGTH)
-    .replace(/[%\\]/g, " ")
-    .replace(/[,().:"*]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
 }
 
 /**
@@ -225,7 +210,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing search query" }, { status: 400 })
     }
 
-    const term = sanitizeTerm(query)
+    const term = sanitizeSearchTerm(query, MAX_QUERY_LENGTH)
 
     // Everything the user typed was punctuation — nothing to match on.
     if (!term) {

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
-import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
+import { VALID_CATEGORY_IDS, resolveProductCategoryId } from "@/lib/marketplace/categories"
 
 export const dynamic = "force-dynamic"
 
@@ -28,15 +28,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
   ]
 
-  // Explore category pages
-  for (const category of EXPLORE_CATEGORIES) {
-    routes.push({
-      url: `${BASE}/explore/${category}`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.8,
-    })
-  }
+  // Explore category pages are appended after the products query below, so only
+  // categories that actually have listings are submitted — see populatedCategories.
 
   // Blog category pages
   for (const category of STORELIB_CATEGORIES) {
@@ -80,17 +73,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {}
 
-  // Published products
+  // Published products, plus the category pages those products populate
+  const populatedCategories = new Set<string>()
+
   try {
     // products has no `is_published` column — publication state lives in `status`,
     // so the old filter silently errored and emitted zero product URLs
     const { data: products } = await supabase
       .from("products")
-      .select("slug, updated_at")
+      .select("slug, updated_at, category")
       .eq("status", "published")
       .limit(5000)
 
     for (const product of products || []) {
+      populatedCategories.add(resolveProductCategoryId(product.category))
       routes.push({
         url: `${BASE}/p/${product.slug}`,
         lastModified: new Date(product.updated_at || Date.now()),
@@ -99,6 +95,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })
     }
   } catch {}
+
+  // Explore category pages — only the ones with at least one published listing.
+  // /explore/[category] renders a real 200 for every taxonomy ID, so advertising an
+  // empty one would submit a soft-404 / thin-content page at priority 0.8. The
+  // resolver above buckets legacy categories, so this reflects what a crawler
+  // actually finds on the page rather than what the taxonomy allows.
+  for (const category of EXPLORE_CATEGORIES) {
+    if (!populatedCategories.has(category)) continue
+    routes.push({
+      url: `${BASE}/explore/${category}`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    })
+  }
 
   // Seller storefronts (profiles with a username)
   try {
