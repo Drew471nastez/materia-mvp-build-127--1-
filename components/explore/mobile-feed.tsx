@@ -89,21 +89,22 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   const [view, setView] = useState<"grid" | "reels">("grid")
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const feedAreaRef = useRef<HTMLDivElement>(null)
-  const [areaHeight, setAreaHeight] = useState(0)
+  const reelsAreaRef = useRef<HTMLDivElement>(null)
+  const [reelsHeight, setReelsHeight] = useState(0)
 
-  // Measure the feed area so the reels pager can size one listing per screen.
+  const reelsActive = view === "reels" && tab === "for-you"
+
+  // Measure the full-screen reels area so each listing fills exactly one screen.
   useEffect(() => {
-    const el = feedAreaRef.current
+    if (!reelsActive) return
+    const el = reelsAreaRef.current
     if (!el) return
-    const measure = () => setAreaHeight(el.clientHeight)
+    const measure = () => setReelsHeight(el.clientHeight)
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
-
-  const reelsActive = view === "reels" && tab === "for-you"
+  }, [reelsActive])
   // Remembers each tab's scroll offset so returning to For You keeps your place.
   const tabScroll = useRef<Record<Tab, number>>({ "for-you": 0, following: 0, saved: 0 })
 
@@ -245,6 +246,90 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
 
   return (
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
+      {reelsActive ? (
+        /* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */
+        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black">
+          {reelsHeight > 0 && products.length > 0 ? (
+            <ReelsPager products={products} height={reelsHeight} onRefresh={onRefresh} />
+          ) : products.length === 0 ? (
+            <div className="flex h-full items-center justify-center bg-white">
+              <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
+            </div>
+          ) : null}
+
+          {/* Overlaid controls: tabs + search icon + grid toggle, then category pills */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-20"
+            style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.4rem)" }}
+          >
+            <div className="pointer-events-auto flex items-center gap-1 px-2">
+              <div className="flex flex-1 items-stretch">
+                {TABS.map(([id, key]) => {
+                  const active = tab === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => switchTab(id)}
+                      className="flex flex-1 flex-col items-center pb-1.5 text-[15px]"
+                    >
+                      <span
+                        className={cn(
+                          "relative inline-flex flex-col items-center [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]",
+                          active ? "font-semibold text-white" : "font-medium text-white/70",
+                        )}
+                      >
+                        {t(key)}
+                        <span
+                          className={cn(
+                            "mt-1.5 h-[2px] w-full rounded-full bg-white transition-all duration-300",
+                            active ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0",
+                          )}
+                        />
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={openSearch}
+                aria-label={t("mfeed.search")}
+                className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-90 [filter:drop-shadow(0_1px_4px_rgba(0,0,0,0.55))]"
+              >
+                <Search className="h-6 w-6" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("grid")}
+                aria-label={t("mfeed.view_grid")}
+                className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-90 [filter:drop-shadow(0_1px_4px_rgba(0,0,0,0.55))]"
+              >
+                <LayoutGrid className="h-[22px] w-[22px]" />
+              </button>
+            </div>
+            <div
+              className="pointer-events-auto mt-1.5 flex gap-2 overflow-x-auto scrollbar-hide px-3 pb-2"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCat(c.id)}
+                  className={cn(
+                    "shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium backdrop-blur-md transition-all duration-200 active:scale-95",
+                    cat === c.id ? "bg-white text-neutral-900 shadow-sm" : "bg-black/30 text-white",
+                  )}
+                >
+                  {t(`category.${c.id}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
@@ -346,19 +431,8 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
         ))}
       </div>
 
-      {/* ---- Feed area: grid (default) or reels pager ---- */}
-      <div ref={feedAreaRef} className="relative flex-1 min-h-0">
-        {reelsActive ? (
-          <div className="absolute inset-0 bg-black">
-            {areaHeight > 0 && products.length > 0 ? (
-              <ReelsPager products={products} height={areaHeight} onRefresh={onRefresh} />
-            ) : products.length === 0 ? (
-              <div className="flex h-full items-center justify-center bg-white">
-                <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
-              </div>
-            ) : null}
-          </div>
-        ) : (
+      {/* ---- Feed area: 2-col grid ---- */}
+      <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto overscroll-contain scrollbar-hide"
@@ -400,11 +474,12 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
             )}
           </div>
         </div>
-        )}
 
         {/* Subtle auto-hiding scroll indicator (shows on scroll, fades when idle) */}
-        {!reelsActive && <FeedScrollbar containerRef={scrollRef} />}
+        <FeedScrollbar containerRef={scrollRef} />
       </div>
+      </>
+      )}
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
 

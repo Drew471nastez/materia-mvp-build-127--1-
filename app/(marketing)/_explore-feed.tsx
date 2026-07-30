@@ -72,7 +72,7 @@ export async function ExploreFeed({
     // fall back to the base columns if the migration hasn't run yet, so the feed
     // never 400s on unknown columns. The card renders the badges only when set.
     const BASE_COLS =
-      "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
+      "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
     const FEED_COLS = `${BASE_COLS}, size, size_system, condition, brand`
 
     const runProductsQuery = (cols: string) => {

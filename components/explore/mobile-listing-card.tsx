@@ -94,7 +94,7 @@ export const MobileListingCard = memo(function MobileListingCard({
   }, [])
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[22px] bg-neutral-900">
+    <div className="relative h-full w-full overflow-hidden bg-neutral-900">
       {/* Horizontal swipeable gallery */}
       <div
         className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scrollbar-hide"

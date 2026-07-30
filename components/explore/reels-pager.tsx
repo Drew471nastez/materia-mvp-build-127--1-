@@ -110,10 +110,10 @@ export function ReelsPager({
 
       <div
         className="relative z-10 will-change-transform"
-        style={{ transform: `translateY(${offset}px)`, transition: dragging ? "none" : SPRING }}
+        style={{ transform: `translate3d(0, ${offset}px, 0)`, transition: dragging ? "none" : SPRING }}
       >
         {products.map((p, i) => (
-          <div key={p.id} className="w-full px-2" style={{ height: h || undefined }}>
+          <div key={p.id} className="w-full" style={{ height: h || undefined }}>
             <MobileListingCard
               product={p}
               priority={Math.abs(i - index) <= 1}
