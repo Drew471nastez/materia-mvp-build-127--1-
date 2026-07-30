@@ -173,14 +173,17 @@ export async function ExploreFeed({
           searchQuery={searchQuery}
         />
 
-        {/* Below-the-fold sections wrapped in Suspense for streaming SSR */}
-        <Suspense fallback={null}>
-          <FeaturedCategoriesSection products={productsWithCreators} />
-        </Suspense>
+        {/* Below-the-fold sections — desktop only; the mobile feed is a full-screen
+            overlay, so these would just render hidden behind it on phones. */}
+        <div className="hidden md:block space-y-8">
+          <Suspense fallback={null}>
+            <FeaturedCategoriesSection products={productsWithCreators} />
+          </Suspense>
 
-        <Suspense fallback={null}>
-          <MostPopularSection products={productsWithCreators} />
-        </Suspense>
+          <Suspense fallback={null}>
+            <MostPopularSection products={productsWithCreators} />
+          </Suspense>
+        </div>
       </div>
     </main>
   )

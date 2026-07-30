@@ -13,6 +13,7 @@ import {
   type SearchSuggestionsPanelHandle,
 } from "./search-suggestions-panel"
 import { WishlistProvider } from "./wishlist-context"
+import { MobileFeed } from "./mobile-feed"
 import {
   CATEGORIES,
   categoryLabel,
@@ -1314,7 +1315,9 @@ export function ExplorePageClient({
   return (
     // One batched wishlist fetch for every card on the page instead of one per card
     <WishlistProvider>
-    <div className="space-y-8">
+    {/* Mobile: Depop/TikTok-style full-screen feed. Desktop keeps the grid below. */}
+    <MobileFeed initialProducts={initialProducts} />
+    <div className="space-y-8 hidden md:block">
       {/* Featured Banner Carousel */}
       {!urlSearchQuery && featuredProducts.length > 0 && (
         <FeaturedBannerCarousel products={featuredProducts} />
