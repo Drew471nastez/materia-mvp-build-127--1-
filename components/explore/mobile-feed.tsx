@@ -118,8 +118,22 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
 
   // Bumped once per refresh to (re)trigger the staggered card reveal.
   const [revealNonce, setRevealNonce] = useState(0)
+  // Bumped to ask the Saved tab to revalidate (without touching the feed).
+  const [savedReload, setSavedReload] = useState(0)
 
   const onRefresh = useCallback(async () => {
+    // Pull-to-refresh is tab-aware. On Saved/Following we must NOT router.refresh()
+    // — that reloads the feed (and, with an active search, empties the pool),
+    // flashing the saved list to white. Instead we revalidate just that tab.
+    if (tab === "saved") {
+      setSavedReload((n) => n + 1)
+      await new Promise((r) => setTimeout(r, 600))
+      return
+    }
+    if (tab === "following") {
+      await new Promise((r) => setTimeout(r, 450))
+      return
+    }
     router.refresh()
     // Hold the current listings, untouched, while the spinner spins — no fade.
     await new Promise((r) => setTimeout(r, 600))
@@ -127,7 +141,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
     // cards rise into place instead of blinking.
     setSeed((s) => s + 1)
     setRevealNonce((n) => n + 1)
-  }, [router])
+  }, [tab, router])
 
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
   const ptrOffset = phase === "refreshing" ? 52 : pullDistance
@@ -329,7 +343,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
               {tab === "following" ? (
                 <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
               ) : tab === "saved" ? (
-                <SavedTab t={t} pool={initialProducts} />
+                <SavedTab t={t} pool={initialProducts} reloadSignal={savedReload} />
               ) : (
                 forYouGrid
               )}
@@ -394,7 +408,16 @@ function mapWishlistItem(item: any) {
  * the tab paints; the background DB fetch only fills product data we were
  * missing, never surprises the user with an extra card popping in a second later.
  */
-function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
+function SavedTab({
+  t,
+  pool,
+  reloadSignal = 0,
+}: {
+  t: (key: string) => string
+  pool: any[]
+  /** Bumped by pull-to-refresh to force a fresh DB revalidation. */
+  reloadSignal?: number
+}) {
   const savedIds = useWishlistedIds()
   // Product objects fetched from the DB (covers saved items not in the feed).
   // Seeded from cache so a returning session has data with zero flicker.
@@ -415,6 +438,20 @@ function SavedTab({ t, pool }: { t: (key: string) => string; pool: any[] }) {
       cancelled = true
     }
   }, [])
+
+  // Pull-to-refresh → revalidate from the DB while the current list stays on
+  // screen (no white flash), then swap in the fresh data.
+  useEffect(() => {
+    if (reloadSignal === 0) return
+    let cancelled = false
+    savedItemsInflight = null // force past the in-flight guard for a fresh request
+    loadSavedItems().then((list) => {
+      if (!cancelled) setFetched(list)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [reloadSignal])
 
   // On unmount, clear any pending exit timers.
   useEffect(
