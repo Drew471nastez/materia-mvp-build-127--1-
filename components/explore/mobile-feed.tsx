@@ -6,7 +6,7 @@ import { Search, SlidersHorizontal, LayoutGrid, GalleryVerticalEnd, Heart } from
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { IosSpinner } from "./ios-spinner"
-import { MobileListingCard } from "./mobile-listing-card"
+import { ReelsPager } from "./reels-pager"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { ProductCard } from "./product-card"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
@@ -33,6 +33,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
 
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
 
   // Paint the native safe-area (status-bar) zone white while the feed is up, so
   // there's no black "cutter" bar above the search on iOS/Android. Same proven
@@ -59,7 +60,7 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   // this guarantees snap pages to one whole listing (no free-scroll / sliver).
   const [slotH, setSlotH] = useState(0)
   useEffect(() => {
-    const el = scrollRef.current
+    const el = bodyRef.current
     if (!el) return
     const ro = new ResizeObserver(() => setSlotH(el.clientHeight))
     ro.observe(el)
@@ -176,59 +177,41 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
       <div className="shrink-0 h-px bg-neutral-100" />
 
       {/* ---- Feed body ---- */}
-      <div
-        ref={scrollRef}
-        className={cn("relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide", view === "reels" ? "snap-y snap-mandatory" : "")}
-        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
-      >
-        {/* iOS pull-to-refresh spinner — sits BEHIND the content and is revealed
-            in the gap as the content is pulled down (never overlaps the listing). */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3"
-          style={{ opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45) }}
-        >
-          <IosSpinner size={26} />
-        </div>
-
-        {/* Content wrapper — translates down for the pull gesture; `none` at rest
-            so it never establishes a containing block that could disturb snap. */}
-        <div
-          className="relative z-10 min-h-full bg-white"
-          style={{
-            transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
-            transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.4s cubic-bezier(0.23,1,0.32,1)",
-          }}
-        >
-          {tab === "following" ? (
-            <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
-          ) : tab === "saved" ? (
-            <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
-          ) : products.length === 0 ? (
-            <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
-          ) : view === "reels" ? (
-            products.map((p, i) => (
-              // Exactly one screen tall + scroll-snap-stop:always → one swipe = one
-              // whole listing, never resting between two.
-              <div
-                key={p.id}
-                className="w-full snap-start px-2"
-                style={{ height: slotH || undefined, scrollSnapAlign: "start", scrollSnapStop: "always" }}
-              >
-                <MobileListingCard
-                  product={p}
-                  priority={false}
-                  reason={i % 4 === 0 ? t("mfeed.picked_for_you") : i % 4 === 2 ? t("mfeed.based_on_searches") : undefined}
-                />
-              </div>
-            ))
-          ) : (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} clientNav />
-              ))}
+      <div ref={bodyRef} className="relative flex-1 min-h-0 overflow-hidden">
+        {tab === "following" ? (
+          <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
+        ) : tab === "saved" ? (
+          <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
+        ) : products.length === 0 ? (
+          <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
+        ) : view === "reels" ? (
+          // Touch-driven pager → guaranteed one-swipe-one-listing, TikTok-smooth.
+          <ReelsPager products={products} height={slotH} onRefresh={onRefresh} />
+        ) : (
+          // Grid view — native scroll with iOS pull-to-refresh.
+          <div
+            ref={scrollRef}
+            className="relative h-full overflow-y-auto overscroll-contain scrollbar-hide"
+            style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3" style={{ opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45) }}>
+              <IosSpinner size={24} />
             </div>
-          )}
-        </div>
+            <div
+              className="relative z-10 min-h-full bg-white"
+              style={{
+                transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
+                transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+              }}
+            >
+              <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+                {products.map((p) => (
+                  <ProductCard key={p.id} product={p} clientNav />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
