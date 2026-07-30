@@ -74,6 +74,9 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
   }, [router])
 
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
+  // How far the feed content is pushed down: follows the finger while pulling,
+  // holds at 52px while refreshing (so the spinner is visible), 0 at rest.
+  const ptrOffset = phase === "refreshing" ? 52 : pullDistance
 
   const products = useMemo(() => {
     let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
@@ -139,17 +142,17 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         </form>
       </div>
 
-      {/* ---- Tabs (centered) ---- */}
-      <div className="shrink-0 flex items-center justify-center gap-7 px-4 pt-2.5">
+      {/* ---- Tabs (full width, evenly distributed) ---- */}
+      <div className="shrink-0 flex items-stretch px-3 pt-2.5">
         {([["for-you", "mfeed.for_you"], ["following", "mfeed.following"], ["saved", "mfeed.saved"]] as const).map(([id, key]) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={cn("relative pb-2 text-[15px] transition-colors", tab === id ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
+            className={cn("relative flex-1 pb-2 text-center text-[15px] transition-colors", tab === id ? "font-semibold text-neutral-900" : "font-medium text-neutral-400")}
           >
             {t(key)}
-            {tab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-neutral-900" />}
+            {tab === id && <span className="absolute left-1/2 -bottom-px h-0.5 w-9 -translate-x-1/2 rounded-full bg-neutral-900" />}
           </button>
         ))}
       </div>
@@ -178,42 +181,54 @@ export function MobileFeed({ initialProducts }: { initialProducts: any[] }) {
         className={cn("relative flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide", view === "reels" ? "snap-y snap-mandatory" : "")}
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
       >
-        {/* iOS-style pull-to-refresh — native activity indicator */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-center pt-3" style={{ height: Math.max(pullDistance, phase === "refreshing" ? 48 : 0) }}>
-          <div
-            style={{
-              opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45),
-              transform: phase === "refreshing" ? undefined : `scale(${Math.min(1, 0.5 + pullDistance / 100)})`,
-            }}
-          >
-            <IosSpinner size={26} />
-          </div>
+        {/* iOS pull-to-refresh spinner — sits BEHIND the content and is revealed
+            in the gap as the content is pulled down (never overlaps the listing). */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3"
+          style={{ opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 45) }}
+        >
+          <IosSpinner size={26} />
         </div>
 
-        {tab === "following" ? (
-          <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
-        ) : tab === "saved" ? (
-          <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
-        ) : products.length === 0 ? (
-          <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
-        ) : view === "reels" ? (
-          products.map((p, i) => (
-            // Explicit one-screen height → clean TikTok snap, one whole listing per swipe.
-            <div key={p.id} className="w-full snap-start snap-always px-2 py-2" style={{ height: slotH || undefined }}>
-              <MobileListingCard
-                product={p}
-                priority={false}
-                reason={i % 4 === 0 ? t("mfeed.picked_for_you") : i % 4 === 2 ? t("mfeed.based_on_searches") : undefined}
-              />
+        {/* Content wrapper — translates down for the pull gesture; `none` at rest
+            so it never establishes a containing block that could disturb snap. */}
+        <div
+          className="relative z-10 min-h-full bg-white"
+          style={{
+            transform: ptrOffset > 0 ? `translateY(${ptrOffset}px)` : undefined,
+            transition: phase === "pulling" || phase === "ready" ? "none" : "transform 0.4s cubic-bezier(0.23,1,0.32,1)",
+          }}
+        >
+          {tab === "following" ? (
+            <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
+          ) : tab === "saved" ? (
+            <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.saved_empty_title")} sub={t("mfeed.saved_empty_sub")} />
+          ) : products.length === 0 ? (
+            <EmptyState title={t("mfeed.empty_title")} sub={t("mfeed.empty_sub")} />
+          ) : view === "reels" ? (
+            products.map((p, i) => (
+              // Exactly one screen tall + scroll-snap-stop:always → one swipe = one
+              // whole listing, never resting between two.
+              <div
+                key={p.id}
+                className="w-full snap-start px-2"
+                style={{ height: slotH || undefined, scrollSnapAlign: "start", scrollSnapStop: "always" }}
+              >
+                <MobileListingCard
+                  product={p}
+                  priority={false}
+                  reason={i % 4 === 0 ? t("mfeed.picked_for_you") : i % 4 === 2 ? t("mfeed.based_on_searches") : undefined}
+                />
+              </div>
+            ))
+          ) : (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+              {products.map((p) => (
+                <ProductCard key={p.id} product={p} clientNav />
+              ))}
             </div>
-          ))
-        ) : (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} clientNav />
-            ))}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />

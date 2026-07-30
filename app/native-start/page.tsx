@@ -173,7 +173,7 @@ export default function NativeStartPage() {
       try {
         const cachedHome = localStorage.getItem("sb-native-home")
         if (cachedHome) {
-          safeRedirect(cachedHome)
+          safeRedirect("/")
           return
         }
       } catch { /* ignore */ }
@@ -208,7 +208,7 @@ export default function NativeStartPage() {
         style={{
           position: "fixed",
           inset: 0,
-          background: "#f2f2f2",
+          background: "#ffffff",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

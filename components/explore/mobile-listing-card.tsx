@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback } from "react"
 import Image from "next/image"
-import { Heart, Bookmark, MessageCircle, Send, Plus, Sparkles, BadgeCheck } from "lucide-react"
+import { Heart, Send, Plus, Sparkles, BadgeCheck } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -138,10 +138,11 @@ export const MobileListingCard = memo(function MobileListingCard({
         </div>
       )}
 
-      {/* Right action rail */}
-      <div className="absolute bottom-28 right-3 flex flex-col items-center gap-5 text-white">
+      {/* Right action rail — follow, save, share (no comments). Icons sit in
+          soft translucent circles so they read cleanly over any photo. */}
+      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4 text-white">
         <SmartLink href={storeUrl} onClick={(e) => e.stopPropagation()} className="relative mb-1">
-          <span className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-neutral-700">
+          <span className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-neutral-700 shadow-sm">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt={creatorName} className="h-full w-full object-cover" loading="lazy" />
@@ -151,26 +152,23 @@ export const MobileListingCard = memo(function MobileListingCard({
               </span>
             )}
           </span>
-          <span className="absolute -bottom-1.5 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full bg-rose-500">
+          <span className="absolute -bottom-1.5 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full bg-rose-500 ring-2 ring-black/10">
             <Plus className="h-3 w-3" strokeWidth={3} />
           </span>
         </SmartLink>
 
         <button type="button" onClick={onLike} aria-pressed={isWishlisted} aria-label={t("product.add_to_wishlist")} className="flex flex-col items-center gap-1">
-          <Heart className={cn("h-8 w-8 drop-shadow transition-transform active:scale-90", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">
+            <Heart className={cn("h-[22px] w-[22px] transition-colors", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
+          </span>
+          <span className="text-[11px] font-medium drop-shadow">{t("mfeed.save")}</span>
         </button>
 
         <SmartLink href={productUrl} onClick={(e) => e.stopPropagation()} className="flex flex-col items-center gap-1">
-          <Bookmark className="h-8 w-8 text-white drop-shadow" />
-        </SmartLink>
-
-        <SmartLink href={productUrl} onClick={(e) => e.stopPropagation()} className="flex flex-col items-center gap-1">
-          <MessageCircle className="h-8 w-8 text-white drop-shadow" />
-        </SmartLink>
-
-        <SmartLink href={productUrl} onClick={(e) => e.stopPropagation()} className="flex flex-col items-center gap-1">
-          <Send className="h-7 w-7 text-white drop-shadow" />
-          <span className="text-[11px] font-medium">{t("mfeed.share")}</span>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">
+            <Send className="h-[20px] w-[20px] text-white" />
+          </span>
+          <span className="text-[11px] font-medium drop-shadow">{t("mfeed.share")}</span>
         </SmartLink>
       </div>
 
