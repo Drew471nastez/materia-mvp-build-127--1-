@@ -9,6 +9,7 @@ import { MobileBottomNav } from "./mobile-bottom-nav"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
+import { useWishlistedIds } from "./wishlist-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
@@ -337,16 +338,17 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
                   : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
-            {/* key on tab+cat → a soft cross-fade when switching tabs or categories */}
-            <div key={`${tab}-${cat}`} className="animate-in fade-in-0 duration-300 ease-out">
-              {tab === "following" ? (
-                <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
-              ) : tab === "saved" ? (
-                <SavedTab t={t} reloadSignal={savedReload} />
-              ) : (
-                forYouGrid
-              )}
-            </div>
+            {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
+                listings. The For You grid fades only when the CATEGORY changes. */}
+            {tab === "following" ? (
+              <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
+            ) : tab === "saved" ? (
+              <SavedTab t={t} reloadSignal={savedReload} />
+            ) : (
+              <div key={cat} className="animate-in fade-in-0 duration-300 ease-out">
+                {forYouGrid}
+              </div>
+            )}
           </div>
         </div>
 
@@ -419,21 +421,38 @@ function SavedTab({
   // NOT remove it live — it only unfills the heart (the heart reads the live
   // wishlist store). A card leaves the list on the next rebuild: pull-to-refresh,
   // page refresh, or coming back to the tab (this component re-mounts on switch).
+  const savedIds = useWishlistedIds()
   const [snapshot, setSnapshot] = useState<any[] | null>(() => readSavedCache())
   // Bumped when the snapshot is rebuilt via refresh, to stagger the cards in
   // like the For You reload.
   const [revealNonce, setRevealNonce] = useState(0)
+  const savedLoadedRef = useRef(false)
 
-  // Build the snapshot on mount (i.e. every time the tab is opened).
+  // Cold load ONLY: if we already have a cached snapshot, keep it frozen for this
+  // visit — nothing reorders or appears a second after you land. We still refresh
+  // the persisted cache in the background so the NEXT time the tab opens it's
+  // already current (that's when un-saved items drop / new saves appear).
   useEffect(() => {
     let cancelled = false
+    const cold = snapshot === null
     loadSavedItems().then((list) => {
-      if (!cancelled) setSnapshot(list)
+      if (!cancelled && cold) setSnapshot(list)
     })
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // When an item is un-saved, prune it from the PERSISTED cache (not the visible
+  // snapshot) so the next open is already correct, while the card stays put now.
+  // Guarded so an unloaded (empty) store never wipes the cache.
+  useEffect(() => {
+    if (savedIds.size > 0) savedLoadedRef.current = true
+    if (!savedLoadedRef.current || !savedItemsCache) return
+    const pruned = savedItemsCache.filter((p) => p?.id && savedIds.has(p.id))
+    if (pruned.length !== savedItemsCache.length) persistSavedCache(pruned)
+  }, [savedIds])
 
   // Pull-to-refresh → refetch, then rebuild + rise-in animation. The current
   // list stays on screen until the fresh data arrives (no white flash).
