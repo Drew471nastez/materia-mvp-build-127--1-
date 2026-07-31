@@ -582,3 +582,29 @@ insert into public.brands (name, slug, popularity) values
   ('Zara Man', 'zara-man', 60),
   ('Massimo Dutti Man', 'massimo-dutti-man', 52)
 on conflict (slug) do update set popularity = excluded.popularity;
+
+-- ---------------------------------------------------------------------------
+-- 4. Listing photo storage
+--
+-- A public bucket: listing photos are shown to everyone, and signing every
+-- thumbnail in a feed would be pointless work. Writes are restricted to the
+-- owner's own folder, so one seller can never overwrite another's photo.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('listings', 'listings', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "listing photos are public" on storage.objects;
+create policy "listing photos are public"
+  on storage.objects for select
+  using (bucket_id = 'listings');
+
+drop policy if exists "sellers upload their own listing photos" on storage.objects;
+create policy "sellers upload their own listing photos"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'listings' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "sellers manage their own listing photos" on storage.objects;
+create policy "sellers manage their own listing photos"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'listings' and (storage.foldername(name))[1] = auth.uid()::text);

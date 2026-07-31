@@ -8,6 +8,9 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
 
 export function ConditionalFooter() {
+  // No footer on the listing form. It's a long, focused task and ending it in a
+  // sitemap invites people to wander off mid-listing.
+
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [showFooter, setShowFooter] = useState(false)
@@ -74,5 +77,5 @@ export function ConditionalFooter() {
     setShowFooter(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
 
-  return showFooter ? <MarketingFooter /> : null
+  return showFooter && !pathname.startsWith("/products/new") ? <MarketingFooter /> : null
 }

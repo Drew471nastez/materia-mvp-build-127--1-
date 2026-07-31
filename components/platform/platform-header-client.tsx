@@ -935,9 +935,11 @@ export function PlatformHeaderClient() {
   }, [fetchWishlistCount])
 
   const startSellingHref = useMemo(() => {
+    // Selling is part of the marketplace, not a dashboard task — signed-in
+    // sellers go straight to the listing form rather than through onboarding.
     if (!user) return "/signup"
-    return hasCompletedSellerOnboarding ? "/app" : "/library"
-  }, [user, hasCompletedSellerOnboarding])
+    return "/products/new"
+  }, [user])
 
   const dashboardHref = useMemo(() => {
     if (!user) return "/signup"

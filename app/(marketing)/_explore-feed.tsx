@@ -73,7 +73,9 @@ export async function ExploreFeed({
     // never 400s on unknown columns. The card renders the badges only when set.
     const BASE_COLS =
       "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
-    const FEED_COLS = `${BASE_COLS}, size, size_system, condition, brand`
+    // Resale attributes the cards and filters read. Everything after BASE_COLS
+    // arrived in a later migration, so the query falls back if it 400s.
+    const FEED_COLS = `${BASE_COLS}, size, size_system, condition, brand, subcategory, colour, era, source_tags, style_tags`
 
     const runProductsQuery = (cols: string) => {
       let q = supabase
