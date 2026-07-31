@@ -194,10 +194,26 @@ html[data-blend="back"]::view-transition-group(root) { animation-duration: 250ms
   mix-blend-mode: normal;
 }
 
-@keyframes page-push-out { from { transform: translateX(0); }     to { transform: translateX(-22%); } }
-@keyframes page-push-in  { from { transform: translateX(100%); }  to { transform: translateX(0); } }
-@keyframes page-pop-out  { from { transform: translateX(0); }     to { transform: translateX(100%); } }
-@keyframes page-pop-in   { from { transform: translateX(-22%); }  to { transform: translateX(0); } }
+/* The screen underneath also DIMS as it slides back, and lifts again as it
+   returns. That is the single detail that makes a push read as one card sliding
+   over another rather than as two flat images swapping places — depth you can
+   see, from a filter that costs a composite and nothing else. */
+@keyframes page-push-out {
+  from { transform: translateX(0);      filter: brightness(1); }
+  to   { transform: translateX(-22%);   filter: brightness(0.82); }
+}
+@keyframes page-push-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes page-pop-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+@keyframes page-pop-in {
+  from { transform: translateX(-22%);   filter: brightness(0.82); }
+  to   { transform: translateX(0);      filter: brightness(1); }
+}
 
 html[data-blend="enter"]::view-transition-old(root) {
   animation: page-push-out 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
@@ -228,6 +244,7 @@ html[data-blend="back"]::view-transition-new(root) {
   html[data-blend]::view-transition-old(root) {
     animation: page-fade-out 220ms linear both;
     transform: none;
+    filter: none;
     z-index: auto;
   }
   html[data-blend]::view-transition-new(root) {
@@ -236,6 +253,25 @@ html[data-blend="back"]::view-transition-new(root) {
     z-index: auto;
   }
 }
+/* Reduced motion still gets a transition — it just doesn't travel.
+   The preference asks for less movement, not for no feedback at all: a page
+   that changes with no indication that it changed is harder to follow, not
+   easier. So the screens cross over in place, and nothing slides. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-blend]::view-transition-old(root) {
+    animation: page-fade-out 200ms linear both;
+    transform: none;
+    filter: none;
+    z-index: auto;
+  }
+  html[data-blend]::view-transition-new(root) {
+    animation: page-fade-in 200ms linear both;
+    transform: none;
+    filter: none;
+    z-index: auto;
+  }
+}
+
 @keyframes page-fade-out {
   from { opacity: 1; }
   92%  { opacity: 1; }

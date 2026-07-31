@@ -10,6 +10,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
 import { navigateBlended, signalArrival } from "@/lib/nav-blend"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
   CONDITIONS,
@@ -95,35 +96,26 @@ export function ProductDetail({ product }: { product: any }) {
     // behind it and the two dissolve. Animating the page out on its own was the
     // white flash on the way back: the feed hadn't mounted, so moving this page
     // uncovered the bare background rather than the feed.
+    // Going back is an action you took, the same as opening was, so it gets the
+    // same acknowledgement. No gesture check needed: this is a button, and a
+    // button is not something you scroll.
+    void triggerHaptic("light")
     navigateBlended("back", () => {
       if (typeof window !== "undefined" && window.history.length > 1) router.back()
       else router.push(backHrefFor(origin))
     })
   }, [router, origin])
 
-  // Tell an in-flight blend that this page is genuinely on screen.
-  //
-  // "On screen" has to include the photo. The blend photographs whatever is
-  // rendered the moment we signal, and a product page without its photo is a
-  // grey rectangle — so signalling on mount meant blending smoothly into a blank
-  // page and then having the image land on its own a moment later. Two events,
-  // and the second one reads as the transition stuttering or firing twice. It is
-  // the same fault the grid-to-reels switch had, in the same place.
-  //
-  // Coming from the reels feed this costs nothing: that photo is already the
-  // full-bleed size at the same quality, so it is the same file, already
-  // decoded. From the grid it is a wider source than the tile was using and
-  // there is a real fetch to wait on — capped, because a page that hasn't
-  // appeared yet is worse than one that appears without its picture.
   // Does this page have to animate itself in?
   //
   // Only when nothing else is doing it. A blend in progress at mount means the
-  // browser is already sliding this page into place and a second animation on
-  // top would be the doubled open all over again. No blend means either the
-  // browser can't do them, or the navigation was too slow and the blend gave up
-  // and swapped instantly — and in both of those cases opening a listing with no
-  // animation whatsoever is worse than a plain one. So there is always exactly
-  // one, and never two.
+  // browser is already sliding this page into place, and a second animation on
+  // top of that would be the doubled open all over again. No blend means either
+  // the browser can't do them, or the navigation was too slow and the blend gave
+  // up and swapped instantly — and in both of those cases opening a listing with
+  // no animation whatsoever is worse than a plain one. Exactly one, always;
+  // never two, never none.
+  //
   // Decided in a layout effect rather than at first render, so the server and
   // the client agree on the markup and nothing hydrates mismatched. Layout
   // effects run before the browser paints, so the class is still in place for
@@ -133,6 +125,18 @@ export function ProductDetail({ product }: { product: any }) {
     if (!document.documentElement.dataset.blend) setSelfAnimate(true)
   }, [])
 
+  // Tell an in-flight blend that this page is genuinely on screen.
+  //
+  // "On screen" has to include the photo. The blend photographs whatever is
+  // rendered the moment we signal, and a product page without its photo is a
+  // grey rectangle — so signalling on mount meant sliding neatly in to a blank
+  // page and having the image land on its own a moment later. Two events, and
+  // the second reads as the transition firing twice.
+  //
+  // Coming from the reels feed this costs nothing: that photo is already the
+  // full-bleed size at the same quality, so it is the same file, already
+  // decoded. From the grid it is a wider source than the tile was using and
+  // there is a real fetch to wait on.
   const rootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const img = rootRef.current?.querySelector("img")
@@ -149,7 +153,11 @@ export function ProductDetail({ product }: { product: any }) {
     }
     img.addEventListener("load", go, { once: true })
     img.addEventListener("error", go, { once: true })
-    timer = window.setTimeout(go, 340)
+    // Short, now that the route itself is cached and prefetched: the fetch that
+    // used to sit in front of this is gone, so the only thing left to wait for
+    // is the image, and past a quarter-second it is better to arrive without it
+    // than to keep the previous screen frozen.
+    timer = window.setTimeout(go, 240)
     return () => {
       window.clearTimeout(timer)
       img.removeEventListener("load", go)

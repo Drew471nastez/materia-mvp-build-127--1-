@@ -13,9 +13,10 @@
  *
  * The View Transitions API does exactly the second thing: it photographs the
  * current screen, lets us swap the DOM underneath, photographs the result, and
- * cross-fades the two snapshots. Both sides of the blend are real pictures of
- * real screens, so a fade is finally safe — there is no background to leak
- * through, in either direction.
+ * animates the two snapshots against each other. Both sides are real pictures of
+ * real screens, so they can slide past one another the way pushed and popped
+ * screens do natively, with neither ever dropping below full opacity and no
+ * background left to leak through in either direction.
  *
  * An earlier attempt at this glitched, and it is worth being precise about why,
  * because the fix is the whole point of the handshake below. `startViewTransition`
@@ -48,22 +49,33 @@ export function signalArrival(): void {
 
 function supported(): boolean {
   if (typeof document === "undefined") return false
-  if (typeof (document as any).startViewTransition !== "function") return false
-  // Someone who has asked for less motion gets the instant swap.
-  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  return typeof (document as any).startViewTransition === "function"
 }
+// Reduced motion is deliberately NOT checked here any more.
+//
+// It used to disable this outright, which had two problems. It reads the
+// preference wrongly — "reduce motion" asks for less movement, not for less
+// feedback, and dropping the transition leaves a page change with no indication
+// that anything happened. And it is on for a great many people, particularly on
+// iOS, which meant a large share of users were silently getting the bare swap
+// and no amount of tuning the animation could have reached them.
+//
+// The preference is honoured in CSS instead, where the transition still runs but
+// crosses over in place with no travel. See globals.css.
 
 /**
  * How long each direction will wait for its destination.
  *
- * Opening a listing has a fetch and a hero image in front of it, so it gets room
- * to clear the page's own 340ms image wait plus a render. Going back has
- * neither — the feed is sat in the router cache — so it gets barely more than
+ * Opening a listing has a hero image in front of it, so it gets room to clear
+ * the page's own 240ms image wait plus a render — but no more than that. The
+ * fetch that used to sit in front of it is gone now the route is cached.
+ *
+ * Going back has neither — the feed is sat in the router cache — so it gets barely more than
  * the couple of frames it needs to remount and restore its scroll offset.
  * Waiting longer there would only make back feel heavier than it is, and back
  * should feel like nothing at all.
  */
-const HOLD: Record<Blend, number> = { enter: 600, back: 260 }
+const HOLD: Record<Blend, number> = { enter: 420, back: 260 }
 
 /**
  * Run `go` as a blended navigation.
