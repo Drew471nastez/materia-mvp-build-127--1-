@@ -2,6 +2,7 @@ import type React from "react"
 import { Suspense } from "react"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
+import { GlobalMobileNav } from "@/components/marketing/global-mobile-nav"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 
 export default function MarketingLayout({
@@ -22,6 +23,10 @@ export default function MarketingLayout({
 
       <Suspense fallback={null}>
         <ConditionalFooter />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <GlobalMobileNav />
       </Suspense>
     </div>
   )

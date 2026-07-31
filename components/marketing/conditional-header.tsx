@@ -5,6 +5,7 @@ import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { isNativeApp } from "@/lib/native-bridge"
 
 /**
  * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
@@ -63,6 +64,14 @@ export function ConditionalHeader() {
   )
 
   useEffect(() => {
+    // Inside the iOS/Android shell there is no web header at all. The app has
+    // its own status bar and its own bottom navigation; a site header on top of
+    // that is a second, redundant chrome that makes it read as a website in a
+    // box rather than an app.
+    if (isNativeApp()) {
+      setShowPlatformHeader(false)
+      return
+    }
     const host = window.location.host
     const isSubdomain = extractUsernameFromHost(host) !== null
     const isOnCustomDomain = isCustomDomain(host)

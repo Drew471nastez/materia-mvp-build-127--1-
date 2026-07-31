@@ -37,6 +37,12 @@ export function ConditionalFooter() {
 
     // In Capacitor native apps, hide the black footer on seller pages,
     // product pages, and /explore for a clean native app experience.
+    // No footer anywhere inside the app shell. A sitemap of marketing links at
+    // the bottom of every screen is a website's furniture, not an app's.
+    if (isNativeApp()) {
+      setShowFooter(false)
+      return
+    }
     if (isNativeApp() && (isSubdomain || isSellerPath || pathname.startsWith("/explore"))) {
       setShowFooter(false)
       return
