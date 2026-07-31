@@ -28,7 +28,12 @@ import { IosSpinner } from "./ios-spinner"
 // Native passive listeners + an imperative transform mean the glide itself does
 // zero React work per frame.
 
-const RADIUS = 3 // cards mounted either side of the current one
+// Two either side, not three. Each mounted card is a full-screen photo on its own
+// compositing layer; at RADIUS 3 that was seven of them, ~80MB of layer memory on
+// a phone, and once iOS starts evicting textures under that pressure the
+// compositor stutters no matter how cheap the animation itself is. Five still
+// mounts every reachable card two screens ahead of you.
+const RADIUS = 2
 const DIST_TRIGGER = 54 // px drag distance that flips the page
 const VEL_TRIGGER = 0.25 // px/ms flick velocity that flips the page
 const REFRESH_TRIGGER = 80 // px pull-down at the top that refreshes
@@ -36,7 +41,7 @@ const REFRESH_HOLD = 58 // px the track holds at while refreshing
 // Quart-out, not expo-out: expo dumps most of the travel in the first ~150ms and
 // then crawls, which is what read as "snappy, then floaty". This decelerates
 // evenly the whole way — the motion you can actually follow with your eye.
-const GLIDE = "transform 0.56s cubic-bezier(0.25, 1, 0.5, 1)"
+const GLIDE = "transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)"
 
 /** Live translateY of an element, mid-transition included. */
 function currentY(el: HTMLElement): number {
@@ -254,7 +259,17 @@ export function ReelsPager({
   }, [index, h, resting])
 
   return (
-    <div ref={rootRef} className="relative h-full w-full overflow-hidden">
+    <div
+      ref={rootRef}
+      className="relative h-full w-full overflow-hidden"
+      // `pan-x`, so the browser knows up front it will never handle the vertical
+      // gesture and hands the first touchmove straight over instead of holding it
+      // to see whether a scroll is starting. That wait is real input latency at
+      // the start of every swipe — it reads as the scroll not tracking the finger.
+      // Still `pan-x` rather than `none` so each card's horizontal photo gallery
+      // keeps working; touch-action intersects down the ancestor chain.
+      style={{ touchAction: "pan-x" }}
+    >
       {/* iOS refresh spinner — behind the stack, revealed as it slides down */}
       <div ref={spinnerRef} className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-3" style={{ opacity: 0 }}>
         <IosSpinner size={26} />

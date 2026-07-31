@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 
+/** Photo settle. Runs with the pager's glide, so keep the two in step. */
+const SETTLE_MS = 600
+
 function isYouTubeThumb(u: string) {
   return u.includes("img.youtube.com") || u.includes("i.ytimg.com")
 }
@@ -152,6 +155,13 @@ export const MobileListingCard = memo(function MobileListingCard({
           scrollbarWidth: "none",
           WebkitOverflowScrolling: swipeable ? "touch" : "auto",
           overscrollBehaviorX: "contain",
+          // The photo settles out of a barely-there zoom as its card arrives, and
+          // eases back into it as the card leaves — so a listing arrives rather
+          // than simply being where it is. It's a single composited transform on
+          // a layer that already exists, so it costs nothing to run alongside the
+          // glide, and it scales DOWN to 1 so no edge can ever expose a seam.
+          transform: active ? "scale(1)" : "scale(1.035)",
+          transition: `transform ${SETTLE_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`,
         }}
       >
         {(shown.length ? shown : [null]).map((src, i) => (
