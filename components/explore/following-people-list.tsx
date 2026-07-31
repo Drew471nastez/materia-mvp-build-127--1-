@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { UserPlus } from "lucide-react"
+
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useToggleFollow } from "@/components/explore/follow-store"
@@ -17,6 +17,9 @@ export type FollowedPerson = {
   listings: number
   online: boolean
 }
+
+/** How long a row takes to collapse out after you unfollow. */
+const LEAVE_MS = 380
 
 /** "Member since March 2025" — month precision is all this is worth. */
 function joinedLabel(iso: string | null, locale: string): string | null {
@@ -36,31 +39,37 @@ function joinedLabel(iso: string | null, locale: string): string | null {
  * A plain divided list rather than cards — this is a directory you scan by name,
  * and card chrome would only get between you and the names.
  */
-export function FollowingPeopleList({ people }: { people: FollowedPerson[] }) {
+export function FollowingPeopleList({
+  people,
+  onUnfollow,
+}: {
+  people: FollowedPerson[]
+  /** Called once the row has finished collapsing, so the parent can drop it
+   *  from both its state and the cached list. */
+  onUnfollow: (id: string) => void
+}) {
   const { t, language } = useLocale()
   const toggle = useToggleFollow()
-  // Unfollowing keeps the row in place, greyed and offering "Follow" back, rather
-  // than yanking it out from under your finger. A mis-tap is one tap to undo, and
-  // the list stops moving while you're reading it. It's gone on the next visit.
-  const [dropped, setDropped] = useState<Set<string>>(() => new Set())
+  // Unfollowing removes the row. It collapses out first rather than vanishing on
+  // the frame you tap, so the list settles instead of snapping.
+  const [leaving, setLeaving] = useState<Set<string>>(() => new Set())
 
   const onToggle = useCallback(
     async (id: string) => {
-      setDropped((prev) => {
-        const next = new Set(prev)
-        next.has(id) ? next.delete(id) : next.add(id)
-        return next
-      })
+      setLeaving((prev) => new Set(prev).add(id))
+      // Write it through immediately — the animation is presentation, and the
+      // unfollow must not be waiting on it to be saved.
       await toggle(id)
+      window.setTimeout(() => onUnfollow(id), LEAVE_MS)
     },
-    [toggle],
+    [toggle, onUnfollow],
   )
 
   return (
     <ul className="px-1">
       {people.map((p, i) => {
         const name = p.displayName || p.username || "Storelib"
-        const unfollowed = dropped.has(p.id)
+        const isLeaving = leaving.has(p.id)
         const joined = joinedLabel(p.joinedAt, language)
         const meta = [
           p.listings > 0 ? `${p.listings} ${t("mfeed.listings_short")}` : null,
@@ -73,11 +82,26 @@ export function FollowingPeopleList({ people }: { people: FollowedPerson[] }) {
           <li
             key={p.id}
             className={cn(
-              "flex items-center gap-3 px-3 py-3.5",
+              "flex items-center gap-3 overflow-hidden px-3",
               // Hairline dividers, not a border on every row — no line under the
               // last one, nothing boxed in.
-              i > 0 && "border-t border-neutral-100",
+              i > 0 && !isLeaving && "border-t border-neutral-100",
             )}
+            style={{
+              // Collapsing max-height as well as fading means the rows below
+              // close the gap rather than jumping up once it's gone.
+              maxHeight: isLeaving ? 0 : 92,
+              opacity: isLeaving ? 0 : 1,
+              paddingTop: isLeaving ? 0 : 14,
+              paddingBottom: isLeaving ? 0 : 14,
+              transition: `max-height ${LEAVE_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity 220ms ease-out, padding ${LEAVE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+              // Staggered arrival, capped so a long list still settles quickly.
+              // Dropped entirely while leaving: a filled animation keeps holding
+              // the property it animated, which would pin opacity at 1 and stop
+              // the row ever fading out.
+              animation: isLeaving ? "none" : "people-row-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both",
+              animationDelay: isLeaving ? undefined : `${Math.min(i, 9) * 34}ms`,
+            }}
           >
             <SmartLink
               href={p.username ? getStoreUrl(p.username) : "#"}
@@ -118,17 +142,14 @@ export function FollowingPeopleList({ people }: { people: FollowedPerson[] }) {
               <button
                 type="button"
                 onClick={() => onToggle(p.id)}
-                aria-label={unfollowed ? t("mfeed.follow_action") : t("mfeed.unfollow_action")}
+                disabled={isLeaving}
+                aria-label={t("mfeed.unfollow_action")}
                 className={cn(
-                  "no-tap-fade flex h-8 items-center gap-1 rounded-full px-3.5 text-[12.5px] font-semibold",
-                  "transition-[background-color,color] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.94]",
-                  unfollowed
-                    ? "bg-[#7c3aed] text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200",
+                  "no-tap-fade flex h-8 items-center gap-1 rounded-full bg-neutral-100 px-3.5 text-[12.5px] font-semibold text-neutral-600",
+                  "transition-[background-color,color] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-neutral-200 active:scale-[0.94]",
                 )}
               >
-                {unfollowed && <UserPlus className="h-[13px] w-[13px]" strokeWidth={2.75} />}
-                {unfollowed ? t("mfeed.follow_action") : t("mfeed.unfollow_action")}
+                {t("mfeed.unfollow_action")}
               </button>
 
               {/* Light-grey tooltip, above the button so a thumb doesn't cover it. */}
@@ -137,7 +158,7 @@ export function FollowingPeopleList({ people }: { people: FollowedPerson[] }) {
                 className="pointer-events-none absolute -top-1 right-0 -translate-y-full whitespace-nowrap rounded-lg bg-neutral-100 px-2.5 py-1.5 text-[11.5px] font-medium text-neutral-600 opacity-0 shadow-sm transition-[opacity,transform] duration-300 ease-out group-hover:-translate-y-full group-hover:opacity-100"
                 style={{ transform: "translateY(calc(-100% + 4px))" }}
               >
-                {unfollowed ? t("mfeed.follow_tip") : t("mfeed.unfollow_tip")}
+                {t("mfeed.unfollow_tip")}
               </span>
             </div>
           </li>

@@ -796,7 +796,7 @@ export function MobileFeed({
             // Position, opacity, scale and spin state are all written straight
             // to this node by useFeedPullRefresh — no React state per frame.
             opacity: 0,
-            transform: `translate3d(0, ${catBarH - 40}px, 0) scale(0.55)`,
+            transform: `translate3d(0, ${catBarH - 40}px, 0) scale(0.55)`, // matches SPIN_LIFT in the hook
           }}
         >
           <IosSpinner size={24} />
@@ -925,6 +925,17 @@ function FollowingTab({
   // Keep our own dot honest while the tab is open.
   usePresenceHeartbeat()
 
+  // Drop the person from the visible list AND the cache. Without the cache write
+  // the row came straight back when you left the tab and returned, which read as
+  // the unfollow not having saved even though it had.
+  const onUnfollow = useCallback((id: string) => {
+    setPeople((prev) => {
+      const next = (prev || []).filter((p) => p.id !== id)
+      followingCache = next
+      return next
+    })
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     fetch("/api/follows/people", { credentials: "include" })
@@ -969,7 +980,7 @@ function FollowingTab({
     )
   }
 
-  return <FollowingPeopleList people={people} />
+  return <FollowingPeopleList people={people} onUnfollow={onUnfollow} />
 }
 
 function SavedTab({

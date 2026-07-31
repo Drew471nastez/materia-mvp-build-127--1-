@@ -63,6 +63,14 @@ export function useFeedPullRefresh({
   const onRefreshRef = useRef(onRefresh)
   onRefreshRef.current = onRefresh
 
+  // Read through a ref, not the closure. The touch handlers are only re-bound
+  // when the scroll ELEMENT changes, so a handler installed while the category
+  // bar was showing kept using its 58px offset after switching to Saved or
+  // Following — where there is no bar. The spinner then sat 58px lower than the
+  // gap being opened, i.e. on top of the listings. That's the overlap.
+  const offsetRef = useRef(offsetTop)
+  offsetRef.current = offsetTop
+
   const attached = useRef<HTMLElement | null>(null)
   const detach = useRef<(() => void) | null>(null)
   const spinBars = useRef<HTMLElement | null>(null)
@@ -83,7 +91,7 @@ export function useFeedPullRefresh({
       if (s) {
         // Track the content's top edge so the indicator is always in the clean
         // white band the pull opens up — never behind the bar, never on the grid.
-        const y = gap + offsetTop - SPIN_LIFT
+        const y = gap + offsetRef.current - SPIN_LIFT
         const p = Math.min(1, dist / TRIGGER)
         // Fades in as it clears the bar and reads fully solid right as the pull
         // crosses the trigger — so "it's armed" is legible without a label.
@@ -97,7 +105,7 @@ export function useFeedPullRefresh({
       const b = bars()
       if (b) b.style.animationPlayState = spinning ? "running" : "paused"
     },
-    [contentRef, spinnerRef, bars, offsetTop],
+    [contentRef, spinnerRef, bars],
   )
 
   useEffect(() => {
