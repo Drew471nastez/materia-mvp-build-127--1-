@@ -83,5 +83,14 @@ export function ConditionalFooter() {
     setShowFooter(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
 
-  return showFooter && !pathname.startsWith("/products/new") && !pathname.startsWith("/settings") ? <MarketingFooter /> : null
+  // Surfaces that are a task, not a destination: a sitemap under them just
+  // invites you to abandon what you were doing.
+  const noFooter =
+    pathname.startsWith("/products/new") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/cart") ||
+    pathname.startsWith("/wishlist")
+
+  return showFooter && !noFooter ? <MarketingFooter /> : null
 }

@@ -135,7 +135,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
       <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-full border-2 border-neutral-200 border-t-neutral-800 animate-spin" />
-          <p className="text-sm text-neutral-400">Loading your wishlist...</p>
+          <p className="text-sm text-neutral-400">Se încarcă favoritele...</p>
         </div>
       </div>
     )
@@ -147,12 +147,12 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
         <div className="w-20 h-20 rounded-full bg-neutral-50 flex items-center justify-center mb-6">
           <Heart className="h-9 w-9 text-neutral-300" strokeWidth={1.5} />
         </div>
-        <h2 className="text-lg font-semibold text-neutral-900 mb-1">No saved items yet</h2>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-1">Niciun articol salvat</h2>
         <p className="text-neutral-500 text-sm text-center max-w-xs mb-8">
-          Products you save will appear here. Start exploring to find something you love.
+          Articolele pe care le salvezi apar aici. Explorează ca să găsești ceva ce-ți place.
         </p>
         <Link
-          href="/explore"
+          href="/"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
         >
           Explore Products
@@ -166,11 +166,11 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
     <div>
       <div className="flex items-center justify-between mb-5">
         <p className="text-sm text-neutral-500">
-          {items.length} {items.length === 1 ? "item" : "items"} saved
+          {items.length} {items.length === 1 ? "articol salvat" : "articole salvate"}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => {
           const product = item.products
           if (!product) return null
@@ -193,7 +193,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
             >
               {/* Thumbnail */}
               <SmartLink href={productUrl} className="block" target={native ? "_blank" : undefined}>
-                <div className="relative aspect-[4/3] bg-neutral-50 overflow-hidden">
+                <div className="relative aspect-[3/4] bg-neutral-100 overflow-hidden">
                   {product.thumbnail_url ? (
                     <Image
                       src={product.thumbnail_url}
@@ -267,7 +267,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
       {showDiscoverMoreCta && items.length > 0 && (
         <div className="mt-6 flex justify-center">
           <Link
-            href="/explore"
+            href="/"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
           >
             Discover More

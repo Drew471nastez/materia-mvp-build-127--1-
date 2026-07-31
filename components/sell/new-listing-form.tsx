@@ -89,7 +89,7 @@ function Field({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 py-4 text-left"
+      className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 py-3.5 text-left last:border-b-0"
     >
       <span className="shrink-0 text-[15px] text-neutral-900">
         {label}
@@ -312,15 +312,21 @@ export function NewListingForm() {
   )
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-32 pt-5 sm:pt-8">
-      <h1 className="text-[24px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[28px]">
-        Listează un articol
-      </h1>
+    <div className="min-h-screen bg-[#f6f6f7] pb-40">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-5 sm:pt-9">
+      <header className="mb-5">
+        <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
+          Listează un articol
+        </h1>
+        <p className="mt-1 text-[14.5px] text-neutral-500">
+          Completează detaliile și anunțul tău apare instant în feed.
+        </p>
+      </header>
 
       {/* ---- Photos ---- */}
-      <section className="mt-6">
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-[15px] font-semibold text-neutral-900">
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">
             Fotografii<span className="ml-0.5 text-[#7c3aed]">*</span>
           </h2>
           <span className="text-[13px] text-neutral-400">
@@ -390,7 +396,7 @@ export function NewListingForm() {
       </section>
 
       {/* ---- Title + description ---- */}
-      <section className="mt-8">
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <label className="block text-[15px] font-semibold text-neutral-900">
           Titlu<span className="ml-0.5 text-[#7c3aed]">*</span>
         </label>
@@ -399,7 +405,7 @@ export function NewListingForm() {
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
           placeholder="Ex: Hanorac Nike vintage verde"
-          className="mt-2 w-full rounded-xl border border-neutral-200 px-3.5 py-3 text-[15px] outline-none transition-colors focus:border-[#7c3aed]"
+          className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
 
         <label className="mt-6 block text-[15px] font-semibold text-neutral-900">
@@ -411,7 +417,7 @@ export function NewListingForm() {
           rows={5}
           maxLength={1500}
           placeholder={DESCRIPTION_PLACEHOLDER}
-          className="mt-2 w-full resize-none rounded-xl border border-neutral-200 px-3.5 py-3 text-[15px] leading-relaxed outline-none transition-colors focus:border-[#7c3aed]"
+          className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
         <p className="mt-1.5 text-[12.5px] text-neutral-400">
           Spune starea, materialul și cum vine pe corp. Anunțurile detaliate se vând mai repede.
@@ -419,8 +425,8 @@ export function NewListingForm() {
       </section>
 
       {/* ---- Details ---- */}
-      <section className="mt-8">
-        <h2 className="text-[15px] font-semibold text-neutral-900">Detalii</h2>
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">Detalii</h2>
         <div className="mt-1">
           <Field label="Categorie" required value={categoryLabelFor(group, item)} onClick={() => setSheet("category")} />
           <Field label="Brand" required value={brand} onClick={() => setSheet("brand")} />
@@ -434,8 +440,8 @@ export function NewListingForm() {
       </section>
 
       {/* ---- Price ---- */}
-      <section className="mt-8">
-        <h2 className="text-[15px] font-semibold text-neutral-900">Preț</h2>
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">Preț</h2>
         <div className="mt-3 flex gap-3">
           <div className="flex-1">
             <label className="block text-[13px] text-neutral-500">
@@ -446,7 +452,7 @@ export function NewListingForm() {
               onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
               inputMode="decimal"
               placeholder="0"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 px-3.5 py-3 text-[15px] outline-none focus:border-[#7c3aed]"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
             />
           </div>
           <div className="flex-1">
@@ -464,7 +470,7 @@ export function NewListingForm() {
               onChange={(e) => setCompareAt(e.target.value.replace(/[^0-9.,]/g, ""))}
               inputMode="decimal"
               placeholder="Opțional"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 px-3.5 py-3 text-[15px] outline-none focus:border-[#7c3aed]"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
             />
           </div>
         </div>
@@ -475,8 +481,9 @@ export function NewListingForm() {
       )}
 
       {/* ---- Actions ---- */}
-      <div className="mt-8 space-y-3">
-        <label className="flex items-center gap-2.5 text-[14px] text-neutral-700">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md">
+       <div className="mx-auto w-full max-w-2xl space-y-2.5">
+        <label className="flex items-center gap-2.5 text-[13.5px] text-neutral-600">
           <input
             type="checkbox"
             checked={postAnother}
@@ -486,23 +493,26 @@ export function NewListingForm() {
           Publică și adaugă încă un articol
         </label>
 
-        <button
-          type="button"
-          onClick={() => submit(false)}
-          disabled={saving !== null}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
-        >
-          {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Publică anunțul
-        </button>
-        <button
-          type="button"
-          onClick={() => submit(true)}
-          disabled={saving !== null}
-          className="h-12 w-full rounded-full bg-neutral-100 text-[15.5px] font-semibold text-neutral-700 transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
-        >
-          Salvează ca ciornă
-        </button>
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={() => submit(true)}
+            disabled={saving !== null}
+            className="h-12 flex-1 rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+          >
+            Ciornă
+          </button>
+          <button
+            type="button"
+            onClick={() => submit(false)}
+            disabled={saving !== null}
+            className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+          >
+            {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Publică anunțul
+          </button>
+        </div>
+       </div>
       </div>
 
       {/* ---- Pickers ---- */}
@@ -678,6 +688,8 @@ export function NewListingForm() {
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
           moment of its own before the redirect. */}
+      </div>
+
       {posted && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div

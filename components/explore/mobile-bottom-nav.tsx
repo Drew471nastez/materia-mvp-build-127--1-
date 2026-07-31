@@ -26,7 +26,7 @@ export function MobileBottomNav({
 
   // Prefetch the new-product page so the tap navigates near-instantly.
   useEffect(() => {
-    router.prefetch("/app/products/new")
+    router.prefetch("/products/new")
   }, [router])
 
   // Sell button: play the smooth spin once, then glide to the new-product page.
@@ -35,7 +35,7 @@ export function MobileBottomNav({
     if (launching) return
     setLaunching(true)
     if (navTimer.current) clearTimeout(navTimer.current)
-    navTimer.current = setTimeout(() => router.push("/app/products/new"), 170)
+    navTimer.current = setTimeout(() => router.push("/products/new"), 170)
   }, [launching, router])
 
   const item = (key: string, icon: React.ReactNode, isActive: boolean) => (
@@ -77,11 +77,11 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/app" aria-label={t("mfeed.inbox")} className="relative">
+        <Link href="/messages" aria-label={t("mfeed.inbox")} className="relative">
           {item("mfeed.inbox", <MessageSquare className="h-6 w-6" />, active === "inbox")}
         </Link>
 
-        <Link href="/app" aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, active === "profile")}</Link>
+        <Link href="/settings" aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, active === "profile")}</Link>
       </div>
     </nav>
   )

@@ -69,7 +69,7 @@ export function DashboardSidebar() {
   const navItems = [
     { href: "/library", label: "Overview", icon: LayoutDashboard },
     { href: "/library/my-downloads", label: "My Downloads", icon: Download },
-    { href: "/library/wishlist", label: "Wishlist", icon: Heart },
+    { href: "/wishlist", label: "Wishlist", icon: Heart },
   ]
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (

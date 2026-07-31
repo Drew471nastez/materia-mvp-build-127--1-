@@ -14,7 +14,7 @@ const PREFETCH_MAP: Record<string, string[]> = {
   "/app/products": ["/app/products/new"],
   "/app/analytics": ["/app/orders/sales"],
   "/app/orders/sales": ["/app/analytics"],
-  "/library": ["/library/products", "/library/wishlist"],
+  "/library": ["/library/products", "/wishlist"],
   "/signup": ["/login"],
   "/login": ["/signup", "/app"],
 }
