@@ -160,6 +160,104 @@ html.capacitor a.no-tap-fade:active {
 @media (prefers-reduced-motion: reduce) {
   .listing-enter { animation: none; }
 }
+@supports (view-transition-name: none) {
+  /* Where the browser can hold the old screen on screen, the real blend below
+     does the work and this would be a second animation on top of it. */
+  .listing-enter { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Blended route changes  (see lib/nav-blend.ts)
+   ---------------------------------------------------------------------------
+   During one of these, BOTH screens are on screen as snapshots — the feed you
+   left and the page you opened — so unlike a normal route change there is no
+   bare background waiting behind them. That is what finally makes a fade safe
+   here, and it is why this is a blend rather than the plain zoom above.
+
+   The old snapshot still never drops below opacity 1 until the very end. Two
+   layers cross-fading at 50% each only cover 75% of the screen between them,
+   and the missing quarter is the document background — so the outgoing screen
+   stays solid and the incoming one fades in over the top of it. Nothing can
+   show through at any point in the run.
+
+   Movement is depth only, matching the grid/reels switch: opening a listing it
+   comes toward you and the feed carries on past; going back it reverses. No
+   sliding in either direction. */
+::view-transition-group(root) { animation-duration: 380ms; }
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@keyframes blend-old-away {
+  from { transform: scale(1); opacity: 1; }
+  92%  { opacity: 1; }
+  to   { transform: scale(1.09); opacity: 0; }
+}
+@keyframes blend-old-behind {
+  from { transform: scale(1); opacity: 1; }
+  92%  { opacity: 1; }
+  to   { transform: scale(0.94); opacity: 0; }
+}
+@keyframes blend-new-forward {
+  from { transform: scale(0.94); opacity: 0; }
+  55%  { opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+@keyframes blend-new-settle {
+  from { transform: scale(1.07); opacity: 0; }
+  55%  { opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+html[data-blend="enter"]::view-transition-old(root) {
+  animation: blend-old-away 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+html[data-blend="enter"]::view-transition-new(root) {
+  animation: blend-new-forward 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+html[data-blend="back"]::view-transition-old(root) {
+  animation: blend-old-behind 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+html[data-blend="back"]::view-transition-new(root) {
+  animation: blend-new-settle 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Desktop keeps the cross-fade but drops the zoom — a full-viewport scale on a
+   large screen reads as a website doing tricks. */
+@media (min-width: 768px) {
+  html[data-blend]::view-transition-old(root),
+  html[data-blend]::view-transition-new(root) {
+    animation-name: blend-fade-out, blend-fade-in;
+  }
+  html[data-blend]::view-transition-old(root) { animation-name: blend-fade-out; }
+  html[data-blend]::view-transition-new(root) { animation-name: blend-fade-in; }
+}
+@keyframes blend-fade-out {
+  from { opacity: 1; }
+  92%  { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes blend-fade-in {
+  from { opacity: 0; }
+  60%  { opacity: 1; }
+  to   { opacity: 1; }
+}
+
+/* A listing card acknowledging the finger before anything else happens. */
+.press-dim {
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+              filter 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Either the pressed element itself, or a wrapper holding it — a grid card's
+   link fills the tile absolutely, so scaling the link would move nothing. */
+.press-dim[data-pressed="true"],
+.press-dim:has(a[data-pressed="true"]) {
+  transform: scale(0.968);
+  filter: brightness(0.94);
+  transition-duration: 90ms;
+}
 
 /* Publish confirmation: the veil fades up, then the mark settles into it. Two
    steps rather than one so it reads as an answer to what you did, not a flash. */

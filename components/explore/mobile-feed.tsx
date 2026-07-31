@@ -19,6 +19,7 @@ import {
 } from "./following-people-list"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { signalArrival } from "@/lib/nav-blend"
 import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
@@ -413,14 +414,26 @@ export function MobileFeed({
   // returning from a listing shows the feed already where you left it, instead
   // of showing the top and then jumping.
   useLayoutEffect(() => {
-    if (reelsActive || tab !== "for-you") return
+    // Returning from a listing is a blended navigation, and the blend holds the
+    // old screen on screen until this says the feed is ready. Ready means AFTER
+    // the offset below has landed — photograph the feed while it is still sat at
+    // the top and you dissolve into the wrong place and then jump. Every path
+    // out of here signals, including the ones with nothing to restore.
+    if (reelsActive || tab !== "for-you") {
+      signalArrival()
+      return
+    }
     let saved = 0
     try {
       saved = Number(sessionStorage.getItem(FEED_SCROLL_KEY)) || 0
     } catch {
+      signalArrival()
       return
     }
-    if (!(saved > 0)) return
+    if (!(saved > 0)) {
+      signalArrival()
+      return
+    }
 
     // Setting scrollTop before the grid has laid out silently CLAMPS to 0 — the
     // container has no scrollable height yet, so the browser accepts the write
@@ -439,9 +452,13 @@ export function MobileFeed({
         lastScrollY.current = el.scrollTop
         // Landed close enough — images still loading can shift it by a pixel or
         // two, and chasing that would fight the user's own scrolling.
-        if (Math.abs(el.scrollTop - saved) < 4) return
+        if (Math.abs(el.scrollTop - saved) < 4) {
+          signalArrival()
+          return
+        }
       }
       if (performance.now() < deadline) raf = requestAnimationFrame(attempt)
+      else signalArrival() // gave up, but the feed is still what you're looking at
     }
     raf = requestAnimationFrame(attempt)
     return () => cancelAnimationFrame(raf)

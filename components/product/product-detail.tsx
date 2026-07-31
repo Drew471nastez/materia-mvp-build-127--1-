@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Flag, Heart, Share2 } from "lucide-react"
@@ -9,6 +9,7 @@ import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
+import { navigateBlended, signalArrival } from "@/lib/nav-blend"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
   CONDITIONS,
@@ -77,21 +78,23 @@ export function ProductDetail({ product, origin }: { product: any; origin?: stri
     // offset, same reel — rather than being re-entered from the top. `origin` is
     // only the fallback for a cold arrival (a shared link, a new tab), where
     // there is no history to pop.
-    // Slide out under our own control, then navigate. The browser's transition
-    // API can't be trusted here — it snapshots a page that may not have rendered
-    // yet — so the page animates itself off and pops history when it's done.
-    // Deterministic, and it always runs at full frame rate because it's one
-    // composited transform.
-    // Straight back, with nothing animating out.
     //
-    // An exit animation has the same problem as a fade-in, in reverse: the feed
-    // hasn't mounted yet, so anything that moves or fades this page uncovers the
-    // bare background first. That was the white flash on the way back — and
-    // waiting out the animation also added a quarter-second to a navigation that
-    // is otherwise instant, because the feed is still in the router cache.
-    if (typeof window !== "undefined" && window.history.length > 1) router.back()
-    else router.push(backHrefFor(origin))
+    // Blended, so this page stays on screen as a snapshot while the feed builds
+    // behind it and the two dissolve. Animating the page out on its own was the
+    // white flash on the way back: the feed hadn't mounted, so moving this page
+    // uncovered the bare background rather than the feed.
+    navigateBlended("back", () => {
+      if (typeof window !== "undefined" && window.history.length > 1) router.back()
+      else router.push(backHrefFor(origin))
+    })
   }, [router, origin])
+
+  // Tell an in-flight blend that this page is genuinely on screen, so it can
+  // photograph a finished page rather than one still building. Layout effect:
+  // before paint, so the snapshot can never catch an intermediate frame.
+  useLayoutEffect(() => {
+    signalArrival()
+  }, [])
 
   const onGalleryScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget

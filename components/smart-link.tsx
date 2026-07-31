@@ -1,9 +1,10 @@
 "use client"
 
-import { useRef } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal } from "@/lib/native-bridge"
+import { openExternal, triggerHaptic } from "@/lib/native-bridge"
+import { navigateBlended } from "@/lib/nav-blend"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -62,16 +63,68 @@ const TOUCH_STYLES: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 }
 
+/**
+ * Instant acknowledgement of a finger.
+ *
+ * Everything else about opening a page takes time you can't get to zero — a
+ * fetch, a render, an animation. What you *can* make immediate is the reply to
+ * the touch itself, and that is most of what "instant" feels like: the press
+ * lands on pointerdown, before any of the work starts, so the tap is never in
+ * doubt while the page is on its way.
+ *
+ * pointerdown rather than click, because click waits for the lift. The haptic is
+ * a no-op off-device. Released on cancel too, so scrolling away from a card you
+ * brushed doesn't leave it stuck down.
+ */
+function usePress(enabled: boolean) {
+  const [pressed, setPressed] = useState(false)
+  const down = useCallback(() => {
+    if (!enabled) return
+    setPressed(true)
+    void triggerHaptic("light")
+  }, [enabled])
+  const up = useCallback(() => setPressed(false), [])
+  if (!enabled) return {}
+  return {
+    "data-pressed": pressed ? "true" : "false",
+    onPointerDown: down,
+    onPointerUp: up,
+    onPointerCancel: up,
+    onPointerLeave: up,
+  } as const
+}
+
 export function SmartLink({
   href,
   children,
   useClientNav,
+  blend,
+  press: pressProp,
   ...props
-}: React.AnchorHTMLAttributes<HTMLAnchorElement> & { useClientNav?: boolean }) {
+}: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  useClientNav?: boolean
+  /**
+   * Press feedback, on by default wherever `blend` is. Turn it off on surfaces
+   * you also swipe — a reel photo is dragged sideways as often as it is tapped,
+   * and pointerdown can't yet tell the two apart, so it would flinch on a swipe.
+   */
+  press?: boolean
+  /**
+   * Opt this link into a blended, client-side route change — and into press
+   * feedback. Set it on things that behave like cards: a tap should feel like
+   * opening the thing you touched, not like loading a document.
+   *
+   * It is opt-in because on the web every other SmartLink is deliberately a real
+   * <a> full navigation, which is what keeps cross-layout and auth-sensitive
+   * routes correct. This changes that for the links that want it, nothing else.
+   */
+  blend?: boolean
+}) {
   const inApp = isNativeApp()
   const resolvedHref = inApp && href ? toInternalHref(href) : href
   const router = useRouter()
   const warmed = useRef(false)
+  const press = usePress(pressProp ?? !!blend)
 
   // In Capacitor, use router.push() for same-layout paths (smooth, no white flash).
   // Cross-layout routes (/app, /store-builder, /library) and explicit
@@ -131,6 +184,7 @@ export function SmartLink({
       return (
         <a
           {...linkSafeProps}
+          {...press}
           href={resolvedHref}
           onPointerEnter={warm}
           onTouchStart={warm}
@@ -139,15 +193,9 @@ export function SmartLink({
             if (typeof onClick === "function") onClick(e as any)
             if (needsHardNav) {
               window.location.href = resolvedHref
+            } else if (blend) {
+              navigateBlended("enter", () => router.push(resolvedHref))
             } else {
-              // Plain push. Wrapping this in startViewTransition looked right on
-              // paper and glitched in practice: the API snapshots the old page,
-              // runs the callback, then snapshots the NEW one — but router.push
-              // is async, so the second snapshot caught a page that hadn't
-              // rendered yet and the transition played against a half-built
-              // screen. The listing animates itself in instead (see
-              // .listing-enter), which can't race anything because it starts
-              // when the page actually mounts.
               router.push(resolvedHref)
             }
           }}
@@ -179,6 +227,42 @@ export function SmartLink({
         </a>
       )
     }
+  }
+
+  // Web, opted in: the same client-side, warmed, blended navigation the app gets.
+  //
+  // Until now this branch rendered a bare <a href>, which is a FULL PAGE LOAD —
+  // a fresh document, a fresh React tree, every query run again from cold. That
+  // is the whole of the multi-second wait on mobile web, and no amount of
+  // animation work could have touched it, because the animation was on the other
+  // side of a document teardown.
+  if (blend && useClientNav !== false && resolvedHref?.startsWith("/")) {
+    const { onClick, ...rest } = props
+    const warm = () => {
+      if (warmed.current) return
+      warmed.current = true
+      router.prefetch(resolvedHref)
+    }
+    return (
+      <a
+        {...rest}
+        {...press}
+        href={resolvedHref}
+        onPointerEnter={warm}
+        onTouchStart={warm}
+        onClick={(e) => {
+          // Let the browser have the ones the browser should keep: new tab,
+          // new window, download, save-as. Only a plain left click is ours.
+          if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+          e.preventDefault()
+          if (typeof onClick === "function") onClick(e)
+          navigateBlended("enter", () => router.push(resolvedHref))
+        }}
+        style={{ ...TOUCH_STYLES, ...(rest.style as React.CSSProperties) }}
+      >
+        {children}
+      </a>
+    )
   }
 
   return (
