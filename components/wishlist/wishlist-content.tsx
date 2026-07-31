@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
-import { getStoreUrl, getProductUrl, getProductShareUrl } from "@/lib/url-helpers"
+import { getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
-import { isNativeApp } from "@/lib/native-bridge"
 
 interface WishlistItem {
   id: string
@@ -177,11 +176,13 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
           const creatorName = product.creator_profile?.display_name || "Creator"
           const creatorUsername = product.creator_profile?.username || product.creators?.slug
-          const native = isNativeApp()
-          // On native apps, use the full share URL so SmartLink opens it in the external browser
-          const productUrl = native && creatorUsername
-            ? getProductShareUrl(creatorUsername, product.slug)
-            : creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`
+          // The in-app listing page, everywhere. This used to route to the
+          // creator-store URL (a subdomain, or /p/) — the digital-product page —
+          // so a saved marketplace listing opened as the wrong kind of product,
+          // and on native it ejected to the external browser. A wishlist item IS
+          // a listing; it opens like one, with origin tracking like every other
+          // surface.
+          const productUrl = `/products/${encodeURIComponent(product.slug)}?origin=wishlist`
           const isRemoving = removingId === product.id
 
           return (
@@ -192,7 +193,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
               }`}
             >
               {/* Thumbnail */}
-              <SmartLink href={productUrl} className="block" target={native ? "_blank" : undefined}>
+              <SmartLink href={productUrl} blend warmImage={product.thumbnail_url} className="block">
                 <div className="relative aspect-[3/4] bg-neutral-100 overflow-hidden">
                   {product.thumbnail_url ? (
                     <Image
@@ -225,7 +226,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
               {/* Info */}
               <div className="p-3.5">
-                <SmartLink href={productUrl} target={native ? "_blank" : undefined}>
+                <SmartLink href={productUrl} blend>
                   <h3 className="font-medium text-neutral-900 text-sm truncate hover:text-violet-600 transition-colors">
                     {product.title}
                   </h3>
@@ -253,8 +254,8 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                   </div>
                   <SmartLink
                     href={productUrl}
+                    blend
                     className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors"
-                    target={native ? "_blank" : undefined}
                   >
                     View
                   </SmartLink>

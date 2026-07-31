@@ -7,6 +7,29 @@ import { Home, Search, Plus, MessageSquare, User } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
 
+// Module-scoped so sixty page navigations do not mean sixty counts: every
+// mounted bar shares one number and one in-flight request, refreshed on mount
+// only when stale and on window focus — the moment a reply is most likely
+// waiting.
+let unreadCache = { count: 0, at: 0 }
+let unreadInflight: Promise<number> | null = null
+const UNREAD_TTL = 30_000
+
+function fetchUnread(): Promise<number> {
+  if (unreadInflight) return unreadInflight
+  unreadInflight = fetch("/api/messages/unread", { credentials: "include" })
+    .then((r) => (r.ok ? r.json() : { count: 0 }))
+    .then((d) => {
+      unreadCache = { count: d?.count ?? 0, at: Date.now() }
+      return unreadCache.count
+    })
+    .catch(() => unreadCache.count)
+    .finally(() => {
+      unreadInflight = null
+    })
+  return unreadInflight
+}
+
 /**
  * Depop/Vinted-style bottom tab bar for the mobile marketplace.
  * Home / Search / Sell (+) / Inbox / Profile. Fixed to the safe-area bottom.
@@ -22,6 +45,18 @@ export function MobileBottomNav({
   const { t } = useLocale()
   const router = useRouter()
   const [launching, setLaunching] = useState(false)
+
+  const [unread, setUnread] = useState(unreadCache.count)
+  useEffect(() => {
+    let alive = true
+    const refresh = () => void fetchUnread().then((n) => alive && setUnread(n))
+    if (Date.now() - unreadCache.at > UNREAD_TTL) refresh()
+    window.addEventListener("focus", refresh)
+    return () => {
+      alive = false
+      window.removeEventListener("focus", refresh)
+    }
+  }, [])
 
   // Every destination the bar can reach, prefetched as soon as the bar mounts —
   // which is on every page now. A tab tap then has nothing left to fetch: the
@@ -84,7 +119,18 @@ export function MobileBottomNav({
         </button>
 
         <Link href="/messages" prefetch aria-label={t("mfeed.inbox")} className="relative">
-          {item("mfeed.inbox", <MessageSquare className="h-6 w-6" />, active === "inbox")}
+          {item(
+            "mfeed.inbox",
+            <span className="relative">
+              <MessageSquare className="h-6 w-6" />
+              {unread > 0 && (
+                <span className="absolute -right-1.5 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#7c3aed] px-[3px] text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </span>,
+            active === "inbox",
+          )}
         </Link>
 
         <Link href="/settings" prefetch aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, active === "profile")}</Link>
