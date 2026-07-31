@@ -12,7 +12,7 @@ import { ReelsPager } from "./reels-pager"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
 import { useWishlistedIds } from "./wishlist-context"
-import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 
@@ -108,6 +108,8 @@ export function MobileFeed({
   }, [view])
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const feedContentRef = useRef<HTMLDivElement>(null)
+  const feedSpinnerRef = useRef<HTMLDivElement>(null)
   const reelsAreaRef = useRef<HTMLDivElement>(null)
   const [reelsHeight, setReelsHeight] = useState(0)
 
@@ -188,8 +190,15 @@ export function MobileFeed({
     setRevealNonce((n) => n + 1)
   }, [tab, router])
 
-  const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
-  const ptrOffset = phase === "refreshing" ? 52 : pullDistance
+  // Imperative iOS-grade pull-to-refresh — re-attaches whenever the grid mounts
+  // (enabled flips), so it never silently stops after a grid↔reels switch.
+  useFeedPullRefresh({
+    scrollRef,
+    contentRef: feedContentRef,
+    spinnerRef: feedSpinnerRef,
+    onRefresh,
+    enabled: !reelsActive,
+  })
 
   // Hide the category bar on scroll-down, reveal it on scroll-up (grid only).
   useEffect(() => {
@@ -496,32 +505,47 @@ export function MobileFeed({
             ))}
           </div>
         </div>
+        {/* Pull-to-refresh indicator. It lives HERE — a sibling of the scroller,
+            z-10 — and not inside it, because the category bar above is opaque
+            white at z-20: anything painted inside the scroller sat behind that
+            bar and was simply never seen. From here it starts tucked under the
+            bar and slides out beneath it as you pull, exactly like a
+            UIRefreshControl emerging from under a nav bar. */}
+        <div
+          ref={feedSpinnerRef}
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+          style={{
+            // Position, opacity, scale and spin state are all written straight
+            // to this node by useFeedPullRefresh — no React state per frame.
+            opacity: 0,
+            transform: "translate3d(0, 18px, 0) scale(0.55)",
+          }}
+        >
+          <IosSpinner size={24} />
+        </div>
+
         <div
           ref={scrollRef}
-          className="absolute inset-0 overflow-y-auto overscroll-contain scrollbar-hide"
-          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+          className="absolute inset-0 overflow-y-auto scrollbar-hide"
+          style={{
+            scrollbarWidth: "none",
+            WebkitOverflowScrolling: "touch",
+            // `none`, not `contain`: contain still lets the WebView rubber-band
+            // this element, which fought the pull transform and made it judder.
+            // We render the overscroll ourselves, so the native one has to go.
+            overscrollBehaviorY: "none",
+          }}
         >
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-[66px]"
+            ref={feedContentRef}
+            className="relative z-10 min-h-full bg-white"
             style={{
-              opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 40),
-              transform: `scale(${phase === "refreshing" ? 1 : 0.7 + Math.min(1, pullDistance / 70) * 0.3})`,
-              transition: phase === "pulling" ? "none" : "opacity 0.3s ease-out, transform 0.3s ease-out",
-            }}
-          >
-            <IosSpinner size={24} />
-          </div>
-
-          <div
-            className="relative z-10 min-h-full bg-white will-change-transform"
-            style={{
-              // translate3d forces a GPU layer so the pull + spring-back run on the
-              // compositor (buttery, off the main thread) instead of triggering layout.
-              transform: `translate3d(0, ${ptrOffset}px, 0)`,
-              transition:
-                phase === "pulling" || phase === "ready"
-                  ? "none"
-                  : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
+              // translate3d forces a GPU layer so the pull + spring-back run on
+              // the compositor (buttery, off the main thread). The hook writes
+              // the transform, transition and will-change straight to this node;
+              // will-change is toggled per gesture rather than left on, so the
+              // long grid isn't stuck holding a big layer while you scroll.
+              transform: "translate3d(0, 0, 0)",
             }}
           >
             {/* Spacer that reserves the category-bar overlay's height so the
