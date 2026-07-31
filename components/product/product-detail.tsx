@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 
 /** How long the page takes to slide off before history is popped. */
-const LEAVE_MS = 260
+const LEAVE_MS = 240
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 

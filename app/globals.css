@@ -129,22 +129,29 @@ html.capacitor a.no-tap-fade:active {
 
    The exit is the mirror of this, set inline by the component before it pops
    history — see product-detail.tsx. */
+/* The listing doesn't just slide across — it comes forward. It enters from the
+   right AND settles out of a slight scale with a short opacity ramp, so the two
+   screens read as one continuing movement rather than one card sliding over
+   another. A pure translate is what made it feel abrupt: the eye has nothing to
+   follow except an edge crossing the screen. */
 @keyframes listing-enter {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+  from { transform: translate3d(22%, 0, 0) scale(0.96); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
 }
 /* Phones only. A screen sliding in from the right is a NATIVE idiom — it works
    because the phone is the screen, and the gesture that opens it comes from the
    edge. On a desktop the page is a window among windows, and a full-viewport
    slide reads as a website doing tricks. There it just appears, with a short
    fade so it isn't an abrupt swap. */
+/* The mirror: it recedes as it leaves, rather than being shoved off the edge. */
 @keyframes listing-leave {
-  from { transform: translateX(0); }
-  to   { transform: translateX(100%); }
+  from { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  to   { transform: translate3d(22%, 0, 0) scale(0.96); opacity: 0; }
 }
 @media (max-width: 767px) {
   .listing-enter {
-    animation: listing-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: listing-enter 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
     will-change: transform;
   }
   /* The exit is an ANIMATION too, not an inline transform with the enter
@@ -153,7 +160,7 @@ html.capacitor a.no-tap-fade:active {
      frame before the transition took over — that's the blink on the way back.
      Two animations swapped by class never expose that gap. */
   .listing-leave {
-    animation: listing-leave 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: listing-leave 240ms cubic-bezier(0.4, 0, 0.2, 1) both;
     will-change: transform;
   }
 }

@@ -571,6 +571,38 @@ export function MobileFeed({
     )
   }, [products, revealNonce, t])
 
+  // Warm the listings you can actually see.
+  //
+  // Warming on touch only buys the ~100ms between a finger landing and lifting,
+  // and the product page is force-dynamic with database queries behind it — so
+  // a tap still waited on a cold round trip. That is the "not under one second".
+  //
+  // The routes for the visible cards are prefetched during idle instead, so by
+  // the time you tap, the page is already in the client cache and opening it is
+  // a render rather than a request. Capped and idle-scheduled: prefetching a
+  // hundred dynamic pages to open one would trade this delay for a worse one.
+  useEffect(() => {
+    if (reelsActive) return
+    const slugs = products
+      .slice(0, 12)
+      .map((p: any) => p?.slug)
+      .filter(Boolean)
+    if (!slugs.length) return
+
+    let cancelled = false
+    const run = () => {
+      if (cancelled) return
+      for (const slug of slugs) router.prefetch(`/products/${encodeURIComponent(slug)}`)
+    }
+    const ric = (window as any).requestIdleCallback
+    const handle = ric ? ric(run, { timeout: 2000 }) : window.setTimeout(run, 400)
+    return () => {
+      cancelled = true
+      if (ric && (window as any).cancelIdleCallback) (window as any).cancelIdleCallback(handle)
+      else window.clearTimeout(handle)
+    }
+  }, [products, reelsActive, router])
+
   // Tapping the search bar (or the bottom-nav search) opens the full-screen
   // search overlay — the inline field is just a trigger, never typed into.
   const openSearch = useCallback(() => setSearchOpen(true), [])
