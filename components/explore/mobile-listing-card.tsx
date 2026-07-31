@@ -95,20 +95,11 @@ export const MobileListingCard = memo(function MobileListingCard({
   }, [near, everNear])
   const shown = everNear ? images : images.slice(0, 1)
 
-  // The horizontal gallery is only a real scroller on the settled active card.
-  // A scrollable sub-container gets its own layer, and WebKit visibly lags those
-  // behind an ancestor that's being transform-animated — with a scroller on every
-  // mounted card, the photos dragged behind their frames on every vertical
-  // transition. Off during the glide, on once you've landed.
-  const [swipeable, setSwipeable] = useState(false)
-  useEffect(() => {
-    if (!active || images.length < 2) {
-      setSwipeable(false)
-      return
-    }
-    const timer = setTimeout(() => setSwipeable(true), 620) // after the glide
-    return () => clearTimeout(timer)
-  }, [active, images.length])
+  // The gallery is a real scroller whenever there's more than one photo. It used
+  // to be gated to the settled card because WebKit lags scrollable sub-layers
+  // behind a transform-animated ancestor — but the vertical feed is a native
+  // scroller now, so there is no such ancestor and nothing to lag behind.
+  const swipeable = images.length > 1
 
   // After ~3s of lingering on the active card (with more than one photo, and
   // still on the first), show a clean minimalist "swipe" nudge once.
