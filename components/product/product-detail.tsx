@@ -115,6 +115,24 @@ export function ProductDetail({ product }: { product: any }) {
   // decoded. From the grid it is a wider source than the tile was using and
   // there is a real fetch to wait on — capped, because a page that hasn't
   // appeared yet is worse than one that appears without its picture.
+  // Does this page have to animate itself in?
+  //
+  // Only when nothing else is doing it. A blend in progress at mount means the
+  // browser is already sliding this page into place and a second animation on
+  // top would be the doubled open all over again. No blend means either the
+  // browser can't do them, or the navigation was too slow and the blend gave up
+  // and swapped instantly — and in both of those cases opening a listing with no
+  // animation whatsoever is worse than a plain one. So there is always exactly
+  // one, and never two.
+  // Decided in a layout effect rather than at first render, so the server and
+  // the client agree on the markup and nothing hydrates mismatched. Layout
+  // effects run before the browser paints, so the class is still in place for
+  // the first frame and the animation plays from its true start.
+  const [selfAnimate, setSelfAnimate] = useState(false)
+  useLayoutEffect(() => {
+    if (!document.documentElement.dataset.blend) setSelfAnimate(true)
+  }, [])
+
   const rootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const img = rootRef.current?.querySelector("img")
@@ -198,7 +216,10 @@ export function ProductDetail({ product }: { product: any }) {
   const summary = [product.size?.toUpperCase(), cond].filter(Boolean).join(" · ")
 
   return (
-    <div ref={rootRef} className="listing-enter min-h-screen bg-white pb-28 md:pb-0">
+    <div
+      ref={rootRef}
+      className={cn("min-h-screen bg-white pb-28 md:pb-0", selfAnimate && "listing-enter")}
+    >
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">

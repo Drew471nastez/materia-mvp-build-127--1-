@@ -66,6 +66,24 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+
+    // How long the client router may reuse a page it already has.
+    //
+    // `dynamic` defaults to ZERO, which means a force-dynamic route is thrown
+    // away the moment you leave it — so pressing back from a listing refetched
+    // the entire feed from the server and rebuilt it from nothing. That is the
+    // reload-flash on the way back: not an animation problem at all, but the
+    // feed genuinely being fetched and remounted a second time, replaying its
+    // own entry as it went.
+    //
+    // Three minutes for dynamic pages. Back and forth within a browsing session
+    // is instant and comes off the cache; anything older is refetched. Fresh
+    // data still arrives by every other route into the page — a reload, a new
+    // session, or the feed's own pull-to-refresh.
+    staleTimes: {
+      dynamic: 180,
+      static: 300,
+    },
   },
   serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.

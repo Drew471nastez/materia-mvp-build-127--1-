@@ -160,90 +160,88 @@ html.capacitor a.no-tap-fade:active {
 @media (prefers-reduced-motion: reduce) {
   .listing-enter { animation: none; }
 }
-@supports (view-transition-name: none) {
-  /* Where the browser can hold the old screen on screen, the real blend below
-     does the work and this would be a second animation on top of it. */
-  .listing-enter { animation: none; }
-}
-
 /* ---------------------------------------------------------------------------
-   Blended route changes  (see lib/nav-blend.ts)
+   Route changes  (see lib/nav-blend.ts)
    ---------------------------------------------------------------------------
-   During one of these, BOTH screens are on screen as snapshots — the feed you
-   left and the page you opened — so unlike a normal route change there is no
-   bare background waiting behind them. That is what finally makes a fade safe
-   here, and it is why this is a blend rather than the plain zoom above.
+   During one of these BOTH screens are on screen as snapshots — the feed you
+   left and the page you opened — which is the one situation where they can pass
+   each other without the bare document background ever showing between them.
 
-   The old snapshot still never drops below opacity 1 until the very end. Two
-   layers cross-fading at 50% each only cover 75% of the screen between them,
-   and the missing quarter is the document background — so the outgoing screen
-   stays solid and the incoming one fades in over the top of it. Nothing can
-   show through at any point in the run.
+   So there is no fade here at all. Neither screen drops below full opacity for
+   a single frame; they simply slide, one over the other, exactly the way a
+   pushed and popped screen behaves natively. Every complaint about this
+   transition has been about fading and flashing, and the honest reading of that
+   is that a fade was never the right idea for a page change: it is what you
+   reach for when you have nothing solid to move, and here we do.
 
-   Movement is depth only, matching the grid/reels switch: opening a listing it
-   comes toward you and the feed carries on past; going back it reverses. No
-   sliding in either direction. */
+   The geometry is chosen so the frame is covered at every instant. Opening, the
+   listing comes in from the right while the feed eases back a fifth of a screen;
+   at the halfway point the incoming page holds 50%-150% and the feed holds
+   -11%-89%, so between them they cover everything. Going back it runs in
+   reverse, with the listing on top so it is the thing that leaves.
+
+   The UA's own cross-fade is turned off, including mix-blend-mode: plus-lighter
+   — which is fine for two fading layers but would burn out to white the moment
+   two opaque ones overlap, and here they always do. */
 ::view-transition-group(root) { animation-duration: 340ms; }
 /* Back is shorter than in. Going somewhere is worth a beat; coming back from
    somewhere you have already seen is not, and a return that lingers is the main
    way a transition starts to feel like an obstacle. */
-html[data-blend="back"]::view-transition-group(root) { animation-duration: 260ms; }
+html[data-blend="back"]::view-transition-group(root) { animation-duration: 250ms; }
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
 
-@keyframes blend-old-away {
-  from { transform: scale(1); opacity: 1; }
-  92%  { opacity: 1; }
-  to   { transform: scale(1.09); opacity: 0; }
-}
-@keyframes blend-old-behind {
-  from { transform: scale(1); opacity: 1; }
-  92%  { opacity: 1; }
-  to   { transform: scale(0.94); opacity: 0; }
-}
-@keyframes blend-new-forward {
-  from { transform: scale(0.94); opacity: 0; }
-  55%  { opacity: 1; }
-  to   { transform: scale(1); opacity: 1; }
-}
-@keyframes blend-new-settle {
-  from { transform: scale(1.07); opacity: 0; }
-  55%  { opacity: 1; }
-  to   { transform: scale(1); opacity: 1; }
-}
+@keyframes page-push-out { from { transform: translateX(0); }     to { transform: translateX(-22%); } }
+@keyframes page-push-in  { from { transform: translateX(100%); }  to { transform: translateX(0); } }
+@keyframes page-pop-out  { from { transform: translateX(0); }     to { transform: translateX(100%); } }
+@keyframes page-pop-in   { from { transform: translateX(-22%); }  to { transform: translateX(0); } }
 
 html[data-blend="enter"]::view-transition-old(root) {
-  animation: blend-old-away 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: page-push-out 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 html[data-blend="enter"]::view-transition-new(root) {
-  animation: blend-new-forward 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: page-push-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+/* Going back, the page you are LEAVING has to be the one on top — it is the
+   thing sliding away to reveal what was underneath it all along. The default
+   stacking puts the incoming screen above, which would have the feed sliding
+   over a stationary listing: right motion, wrong object. */
 html[data-blend="back"]::view-transition-old(root) {
-  animation: blend-old-behind 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: page-pop-out 250ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  z-index: 2;
 }
 html[data-blend="back"]::view-transition-new(root) {
-  animation: blend-new-settle 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: page-pop-in 250ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  z-index: 1;
 }
 
-/* Desktop keeps the cross-fade but drops the zoom — a full-viewport scale on a
-   large screen reads as a website doing tricks. */
+/* Desktop slides nothing. A full-viewport push on a large screen reads as a
+   phone app pretending to be a website, and there is no back gesture there for
+   it to correspond to — so it gets a short cross-fade instead. The outgoing
+   screen holds full opacity until the very end, because two layers at half
+   opacity only cover three quarters of the frame between them and the missing
+   quarter is the background. */
 @media (min-width: 768px) {
-  html[data-blend]::view-transition-old(root),
-  html[data-blend]::view-transition-new(root) {
-    animation-name: blend-fade-out, blend-fade-in;
+  html[data-blend]::view-transition-old(root) {
+    animation: page-fade-out 220ms linear both;
+    transform: none;
+    z-index: auto;
   }
-  html[data-blend]::view-transition-old(root) { animation-name: blend-fade-out; }
-  html[data-blend]::view-transition-new(root) { animation-name: blend-fade-in; }
+  html[data-blend]::view-transition-new(root) {
+    animation: page-fade-in 220ms linear both;
+    transform: none;
+    z-index: auto;
+  }
 }
-@keyframes blend-fade-out {
+@keyframes page-fade-out {
   from { opacity: 1; }
   92%  { opacity: 1; }
   to   { opacity: 0; }
 }
-@keyframes blend-fade-in {
+@keyframes page-fade-in {
   from { opacity: 0; }
   60%  { opacity: 1; }
   to   { opacity: 1; }

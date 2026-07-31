@@ -118,7 +118,14 @@ export function navigateBlended(kind: Blend, go: () => void): void {
   // which is the honest result when the destination wasn't ready.
   transition.updateCallbackDone.then(
     () => {
-      if (lateArrival) transition.skipTransition()
+      if (!lateArrival) return
+      transition.skipTransition()
+      // Drop the marker straight away rather than waiting for `finished`. A
+      // destination that arrives after this point mounts to find no blend in
+      // progress, which is true, and can then play its own entry animation
+      // instead of assuming this one covered it. That is the difference between
+      // a slow open and a slow open with no animation at all.
+      delete root.dataset.blend
     },
     () => {},
   )
