@@ -90,6 +90,19 @@ export const MobileListingCard = memo(function MobileListingCard({
   const storeUrl = username ? getStoreUrl(username) : "#"
   const cond = conditionLabel(product.condition)
 
+  // Smooth, staggered reveal when a reel settles into place — the gradient,
+  // caption and action rail ease + slide in instead of snapping after the image.
+  const reveal = (delay: number) => ({
+    opacity: active ? 1 : 0,
+    transform: active ? "translateY(0)" : "translateY(16px)",
+    transition: `opacity 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}s, transform 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}s`,
+    willChange: "opacity, transform",
+  })
+  const gradientReveal = {
+    opacity: active ? 1 : 0,
+    transition: "opacity 0.6s cubic-bezier(0.22,1,0.36,1)",
+  }
+
   const onLike = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
@@ -141,7 +154,10 @@ export const MobileListingCard = memo(function MobileListingCard({
 
       {/* Legibility gradients */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent"
+        style={gradientReveal}
+      />
 
       {/* Swipe hint — clean, minimalist, appears after lingering, then fades */}
       {showHint && images.length > 1 && (
@@ -158,7 +174,7 @@ export const MobileListingCard = memo(function MobileListingCard({
 
       {/* Centered photo dots (a touch more visible) */}
       {images.length > 1 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[92px] z-20 flex items-center justify-center gap-1.5">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[92px] z-20 flex items-center justify-center gap-1.5" style={gradientReveal}>
           {images.map((_, i) => (
             <span
               key={i}
@@ -173,7 +189,7 @@ export const MobileListingCard = memo(function MobileListingCard({
 
       {/* Right action rail — follow, save, share (no comments). Icons sit in
           soft translucent circles so they read cleanly over any photo. */}
-      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4 text-white">
+      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4 text-white" style={reveal(0.12)}>
         <SmartLink href={storeUrl} onClick={(e) => e.stopPropagation()} className="relative mb-1">
           <span className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-neutral-700 shadow-sm">
             {avatar ? (
@@ -205,21 +221,21 @@ export const MobileListingCard = memo(function MobileListingCard({
         </SmartLink>
       </div>
 
-      {/* Bottom info overlay */}
+      {/* Bottom info overlay — each line staggers in for a premium reveal */}
       <SmartLink href={productUrl} className="absolute inset-x-0 bottom-0 block p-4 pr-20 text-white">
-        <h3 className="text-[19px] font-semibold leading-tight">{product.title}</h3>
-        <div className="mt-1.5 flex items-baseline gap-2">
+        <h3 className="text-[19px] font-semibold leading-tight" style={reveal(0.06)}>{product.title}</h3>
+        <div className="mt-1.5 flex items-baseline gap-2" style={reveal(0.11)}>
           <span className="text-[22px] font-bold">{product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}</span>
           {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
             <span className="text-[13px] text-white/70 line-through">{formatPrice(product.compare_at_cents)}</span>
           )}
         </div>
         {(product.size || cond) && (
-          <p className="mt-1 text-[13px] text-white/85">
+          <p className="mt-1 text-[13px] text-white/85" style={reveal(0.15)}>
             {[product.size, cond].filter(Boolean).join(" · ")}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-1.5">
+        <div className="mt-2 flex items-center gap-1.5" style={reveal(0.19)}>
           <span className="h-5 w-5 overflow-hidden rounded-full bg-white/25">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
