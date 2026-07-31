@@ -50,17 +50,18 @@ function SignUpFormContent() {
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
 
+  // One navigation, not two — see the same note on the login page. The push +
+  // hard-reload-1.5s-later pair meant a successful sign-up loaded the next page
+  // twice, and a slow one sat here for a second and a half before moving. A hard
+  // navigation also guarantees the freshly-set session cookie is sent with the
+  // request, so the destination never renders as though you were signed out.
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
-    router.push(url)
     if (typeof window !== "undefined") {
-      if (redirectTimeoutRef.current) {
-        window.clearTimeout(redirectTimeoutRef.current)
-      }
-      redirectTimeoutRef.current = window.setTimeout(() => {
-        window.location.assign(url)
-      }, 1500)
+      window.location.assign(url)
+      return
     }
+    router.push(url)
   }
 
   const lookupAccountOrigin = async (rawEmail: string) => {

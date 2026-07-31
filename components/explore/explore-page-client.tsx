@@ -1325,12 +1325,9 @@ export function ExplorePageClient({
         <FeaturedBannerCarousel products={featuredProducts} />
       )}
 
-      {/* Search — stays mounted across search/browse so the placeholder keeps its cursor */}
-      <SearchInput
-        searchQuery={localSearchQuery}
-        setSearchQuery={setLocalSearchQuery}
-        categoryId={mainCategory}
-      />
+      {/* No search bar here. The header already carries one on every page, and a
+          second one on the feed only raised the question of which was which —
+          they searched the same catalogue. Search lives in the header. */}
 
       {/* Dynamic Category Section (Recommended) */}
       {!urlSearchQuery && (

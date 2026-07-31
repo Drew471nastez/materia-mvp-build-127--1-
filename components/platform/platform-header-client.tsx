@@ -16,10 +16,11 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
+import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
@@ -610,13 +611,38 @@ export function PlatformHeaderClient() {
   const searchParams = useSearchParams()
   const { t } = useLocale()
 
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [isCreator, setIsCreator] = useState(false)
-  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(() => {
+    const seed = readAuthSnapshot()
+    // Only the id is ever read off this before the real session lands.
+    return seed?.signedIn && seed.userId ? ({ id: seed.userId } as User) : null
+  })
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    const seed = readAuthSnapshot()
+    return seed?.signedIn
+      ? ({
+          display_name: seed.displayName,
+          avatar_url: seed.avatarUrl,
+          username: seed.username,
+        } as Profile)
+      : null
+  })
+  const [isCreator, setIsCreator] = useState(() => !!readAuthSnapshot()?.isSeller)
+  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(
+    () => !!readAuthSnapshot()?.isSeller,
+  )
+  // Seeded from the persisted snapshot, so a returning visitor gets the correct
+  // header on the FIRST paint — no skeleton, no flash of "Log in" before the
+  // avatar appears. Only a genuinely first-time visitor ever sees loading=true.
+  const [loading, setLoading] = useState(() => readAuthSnapshot() === null)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-  const [wishlistCount, setWishlistCount] = useState(0)
+  // Seeded from the last known value. The badge used to start at 0 on every page
+  // load and jump to the real count once a fetch returned — that pop, on every
+  // navigation, is the "red circle flickering randomly".
+  const [wishlistCount, setWishlistCount] = useState(() => {
+    if (typeof window === "undefined") return 0
+    const n = Number(localStorage.getItem("_sl_wishlist_count"))
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  })
   // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
   const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
@@ -764,7 +790,13 @@ export function PlatformHeaderClient() {
       })
       if (res.ok) {
         const data = await res.json()
-        setWishlistCount(data.count || data.items?.length || 0)
+        const next = data.count || data.items?.length || 0
+        setWishlistCount((prev) => (prev === next ? prev : next))
+        try {
+          localStorage.setItem("_sl_wishlist_count", String(next))
+        } catch {
+          /* storage unavailable */
+        }
       }
     } catch (err) {
       console.error("[v0] Failed to fetch wishlist count:", err)
@@ -778,7 +810,13 @@ export function PlatformHeaderClient() {
   useEffect(() => {
     const handleWishlistUpdate = (event: CustomEvent) => {
       if (typeof event.detail?.count === "number") {
-        setWishlistCount(event.detail.count)
+        const next = event.detail.count
+        setWishlistCount((prev) => (prev === next ? prev : next))
+        try {
+          localStorage.setItem("_sl_wishlist_count", String(next))
+        } catch {
+          /* storage unavailable */
+        }
       } else {
         fetchWishlistCount()
       }
@@ -798,69 +836,76 @@ export function PlatformHeaderClient() {
       setInitialLoadDone(true)
     }, 2500)
 
-    const loadUser = async (isInitial = false) => {
+    const loadUser = async () => {
       try {
         if (!mountedRef.current) return
-        if (isInitial) {
-          setLoading(true)
-        }
 
+        // getSession() reads the stored session locally; getUser() posts to
+        // Supabase to re-validate the JWT. This runs on every page load purely to
+        // decide which header to draw, so it takes the local read — a header does
+        // not need to re-verify a token, and anything that actually matters is
+        // authorised server-side anyway. This alone removes a network round trip
+        // from in front of the first paint.
         const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser()
+          data: { session },
+        } = await supabase.auth.getSession()
+        const user = session?.user ?? null
 
-        if (error || !user) {
+        if (!user) {
           if (!mountedRef.current) return
           setUser(null)
           setProfile(null)
           setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
+          clearAuthSnapshot()
+          setCachedAvatarUrl(null)
           return
         }
 
         if (!mountedRef.current) return
         setUser(user)
 
-        // profiles.avatar_url is the single source of truth for avatar.
-        // Both /app/settings and Store Builder sync avatar changes to this field.
-        // Do NOT query store_builder_configs separately — it causes split-source flicker.
-        const { data: profileData, error: profileErr } = await supabase
-          .from("profiles")
-          .select("display_name, avatar_url, username, is_creator")
-          .eq("id", user.id)
-          .single()
-
-        const { data: creatorData } = await supabase
-          .from("creators")
-          .select("id, onboarding_completed")
-          .eq("user_id", user.id)
-          .maybeSingle()
+        // In parallel, not one after the other — they don't depend on each other,
+        // and serialising them doubled how long the header took to settle.
+        // profiles.avatar_url is the single source of truth for the avatar; both
+        // /app/settings and Store Builder sync to it. Do NOT also read
+        // store_builder_configs — two sources is what caused avatar flicker.
+        const [profileRes, creatorRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("display_name, avatar_url, username, is_creator")
+            .eq("id", user.id)
+            .single(),
+          supabase.from("creators").select("id, onboarding_completed").eq("user_id", user.id).maybeSingle(),
+        ])
 
         if (!mountedRef.current) return
-        if (profileErr) {
+        if (profileRes.error) {
+          // Signed in but the profile row didn't load — keep the session state.
+          // Blanking it here is what made a logged-in header fall back to "Log in".
           setProfile(null)
-          setIsCreator(false)
-          setHasCompletedSellerOnboarding(false)
         } else {
-          const pd = (profileData as Profile) ?? null
+          const pd = (profileRes.data as Profile) ?? null
           setProfile(pd)
-          // Persist avatar so the next render (or next page load) shows it immediately
           const freshAvatar = pd?.avatar_url || null
-          if (freshAvatar) {
-            setCachedAvatarUrl(freshAvatar)
-            try { localStorage.setItem("_sl_avatar", freshAvatar) } catch {}
-          }
-          const isSellerByState = !!creatorData?.onboarding_completed
+          if (freshAvatar) setCachedAvatarUrl(freshAvatar)
+          const isSellerByState = !!creatorRes.data?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
+          writeAuthSnapshot({
+            signedIn: true,
+            userId: user.id,
+            avatarUrl: freshAvatar,
+            displayName: pd?.display_name ?? null,
+            username: pd?.username ?? null,
+            isSeller: isSellerByState,
+          })
         }
       } catch {
+        // A failed lookup is not proof of being signed out — leave whatever the
+        // snapshot seeded rather than throwing the user back to a logged-out
+        // header on a flaky connection.
         if (!mountedRef.current) return
-        setUser(null)
-        setProfile(null)
-        setIsCreator(false)
-        setHasCompletedSellerOnboarding(false)
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -868,10 +913,16 @@ export function PlatformHeaderClient() {
       }
     }
 
-    loadUser(true)
+    loadUser()
 
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      loadUser(false)
+    const { data } = supabase.auth.onAuthStateChange((event: string) => {
+      // Clear the snapshot the instant we sign out, so a reload can't briefly
+      // show the previous user's avatar before the session check catches up.
+      if (event === "SIGNED_OUT") {
+        clearAuthSnapshot()
+        setCachedAvatarUrl(null)
+      }
+      loadUser()
       fetchWishlistCount()
     })
 
@@ -1489,16 +1540,6 @@ export function PlatformHeaderClient() {
 
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
-              {/* Library - only show when logged in; h-11 w-11 = 44px tap target */}
-              {user && (
-                <Link
-                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
-                  aria-label="Library"
-                >
-                  <Library className="h-5 w-5" />
-                </Link>
-              )}
 
               {/* Wishlist — h-11 w-11 = 44px tap target */}
               <Link
@@ -1544,6 +1585,24 @@ export function PlatformHeaderClient() {
               <HeaderActionsSkeleton />
             ) : (
               <>
+                {/* Messages — signed in only; there's nothing to show otherwise. */}
+                {user && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={getCanonicalOrRelativePath("/messages")} onClick={(e) => onCanonicalNav(e, "/messages")}
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                        aria-label={t("messages")}
+                      >
+                        <MessageCircle className="h-[22px] w-[22px]" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                      {t("messages")}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
                 {/* Wishlist */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1565,28 +1624,50 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Library */}
+                {/* Bag */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
-                      className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                      aria-label={t("library")}
+                      href={getCanonicalOrRelativePath("/cart")} onClick={(e) => onCanonicalNav(e, "/cart")}
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      aria-label={t("bag")}
                     >
-                      <Library className="h-[22px] w-[22px]" />
+                      <ShoppingBag className="h-[22px] w-[22px]" />
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                    My Library
+                    {t("bag")}
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Library or Dashboard */}
-                <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                {/* Sell now — the one filled action in the row, in brand purple.
+                    A seller who's finished onboarding gets their dashboard here
+                    instead; there's no separate "My Library" icon any more. */}
+                <Button asChild className="h-11 rounded-full px-5 text-[15px] font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.6)] transition-transform active:scale-[0.97]">
                   <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
-                    {user && hasCompletedSellerOnboarding ? t("dashboard") : user ? "Library" : t("start_selling")}
+                    {user && hasCompletedSellerOnboarding ? (
+                      t("dashboard")
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="h-4 w-4" strokeWidth={3} />
+                        {t("sell_now")}
+                      </span>
+                    )}
                   </Link>
                 </Button>
+
+                {/* Signed out: sign up / log in, exactly where the avatar sits
+                    when you are signed in — so the row never changes shape. */}
+                {!user && (
+                  <div className="flex items-center gap-2">
+                    <Button asChild variant="outline" className="h-11 rounded-full border-white/25 bg-transparent px-5 text-[15px] font-semibold text-white hover:bg-white/10 hover:text-white">
+                      <Link href="/signup">{t("sign_up")}</Link>
+                    </Button>
+                    <Button asChild variant="ghost" className="h-11 rounded-full px-4 text-[15px] font-semibold text-white/85 hover:bg-white/10 hover:text-white">
+                      <Link href="/login">{t("log_in")}</Link>
+                    </Button>
+                  </div>
+                )}
 
                 {/* User Menu - Desktop styled like sidebar dropdown */}
                 {user && (
@@ -1659,18 +1740,7 @@ export function PlatformHeaderClient() {
                           <span>Become a Seller</span>
                         </Link>
                         )}
-                        <Link
-                          href={getCanonicalOrRelativePath("/library")}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setDesktopProfileOpen(false)
-                            onCanonicalNav(e, "/library")
-                          }}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
-                        >
-                          <Library className="h-4 w-4 shrink-0" />
-                          <span>My Library</span>
-                        </Link>
+                        
                         <Link
                           href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
                           onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
@@ -2079,17 +2149,7 @@ export function PlatformHeaderClient() {
 
               {/* Quick Links section */}
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <Link
-                  href={getCanonicalOrRelativePath("/library")}
-                  onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); onCanonicalNav(e, "/library") }}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <Library className="h-5 w-5" />
-                    <span>My Library</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
+                
                 {user && hasCompletedSellerOnboarding && (
                   <Link
                     href={getCanonicalOrRelativePath(dashboardHref)}
@@ -2167,17 +2227,7 @@ export function PlatformHeaderClient() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             )}
-            <Link
-              href={getCanonicalOrRelativePath("/library")}
-              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <Library className="h-5 w-5 text-gray-400" />
-                <span>My Library</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </Link>
+            
             <Link
               href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
               onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setMobileProfileOpen(false) }}

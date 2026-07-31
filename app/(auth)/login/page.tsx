@@ -40,17 +40,24 @@ function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // One navigation, not two.
+  //
+  // This used to router.push() and then hard-reload the same URL 1.5s later as a
+  // "fallback". When the push worked you got a second, full page load on top of
+  // it — the glitch after signing in. When it didn't, you sat on the login screen
+  // for a second and a half first.
+  //
+  // A hard navigation is also the CORRECT one here specifically: the session
+  // cookie has only just been set, and a client-side push can reach the server
+  // before that cookie is being sent, so the destination renders signed-out. That
+  // race is what made logging in look like it hadn't stuck.
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
-    router.push(url)
     if (typeof window !== "undefined") {
-      if (redirectTimeoutRef.current) {
-        window.clearTimeout(redirectTimeoutRef.current)
-      }
-      redirectTimeoutRef.current = window.setTimeout(() => {
-        window.location.assign(url)
-      }, 1500)
+      window.location.assign(url)
+      return
     }
+    router.push(url)
   }
 
   // Get redirect URL from search params (for returning to receipt page after login)
