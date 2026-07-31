@@ -312,7 +312,7 @@ export function NewListingForm() {
   )
 
   return (
-    <div className="min-h-screen bg-[#f6f6f7] pb-[calc(env(safe-area-inset-bottom,0px)+210px)] md:pb-40">
+    <div className="bg-[#f6f6f7] pb-[calc(env(safe-area-inset-bottom,0px)+150px)] md:pb-32">
       <div className="mx-auto w-full max-w-2xl px-4 pt-5 sm:pt-9">
       <header className="mb-5">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
@@ -508,7 +508,7 @@ export function NewListingForm() {
             disabled={saving !== null}
             className="h-12 flex-1 rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
           >
-            Ciornă
+            Salvează
           </button>
           <button
             type="button"

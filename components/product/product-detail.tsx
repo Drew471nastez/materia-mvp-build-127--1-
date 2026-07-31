@@ -9,7 +9,6 @@ import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
-import { navigateWithTransition } from "@/lib/nav-transition"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
   CONDITIONS,
@@ -20,6 +19,9 @@ import {
   categoryLabelFor,
 } from "@/lib/marketplace/listing-taxonomy"
 import { cn } from "@/lib/utils"
+
+/** How long the page takes to slide off before history is popped. */
+const LEAVE_MS = 260
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 
@@ -75,10 +77,16 @@ export function ProductDetail({ product }: { product: any }) {
     // offset, same reel — rather than being re-entered from the top. `origin` is
     // only the fallback for a cold arrival (a shared link, a new tab), where
     // there is no history to pop.
-    navigateWithTransition("back", () => {
+    // Slide out under our own control, then navigate. The browser's transition
+    // API can't be trusted here — it snapshots a page that may not have rendered
+    // yet — so the page animates itself off and pops history when it's done.
+    // Deterministic, and it always runs at full frame rate because it's one
+    // composited transform.
+    setLeaving(true)
+    window.setTimeout(() => {
       if (typeof window !== "undefined" && window.history.length > 1) router.back()
       else router.push(backHrefFor(origin))
-    })
+    }, LEAVE_MS)
   }, [router, origin])
 
   const onGalleryScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -98,6 +106,7 @@ export function ProductDetail({ product }: { product: any }) {
   // looking at photos and detail; there the instant you want it. Driven off a
   // rAF-coalesced scroll read and written as a transform, so it costs a
   // composite and can't stutter the scroll.
+  const [leaving, setLeaving] = useState(false)
   const [barUp, setBarUp] = useState(true)
   useEffect(() => {
     let last = window.scrollY
@@ -140,7 +149,18 @@ export function ProductDetail({ product }: { product: any }) {
   const summary = [product.size?.toUpperCase(), cond].filter(Boolean).join(" · ")
 
   return (
-    <div className="min-h-screen bg-white pb-28 md:pb-0">
+    <div
+      className="listing-enter min-h-screen bg-white pb-28 md:pb-0"
+      style={
+        leaving
+          ? {
+              transform: "translateX(100%)",
+              transition: `transform ${LEAVE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+              animation: "none", // the enter animation would pin the transform
+            }
+          : undefined
+      }
+    >
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">

@@ -28,7 +28,7 @@ export function DraftsList() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-32 pt-6">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-[24px] font-bold tracking-[-0.02em] text-neutral-900">Ciorne</h1>
+        <h1 className="text-[24px] font-bold tracking-[-0.02em] text-neutral-900">Nepublicate</h1>
         <Link
           href="/products/new"
           className="flex h-10 items-center gap-1.5 rounded-full bg-[#7c3aed] px-4 text-[14px] font-semibold text-white"
@@ -55,9 +55,9 @@ export function DraftsList() {
           <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
             <FileText className="h-7 w-7" />
           </span>
-          <h2 className="text-[17px] font-semibold text-neutral-900">Nicio ciornă</h2>
+          <h2 className="text-[17px] font-semibold text-neutral-900">Niciun anunț nepublicat</h2>
           <p className="mt-1.5 max-w-xs text-[14.5px] text-neutral-500">
-            Anunțurile pe care le salvezi fără să le publici apar aici.
+            Anunțurile începute, dar nepublicate încă, te așteaptă aici.
           </p>
         </div>
       ) : (

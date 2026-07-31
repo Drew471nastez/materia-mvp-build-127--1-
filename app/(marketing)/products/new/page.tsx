@@ -12,5 +12,12 @@ export const metadata: Metadata = {
 }
 
 export default function NewListingPage() {
-  return <NewListingForm />
+  // The canvas colour lives here, on a min-height box, rather than on the form.
+  // The form used to force min-h-screen itself, which on a short listing left a
+  // slab of empty grey under the last card.
+  return (
+    <div className="min-h-[calc(100svh-56px)] bg-[#f6f6f7]">
+      <NewListingForm />
+    </div>
+  )
 }

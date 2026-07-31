@@ -1,7 +1,6 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { navigateWithTransition } from "@/lib/nav-transition"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 
@@ -119,13 +118,15 @@ export function SmartLink({
             if (needsHardNav) {
               window.location.href = resolvedHref
             } else {
-              // Opening a listing is a push — it slides in from the right, the
-              // way a native screen does, so it reads as going deeper rather
-              // than as the page being swapped out. Everything else navigates
-              // plainly; a slide on a tab change would be motion for its own sake.
-              const isPush = resolvedHref.startsWith("/products/")
-              if (isPush) navigateWithTransition("forward", () => router.push(resolvedHref))
-              else router.push(resolvedHref)
+              // Plain push. Wrapping this in startViewTransition looked right on
+              // paper and glitched in practice: the API snapshots the old page,
+              // runs the callback, then snapshots the NEW one — but router.push
+              // is async, so the second snapshot caught a page that hadn't
+              // rendered yet and the transition played against a half-built
+              // screen. The listing animates itself in instead (see
+              // .listing-enter), which can't race anything because it starts
+              // when the page actually mounts.
+              router.push(resolvedHref)
             }
           }}
           style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}

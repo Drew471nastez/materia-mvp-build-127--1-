@@ -121,52 +121,24 @@ html.capacitor a.no-tap-fade:active {
    photo actually moves. Browsers without it fall back to that transition, which
    the component still sets inline; a running animation outranks inline styles in
    the cascade, so where this applies it simply takes over. */
-/* ---- Page transitions ----
-   A listing slides in from the right and back out to the right, the way a pushed
-   screen does natively — so opening a product reads as going deeper rather than
-   as the page being replaced, and going back reads as returning.
+/* A listing slides in from the right as it mounts, the way a pushed screen does
+   natively — so opening a product reads as going deeper rather than as the page
+   being replaced. Driven by the page's own mount rather than by the navigation,
+   so it can't play against a screen that hasn't rendered yet, and it's a single
+   composited transform so it holds frame rate on any device.
 
-   View Transitions run the whole thing on the compositor from a snapshot of the
-   old page, which is why this can be smooth even while the new page is still
-   settling. Behind @supports, so browsers without it simply get the instant
-   navigation they already had — nothing degrades. */
-@keyframes vt-slide-from-right {
+   The exit is the mirror of this, set inline by the component before it pops
+   history — see product-detail.tsx. */
+@keyframes listing-enter {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
 }
-@keyframes vt-slide-to-left {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-22%); opacity: 0.6; }
+.listing-enter {
+  animation: listing-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  will-change: transform;
 }
-@keyframes vt-slide-from-left {
-  from { transform: translateX(-22%); opacity: 0.6; }
-  to   { transform: translateX(0); opacity: 1; }
-}
-@keyframes vt-slide-to-right {
-  from { transform: translateX(0); }
-  to   { transform: translateX(100%); }
-}
-
-@supports (view-transition-name: none) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    /* The default cross-fade would run on top of the slide and muddy it. */
-    animation: none;
-    mix-blend-mode: normal;
-  }
-
-  html[data-nav="forward"]::view-transition-old(root) {
-    animation: vt-slide-to-left 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  html[data-nav="forward"]::view-transition-new(root) {
-    animation: vt-slide-from-right 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  html[data-nav="back"]::view-transition-old(root) {
-    animation: vt-slide-to-right 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  html[data-nav="back"]::view-transition-new(root) {
-    animation: vt-slide-from-left 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .listing-enter { animation: none; }
 }
 
 /* Following list rows arriving — a short rise, staggered, so the list assembles
