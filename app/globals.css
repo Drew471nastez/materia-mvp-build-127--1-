@@ -146,14 +146,28 @@ html.capacitor a.no-tap-fade:active {
   from { transform: scale(1.075); }
   to   { transform: scale(1); }
 }
-/* Coming back to the feed, the other way round: it settles UP into place from
-   slightly small. Different enough from the entry that the two read as opposite
-   directions, short enough that a return never feels like a wait. Scaling up
-   from under 1 does leave the edges short of the frame for an instant, which is
-   the one case the root colour is painted for — see paintRoot(). */
+/* Coming back to the feed.
+   
+   This is the pop half of a native screen stack, done from the arriving side
+   only: the feed comes back from slightly left, slightly small and slightly
+   dark, as though it had been sitting underneath the listing all along and is
+   now being uncovered. The lifting dim is what carries most of it — it is the
+   same cue that makes a push read as depth rather than as two flat pictures
+   swapping, and it works just as well in reverse with nothing above it.
+   
+   Sliding does leave a strip of the frame uncovered on the right, and that strip
+   is the root, which `surface-bg` has already painted this very screen's colour
+   — white behind the grid, black behind a full-bleed reel. So there is nothing
+   to see there, which is the whole reason it can afford to travel at all. */
 @keyframes feed-return {
-  from { transform: scale(0.965); }
-  to   { transform: scale(1); }
+  from {
+    transform: translate3d(-7%, 0, 0) scale(0.985);
+    filter: brightness(0.86);
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+  }
 }
 @media (max-width: 767px) {
   .listing-enter {
@@ -166,8 +180,14 @@ html.capacitor a.no-tap-fade:active {
     transform-origin: 50% 42%;
   }
   .feed-return {
-    animation: feed-return 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    will-change: transform;
+    /* Longer than it was, and it still lands sooner. The curve is close to an
+       exponential ease-out: three quarters of the distance is gone inside the
+       first third of the time, so the movement registers immediately and the
+       rest is a settle you feel more than watch. A shorter linear-ish version
+       reads as a cut with a stutter on the end — which is why the quick one did
+       not read as an animation at all. */
+    animation: feed-return 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: transform, filter;
   }
 }
 @media (min-width: 768px) {

@@ -87,9 +87,7 @@ export function ProductDetail({ product }: { product: any }) {
   // scroll position you left it, with the reel you were on still current.
   // `origin` is the fallback for a cold arrival (a shared link, a new tab),
   // where there is no history to return to.
-  // The navigation on its own, with nothing animating. The arrow wraps this in a
-  // pop transition; the edge drag has already done the animation by hand and
-  // only needs the move.
+  // The navigation on its own, with nothing animating around it.
   const goBack = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back()
     else router.push(backHrefFor(origin))
@@ -101,13 +99,11 @@ export function ProductDetail({ product }: { product: any }) {
     // only the fallback for a cold arrival (a shared link, a new tab), where
     // there is no history to pop.
     //
-    // Blended, so this page stays on screen as a snapshot while the feed builds
-    // behind it and the two dissolve. Animating the page out on its own was the
-    // white flash on the way back: the feed hadn't mounted, so moving this page
-    // uncovered the bare background rather than the feed.
-    // Going back is an action you took, the same as opening was, so it gets the
-    // same acknowledgement. No gesture check needed: this is a button, and a
-    // button is not something you scroll.
+    // Nothing animates this page out. There is nothing behind it to reveal — the
+    // feed has not mounted yet — so anything that moved it would uncover the
+    // bare document. The arriving feed does the animation instead; see
+    // `.feed-return`. Going back is an action you took, so it gets the same
+    // acknowledgement opening did.
     void triggerHaptic("light")
     navigateBlended("back", goBack)
   }, [goBack])
@@ -125,23 +121,14 @@ export function ProductDetail({ product }: { product: any }) {
   const [selfAnimate, setSelfAnimate] = useState(false)
   useLayoutEffect(() => setSelfAnimate(true), [])
 
-  // Tell an in-flight blend that this page is genuinely on screen.
+  // Report the page as arrived, which is what completes the progress bar.
   //
-  // "On screen" has to include the photo. The blend photographs whatever is
-  // rendered the moment we signal, and a product page without its photo is a
-  // grey rectangle — so signalling on mount meant sliding neatly in to a blank
-  // page and having the image land on its own a moment later. Two events, and
-  // the second reads as the transition firing twice.
-  //
-  // Coming from the reels feed this costs nothing: that photo is already the
-  // full-bleed size at the same quality, so it is the same file, already
-  // decoded. From the grid it is a wider source than the tile was using and
-  // there is a real fetch — but only a short one is worth waiting for now. The
-  // transition animates a CLONE of this page, and a clone is live DOM: an image
-  // that lands after the photograph is taken still loads and paints inside the
-  // picture as it slides. So a slow image no longer costs a blank screen, only
-  // a blank frame or two inside a screen that is already moving, and holding
-  // the previous page still to avoid that is the worse trade.
+  // Arrived includes the photo, so the bar does not finish while the page is
+  // still a grey rectangle. Coming from the reels feed that is immediate — the
+  // reel photo is already full-bleed at the same quality, so it is the same
+  // file, already decoded. From the grid it was warmed when your finger landed
+  // (see warm-image), so usually also immediate. The cap is short because past
+  // that point the bar sitting there is worse than the bar being slightly early.
   const rootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const img = rootRef.current?.querySelector("img")
@@ -208,7 +195,11 @@ export function ProductDetail({ product }: { product: any }) {
   }, [])
 
   // The photo runs under the status bar, so the page owns the whole screen.
-  useEffect(() => {
+  //
+  // A LAYOUT effect, not a plain one: the entry animation starts at first paint,
+  // and a claim that lands after it would leave the very first frame wearing the
+  // previous screen's colour — a black rim for one frame, coming from a reel.
+  useLayoutEffect(() => {
     const surface = claimSurface("#ffffff")
     return () => surface.release()
   }, [])
