@@ -228,19 +228,25 @@ export function MobileSearchOverlay({
     }
   }, [mounted])
 
-  // Size the sheet to the VISUAL viewport height (the visible area above the
-  // keyboard). Pinned at top:0, so: the header never drifts under the status bar,
-  // and the results list ends exactly at the keyboard — nothing hides under it.
-  // Height only (no top/scroll gymnastics) keeps it jank-free.
-  const [viewH, setViewH] = useState<number | null>(null)
+  // Keep the sheet FULL-SCREEN (no displacement/gaps) and instead pad the results
+  // list by the keyboard height, so the last items always scroll clear of the
+  // keyboard while the container itself never resizes.
+  const [kbHeight, setKbHeight] = useState(0)
   useEffect(() => {
     if (!mounted) return
     const vv = window.visualViewport
     if (!vv) return
-    const update = () => setViewH(vv.height)
+    const update = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKbHeight(kb)
+    }
     update()
     vv.addEventListener("resize", update)
-    return () => vv.removeEventListener("resize", update)
+    vv.addEventListener("scroll", update)
+    return () => {
+      vv.removeEventListener("resize", update)
+      vv.removeEventListener("scroll", update)
+    }
   }, [mounted])
 
   // Focus the field (and seed / reset state) each time it opens.
@@ -334,16 +340,16 @@ export function MobileSearchOverlay({
 
   return (
     <div
-      className="md:hidden fixed left-0 right-0 top-0 z-[90] flex flex-col bg-white"
+      className="md:hidden fixed inset-0 z-[90] flex flex-col bg-white"
       style={{
-        // Pinned to the visible viewport above the keyboard (no drift, no items
-        // hidden under the keyboard). Falls back to full-screen where unsupported.
-        height: viewH ? `${viewH}px` : "100dvh",
+        // Full-screen — never resizes, so no bottom gap/displacement.
+        height: "100dvh",
         opacity: shown ? 1 : 0,
-        // Pure fade + gentle slide — NO scale, so text never bends/warps on open.
-        transform: shown ? "translateY(0)" : "translateY(-12px)",
+        // Pure fade + a whisper of a slide — NO scale (which warps text). Long,
+        // soft easeOutExpo so it appears extremely smooth and subtle, not snappy.
+        transform: shown ? "translateY(0)" : "translateY(-8px)",
         transition:
-          "opacity 380ms cubic-bezier(0.22,1,0.36,1), transform 420ms cubic-bezier(0.22,1,0.36,1)",
+          "opacity 460ms cubic-bezier(0.16,1,0.3,1), transform 480ms cubic-bezier(0.16,1,0.3,1)",
         willChange: "opacity, transform",
       }}
     >
@@ -419,10 +425,10 @@ export function MobileSearchOverlay({
         })}
       </div>
 
-      {/* Content */}
+      {/* Content — padded by the keyboard height so results never hide under it */}
       <div
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
-        style={{ scrollbarWidth: "none", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+        style={{ scrollbarWidth: "none", paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)` }}
       >
         <div key={`${tab}-${trimmed ? "q" : "e"}`} className="animate-in fade-in-0 duration-200 ease-out">
           {tab === "items" && (
