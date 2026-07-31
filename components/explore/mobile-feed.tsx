@@ -18,8 +18,16 @@ import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
 
-/** How long the entry curtain takes to lift. Keep in step with the `intro` timer. */
-const CURTAIN_MS = 700
+/** Opening the app: a longer, calmer arrival. */
+const ENTRY_MS = 700
+/** Switching grid ↔ reels: quick enough to feel like a response to the tap. */
+const SWITCH_MS = 300
+
+type Curtain = {
+  /** in = fading up over the old view · cover = opaque · lift = fading away */
+  phase: "in" | "cover" | "lift" | "off"
+  ms: number
+}
 
 // Module-scoped on purpose: the entry intro belongs to opening the APP, not to
 // mounting this component. Navigating away and back shouldn't replay it.
@@ -139,40 +147,75 @@ export function MobileFeed({
 
   const reelsActive = view === "reels" && tab === "for-you"
 
-  // First-entry intro. The feed opens behind an opaque curtain painted in the
-  // destination's own colour (set pre-paint by the head script), which lifts once
-  // the real view is resolved and laid out. That kills the "flash of grid, then
-  // snap to TikTok" on launch and gives both views a calm way in.
-  const [intro, setIntro] = useState<"cover" | "lifting" | "done">(() =>
-    introPlayed ? "done" : "cover",
+  // One curtain drives BOTH entering the app and switching grid ↔ reels. It's an
+  // opaque sheet painted in the destination view's own colour, so the swap
+  // happens behind it and you only ever see one settled screen dissolve into
+  // another. On entry it starts already covering (the head script has set the
+  // colour before the first pixel); on a switch it fades in first, the view
+  // changes underneath, then it lifts.
+  const [curtain, setCurtain] = useState<Curtain>(() =>
+    introPlayed ? { phase: "off", ms: 0 } : { phase: "cover", ms: ENTRY_MS },
   )
-  useEffect(() => {
-    if (intro !== "cover") return
-    // Reels has nothing to show until its height is measured — lifting before
-    // that would reveal an empty black screen, which is the very flash we're
-    // here to remove. This effect deliberately runs on every render so it fires
-    // the moment that measurement lands.
-    if (reelsActive && reelsHeight <= 0) return
-    introPlayed = true
-    const timer = setTimeout(() => setIntro("lifting"), 220)
-    return () => clearTimeout(timer)
-  })
-  useEffect(() => {
-    if (intro !== "lifting") return
-    const timer = setTimeout(() => setIntro("done"), CURTAIN_MS)
-    return () => clearTimeout(timer)
-  }, [intro])
 
-  // The feed settles out of a barely-there zoom as the curtain lifts, so entering
+  // Reels has nothing to show until its height is measured — lifting before then
+  // would reveal an empty black screen, which is the very flash we're removing.
+  const ready = !reelsActive || reelsHeight > 0
+
+  useEffect(() => {
+    if (curtain.phase !== "cover" || !ready) return
+    introPlayed = true
+    const timer = setTimeout(
+      () => setCurtain((c) => (c.phase === "cover" ? { phase: "lift", ms: c.ms } : c)),
+      140,
+    )
+    return () => clearTimeout(timer)
+  }, [curtain.phase, ready])
+
+  useEffect(() => {
+    if (curtain.phase !== "lift") return
+    const timer = setTimeout(() => setCurtain({ phase: "off", ms: 0 }), curtain.ms)
+    return () => clearTimeout(timer)
+  }, [curtain])
+
+  // Switching views: cover FIRST, swap behind the curtain, then lift. Swapping
+  // in place is what made the toggle feel abrupt — a whole screen replaced in one
+  // frame reads as a glitch no matter how it's eased.
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const switchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const switchView = useCallback((next: "grid" | "reels") => {
+    if (viewRef.current === next || switchTimer.current) return
+    try {
+      document.documentElement.style.setProperty("--feed-entry-bg", next === "reels" ? "#000" : "#fff")
+    } catch {
+      /* no DOM */
+    }
+    setCurtain({ phase: "in", ms: SWITCH_MS })
+    switchTimer.current = setTimeout(() => {
+      switchTimer.current = null
+      setView(next)
+      setCurtain({ phase: "cover", ms: SWITCH_MS })
+    }, SWITCH_MS)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (switchTimer.current) clearTimeout(switchTimer.current)
+    },
+    [],
+  )
+
+  // The feed settles out of a barely-there zoom as the curtain lifts, so arriving
   // reads as one continuous movement rather than a screen being swapped in. Scale
   // DOWN to 1 (never up) so the content is always at least as big as its frame —
   // no edge can ever peek through mid-animation.
   const introStyle: React.CSSProperties | undefined =
-    intro === "done"
+    curtain.phase === "off" || curtain.phase === "in"
       ? undefined
       : {
-          transform: intro === "lifting" ? "scale(1)" : "scale(1.02)",
-          transition: `transform ${CURTAIN_MS + 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          transform: curtain.phase === "lift" ? "scale(1)" : "scale(1.02)",
+          transition: `transform ${curtain.ms + 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
         }
 
   // Measure the full-screen reels area so each listing fills exactly one screen.
@@ -367,17 +410,19 @@ export function MobileFeed({
           localStorage before anything renders). It hides the server's guess
           while the real view resolves, then lifts. Rendered above the feed but
           below the bottom nav's own layer, and never interactive. */}
-      {intro !== "done" && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-[75]"
-          style={{
-            background: "var(--feed-entry-bg, #fff)",
-            opacity: intro === "lifting" ? 0 : 1,
-            transition: `opacity ${CURTAIN_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          }}
-        />
-      )}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-[75]"
+        style={{
+          background: "var(--feed-entry-bg, #fff)",
+          // Always mounted so both the fade-in and the lift are real
+          // transitions — a curtain that mounts already-opaque can only ever
+          // pop. `visibility` keeps it out of the compositor when idle.
+          opacity: curtain.phase === "in" || curtain.phase === "cover" ? 1 : 0,
+          visibility: curtain.phase === "off" ? "hidden" : "visible",
+          transition: `opacity ${curtain.ms || 1}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        }}
+      />
 
       {reelsActive ? (
         /* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */
@@ -399,7 +444,7 @@ export function MobileFeed({
               {/* Breadcrumb "back to grid" on the LEFT — ‹ + grid glyph */}
               <button
                 type="button"
-                onClick={() => setView("grid")}
+                onClick={() => switchView("grid")}
                 aria-label={t("mfeed.view_grid")}
                 className="flex h-9 shrink-0 items-center gap-0.5 rounded-full bg-black/30 pl-1.5 pr-2.5 text-white backdrop-blur-sm transition-transform active:scale-95"
               >
@@ -496,7 +541,7 @@ export function MobileFeed({
             type="button"
             aria-label={view === "grid" ? t("mfeed.view_reels") : t("mfeed.view_grid")}
             aria-pressed={view === "reels"}
-            onClick={() => setView((v) => (v === "grid" ? "reels" : "grid"))}
+            onClick={() => switchView(view === "grid" ? "reels" : "grid")}
             className={cn(
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-transform active:scale-95",
               view === "reels"

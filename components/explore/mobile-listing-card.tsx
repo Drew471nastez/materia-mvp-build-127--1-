@@ -74,6 +74,20 @@ export const MobileListingCard = memo(function MobileListingCard({
 
   const images = galleryImages(product.thumbnail_url, product.gallery_urls)
 
+  // Secondary photos mount only on the active card, and only once it has
+  // settled. A window of cards is mounted at any time; rendering every one's
+  // full gallery up front put dozens of image elements in flight at once, all
+  // competing for decode with the photo you were actually looking at. The lead
+  // photo is always there — this only defers the sideways ones, which can't be
+  // reached until the vertical glide has finished anyway.
+  const [gallery, setGallery] = useState(false)
+  useEffect(() => {
+    if (!active || gallery || images.length < 2) return
+    const timer = setTimeout(() => setGallery(true), 600)
+    return () => clearTimeout(timer)
+  }, [active, gallery, images.length])
+  const shown = gallery ? images : images.slice(0, 1)
+
   // After ~3s of lingering on the active card (with more than one photo, and
   // still on the first), show a clean minimalist "swipe" nudge once.
   useEffect(() => {
@@ -116,7 +130,7 @@ export const MobileListingCard = memo(function MobileListingCard({
         onScroll={onScrollGallery}
         style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
       >
-        {(images.length ? images : [null]).map((src, i) => (
+        {(shown.length ? shown : [null]).map((src, i) => (
           <SmartLink
             key={i}
             href={productUrl}
