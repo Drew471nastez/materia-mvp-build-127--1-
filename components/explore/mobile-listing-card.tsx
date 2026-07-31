@@ -214,7 +214,7 @@ export const MobileListingCard = memo(function MobileListingCard({
 
         <button type="button" onClick={onLike} aria-pressed={isWishlisted} aria-label={t("product.add_to_wishlist")} className="flex flex-col items-center gap-1">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">
-            <Heart key={nonce} className={cn("h-[22px] w-[22px] transition-colors duration-[600ms] ease-out", nonce > 0 && "motion-safe:heart-pop", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
+            <Heart key={nonce} className={cn("h-[22px] w-[22px] transition-colors duration-[750ms] ease-out", nonce > 0 && "motion-safe:heart-pop", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
           </span>
           <span className="text-[11px] font-medium drop-shadow">{t("mfeed.save")}</span>
         </button>

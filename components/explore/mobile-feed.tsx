@@ -264,7 +264,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
       {reelsActive ? (
         /* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */
-        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black animate-in fade-in-0 duration-300 ease-out">
+        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black animate-in slide-in-from-bottom-2 duration-300 ease-out">
           {reelsHeight > 0 && products.length > 0 ? (
             <ReelsPager products={products} height={reelsHeight} onRefresh={onRefresh} />
           ) : products.length === 0 ? (
@@ -349,7 +349,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
           </div>
         </div>
       ) : (
-      <div className="flex min-h-0 flex-1 flex-col animate-in fade-in-0 duration-300 ease-out">
+      <div className="flex min-h-0 flex-1 flex-col animate-in slide-in-from-bottom-2 duration-300 ease-out">
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">

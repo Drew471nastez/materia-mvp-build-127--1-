@@ -13,10 +13,10 @@ import { IosSpinner } from "./ios-spinner"
 // next reel. A quick flick flips via VELOCITY even on a short drag, exactly like
 // TikTok. Only ~5 listings mount their media (windowed) so it never lags.
 
-const DIST_TRIGGER = 62 // px drag distance that flips the page
-const VEL_TRIGGER = 0.28 // px/ms flick velocity that flips the page
+const DIST_TRIGGER = 56 // px drag distance that flips the page
+const VEL_TRIGGER = 0.26 // px/ms flick velocity that flips the page
 const REFRESH_TRIGGER = 80 // px pull-down at the top that refreshes
-const GLIDE = "transform 0.66s cubic-bezier(0.16, 1, 0.3, 1)" // long, glassy settle
+const GLIDE = "transform 0.72s cubic-bezier(0.19, 1, 0.22, 1)" // long, glassy settle
 
 export function ReelsPager({
   products,

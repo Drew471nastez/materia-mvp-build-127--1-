@@ -124,8 +124,8 @@ function WishlistHeartButton({ productId, savesCount = 0 }: { productId: string;
       <Heart
         key={nonce}
         className={cn(
-          // Slow, observable red fill — transitions over 600ms so you watch it fill.
-          "h-[19px] w-[19px] shrink-0 transition-colors duration-[600ms] ease-out",
+          // Slow, observable red fill — transitions over 750ms so you watch it fill.
+          "h-[19px] w-[19px] shrink-0 transition-colors duration-[750ms] ease-out",
           // Only pop after a real toggle — never on the grid's first paint.
           nonce > 0 && "motion-safe:heart-pop",
           isWishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-700"
