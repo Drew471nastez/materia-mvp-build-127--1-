@@ -20,6 +20,7 @@ import {
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { signalArrival } from "@/lib/nav-blend"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
@@ -675,7 +676,12 @@ export function MobileFeed({
 
   // Tapping the search bar (or the bottom-nav search) opens the full-screen
   // search overlay — the inline field is just a trigger, never typed into.
-  const openSearch = useCallback(() => setSearchOpen(true), [])
+  // Opening it is a real action with a real result, so it gets the same buzz a
+  // listing tap does. Safe on a plain onClick — a button is not a scroll surface.
+  const openSearch = useCallback(() => {
+    void triggerHaptic("light")
+    setSearchOpen(true)
+  }, [])
   const focusSearch = openSearch
 
   return (

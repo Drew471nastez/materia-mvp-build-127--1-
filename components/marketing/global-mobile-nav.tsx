@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { MobileBottomNav } from "@/components/explore/mobile-bottom-nav"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { isNativeApp } from "@/lib/native-bridge"
 
 /**
@@ -71,7 +72,10 @@ export function GlobalMobileNav() {
       {/* Reserves the bar's height so a page's last row isn't sat on. */}
       <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 62px)" }} />
       <div className="md:hidden fixed inset-x-0 bottom-0 z-[80]">
-        <MobileBottomNav active={active as any} onSearch={() => setSearchOpen(true)} />
+        <MobileBottomNav active={active as any} onSearch={() => {
+          void triggerHaptic("light")
+          setSearchOpen(true)
+        }} />
       </div>
 
       {/* The overlay lives HERE, with the bar that is on every page. It had no

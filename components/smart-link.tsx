@@ -65,6 +65,8 @@ const TOUCH_STYLES: React.CSSProperties = {
 
 /** Past this much finger travel, the gesture is a scroll and not a tap. */
 const TAP_SLOP = 10
+/** Past this long on the glass, it is a press-and-hold, not a tap. */
+const TAP_TIME = 700
 
 /**
  * Instant acknowledgement of a finger — for taps, and only for taps.
@@ -86,38 +88,74 @@ const TAP_SLOP = 10
  * by a few milliseconds and right every time, and being right matters more —
  * a buzz on every scroll is worse than no buzz at all.
  */
-function usePress(enabled: boolean) {
+function useTap(enabled: boolean, showHighlight: boolean) {
   const [pressed, setPressed] = useState(false)
-  const origin = useRef<{ x: number; y: number } | null>(null)
+  const start = useRef<{ x: number; y: number; t: number } | null>(null)
+  const dragged = useRef(false)
 
-  const down = useCallback((e: React.PointerEvent) => {
-    origin.current = { x: e.clientX, y: e.clientY }
-    setPressed(true)
-  }, [])
+  const down = useCallback(
+    (e: React.PointerEvent) => {
+      start.current = { x: e.clientX, y: e.clientY, t: e.timeStamp }
+      dragged.current = false
+      if (showHighlight) setPressed(true)
+    },
+    [showHighlight],
+  )
 
   const move = useCallback((e: React.PointerEvent) => {
-    const from = origin.current
-    if (!from) return
+    const from = start.current
+    if (!from || dragged.current) return
     if (Math.abs(e.clientX - from.x) > TAP_SLOP || Math.abs(e.clientY - from.y) > TAP_SLOP) {
-      origin.current = null
+      dragged.current = true
       setPressed(false)
     }
   }, [])
 
-  const end = useCallback(() => {
-    origin.current = null
+  // The browser taking the gesture over IS the answer: a pointercancel here
+  // means a scroller claimed the finger. Nothing that follows is a tap.
+  const cancel = useCallback(() => {
+    dragged.current = true
     setPressed(false)
   }, [])
 
-  if (!enabled) return {}
-  return {
-    "data-pressed": pressed ? "true" : "false",
-    onPointerDown: down,
-    onPointerMove: move,
-    onPointerUp: end,
-    onPointerCancel: end,
-    onPointerLeave: end,
-  } as const
+  const up = useCallback(() => setPressed(false), [])
+
+  /**
+   * Was the gesture behind this click a tap?
+   *
+   * WebKit will still deliver a click after a short drag, and after a
+   * press-and-hold — which is why "did a click happen" is not the same question
+   * as "did someone tap this". A vibration is irreversible, so it only goes out
+   * when the answer is yes.
+   *
+   * A click with no pointer history counts as a tap: that is a keyboard, an
+   * assistive device, or a synthetic event, and the only thing being ruled out
+   * here is a finger that was doing something else.
+   */
+  const wasTap = useCallback((e: { timeStamp: number }) => {
+    const from = start.current
+    if (!from) return true
+    if (dragged.current) return false
+    return e.timeStamp - from.t < TAP_TIME
+  }, [])
+
+  // Tracking is attached whenever the link is interactive, INDEPENDENT of
+  // whether it shows a highlight. The reel photo turns the highlight off because
+  // it is swiped as often as it is tapped — and turning that off used to take
+  // the tracking with it, leaving the one surface most often scrolled over with
+  // no way to tell a scroll from a tap. That is exactly backwards.
+  const handlers = enabled
+    ? ({
+        "data-pressed": pressed ? "true" : "false",
+        onPointerDown: down,
+        onPointerMove: move,
+        onPointerUp: up,
+        onPointerCancel: cancel,
+        onPointerLeave: up,
+      } as const)
+    : {}
+
+  return { handlers, wasTap }
 }
 
 export function SmartLink({
@@ -130,9 +168,13 @@ export function SmartLink({
 }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
   useClientNav?: boolean
   /**
-   * Press feedback, on by default wherever `blend` is. Turn it off on surfaces
-   * you also swipe — a reel photo is dragged sideways as often as it is tapped,
-   * and pointerdown can't yet tell the two apart, so it would flinch on a swipe.
+   * The visual highlight, on by default wherever `blend` is. Turn it off on
+   * surfaces you also swipe — a reel photo is dragged as often as it is tapped,
+   * and a highlight on pointerdown would flinch at the start of every swipe.
+   *
+   * This is the HIGHLIGHT only. Gesture tracking stays on regardless, because
+   * telling a tap from a scroll matters most precisely where the highlight is
+   * least wanted.
    */
   press?: boolean
   /**
@@ -150,7 +192,7 @@ export function SmartLink({
   const resolvedHref = inApp && href ? toInternalHref(href) : href
   const router = useRouter()
   const warmed = useRef(false)
-  const press = usePress(pressProp ?? !!blend)
+  const { handlers: press, wasTap } = useTap(!!blend, pressProp ?? !!blend)
 
   // In Capacitor, use router.push() for same-layout paths (smooth, no white flash).
   // Cross-layout routes (/app, /store-builder, /library) and explicit
@@ -220,10 +262,9 @@ export function SmartLink({
             if (needsHardNav) {
               window.location.href = resolvedHref
             } else if (blend) {
-              // The tap is confirmed, so this is where the buzz belongs — a
-              // scroll never reaches a click handler. It fires on the reel photo
-              // too, which opts out of the visual press but not out of this.
-              void triggerHaptic("light")
+              // Only for a real tap. A click alone is not proof of one —
+              // WebKit delivers them after short drags and after long presses.
+              if (wasTap(e)) void triggerHaptic("light")
               navigateBlended("enter", () => router.push(resolvedHref))
             } else {
               router.push(resolvedHref)
@@ -286,7 +327,7 @@ export function SmartLink({
           if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
           e.preventDefault()
           if (typeof onClick === "function") onClick(e)
-          void triggerHaptic("light")
+          if (wasTap(e)) void triggerHaptic("light")
           navigateBlended("enter", () => router.push(resolvedHref))
         }}
         style={{ ...TOUCH_STYLES, ...(rest.style as React.CSSProperties) }}

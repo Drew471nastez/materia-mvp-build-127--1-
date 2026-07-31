@@ -6,6 +6,7 @@ import { GalleryVerticalEnd, Search, SlidersHorizontal } from "lucide-react"
 import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { useLocale } from "@/components/locale-provider"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 
@@ -73,7 +74,10 @@ export function GlobalMobileTopBar() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setSearchOpen(true)}
+              onClick={() => {
+                void triggerHaptic("light")
+                setSearchOpen(true)
+              }}
               aria-label={t("mfeed.search_placeholder")}
               className="relative flex-1 h-11 rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-10 text-left transition-transform active:scale-[0.99]"
             >
