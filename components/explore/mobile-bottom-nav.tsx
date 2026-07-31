@@ -24,18 +24,25 @@ export function MobileBottomNav({
   const [launching, setLaunching] = useState(false)
   const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Prefetch the new-product page so the tap navigates near-instantly.
+  // Every destination the bar can reach, prefetched as soon as the bar mounts —
+  // which is on every page now. A tab tap then has nothing left to fetch: the
+  // route is already in the client cache and the navigation is a render, not a
+  // round trip. This is the difference between "instant" and "a second".
   useEffect(() => {
-    router.prefetch("/products/new")
+    for (const href of ["/", "/products/new", "/messages", "/settings"]) {
+      router.prefetch(href)
+    }
   }, [router])
 
-  // Sell button: play the smooth spin once, then glide to the new-product page.
-  // A short delay lets the spin read as intentional without feeling slow.
+  // Navigate on the SAME tick as the tap. The spin used to be played first and
+  // the navigation fired 170ms later, so every trip through this button carried
+  // a deliberate sixth of a second before anything happened — which is exactly
+  // what reads as the app being slow. The spin now runs alongside the
+  // navigation instead of in front of it.
   const onSell = useCallback(() => {
     if (launching) return
     setLaunching(true)
-    if (navTimer.current) clearTimeout(navTimer.current)
-    navTimer.current = setTimeout(() => router.push("/products/new"), 170)
+    router.push("/products/new")
   }, [launching, router])
 
   const item = (key: string, icon: React.ReactNode, isActive: boolean) => (
@@ -51,7 +58,7 @@ export function MobileBottomNav({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-center justify-around px-2 pt-2 pb-1.5">
-        <Link href="/" aria-label={t("mfeed.home")}>{item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}</Link>
+        <Link href="/" prefetch aria-label={t("mfeed.home")}>{item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}</Link>
 
         <button type="button" onClick={onSearch} aria-label={t("mfeed.search")}>
           {item("mfeed.search", <Search className="h-6 w-6" />, active === "search")}
@@ -77,11 +84,11 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/messages" aria-label={t("mfeed.inbox")} className="relative">
+        <Link href="/messages" prefetch aria-label={t("mfeed.inbox")} className="relative">
           {item("mfeed.inbox", <MessageSquare className="h-6 w-6" />, active === "inbox")}
         </Link>
 
-        <Link href="/settings" aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, active === "profile")}</Link>
+        <Link href="/settings" prefetch aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, active === "profile")}</Link>
       </div>
     </nav>
   )
