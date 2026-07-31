@@ -133,9 +133,25 @@ html.capacitor a.no-tap-fade:active {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
 }
-.listing-enter {
-  animation: listing-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  will-change: transform;
+/* Phones only. A screen sliding in from the right is a NATIVE idiom — it works
+   because the phone is the screen, and the gesture that opens it comes from the
+   edge. On a desktop the page is a window among windows, and a full-viewport
+   slide reads as a website doing tricks. There it just appears, with a short
+   fade so it isn't an abrupt swap. */
+@media (max-width: 767px) {
+  .listing-enter {
+    animation: listing-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    will-change: transform;
+  }
+}
+@media (min-width: 768px) {
+  .listing-enter {
+    animation: listing-fade 180ms ease-out both;
+  }
+}
+@keyframes listing-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .listing-enter { animation: none; }

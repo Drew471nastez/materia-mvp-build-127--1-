@@ -85,11 +85,21 @@ export function ProductDetail({ product, origin }: { product: any; origin?: stri
     // yet — so the page animates itself off and pops history when it's done.
     // Deterministic, and it always runs at full frame rate because it's one
     // composited transform.
-    setLeaving(true)
-    window.setTimeout(() => {
+    const go = () => {
       if (typeof window !== "undefined" && window.history.length > 1) router.back()
       else router.push(backHrefFor(origin))
-    }, LEAVE_MS)
+    }
+    // Desktop goes straight back — the slide-off is the counterpart of the
+    // slide-on, and neither belongs on a large screen. Waiting out an animation
+    // that isn't playing would just be a delay.
+    const isPhone =
+      typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+    if (!isPhone) {
+      go()
+      return
+    }
+    setLeaving(true)
+    window.setTimeout(go, LEAVE_MS)
   }, [router, origin])
 
   const onGalleryScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
