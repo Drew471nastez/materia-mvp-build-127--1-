@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
@@ -70,6 +71,7 @@ export function SmartLink({
   const inApp = isNativeApp()
   const resolvedHref = inApp && href ? toInternalHref(href) : href
   const router = useRouter()
+  const warmed = useRef(false)
 
   // In Capacitor, use router.push() for same-layout paths (smooth, no white flash).
   // Cross-layout routes (/app, /store-builder, /library) and explicit
@@ -108,10 +110,30 @@ export function SmartLink({
         resolvedHref.startsWith("/app") ||
         resolvedHref.startsWith("/store-builder") ||
         resolvedHref.startsWith("/library")
+      // Warm the route on the way to the tap.
+      //
+      // SmartLink renders a plain <a> and pushes on click, so Next never
+      // prefetched any of these — every product tap was a COLD fetch of a
+      // force-dynamic page doing three database queries. That is the two-second
+      // wait before the page appeared; the animation was only ever the last
+      // thing to happen, not the slow part.
+      //
+      // pointerenter covers a mouse approaching, touchstart covers the moment a
+      // finger lands, which buys time before it lifts and lets the rest overlap
+      // the slide. Prefetching every card up front would be worse than the
+      // problem — a hundred dynamic pages fetched to open one.
+      const warm = () => {
+        if (needsHardNav || warmed.current) return
+        warmed.current = true
+        router.prefetch(resolvedHref)
+      }
+
       return (
         <a
           {...linkSafeProps}
           href={resolvedHref}
+          onPointerEnter={warm}
+          onTouchStart={warm}
           onClick={(e) => {
             e.preventDefault()
             if (typeof onClick === "function") onClick(e as any)

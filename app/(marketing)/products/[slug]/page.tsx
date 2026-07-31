@@ -26,21 +26,39 @@ async function load(slug: string) {
   }
   if (!product) return null
 
-  const { data: creator } = await admin
+  // Seller in ONE round trip instead of two. This ran as creator, then profile,
+  // strictly in series — and the whole page is force-dynamic, so every open paid
+  // both latencies back to back. PostgREST can embed the profile through the
+  // foreign key, which makes it one.
+  const { data: creator, error: joinErr } = await admin
+    .from("creators")
+    .select("id, user_id, slug, profiles!creators_user_id_fkey (id, display_name, avatar_url, username)")
+    .eq("id", product.creator_id)
+    .maybeSingle()
+
+  if (!joinErr && creator) {
+    const embedded = (creator as any).profiles
+    const profile = Array.isArray(embedded) ? embedded[0] ?? null : embedded ?? null
+    return { ...product, creator: { ...creator, profile } }
+  }
+
+  // The embed depends on the foreign key being named as expected; fall back to
+  // the two-step read rather than losing the seller entirely if it isn't.
+  const { data: plain } = await admin
     .from("creators")
     .select("id, user_id, slug")
     .eq("id", product.creator_id)
     .maybeSingle()
   let profile: any = null
-  if (creator?.user_id) {
+  if (plain?.user_id) {
     const { data } = await admin
       .from("profiles")
       .select("id, display_name, avatar_url, username")
-      .eq("id", creator.user_id)
+      .eq("id", plain.user_id)
       .maybeSingle()
     profile = data
   }
-  return { ...product, creator: creator ? { ...creator, profile } : null }
+  return { ...product, creator: plain ? { ...plain, profile } : null }
 }
 
 export async function generateMetadata({
