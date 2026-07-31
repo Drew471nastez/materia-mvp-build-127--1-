@@ -12,6 +12,11 @@ import { ReelsPager } from "./reels-pager"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
 import { useWishlistedIds } from "./wishlist-context"
+import {
+  FollowingPeopleList,
+  usePresenceHeartbeat,
+  type FollowedPerson,
+} from "./following-people-list"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
@@ -49,9 +54,9 @@ const TABS: ReadonlyArray<readonly [Tab, string]> = [
 // Module-scoped cache of the user's saved listings (full product objects). Kept
 // outside React (and mirrored to sessionStorage) so the Saved tab renders
 // instantly — no spinner on tab switches, and none across a same-session reload.
-// Listings from the people you follow, kept across tab switches so returning to
-// Following doesn't show a skeleton for something you were just looking at.
-let followingCache: any[] | null = null
+// The people you follow, kept across tab switches so returning to Following
+// doesn't show a skeleton for something you were just looking at.
+let followingCache: FollowedPerson[] | null = null
 
 const SAVED_SS_KEY = "storelib_saved_items_v1"
 let savedItemsCache: any[] | null = null
@@ -194,8 +199,19 @@ export function MobileFeed({
   useEffect(() => {
     if (fadeFrom === null || fadedIn) return
     if (screen === "reels" && reelsHeight <= 0) return
-    const raf = requestAnimationFrame(() => setFadedIn(true))
-    return () => cancelAnimationFrame(raf)
+    // TWO frames, not one. With one, the opacity:0 starting style and the
+    // opacity:1 target could land in the same commit — the browser then sees no
+    // change to animate and jumps straight there. That's why the switch was
+    // sometimes smooth and sometimes an instant cut. Waiting a second frame
+    // guarantees the starting style has been committed and painted first.
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setFadedIn(true))
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      if (second) cancelAnimationFrame(second)
+    }
   }, [fadeFrom, fadedIn, screen, reelsHeight])
 
   useEffect(() => {
@@ -220,7 +236,7 @@ export function MobileFeed({
         return {
           pointerEvents: "none",
           zIndex: 0,
-          transform: fadedIn ? "scale(1.02)" : "scale(1)",
+          transform: fadedIn ? "scale(1.012)" : "scale(1)",
           transition: `transform ${XFADE_MS + 160}ms cubic-bezier(0.33, 0, 0.2, 1)`,
         }
       }
@@ -228,7 +244,7 @@ export function MobileFeed({
         opacity: fadedIn ? 1 : 0,
         // Scales DOWN to 1, never up, so its edges always cover the frame and the
         // screen underneath can't peek out around them mid-dissolve.
-        transform: fadedIn ? "scale(1)" : "scale(1.045)",
+        transform: fadedIn ? "scale(1)" : "scale(1.022)",
         transition: `opacity ${XFADE_MS}ms cubic-bezier(0.4, 0, 0.22, 1), transform ${
           XFADE_MS + 160
         }ms cubic-bezier(0.22, 1, 0.36, 1)`,
@@ -837,7 +853,9 @@ export function MobileFeed({
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
 
-      <WishlistToast />
+      {/* Reels puts it at the top (the bottom is the caption and action rail);
+          the grid keeps it at the bottom, clear of the search row. */}
+      <WishlistToast placement={reelsActive ? "top" : "bottom"} />
 
       <MobileSearchOverlay
         open={searchOpen}
@@ -898,42 +916,50 @@ function FollowingTab({
   /** Bumped by pull-to-refresh to force a fresh fetch. */
   reloadSignal?: number
 }) {
-  // Cached at module scope for the same reason the Saved tab is: coming back to
-  // the tab should show the listings you already had, not a spinner.
-  const [items, setItems] = useState<any[] | null>(() => followingCache)
+  // The PEOPLE you follow, not their listings — following is about who you're
+  // keeping up with, and their items are already in the feed. Cached at module
+  // scope for the same reason the Saved tab is: coming back should show the list
+  // you already had, not a skeleton.
+  const [people, setPeople] = useState<FollowedPerson[] | null>(() => followingCache)
+
+  // Keep our own dot honest while the tab is open.
+  usePresenceHeartbeat()
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/follows/feed", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
+    fetch("/api/follows/people", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { people: [] }))
       .then((data) => {
-        const list = Array.isArray(data?.items) ? data.items : []
+        const list = Array.isArray(data?.people) ? data.people : []
         followingCache = list
-        if (!cancelled) setItems(list)
+        if (!cancelled) setPeople(list)
       })
       .catch(() => {
-        if (!cancelled) setItems((prev) => prev ?? [])
+        if (!cancelled) setPeople((prev) => prev ?? [])
       })
     return () => {
       cancelled = true
     }
   }, [reloadSignal])
 
-  if (items === null) {
+  if (people === null) {
     return (
-      <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="aspect-[4/5] w-full rounded-xl bg-neutral-100" />
-            <div className="mt-2.5 h-3 w-1/2 rounded bg-neutral-100" />
-            <div className="mt-1.5 h-3 w-3/4 rounded bg-neutral-100" />
+      <div className="px-3 py-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex animate-pulse items-center gap-3 py-3.5">
+            <div className="h-12 w-12 shrink-0 rounded-full bg-neutral-100" />
+            <div className="flex-1">
+              <div className="h-3 w-1/3 rounded bg-neutral-100" />
+              <div className="mt-2 h-3 w-1/4 rounded bg-neutral-100" />
+            </div>
+            <div className="h-8 w-20 rounded-full bg-neutral-100" />
           </div>
         ))}
       </div>
     )
   }
 
-  if (items.length === 0) {
+  if (people.length === 0) {
     return (
       <EmptyState
         icon={<Heart className="h-7 w-7" />}
@@ -943,13 +969,7 @@ function FollowingTab({
     )
   }
 
-  return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
-      {items.map((p) => (
-        <ProductCard key={p.id} product={p} clientNav />
-      ))}
-    </div>
-  )
+  return <FollowingPeopleList people={people} />
 }
 
 function SavedTab({

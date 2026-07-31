@@ -9,7 +9,7 @@ import { useLocale } from "@/components/locale-provider"
  * user saves (or un-saves) a listing anywhere in the mobile feed. Fires off the
  * `wishlist-toast` window event. Fades + slides in, holds ~3.5s, fades out.
  */
-export function WishlistToast() {
+export function WishlistToast({ placement = "bottom" }: { placement?: "top" | "bottom" }) {
   const { t } = useLocale()
   const [text, setText] = useState<string | null>(null)
   const [kind, setKind] = useState<"save" | "follow">("save")
@@ -64,14 +64,28 @@ export function WishlistToast() {
   return (
     <div
       className="md:hidden pointer-events-none fixed inset-x-0 z-[95] flex justify-center"
-      // Bottom-centered, sitting just above the bottom nav — never over the search.
-      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 74px)" }}
+      style={
+        placement === "top"
+          ? {
+              // Reels: the bottom of the screen is the caption and action rail, so
+              // a toast down there lands on top of what you just acted on. Up here
+              // it clears the overlaid tabs AND the category pills rather than
+              // sitting over them.
+              top: "calc(env(safe-area-inset-top, 0px) + 132px)",
+            }
+          : {
+              // Grid: just above the bottom nav, clear of the search row.
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 74px)",
+            }
+      }
     >
       <div
         className="flex items-center gap-2 rounded-full bg-neutral-900/[0.92] px-4 py-2.5 text-white shadow-xl backdrop-blur-md"
         style={{
           opacity: shown ? 1 : 0,
-          transform: shown ? "translateY(0) scale(1)" : "translateY(14px) scale(0.96)",
+          transform: shown
+            ? "translateY(0) scale(1)"
+            : `translateY(${placement === "top" ? "-14px" : "14px"}) scale(0.96)`,
           transition:
             "opacity 0.55s cubic-bezier(0.22,1,0.36,1), transform 0.6s cubic-bezier(0.22,1,0.36,1)",
           willChange: "opacity, transform",
