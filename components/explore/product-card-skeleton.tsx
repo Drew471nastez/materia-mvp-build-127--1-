@@ -6,7 +6,7 @@ export function ProductCardSkeleton() {
   return (
     <div className="flex flex-col">
       {/* Portrait thumbnail — must stay identical to the card's image well or the grid jumps */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-muted">
         <Skeleton className="absolute inset-0" />
       </div>
       <div className="flex flex-col px-0.5 pt-2.5">

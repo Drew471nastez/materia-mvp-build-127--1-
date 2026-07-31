@@ -169,13 +169,33 @@ export const MobileListingCard = memo(function MobileListingCard({
             className="relative h-full w-full shrink-0 snap-center"
           >
             {src ? (
+              <>
+                {/* Blurred fill behind the photo. A listing photo is 3:4 and a
+                    phone is far taller, so object-cover had to crop roughly a
+                    third of every garment away to fill the screen. Contained,
+                    the whole item is visible in its true proportions, and this
+                    scaled, blurred copy of the same photo fills what's left —
+                    the screen still reads as one wall of colour instead of two
+                    black bars. It's the same already-decoded image, so it costs
+                    a composite and nothing else. */}
+                <Image
+                  src={src}
+                  alt=""
+                  aria-hidden
+                  fill
+                  sizes="100vw"
+                  quality={20}
+                  className="scale-125 object-cover blur-2xl brightness-[0.55] saturate-150"
+                  priority={priority && i === 0}
+                  loading={i === 0 ? "eager" : "lazy"}
+                />
               <Image
                 src={src}
                 alt={product.title}
                 fill
                 sizes="100vw"
                 quality={82}
-                className="object-cover"
+                className="object-contain"
                 placeholder="blur"
                 blurDataURL={BLUR}
                 priority={priority && i === 0}
@@ -185,6 +205,7 @@ export const MobileListingCard = memo(function MobileListingCard({
                 // photos stay lazy — they only matter once you swipe sideways.
                 loading={i === 0 ? "eager" : "lazy"}
               />
+              </>
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-neutral-800 text-5xl">👕</div>
             )}

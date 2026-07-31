@@ -1050,7 +1050,7 @@ function SavedTab({
       <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="aspect-[4/5] w-full rounded-xl bg-neutral-100" />
+            <div className="aspect-[3/4] w-full rounded-xl bg-neutral-100" />
             <div className="mt-2.5 h-3 w-1/2 rounded bg-neutral-100" />
             <div className="mt-1.5 h-3 w-3/4 rounded bg-neutral-100" />
           </div>

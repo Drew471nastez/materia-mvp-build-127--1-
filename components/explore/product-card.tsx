@@ -255,7 +255,10 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           Subtle ring + shadow give the flat white grid a bit of depth. The
           no-touch-callout class kills iOS long-press "save/copy image", text
           selection and image dragging so the photo feels like a native tile. */}
-      <div className="no-touch-callout relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-neutral-100">
+      {/* 3:4 — Vinted's portrait ratio, and about 5% taller than the 4:5 this
+          used to be. Clothing photographs tall: a wider frame either crops the
+          garment or leaves dead space either side of it. */}
+      <div className="no-touch-callout relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100">
         <SmartLink href={productUrl} useClientNav={clientNav} className="absolute inset-0 block">
           {product.thumbnail_url ? (
             <Image

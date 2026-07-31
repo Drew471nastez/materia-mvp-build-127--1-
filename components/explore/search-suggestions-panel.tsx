@@ -340,7 +340,7 @@ export function SearchSuggestionsPanel({
                 >
                   <div
                     className={cn(
-                      "relative aspect-[4/5] w-full overflow-hidden rounded-lg bg-neutral-100 ring-offset-2 transition-shadow duration-150",
+                      "relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-100 ring-offset-2 transition-shadow duration-150",
                       activeIndex === flatIndex && "ring-2 ring-neutral-900/80",
                     )}
                   >
