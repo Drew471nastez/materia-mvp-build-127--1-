@@ -23,7 +23,7 @@ const ENTRY_MS = 700
 /** Dissolving one screen into another. A plain opacity ramp reads as a cut
  *  however long you make it — there is no motion in it for the eye to follow —
  *  so the incoming screen also settles out of a slight zoom over this time. */
-const XFADE_MS = 700
+const XFADE_MS = 820
 /** Height of the category pill bar. It overlays the feed, so the scroll content
  *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
 const CATBAR_H = 58
@@ -225,7 +225,7 @@ export function MobileFeed({
         // Scales DOWN to 1, never up, so its edges always cover the frame and the
         // screen underneath can't peek out around them mid-dissolve.
         transform: fadedIn ? "scale(1)" : "scale(1.045)",
-        transition: `opacity ${XFADE_MS}ms cubic-bezier(0.33, 0, 0.2, 1), transform ${
+        transition: `opacity ${XFADE_MS}ms cubic-bezier(0.4, 0, 0.22, 1), transform ${
           XFADE_MS + 160
         }ms cubic-bezier(0.22, 1, 0.36, 1)`,
         zIndex: 1, // above the outgoing screen, below the nav (z-40)

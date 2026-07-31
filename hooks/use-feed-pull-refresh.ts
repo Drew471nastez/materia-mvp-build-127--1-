@@ -193,15 +193,8 @@ export function useFeedPullRefresh({
       paint(g.dist, false)
     }
 
-    const onEnd = () => {
-      if (!g.pulling) {
-        g.armed = false
-        return
-      }
-      const dist = g.dist
-      g.pulling = false
-      g.armed = false
-      g.dist = 0
+    /** Shared by both input paths: decide, then either refresh or glide home. */
+    const release = (dist: number) => {
       tween(true)
 
       if (dist < TRIGGER) {
@@ -230,15 +223,68 @@ export function useFeedPullRefresh({
         })
     }
 
+    const onEnd = () => {
+      if (!g.pulling) {
+        g.armed = false
+        return
+      }
+      const dist = g.dist
+      g.pulling = false
+      g.armed = false
+      g.dist = 0
+      release(dist)
+    }
+
+    // ---- Trackpad / mouse wheel ----
+    // The same gesture for anyone without a touchscreen: keep scrolling up once
+    // you're already at the top and the feed pulls down exactly as it does under
+    // a finger. A wheel has no "finger lifted" event, so the release is a short
+    // idle timeout — long enough not to cut a trackpad's momentum in half.
+    let wheelRaw = 0
+    let wheelIdle: ReturnType<typeof setTimeout> | null = null
+
+    const endWheel = () => {
+      if (wheelIdle) {
+        clearTimeout(wheelIdle)
+        wheelIdle = null
+      }
+      if (wheelRaw <= 0) return
+      const dist = resist(wheelRaw)
+      wheelRaw = 0
+      release(dist)
+    }
+
+    const onWheel = (e: WheelEvent) => {
+      if (busy.current) return
+      // Only once we're at the top and the gesture is upward — otherwise this is
+      // an ordinary scroll and must be left completely alone.
+      if (el.scrollTop > 0 || e.deltaY >= 0) {
+        if (wheelRaw > 0) endWheel()
+        return
+      }
+      e.preventDefault()
+      if (wheelRaw === 0) {
+        tween(false)
+        layer(true)
+      }
+      wheelRaw += -e.deltaY
+      paint(resist(wheelRaw), false)
+      if (wheelIdle) clearTimeout(wheelIdle)
+      wheelIdle = setTimeout(endWheel, 140)
+    }
+
     el.addEventListener("touchstart", onStart, { passive: true })
     el.addEventListener("touchmove", onMove, { passive: false })
     el.addEventListener("touchend", onEnd, { passive: true })
     el.addEventListener("touchcancel", onEnd, { passive: true })
+    el.addEventListener("wheel", onWheel, { passive: false })
     detach.current = () => {
+      if (wheelIdle) clearTimeout(wheelIdle)
       el.removeEventListener("touchstart", onStart)
       el.removeEventListener("touchmove", onMove)
       el.removeEventListener("touchend", onEnd)
       el.removeEventListener("touchcancel", onEnd)
+      el.removeEventListener("wheel", onWheel)
     }
   })
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { MobileListingCard } from "./mobile-listing-card"
 import { IosSpinner } from "./ios-spinner"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
@@ -99,6 +99,11 @@ export function ReelsPager({
     driveSettle.current = !hasScrollTimeline()
   }, [])
 
+  // Last scale written per element, so a frame that wouldn't change anything
+  // doesn't touch the DOM at all. Style writes invalidate, and this runs on every
+  // scroll frame — most of which land on the same rounded value.
+  const painted = useRef(new WeakMap<HTMLElement, number>())
+
   /** Zoom each nearby photo by how far its card is from resting. */
   const paintSettle = useCallback((el: HTMLElement, top: number, step: number) => {
     const centre = Math.round(top / step)
@@ -107,7 +112,10 @@ export function ReelsPager({
       const photo = slot?.querySelector<HTMLElement>(".reel-photo")
       if (!photo) continue
       const away = Math.min(1, Math.abs(top - i * step) / step)
-      photo.style.transform = `scale(${1 + away * SETTLE})`
+      const scale = Math.round((1 + away * SETTLE) * 1e4) / 1e4
+      if (painted.current.get(photo) === scale) continue
+      painted.current.set(photo, scale)
+      photo.style.transform = `scale(${scale})`
     }
   }, [])
 
@@ -127,7 +135,11 @@ export function ReelsPager({
       const i = Math.max(0, Math.min(products.length - 1, Math.round(top / step)))
       if (i !== indexRef.current) {
         indexRef.current = i
-        setIndex(i)
+        // Non-urgent: this only drives windowing and the active flag, and the
+        // window is two screens deep either side. Letting React interrupt it
+        // keeps the main thread free for image decode during the scroll instead
+        // of committing a render in the middle of it.
+        startTransition(() => setIndex(i))
       }
     }
     const onScroll = () => {
