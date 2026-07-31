@@ -18,60 +18,11 @@ import {
   categoryLabelFor,
   type Option,
 } from "@/lib/marketplace/listing-taxonomy"
+import { triggerHaptic } from "@/lib/native-bridge"
+import { DragSheet } from "@/components/ui/drag-sheet"
 import { cn } from "@/lib/utils"
 
 type Photo = { id: string; url: string | null; uploading: boolean; localUrl: string }
-
-/** Bottom sheet — the picker pattern for everything that needs a long list. */
-function Sheet({
-  open,
-  title,
-  onClose,
-  children,
-}: {
-  open: boolean
-  title: string
-  onClose: () => void
-  children: React.ReactNode
-}) {
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [open])
-
-  return (
-    <div className={cn("fixed inset-0 z-[120]", !open && "pointer-events-none")} aria-hidden={!open}>
-      <div
-        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
-        style={{ opacity: open ? 1 : 0 }}
-        onClick={onClose}
-      />
-      {/* Sheet on phones, centred panel from `sm` up — the same component either
-          way, so a picker never behaves differently depending on the screen. */}
-      <div
-        className="absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col rounded-t-2xl bg-white shadow-2xl transition-transform duration-[380ms] sm:inset-0 sm:m-auto sm:h-[70vh] sm:max-w-lg sm:rounded-2xl"
-        style={{
-          transform: open ? "translateY(0)" : "translateY(12px)",
-          opacity: open ? 1 : 0,
-          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-          transitionProperty: "transform, opacity",
-        }}
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-4 py-3.5">
-          <h2 className="text-[16px] font-semibold text-neutral-900">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Închide" className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
-      </div>
-    </div>
-  )
-}
 
 /** A tappable row that shows what's chosen and opens its picker. */
 function Field({
@@ -88,7 +39,10 @@ function Field({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        void triggerHaptic("light")
+        onClick()
+      }}
       className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 py-3.5 text-left last:border-b-0"
     >
       <span className="shrink-0 text-[15px] text-neutral-900">
@@ -109,7 +63,10 @@ function Chip({ option, selected, onClick }: { option: Option; selected: boolean
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        void triggerHaptic("light")
+        onClick()
+      }}
       className={cn(
         "rounded-full px-3.5 py-2 text-[13.5px] font-medium transition-colors duration-200",
         selected ? "bg-[#7c3aed] text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
@@ -321,9 +278,52 @@ export function NewListingForm() {
     [missing, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router],
   )
 
+  // One definition rendered in two places — the phone's pinned bottom bar and
+  // the desktop sticky card — so the two sets of controls can never drift
+  // apart in copy, state, or behaviour.
+  const actionControls = (
+    <>
+      <label className="flex items-center gap-2.5 text-[13.5px] text-neutral-600">
+        <input
+          type="checkbox"
+          checked={postAnother}
+          onChange={(e) => setPostAnother(e.target.checked)}
+          className="h-4 w-4 accent-[#7c3aed]"
+        />
+        Publică și adaugă încă un articol
+      </label>
+
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          onClick={() => {
+            void triggerHaptic("light")
+            void submit(true)
+          }}
+          disabled={saving !== null}
+          className="h-12 flex-1 rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+        >
+          Salvează
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            void triggerHaptic("light")
+            void submit(false)
+          }}
+          disabled={saving !== null}
+          className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+        >
+          {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Publică anunțul
+        </button>
+      </div>
+    </>
+  )
+
   return (
-    <div className="bg-[#f6f6f7] pb-[calc(env(safe-area-inset-bottom,0px)+150px)] md:pb-32">
-      <div className="mx-auto w-full max-w-2xl px-4 pt-5 sm:pt-9">
+    <div className="bg-[#f6f6f7] pb-[calc(env(safe-area-inset-bottom,0px)+150px)] md:pb-20">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-5 sm:pt-9 md:max-w-5xl">
       <header className="mb-5">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
           Listează un articol
@@ -333,6 +333,14 @@ export function NewListingForm() {
         </p>
       </header>
 
+      {/* Desktop splits the form in two: media and prose on the left, the
+          attribute pickers and price on the right. On phones the grid
+          collapses back to the exact single-column order it always had, and
+          the columns must NOT be items-start: the right column has to stretch
+          to the full row height so the sticky action card inside it has room
+          to travel while the long left column scrolls. */}
+      <div className="md:grid md:grid-cols-2 md:gap-6">
+      <div className="min-w-0">
       {/* ---- Photos ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <div className="flex items-baseline justify-between">
@@ -433,7 +441,9 @@ export function NewListingForm() {
           Spune starea, materialul și cum vine pe corp. Anunțurile detaliate se vând mai repede.
         </p>
       </section>
+      </div>
 
+      <div className="min-w-0">
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">Detalii</h2>
@@ -487,54 +497,41 @@ export function NewListingForm() {
       </section>
 
       {error && (
-        <p className="mt-5 rounded-xl bg-rose-50 px-3.5 py-3 text-[13.5px] text-rose-700">{error}</p>
+        <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-[13.5px] text-rose-700 md:hidden">{error}</p>
       )}
 
-      {/* ---- Actions ---- */}
+      {/* ---- Actions (desktop) ---- */}
+      {/* Sticky inside the stretched right column, so Publish stays reachable
+          however far down the photo grid and description have pushed the page.
+          The error lives in here too — on desktop this card is where your eye
+          is when a submit fails. */}
+      <div className="hidden md:sticky md:top-24 md:block">
+        <div className="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+          {error && (
+            <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-[13.5px] text-rose-700">{error}</p>
+          )}
+          {actionControls}
+        </div>
+      </div>
+      </div>
+      </div>
+
+      {/* ---- Actions (phone) ---- */}
       {/* Sits ABOVE the tab bar, not under it. The global bottom navigation is
           fixed at z-80, and this bar was z-40 pinned to bottom-0 — so on a phone
           the tab bar was drawn straight over the Publish button. The checkbox
           above it stayed visible, which is why the form looked like it simply
           had no way to submit. Offset by the tab bar's height, and stacked over
-          it. On desktop there is no tab bar, so it just sits at the bottom. */}
+          it. From `md` up the sticky card in the right column takes over, so
+          this bar is phone-only. */}
       <div
-        className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+62px)] z-[90] border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:bottom-0"
+        className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+62px)] z-[90] border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden"
       >
-       <div className="mx-auto w-full max-w-2xl space-y-2.5">
-        <label className="flex items-center gap-2.5 text-[13.5px] text-neutral-600">
-          <input
-            type="checkbox"
-            checked={postAnother}
-            onChange={(e) => setPostAnother(e.target.checked)}
-            className="h-4 w-4 accent-[#7c3aed]"
-          />
-          Publică și adaugă încă un articol
-        </label>
-
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            onClick={() => submit(true)}
-            disabled={saving !== null}
-            className="h-12 flex-1 rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
-          >
-            Salvează
-          </button>
-          <button
-            type="button"
-            onClick={() => submit(false)}
-            disabled={saving !== null}
-            className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
-          >
-            {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Publică anunțul
-          </button>
-        </div>
-       </div>
+       <div className="mx-auto w-full max-w-2xl space-y-2.5">{actionControls}</div>
       </div>
 
       {/* ---- Pickers ---- */}
-      <Sheet open={sheet === "category"} title="Categorie" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "category"} title="Categorie" onClose={() => setSheet(null)}>
         <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white p-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -594,9 +591,9 @@ export function NewListingForm() {
             ))}
           </div>
         )}
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>
         <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white p-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -637,9 +634,9 @@ export function NewListingForm() {
             {brand === "Altele" && <Check className="h-4 w-4 text-[#7c3aed]" />}
           </button>
         </div>
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>
         <div className="p-2">
           {CONDITIONS.map((c) => (
             <button key={c.id} type="button" onClick={() => { setCondition(c.id); setSheet(null) }}
@@ -649,9 +646,9 @@ export function NewListingForm() {
             </button>
           ))}
         </div>
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>
         <div className="p-2">
           {SIZES.map((c) => (
             <button key={c.id} type="button" onClick={() => { setSize(c.id); setSheet(null) }}
@@ -661,9 +658,9 @@ export function NewListingForm() {
             </button>
           ))}
         </div>
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>
         <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
           {COLOURS.map((c) => (
             <button key={c.id} type="button" onClick={() => { setColour(c.id); setSheet(null) }}
@@ -674,17 +671,17 @@ export function NewListingForm() {
             </button>
           ))}
         </div>
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "source"} title="Tip (maximum 2)" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "source"} title="Tip (maximum 2)" onClose={() => setSheet(null)}>
         <div className="flex flex-wrap gap-2 p-3">
           {SOURCES.map((s) => (
             <Chip key={s.id} option={s} selected={sources.includes(s.id)} onClick={() => setSources((l) => toggleIn(l, s.id, 2))} />
           ))}
         </div>
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>
         <div className="p-2">
           {ERAS.map((c) => (
             <button key={c.id} type="button" onClick={() => { setEra(c.id); setSheet(null) }}
@@ -694,15 +691,15 @@ export function NewListingForm() {
             </button>
           ))}
         </div>
-      </Sheet>
+      </DragSheet>
 
-      <Sheet open={sheet === "style"} title="Stil (maximum 3)" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "style"} title="Stil (maximum 3)" onClose={() => setSheet(null)}>
         <div className="flex flex-wrap gap-2 p-3">
           {STYLES.map((s) => (
             <Chip key={s.id} option={s} selected={styles.includes(s.id)} onClick={() => setStyles((l) => toggleIn(l, s.id, 3))} />
           ))}
         </div>
-      </Sheet>
+      </DragSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
           moment of its own before the redirect. */}

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronLeft } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
-import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
+import { CategoryPillRail, SearchTrigger } from "@/components/marketplace/search-row"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
 import { WishlistToast } from "./wishlist-toast"
@@ -718,10 +718,11 @@ export function MobileFeed({
     }
   }, [products, reelsActive, router, searchQuery, cat])
 
-  // Tapping the search bar (or the bottom-nav search) opens the full-screen
-  // search overlay — the inline field is just a trigger, never typed into.
-  // Opening it is a real action with a real result, so it gets the same buzz a
-  // listing tap does. Safe on a plain onClick — a button is not a scroll surface.
+  // Opens the same full-screen overlay the grid strip's SearchTrigger does, for
+  // the taps SearchTrigger doesn't cover: the reels overlay's search icon and
+  // the bottom-nav search. The haptic lives here because those are bare icons —
+  // SearchTrigger buzzes on its own, so the strip must NOT route through this
+  // or a tap would buzz twice.
   const openSearch = useCallback(() => {
     void triggerHaptic("light")
     setSearchOpen(true)
@@ -875,27 +876,7 @@ export function MobileFeed({
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openSearch}
-            aria-label={t("mfeed.search_placeholder")}
-            className="relative flex-1 h-11 rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-10 text-left transition-transform active:scale-[0.99]"
-          >
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            {searchQuery ? (
-              // Active search — show what was searched, so it never looks empty.
-              <span className="absolute left-10 right-10 top-1/2 -translate-y-1/2 truncate text-sm font-medium text-neutral-900">
-                {searchQuery}
-              </span>
-            ) : (
-              <AnimatedSearchPlaceholder
-                active
-                prefix={`${t("mfeed.search_for")} `}
-                quoted
-                className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
-              />
-            )}
-          </button>
+          <SearchTrigger query={searchQuery} onOpen={() => setSearchOpen(true)} />
           {searchQuery ? (
             <button
               type="button"
@@ -1017,21 +998,7 @@ export function MobileFeed({
             willChange: "transform, opacity",
           }}
         >
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setCat(c.id)}
-                className={cn(
-                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
-                  cat === c.id ? "bg-neutral-900 text-white shadow-sm" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
-                )}
-              >
-                {t(`category.${c.id}`)}
-              </button>
-            ))}
-          </div>
+          <CategoryPillRail activeId={cat} onSelect={setCat} />
         </div>
         )}
 
