@@ -148,27 +148,50 @@ html.capacitor a.no-tap-fade:active {
 }
 /* Coming back to the feed.
    
-   This is the pop half of a native screen stack, done from the arriving side
-   only: the feed comes back from slightly left, slightly small and slightly
-   dark, as though it had been sitting underneath the listing all along and is
-   now being uncovered. The lifting dim is what carries most of it — it is the
-   same cue that makes a push read as depth rather than as two flat pictures
-   swapping, and it works just as well in reverse with nothing above it.
+   The pop half of a native screen stack, done from the arriving side only: the
+   feed comes back from the left, slightly small and under a shadow, as though it
+   had been sitting beneath the listing all along and is now being uncovered.
    
-   Sliding does leave a strip of the frame uncovered on the right, and that strip
-   is the root, which `surface-bg` has already painted this very screen's colour
-   — white behind the grid, black behind a full-bleed reel. So there is nothing
-   to see there, which is the whole reason it can afford to travel at all. */
+   The dim is a separate full-screen layer, NOT a filter on the feed. Two reasons,
+   and both of them matter. A filter on a subtree this size — a fixed root holding
+   a scroller and a screenful of photographs — is not reliably composited, and
+   animating one can repaint the lot every frame; opacity on a flat black plate is
+   the cheapest thing a compositor does. And a filter would travel WITH the feed,
+   leaving the strip of frame the slide uncovers at full brightness beside a
+   darkened screen: a bright band down one edge, which is the opposite of what
+   the shadow is for. The plate is portalled to the body so it stays still and
+   covers everything, strip included.
+   
+   That uncovered strip is the root, which surface-bg has already painted this
+   exact screen's colour — white behind the grid, black behind a full-bleed reel.
+   Nothing to see there, which is the only reason this can travel at all. */
 @keyframes feed-return {
-  from {
-    transform: translate3d(-7%, 0, 0) scale(0.985);
-    filter: brightness(0.86);
-  }
-  to {
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: brightness(1);
-  }
+  from { transform: translate3d(-13%, 0, 0) scale(0.968); }
+  50%  { transform: translate3d(-2.2%, 0, 0) scale(0.9955); }
+  to   { transform: translate3d(0, 0, 0) scale(1); }
 }
+@keyframes feed-return-dim {
+  from { opacity: 0.26; }
+  50%  { opacity: 0.055; }
+  to   { opacity: 0; }
+}
+.feed-return-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 61; /* over the feed's z-60 root, under the transition progress bar */
+  background: #000;
+  pointer-events: none;
+  opacity: 0;
+  animation: feed-return-dim 380ms cubic-bezier(0.17, 0.84, 0.24, 1) both;
+  will-change: opacity;
+}
+@media (min-width: 768px) {
+  .feed-return-dim { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-return-dim { display: none; }
+}
+
 @media (max-width: 767px) {
   .listing-enter {
     /* Enough zoom to actually see. The old value was a thirtieth of a scale,
@@ -180,14 +203,17 @@ html.capacitor a.no-tap-fade:active {
     transform-origin: 50% 42%;
   }
   .feed-return {
-    /* Longer than it was, and it still lands sooner. The curve is close to an
-       exponential ease-out: three quarters of the distance is gone inside the
-       first third of the time, so the movement registers immediately and the
-       rest is a settle you feel more than watch. A shorter linear-ish version
-       reads as a cut with a stutter on the end — which is why the quick one did
-       not read as an animation at all. */
-    animation: feed-return 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    will-change: transform, filter;
+    /* Half the distance is gone in the first fifth of the time and the rest is a
+       long, decelerating settle — fast enough that it still reads as instant,
+       slow enough at the end that you watch it arrive rather than notice it has
+       arrived. That tail is the whole difference between a transition that feels
+       cheap and one that feels considered; a near-linear curve of the same
+       length reads as a cut with a stutter on the end.
+       
+       Transform only. One composited property on one layer, so this is a handful
+       of matrix multiplications per frame no matter how much is on screen. */
+    animation: feed-return 380ms cubic-bezier(0.17, 0.84, 0.24, 1) both;
+    will-change: transform;
   }
 }
 @media (min-width: 768px) {

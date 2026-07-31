@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronLeft } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -175,6 +176,11 @@ export function MobileFeed({
   // Arriving back from a listing, the feed settles into place instead of simply
   // being there. Read once, from the hint the navigation left on <html>, so a
   // fresh visit or a tab change doesn't animate — only an actual return does.
+  //
+  // Cleared the moment it finishes. The animation carries `will-change:
+  // transform`, which asks the compositor to hold a layer for the whole feed —
+  // worth it for 380ms, wasteful for the rest of the session, and left on it
+  // would be paid back in memory during every scroll afterwards.
   const [returning, setReturning] = useState(false)
   useLayoutEffect(() => {
     if (navHint() === "back") setReturning(true)
@@ -727,6 +733,19 @@ export function MobileFeed({
       className={cn("md:hidden fixed inset-0 z-[60] flex flex-col bg-white", returning && "feed-return")}
       style={{ height: "100dvh" }}
     >
+      {/* The shadow the feed comes back out of. Portalled to the body on purpose:
+          it has to stay still while the feed slides, or it would travel with it
+          and leave the uncovered strip bright beside a darkened screen. */}
+      {returning &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            aria-hidden="true"
+            className="feed-return-dim"
+            onAnimationEnd={() => setReturning(false)}
+          />,
+          document.body,
+        )}
       {/* Entry curtain — opaque, already the destination view's colour on the
           very first painted frame (the head script sets --feed-entry-bg from
           localStorage before anything renders). It hides the server's guess
