@@ -2,12 +2,13 @@
 
 import { memo, useState, useCallback, useEffect } from "react"
 import Image from "next/image"
-import { Heart, Send, Plus, BadgeCheck, ChevronLeft } from "lucide-react"
+import { Heart, Send, BadgeCheck, ChevronLeft } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { CONDITIONS } from "@/lib/marketplace/categories"
+import { FollowButton } from "@/components/explore/follow-button"
 import { cn } from "@/lib/utils"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
@@ -46,6 +47,7 @@ export interface MobileListingProduct {
   condition?: string | null
   brand?: string | null
   creator?: {
+    user_id?: string | null
     profile?: { display_name?: string | null; avatar_url?: string | null; username?: string | null } | null
   } | null
 }
@@ -113,6 +115,15 @@ export const MobileListingCard = memo(function MobileListingCard({
   const productUrl = `${getProductUrl(username, product.slug || "")}${(getProductUrl(username, product.slug || "").includes("?") ? "&" : "?")}layout=discover`
   const storeUrl = username ? getStoreUrl(username) : "#"
   const cond = conditionLabel(product.condition)
+  // A follow points at the person, so it needs the seller's profile id — the
+  // creator row is only how their listings hang off them.
+  const sellerId = product.creator?.user_id || null
+
+  const onFollowed = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent("follow-toast", { detail: { name: username || creatorName } }),
+    )
+  }, [username, creatorName])
 
   const onLike = useCallback(
     (e: React.MouseEvent) => {
@@ -223,8 +234,12 @@ export const MobileListingCard = memo(function MobileListingCard({
       {/* Right action rail — follow, save, share (no comments). Icons sit in
           soft translucent circles so they read cleanly over any photo. */}
       <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4 text-white">
+        {/* Just the seller's avatar, linking to their store. The red "+" badge
+            that used to hang off it was pure TikTok costume — the follow action
+            lives with their name in the caption now, where it reads as a
+            labelled control instead of a mystery glyph. */}
         <SmartLink href={storeUrl} onClick={(e) => e.stopPropagation()} className="relative mb-1">
-          <span className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-neutral-700 shadow-sm">
+          <span className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white/90 bg-neutral-700 shadow-sm">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt={creatorName} className="h-full w-full object-cover" loading="lazy" />
@@ -233,9 +248,6 @@ export const MobileListingCard = memo(function MobileListingCard({
                 {creatorName.charAt(0).toUpperCase()}
               </span>
             )}
-          </span>
-          <span className="absolute -bottom-1.5 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full bg-rose-500 ring-2 ring-black/10">
-            <Plus className="h-3 w-3" strokeWidth={3} />
           </span>
         </SmartLink>
 
@@ -269,14 +281,15 @@ export const MobileListingCard = memo(function MobileListingCard({
           </p>
         )}
         <div className="mt-2 flex items-center gap-1.5">
-          <span className="h-5 w-5 overflow-hidden rounded-full bg-white/25">
+          <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-white/25">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt="" className="h-full w-full object-cover" loading="lazy" />
             ) : null}
           </span>
-          <span className="text-[13px] font-medium">{username || creatorName}</span>
-          <BadgeCheck className="h-3.5 w-3.5 text-sky-300" />
+          <span className="truncate text-[13px] font-medium">{username || creatorName}</span>
+          <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-sky-300" />
+          <FollowButton userId={sellerId} onFollowed={onFollowed} className="ml-1.5" />
         </div>
       </SmartLink>
     </div>

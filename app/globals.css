@@ -121,6 +121,13 @@ html.capacitor a.no-tap-fade:active {
    photo actually moves. Browsers without it fall back to that transition, which
    the component still sets inline; a running animation outranks inline styles in
    the cascade, so where this applies it simply takes over. */
+/* View switcher icon swap — a short lift and settle as the surface changes, so
+   the button acknowledges the tap without bouncing. */
+@keyframes switcher-icon {
+  from { opacity: 0; transform: rotate(-22deg) scale(0.82); }
+  to   { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+
 @keyframes reel-settle {
   from { transform: scale(1.045); }
   to   { transform: scale(1); }

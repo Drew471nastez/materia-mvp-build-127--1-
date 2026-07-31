@@ -160,6 +160,39 @@ export function ReelsPager({
     paintSettle(el, el.scrollTop, hRef.current)
   }, [index, paintSettle])
 
+  // ---- Trackpad / mouse wheel ----
+  // A wheel over CSS scroll-snap is abrupt: each notch jumps and the snap yanks
+  // it into place, which is nothing like the finger it was tuned for. So on a
+  // wheel we take over and animate one listing per gesture. A short lock after
+  // each move means a trackpad's flurry of small deltas is a single, smooth
+  // listing change rather than a scramble through five of them.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    let lockedUntil = 0
+
+    const onWheel = (e: WheelEvent) => {
+      const step = hRef.current
+      if (!step) return
+      // Pulling down at the very top belongs to pull-to-refresh, not to us.
+      if (el.scrollTop <= 0 && e.deltaY < 0) return
+      if (Math.abs(e.deltaY) < 2) return
+      // Always prevent, even while locked: letting the native scroll through
+      // mid-animation is what would make it stutter.
+      e.preventDefault()
+      const now = performance.now()
+      if (now < lockedUntil) return
+      const last = Math.max(0, products.length - 1)
+      const next = Math.max(0, Math.min(last, indexRef.current + (e.deltaY > 0 ? 1 : -1)))
+      if (next === indexRef.current) return
+      lockedUntil = now + 520
+      el.scrollTo({ top: next * step, behavior: "smooth" })
+    }
+
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [products.length])
+
   // Keep the current card aligned when the viewport height changes (rotation,
   // browser chrome collapsing). Snapping alone would land on the nearest slot.
   useLayoutEffect(() => {

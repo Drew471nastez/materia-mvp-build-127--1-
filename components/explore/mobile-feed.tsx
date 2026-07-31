@@ -23,7 +23,7 @@ const ENTRY_MS = 700
 /** Dissolving one screen into another. A plain opacity ramp reads as a cut
  *  however long you make it — there is no motion in it for the eye to follow —
  *  so the incoming screen also settles out of a slight zoom over this time. */
-const XFADE_MS = 820
+const XFADE_MS = 900
 /** Height of the category pill bar. It overlays the feed, so the scroll content
  *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
 const CATBAR_H = 58
@@ -49,6 +49,10 @@ const TABS: ReadonlyArray<readonly [Tab, string]> = [
 // Module-scoped cache of the user's saved listings (full product objects). Kept
 // outside React (and mirrored to sessionStorage) so the Saved tab renders
 // instantly — no spinner on tab switches, and none across a same-session reload.
+// Listings from the people you follow, kept across tab switches so returning to
+// Following doesn't show a skeleton for something you were just looking at.
+let followingCache: any[] | null = null
+
 const SAVED_SS_KEY = "storelib_saved_items_v1"
 let savedItemsCache: any[] | null = null
 let savedItemsInflight: Promise<any[]> | null = null
@@ -337,6 +341,7 @@ export function MobileFeed({
   const [revealNonce, setRevealNonce] = useState(0)
   // Bumped to ask the Saved tab to revalidate (without touching the feed).
   const [savedReload, setSavedReload] = useState(0)
+  const [followingReload, setFollowingReload] = useState(0)
 
   const onRefresh = useCallback(async () => {
     // Pull-to-refresh is tab-aware. On Saved/Following we must NOT router.refresh()
@@ -348,7 +353,8 @@ export function MobileFeed({
       return
     }
     if (tab === "following") {
-      await new Promise((r) => setTimeout(r, 450))
+      setFollowingReload((n) => n + 1)
+      await new Promise((r) => setTimeout(r, 600))
       return
     }
     router.refresh()
@@ -629,25 +635,6 @@ export function MobileFeed({
               />
             )}
           </button>
-          {/* View switcher: grid ↔ reels (shows the icon of the view you'll get) */}
-          <button
-            type="button"
-            aria-label={view === "grid" ? t("mfeed.view_reels") : t("mfeed.view_grid")}
-            aria-pressed={view === "reels"}
-            onClick={() => switchView(view === "grid" ? "reels" : "grid")}
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-transform active:scale-95",
-              view === "reels"
-                ? "border-transparent bg-neutral-900 text-white"
-                : "border-neutral-200 bg-neutral-100 text-neutral-700",
-            )}
-          >
-            {view === "grid" ? (
-              <GalleryVerticalEnd className="h-[18px] w-[18px]" />
-            ) : (
-              <LayoutGrid className="h-[18px] w-[18px]" />
-            )}
-          </button>
           {searchQuery ? (
             <button
               type="button"
@@ -662,6 +649,63 @@ export function MobileFeed({
               <SlidersHorizontal className="h-[18px] w-[18px]" />
             </button>
           )}
+
+          {/* View switcher — LAST in the row, to the right of the filter button.
+              It's the one control here that changes the whole surface, so it
+              carries the brand purple and a little elevation: a raised, lit
+              button reads as pressable in a way another flat grey circle does
+              not. The icon shows the view you'll GET, not the one you're in. */}
+          <button
+            type="button"
+            aria-label={view === "grid" ? t("mfeed.view_reels") : t("mfeed.view_grid")}
+            aria-pressed={view === "reels"}
+            onClick={() => switchView(view === "grid" ? "reels" : "grid")}
+            className="no-tap-fade group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+            style={{
+              // A lit top edge over a slightly deeper base, so it reads as a
+              // rounded solid rather than a flat purple disc.
+              background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
+              // Two shadows: a tight contact shadow to seat it on the surface,
+              // and a wider brand-tinted glow so it lifts off the white row.
+              boxShadow:
+                "0 1px 2px rgba(76, 29, 149, 0.28), 0 6px 16px -4px rgba(124, 58, 237, 0.55), inset 0 1px 0 rgba(255,255,255,0.22)",
+              transition: "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease",
+            }}
+            onPointerDown={(e) => {
+              // Presses in, and the glow tucks under it — the button sinks toward
+              // the surface rather than just getting smaller.
+              const el = e.currentTarget
+              el.style.transform = "scale(0.9)"
+              el.style.boxShadow =
+                "0 1px 1px rgba(76, 29, 149, 0.3), 0 2px 6px -2px rgba(124, 58, 237, 0.5), inset 0 1px 0 rgba(255,255,255,0.18)"
+            }}
+            onPointerUp={(e) => {
+              const el = e.currentTarget
+              el.style.transform = ""
+              el.style.boxShadow = ""
+            }}
+            onPointerLeave={(e) => {
+              const el = e.currentTarget
+              el.style.transform = ""
+              el.style.boxShadow = ""
+            }}
+          >
+            {/* The icon rotates a few degrees and cross-fades as the view flips,
+                so the control acknowledges the switch without a bounce. */}
+            <span
+              key={view}
+              className="flex items-center justify-center"
+              style={{
+                animation: "switcher-icon 420ms cubic-bezier(0.22, 1, 0.36, 1) both",
+              }}
+            >
+              {view === "grid" ? (
+                <GalleryVerticalEnd className="h-[19px] w-[19px]" strokeWidth={2.2} />
+              ) : (
+                <LayoutGrid className="h-[19px] w-[19px]" strokeWidth={2.2} />
+              )}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -772,7 +816,7 @@ export function MobileFeed({
             {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
                 listings. The For You grid fades only when the CATEGORY changes. */}
             {tab === "following" ? (
-              <EmptyState icon={<Heart className="h-7 w-7" />} title={t("mfeed.following_empty_title")} sub={t("mfeed.following_empty_sub")} />
+              <FollowingTab t={t} reloadSignal={followingReload} />
             ) : tab === "saved" ? (
               <SavedTab t={t} reloadSignal={savedReload} />
             ) : (
@@ -846,6 +890,68 @@ function mapWishlistItem(item: any) {
  * the tab paints; the background DB fetch only fills product data we were
  * missing, never surprises the user with an extra card popping in a second later.
  */
+function FollowingTab({
+  t,
+  reloadSignal = 0,
+}: {
+  t: (key: string) => string
+  /** Bumped by pull-to-refresh to force a fresh fetch. */
+  reloadSignal?: number
+}) {
+  // Cached at module scope for the same reason the Saved tab is: coming back to
+  // the tab should show the listings you already had, not a spinner.
+  const [items, setItems] = useState<any[] | null>(() => followingCache)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/follows/feed", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((data) => {
+        const list = Array.isArray(data?.items) ? data.items : []
+        followingCache = list
+        if (!cancelled) setItems(list)
+      })
+      .catch(() => {
+        if (!cancelled) setItems((prev) => prev ?? [])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [reloadSignal])
+
+  if (items === null) {
+    return (
+      <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="animate-pulse">
+            <div className="aspect-[4/5] w-full rounded-xl bg-neutral-100" />
+            <div className="mt-2.5 h-3 w-1/2 rounded bg-neutral-100" />
+            <div className="mt-1.5 h-3 w-3/4 rounded bg-neutral-100" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={<Heart className="h-7 w-7" />}
+        title={t("mfeed.following_empty_title")}
+        sub={t("mfeed.following_empty_sub")}
+      />
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-5 px-3 py-3">
+      {items.map((p) => (
+        <ProductCard key={p.id} product={p} clientNav />
+      ))}
+    </div>
+  )
+}
+
 function SavedTab({
   t,
   reloadSignal = 0,
