@@ -20,6 +20,7 @@ import {
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { signalArrival } from "@/lib/nav-blend"
+import { navHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -158,6 +159,14 @@ export function MobileFeed({
     }
     // Intentionally mount-only: later changes are the user's own switching.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Arriving back from a listing, the feed settles into place instead of simply
+  // being there. Read once, from the hint the navigation left on <html>, so a
+  // fresh visit or a tab change doesn't animate — only an actual return does.
+  const [returning, setReturning] = useState(false)
+  useLayoutEffect(() => {
+    if (navHint() === "back") setReturning(true)
   }, [])
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -685,7 +694,10 @@ export function MobileFeed({
   const focusSearch = openSearch
 
   return (
-    <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
+    <div
+      className={cn("md:hidden fixed inset-0 z-[60] flex flex-col bg-white", returning && "feed-return")}
+      style={{ height: "100dvh" }}
+    >
       {/* Entry curtain — opaque, already the destination view's colour on the
           very first painted frame (the head script sets --feed-entry-bg from
           localStorage before anything renders). It hides the server's guess

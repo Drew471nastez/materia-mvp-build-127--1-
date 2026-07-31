@@ -10,7 +10,6 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
 import { navigateBlended, signalArrival } from "@/lib/nav-blend"
-import { enableEdgeBack } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
@@ -112,40 +111,18 @@ export function ProductDetail({ product }: { product: any }) {
     navigateBlended("back", goBack)
   }, [goBack])
 
-  // Does this page have to animate itself in?
+  // This page animates itself in, and it is the only thing that animates.
   //
-  // Only when nothing else is doing it. A blend in progress at mount means the
-  // browser is already sliding this page into place, and a second animation on
-  // top of that would be the doubled open all over again. No blend means either
-  // the browser can't do them, or the navigation was too slow and the blend gave
-  // up and swapped instantly — and in both of those cases opening a listing with
-  // no animation whatsoever is worse than a plain one. Exactly one, always;
-  // never two, never none.
+  // Nothing coordinates with anything: no snapshot of the previous screen, no
+  // handshake deciding who owns the animation, no second party that can get it
+  // wrong. One opaque element scaling into place, which is the version of this
+  // that cannot flash, cannot double, and cannot silently fail to run.
   //
-  // Decided in a layout effect rather than at first render, so the server and
-  // the client agree on the markup and nothing hydrates mismatched. Layout
-  // effects run before the browser paints, so the class is still in place for
-  // the first frame and the animation plays from its true start.
+  // Applied in a layout effect rather than at first render so the server and the
+  // client agree on the markup. Layout effects run before paint, so the class is
+  // in place for the first frame and the animation plays from its true start.
   const [selfAnimate, setSelfAnimate] = useState(false)
-  useLayoutEffect(() => {
-    if (!document.documentElement.dataset.blend) setSelfAnimate(true)
-  }, [])
-
-  // Drag in from the left edge to go back, the way a native screen stack does.
-  //
-  // Bound to the same handler the arrow uses, so a dragged back and a tapped
-  // back land in exactly the same place. The gesture only arms itself when there
-  // is a picture of the previous screen to reveal — arriving here from a shared
-  // link there is nothing behind this page, and a drag that uncovers a blank
-  // screen is worse than no drag at all.
-  useEffect(
-    () =>
-      enableEdgeBack(() => {
-        void triggerHaptic("light")
-        goBack()
-      }),
-    [goBack],
-  )
+  useLayoutEffect(() => setSelfAnimate(true), [])
 
   // Tell an in-flight blend that this page is genuinely on screen.
   //

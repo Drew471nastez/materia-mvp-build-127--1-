@@ -143,28 +143,43 @@ html.capacitor a.no-tap-fade:active {
  * follow and there is never a pixel of anything else on screen.
  */
 @keyframes listing-enter {
-  from { transform: scale(1.035); }
+  from { transform: scale(1.075); }
+  to   { transform: scale(1); }
+}
+/* Coming back to the feed, the other way round: it settles UP into place from
+   slightly small. Different enough from the entry that the two read as opposite
+   directions, short enough that a return never feels like a wait. Scaling up
+   from under 1 does leave the edges short of the frame for an instant, which is
+   the one case the root colour is painted for — see paintRoot(). */
+@keyframes feed-return {
+  from { transform: scale(0.965); }
   to   { transform: scale(1); }
 }
 @media (max-width: 767px) {
   .listing-enter {
-    animation: listing-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* Enough zoom to actually see. The old value was a thirtieth of a scale,
+       which is real motion in the code and invisible on a phone; this is more
+       than twice that, over slightly longer, on a curve that spends most of its
+       time near the end. Opaque throughout, so nothing behind can show. */
+    animation: listing-enter 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform;
+    transform-origin: 50% 42%;
+  }
+  .feed-return {
+    animation: feed-return 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
     will-change: transform;
   }
 }
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
      website doing tricks, and the page is already instant there. */
-  .listing-enter { animation: none; }
+  .listing-enter,
+  .feed-return { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .listing-enter { animation: none; }
+  .listing-enter,
+  .feed-return { animation: none; }
 }
-/* Route changes push and pop as real screens now — see lib/screen-transition.ts.
-   The animation lives there, in WAAPI on cloned layers, because it has to be
-   drivable by a finger for the edge-drag back gesture and because it must not
-   depend on a browser feature that can be silently absent. Nothing about it is
-   expressible here, so there is nothing here. */
 
 /* A listing card acknowledging the finger before anything else happens. */
 .press-dim {
