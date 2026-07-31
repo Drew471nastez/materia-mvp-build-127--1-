@@ -135,10 +135,16 @@ export default function RootLayout({
                html.capacitor CSS rules (overscroll, touch-action, etc.) activate
                on the very first paint without waiting for NativeCookieKillSwitch.
             2. Legacy "/" redirect: the old shipped iOS app loads "/" — hide and
-               redirect before any pixel paints. */}
+               redirect before any pixel paints.
+            3. Feed view (grid | reels): resolved from localStorage BEFORE the
+               first pixel, so the entry curtain is already the destination's
+               colour. The server reads this from a cookie, but WKWebView drops
+               JS-set cookies across app restarts — which is exactly why the app
+               used to open on the grid and then jump to reels a second later.
+               Re-writing the cookie here repairs it for every later request. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}`,
+            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
           }}
         />
       </head>

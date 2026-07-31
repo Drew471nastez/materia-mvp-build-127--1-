@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronLeft } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -17,6 +17,13 @@ import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
+
+/** How long the entry curtain takes to lift. Keep in step with the `intro` timer. */
+const CURTAIN_MS = 700
+
+// Module-scoped on purpose: the entry intro belongs to opening the APP, not to
+// mounting this component. Navigating away and back shouldn't replay it.
+let introPlayed = false
 
 const TABS: ReadonlyArray<readonly [Tab, string]> = [
   ["for-you", "mfeed.for_you"],
@@ -107,6 +114,23 @@ export function MobileFeed({
     }
   }, [view])
 
+  // The cookie is the fast path, but it can be missing (WKWebView drops JS
+  // cookies between app launches). localStorage never is — the head script has
+  // already read it onto <html> before the first pixel, so correcting from it
+  // here, in a LAYOUT effect, lands before the browser paints the hydrated tree.
+  // The entry curtain covers the server's guess until this has settled, so a
+  // wrong cookie can no longer show up as a second of grid.
+  useLayoutEffect(() => {
+    try {
+      const v = document.documentElement.getAttribute("data-feed-view")
+      if ((v === "reels" || v === "grid") && v !== initialView) setView(v)
+    } catch {
+      /* SSR / no DOM */
+    }
+    // Intentionally mount-only: later changes are the user's own switching.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const feedContentRef = useRef<HTMLDivElement>(null)
   const feedSpinnerRef = useRef<HTMLDivElement>(null)
@@ -114,6 +138,42 @@ export function MobileFeed({
   const [reelsHeight, setReelsHeight] = useState(0)
 
   const reelsActive = view === "reels" && tab === "for-you"
+
+  // First-entry intro. The feed opens behind an opaque curtain painted in the
+  // destination's own colour (set pre-paint by the head script), which lifts once
+  // the real view is resolved and laid out. That kills the "flash of grid, then
+  // snap to TikTok" on launch and gives both views a calm way in.
+  const [intro, setIntro] = useState<"cover" | "lifting" | "done">(() =>
+    introPlayed ? "done" : "cover",
+  )
+  useEffect(() => {
+    if (intro !== "cover") return
+    // Reels has nothing to show until its height is measured — lifting before
+    // that would reveal an empty black screen, which is the very flash we're
+    // here to remove. This effect deliberately runs on every render so it fires
+    // the moment that measurement lands.
+    if (reelsActive && reelsHeight <= 0) return
+    introPlayed = true
+    const timer = setTimeout(() => setIntro("lifting"), 220)
+    return () => clearTimeout(timer)
+  })
+  useEffect(() => {
+    if (intro !== "lifting") return
+    const timer = setTimeout(() => setIntro("done"), CURTAIN_MS)
+    return () => clearTimeout(timer)
+  }, [intro])
+
+  // The feed settles out of a barely-there zoom as the curtain lifts, so entering
+  // reads as one continuous movement rather than a screen being swapped in. Scale
+  // DOWN to 1 (never up) so the content is always at least as big as its frame —
+  // no edge can ever peek through mid-animation.
+  const introStyle: React.CSSProperties | undefined =
+    intro === "done"
+      ? undefined
+      : {
+          transform: intro === "lifting" ? "scale(1)" : "scale(1.02)",
+          transition: `transform ${CURTAIN_MS + 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        }
 
   // Measure the full-screen reels area so each listing fills exactly one screen.
   useEffect(() => {
@@ -302,9 +362,26 @@ export function MobileFeed({
 
   return (
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
+      {/* Entry curtain — opaque, already the destination view's colour on the
+          very first painted frame (the head script sets --feed-entry-bg from
+          localStorage before anything renders). It hides the server's guess
+          while the real view resolves, then lifts. Rendered above the feed but
+          below the bottom nav's own layer, and never interactive. */}
+      {intro !== "done" && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[75]"
+          style={{
+            background: "var(--feed-entry-bg, #fff)",
+            opacity: intro === "lifting" ? 0 : 1,
+            transition: `opacity ${CURTAIN_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          }}
+        />
+      )}
+
       {reelsActive ? (
         /* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */
-        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black animate-in slide-in-from-bottom-2 duration-300 ease-out">
+        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black animate-in slide-in-from-bottom-2 duration-300 ease-out" style={introStyle}>
           {reelsHeight > 0 && products.length > 0 ? (
             <ReelsPager products={products} height={reelsHeight} onRefresh={onRefresh} />
           ) : products.length === 0 ? (
@@ -389,7 +466,7 @@ export function MobileFeed({
           </div>
         </div>
       ) : (
-      <div className="flex min-h-0 flex-1 flex-col animate-in slide-in-from-bottom-2 duration-300 ease-out">
+      <div className="flex min-h-0 flex-1 flex-col animate-in slide-in-from-bottom-2 duration-300 ease-out" style={introStyle}>
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">

@@ -59,15 +59,11 @@ export const MobileListingCard = memo(function MobileListingCard({
   product,
   priority = false,
   active = false,
-  near = true,
 }: {
   product: MobileListingProduct
   priority?: boolean
   /** True for the currently-visible reel (drives the swipe hint timer). */
   active?: boolean
-  /** Current/adjacent card — only these render the heavy overlay chrome; far
-   *  windowed cards render just the photo so mounting them stays cheap. */
-  near?: boolean
 }) {
   const { t, formatPrice } = useLocale()
   const isWishlisted = useIsWishlisted(product.id)
@@ -94,13 +90,6 @@ export const MobileListingCard = memo(function MobileListingCard({
   const productUrl = `${getProductUrl(username, product.slug || "")}${(getProductUrl(username, product.slug || "").includes("?") ? "&" : "?")}layout=discover`
   const storeUrl = username ? getStoreUrl(username) : "#"
   const cond = conditionLabel(product.condition)
-
-  // The overlay is STATIC — the gradient, caption and action rail are simply part
-  // of the card, so they slide into view together with the image as one clean
-  // unit (exactly like TikTok). No separate fade-in reveal, which read as a cheap,
-  // snappy pop after the image. `active` is kept only for the swipe-hint timer.
-  const reveal = (_delay: number): undefined => undefined
-  const gradientReveal: undefined = undefined
 
   const onLike = useCallback(
     (e: React.MouseEvent) => {
@@ -144,7 +133,11 @@ export const MobileListingCard = memo(function MobileListingCard({
                 placeholder="blur"
                 blurDataURL={BLUR}
                 priority={priority && i === 0}
-                loading={priority && i === 0 ? undefined : "lazy"}
+                // The lead photo of every mounted card loads eagerly: the pager
+                // mounts a small window ahead of you, so by the time a card
+                // scrolls in its photo is already decoded. Secondary gallery
+                // photos stay lazy — they only matter once you swipe sideways.
+                loading={i === 0 ? "eager" : "lazy"}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-neutral-800 text-5xl">👕</div>
@@ -153,16 +146,12 @@ export const MobileListingCard = memo(function MobileListingCard({
         ))}
       </div>
 
-      {/* Only the current/adjacent cards render the overlay chrome — far windowed
-          cards stay just a photo, so mounting them mid-swipe stays cheap. */}
-      {near && (
-        <>
+      {/* The overlay is STATIC and always mounted alongside the photo, so the
+          gradient, caption and action rail slide into view WITH the image as a
+          single unit — nothing can arrive late on top of it. */}
       {/* Legibility gradients */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent"
-        style={gradientReveal}
-      />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
 
       {/* Swipe hint — clean, minimalist, appears after lingering, then fades */}
       {showHint && images.length > 1 && (
@@ -180,7 +169,7 @@ export const MobileListingCard = memo(function MobileListingCard({
       {/* Photo dots — centered, clear of the caption, in a subtle glass pill so
           they read cleanly over any photo. */}
       {images.length > 1 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[136px] z-20 flex justify-center" style={gradientReveal}>
+        <div className="pointer-events-none absolute inset-x-0 bottom-[136px] z-20 flex justify-center">
           <div className="flex items-center gap-[7px] rounded-full bg-black/25 px-2.5 py-1.5 backdrop-blur-sm">
             {images.map((_, i) => (
               <span
@@ -197,7 +186,7 @@ export const MobileListingCard = memo(function MobileListingCard({
 
       {/* Right action rail — follow, save, share (no comments). Icons sit in
           soft translucent circles so they read cleanly over any photo. */}
-      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4 text-white" style={reveal(0.12)}>
+      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-4 text-white">
         <SmartLink href={storeUrl} onClick={(e) => e.stopPropagation()} className="relative mb-1">
           <span className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white bg-neutral-700 shadow-sm">
             {avatar ? (
@@ -229,21 +218,21 @@ export const MobileListingCard = memo(function MobileListingCard({
         </SmartLink>
       </div>
 
-      {/* Bottom info overlay — each line staggers in for a premium reveal */}
+      {/* Bottom info overlay */}
       <SmartLink href={productUrl} className="absolute inset-x-0 bottom-0 block p-4 pr-20 text-white">
-        <h3 className="text-[19px] font-semibold leading-tight" style={reveal(0.06)}>{product.title}</h3>
-        <div className="mt-1.5 flex items-baseline gap-2" style={reveal(0.11)}>
+        <h3 className="text-[19px] font-semibold leading-tight">{product.title}</h3>
+        <div className="mt-1.5 flex items-baseline gap-2">
           <span className="text-[22px] font-bold">{product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}</span>
           {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
             <span className="text-[13px] text-white/70 line-through">{formatPrice(product.compare_at_cents)}</span>
           )}
         </div>
         {(product.size || cond) && (
-          <p className="mt-1 text-[13px] text-white/85" style={reveal(0.15)}>
+          <p className="mt-1 text-[13px] text-white/85">
             {[product.size, cond].filter(Boolean).join(" · ")}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-1.5" style={reveal(0.19)}>
+        <div className="mt-2 flex items-center gap-1.5">
           <span className="h-5 w-5 overflow-hidden rounded-full bg-white/25">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -254,8 +243,6 @@ export const MobileListingCard = memo(function MobileListingCard({
           <BadgeCheck className="h-3.5 w-3.5 text-sky-300" />
         </div>
       </SmartLink>
-        </>
-      )}
     </div>
   )
 })
