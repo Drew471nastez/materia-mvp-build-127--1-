@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Search, SlidersHorizontal } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -23,6 +23,16 @@ import { cn } from "@/lib/utils"
  */
 export function GlobalMobileTopBar() {
   const pathname = usePathname()
+
+  // In the app a black shield sits behind the status bar (html.capacitor::before).
+  // Wherever this bar renders, the bar itself owns that strip and paints it
+  // white — without this you get exactly the black band above the content that
+  // the screenshot shows.
+  useEffect(() => {
+    document.documentElement.classList.add("native-feed-bg")
+    return () => document.documentElement.classList.remove("native-feed-bg")
+  }, [])
+
   const router = useRouter()
   const { t } = useLocale()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -35,16 +45,20 @@ export function GlobalMobileTopBar() {
     [router],
   )
 
-  // The home feed renders its own (with tabs), and these surfaces are either
-  // full-screen tasks or have no use for a category rail.
+  // Only a LISTING page is excluded — its photo runs under the status bar, so a
+  // bar over it would defeat the point. `/products/` matched /products/new and
+  // /products/drafts too, which is why the sell form had a bare black status bar
+  // where the search should be.
+  const isListingPage =
+    pathname.startsWith("/products/") &&
+    !pathname.startsWith("/products/new") &&
+    !pathname.startsWith("/products/drafts")
+
   const hidden =
-    pathname === "/" ||
+    pathname === "/" || // the feed renders its own, with tabs
     pathname.startsWith("/explore") ||
     pathname.startsWith("/app") ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/checkout") ||
-    pathname.startsWith("/products/") // a listing's photo runs under the status bar
+    isListingPage
 
   if (hidden) return null
 
