@@ -22,6 +22,9 @@ type Tab = "for-you" | "following" | "saved"
 const ENTRY_MS = 700
 /** Switching grid ↔ reels: quick enough to feel like a response to the tap. */
 const SWITCH_MS = 300
+/** Height of the category pill bar. It overlays the feed, so the scroll content
+ *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
+const CATBAR_H = 58
 
 type Curtain = {
   /** in = fading up over the old view · cover = opaque · lift = fading away */
@@ -146,6 +149,10 @@ export function MobileFeed({
   const [reelsHeight, setReelsHeight] = useState(0)
 
   const reelsActive = view === "reels" && tab === "for-you"
+  // Categories filter the For You feed and nothing else — on Saved and Following
+  // they were dead controls sitting above the results.
+  const showCats = tab === "for-you"
+  const catBarH = showCats ? CATBAR_H : 0
 
   // One curtain drives BOTH entering the app and switching grid ↔ reels. It's an
   // opaque sheet painted in the destination view's own colour, so the swap
@@ -195,6 +202,10 @@ export function MobileFeed({
     switchTimer.current = setTimeout(() => {
       switchTimer.current = null
       setView(next)
+      // Both views ARE the For You feed, so picking one from Saved or Following
+      // means "take me to the feed like that". It used to just set the view
+      // behind the scenes and appear to do nothing at all.
+      setTab("for-you")
       setCurtain({ phase: "cover", ms: SWITCH_MS })
     }, SWITCH_MS)
   }, [])
@@ -301,7 +312,17 @@ export function MobileFeed({
     spinnerRef: feedSpinnerRef,
     onRefresh,
     enabled: !reelsActive,
+    offsetTop: catBarH,
   })
+
+  // The bar's hidden/shown state belongs to the tab you were scrolling. Coming
+  // back to For You it must start visible — otherwise it stays tucked away until
+  // you happen to scroll up, since nothing else re-triggers the scroll handler.
+  useEffect(() => {
+    pillsHiddenRef.current = false
+    setPillsHidden(false)
+    lastScrollY.current = 0
+  }, [tab])
 
   // Hide the category bar on scroll-down, reveal it on scroll-up (grid only).
   useEffect(() => {
@@ -601,6 +622,7 @@ export function MobileFeed({
       <div className="relative flex-1 min-h-0 overflow-hidden">
         {/* Category pills — hide on scroll-down / reveal on scroll-up via a GPU
             transform only. No max-height/reflow, so it never lags the scroll. */}
+        {showCats && (
         <div
           className="absolute inset-x-0 top-0 z-20 bg-white"
           style={{
@@ -627,6 +649,8 @@ export function MobileFeed({
             ))}
           </div>
         </div>
+        )}
+
         {/* Pull-to-refresh indicator. It lives HERE — a sibling of the scroller,
             z-10 — and not inside it, because the category bar above is opaque
             white at z-20: anything painted inside the scroller sat behind that
@@ -640,7 +664,7 @@ export function MobileFeed({
             // Position, opacity, scale and spin state are all written straight
             // to this node by useFeedPullRefresh — no React state per frame.
             opacity: 0,
-            transform: "translate3d(0, 18px, 0) scale(0.55)",
+            transform: `translate3d(0, ${catBarH - 40}px, 0) scale(0.55)`,
           }}
         >
           <IosSpinner size={24} />
@@ -672,7 +696,7 @@ export function MobileFeed({
           >
             {/* Spacer that reserves the category-bar overlay's height so the
                 grid starts below it (the overlay is absolutely positioned). */}
-            <div aria-hidden className="h-[58px] shrink-0" />
+            <div aria-hidden className="shrink-0" style={{ height: catBarH }} />
             {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
                 listings. The For You grid fades only when the CATEGORY changes. */}
             {tab === "following" ? (

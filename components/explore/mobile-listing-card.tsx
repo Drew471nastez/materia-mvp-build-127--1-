@@ -59,11 +59,15 @@ export const MobileListingCard = memo(function MobileListingCard({
   product,
   priority = false,
   active = false,
+  near = true,
 }: {
   product: MobileListingProduct
   priority?: boolean
   /** True for the currently-visible reel (drives the swipe hint timer). */
   active?: boolean
+  /** Current card or an immediate neighbour — mounts the sideways gallery ahead
+   *  of time so it never has to appear on a card you're already looking at. */
+  near?: boolean
 }) {
   const { t, formatPrice } = useLocale()
   const isWishlisted = useIsWishlisted(product.id)
@@ -74,19 +78,19 @@ export const MobileListingCard = memo(function MobileListingCard({
 
   const images = galleryImages(product.thumbnail_url, product.gallery_urls)
 
-  // Secondary photos mount only on the active card, and only once it has
-  // settled. A window of cards is mounted at any time; rendering every one's
-  // full gallery up front put dozens of image elements in flight at once, all
-  // competing for decode with the photo you were actually looking at. The lead
-  // photo is always there — this only defers the sideways ones, which can't be
-  // reached until the vertical glide has finished anyway.
-  const [gallery, setGallery] = useState(false)
+  // Secondary photos mount only on the current card and its immediate
+  // neighbours. A window of cards is live at any moment; having every one render
+  // its whole gallery up front put dozens of image elements in flight at once,
+  // competing for decode with the photo actually on screen. Crucially this is
+  // keyed off ADJACENCY, not off becoming active: by the time a card is the one
+  // you're looking at, its gallery mounted a swipe ago, off-screen. Nothing is
+  // ever added to a card you can see. Once mounted it stays — a card must not
+  // shed its photos while it's still in the window.
+  const [everNear, setEverNear] = useState(near)
   useEffect(() => {
-    if (!active || gallery || images.length < 2) return
-    const timer = setTimeout(() => setGallery(true), 600)
-    return () => clearTimeout(timer)
-  }, [active, gallery, images.length])
-  const shown = gallery ? images : images.slice(0, 1)
+    if (near && !everNear) setEverNear(true)
+  }, [near, everNear])
+  const shown = everNear ? images : images.slice(0, 1)
 
   // After ~3s of lingering on the active card (with more than one photo, and
   // still on the first), show a clean minimalist "swipe" nudge once.

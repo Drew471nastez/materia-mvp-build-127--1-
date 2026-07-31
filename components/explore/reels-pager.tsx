@@ -277,7 +277,7 @@ export function ReelsPager({
               {/* Every mounted card is a COMPLETE card — photo and overlay
                   together — and mounts a full RADIUS of screens before you can
                   reach it. Nothing can arrive late on a card you're looking at. */}
-              <MobileListingCard product={p} priority={i === 0} active={i === index} />
+              <MobileListingCard product={p} priority={i === 0} active={i === index} near={Math.abs(i - index) <= 1} />
             </div>
           ),
         )}

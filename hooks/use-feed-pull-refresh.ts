@@ -32,11 +32,12 @@ const TRIGGER = 66 // travel past which a release refreshes
 const MAX = 130 // asymptotic travel ceiling
 const HOLD = 58 // travel the content rests at while refreshing
 const MIN_SPIN = 650 // ms the spinner is guaranteed to show, so it never flashes
-// The indicator sits this far below the content's top edge, so at rest (travel 0)
-// it parks under the opaque category bar and is invisible; it slides out from
-// beneath the bar as the content pulls away. Mirrors the initial inline
-// transform on the spinner node in mobile-feed.tsx.
-const SPIN_INSET = 18
+// The indicator rides `offsetTop - SPIN_LIFT` below the content's top edge. With
+// a header above it (the category bar) that parks it behind the header; with no
+// header it parks it above the frame, where the feed area's overflow clips it.
+// Either way it is invisible at rest and slides into the band the pull opens.
+// Mirrors the initial inline transform on the spinner node in mobile-feed.tsx.
+const SPIN_LIFT = 40
 
 /** iOS rubber-band: starts near 1:1, resists progressively, asymptotes at MAX. */
 function resist(dy: number) {
@@ -49,12 +50,15 @@ export function useFeedPullRefresh({
   spinnerRef,
   onRefresh,
   enabled,
+  offsetTop = 0,
 }: {
   scrollRef: React.RefObject<HTMLElement | null>
   contentRef: React.RefObject<HTMLElement | null>
   spinnerRef: React.RefObject<HTMLElement | null>
   onRefresh: () => Promise<void>
   enabled: boolean
+  /** Height of any header overlaying the top of the scroller (the category bar). */
+  offsetTop?: number
 }) {
   const onRefreshRef = useRef(onRefresh)
   onRefreshRef.current = onRefresh
@@ -79,7 +83,7 @@ export function useFeedPullRefresh({
       if (s) {
         // Track the content's top edge so the indicator is always in the clean
         // white band the pull opens up — never behind the bar, never on the grid.
-        const y = gap + SPIN_INSET
+        const y = gap + offsetTop - SPIN_LIFT
         const p = Math.min(1, dist / TRIGGER)
         // Fades in as it clears the bar and reads fully solid right as the pull
         // crosses the trigger — so "it's armed" is legible without a label.
@@ -93,7 +97,7 @@ export function useFeedPullRefresh({
       const b = bars()
       if (b) b.style.animationPlayState = spinning ? "running" : "paused"
     },
-    [contentRef, spinnerRef, bars],
+    [contentRef, spinnerRef, bars, offsetTop],
   )
 
   useEffect(() => {
