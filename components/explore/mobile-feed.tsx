@@ -20,15 +20,18 @@ type Tab = "for-you" | "following" | "saved"
 
 /** Opening the app: a longer, calmer arrival. */
 const ENTRY_MS = 700
-/** Switching grid ↔ reels: quick enough to feel like a response to the tap. */
-const SWITCH_MS = 300
+/** Dissolving one screen into another. Long enough to read as a blend, short
+ *  enough to still feel like a direct response to the tap. */
+const XFADE_MS = 420
 /** Height of the category pill bar. It overlays the feed, so the scroll content
  *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
 const CATBAR_H = 58
 
+type Screen = "grid" | "reels"
+
 type Curtain = {
-  /** in = fading up over the old view · cover = opaque · lift = fading away */
-  phase: "in" | "cover" | "lift" | "off"
+  /** cover = opaque · lift = fading away */
+  phase: "cover" | "lift" | "off"
   ms: number
 }
 
@@ -154,14 +157,66 @@ export function MobileFeed({
   const showCats = tab === "for-you"
   const catBarH = showCats ? CATBAR_H : 0
 
-  // One curtain drives BOTH entering the app and switching grid ↔ reels. It's an
-  // opaque sheet painted in the destination view's own colour, so the swap
-  // happens behind it and you only ever see one settled screen dissolve into
-  // another. On entry it starts already covering (the head script has set the
-  // colour before the first pixel); on a switch it fades in first, the view
-  // changes underneath, then it lifts.
+  // The curtain now covers ONE case only: opening the app, where there is no
+  // previous screen to dissolve from. Every in-app change of screen cross-fades
+  // instead (see below) — a curtain there meant staring at a flat black or white
+  // rectangle mid-transition, which is exactly what read as a snap.
   const [curtain, setCurtain] = useState<Curtain>(() =>
     introPlayed ? { phase: "off", ms: 0 } : { phase: "cover", ms: ENTRY_MS },
+  )
+
+  // ---- Screen cross-fade ----
+  // Grid and reels are two whole screens. Rather than swapping one for the other
+  // (which exposes the root background for a frame) or hiding the swap behind an
+  // opaque colour, the outgoing screen STAYS MOUNTED and the incoming one
+  // dissolves in on top of it. Nothing empty is ever on screen, and because the
+  // backdrop is the real previous screen, any mounting cost of the incoming one
+  // is hidden behind it rather than showing as a stall.
+  const screen: Screen = reelsActive ? "reels" : "grid"
+  const [fadeFrom, setFadeFrom] = useState<Screen | null>(null)
+  const [fadedIn, setFadedIn] = useState(false)
+  const prevScreen = useRef(screen)
+
+  useLayoutEffect(() => {
+    if (prevScreen.current === screen) return
+    setFadeFrom(prevScreen.current)
+    setFadedIn(false)
+    prevScreen.current = screen
+  }, [screen])
+
+  // Hold at opacity 0 until the incoming screen actually has something to show,
+  // so the dissolve reveals a finished screen rather than one still laying out.
+  useEffect(() => {
+    if (fadeFrom === null || fadedIn) return
+    if (screen === "reels" && reelsHeight <= 0) return
+    const raf = requestAnimationFrame(() => setFadedIn(true))
+    return () => cancelAnimationFrame(raf)
+  }, [fadeFrom, fadedIn, screen, reelsHeight])
+
+  useEffect(() => {
+    if (!fadedIn || fadeFrom === null) return
+    const timer = setTimeout(() => {
+      setFadeFrom(null)
+      setFadedIn(false)
+    }, XFADE_MS)
+    return () => clearTimeout(timer)
+  }, [fadedIn, fadeFrom])
+
+  const layerStyle = useCallback(
+    (which: Screen): React.CSSProperties | undefined => {
+      if (fadeFrom === null) return undefined
+      if (which === fadeFrom) {
+        // The outgoing screen just sits there being the backdrop. Untouched, so
+        // it can't flicker, and inert so it can't take a tap on its way out.
+        return { pointerEvents: "none", zIndex: 0 }
+      }
+      return {
+        opacity: fadedIn ? 1 : 0,
+        transition: `opacity ${XFADE_MS}ms cubic-bezier(0.33, 0, 0.2, 1)`,
+        zIndex: 1, // above the outgoing screen, below the nav (z-40)
+      }
+    },
+    [fadeFrom, fadedIn],
   )
 
   // Reels has nothing to show until its height is measured — lifting before then
@@ -189,45 +244,27 @@ export function MobileFeed({
   // frame reads as a glitch no matter how it's eased.
   const viewRef = useRef(view)
   viewRef.current = view
-  const switchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const switchView = useCallback((next: "grid" | "reels") => {
-    if (viewRef.current === next || switchTimer.current) return
+    if (viewRef.current === next) return
     try {
+      // Only matters for the next cold start's entry curtain.
       document.documentElement.style.setProperty("--feed-entry-bg", next === "reels" ? "#000" : "#fff")
     } catch {
       /* no DOM */
     }
-    setCurtain({ phase: "in", ms: SWITCH_MS })
-    switchTimer.current = setTimeout(() => {
-      switchTimer.current = null
-      setView(next)
-      // Both views ARE the For You feed, so picking one from Saved or Following
-      // means "take me to the feed like that". It used to just set the view
-      // behind the scenes and appear to do nothing at all.
-      setTab("for-you")
-      setCurtain({ phase: "cover", ms: SWITCH_MS })
-    }, SWITCH_MS)
+    setView(next)
+    // Both views ARE the For You feed, so picking one from Saved or Following
+    // means "take me to the feed like that". It used to just set the view behind
+    // the scenes and appear to do nothing at all.
+    setTab("for-you")
   }, [])
-
-  useEffect(
-    () => () => {
-      if (switchTimer.current) clearTimeout(switchTimer.current)
-    },
-    [],
-  )
 
   // The feed settles out of a barely-there zoom as the curtain lifts, so arriving
   // reads as one continuous movement rather than a screen being swapped in. Scale
   // DOWN to 1 (never up) so the content is always at least as big as its frame —
   // no edge can ever peek through mid-animation.
-  const introStyle: React.CSSProperties | undefined =
-    curtain.phase === "off" || curtain.phase === "in"
-      ? undefined
-      : {
-          transform: curtain.phase === "lift" ? "scale(1)" : "scale(1.02)",
-          transition: `transform ${curtain.ms + 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-        }
+
 
   // Measure the full-screen reels area so each listing fills exactly one screen.
   useEffect(() => {
@@ -315,14 +352,16 @@ export function MobileFeed({
     offsetTop: catBarH,
   })
 
-  // The bar's hidden/shown state belongs to the tab you were scrolling. Coming
-  // back to For You it must start visible — otherwise it stays tucked away until
-  // you happen to scroll up, since nothing else re-triggers the scroll handler.
+  // The bar's hidden/shown state belongs to the tab and view you were scrolling.
+  // Arriving at a fresh one it must start visible — otherwise it stays tucked
+  // away until you happen to scroll up, since nothing else re-triggers the
+  // scroll handler. That stale-hidden bar over a spacer that still reserves its
+  // height is the random empty white strip at the top of the feed.
   useEffect(() => {
     pillsHiddenRef.current = false
     setPillsHidden(false)
     lastScrollY.current = 0
-  }, [tab])
+  }, [tab, screen, cat])
 
   // Hide the category bar on scroll-down, reveal it on scroll-up (grid only).
   useEffect(() => {
@@ -342,9 +381,15 @@ export function MobileFeed({
       else if (dy < -6) setHidden(false) // scrolling up → reveal
       lastScrollY.current = y
     }
+    // Sync from the element itself on attach. A remount (grid ↔ reels, category
+    // change) restores scrollTop 0 without ever firing a scroll event, so state
+    // alone can disagree with what's actually on screen.
+    lastScrollY.current = el.scrollTop
+    if (el.scrollTop <= 10) setHidden(false)
+
     el.addEventListener("scroll", onScroll, { passive: true })
     return () => el.removeEventListener("scroll", onScroll)
-  }, [reelsActive])
+  }, [reelsActive, tab, cat])
 
   const products = useMemo(() => {
     let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
@@ -439,15 +484,20 @@ export function MobileFeed({
           // Always mounted so both the fade-in and the lift are real
           // transitions — a curtain that mounts already-opaque can only ever
           // pop. `visibility` keeps it out of the compositor when idle.
-          opacity: curtain.phase === "in" || curtain.phase === "cover" ? 1 : 0,
+          opacity: curtain.phase === "cover" ? 1 : 0,
           visibility: curtain.phase === "off" ? "hidden" : "visible",
           transition: `opacity ${curtain.ms || 1}ms cubic-bezier(0.22, 1, 0.36, 1)`,
         }}
       />
 
-      {reelsActive ? (
-        /* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */
-        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black animate-in slide-in-from-bottom-2 duration-300 ease-out" style={introStyle}>
+      {/* Stage — both screens live here, in the same box, so a cross-fade swaps
+          like for like and the bottom nav stays in flow underneath. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+
+      {(screen === "reels" || fadeFrom === "reels") && (
+      <div className="absolute inset-0 flex min-h-0 flex-col" style={layerStyle("reels")}>
+        {/* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */}
+        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black">
           {reelsHeight > 0 && products.length > 0 ? (
             <ReelsPager products={products} height={reelsHeight} onRefresh={onRefresh} />
           ) : products.length === 0 ? (
@@ -531,8 +581,11 @@ export function MobileFeed({
             </div>
           </div>
         </div>
-      ) : (
-      <div className="flex min-h-0 flex-1 flex-col animate-in slide-in-from-bottom-2 duration-300 ease-out" style={introStyle}>
+      </div>
+      )}
+
+      {(screen === "grid" || fadeFrom === "grid") && (
+      <div className="absolute inset-0 flex min-h-0 flex-col bg-white" style={layerStyle("grid")}>
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
@@ -716,6 +769,8 @@ export function MobileFeed({
       </div>
       </div>
       )}
+
+      </div>
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
 

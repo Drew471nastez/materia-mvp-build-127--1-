@@ -92,6 +92,21 @@ export const MobileListingCard = memo(function MobileListingCard({
   }, [near, everNear])
   const shown = everNear ? images : images.slice(0, 1)
 
+  // The horizontal gallery is only a real scroller on the settled active card.
+  // A scrollable sub-container gets its own layer, and WebKit visibly lags those
+  // behind an ancestor that's being transform-animated — with a scroller on every
+  // mounted card, the photos dragged behind their frames on every vertical
+  // transition. Off during the glide, on once you've landed.
+  const [swipeable, setSwipeable] = useState(false)
+  useEffect(() => {
+    if (!active || images.length < 2) {
+      setSwipeable(false)
+      return
+    }
+    const timer = setTimeout(() => setSwipeable(true), 620) // after the glide
+    return () => clearTimeout(timer)
+  }, [active, images.length])
+
   // After ~3s of lingering on the active card (with more than one photo, and
   // still on the first), show a clean minimalist "swipe" nudge once.
   useEffect(() => {
@@ -130,9 +145,14 @@ export const MobileListingCard = memo(function MobileListingCard({
     <div className="no-tap-fade relative h-full w-full overflow-hidden bg-neutral-900">
       {/* Horizontal swipeable gallery — momentum + snap for a smooth carousel */}
       <div
-        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scrollbar-hide"
+        className="flex h-full w-full snap-x snap-mandatory scrollbar-hide"
         onScroll={onScrollGallery}
-        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+        style={{
+          overflowX: swipeable ? "auto" : "hidden",
+          scrollbarWidth: "none",
+          WebkitOverflowScrolling: swipeable ? "touch" : "auto",
+          overscrollBehaviorX: "contain",
+        }}
       >
         {(shown.length ? shown : [null]).map((src, i) => (
           <SmartLink
