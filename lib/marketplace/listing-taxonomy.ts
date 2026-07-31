@@ -169,12 +169,17 @@ export function categoryLabelFor(groupId?: string | null, itemId?: string | null
   return item ? `${group.label} · ${item.label}` : group.label
 }
 
+// These ids are NOT free to choose — products.condition carries a CHECK
+// constraint from 20260730_marketplace_physical_attributes.sql that allows
+// exactly this ladder. I invented a different set (brand_new, like_new, …) and
+// every publish was rejected by the database. Matching the constraint is the fix;
+// widening it would fork the vocabulary for every listing that already exists.
 export const CONDITIONS: Option[] = [
-  { id: "brand_new", label: "Nou cu etichetă" },
-  { id: "like_new", label: "Ca nou" },
-  { id: "used_excellent", label: "Folosit · excelent" },
-  { id: "used_good", label: "Folosit · bun" },
-  { id: "used_fair", label: "Folosit · acceptabil" },
+  { id: "new_with_tags", label: "Nou, cu etichetă" },
+  { id: "new_without_tags", label: "Nou, fără etichetă" },
+  { id: "very_good", label: "Foarte bună" },
+  { id: "good", label: "Bună" },
+  { id: "satisfactory", label: "Acceptabilă" },
 ]
 
 export const COLOURS: (Option & { hex: string })[] = [

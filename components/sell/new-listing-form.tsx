@@ -304,13 +304,15 @@ export function NewListingForm() {
           return
         }
         setPosted(true)
-        // Let the confirmation be seen before moving — it's the only signal that
-        // the listing is live.
+        // Straight to the listing you just made — the only proof it's actually
+        // live, and the page you'd navigate to yourself anyway. Home told you
+        // nothing and left you hunting for it in the feed.
         setTimeout(() => {
           if (draft) router.push("/products/drafts")
           else if (postAnother) window.location.assign("/products/new")
+          else if (data?.slug) router.push(`/products/${data.slug}`)
           else router.push("/")
-        }, 1100)
+        }, 1250)
       } catch {
         setError("Ceva n-a mers. Verifică conexiunea și încearcă din nou.")
         setSaving(null)
@@ -707,15 +709,19 @@ export function NewListingForm() {
       </div>
 
       {posted && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-white/85 backdrop-blur-sm"
+          style={{ animation: "posted-veil 300ms ease-out both" }}
+        >
           <div
             className="flex flex-col items-center gap-3"
-            style={{ animation: "people-row-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
+            style={{ animation: "posted-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
           >
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#7c3aed] text-white">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#7c3aed] text-white shadow-[0_8px_28px_-6px_rgba(124,58,237,0.7)]">
               <Check className="h-8 w-8" strokeWidth={3} />
             </span>
             <p className="text-[16px] font-semibold text-neutral-900">Anunț publicat</p>
+            <p className="text-[13.5px] text-neutral-500">Te ducem la anunțul tău…</p>
           </div>
         </div>
       )}
