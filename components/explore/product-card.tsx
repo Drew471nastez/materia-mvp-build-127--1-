@@ -250,7 +250,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           Subtle ring + shadow give the flat white grid a bit of depth. The
           no-touch-callout class kills iOS long-press "save/copy image", text
           selection and image dragging so the photo feels like a native tile. */}
-      <div className="no-touch-callout relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted shadow-sm ring-1 ring-black/[0.06]">
+      <div className="no-touch-callout relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-neutral-100">
         <SmartLink href={productUrl} useClientNav={clientNav} className="absolute inset-0 block">
           {product.thumbnail_url ? (
             <Image

@@ -165,20 +165,25 @@ export function ReelsPager({
         <IosSpinner size={26} />
       </div>
 
+      {/* Windowed: only the cards near the current index are mounted (each
+          absolutely placed at its slot), so the DOM holds ~5 full-screen images
+          instead of hundreds — the single biggest win for scroll smoothness. */}
       <div
         ref={trackRef}
-        className="relative z-10 will-change-transform"
+        className="absolute inset-0 z-10 will-change-transform"
         style={{ transform: `translate3d(0, ${-(index * h) + (refreshing ? 58 : 0)}px, 0)`, transition: SPRING }}
       >
-        {products.map((p, i) => (
-          <div key={p.id} className="w-full" style={{ height: h || undefined }}>
-            <MobileListingCard
-              product={p}
-              priority={Math.abs(i - index) <= 1}
-              reason={i % 4 === 0 ? t("mfeed.picked_for_you") : i % 4 === 2 ? t("mfeed.based_on_searches") : undefined}
-            />
-          </div>
-        ))}
+        {products.map((p, i) =>
+          Math.abs(i - index) > 2 ? null : (
+            <div key={p.id} className="absolute inset-x-0" style={{ top: i * h, height: h || undefined }}>
+              <MobileListingCard
+                product={p}
+                priority={Math.abs(i - index) <= 1}
+                reason={i % 4 === 0 ? t("mfeed.picked_for_you") : i % 4 === 2 ? t("mfeed.based_on_searches") : undefined}
+              />
+            </div>
+          ),
+        )}
       </div>
     </div>
   )
