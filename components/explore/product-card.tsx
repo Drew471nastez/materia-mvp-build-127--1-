@@ -234,6 +234,10 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const compareAtCents = product.compare_at_cents ?? 0
   const hasDiscount = compareAtCents > product.price_cents
 
+  // Second real photo, for the hover swap. The helper for this already existed —
+  // the swap itself had just been removed at some point.
+  const hoverImage = pickHoverImage(product.gallery_urls, product.thumbnail_url)
+
   const sizeLabel = getSizeLabel(product)
   // Brand and condition sit on one subtle line, Depop-style — both are optional.
   const detailLine = [product.brand?.trim() || null, getConditionLabel(product.condition)]
@@ -262,8 +266,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               quality={70}
               placeholder="blur"
               blurDataURL={BLUR_DATA_URL}
-              // No hover crossfade / zoom — the photo stays clean and still.
-              className="object-cover select-none"
+              className="object-cover select-none transition-opacity duration-[550ms] ease-[cubic-bezier(0.33,0,0.2,1)] md:group-hover:opacity-0"
               draggable={false}
               priority={priority}
               loading={priority ? undefined : "lazy"}
@@ -272,6 +275,25 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <span className="text-4xl">👜</span>
             </div>
+          )}
+          {/* Second photo, revealed on hover by fading the first one out over it.
+              Both are stacked, so this is two opacity transitions on the
+              compositor — no layout, no swap, and nothing to load at the moment
+              you hover. Pointer devices only: on touch there is no hover state,
+              and preloading a second full image per card would cost the mobile
+              feed for nothing. */}
+          {hoverImage && (
+            <Image
+              src={hoverImage}
+              alt=""
+              aria-hidden
+              fill
+              sizes={GRID_IMAGE_SIZES}
+              quality={70}
+              className="hidden object-cover opacity-0 transition-opacity duration-[550ms] ease-[cubic-bezier(0.33,0,0.2,1)] md:block md:group-hover:opacity-100"
+              draggable={false}
+              loading="lazy"
+            />
           )}
         </SmartLink>
         {hasDiscount && (
@@ -284,9 +306,25 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
 
       {/* Meta — no card chrome, the photo carries the card */}
       <div className="flex flex-col px-0.5 pt-2.5">
-        <SmartLink href={productUrl} useClientNav={clientNav} className="flex flex-col gap-1">
+        {/* Seller, then item, then price — read top to bottom that's "who ·
+            what · how much", and the price is the largest thing on the card
+            because it's what you're scanning a grid for. */}
+        {showSeller && (
+          <SmartLink
+            href={storeUrl}
+            className="group/seller mb-0.5 flex items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Seller name only — no profile picture fetched on listings. */}
+            <span className="truncate text-[11.5px] text-muted-foreground group-hover/seller:underline">
+              {creatorName}
+            </span>
+          </SmartLink>
+        )}
+        <SmartLink href={productUrl} useClientNav={clientNav} className="flex flex-col gap-0.5">
+          <h3 className="line-clamp-1 text-[13px] leading-snug text-foreground">{product.title}</h3>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[15px] font-semibold leading-none text-foreground">
+            <span className="text-[17px] font-bold leading-none tracking-[-0.01em] text-foreground">
               {product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}
             </span>
             {hasDiscount && (
@@ -295,7 +333,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               </span>
             )}
           </div>
-          <h3 className="line-clamp-1 text-[13px] leading-snug text-muted-foreground">{product.title}</h3>
         </SmartLink>
 
         {(sizeLabel || detailLine) && (
@@ -309,18 +346,6 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           </div>
         )}
 
-        {showSeller && (
-          <SmartLink
-            href={storeUrl}
-            className="group/seller mt-1.5 flex items-center gap-1.5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Seller name only — no profile picture fetched on listings. */}
-            <span className="truncate text-[11px] text-muted-foreground group-hover/seller:underline">
-              {creatorName}
-            </span>
-          </SmartLink>
-        )}
       </div>
     </div>
   )

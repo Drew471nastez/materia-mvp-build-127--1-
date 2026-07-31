@@ -59,6 +59,8 @@ export function ConditionalFooter() {
       pathname.startsWith("/features") ||
       pathname.startsWith("/creators") ||
       pathname.startsWith("/wishlist") ||
+      pathname.startsWith("/cart") ||
+      pathname.startsWith("/messages") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/app") ||
       pathname.startsWith("/marketplace") ||

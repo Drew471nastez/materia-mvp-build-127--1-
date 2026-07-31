@@ -944,9 +944,10 @@ export function PlatformHeaderClient() {
     return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
   }, [user, hasCompletedSellerOnboarding])
 
-  const wishlistHref = useMemo(() => {
-    return user ? "/library/wishlist" : "/wishlist"
-  }, [user])
+  // One wishlist, one URL. Signed-in users were sent to /library/wishlist and
+  // everyone else to /wishlist — same list, two addresses, and the library one is
+  // seller tooling rather than somewhere a shopper should end up.
+  const wishlistHref = useMemo(() => "/wishlist", [])
 
   // profiles.avatar_url is the single source of truth.
   // Both /app/settings and Store Builder sync to it. No cache-busting params needed.
@@ -987,7 +988,12 @@ export function PlatformHeaderClient() {
   const isSellerOrProductPage = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/") || pathname.startsWith("/s/")
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
-  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
+  // "/" is the marketplace now, not a landing page, so it gets the marketplace
+  // header — the same one /explore has always had, with search, categories and
+  // the action row. It used to fall in here and render the old Home / Discover /
+  // Blog / Pricing / FAQ nav instead, which is why storelib.com and
+  // storelib.com/explore looked like two different products.
+  const isMarketingNavRoute = pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -1177,7 +1183,7 @@ export function PlatformHeaderClient() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
-                            href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
+                            href="/" onClick={(e) => onCanonicalNav(e, "/")}
                             className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                             aria-label="Discover"
                           >
@@ -1248,7 +1254,7 @@ export function PlatformHeaderClient() {
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - links to /explore */}
-                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1525,7 +1531,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - links to /explore */}
-              <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
+              <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
