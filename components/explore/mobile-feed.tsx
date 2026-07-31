@@ -349,7 +349,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
           </div>
         </div>
       ) : (
-      <>
+      <div className="flex min-h-0 flex-1 flex-col animate-in fade-in-0 duration-300 ease-out">
       {/* ---- Search + filter ---- */}
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
@@ -498,7 +498,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
         {/* Subtle auto-hiding scroll indicator (shows on scroll, fades when idle) */}
         <FeedScrollbar containerRef={scrollRef} />
       </div>
-      </>
+      </div>
       )}
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
