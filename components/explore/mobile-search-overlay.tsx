@@ -228,6 +228,21 @@ export function MobileSearchOverlay({
     }
   }, [mounted])
 
+  // Size the sheet to the VISUAL viewport height (the visible area above the
+  // keyboard). Pinned at top:0, so: the header never drifts under the status bar,
+  // and the results list ends exactly at the keyboard — nothing hides under it.
+  // Height only (no top/scroll gymnastics) keeps it jank-free.
+  const [viewH, setViewH] = useState<number | null>(null)
+  useEffect(() => {
+    if (!mounted) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setViewH(vv.height)
+    update()
+    vv.addEventListener("resize", update)
+    return () => vv.removeEventListener("resize", update)
+  }, [mounted])
+
   // Focus the field (and seed / reset state) each time it opens.
   useEffect(() => {
     if (!open) return
@@ -319,17 +334,16 @@ export function MobileSearchOverlay({
 
   return (
     <div
-      className="md:hidden fixed inset-0 z-[90] flex flex-col bg-white"
+      className="md:hidden fixed left-0 right-0 top-0 z-[90] flex flex-col bg-white"
       style={{
-        // Full-screen, same pattern as the feed (white behind the status bar, no
-        // black bar at the clock/5G). The keyboard overlays the bottom.
-        height: "100dvh",
+        // Pinned to the visible viewport above the keyboard (no drift, no items
+        // hidden under the keyboard). Falls back to full-screen where unsupported.
+        height: viewH ? `${viewH}px` : "100dvh",
         opacity: shown ? 1 : 0,
-        // Grows out of the search bar (top) and settles — a visible, smooth blend.
-        transform: shown ? "scale(1) translateY(0)" : "scale(0.95) translateY(-10px)",
-        transformOrigin: "50% 6%",
+        // Pure fade + gentle slide — NO scale, so text never bends/warps on open.
+        transform: shown ? "translateY(0)" : "translateY(-12px)",
         transition:
-          "opacity 400ms cubic-bezier(0.22,1,0.36,1), transform 420ms cubic-bezier(0.22,1,0.36,1)",
+          "opacity 380ms cubic-bezier(0.22,1,0.36,1), transform 420ms cubic-bezier(0.22,1,0.36,1)",
         willChange: "opacity, transform",
       }}
     >

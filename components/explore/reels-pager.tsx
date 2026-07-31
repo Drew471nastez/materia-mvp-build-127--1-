@@ -11,9 +11,10 @@ import { useLocale } from "@/components/locale-provider"
 // instead of re-rendering ~120×/second. React state only holds the settled
 // index; the spring easing on release makes it feel TikTok-smooth.
 
-const SWIPE_TRIGGER = 50 // px past which the page flips
+const SWIPE_TRIGGER = 48 // px past which the page flips
 const REFRESH_TRIGGER = 74 // px pull-down at the top that triggers refresh
-const SPRING = "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)"
+// easeOutExpo — a fast, clean take-off that settles like glass into the next reel.
+const SPRING = "transform 0.56s cubic-bezier(0.16, 1, 0.3, 1)"
 
 export function ReelsPager({
   products,
