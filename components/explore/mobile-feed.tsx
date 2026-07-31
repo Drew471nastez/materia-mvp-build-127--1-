@@ -58,6 +58,9 @@ const TABS: ReadonlyArray<readonly [Tab, string]> = [
 // doesn't show a skeleton for something you were just looking at.
 let followingCache: FollowedPerson[] | null = null
 
+/** Where the For You grid was left, so a back navigation returns to it. */
+const FEED_SCROLL_KEY = "storelib_feed_scroll_v1"
+
 const SAVED_SS_KEY = "storelib_saved_items_v1"
 let savedItemsCache: any[] | null = null
 let savedItemsInflight: Promise<any[]> | null = null
@@ -393,6 +396,26 @@ export function MobileFeed({
     offsetTop: catBarH,
   })
 
+  // Restore the scroll offset in a LAYOUT effect, before the browser paints — so
+  // returning from a listing shows the feed already where you left it, instead
+  // of showing the top and then jumping.
+  useLayoutEffect(() => {
+    if (reelsActive || tab !== "for-you") return
+    const el = scrollRef.current
+    if (!el) return
+    try {
+      const saved = Number(sessionStorage.getItem(FEED_SCROLL_KEY))
+      if (Number.isFinite(saved) && saved > 0) {
+        el.scrollTop = saved
+        lastScrollY.current = saved
+      }
+    } catch {
+      /* storage unavailable */
+    }
+    // Mount-only: later scrolling is the user's own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // The bar's hidden/shown state belongs to the tab and view you were scrolling.
   // Arriving at a fresh one it must start visible — otherwise it stays tucked
   // away until you happen to scroll up, since nothing else re-triggers the
@@ -421,6 +444,15 @@ export function MobileFeed({
       else if (dy > 6) setHidden(true) // scrolling down → hide
       else if (dy < -6) setHidden(false) // scrolling up → reveal
       lastScrollY.current = y
+      // Remember where we are, so coming back from a listing lands here rather
+      // than at the top. The feed scrolls inside its own container, not the
+      // window, so neither the browser's scroll restoration nor Next's can see
+      // this position — it has to be stored and put back by hand.
+      try {
+        sessionStorage.setItem(FEED_SCROLL_KEY, String(y))
+      } catch {
+        /* storage unavailable */
+      }
     }
     // Sync from the element itself on attach. A remount (grid ↔ reels, category
     // change) restores scrollTop 0 without ever firing a scroll event, so state

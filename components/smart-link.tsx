@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { navigateWithTransition } from "@/lib/nav-transition"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 
@@ -118,7 +119,13 @@ export function SmartLink({
             if (needsHardNav) {
               window.location.href = resolvedHref
             } else {
-              router.push(resolvedHref)
+              // Opening a listing is a push — it slides in from the right, the
+              // way a native screen does, so it reads as going deeper rather
+              // than as the page being swapped out. Everything else navigates
+              // plainly; a slide on a tab change would be motion for its own sake.
+              const isPush = resolvedHref.startsWith("/products/")
+              if (isPush) navigateWithTransition("forward", () => router.push(resolvedHref))
+              else router.push(resolvedHref)
             }
           }}
           style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}

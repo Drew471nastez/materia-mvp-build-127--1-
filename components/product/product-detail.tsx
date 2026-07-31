@@ -9,6 +9,7 @@ import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
+import { navigateWithTransition } from "@/lib/nav-transition"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
   CONDITIONS,
@@ -70,11 +71,14 @@ export function ProductDetail({ product }: { product: any }) {
   // `origin` is the fallback for a cold arrival (a shared link, a new tab),
   // where there is no history to return to.
   const onBack = useCallback(() => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back()
-      return
-    }
-    router.push(backHrefFor(origin))
+    // history.back() so the feed comes back exactly as it was — same scroll
+    // offset, same reel — rather than being re-entered from the top. `origin` is
+    // only the fallback for a cold arrival (a shared link, a new tab), where
+    // there is no history to pop.
+    navigateWithTransition("back", () => {
+      if (typeof window !== "undefined" && window.history.length > 1) router.back()
+      else router.push(backHrefFor(origin))
+    })
   }, [router, origin])
 
   const onGalleryScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -88,6 +92,34 @@ export function ProductDetail({ product }: { product: any }) {
     window.dispatchEvent(new CustomEvent("wishlist-toast", { detail: { saved: !wishlisted } }))
     void toggleWishlist(product.id)
   }, [wishlisted, toggleWishlist, product.id])
+
+  // The buy bar hides as you read down and comes back the moment you scroll up —
+  // the same reflex as reaching for a toolbar. Out of the way while you're
+  // looking at photos and detail; there the instant you want it. Driven off a
+  // rAF-coalesced scroll read and written as a transform, so it costs a
+  // composite and can't stutter the scroll.
+  const [barUp, setBarUp] = useState(true)
+  useEffect(() => {
+    let last = window.scrollY
+    let queued = false
+    const read = () => {
+      queued = false
+      const y = window.scrollY
+      const dy = y - last
+      // Always visible near the top; below that, direction decides.
+      if (y < 120) setBarUp(true)
+      else if (dy > 6) setBarUp(false)
+      else if (dy < -6) setBarUp(true)
+      last = y
+    }
+    const onScroll = () => {
+      if (queued) return
+      queued = true
+      requestAnimationFrame(read)
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   // The photo runs under the status bar, so the page owns the whole screen.
   useEffect(() => {
@@ -269,6 +301,22 @@ export function ProductDetail({ product }: { product: any }) {
             </p>
           )}
 
+          {/* Reassurance, delivery, returns — the three questions every resale
+              buyer asks before committing, answered inline so nobody has to go
+              hunting for them. */}
+          <div className="mt-6 space-y-2.5">
+            {[
+              ["Protecția cumpărătorului", "Banii îți sunt returnați dacă articolul nu ajunge sau nu e conform descrierii."],
+              ["Livrare", "Vânzătorul expediază în 1–3 zile lucrătoare de la confirmarea comenzii."],
+              ["Retur", "Ai 14 zile să anunți o problemă din momentul primirii coletului."],
+            ].map(([title, body]) => (
+              <div key={title} className="rounded-2xl bg-neutral-50 px-3.5 py-3">
+                <p className="text-[14px] font-semibold text-neutral-900">{title}</p>
+                <p className="mt-0.5 text-[13.5px] leading-relaxed text-neutral-500">{body}</p>
+              </div>
+            ))}
+          </div>
+
           {/* Everything the seller filled in, as a plain spec list — a buyer
               scans this to answer one question at a time. */}
           <dl className="mt-6 divide-y divide-neutral-100 border-t border-neutral-100">
@@ -295,7 +343,13 @@ export function ProductDetail({ product }: { product: any }) {
 
       {/* Sticky buy bar — on a phone this is the whole point of the page, so it
           never scrolls away. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden">
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden"
+        style={{
+          transform: barUp ? "translateY(0)" : "translateY(115%)",
+          transition: "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
+      >
         <div className="flex gap-2.5">
           <button
             type="button"
