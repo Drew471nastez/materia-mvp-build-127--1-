@@ -23,7 +23,7 @@ const ENTRY_MS = 700
 /** Dissolving one screen into another. A plain opacity ramp reads as a cut
  *  however long you make it — there is no motion in it for the eye to follow —
  *  so the incoming screen also settles out of a slight zoom over this time. */
-const XFADE_MS = 620
+const XFADE_MS = 700
 /** Height of the category pill bar. It overlays the feed, so the scroll content
  *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
 const CATBAR_H = 58
@@ -207,15 +207,24 @@ export function MobileFeed({
     (which: Screen): React.CSSProperties | undefined => {
       if (fadeFrom === null) return undefined
       if (which === fadeFrom) {
-        // The outgoing screen just sits there being the backdrop. Untouched, so
-        // it can't flicker, and inert so it can't take a tap on its way out.
-        return { pointerEvents: "none", zIndex: 0 }
+        // The outgoing screen drifts gently INTO the glass as the new one comes
+        // through it, so both sides of the blend are moving — one screen sitting
+        // perfectly still under another is what makes a dissolve read as a
+        // cross-fade of two pictures rather than one screen becoming another.
+        // It scales UP, so it never shrinks away from the frame edges and can't
+        // expose anything behind it. Inert, so it can't take a tap on its way out.
+        return {
+          pointerEvents: "none",
+          zIndex: 0,
+          transform: fadedIn ? "scale(1.02)" : "scale(1)",
+          transition: `transform ${XFADE_MS + 160}ms cubic-bezier(0.33, 0, 0.2, 1)`,
+        }
       }
       return {
         opacity: fadedIn ? 1 : 0,
         // Scales DOWN to 1, never up, so its edges always cover the frame and the
         // screen underneath can't peek out around them mid-dissolve.
-        transform: fadedIn ? "scale(1)" : "scale(1.035)",
+        transform: fadedIn ? "scale(1)" : "scale(1.045)",
         transition: `opacity ${XFADE_MS}ms cubic-bezier(0.33, 0, 0.2, 1), transform ${
           XFADE_MS + 160
         }ms cubic-bezier(0.22, 1, 0.36, 1)`,

@@ -1,32 +1,75 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { MobileListingCard } from "./mobile-listing-card"
 import { IosSpinner } from "./ios-spinner"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 
 // Vertical pager for the TikTok-style feed — driven by the OS, not by us.
 //
-// Every previous version of this moved the feed itself: touch listeners measured
-// the drag, wrote a transform each frame, and eased to the next slot on release.
-// That is a main-thread animation however carefully it's written, so ANY main
-// thread work lands as a dropped frame — a React render, an image decode, a GC
-// pause. All of those happen constantly in a feed of full-screen photos, which
-// is why this kept feeling laggy no matter how the easing, the layer count or
-// the mount scheduling were tuned. It was the wrong thing to tune.
+// Every earlier version moved the feed itself: touch listeners measured the drag,
+// wrote a transform each frame, and eased to the next slot on release. That is a
+// main-thread animation however carefully it's written, so ANY main-thread work
+// lands as a dropped frame — a React render, an image decode, a GC pause. In a
+// feed of full-screen photos those happen constantly, which is why tuning the
+// easing, the layer count and the mount scheduling never fixed the feel.
 //
-// So the scroll is now a plain native scroll container with CSS scroll snapping.
-// The gesture, the momentum and the snap all run on the compositor, where the
-// main thread cannot stall them: if React is busy the scroll still moves at full
-// frame rate and the content simply paints a moment later. This is also what the
-// real apps do — there is no bespoke physics in TikTok's feed either.
+// The scroll is a plain native scroll container with CSS scroll snapping. The
+// gesture, the momentum and the snap run on the compositor, where the main thread
+// cannot stall them: if React is busy the scroll still moves at full frame rate
+// and the content simply paints a moment later.
 //
-// What's left for JS is bookkeeping only: read scrollTop to learn which card is
-// current, and window the mounts around it. Every snap point exists at all times
-// as a fixed-height slot, so the scroll geometry never shifts when cards mount
-// or unmount — windowing can't disturb the gesture.
+// JS does bookkeeping only: read scrollTop for the current card, window the
+// mounts around it. Every snap point exists at all times as a fixed-height slot,
+// so the scroll geometry is constant and mounting can't shift snap points under
+// the gesture.
 
 const RADIUS = 2 // cards mounted either side of the current one
+const SETTLE = 0.045 // how far a photo is zoomed when its card is a screen away
+
+/** True when the browser can run the photo settle off the scroll timeline. */
+function hasScrollTimeline() {
+  try {
+    return typeof CSS !== "undefined" && CSS.supports("animation-timeline: view()")
+  } catch {
+    return false
+  }
+}
+
+// Memoised so a change of index re-renders the handful of slots that actually
+// changed rather than reconciling every listing in the feed. All the slots have
+// to exist — they are the snap points — but they don't all have to be rebuilt.
+const ReelSlot = memo(function ReelSlot({
+  product,
+  h,
+  mounted,
+  active,
+  near,
+  priority,
+}: {
+  product: any
+  h: number
+  mounted: boolean
+  active: boolean
+  near: boolean
+  priority: boolean
+}) {
+  return (
+    <div
+      style={{
+        height: h || undefined,
+        scrollSnapAlign: "start",
+        // One card per swipe however hard you flick — the browser isn't allowed
+        // to fly past a snap point.
+        scrollSnapStop: "always",
+      }}
+    >
+      {mounted ? (
+        <MobileListingCard product={product} priority={priority} active={active} near={near} />
+      ) : null}
+    </div>
+  )
+})
 
 export function ReelsPager({
   products,
@@ -48,30 +91,62 @@ export function ReelsPager({
   const hRef = useRef(h)
   hRef.current = h
 
+  // Only drive the settle from JS where the browser can't do it from the scroll
+  // timeline itself. Where it can, this stays false and the whole effect is
+  // compositor-side (see `.reel-photo` in globals.css).
+  const driveSettle = useRef(false)
+  useEffect(() => {
+    driveSettle.current = !hasScrollTimeline()
+  }, [])
+
+  /** Zoom each nearby photo by how far its card is from resting. */
+  const paintSettle = useCallback((el: HTMLElement, top: number, step: number) => {
+    const centre = Math.round(top / step)
+    for (let i = centre - 1; i <= centre + 1; i++) {
+      const slot = el.children[i] as HTMLElement | undefined
+      const photo = slot?.querySelector<HTMLElement>(".reel-photo")
+      if (!photo) continue
+      const away = Math.min(1, Math.abs(top - i * step) / step)
+      photo.style.transform = `scale(${1 + away * SETTLE})`
+    }
+  }, [])
+
   // Which card is current, read straight off the native scroll position. The
-  // listener is passive and coalesced to one read per frame, so it can never
-  // slow the scroll down — at worst it reports a frame late.
+  // listener is passive and coalesced to one read per frame, so it can never slow
+  // the scroll — at worst it reports a frame late.
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     let queued = false
+    const read = () => {
+      queued = false
+      const step = hRef.current
+      if (!step) return
+      const top = el.scrollTop
+      if (driveSettle.current) paintSettle(el, top, step)
+      const i = Math.max(0, Math.min(products.length - 1, Math.round(top / step)))
+      if (i !== indexRef.current) {
+        indexRef.current = i
+        setIndex(i)
+      }
+    }
     const onScroll = () => {
       if (queued) return
       queued = true
-      requestAnimationFrame(() => {
-        queued = false
-        const step = hRef.current
-        if (!step) return
-        const i = Math.max(0, Math.min(products.length - 1, Math.round(el.scrollTop / step)))
-        if (i !== indexRef.current) {
-          indexRef.current = i
-          setIndex(i)
-        }
-      })
+      requestAnimationFrame(read)
     }
+    read() // seed the resting state
     el.addEventListener("scroll", onScroll, { passive: true })
     return () => el.removeEventListener("scroll", onScroll)
-  }, [products.length])
+  }, [products.length, paintSettle])
+
+  // Newly mounted photos have no transform until the next scroll frame; set them
+  // as they appear so nothing is briefly at the wrong zoom.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el || !driveSettle.current || !hRef.current) return
+    paintSettle(el, el.scrollTop, hRef.current)
+  }, [index, paintSettle])
 
   // Keep the current card aligned when the viewport height changes (rotation,
   // browser chrome collapsing). Snapping alone would land on the nearest slot.
@@ -125,29 +200,16 @@ export function ReelsPager({
             scrollbarWidth: "none",
           }}
         >
-          {/* Every slot is always present at a fixed height, so the scroll
-              geometry is constant and mounting or unmounting cards inside them
-              can't shift the snap points under the gesture. */}
           {products.map((p, i) => (
-            <div
+            <ReelSlot
               key={p.id}
-              style={{
-                height: h || undefined,
-                scrollSnapAlign: "start",
-                // One card per swipe however hard you flick — the browser isn't
-                // allowed to fly past a snap point.
-                scrollSnapStop: "always",
-              }}
-            >
-              {Math.abs(i - index) <= RADIUS ? (
-                <MobileListingCard
-                  product={p}
-                  priority={i === 0}
-                  active={i === index}
-                  near={Math.abs(i - index) <= 1}
-                />
-              ) : null}
-            </div>
+              product={p}
+              h={h}
+              mounted={Math.abs(i - index) <= RADIUS}
+              active={i === index}
+              near={Math.abs(i - index) <= 1}
+              priority={i === 0}
+            />
           ))}
         </div>
       </div>

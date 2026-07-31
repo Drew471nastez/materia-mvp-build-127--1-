@@ -12,11 +12,6 @@ import { cn } from "@/lib/utils"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 
-/** Photo settle, for browsers without scroll-driven animations. Long and gentle
- *  so that starting from a state change rather than from the scroll itself isn't
- *  something you can pick out. */
-const SETTLE_MS = 850
-
 function isYouTubeThumb(u: string) {
   return u.includes("img.youtube.com") || u.includes("i.ytimg.com")
 }
@@ -97,11 +92,10 @@ export const MobileListingCard = memo(function MobileListingCard({
   }, [near, everNear])
   const shown = everNear ? images : images.slice(0, 1)
 
-  // The gallery is a real scroller whenever there's more than one photo. It used
-  // to be gated to the settled card because WebKit lags scrollable sub-layers
-  // behind a transform-animated ancestor — but the vertical feed is a native
-  // scroller now, so there is no such ancestor and nothing to lag behind.
-  const swipeable = images.length > 1
+  // Only the card you're on is a real scroller. A scroll container costs a
+  // compositing layer, and with a window of cards mounted that was several
+  // full-screen layers held for photos nobody can swipe sideways yet.
+  const swipeable = active && images.length > 1
 
   // After ~3s of lingering on the active card (with more than one photo, and
   // still on the first), show a clean minimalist "swipe" nudge once.
@@ -139,18 +133,13 @@ export const MobileListingCard = memo(function MobileListingCard({
 
   return (
     <div className="no-tap-fade relative h-full w-full overflow-hidden bg-neutral-900">
-      {/* Photo settle. Where scroll-driven animations exist, `.reel-photo` in
-          globals.css drives this straight off scroll position on the compositor
-          and overrides the inline transform below; the inline one is the
-          fallback. Either way it scales DOWN to 1, never up, so no edge can
-          expose a seam. */}
-      <div
-        className="reel-photo absolute inset-0"
-        style={{
-          transform: active ? "scale(1)" : "scale(1.045)",
-          transition: `transform ${SETTLE_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`,
-        }}
-      >
+      {/* Photo settle — the zoom a listing eases out of as it scrolls in. Driven
+          entirely from scroll POSITION, never from a timer: by `.reel-photo` in
+          globals.css off the scroll timeline where the browser supports it, and
+          imperatively by the pager where it doesn't. Nothing is set here, so the
+          two can't fight over it. It only ever scales DOWN to 1, never up, so no
+          edge can expose a seam. */}
+      <div className="reel-photo absolute inset-0">
       {/* Horizontal swipeable gallery — momentum + snap for a smooth carousel */}
       <div
         className="flex h-full w-full snap-x snap-mandatory scrollbar-hide"
