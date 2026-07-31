@@ -6,15 +6,15 @@ import { IosSpinner } from "./ios-spinner"
 
 // Touch-driven vertical pager tuned for a buttery, gliding TikTok-style swipe.
 //
-// Two things make it truly smooth:
-//  1) NATIVE touch listeners (addEventListener, passive) — lower latency than
-//     React synthetic events, and the drag transform is written straight to the
-//     DOM every frame (no React render during the gesture).
-//  2) The windowing / active re-render is DEFERRED until the glide has settled,
-//     so the glide animation runs with ZERO main-thread React work — the newly
-//     adjacent card only mounts its overlay AFTER the motion, never mid-glide.
-// Only ~5 listings are windowed; the current/adjacent render full chrome, the
-// rest are photo-only, so mounting stays cheap.
+// The smoothness comes from splitting "what the user sees" from "what mounts":
+//   • index       — updates IMMEDIATELY on release. Drives the active card's
+//                   caption reveal and image preloading, so the next listing is
+//                   ready and its text appears the instant you land (no lag).
+//   • windowIndex — the render window; DEFERRED until the glide settles, so a
+//                   far card's heavy overlay never mounts mid-glide (that mount
+//                   was the frame-drop). Committed early only near the edge.
+// Native passive touch listeners + an imperative-only transform mean the glide
+// itself does ZERO React work per frame — pure GPU.
 
 const DIST_TRIGGER = 54 // px drag distance that flips the page
 const VEL_TRIGGER = 0.25 // px/ms flick velocity that flips the page
@@ -30,7 +30,8 @@ export function ReelsPager({
   height: number
   onRefresh: () => Promise<void>
 }) {
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(0) // active / preload index (immediate)
+  const [windowIndex, setWindowIndex] = useState(0) // render window (deferred)
   const [refreshing, setRefreshing] = useState(false)
 
   const rootRef = useRef<HTMLDivElement>(null)
@@ -42,8 +43,8 @@ export function ReelsPager({
   const velRef = useRef(0)
   const lastTRef = useRef(0)
   const draggingRef = useRef(false)
-  const indexRef = useRef(0) // live target that drives the transform
-  const committedRef = useRef(0) // last index reflected in React state
+  const indexRef = useRef(0)
+  const windowRef = useRef(0)
   const refreshingRef = useRef(false)
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -55,16 +56,19 @@ export function ReelsPager({
 
   useEffect(() => {
     indexRef.current = index
-    committedRef.current = index
   }, [index])
+  useEffect(() => {
+    windowRef.current = windowIndex
+  }, [windowIndex])
   useEffect(() => {
     refreshingRef.current = refreshing
   }, [refreshing])
   useEffect(() => {
-    setIndex((i) => Math.min(i, Math.max(0, products.length - 1)))
+    const clamp = (i: number) => Math.min(i, Math.max(0, products.length - 1))
+    setIndex(clamp)
+    setWindowIndex(clamp)
   }, [products.length])
 
-  // Write the transform straight to the DOM (called on every touchmove).
   const paint = useCallback((drag: number) => {
     const el = trackRef.current
     if (el) {
@@ -79,15 +83,15 @@ export function ReelsPager({
     }
   }, [])
 
-  const commit = useCallback(() => {
+  const commitWindow = useCallback(() => {
     if (commitTimer.current) {
       clearTimeout(commitTimer.current)
       commitTimer.current = null
     }
-    if (committedRef.current !== indexRef.current) setIndex(indexRef.current)
+    if (windowRef.current !== indexRef.current) setWindowIndex(indexRef.current)
   }, [])
 
-  // Native touch listeners — attached once, driven entirely by refs.
+  // Native passive touch listeners — driven entirely by refs.
   useEffect(() => {
     const el = rootRef.current
     if (!el) return
@@ -115,7 +119,7 @@ export function ReelsPager({
       const dx = t.clientX - start.current.x
       if (start.current.axis === null) {
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
-          start.current.axis = "h" // horizontal → belongs to the photo gallery
+          start.current.axis = "h"
           return
         }
         if (Math.abs(dy) > 8) start.current.axis = "v"
@@ -143,7 +147,6 @@ export function ReelsPager({
       const tr = trackRef.current
       if (tr) tr.style.transition = GLIDE
 
-      // Pull-to-refresh from the very top.
       if (indexRef.current === 0 && d > REFRESH_TRIGGER) {
         setRefreshing(true)
         refreshingRef.current = true
@@ -152,8 +155,9 @@ export function ReelsPager({
           setRefreshing(false)
           refreshingRef.current = false
           indexRef.current = 0
-          committedRef.current = 0
+          windowRef.current = 0
           setIndex(0)
+          setWindowIndex(0)
           paint(0)
         })
         return
@@ -167,13 +171,14 @@ export function ReelsPager({
       indexRef.current = ni
       paint(0) // glide to the settled slot — transform only, zero React
 
-      // Defer the windowing/active re-render until the glide is done, so the
-      // motion has no React work. Commit immediately only if we're near the
-      // render-window edge (fast multi-swipes) to avoid a blank slot.
-      if (Math.abs(ni - committedRef.current) >= 2) {
-        commit()
-      } else if (ni !== committedRef.current) {
-        commitTimer.current = setTimeout(commit, 780)
+      // Reveal + preload advance immediately (cheap: no mount, just prop changes).
+      setIndex(ni)
+      // The render window (heavy mounts) waits for the glide to finish — unless
+      // we're at the window edge (fast multi-swipe), where we commit now.
+      if (Math.abs(ni - windowRef.current) >= 2) {
+        commitWindow()
+      } else if (ni !== windowRef.current) {
+        commitTimer.current = setTimeout(commitWindow, 720)
       }
     }
 
@@ -187,10 +192,10 @@ export function ReelsPager({
       el.removeEventListener("touchend", onEnd)
       el.removeEventListener("touchcancel", onEnd)
     }
-  }, [paint, commit, onRefresh])
+  }, [paint, commitWindow, onRefresh])
 
-  // Re-settle the transform after a commit or a height change (no visible jump —
-  // the imperative transform is already at the target).
+  // Re-settle the transform ONLY on a height change (never on index — that would
+  // snap the transition off mid-glide). The imperative transform is authoritative.
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
@@ -200,7 +205,7 @@ export function ReelsPager({
       if (el) el.style.transition = GLIDE
     })
     return () => cancelAnimationFrame(r)
-  }, [index, h, paint])
+  }, [h, paint])
 
   useEffect(
     () => () => {
@@ -220,12 +225,12 @@ export function ReelsPager({
           can't reset it mid-glide. */}
       <div ref={trackRef} className="absolute inset-0 z-10 will-change-transform" style={{ transition: GLIDE }}>
         {products.map((p, i) =>
-          Math.abs(i - index) > 2 ? null : (
+          Math.abs(i - windowIndex) > 2 ? null : (
             <div key={p.id} className="absolute inset-x-0" style={{ top: i * h, height: h || undefined }}>
               <MobileListingCard
                 product={p}
                 priority={Math.abs(i - index) <= 1}
-                near={Math.abs(i - index) <= 1}
+                near={Math.abs(i - windowIndex) <= 1}
                 active={i === index}
               />
             </div>

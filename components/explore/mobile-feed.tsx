@@ -471,8 +471,10 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
           className="absolute inset-x-0 top-0 z-20 bg-white"
           style={{
             transform: pillsHidden ? "translateY(-102%)" : "translateY(0)",
-            transition: "transform 0.42s cubic-bezier(0.22,1,0.36,1)",
-            willChange: "transform",
+            opacity: pillsHidden ? 0 : 1,
+            transition:
+              "transform 0.5s cubic-bezier(0.16,1,0.3,1), opacity 0.34s cubic-bezier(0.16,1,0.3,1)",
+            willChange: "transform, opacity",
           }}
         >
           <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>

@@ -71,32 +71,35 @@ export function usePullToRefresh(
       // Sheet overlays are children of the scroll container (required for iOS
       // position:fixed), so their touch events bubble up here — we must ignore them.
       if ((e.target as Element | null)?.closest("[data-dashboard-sheet]")) return
-
-      // Only start tracking when at the very top and not already refreshing
-      if (el.scrollTop === 0 && phaseRef.current === "idle") {
-        startYRef.current = e.touches[0].clientY
-        trackingRef.current = true
-      }
+      if (phaseRef.current !== "idle") return
+      // Always track from the start; whether we ENGAGE the pull is decided per
+      // frame in touchmove (only while genuinely at the top). This fixes the case
+      // where the gesture begins slightly scrolled and then reaches the top.
+      startYRef.current = e.touches[0].clientY
+      trackingRef.current = true
     }
 
     const onTouchMove = (e: TouchEvent) => {
       if (!trackingRef.current) return
 
+      // `<= 0` (not `=== 0`): iOS can rest at a sub-pixel or negative offset.
+      const atTop = el.scrollTop <= 0
       const dy = e.touches[0].clientY - startYRef.current
 
-      if (dy <= 0) {
-        // Scrolling up — stop intercepting
-        trackingRef.current = false
-        updateDist(0)
-        updatePhase("idle")
+      if (!atTop || dy <= 0) {
+        // Not at the top, or not pulling down → let native scroll run and keep the
+        // baseline fresh so a pull engages the instant we DO reach the top.
+        if (pullDistRef.current !== 0) {
+          updateDist(0)
+          updatePhase("idle")
+        }
+        startYRef.current = e.touches[0].clientY
         return
       }
 
-      // Critical: prevent native rubber-band bounce on iOS
-      e.preventDefault()
-
-      // Apply resistance so it feels "heavier" the further you pull
-      const dist = Math.min(dy * 0.45, maxPull)
+      // At the top and pulling down → drive the refresh gesture.
+      e.preventDefault() // prevent native rubber-band bounce on iOS
+      const dist = Math.min(dy * 0.5, maxPull)
       updateDist(dist)
       updatePhase(dist >= threshold ? "ready" : "pulling")
     }
