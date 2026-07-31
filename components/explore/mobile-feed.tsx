@@ -28,7 +28,7 @@ const ENTRY_MS = 700
 /** Dissolving one screen into another. A plain opacity ramp reads as a cut
  *  however long you make it — there is no motion in it for the eye to follow —
  *  so the incoming screen also settles out of a slight zoom over this time. */
-const XFADE_MS = 900
+const XFADE_MS = 620
 /** Height of the category pill bar. It overlays the feed, so the scroll content
  *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
 const CATBAR_H = 58
@@ -236,22 +236,36 @@ export function MobileFeed({
         // cross-fade of two pictures rather than one screen becoming another.
         // It scales UP, so it never shrinks away from the frame edges and can't
         // expose anything behind it. Inert, so it can't take a tap on its way out.
+        // The grid eases back a touch as the reel comes over it, so the two are
+        // moving together and it reads as depth rather than as one flat screen
+        // being covered by another. Scales UP, never down, so it can't shrink
+        // away from the frame edges and expose anything behind it.
         return {
           pointerEvents: "none",
           zIndex: 0,
-          transform: fadedIn ? "scale(1.012)" : "scale(1)",
-          transition: `transform ${XFADE_MS + 160}ms cubic-bezier(0.33, 0, 0.2, 1)`,
+          transform: fadedIn ? "scale(1.02)" : "scale(1)",
+          transition: `transform ${XFADE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+          willChange: "transform",
         }
       }
+      // Rises INTO place rather than dissolving in.
+      //
+      // A pure opacity cross-fade between a white grid and a black reels screen
+      // passes through grey — there is no way to make that read as anything but
+      // a swap, however long you run it, because nothing moves. Reels is fully
+      // opaque, so it can simply arrive over the grid the way a sheet does:
+      // that's motion the eye can follow, which is what "smooth" actually means
+      // here. It also lets the opacity finish early, so you are looking at a
+      // solid screen for most of the movement instead of a translucent one.
+      //
+      // translate3d + opacity only — both composited, nothing that can drop a
+      // frame no matter what the main thread is doing behind it.
       return {
         opacity: fadedIn ? 1 : 0,
-        // Scales DOWN to 1, never up, so its edges always cover the frame and the
-        // screen underneath can't peek out around them mid-dissolve.
-        transform: fadedIn ? "scale(1)" : "scale(1.022)",
-        transition: `opacity ${XFADE_MS}ms cubic-bezier(0.4, 0, 0.22, 1), transform ${
-          XFADE_MS + 160
-        }ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        transform: fadedIn ? "translate3d(0, 0, 0) scale(1)" : "translate3d(0, 4.5%, 0) scale(1.015)",
+        transition: `opacity ${Math.round(XFADE_MS * 0.45)}ms cubic-bezier(0.4, 0, 0.4, 1), transform ${XFADE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
         zIndex: 1, // above the outgoing screen, below the nav (z-40)
+        willChange: "transform, opacity",
       }
     },
     [fadeFrom, fadedIn],
