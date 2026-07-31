@@ -9,6 +9,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { SmartLink } from "@/components/smart-link"
 import { IosSpinner } from "./ios-spinner"
 import { cn } from "@/lib/utils"
+import { claimSurface } from "@/lib/surface-bg"
 
 type SearchTab = "items" | "categories" | "people"
 
@@ -208,13 +209,13 @@ export function MobileSearchOverlay({
   // the top never shows the black html.capacitor background behind the clock/5G.
   useEffect(() => {
     if (!mounted) return
-    const html = document.documentElement
-    const prev = html.style.backgroundColor
-    html.style.backgroundColor = "#ffffff"
-    html.classList.add("native-feed-bg")
-    return () => {
-      html.style.backgroundColor = prev
-    }
+    // Counted, like every other owner of this strip. It used to add the class
+    // and never take it off, while restoring an inline colour captured from
+    // whatever happened to be set when it opened — so closing the search could
+    // repaint the strip in the previous screen's colour over the top of the one
+    // underneath it.
+    const surface = claimSurface("#ffffff")
+    return () => surface.release()
   }, [mounted])
 
   // Lock the page behind the sheet so the underlying feed can't scroll through.

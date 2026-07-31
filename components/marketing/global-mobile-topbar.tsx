@@ -7,6 +7,7 @@ import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-
 import { useLocale } from "@/components/locale-provider"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { claimSurface } from "@/lib/surface-bg"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 
@@ -31,8 +32,8 @@ export function GlobalMobileTopBar() {
   // white — without this you get exactly the black band above the content that
   // the screenshot shows.
   useEffect(() => {
-    document.documentElement.classList.add("native-feed-bg")
-    return () => document.documentElement.classList.remove("native-feed-bg")
+    const surface = claimSurface("#ffffff")
+    return () => surface.release()
   }, [])
 
   const router = useRouter()

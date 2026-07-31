@@ -11,6 +11,7 @@ import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
 import { navigateBlended, signalArrival } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { claimSurface } from "@/lib/surface-bg"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
   CONDITIONS,
@@ -208,8 +209,8 @@ export function ProductDetail({ product }: { product: any }) {
 
   // The photo runs under the status bar, so the page owns the whole screen.
   useEffect(() => {
-    document.documentElement.classList.add("native-feed-bg")
-    return () => document.documentElement.classList.remove("native-feed-bg")
+    const surface = claimSurface("#ffffff")
+    return () => surface.release()
   }, [])
 
   const cond = labelOf(CONDITIONS, product.condition)

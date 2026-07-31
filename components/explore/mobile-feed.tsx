@@ -21,6 +21,7 @@ import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { signalArrival } from "@/lib/nav-blend"
 import { navHint } from "@/lib/screen-transition"
+import { claimSurface } from "@/lib/surface-bg"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -153,7 +154,16 @@ export function MobileFeed({
   useLayoutEffect(() => {
     try {
       const v = document.documentElement.getAttribute("data-feed-view")
-      if ((v === "reels" || v === "grid") && v !== initialView) setView(v)
+      if ((v === "reels" || v === "grid") && v !== initialView) {
+        setView(v)
+        // Correcting a wrong server guess is NOT someone changing view, and it
+        // must not play the grid/reels cross-fade. Left alone it did: the screen
+        // changed a frame after mount, the cross-fade saw a change it had no
+        // record of, and every return from a listing ran a 520ms transition
+        // nobody asked for on top of the page's own arrival. Two animations, one
+        // after the other — the second "refresh" on the way back.
+        prevScreen.current = v === "reels" && tab === "for-you" ? "reels" : "grid"
+      }
     } catch {
       /* SSR / no DOM */
     }
@@ -417,22 +427,23 @@ export function MobileFeed({
     [],
   )
 
-  // Paint the native safe-area (status-bar) zone white while the feed is up.
+  // Own the native safe-area (status-bar) strip while the feed is up, in the
+  // feed's own colour — white as a grid, black behind a full-bleed reel.
+  //
+  // This used to save and restore html.style.background itself, which meant
+  // leaving the feed reverted the colour the arriving screen had just set. See
+  // claimSurface: ownership is counted, and handovers never pass through nobody.
+  const surface = useRef<{ set: (c: string) => void; release: () => void } | null>(null)
   useEffect(() => {
-    const html = document.documentElement
-    const prev = html.style.backgroundColor
-    const apply = () => { html.style.backgroundColor = "#ffffff" }
-    apply()
-    html.classList.add("native-feed-bg")
-    window.addEventListener("resize", apply, { passive: true })
-    window.addEventListener("orientationchange", apply, { passive: true })
+    surface.current = claimSurface(reelsActive ? "#000000" : "#ffffff")
     return () => {
-      html.style.backgroundColor = prev
-      html.classList.remove("native-feed-bg")
-      window.removeEventListener("resize", apply)
-      window.removeEventListener("orientationchange", apply)
+      surface.current?.release()
+      surface.current = null
     }
   }, [])
+  useEffect(() => {
+    surface.current?.set(reelsActive ? "#000000" : "#ffffff")
+  }, [reelsActive])
 
   // Bumped once per refresh to (re)trigger the staggered card reveal.
   const [revealNonce, setRevealNonce] = useState(0)

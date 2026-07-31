@@ -20,8 +20,9 @@
  * which is the property that makes this impossible to glitch.
  *
  * The one hazard left is what sits behind the document while the new page
- * settles, so the root is painted the destination's own colour before we go.
- * That is why a black reels feed no longer flashes white on the way back.
+ * settles. That is owned by `surface-bg`, where each screen claims the strip in
+ * its own colour and handovers are counted so they never pass through nobody —
+ * which is what a black reels feed flashing white on the way back actually was.
  *
  * ---------------------------------------------------------------------------
  * Feedback
@@ -107,31 +108,6 @@ function showBar(): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// Backdrop
-// ---------------------------------------------------------------------------
-
-/**
- * Paint the document the colour of the screen we are going to.
- *
- * The root is what shows through in the split second between one page leaving
- * and the next being painted, and behind the incoming page while it settles.
- * White by default, which is right for a listing and for the grid, and wrong in
- * the one case that matters most — returning to a full-screen black reel, where
- * the mismatch is a white flash.
- */
-function paintRoot(kind: Kind) {
-  const root = document.documentElement
-  let colour = "#fff"
-  if (kind === "pop") {
-    // The head script mirrors the saved feed view onto <html> before first
-    // paint, so this is known without reading storage or waiting for React.
-    const view = root.getAttribute("data-feed-view")
-    if (view === "reels") colour = "#000"
-  }
-  root.style.backgroundColor = colour
-}
-
-// ---------------------------------------------------------------------------
 // Navigate
 // ---------------------------------------------------------------------------
 
@@ -152,7 +128,6 @@ export async function navigateScreen(kind: Kind, go: () => void): Promise<void> 
   }
 
   const root = document.documentElement
-  paintRoot(kind)
   root.dataset.nav = kind === "push" ? "enter" : "back"
   window.clearTimeout(clearHint)
   clearHint = window.setTimeout(() => delete root.dataset.nav, HINT_MS)
