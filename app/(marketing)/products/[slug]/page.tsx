@@ -60,11 +60,22 @@ export async function generateMetadata({
 
 export default async function ProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ origin?: string }>
 }) {
   const { slug } = await params
   const product = await load(slug)
   if (!product || product.status !== "published") notFound()
-  return <ProductDetail product={product} />
+  // Read here rather than with useSearchParams in the client component — that
+  // hook forces a Suspense boundary, which made the page mount twice and play
+  // its enter animation twice.
+  let origin: string | null = null
+  try {
+    origin = (await searchParams)?.origin ?? null
+  } catch {
+    /* no params */
+  }
+  return <ProductDetail product={product} origin={origin} />
 }

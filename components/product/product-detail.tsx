@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, Flag, Heart, Share2 } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
@@ -51,11 +51,14 @@ function since(iso?: string | null): string | null {
   return `acum ${months} ${months === 1 ? "lună" : "luni"}`
 }
 
-export function ProductDetail({ product }: { product: any }) {
+export function ProductDetail({ product, origin }: { product: any; origin?: string | null }) {
   const { t, formatPrice } = useLocale()
   const router = useRouter()
-  const search = useSearchParams()
-  const origin = search.get("origin")
+  // `origin` arrives as a prop from the server. It used to come from
+  // useSearchParams, which forces Next to wrap this in a Suspense boundary — so
+  // the component mounted, suspended, and mounted AGAIN. The enter animation
+  // therefore played twice, with the page appearing to arrive a second time.
+  // That is the double slide; the fix is to stop suspending, not to retime it.
 
   const wishlisted = useIsWishlisted(product.id)
   const toggleWishlist = useToggleWishlist()

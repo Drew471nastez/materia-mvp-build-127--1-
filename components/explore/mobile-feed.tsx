@@ -415,17 +415,37 @@ export function MobileFeed({
   // of showing the top and then jumping.
   useLayoutEffect(() => {
     if (reelsActive || tab !== "for-you") return
-    const el = scrollRef.current
-    if (!el) return
+    let saved = 0
     try {
-      const saved = Number(sessionStorage.getItem(FEED_SCROLL_KEY))
-      if (Number.isFinite(saved) && saved > 0) {
-        el.scrollTop = saved
-        lastScrollY.current = saved
-      }
+      saved = Number(sessionStorage.getItem(FEED_SCROLL_KEY)) || 0
     } catch {
-      /* storage unavailable */
+      return
     }
+    if (!(saved > 0)) return
+
+    // Setting scrollTop before the grid has laid out silently CLAMPS to 0 — the
+    // container has no scrollable height yet, so the browser accepts the write
+    // and discards it. That is why back always landed at the top: the restore
+    // ran, and did nothing.
+    //
+    // So it retries across frames until the offset actually sticks, and gives up
+    // after ~1s rather than fighting a feed that genuinely is shorter now (a
+    // filtered category, a refreshed list).
+    let raf = 0
+    const deadline = performance.now() + 1000
+    const attempt = () => {
+      const el = scrollRef.current
+      if (el && el.scrollHeight > el.clientHeight) {
+        el.scrollTop = saved
+        lastScrollY.current = el.scrollTop
+        // Landed close enough — images still loading can shift it by a pixel or
+        // two, and chasing that would fight the user's own scrolling.
+        if (Math.abs(el.scrollTop - saved) < 4) return
+      }
+      if (performance.now() < deadline) raf = requestAnimationFrame(attempt)
+    }
+    raf = requestAnimationFrame(attempt)
+    return () => cancelAnimationFrame(raf)
     // Mount-only: later scrolling is the user's own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
