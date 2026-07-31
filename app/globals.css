@@ -90,6 +90,22 @@ html.capacitor body {
 html.capacitor.native-feed-bg {
   background-color: #ffffff;
 }
+/* Remove the black status-bar shield (html.capacitor::before) on the marketplace
+   surfaces so there is NO black bar behind the clock/5G — the white feed (or a
+   full-screen reels image) shows through the notch zone instead. */
+html.capacitor.native-feed-bg::before {
+  display: none;
+}
+
+/* Listings opt out of the global :active opacity fade — tapping a product card or
+   its image should feel instant, with no fade-to-0.65 flash. */
+html.capacitor .no-tap-fade:active,
+html.capacitor .no-tap-fade a:active,
+html.capacitor .no-tap-fade button:active,
+html.capacitor a.no-tap-fade:active {
+  opacity: 1 !important;
+  transition: none !important;
+}
 
 /* iOS-style activity indicator (12-step tick, matches native UIActivityIndicator). */
 @keyframes ios-spin { to { transform: rotate(360deg); } }

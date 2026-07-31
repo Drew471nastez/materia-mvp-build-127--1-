@@ -241,7 +241,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
 
   return (
     <div
-      className="group flex flex-col"
+      className="group flex flex-col no-tap-fade"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onClickCapture={onClickCapture}

@@ -295,17 +295,17 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
                 type="button"
                 onClick={openSearch}
                 aria-label={t("mfeed.search")}
-                className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-90 [filter:drop-shadow(0_1px_4px_rgba(0,0,0,0.55))]"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-transform active:scale-90"
               >
-                <Search className="h-6 w-6" />
+                <Search className="h-[20px] w-[20px]" />
               </button>
               <button
                 type="button"
                 onClick={() => setView("grid")}
                 aria-label={t("mfeed.view_grid")}
-                className="flex h-9 w-9 items-center justify-center text-white transition-transform active:scale-90 [filter:drop-shadow(0_1px_4px_rgba(0,0,0,0.55))]"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-sm transition-transform active:scale-90"
               >
-                <LayoutGrid className="h-[22px] w-[22px]" />
+                <LayoutGrid className="h-[19px] w-[19px]" />
               </button>
             </div>
             <div
