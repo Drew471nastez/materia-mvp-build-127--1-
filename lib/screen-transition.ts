@@ -45,9 +45,16 @@ const PARALLAX = 22
 /** And it dims, which is the other half of the same effect. */
 const DIM = 0.82
 
-/** How long we will keep the outgoing screen up waiting for the incoming one.
- *  Past this the destination is slower than any animation should wait for. */
-const HOLD = { push: 420, pop: 260 }
+/**
+ * How long we will hold the outgoing screen up waiting for the incoming one.
+ *
+ * Short, because the wait no longer buys much: the destination is cloned, and a
+ * clone is live DOM, so an image that has not arrived yet still loads and paints
+ * inside the picture while it slides. There is nothing to be gained by standing
+ * still first — the same wait now happens during the animation instead of in
+ * front of it.
+ */
+const HOLD = { push: 300, pop: 220 }
 
 // ---------------------------------------------------------------------------
 // Arrival handshake
@@ -169,12 +176,25 @@ function shoot(host: HTMLElement): Shot {
   layer.style.cssText =
     "position:absolute;inset:0;overflow:hidden;background:#fff;will-change:transform,filter;contain:layout paint;"
 
-  // The document may be scrolled — the product page is a long scrolling page.
-  // A clone starts at the top, so shift it up by however far down we were, and
-  // the picture matches what is actually in front of you.
+  // The document may be scrolled — a product page is a long scrolling page — and
+  // a clone starts at the top, so the in-flow content has to be shifted up by
+  // however far down we were for the picture to match what is in front of you.
+  //
+  // Shifted with `top`, NOT with a transform. A transform makes the element a
+  // containing block for everything fixed inside it, so a transform here dragged
+  // the cloned fixed layers up with the document — and the feed is one big fixed
+  // layer. Coming back from a listing scrolled 800px down, the feed's photograph
+  // was rendered 800px off the top of the screen: near enough blank, then
+  // correct the instant the picture was dropped. That is the flash on the way
+  // back, and it is also why it never happened on the way in, where the screen
+  // being photographed is the feed and the document is not scrolled at all.
+  //
+  // With `top`, in-flow content offsets and fixed content stays put — anchored
+  // to the layer, which is exactly the viewport, because `contain: paint` makes
+  // IT the containing block for fixed descendants.
   const inner = document.createElement("div")
   const y = window.scrollY || 0
-  inner.style.cssText = `position:absolute;inset:0;transform:translateY(${-y}px);`
+  inner.style.cssText = `position:absolute;left:0;right:0;top:${-y}px;`
   layer.appendChild(inner)
 
   for (const child of Array.from(document.body.children)) {
@@ -205,6 +225,12 @@ function shoot(host: HTMLElement): Shot {
 
 /** Put a kept screenshot back on screen, offsets and all. */
 function reshoot(host: HTMLElement, shot: Shot): Shot {
+  // Anything still running on it holds its own values above the inline styles we
+  // are about to set — including a finished fill:forwards animation, which is
+  // how this was left when it was parked. Reused as-is, the screenshot starts
+  // the gesture already shifted and dimmed and refuses to be moved. That is the
+  // "sometimes it just doesn't work".
+  shot.getAnimations().forEach((a) => a.cancel())
   host.appendChild(shot)
   const inner = (shot as any).__inner as HTMLElement | undefined
   const map = shot.__scroll

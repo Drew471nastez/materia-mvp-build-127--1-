@@ -158,7 +158,12 @@ export function ProductDetail({ product }: { product: any }) {
   // Coming from the reels feed this costs nothing: that photo is already the
   // full-bleed size at the same quality, so it is the same file, already
   // decoded. From the grid it is a wider source than the tile was using and
-  // there is a real fetch to wait on.
+  // there is a real fetch — but only a short one is worth waiting for now. The
+  // transition animates a CLONE of this page, and a clone is live DOM: an image
+  // that lands after the photograph is taken still loads and paints inside the
+  // picture as it slides. So a slow image no longer costs a blank screen, only
+  // a blank frame or two inside a screen that is already moving, and holding
+  // the previous page still to avoid that is the worse trade.
   const rootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const img = rootRef.current?.querySelector("img")
@@ -175,11 +180,8 @@ export function ProductDetail({ product }: { product: any }) {
     }
     img.addEventListener("load", go, { once: true })
     img.addEventListener("error", go, { once: true })
-    // Short, now that the route itself is cached and prefetched: the fetch that
-    // used to sit in front of this is gone, so the only thing left to wait for
-    // is the image, and past a quarter-second it is better to arrive without it
-    // than to keep the previous screen frozen.
-    timer = window.setTimeout(go, 240)
+    // Just long enough for a cached image to come back. Past that, go.
+    timer = window.setTimeout(go, 110)
     return () => {
       window.clearTimeout(timer)
       img.removeEventListener("load", go)
