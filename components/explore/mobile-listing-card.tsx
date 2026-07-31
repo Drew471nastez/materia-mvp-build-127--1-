@@ -12,8 +12,10 @@ import { cn } from "@/lib/utils"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 
-/** Photo settle. Runs with the pager's glide, so keep the two in step. */
-const SETTLE_MS = 600
+/** Photo settle, for browsers without scroll-driven animations. Long and gentle
+ *  so that starting from a state change rather than from the scroll itself isn't
+ *  something you can pick out. */
+const SETTLE_MS = 850
 
 function isYouTubeThumb(u: string) {
   return u.includes("img.youtube.com") || u.includes("i.ytimg.com")
@@ -137,6 +139,18 @@ export const MobileListingCard = memo(function MobileListingCard({
 
   return (
     <div className="no-tap-fade relative h-full w-full overflow-hidden bg-neutral-900">
+      {/* Photo settle. Where scroll-driven animations exist, `.reel-photo` in
+          globals.css drives this straight off scroll position on the compositor
+          and overrides the inline transform below; the inline one is the
+          fallback. Either way it scales DOWN to 1, never up, so no edge can
+          expose a seam. */}
+      <div
+        className="reel-photo absolute inset-0"
+        style={{
+          transform: active ? "scale(1)" : "scale(1.045)",
+          transition: `transform ${SETTLE_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`,
+        }}
+      >
       {/* Horizontal swipeable gallery — momentum + snap for a smooth carousel */}
       <div
         className="flex h-full w-full snap-x snap-mandatory scrollbar-hide"
@@ -146,13 +160,6 @@ export const MobileListingCard = memo(function MobileListingCard({
           scrollbarWidth: "none",
           WebkitOverflowScrolling: swipeable ? "touch" : "auto",
           overscrollBehaviorX: "contain",
-          // The photo settles out of a barely-there zoom as its card arrives, and
-          // eases back into it as the card leaves — so a listing arrives rather
-          // than simply being where it is. It's a single composited transform on
-          // a layer that already exists, so it costs nothing to run alongside the
-          // glide, and it scales DOWN to 1 so no edge can ever expose a seam.
-          transform: active ? "scale(1)" : "scale(1.035)",
-          transition: `transform ${SETTLE_MS}ms cubic-bezier(0.25, 1, 0.5, 1)`,
         }}
       >
         {(shown.length ? shown : [null]).map((src, i) => (
@@ -183,6 +190,7 @@ export const MobileListingCard = memo(function MobileListingCard({
             )}
           </SmartLink>
         ))}
+      </div>
       </div>
 
       {/* The overlay is STATIC and always mounted alongside the photo, so the

@@ -149,7 +149,7 @@ export function MobileFeed({
   const scrollRef = useRef<HTMLDivElement>(null)
   const feedContentRef = useRef<HTMLDivElement>(null)
   const feedSpinnerRef = useRef<HTMLDivElement>(null)
-  const reelsAreaRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const [reelsHeight, setReelsHeight] = useState(0)
 
   const reelsActive = view === "reels" && tab === "for-you"
@@ -272,17 +272,21 @@ export function MobileFeed({
   // no edge can ever peek through mid-animation.
 
 
-  // Measure the full-screen reels area so each listing fills exactly one screen.
+  // Measure the STAGE, always — not the reels area only once reels is showing.
+  // Both fill the same box, but measuring the stage means the height is already
+  // known before the reels layer mounts. It used to be measured after, so
+  // switching to reels meant tap → nothing → measure → only then the dissolve
+  // could start. That dead beat before anything moved is most of why the switch
+  // felt abrupt: it read as a stall followed by a jump.
   useEffect(() => {
-    if (!reelsActive) return
-    const el = reelsAreaRef.current
+    const el = stageRef.current
     if (!el) return
-    const measure = () => setReelsHeight(el.clientHeight)
+    const measure = () => setReelsHeight((prev) => (prev === el.clientHeight ? prev : el.clientHeight))
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [reelsActive])
+  }, [])
   // Remembers each tab's scroll offset so returning to For You keeps your place.
   const tabScroll = useRef<Record<Tab, number>>({ "for-you": 0, following: 0, saved: 0 })
 
@@ -498,12 +502,12 @@ export function MobileFeed({
 
       {/* Stage — both screens live here, in the same box, so a cross-fade swaps
           like for like and the bottom nav stays in flow underneath. */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={stageRef} className="relative flex min-h-0 flex-1 flex-col">
 
       {(screen === "reels" || fadeFrom === "reels") && (
       <div className="absolute inset-0 flex min-h-0 flex-col" style={layerStyle("reels")}>
         {/* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */}
-        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black">
+        <div className="relative flex-1 min-h-0 bg-black">
           {reelsHeight > 0 && products.length > 0 ? (
             <ReelsPager products={products} height={reelsHeight} onRefresh={onRefresh} />
           ) : products.length === 0 ? (

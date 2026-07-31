@@ -109,6 +109,31 @@ html.capacitor a.no-tap-fade:active {
 
 /* iOS-style activity indicator (12-step tick, matches native UIActivityIndicator). */
 @keyframes ios-spin { to { transform: rotate(360deg); } }
+
+/* Reel photo settle — a listing's photo eases out of a slight zoom as its card
+   scrolls in, so the listing arrives rather than simply being where it is.
+
+   Where the browser supports scroll-driven animations this is tied DIRECTLY to
+   scroll position: it advances with the finger, frame for frame, entirely on the
+   compositor. Nothing on the main thread can knock it out of step with the
+   scroll, which a time-based transition fired from a state change can never
+   guarantee — that one starts when React notices the card changed, not when the
+   photo actually moves. Browsers without it fall back to that transition, which
+   the component still sets inline; a running animation outranks inline styles in
+   the cascade, so where this applies it simply takes over. */
+@keyframes reel-settle {
+  from { transform: scale(1.045); }
+  to   { transform: scale(1); }
+}
+@supports (animation-timeline: view()) {
+  .reel-photo {
+    animation: reel-settle linear both;
+    animation-timeline: view(block);
+    /* Each card is exactly one viewport tall, so "entry" spans precisely one
+       swipe — the zoom resolves exactly as the card lands. */
+    animation-range: entry 0% entry 100%;
+  }
+}
 .ios-spin { animation: ios-spin 1s steps(12) infinite; }
 
 /* Satisfying wishlist "pop": a slow, observable overshoot that settles gently,
