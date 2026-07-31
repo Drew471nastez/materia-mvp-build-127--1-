@@ -171,6 +171,17 @@ export async function ExploreFeed({
   // cookie is free) — renders the SEO heading in the visitor's language.
   const { t } = await getServerT()
 
+  // Resolve the saved feed view (grid | reels) from the cookie so the mobile
+  // feed renders the correct style on first paint — no grid → reels flash.
+  let initialView: "grid" | "reels" = "grid"
+  try {
+    const { cookies } = await import("next/headers")
+    const store = await cookies()
+    if (store.get("storelib_feed_view")?.value === "reels") initialView = "reels"
+  } catch {
+    /* cookies unavailable */
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* JSON-LD structured data */}
@@ -197,6 +208,7 @@ export async function ExploreFeed({
           initialProducts={filteredProducts}
           initialCategory={category}
           searchQuery={searchQuery}
+          initialView={initialView}
         />
 
         {/* Below-the-fold sections — desktop only; the mobile feed is a full-screen

@@ -95,20 +95,12 @@ export const MobileListingCard = memo(function MobileListingCard({
   const storeUrl = username ? getStoreUrl(username) : "#"
   const cond = conditionLabel(product.condition)
 
-  // Smooth, staggered reveal when a reel settles into place — the gradient,
-  // caption and action rail ease + slide in instead of snapping after the image.
-  // NOTE: no `will-change` here — permanent will-change on ~6 elements per card ×
-  // several windowed cards floods the compositor with layers and drops frames
-  // during the swipe. The transitions still run on the GPU without it.
-  const reveal = (delay: number) => ({
-    opacity: active ? 1 : 0,
-    transform: active ? "translateY(0)" : "translateY(16px)",
-    transition: `opacity 0.5s cubic-bezier(0.22,1,0.36,1) ${delay}s, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${delay}s`,
-  })
-  const gradientReveal = {
-    opacity: active ? 1 : 0,
-    transition: "opacity 0.55s cubic-bezier(0.22,1,0.36,1)",
-  }
+  // The overlay is STATIC — the gradient, caption and action rail are simply part
+  // of the card, so they slide into view together with the image as one clean
+  // unit (exactly like TikTok). No separate fade-in reveal, which read as a cheap,
+  // snappy pop after the image. `active` is kept only for the swipe-hint timer.
+  const reveal = (_delay: number): undefined => undefined
+  const gradientReveal: undefined = undefined
 
   const onLike = useCallback(
     (e: React.MouseEvent) => {

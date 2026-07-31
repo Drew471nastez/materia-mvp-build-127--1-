@@ -77,7 +77,16 @@ function loadSavedItems(): Promise<any[]> {
  * Depop/Vinted-style mobile marketplace surface — a clean 2-column grid.
  * Full-screen overlay on phones (md:hidden); the desktop grid is untouched.
  */
-export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProducts: any[]; searchQuery?: string }) {
+export function MobileFeed({
+  initialProducts,
+  searchQuery = "",
+  initialView = "grid",
+}: {
+  initialProducts: any[]
+  searchQuery?: string
+  /** Resolved server-side from the cookie so the right view renders with no flash. */
+  initialView?: "grid" | "reels"
+}) {
   const { t } = useLocale()
   const router = useRouter()
 
@@ -85,20 +94,14 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   const [cat, setCat] = useState("all")
   const [seed, setSeed] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
-  // Browsing style for the For You feed. Default is the 2-col grid; "reels" is the
-  // full-screen TikTok/Reels-style vertical pager. Toggled from the search row and
-  // REMEMBERED across navigations / app restarts (until the user switches back).
-  const [view, setView] = useState<"grid" | "reels">(() => {
-    if (typeof window === "undefined") return "grid"
-    try {
-      return localStorage.getItem("storelib_feed_view") === "reels" ? "reels" : "grid"
-    } catch {
-      return "grid"
-    }
-  })
+  // Browsing style for the For You feed. Seeded server-side from the cookie
+  // (`initialView`) so the correct view renders on first paint with NO grid flash.
+  // Remembered across navigations / app restarts (until the user switches back).
+  const [view, setView] = useState<"grid" | "reels">(initialView)
   useEffect(() => {
     try {
       localStorage.setItem("storelib_feed_view", view)
+      document.cookie = `storelib_feed_view=${view}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
     } catch {
       /* storage unavailable */
     }

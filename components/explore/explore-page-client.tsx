@@ -847,12 +847,14 @@ interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
   searchQuery: string
+  initialView?: "grid" | "reels"
 }
 
 export function ExplorePageClient({
   initialProducts,
   initialCategory,
   searchQuery: urlSearchQuery,
+  initialView = "grid",
 }: ExplorePageClientProps) {
   const { t } = useLocale()
   const router = useRouter()
@@ -1316,7 +1318,7 @@ export function ExplorePageClient({
     // One batched wishlist fetch for every card on the page instead of one per card
     <WishlistProvider>
     {/* Mobile: Depop/TikTok-style full-screen feed. Desktop keeps the grid below. */}
-    <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} />
+    <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} initialView={initialView} />
     <div className="space-y-8 hidden md:block">
       {/* Featured Banner Carousel */}
       {!urlSearchQuery && featuredProducts.length > 0 && (
