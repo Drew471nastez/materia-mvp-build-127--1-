@@ -25,10 +25,10 @@ type Tab = "for-you" | "following" | "saved"
 
 /** Opening the app: a longer, calmer arrival. */
 const ENTRY_MS = 700
-/** Dissolving one screen into another. A plain opacity ramp reads as a cut
- *  however long you make it — there is no motion in it for the eye to follow —
- *  so the incoming screen also settles out of a slight zoom over this time. */
-const XFADE_MS = 620
+/** Swapping one screen for the other. The motion is depth only — see
+ *  `layerStyle` — and depth reads fast, so this is shorter than a slide would
+ *  need to be without feeling clipped. */
+const XFADE_MS = 520
 /** Height of the category pill bar. It overlays the feed, so the scroll content
  *  reserves the same amount, and the pull-to-refresh spinner parks behind it. */
 const CATBAR_H = 58
@@ -229,46 +229,45 @@ export function MobileFeed({
   const layerStyle = useCallback(
     (which: Screen): React.CSSProperties | undefined => {
       if (fadeFrom === null) return undefined
+      // The two screens move along Z and nothing else. No rise, no slide, no
+      // drift — going in, the reel comes forward out of the page while the grid
+      // carries on past you; coming back, it reverses exactly, the reel falling
+      // away and the grid settling back down to size. Because the axis is depth
+      // rather than the vertical, the pair reads as one screen being replaced by
+      // another at a different distance instead of a sheet being dragged over
+      // the top of it, and there is no direction of travel for the eye to catch
+      // and call a slide.
+      //
+      // It also runs quicker for the same perceived smoothness: a slide has to
+      // cover the height of the screen, so cutting its duration makes it snap,
+      // whereas a scale of a tenth is legible in half the time.
+      //
+      // transform + opacity only — both composited, so nothing here can drop a
+      // frame regardless of what the main thread is doing behind it.
+      const forward = screen === "reels"
       if (which === fadeFrom) {
-        // The outgoing screen drifts gently INTO the glass as the new one comes
-        // through it, so both sides of the blend are moving — one screen sitting
-        // perfectly still under another is what makes a dissolve read as a
-        // cross-fade of two pictures rather than one screen becoming another.
-        // It scales UP, so it never shrinks away from the frame edges and can't
-        // expose anything behind it. Inert, so it can't take a tap on its way out.
-        // The grid eases back a touch as the reel comes over it, so the two are
-        // moving together and it reads as depth rather than as one flat screen
-        // being covered by another. Scales UP, never down, so it can't shrink
-        // away from the frame edges and expose anything behind it.
         return {
-          pointerEvents: "none",
+          pointerEvents: "none", // inert, so it can't take a tap on its way out
           zIndex: 0,
-          transform: fadedIn ? "scale(1.02)" : "scale(1)",
-          transition: `transform ${XFADE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          willChange: "transform",
+          opacity: fadedIn ? 0 : 1,
+          transform: fadedIn ? `scale(${forward ? 1.12 : 0.93})` : "scale(1)",
+          // Fades a little ahead of the movement, so the screen is already gone
+          // by the time it stops travelling and you never see it park.
+          transition: `opacity ${Math.round(XFADE_MS * 0.55)}ms cubic-bezier(0.4, 0, 0.6, 1), transform ${XFADE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+          willChange: "transform, opacity",
         }
       }
-      // Rises INTO place rather than dissolving in.
-      //
-      // A pure opacity cross-fade between a white grid and a black reels screen
-      // passes through grey — there is no way to make that read as anything but
-      // a swap, however long you run it, because nothing moves. Reels is fully
-      // opaque, so it can simply arrive over the grid the way a sheet does:
-      // that's motion the eye can follow, which is what "smooth" actually means
-      // here. It also lets the opacity finish early, so you are looking at a
-      // solid screen for most of the movement instead of a translucent one.
-      //
-      // translate3d + opacity only — both composited, nothing that can drop a
-      // frame no matter what the main thread is doing behind it.
       return {
         opacity: fadedIn ? 1 : 0,
-        transform: fadedIn ? "translate3d(0, 0, 0) scale(1)" : "translate3d(0, 4.5%, 0) scale(1.015)",
-        transition: `opacity ${Math.round(XFADE_MS * 0.45)}ms cubic-bezier(0.4, 0, 0.4, 1), transform ${XFADE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        transform: fadedIn ? "scale(1)" : `scale(${forward ? 0.9 : 1.1})`,
+        // Opaque well before it stops moving, so most of what you watch is a
+        // solid screen settling rather than a translucent one.
+        transition: `opacity ${Math.round(XFADE_MS * 0.42)}ms cubic-bezier(0.4, 0, 0.4, 1), transform ${XFADE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
         zIndex: 1, // above the outgoing screen, below the nav (z-40)
         willChange: "transform, opacity",
       }
     },
-    [fadeFrom, fadedIn],
+    [fadeFrom, fadedIn, screen],
   )
 
   // Reels has nothing to show until its height is measured — lifting before then
@@ -630,8 +629,18 @@ export function MobileFeed({
       />
 
       {/* Stage — both screens live here, in the same box, so a cross-fade swaps
-          like for like and the bottom nav stays in flow underneath. */}
-      <div ref={stageRef} className="relative flex min-h-0 flex-1 flex-col">
+          like for like and the bottom nav stays in flow underneath.
+
+          It is painted in the INCOMING screen's own colour. The outgoing layer
+          pulls back from the frame edges on the way out, and without a floor
+          underneath it that would uncover the root background — a white rim
+          around a black reel, which is exactly the blink you'd notice. Matching
+          the arriving screen makes anything it uncovers invisible. */}
+      <div
+        ref={stageRef}
+        className="relative flex min-h-0 flex-1 flex-col"
+        style={{ backgroundColor: screen === "reels" ? "#000" : "#fff" }}
+      >
 
       {(screen === "reels" || fadeFrom === "reels") && (
       <div className="absolute inset-0 flex min-h-0 flex-col" style={layerStyle("reels")}>
