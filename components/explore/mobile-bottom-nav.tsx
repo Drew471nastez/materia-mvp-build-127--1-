@@ -22,7 +22,6 @@ export function MobileBottomNav({
   const { t } = useLocale()
   const router = useRouter()
   const [launching, setLaunching] = useState(false)
-  const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Every destination the bar can reach, prefetched as soon as the bar mounts —
   // which is on every page now. A tab tap then has nothing left to fetch: the

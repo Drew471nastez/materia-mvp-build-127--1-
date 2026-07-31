@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { GlobalMobileNav } from "@/components/marketing/global-mobile-nav"
+import { GlobalMobileTopBar } from "@/components/marketing/global-mobile-topbar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 
 export default function MarketingLayout({
@@ -18,6 +19,10 @@ export default function MarketingLayout({
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
       <ConditionalHeader />
+
+      <Suspense fallback={null}>
+        <GlobalMobileTopBar />
+      </Suspense>
 
       <main className="flex-1 [overflow-x:clip]">{children}</main>
 
