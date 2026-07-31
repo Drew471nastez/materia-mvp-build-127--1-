@@ -89,11 +89,42 @@ export function ProductDetail({ product, origin }: { product: any; origin?: stri
     })
   }, [router, origin])
 
-  // Tell an in-flight blend that this page is genuinely on screen, so it can
-  // photograph a finished page rather than one still building. Layout effect:
-  // before paint, so the snapshot can never catch an intermediate frame.
+  // Tell an in-flight blend that this page is genuinely on screen.
+  //
+  // "On screen" has to include the photo. The blend photographs whatever is
+  // rendered the moment we signal, and a product page without its photo is a
+  // grey rectangle — so signalling on mount meant blending smoothly into a blank
+  // page and then having the image land on its own a moment later. Two events,
+  // and the second one reads as the transition stuttering or firing twice. It is
+  // the same fault the grid-to-reels switch had, in the same place.
+  //
+  // Coming from the reels feed this costs nothing: that photo is already the
+  // full-bleed size at the same quality, so it is the same file, already
+  // decoded. From the grid it is a wider source than the tile was using and
+  // there is a real fetch to wait on — capped, because a page that hasn't
+  // appeared yet is worse than one that appears without its picture.
+  const rootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    signalArrival()
+    const img = rootRef.current?.querySelector("img")
+    if (!img || img.complete) {
+      signalArrival()
+      return
+    }
+    let timer = 0
+    const go = () => {
+      window.clearTimeout(timer)
+      img.removeEventListener("load", go)
+      img.removeEventListener("error", go)
+      signalArrival()
+    }
+    img.addEventListener("load", go, { once: true })
+    img.addEventListener("error", go, { once: true })
+    timer = window.setTimeout(go, 340)
+    return () => {
+      window.clearTimeout(timer)
+      img.removeEventListener("load", go)
+      img.removeEventListener("error", go)
+    }
   }, [])
 
   const onGalleryScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -155,7 +186,7 @@ export function ProductDetail({ product, origin }: { product: any; origin?: stri
   const summary = [product.size?.toUpperCase(), cond].filter(Boolean).join(" · ")
 
   return (
-    <div className="listing-enter min-h-screen bg-white pb-28 md:pb-0">
+    <div ref={rootRef} className="listing-enter min-h-screen bg-white pb-28 md:pb-0">
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">

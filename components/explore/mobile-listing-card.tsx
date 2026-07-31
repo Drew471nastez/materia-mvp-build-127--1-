@@ -172,7 +172,13 @@ export const MobileListingCard = memo(function MobileListingCard({
             href={productUrl}
             blend
             press={false}
-            className="relative h-full w-full shrink-0 snap-center"
+            // A reel is a photo you look at, not a file you take. Long-press
+            // save/copy, drag-out and text selection are all off — the same
+            // treatment the grid tiles already get — so the photo behaves like
+            // part of the app rather than like an image in a web page.
+            className="no-touch-callout relative h-full w-full shrink-0 snap-center"
+            onContextMenu={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
           >
             {src ? (
               <Image
@@ -181,6 +187,7 @@ export const MobileListingCard = memo(function MobileListingCard({
                 fill
                 sizes="100vw"
                 quality={68}
+                draggable={false}
                 // Full-bleed, edge to edge. Contained-with-a-blurred-backdrop was
                 // the wrong call — a reel is meant to BE the photo, not a photo
                 // sitting inside a frame.

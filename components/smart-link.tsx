@@ -63,34 +63,60 @@ const TOUCH_STYLES: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
 }
 
+/** Past this much finger travel, the gesture is a scroll and not a tap. */
+const TAP_SLOP = 10
+
 /**
- * Instant acknowledgement of a finger.
+ * Instant acknowledgement of a finger — for taps, and only for taps.
  *
  * Everything else about opening a page takes time you can't get to zero — a
  * fetch, a render, an animation. What you *can* make immediate is the reply to
- * the touch itself, and that is most of what "instant" feels like: the press
+ * the touch itself, and that is most of what "instant" feels like: the highlight
  * lands on pointerdown, before any of the work starts, so the tap is never in
  * doubt while the page is on its way.
  *
- * pointerdown rather than click, because click waits for the lift. The haptic is
- * a no-op off-device. Released on cancel too, so scrolling away from a card you
- * brushed doesn't leave it stuck down.
+ * The catch is that pointerdown also fires at the start of every scroll, because
+ * a scroll begins with a finger on a card. So the highlight is withdrawn the
+ * moment the finger travels — the same rule UIKit uses for a table row, and the
+ * reason a native list doesn't light up while you flick through it.
+ *
+ * The haptic can't work that way, because a vibration cannot be taken back once
+ * it has fired. It waits for the tap to actually be a tap: it goes with the
+ * navigation, in the click handler, which a scroll never reaches. That is late
+ * by a few milliseconds and right every time, and being right matters more —
+ * a buzz on every scroll is worse than no buzz at all.
  */
 function usePress(enabled: boolean) {
   const [pressed, setPressed] = useState(false)
-  const down = useCallback(() => {
-    if (!enabled) return
+  const origin = useRef<{ x: number; y: number } | null>(null)
+
+  const down = useCallback((e: React.PointerEvent) => {
+    origin.current = { x: e.clientX, y: e.clientY }
     setPressed(true)
-    void triggerHaptic("light")
-  }, [enabled])
-  const up = useCallback(() => setPressed(false), [])
+  }, [])
+
+  const move = useCallback((e: React.PointerEvent) => {
+    const from = origin.current
+    if (!from) return
+    if (Math.abs(e.clientX - from.x) > TAP_SLOP || Math.abs(e.clientY - from.y) > TAP_SLOP) {
+      origin.current = null
+      setPressed(false)
+    }
+  }, [])
+
+  const end = useCallback(() => {
+    origin.current = null
+    setPressed(false)
+  }, [])
+
   if (!enabled) return {}
   return {
     "data-pressed": pressed ? "true" : "false",
     onPointerDown: down,
-    onPointerUp: up,
-    onPointerCancel: up,
-    onPointerLeave: up,
+    onPointerMove: move,
+    onPointerUp: end,
+    onPointerCancel: end,
+    onPointerLeave: end,
   } as const
 }
 
@@ -194,6 +220,10 @@ export function SmartLink({
             if (needsHardNav) {
               window.location.href = resolvedHref
             } else if (blend) {
+              // The tap is confirmed, so this is where the buzz belongs — a
+              // scroll never reaches a click handler. It fires on the reel photo
+              // too, which opts out of the visual press but not out of this.
+              void triggerHaptic("light")
               navigateBlended("enter", () => router.push(resolvedHref))
             } else {
               router.push(resolvedHref)
@@ -256,6 +286,7 @@ export function SmartLink({
           if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
           e.preventDefault()
           if (typeof onClick === "function") onClick(e)
+          void triggerHaptic("light")
           navigateBlended("enter", () => router.push(resolvedHref))
         }}
         style={{ ...TOUCH_STYLES, ...(rest.style as React.CSSProperties) }}

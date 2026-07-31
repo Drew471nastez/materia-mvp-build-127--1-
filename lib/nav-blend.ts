@@ -58,8 +58,11 @@ function supported(): boolean {
  * either slower than any animation should wait for or it never signalled, and a
  * frozen screen is far worse than an unblended swap. Routes are warmed on touch
  * (see SmartLink), so in practice arrival beats this comfortably.
+ *
+ * It has to clear the destination's own wait for its hero image — 340ms there
+ * plus a render — or this cap would fire first and make that wait pointless.
  */
-const MAX_HOLD = 420
+const MAX_HOLD = 550
 
 /**
  * Run `go` as a blended navigation.
