@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Search, SlidersHorizontal } from "lucide-react"
+import { GalleryVerticalEnd, Search, SlidersHorizontal } from "lucide-react"
+import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { useLocale } from "@/components/locale-provider"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { CATEGORIES } from "@/lib/marketplace/categories"
@@ -64,41 +65,61 @@ export function GlobalMobileTopBar() {
 
   return (
     <>
-      <div className="md:hidden sticky top-0 z-[60] border-b border-neutral-100 bg-white/95 backdrop-blur-md">
+      <div className="md:hidden sticky top-0 z-[60] border-b border-neutral-100 bg-white">
         <div
-          className="px-4 pb-2.5"
-          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.6rem)" }}
+          className="px-4 pb-3"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}
         >
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label={t("mfeed.search_placeholder")}
-              className="relative h-10 flex-1 rounded-full border border-neutral-200 bg-neutral-100 pl-9 pr-3 text-left transition-transform active:scale-[0.99]"
+              className="relative flex-1 h-11 rounded-full border border-neutral-200 bg-neutral-100 pl-10 pr-10 text-left transition-transform active:scale-[0.99]"
             >
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <span className="absolute left-9 right-3 top-1/2 -translate-y-1/2 truncate text-sm text-neutral-500">
-                {t("mfeed.search_placeholder")}
-              </span>
+              <AnimatedSearchPlaceholder
+                active
+                prefix={`${t("mfeed.search_for")} `}
+                quoted
+                className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
+              />
             </button>
             <button
               type="button"
               aria-label={t("mfeed.filters")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95"
             >
-              <SlidersHorizontal className="h-[17px] w-[17px]" />
+              <SlidersHorizontal className="h-[18px] w-[18px]" />
+            </button>
+
+            {/* The same purple switcher the feed carries. It jumps to the feed in
+                the view you pick — from here that IS the switch. */}
+            <button
+              type="button"
+              aria-label={t("mfeed.view_reels")}
+              onClick={() => router.push("/")}
+              className="no-tap-fade relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
+              style={{
+                background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
+                boxShadow:
+                  "0 1px 2px rgba(76, 29, 149, 0.28), 0 6px 16px -4px rgba(124, 58, 237, 0.55), inset 0 1px 0 rgba(255,255,255,0.22)",
+                transition: "transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease",
+              }}
+            >
+              <GalleryVerticalEnd className="h-[19px] w-[19px]" strokeWidth={2.2} />
             </button>
           </div>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-2.5" style={{ scrollbarWidth: "none" }}>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
           {CATEGORIES.map((c) => (
             <button
               key={c.id}
               type="button"
               onClick={() => onCategory(c.id)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-all duration-200 active:scale-95",
+                "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
                 "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
               )}
             >

@@ -1598,6 +1598,16 @@ html.capacitor [data-safe-bottom] {
    - html background (#000000) is visible during any rubber-band overscroll bounce,
      matching the black header so the gap is invisible.
    On browser env(safe-area-inset-top) = 0px → zero visual effect. */
+/* The status-bar shield used to be solid BLACK, to match a black platform header
+   that sat directly under it. That header no longer renders in the app at all —
+   the marketplace surfaces own the top of the screen now — so a black band was
+   left painting over them at z-9999, on top of the search bar and pills. It is
+   white, to match what is actually underneath.
+
+   Kept rather than deleted because it still does a real job: it covers the notch
+   zone during a rubber-band overscroll bounce, where the html background would
+   otherwise flash through. On the web env(safe-area-inset-top) is 0px, so this
+   has no effect there at all. */
 html.capacitor::before {
   content: '';
   position: fixed;
@@ -1605,7 +1615,7 @@ html.capacitor::before {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top, 0px);
-  background-color: #000000;
+  background-color: #ffffff;
   z-index: 9999;
   pointer-events: none;
 }
@@ -1613,12 +1623,12 @@ html.capacitor::before {
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;
-  /* When iOS rubber-band overscroll exposes the html background, use black so
-     it matches the platform header. Any bounce gap above the header is invisible
-     since both the header and the html canvas are black. Body pages use their own
-     bg-* classes for content; the html background only shows during overscroll.
-     CapacitorBounceGuard (JS) also prevents rubber-band from firing in WKWebView. */
-  background-color: #000000;
+  /* Shows only during a rubber-band overscroll bounce. White, because what sits
+     against it now is the white marketplace — it was black to match a platform
+     header the app no longer renders, which meant a bounce flashed a black gap
+     above white content. CapacitorBounceGuard (JS) also stops rubber-band firing
+     in WKWebView, so this is the second line of defence rather than the first. */
+  background-color: #ffffff;
   /* Prevent rubber-band bounce at the root element level in addition to body.
      overscroll-behavior: none works on iOS 16+; for older iOS the JS guard handles it. */
   overscroll-behavior: none;
