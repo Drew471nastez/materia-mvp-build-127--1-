@@ -5,11 +5,11 @@ import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; offerId?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice } = await searchParams
+  const { productId, variantId, customPrice, offerId } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -94,6 +94,35 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
+  // An accepted offer changes what this checkout charges. Verified HERE, against
+  // the conversation, and carried forward as a signed token — the endpoints that
+  // set the Stripe amount re-verify the token instead of trusting a client
+  // field. Requirements: the caller is signed in, is the conversation's buyer,
+  // the offer is theirs to use (accepted), and it is about this very product.
+  let offerCents: number | null = null
+  let offerToken: string | null = null
+  if (offerId && user) {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const admin = createAdminClient()
+    const { data: offer } = await admin
+      .from("messages")
+      .select("id, kind, offer_status, offer_cents, conversation_id")
+      .eq("id", offerId)
+      .maybeSingle()
+    if (offer?.kind === "offer" && offer.offer_status === "accepted" && offer.offer_cents > 0) {
+      const { data: convo } = await admin
+        .from("conversations")
+        .select("buyer_id, listing_id")
+        .eq("id", offer.conversation_id)
+        .maybeSingle()
+      if (convo && convo.buyer_id === user.id && convo.listing_id === productId) {
+        offerCents = offer.offer_cents
+        const { mintOfferToken } = await import("@/lib/marketplace/offer-token")
+        offerToken = mintOfferToken({ productId, buyerId: user.id, cents: offer.offer_cents, offerId: offer.id })
+      }
+    }
+  }
+
   // Fetch all variants for this product (for variant selector)
   const { data: allVariants } = await supabase
     .from("product_variants")
@@ -138,7 +167,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         title: product.title,
         slug: product.slug,
         description: product.description,
-        price_cents: finalPriceCents,
+        price_cents: offerCents ?? finalPriceCents,
         thumbnail_url: product.thumbnail_url,
         type: product.type,
       }}
@@ -150,6 +179,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
+      offerToken={offerToken}
       selectedVariant={selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,

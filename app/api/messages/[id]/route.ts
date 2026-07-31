@@ -1,0 +1,119 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+
+/**
+ * One conversation.
+ *
+ *   GET  /api/messages/:id                       → thread, listing, other party
+ *   POST /api/messages/:id { body? offerCents? } → append a message
+ *
+ * GET also marks the other side's messages read — opening the thread IS reading
+ * it, and a separate receipt endpoint would just be this with extra requests.
+ * Everything runs on the caller's client except the listing/profile enrichment,
+ * so RLS is the membership check: a conversation that isn't yours 404s.
+ */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: "Bad id" }, { status: 400 })
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("id, listing_id, buyer_id, seller_id")
+    .eq("id", id)
+    .maybeSingle()
+  if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const [messagesRes, markRead] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true })
+      .limit(500),
+    supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("conversation_id", id)
+      .neq("sender_id", user.id)
+      .is("read_at", null),
+  ])
+  void markRead
+
+  const admin = createAdminClient()
+  const otherId = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
+  const [{ data: listing }, { data: other }] = await Promise.all([
+    admin
+      .from("products")
+      .select("id, title, slug, thumbnail_url, price_cents, status")
+      .eq("id", convo.listing_id)
+      .maybeSingle(),
+    admin.from("profiles").select("id, display_name, username, avatar_url").eq("id", otherId).maybeSingle(),
+  ])
+
+  return NextResponse.json({
+    id: convo.id,
+    youAre: convo.buyer_id === user.id ? "buyer" : "seller",
+    me: user.id,
+    listing: listing ?? null,
+    other: other ?? null,
+    messages: messagesRes.data ?? [],
+  })
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: "Bad id" }, { status: 400 })
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+
+  let payload: { body?: string; offerCents?: number }
+  try {
+    payload = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Bad body" }, { status: 400 })
+  }
+  const body = typeof payload.body === "string" ? payload.body.trim().slice(0, 2000) : ""
+  const offerCents = Number.isFinite(payload.offerCents) ? Math.round(payload.offerCents as number) : null
+  if (!body && !offerCents) return NextResponse.json({ error: "Empty message" }, { status: 400 })
+  if (offerCents !== null && offerCents <= 0) return NextResponse.json({ error: "Bad offer" }, { status: 400 })
+
+  // RLS proves membership: a conversation the caller isn't in reads as absent.
+  const { data: convo } = await supabase.from("conversations").select("id").eq("id", id).maybeSingle()
+  if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const { data: inserted, error } = await supabase
+    .from("messages")
+    .insert(
+      offerCents !== null
+        ? {
+            conversation_id: id,
+            sender_id: user.id,
+            kind: "offer",
+            offer_cents: offerCents,
+            offer_status: "pending",
+            body: body || null,
+          }
+        : { conversation_id: id, sender_id: user.id, kind: "text", body },
+    )
+    .select("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
+    .single()
+  if (error || !inserted) return NextResponse.json({ error: "Could not send" }, { status: 500 })
+
+  await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
+
+  return NextResponse.json({ message: inserted })
+}

@@ -116,6 +116,9 @@ interface CheckoutPageClientProps {
   selectedVariant?: SelectedVariant | null
   isPwyw?: boolean
   customPriceCents?: number | null
+  /** Signed voucher for an accepted-offer price — minted server-side by the
+   *  checkout page, re-verified by the payment endpoint. Never client-derived. */
+  offerToken?: string | null
   allVariants?: SelectedVariant[]
 }
 
@@ -993,6 +996,7 @@ export default function CheckoutPageClient({
   selectedVariant: initialVariant,
   isPwyw,
   customPriceCents,
+  offerToken = null,
   allVariants = [],
 }: CheckoutPageClientProps) {
   const { t, formatPrice } = useLocale()
@@ -1247,6 +1251,7 @@ export default function CheckoutPageClient({
         isGift,
         variantId: selectedVariant?.id || null,
         customPriceCents: isPwyw ? customPriceCents : null,
+        offerToken,
         emailOptIn,
       }),
     })
@@ -1258,7 +1263,7 @@ export default function CheckoutPageClient({
     }
 
     return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
-  }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents, emailOptIn])
+  }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents, offerToken, emailOptIn])
 
   // ── Native paid checkout — no Stripe.js ──────────────────────────────────────
   // 1. POSTs card data directly to api.stripe.com/v1/payment_methods (publishable

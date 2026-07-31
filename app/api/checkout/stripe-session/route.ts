@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 
-  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null, emailOptIn = true } = body
+  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null, offerToken = null, emailOptIn = true } = body
 
   if (!productId || !firstName || !lastName || !email) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -81,6 +81,24 @@ export async function POST(request: Request) {
       }
       basePriceCents = parsedCustomPrice
     }
+  }
+
+  // An accepted offer overrides the asking price — but only through the signed
+  // token the checkout page minted after checking the conversation. The token is
+  // personal: it verifies against the CALLER's user id, so it cannot be lifted
+  // from one buyer's session and spent from another's.
+  if (offerToken) {
+    const { verifyOfferToken } = await import("@/lib/marketplace/offer-token")
+    const { createClient: createUserClient } = await import("@/lib/supabase/server")
+    const userClient = await createUserClient()
+    const {
+      data: { user: buyer },
+    } = await userClient.auth.getUser()
+    const verified = verifyOfferToken(offerToken, { productId, buyerId: buyer?.id ?? null })
+    if (!verified) {
+      return NextResponse.json({ error: "Offer is no longer valid" }, { status: 400 })
+    }
+    basePriceCents = verified.cents
   }
 
   // Require Stripe when the total charge (including tips) is > 0
