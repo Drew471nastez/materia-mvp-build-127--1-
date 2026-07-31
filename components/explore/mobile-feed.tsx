@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronRight } from "lucide-react"
+import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronLeft } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { MobileBottomNav } from "./mobile-bottom-nav"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
+import { WishlistToast } from "./wishlist-toast"
 import { ReelsPager } from "./reels-pager"
 import { ProductCard } from "./product-card"
 import { IosSpinner } from "./ios-spinner"
@@ -85,8 +86,23 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   const [seed, setSeed] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
   // Browsing style for the For You feed. Default is the 2-col grid; "reels" is the
-  // full-screen TikTok/Reels-style vertical pager. Toggled from the search row.
-  const [view, setView] = useState<"grid" | "reels">("grid")
+  // full-screen TikTok/Reels-style vertical pager. Toggled from the search row and
+  // REMEMBERED across navigations / app restarts (until the user switches back).
+  const [view, setView] = useState<"grid" | "reels">(() => {
+    if (typeof window === "undefined") return "grid"
+    try {
+      return localStorage.getItem("storelib_feed_view") === "reels" ? "reels" : "grid"
+    } catch {
+      return "grid"
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem("storelib_feed_view", view)
+    } catch {
+      /* storage unavailable */
+    }
+  }, [view])
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const reelsAreaRef = useRef<HTMLDivElement>(null)
@@ -248,7 +264,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
     <div className="md:hidden fixed inset-0 z-[60] flex flex-col bg-white" style={{ height: "100dvh" }}>
       {reelsActive ? (
         /* ---------- REELS: full-screen image with overlaid TikTok-style controls ---------- */
-        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black">
+        <div ref={reelsAreaRef} className="relative flex-1 min-h-0 bg-black animate-in fade-in-0 duration-300 ease-out">
           {reelsHeight > 0 && products.length > 0 ? (
             <ReelsPager products={products} height={reelsHeight} onRefresh={onRefresh} />
           ) : products.length === 0 ? (
@@ -262,7 +278,17 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
             className="pointer-events-none absolute inset-x-0 top-0 z-20"
             style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.4rem)" }}
           >
-            <div className="pointer-events-auto flex items-center gap-1 px-2">
+            <div className="pointer-events-auto flex items-center gap-2 px-3">
+              {/* Breadcrumb "back to grid" on the LEFT — ‹ + grid glyph */}
+              <button
+                type="button"
+                onClick={() => setView("grid")}
+                aria-label={t("mfeed.view_grid")}
+                className="flex h-9 shrink-0 items-center gap-0.5 rounded-full bg-black/30 pl-1.5 pr-2.5 text-white backdrop-blur-sm transition-transform active:scale-95"
+              >
+                <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.5} />
+                <LayoutGrid className="h-[16px] w-[16px]" />
+              </button>
               <div className="flex flex-1 items-stretch">
                 {TABS.map(([id, key]) => {
                   const active = tab === id
@@ -271,7 +297,7 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
                       key={id}
                       type="button"
                       onClick={() => switchTab(id)}
-                      className="flex flex-1 flex-col items-center pb-1.5 text-[15px]"
+                      className="flex flex-1 flex-col items-center pb-2 text-[15px]"
                     >
                       <span
                         className={cn(
@@ -291,29 +317,19 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
                   )
                 })}
               </div>
-              {/* Purple brand search icon */}
+              {/* Purple brand search icon on the RIGHT */}
               <button
                 type="button"
                 onClick={openSearch}
                 aria-label={t("mfeed.search")}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm transition-transform active:scale-90"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-transform active:scale-90"
                 style={{ background: "linear-gradient(150deg, #8b5cf6 0%, #7c3aed 100%)" }}
               >
                 <Search className="h-[19px] w-[19px]" />
               </button>
-              {/* Breadcrumb-style "back to grid" — a subtle grid glyph + arrow */}
-              <button
-                type="button"
-                onClick={() => setView("grid")}
-                aria-label={t("mfeed.view_grid")}
-                className="ml-0.5 flex h-9 items-center gap-0.5 rounded-full bg-black/30 pl-2.5 pr-2 text-white backdrop-blur-sm transition-transform active:scale-95"
-              >
-                <LayoutGrid className="h-[17px] w-[17px]" />
-                <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
-              </button>
             </div>
             <div
-              className="pointer-events-auto mt-1.5 flex gap-2 overflow-x-auto scrollbar-hide px-3 pb-2"
+              className="pointer-events-auto mt-2.5 flex gap-2 overflow-x-auto scrollbar-hide px-3 pb-2.5"
               style={{ scrollbarWidth: "none" }}
             >
               {CATEGORIES.map((c) => (
@@ -486,6 +502,8 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
       )}
 
       <MobileBottomNav active="home" onSearch={focusSearch} />
+
+      <WishlistToast />
 
       <MobileSearchOverlay
         open={searchOpen}

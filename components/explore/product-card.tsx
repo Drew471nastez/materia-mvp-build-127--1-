@@ -85,6 +85,7 @@ function WishlistHeartButton({ productId, savesCount = 0 }: { productId: string;
       const willSave = !isWishlisted
       setNonce((n) => n + 1)
       setUserDelta((d) => d + (willSave ? 1 : -1))
+      window.dispatchEvent(new CustomEvent("wishlist-toast", { detail: { saved: willSave } }))
       // The bloom only reads right when saving — skip it on un-save.
       if (willSave) {
         setBurst(false)
@@ -123,8 +124,8 @@ function WishlistHeartButton({ productId, savesCount = 0 }: { productId: string;
       <Heart
         key={nonce}
         className={cn(
-          // Slow, observable red fill — transitions over 450ms so you watch it fill.
-          "h-[19px] w-[19px] shrink-0 transition-colors duration-[450ms] ease-out",
+          // Slow, observable red fill — transitions over 600ms so you watch it fill.
+          "h-[19px] w-[19px] shrink-0 transition-colors duration-[600ms] ease-out",
           // Only pop after a real toggle — never on the grid's first paint.
           nonce > 0 && "motion-safe:heart-pop",
           isWishlisted ? "fill-rose-500 text-rose-500" : "text-neutral-700"

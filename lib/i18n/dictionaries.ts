@@ -106,6 +106,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "mfeed.items_count": "articole",
     "mfeed.searching": "Se caută…",
     "mfeed.swipe_photos": "Glisează",
+    "mfeed.saved_toast": "Salvat în favorite",
+    "mfeed.removed_toast": "Eliminat din favorite",
     // Product / listing
     "product.free": "Gratis",
     "product.size": "Mărime",
@@ -202,6 +204,8 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "mfeed.items_count": "items",
     "mfeed.searching": "Searching…",
     "mfeed.swipe_photos": "Swipe",
+    "mfeed.saved_toast": "Saved to wishlist",
+    "mfeed.removed_toast": "Removed from wishlist",
     "product.free": "Free",
     "product.size": "Size",
     "product.condition": "Condition",

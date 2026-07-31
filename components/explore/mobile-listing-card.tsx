@@ -70,6 +70,7 @@ export const MobileListingCard = memo(function MobileListingCard({
   const toggleWishlist = useToggleWishlist()
   const [imgIndex, setImgIndex] = useState(0)
   const [showHint, setShowHint] = useState(false)
+  const [nonce, setNonce] = useState(0)
 
   const images = galleryImages(product.thumbnail_url, product.gallery_urls)
 
@@ -80,7 +81,7 @@ export const MobileListingCard = memo(function MobileListingCard({
       setShowHint(false)
       return
     }
-    const timer = setTimeout(() => setShowHint(true), 3000)
+    const timer = setTimeout(() => setShowHint(true), 4500)
     return () => clearTimeout(timer)
   }, [active, images.length, imgIndex])
   const creatorName = product.creator?.profile?.display_name || "Storelib"
@@ -107,9 +108,11 @@ export const MobileListingCard = memo(function MobileListingCard({
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      setNonce((n) => n + 1)
+      window.dispatchEvent(new CustomEvent("wishlist-toast", { detail: { saved: !isWishlisted } }))
       void toggleWishlist(product.id)
     },
-    [product.id, toggleWishlist],
+    [product.id, isWishlisted, toggleWishlist],
   )
 
   const onScrollGallery = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -172,18 +175,21 @@ export const MobileListingCard = memo(function MobileListingCard({
         </div>
       )}
 
-      {/* Centered photo dots (a touch more visible) */}
+      {/* Photo dots — centered, clear of the caption, in a subtle glass pill so
+          they read cleanly over any photo. */}
       {images.length > 1 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[92px] z-20 flex items-center justify-center gap-1.5" style={gradientReveal}>
-          {images.map((_, i) => (
-            <span
-              key={i}
-              className={cn(
-                "h-1.5 rounded-full shadow-[0_0_3px_rgba(0,0,0,0.4)] transition-all duration-200",
-                i === imgIndex ? "w-5 bg-white" : "w-1.5 bg-white/60",
-              )}
-            />
-          ))}
+        <div className="pointer-events-none absolute inset-x-0 bottom-[136px] z-20 flex justify-center" style={gradientReveal}>
+          <div className="flex items-center gap-[7px] rounded-full bg-black/25 px-2.5 py-1.5 backdrop-blur-sm">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-[6px] rounded-full transition-all duration-300 ease-out",
+                  i === imgIndex ? "w-5 bg-white" : "w-[6px] bg-white/55",
+                )}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -208,7 +214,7 @@ export const MobileListingCard = memo(function MobileListingCard({
 
         <button type="button" onClick={onLike} aria-pressed={isWishlisted} aria-label={t("product.add_to_wishlist")} className="flex flex-col items-center gap-1">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">
-            <Heart className={cn("h-[22px] w-[22px] transition-colors", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
+            <Heart key={nonce} className={cn("h-[22px] w-[22px] transition-colors duration-[600ms] ease-out", nonce > 0 && "motion-safe:heart-pop", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
           </span>
           <span className="text-[11px] font-medium drop-shadow">{t("mfeed.save")}</span>
         </button>
