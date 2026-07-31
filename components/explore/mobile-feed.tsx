@@ -124,6 +124,12 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
   // Remembers each tab's scroll offset so returning to For You keeps your place.
   const tabScroll = useRef<Record<Tab, number>>({ "for-you": 0, following: 0, saved: 0 })
 
+  // Category bar behaves like a "sticky on scroll-up" header: hides when you
+  // scroll down into the feed, glides back the moment you scroll up.
+  const [pillsHidden, setPillsHidden] = useState(false)
+  const lastScrollY = useRef(0)
+  const pillsHiddenRef = useRef(false)
+
   // Switch tabs while saving the outgoing tab's scroll position.
   const switchTab = useCallback(
     (next: Tab) => {
@@ -181,6 +187,28 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
 
   const { pullDistance, phase } = usePullToRefresh(scrollRef, onRefresh)
   const ptrOffset = phase === "refreshing" ? 52 : pullDistance
+
+  // Hide the category bar on scroll-down, reveal it on scroll-up (grid only).
+  useEffect(() => {
+    if (reelsActive) return
+    const el = scrollRef.current
+    if (!el) return
+    const setHidden = (v: boolean) => {
+      if (pillsHiddenRef.current === v) return
+      pillsHiddenRef.current = v
+      setPillsHidden(v)
+    }
+    const onScroll = () => {
+      const y = el.scrollTop
+      const dy = y - lastScrollY.current
+      if (y <= 10) setHidden(false) // always show at the very top
+      else if (dy > 6) setHidden(true) // scrolling down → hide
+      else if (dy < -6) setHidden(false) // scrolling up → reveal
+      lastScrollY.current = y
+    }
+    el.addEventListener("scroll", onScroll, { passive: true })
+    return () => el.removeEventListener("scroll", onScroll)
+  }, [reelsActive])
 
   const products = useMemo(() => {
     let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
@@ -434,21 +462,32 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
       {/* Subtle divider sits BETWEEN the tabs and the category pills. */}
       <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />
 
-      {/* ---- Category pills ---- */}
-      <div className="shrink-0 flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
-        {CATEGORIES.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setCat(c.id)}
-            className={cn(
-              "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
-              cat === c.id ? "bg-neutral-900 text-white shadow-sm" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
-            )}
-          >
-            {t(`category.${c.id}`)}
-          </button>
-        ))}
+      {/* ---- Category pills — sticky-on-scroll-up: collapses on scroll-down,
+             glides back on scroll-up. ---- */}
+      <div
+        className="shrink-0 overflow-hidden"
+        style={{
+          maxHeight: pillsHidden ? 0 : 62,
+          opacity: pillsHidden ? 0 : 1,
+          transition:
+            "max-height 0.42s cubic-bezier(0.22,1,0.36,1), opacity 0.3s cubic-bezier(0.22,1,0.36,1)",
+        }}
+      >
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCat(c.id)}
+              className={cn(
+                "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
+                cat === c.id ? "bg-neutral-900 text-white shadow-sm" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
+              )}
+            >
+              {t(`category.${c.id}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ---- Feed area: 2-col grid ---- */}
