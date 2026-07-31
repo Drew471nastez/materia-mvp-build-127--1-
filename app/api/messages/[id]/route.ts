@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createNotification } from "@/lib/notifications"
 
 /**
  * One conversation.
@@ -92,7 +93,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (offerCents !== null && offerCents <= 0) return NextResponse.json({ error: "Bad offer" }, { status: 400 })
 
   // RLS proves membership: a conversation the caller isn't in reads as absent.
-  const { data: convo } = await supabase.from("conversations").select("id").eq("id", id).maybeSingle()
+  // The party and listing columns come along so the notification below knows
+  // who to address without a second read.
+  const { data: convo } = await supabase
+    .from("conversations")
+    .select("id, listing_id, buyer_id, seller_id")
+    .eq("id", id)
+    .maybeSingle()
   if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const { data: inserted, error } = await supabase
@@ -114,6 +121,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error || !inserted) return NextResponse.json({ error: "Could not send" }, { status: 500 })
 
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
+
+  // Whoever is on the other side of this thread hears about the new message.
+  await createNotification(createAdminClient(), {
+    userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,
+    kind: offerCents !== null ? "offer_received" : "message",
+    actorId: user.id,
+    listingId: convo.listing_id,
+    conversationId: id,
+  })
 
   return NextResponse.json({ message: inserted })
 }

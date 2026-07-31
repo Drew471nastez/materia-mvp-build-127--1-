@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createNotification } from "@/lib/notifications"
 
 /**
  * The inbox, and the way into it.
@@ -154,6 +155,15 @@ export async function POST(req: NextRequest) {
   if (msgErr) return NextResponse.json({ error: "Could not send" }, { status: 500 })
 
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversationId)
+
+  // The seller hears about it either way; an offer is louder than a message.
+  await createNotification(admin, {
+    userId: sellerId,
+    kind: offerCents !== null ? "offer_received" : "message",
+    actorId: user.id,
+    listingId,
+    conversationId,
+  })
 
   return NextResponse.json({ conversationId })
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { MessageCircle } from "lucide-react"
+import { Bell, MessageCircle } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +21,16 @@ type Row = {
     offer_status: "pending" | "accepted" | "declined" | null
   } | null
   unread: number
+}
+
+type Notif = {
+  id: string
+  kind: "follow" | "offer_received" | "offer_accepted" | "offer_declined" | "message"
+  createdAt: string
+  readAt: string | null
+  conversationId: string | null
+  actor: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null
+  listing: { id: string; title: string; slug: string; thumbnail_url: string | null } | null
 }
 
 function ago(iso: string): string {
@@ -45,14 +55,18 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 }
 
 /**
- * The conversations list. Three states — signed out, empty, and rows — and the
- * rows carry everything needed to pick a thread without opening it: who, which
- * item, the last line said, and how much of it is unanswered.
+ * The inbox: conversations and notifications behind one segmented control.
+ * Messages keep their three states — signed out, empty, rows — and the
+ * notifications side loads lazily on the first switch, because most visits
+ * here are about replying, not about the feed of who followed whom.
  */
 export function MessagesInbox() {
   const { formatPrice } = useLocale()
+  const [tab, setTab] = useState<"messages" | "notifications">("messages")
   const [rows, setRows] = useState<Row[] | null>(null)
   const [signedOut, setSignedOut] = useState(false)
+  const [notifs, setNotifs] = useState<Notif[] | null>(null)
+  const [notifUnread, setNotifUnread] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -79,6 +93,51 @@ export function MessagesInbox() {
     }
   }, [])
 
+  // The red dot on the Notificări segment costs one head count on mount.
+  useEffect(() => {
+    let alive = true
+    fetch("/api/notifications/unread", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d) setNotifUnread(d.count ?? 0)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  // First switch to the segment fetches the feed; once it is on screen, the
+  // whole batch is marked read server-side and the badge clears optimistically.
+  // The rows keep their fetched unread styling so this viewing still shows
+  // what was new — only the next visit renders them quiet.
+  useEffect(() => {
+    if (tab !== "notifications" || notifs !== null) return
+    let alive = true
+    fetch("/api/notifications", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return
+        const items: Notif[] = d?.notifications ?? []
+        setNotifs(items)
+        setNotifUnread(0)
+        if (items.some((n) => !n.readAt)) {
+          fetch("/api/notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ action: "read-all" }),
+          }).catch(() => {})
+        }
+      })
+      .catch(() => {
+        if (alive) setNotifs([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [tab, notifs])
+
   if (signedOut) {
     return (
       <Empty
@@ -88,22 +147,51 @@ export function MessagesInbox() {
       />
     )
   }
-  if (rows === null) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-4">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-3 py-3.5">
-            <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3.5 w-36 animate-pulse rounded bg-neutral-100" />
-              <div className="h-3 w-52 animate-pulse rounded bg-neutral-100" />
-            </div>
-            <div className="h-12 w-12 animate-pulse rounded-lg bg-neutral-100" />
-          </div>
-        ))}
+
+  return (
+    <div className="mx-auto max-w-2xl px-2 pb-24 md:pb-10">
+      <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
+        {tab === "messages" ? "Mesaje" : "Notificări"}
+      </h1>
+      <div className="px-2 pb-2 pt-1">
+        <div className="flex h-10 items-center rounded-full bg-neutral-100 p-1">
+          {(
+            [
+              { key: "messages", label: "Mesaje" },
+              { key: "notifications", label: "Notificări" },
+            ] as const
+          ).map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setTab(s.key)}
+              className={cn(
+                "relative flex h-8 flex-1 items-center justify-center rounded-full text-[14px] font-semibold transition-colors",
+                tab === s.key ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500",
+              )}
+            >
+              {s.label}
+              {s.key === "notifications" && notifUnread > 0 && (
+                <span className="absolute right-2 top-1/2 flex h-[16px] min-w-[16px] -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-[3px] text-[10px] font-bold leading-none text-white">
+                  {notifUnread > 9 ? "9+" : notifUnread}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
-    )
-  }
+
+      {tab === "messages" ? (
+        <MessagesList rows={rows} formatPrice={formatPrice} />
+      ) : (
+        <NotificationsList items={notifs} />
+      )}
+    </div>
+  )
+}
+
+function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: (cents: number) => string }) {
+  if (rows === null) return <ListSkeleton />
   if (rows.length === 0) {
     return (
       <Empty
@@ -115,59 +203,158 @@ export function MessagesInbox() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-2 pb-24 md:pb-10">
-      <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">Mesaje</h1>
-      <ul className="divide-y divide-neutral-100">
-        {rows.map((r) => {
-          const name = r.other?.display_name || r.other?.username || "Utilizator"
-          const preview =
-            r.lastMessage?.kind === "offer"
-              ? `Ofertă: ${formatPrice(r.lastMessage.offer_cents ?? 0)}${
-                  r.lastMessage.offer_status === "accepted"
-                    ? " · acceptată"
-                    : r.lastMessage.offer_status === "declined"
-                      ? " · refuzată"
-                      : ""
-                }`
-              : r.lastMessage?.body || ""
-          return (
-            <li key={r.id}>
-              <Link href={`/messages/${r.id}`} className="flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50">
-                <Avatar name={name} url={r.other?.avatar_url ?? null} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className={cn("truncate text-[15px] text-neutral-900", r.unread > 0 ? "font-bold" : "font-semibold")}>
-                      {name}
-                    </span>
-                    <span className="shrink-0 text-[12px] text-neutral-400">{ago(r.lastMessageAt)}</span>
+    <ul className="divide-y divide-neutral-100">
+      {rows.map((r) => {
+        const name = r.other?.display_name || r.other?.username || "Utilizator"
+        const preview =
+          r.lastMessage?.kind === "offer"
+            ? `Ofertă: ${formatPrice(r.lastMessage.offer_cents ?? 0)}${
+                r.lastMessage.offer_status === "accepted"
+                  ? " · acceptată"
+                  : r.lastMessage.offer_status === "declined"
+                    ? " · refuzată"
+                    : ""
+              }`
+            : r.lastMessage?.body || ""
+        return (
+          <li key={r.id}>
+            <Link href={`/messages/${r.id}`} className="flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50">
+              <Avatar name={name} url={r.other?.avatar_url ?? null} />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className={cn("truncate text-[15px] text-neutral-900", r.unread > 0 ? "font-bold" : "font-semibold")}>
+                    {name}
                   </span>
-                  <span className="mt-0.5 flex items-center gap-2">
-                    <span className={cn("truncate text-[13.5px]", r.unread > 0 ? "font-medium text-neutral-800" : "text-neutral-500")}>
-                      {preview}
-                    </span>
-                    {r.unread > 0 && (
-                      <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#7c3aed] px-1 text-[11px] font-bold text-white">
-                        {r.unread}
-                      </span>
-                    )}
-                  </span>
+                  <span className="shrink-0 text-[12px] text-neutral-400">{ago(r.lastMessageAt)}</span>
                 </span>
-                {r.listing?.thumbnail_url ? (
-                  <Image
-                    src={r.listing.thumbnail_url}
-                    alt=""
-                    width={48}
-                    height={48}
-                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                  />
-                ) : (
-                  <span className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
-                )}
+                <span className="mt-0.5 flex items-center gap-2">
+                  <span className={cn("truncate text-[13.5px]", r.unread > 0 ? "font-medium text-neutral-800" : "text-neutral-500")}>
+                    {preview}
+                  </span>
+                  {r.unread > 0 && (
+                    <span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[#7c3aed] px-1 text-[11px] font-bold text-white">
+                      {r.unread}
+                    </span>
+                  )}
+                </span>
+              </span>
+              {r.listing?.thumbnail_url ? (
+                <Image
+                  src={r.listing.thumbnail_url}
+                  alt=""
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                <span className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
+              )}
+            </Link>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/**
+ * One sentence per event. The accepted offer gets the emerald because it is
+ * the only notification that means money is about to move.
+ */
+function notifText(kind: Notif["kind"]): { verb: string; accent?: string } {
+  switch (kind) {
+    case "follow":
+      return { verb: "a început să te urmărească" }
+    case "offer_received":
+      return { verb: "ți-a trimis o ofertă" }
+    case "offer_accepted":
+      return { verb: "ți-a acceptat oferta", accent: "text-emerald-600" }
+    case "offer_declined":
+      return { verb: "ți-a refuzat oferta" }
+    case "message":
+      return { verb: "ți-a trimis un mesaj" }
+  }
+}
+
+function notifHref(n: Notif): string | null {
+  if (n.kind === "follow") return n.actor?.username ? `/member/${n.actor.username}` : null
+  if (n.conversationId) return `/messages/${n.conversationId}`
+  return n.listing?.slug ? `/products/${n.listing.slug}` : null
+}
+
+function NotificationsList({ items }: { items: Notif[] | null }) {
+  if (items === null) return <ListSkeleton />
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center px-6 py-20 text-center">
+        <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+          <Bell className="h-6 w-6" />
+        </span>
+        <p className="text-[15px] text-neutral-500">Nicio notificare încă.</p>
+      </div>
+    )
+  }
+
+  return (
+    <ul className="divide-y divide-neutral-100">
+      {items.map((n) => {
+        const name = n.actor?.display_name || n.actor?.username || "Cineva"
+        const { verb, accent } = notifText(n.kind)
+        const unread = !n.readAt
+        const href = notifHref(n)
+        const inner = (
+          <>
+            <Avatar name={name} url={n.actor?.avatar_url ?? null} />
+            <span className="min-w-0 flex-1">
+              <span className={cn("block text-[14.5px] leading-snug text-neutral-900", unread ? "font-bold" : "font-normal")}>
+                <span className="font-semibold">{name}</span> <span className={accent}>{verb}</span>
+              </span>
+              <span className="mt-0.5 flex items-center gap-1.5">
+                <span className="text-[12px] text-neutral-400">{ago(n.createdAt)}</span>
+                {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-[#7c3aed]" />}
+              </span>
+            </span>
+            {n.listing?.thumbnail_url && (
+              <Image
+                src={n.listing.thumbnail_url}
+                alt=""
+                width={48}
+                height={48}
+                className="h-12 w-12 shrink-0 rounded-lg object-cover"
+              />
+            )}
+          </>
+        )
+        const rowClass = "flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50"
+        return (
+          <li key={n.id}>
+            {href ? (
+              <Link href={href} className={rowClass}>
+                {inner}
               </Link>
-            </li>
-          )
-        })}
-      </ul>
+            ) : (
+              <span className={rowClass}>{inner}</span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function ListSkeleton() {
+  return (
+    <div className="px-2 py-1">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-3 py-3.5">
+          <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 w-36 animate-pulse rounded bg-neutral-100" />
+            <div className="h-3 w-52 animate-pulse rounded bg-neutral-100" />
+          </div>
+          <div className="h-12 w-12 animate-pulse rounded-lg bg-neutral-100" />
+        </div>
+      ))}
     </div>
   )
 }

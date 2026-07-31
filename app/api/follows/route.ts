@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createNotification } from "@/lib/notifications"
 
 /**
  * The follow graph.
@@ -75,6 +77,9 @@ export async function POST(request: NextRequest) {
       // Idempotent, so a double-tap is a no-op rather than a unique violation.
       .upsert({ follower_id: userId, following_id: target }, { onConflict: "follower_id,following_id" })
     if (error) throw error
+    // Tell the followed user; the helper swallows its own failures, so the
+    // follow itself never breaks over a notification.
+    await createNotification(createAdminClient(), { userId: target, kind: "follow", actorId: userId })
     return NextResponse.json({ following: true })
   } catch (e: any) {
     console.error("[follows] follow failed:", e?.message || e)

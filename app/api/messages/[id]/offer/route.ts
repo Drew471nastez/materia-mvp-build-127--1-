@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { createNotification } from "@/lib/notifications"
 
 /**
  * Answering an offer.
@@ -65,6 +67,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
+
+  // The person who made the offer is the one waiting on an answer, so the
+  // verdict goes to them. The listing id rides along for the feed's thumbnail.
+  const { data: convo } = await supabase.from("conversations").select("listing_id").eq("id", id).maybeSingle()
+  await createNotification(createAdminClient(), {
+    userId: offer.sender_id,
+    kind: status === "accepted" ? "offer_accepted" : "offer_declined",
+    actorId: user.id,
+    listingId: convo?.listing_id ?? null,
+    conversationId: id,
+  })
 
   return NextResponse.json({ status })
 }
