@@ -306,7 +306,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }, [])
 
   const profileDropdownItems = [
-    { href: "/app/settings", label: t("nav.settings"), icon: Settings },
+    { href: "/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
     { href: "/help", label: t("dashboard.help"), icon: HelpCircle, target: "_blank" as const },
     { href: "/explore", label: t("dashboard.explore"), icon: Compass },
@@ -670,7 +670,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: t("nav.sales"), href: "/app/orders", icon: ShoppingCart },
     { label: t("nav.analytics"), href: "/app/analytics", icon: BarChart3 },
     { label: t("nav.payouts"), href: "/app/payouts", icon: Wallet },
-    { label: t("nav.settings"), href: "/app/settings", icon: Settings },
+    { label: t("nav.settings"), href: "/settings", icon: Settings },
     { label: t("nav.emails"), href: "/app/emails", icon: Mail },
     { label: t("nav.onepage"), href: "/app/onepage", icon: Link2 },
     { label: t("dashboard.payments"), href: "/app/settings/payments", icon: CreditCard },
@@ -687,10 +687,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: t("nav.onepage"), href: "/app/onepage", icon: Link2, category: t("dashboard.catPages") },
     { label: t("nav.emails"), href: "/app/emails", icon: Mail, category: t("dashboard.catPages") },
     { label: t("nav.payouts"), href: "/app/payouts", icon: Wallet, category: t("dashboard.catPages") },
-    { label: t("nav.settings"), href: "/app/settings", icon: Settings, category: t("nav.settings") },
+    { label: t("nav.settings"), href: "/settings", icon: Settings, category: t("nav.settings") },
     { label: t("settings.billing"), href: "/app/settings/billing", icon: CreditCard, category: t("nav.settings") },
     { label: t("dashboard.paymentMethods"), href: "/app/settings/billing", icon: CreditCard, category: t("nav.settings") },
-    { label: t("dashboard.profileSettings"), href: "/app/settings", icon: Settings, category: t("nav.settings") },
+    { label: t("dashboard.profileSettings"), href: "/settings", icon: Settings, category: t("nav.settings") },
     { label: t("nav.sales"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catData") },
     { label: t("dashboard.customers"), href: "/app/orders", icon: ShoppingCart, category: t("dashboard.catData") },
     { label: t("dashboard.customerEmails"), href: "/app/orders", icon: Mail, category: t("dashboard.catData") },
@@ -858,7 +858,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </Link>
 
         <Link
-          href="/app/settings"
+          href="/settings"
           onClick={onItemClick}
           className="flex items-center gap-3 rounded-[8px] px-3 py-1.5 text-[14px] font-medium text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 transition-[background-color,color] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] w-full"
         >
@@ -976,7 +976,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
             </Link>
             <Link
-              href="/app/settings"
+              href="/settings"
               onClick={onItemClick}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
@@ -1166,7 +1166,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 <NotificationBadge count={notificationCount} />
               </button>
               <Link
-                href="/app/settings"
+                href="/settings"
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title={t("nav.settings")}
               >
@@ -1581,7 +1581,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
           // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
           "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
-            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
+            (pathname.startsWith("/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
           )}
         >
           <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">

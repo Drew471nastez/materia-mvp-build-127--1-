@@ -431,12 +431,12 @@ const stepIcons: Record<string, any> = {
 // Substeps for each main step - using translation keys
 const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boolean; href: string }[]> = {
   welcome: [
-    { labelKey: "setup.accountCreated", check: () => true, href: "/app/settings" },
+    { labelKey: "setup.accountCreated", check: () => true, href: "/settings" },
   ],
   branding: [
-    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/app/settings" },
-    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/app/settings" },
-    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/app/settings" },
+    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/settings" },
+    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/settings" },
+    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/settings" },
   ],
   product: [
     { labelKey: "setup.createAProduct", check: (d) => d.hasProducts, href: "/app/products/new" },

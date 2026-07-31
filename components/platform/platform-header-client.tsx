@@ -985,7 +985,12 @@ export function PlatformHeaderClient() {
     navigateToExploreCategory(url)
   }
 
-  const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
+  // "/" is the marketplace, so it gets the category bar. It was excluded here
+  // (and again in the two guards below), which is why storelib.com had no
+  // category strip while storelib.com/explore did — the same page, minus its
+  // navigation.
+  const showCategories =
+    pathname === "/" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
   const isSellerOrProductPage = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/") || pathname.startsWith("/s/")
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
@@ -1186,7 +1191,7 @@ export function PlatformHeaderClient() {
                         <TooltipTrigger asChild>
                           <Link
                             href="/" onClick={(e) => onCanonicalNav(e, "/")}
-                            className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                            className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                             aria-label="Discover"
                           >
                             <Compass className="h-[22px] w-[22px]" />
@@ -1599,7 +1604,7 @@ export function PlatformHeaderClient() {
                     <TooltipTrigger asChild>
                       <Link
                         href={getCanonicalOrRelativePath("/messages")} onClick={(e) => onCanonicalNav(e, "/messages")}
-                        className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                         aria-label={t("messages")}
                       >
                         <MessageCircle className="h-[22px] w-[22px]" />
@@ -1616,7 +1621,7 @@ export function PlatformHeaderClient() {
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className="relative flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
                       <Heart className="h-[22px] w-[22px]" />
@@ -1637,7 +1642,7 @@ export function PlatformHeaderClient() {
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath("/cart")} onClick={(e) => onCanonicalNav(e, "/cart")}
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("bag")}
                     >
                       <ShoppingBag className="h-[22px] w-[22px]" />
@@ -1651,16 +1656,16 @@ export function PlatformHeaderClient() {
                 {/* Sell now — the one filled action in the row, in brand purple.
                     A seller who's finished onboarding gets their dashboard here
                     instead; there's no separate "My Library" icon any more. */}
-                <Button asChild className="h-11 rounded-full px-5 text-[15px] font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.6)] transition-transform active:scale-[0.97]">
-                  <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
-                    {user && hasCompletedSellerOnboarding ? (
-                      t("dashboard")
-                    ) : (
-                      <span className="flex items-center gap-1.5">
-                        <Plus className="h-4 w-4" strokeWidth={3} />
-                        {t("sell_now")}
-                      </span>
-                    )}
+                {/* Always Sell — never "Panou". This is the primary action of a
+                    marketplace header, and sending an onboarded seller to a
+                    dashboard instead is what stopped it ever reaching the
+                    listing form. */}
+                <Button asChild className="h-10 rounded-full px-5 text-[14.5px] font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.6)] transition-transform active:scale-[0.97]">
+                  <Link href={startSellingHref} onClick={(e) => onCanonicalNav(e, startSellingHref)}>
+                    <span className="flex items-center gap-1.5">
+                      <Plus className="h-4 w-4" strokeWidth={3} />
+                      {t("sell_now")}
+                    </span>
                   </Link>
                 </Button>
 
@@ -1668,10 +1673,10 @@ export function PlatformHeaderClient() {
                     when you are signed in — so the row never changes shape. */}
                 {!user && (
                   <div className="flex items-center gap-2">
-                    <Button asChild variant="outline" className="h-11 rounded-full border-white/25 bg-transparent px-5 text-[15px] font-semibold text-white hover:bg-white/10 hover:text-white">
+                    <Button asChild variant="outline" className="h-10 rounded-full border-white/25 bg-transparent px-5 text-[14.5px] font-semibold text-white hover:bg-white/10 hover:text-white">
                       <Link href="/signup">{t("sign_up")}</Link>
                     </Button>
-                    <Button asChild variant="ghost" className="h-11 rounded-full px-4 text-[15px] font-semibold text-white/85 hover:bg-white/10 hover:text-white">
+                    <Button asChild variant="ghost" className="h-10 rounded-full px-4 text-[14.5px] font-semibold text-white/85 hover:bg-white/10 hover:text-white">
                       <Link href="/login">{t("log_in")}</Link>
                     </Button>
                   </div>
@@ -1688,7 +1693,7 @@ export function PlatformHeaderClient() {
                           className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                           aria-label="Open profile menu"
                         >
-                          <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
+                          <Avatar className="h-10 w-10 border border-gray-200 transition-opacity duration-150">
                             <AvatarImage src={avatarUrl} alt={displayName} />
                             <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
@@ -1750,8 +1755,8 @@ export function PlatformHeaderClient() {
                         )}
                         
                         <Link
-                          href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
-                          onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
+                          href={getCanonicalOrRelativePath("/settings")}
+                          onClick={(e) => { onCanonicalNav(e, "/settings"); setDesktopProfileOpen(false) }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Settings className="h-4 w-4 shrink-0" />
@@ -2237,8 +2242,8 @@ export function PlatformHeaderClient() {
             )}
             
             <Link
-              href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
-              onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setMobileProfileOpen(false) }}
+              href={getCanonicalOrRelativePath("/settings")}
+              onClick={(e) => { onCanonicalNav(e, "/settings"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -2267,14 +2272,14 @@ export function PlatformHeaderClient() {
       </div>
 
       {/* Concave transition from black header to white category bar */}
-      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+      {(showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
         <div className="relative z-[35] bg-black h-[20px]">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
       )}
 
       {/* White UI section for search bar and category pills (below the black header) */}
-      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+      {(showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
         <div className={`relative z-[35] w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
@@ -2327,7 +2332,7 @@ export function PlatformHeaderClient() {
             {showCategories && (
               <nav className="hidden md:block">
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-6">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[14.5px] pt-1 pb-4">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"

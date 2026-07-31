@@ -77,5 +77,5 @@ export function ConditionalFooter() {
     setShowFooter(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
 
-  return showFooter && !pathname.startsWith("/products/new") ? <MarketingFooter /> : null
+  return showFooter && !pathname.startsWith("/products/new") && !pathname.startsWith("/settings") ? <MarketingFooter /> : null
 }
