@@ -19,6 +19,7 @@ import {
 } from "./following-people-list"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
 import { signalArrival } from "@/lib/nav-blend"
 import { navHint } from "@/lib/screen-transition"
 import { claimSurface } from "@/lib/surface-bg"
@@ -673,17 +674,34 @@ export function MobileFeed({
   // a render rather than a request. Capped and idle-scheduled: prefetching a
   // hundred dynamic pages to open one would trade this delay for a worse one.
   useEffect(() => {
-    if (reelsActive) return
-    const slugs = products
-      .slice(0, 12)
-      .map((p: any) => p?.slug)
-      .filter(Boolean)
-    if (!slugs.length) return
+    // The SAME href the cards link to, `?origin=` and all.
+    //
+    // This prefetched the bare /products/<slug> while every card pointed at
+    // /products/<slug>?origin=feed. The client router cache is keyed by the full
+    // href, so the two never met: every one of these prefetches was fetched,
+    // stored under a key nothing would ever ask for, and thrown away. The warm
+    // cache that was supposed to make a tap instant did not exist, and the only
+    // prefetching that ever landed was the one on touch, which buys the tenth of
+    // a second between a finger landing and lifting.
+    const origin: ListingOrigin = reelsActive
+      ? "reels"
+      : searchQuery
+        ? "search"
+        : cat !== "all"
+          ? "category"
+          : "feed"
+    // Reels shows one listing at a time, so a handful ahead is plenty; the grid
+    // shows a screenful, and any of them can be the one you tap.
+    const hrefs = products
+      .slice(0, reelsActive ? 6 : 12)
+      .map((p: any) => (p?.slug ? getListingUrl(p.slug, origin) : null))
+      .filter(Boolean) as string[]
+    if (!hrefs.length) return
 
     let cancelled = false
     const run = () => {
       if (cancelled) return
-      for (const slug of slugs) router.prefetch(`/products/${encodeURIComponent(slug)}`)
+      for (const href of hrefs) router.prefetch(href)
     }
     const ric = (window as any).requestIdleCallback
     const handle = ric ? ric(run, { timeout: 2000 }) : window.setTimeout(run, 400)
@@ -692,7 +710,7 @@ export function MobileFeed({
       if (ric && (window as any).cancelIdleCallback) (window as any).cancelIdleCallback(handle)
       else window.clearTimeout(handle)
     }
-  }, [products, reelsActive, router])
+  }, [products, reelsActive, router, searchQuery, cat])
 
   // Tapping the search bar (or the bottom-nav search) opens the full-screen
   // search overlay — the inline field is just a trigger, never typed into.

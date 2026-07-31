@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, triggerHaptic } from "@/lib/native-bridge"
 import { navigateBlended } from "@/lib/nav-blend"
+import { warmListingImage } from "@/lib/warm-image"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -164,6 +165,7 @@ export function SmartLink({
   useClientNav,
   blend,
   press: pressProp,
+  warmImage,
   ...props
 }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
   useClientNav?: boolean
@@ -177,6 +179,12 @@ export function SmartLink({
    * least wanted.
    */
   press?: boolean
+  /**
+   * A photo the destination will show full-bleed. Fetched when the finger lands,
+   * so the page it opens is not still waiting on its own picture. Pointless from
+   * a surface that already shows the photo at that size — see warm-image.
+   */
+  warmImage?: string | null
   /**
    * Opt this link into a blended, client-side route change — and into press
    * feedback. Set it on things that behave like cards: a tap should feel like
@@ -247,6 +255,7 @@ export function SmartLink({
         if (needsHardNav || warmed.current) return
         warmed.current = true
         router.prefetch(resolvedHref)
+        warmListingImage(warmImage)
       }
 
       return (
@@ -313,6 +322,7 @@ export function SmartLink({
       if (warmed.current) return
       warmed.current = true
       router.prefetch(resolvedHref)
+      warmListingImage(warmImage)
     }
     return (
       <a

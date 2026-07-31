@@ -264,7 +264,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           used to be. Clothing photographs tall: a wider frame either crops the
           garment or leaves dead space either side of it. */}
       <div className="press-dim no-touch-callout relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100">
-        <SmartLink href={productUrl} useClientNav={clientNav} blend className="absolute inset-0 block">
+        <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url} className="absolute inset-0 block">
           {product.thumbnail_url ? (
             <Image
               src={product.thumbnail_url}
@@ -341,7 +341,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             </span>
           </SmartLink>
         )}
-        <SmartLink href={productUrl} useClientNav={clientNav} blend className="flex flex-col gap-0.5">
+        <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url} className="flex flex-col gap-0.5">
           <h3 className="line-clamp-1 text-[13px] leading-snug text-foreground">{product.title}</h3>
           <div className="flex items-baseline gap-1.5">
             <span className="text-[17px] font-bold leading-none tracking-[-0.01em] text-foreground">
