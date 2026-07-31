@@ -1,8 +1,8 @@
 "use client"
 
-import { memo, useState, useCallback } from "react"
+import { memo, useState, useCallback, useEffect } from "react"
 import Image from "next/image"
-import { Heart, Send, Plus, Sparkles, BadgeCheck } from "lucide-react"
+import { Heart, Send, Plus, BadgeCheck, ChevronLeft } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -58,19 +58,31 @@ export interface MobileListingProduct {
 export const MobileListingCard = memo(function MobileListingCard({
   product,
   priority = false,
-  reason,
+  active = false,
 }: {
   product: MobileListingProduct
   priority?: boolean
-  /** Small "Picked for you" / "Based on your searches" affordance. */
-  reason?: string
+  /** True for the currently-visible reel (drives the swipe hint timer). */
+  active?: boolean
 }) {
   const { t, formatPrice } = useLocale()
   const isWishlisted = useIsWishlisted(product.id)
   const toggleWishlist = useToggleWishlist()
   const [imgIndex, setImgIndex] = useState(0)
+  const [showHint, setShowHint] = useState(false)
 
   const images = galleryImages(product.thumbnail_url, product.gallery_urls)
+
+  // After ~3s of lingering on the active card (with more than one photo, and
+  // still on the first), show a clean minimalist "swipe" nudge once.
+  useEffect(() => {
+    if (!active || images.length < 2 || imgIndex > 0) {
+      setShowHint(false)
+      return
+    }
+    const timer = setTimeout(() => setShowHint(true), 3000)
+    return () => clearTimeout(timer)
+  }, [active, images.length, imgIndex])
   const creatorName = product.creator?.profile?.display_name || "Storelib"
   const username = product.creator?.profile?.username || ""
   const avatar = product.creator?.profile?.avatar_url || null
@@ -95,11 +107,11 @@ export const MobileListingCard = memo(function MobileListingCard({
 
   return (
     <div className="no-tap-fade relative h-full w-full overflow-hidden bg-neutral-900">
-      {/* Horizontal swipeable gallery */}
+      {/* Horizontal swipeable gallery — momentum + snap for a smooth carousel */}
       <div
         className="flex h-full w-full snap-x snap-mandatory overflow-x-auto scrollbar-hide"
         onScroll={onScrollGallery}
-        style={{ scrollbarWidth: "none" }}
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
       >
         {(images.length ? images : [null]).map((src, i) => (
           <SmartLink
@@ -113,6 +125,7 @@ export const MobileListingCard = memo(function MobileListingCard({
                 alt={product.title}
                 fill
                 sizes="100vw"
+                quality={82}
                 className="object-cover"
                 placeholder="blur"
                 blurDataURL={BLUR}
@@ -130,11 +143,31 @@ export const MobileListingCard = memo(function MobileListingCard({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
 
-      {/* Top-left reason pill */}
-      {reason && (
-        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[12px] font-medium text-white backdrop-blur-md">
-          <Sparkles className="h-3.5 w-3.5" />
-          {reason}
+      {/* Swipe hint — clean, minimalist, appears after lingering, then fades */}
+      {showHint && images.length > 1 && (
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2"
+          onAnimationEnd={() => setShowHint(false)}
+        >
+          <div className="swipe-hint flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-2 text-neutral-900 shadow-lg backdrop-blur">
+            <ChevronLeft className="h-4 w-4" strokeWidth={2.5} />
+            <span className="text-[12px] font-semibold">{t("mfeed.swipe_photos")}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Centered photo dots (a touch more visible) */}
+      {images.length > 1 && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[92px] z-20 flex items-center justify-center gap-1.5">
+          {images.map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "h-1.5 rounded-full shadow-[0_0_3px_rgba(0,0,0,0.4)] transition-all duration-200",
+                i === imgIndex ? "w-5 bg-white" : "w-1.5 bg-white/60",
+              )}
+            />
+          ))}
         </div>
       )}
 
@@ -196,20 +229,6 @@ export const MobileListingCard = memo(function MobileListingCard({
           <span className="text-[13px] font-medium">{username || creatorName}</span>
           <BadgeCheck className="h-3.5 w-3.5 text-sky-300" />
         </div>
-        {reason && (
-          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-white/75">
-            <Sparkles className="h-3.5 w-3.5" /> {reason}
-          </p>
-        )}
-
-        {/* Gallery dots */}
-        {images.length > 1 && (
-          <div className="mt-3 flex items-center gap-1.5">
-            {images.map((_, i) => (
-              <span key={i} className={cn("h-1.5 rounded-full transition-all", i === imgIndex ? "w-4 bg-white" : "w-1.5 bg-white/50")} />
-            ))}
-          </div>
-        )}
       </SmartLink>
     </div>
   )

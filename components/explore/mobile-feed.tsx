@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd } from "lucide-react"
+import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronRight } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { AnimatedSearchPlaceholder } from "./animated-search-placeholder"
 import { MobileBottomNav } from "./mobile-bottom-nav"
@@ -291,21 +291,25 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
                   )
                 })}
               </div>
+              {/* Purple brand search icon */}
               <button
                 type="button"
                 onClick={openSearch}
                 aria-label={t("mfeed.search")}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-sm transition-transform active:scale-90"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm transition-transform active:scale-90"
+                style={{ background: "linear-gradient(150deg, #8b5cf6 0%, #7c3aed 100%)" }}
               >
-                <Search className="h-[20px] w-[20px]" />
+                <Search className="h-[19px] w-[19px]" />
               </button>
+              {/* Breadcrumb-style "back to grid" — a subtle grid glyph + arrow */}
               <button
                 type="button"
                 onClick={() => setView("grid")}
                 aria-label={t("mfeed.view_grid")}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-sm transition-transform active:scale-90"
+                className="ml-0.5 flex h-9 items-center gap-0.5 rounded-full bg-black/30 pl-2.5 pr-2 text-white backdrop-blur-sm transition-transform active:scale-95"
               >
-                <LayoutGrid className="h-[19px] w-[19px]" />
+                <LayoutGrid className="h-[17px] w-[17px]" />
+                <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
             <div

@@ -176,11 +176,7 @@ export function ReelsPager({
         {products.map((p, i) =>
           Math.abs(i - index) > 2 ? null : (
             <div key={p.id} className="absolute inset-x-0" style={{ top: i * h, height: h || undefined }}>
-              <MobileListingCard
-                product={p}
-                priority={Math.abs(i - index) <= 1}
-                reason={i % 4 === 0 ? t("mfeed.picked_for_you") : i % 4 === 2 ? t("mfeed.based_on_searches") : undefined}
-              />
+              <MobileListingCard product={p} priority={Math.abs(i - index) <= 1} active={i === index} />
             </div>
           ),
         )}

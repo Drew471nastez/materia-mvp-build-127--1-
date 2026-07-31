@@ -105,6 +105,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "mfeed.search_people_hint": "Caută membri după nume sau utilizator",
     "mfeed.items_count": "articole",
     "mfeed.searching": "Se caută…",
+    "mfeed.swipe_photos": "Glisează",
     // Product / listing
     "product.free": "Gratis",
     "product.size": "Mărime",
@@ -200,6 +201,7 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
     "mfeed.search_people_hint": "Search members by name or username",
     "mfeed.items_count": "items",
     "mfeed.searching": "Searching…",
+    "mfeed.swipe_photos": "Swipe",
     "product.free": "Free",
     "product.size": "Size",
     "product.condition": "Condition",

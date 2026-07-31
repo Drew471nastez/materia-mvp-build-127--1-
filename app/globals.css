@@ -155,6 +155,17 @@ html.capacitor a.no-tap-fade:active {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Reels swipe hint: a clean, minimalist left-swipe nudge shown after the user
+   lingers on a listing, telling them they can swipe through the photos. */
+@keyframes swipe-hint {
+  0%   { transform: translateX(6px); opacity: 0; }
+  18%  { opacity: 1; }
+  55%  { transform: translateX(-22px); opacity: 1; }
+  82%  { transform: translateX(-22px); opacity: 0.9; }
+  100% { transform: translateX(-30px); opacity: 0; }
+}
+.swipe-hint { animation: swipe-hint 1.5s cubic-bezier(0.4, 0, 0.2, 1) 2; }
+
 /* Plus (sell) button: a smooth, clean quarter-plus turn on tap. easeOut so it
    starts crisp and settles — the page navigation lands mid-turn for an instant feel. */
 @keyframes plus-launch {
