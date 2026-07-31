@@ -161,14 +161,30 @@ function Stars({ value }: { value: number }) {
   )
 }
 
+function Stat({ value, label, lang }: { value: number; label: string; lang: string }) {
+  const compact = value >= 1000
+    ? new Intl.NumberFormat(lang === "ro" ? "ro-RO" : "en-GB", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+    : String(value)
+  return (
+    <span className="flex flex-col">
+      <span className="text-[17px] font-bold leading-tight text-neutral-900 tabular-nums">{compact}</span>
+      <span className="text-[12.5px] text-neutral-500">{label}</span>
+    </span>
+  )
+}
+
 export function MemberProfile({
   member,
   listingsCount,
+  followersCount,
+  followingCount,
   listings,
 }: {
   member: MemberSummary
   /** Exact total from the server — the grid itself is capped, so it may show fewer. */
   listingsCount: number
+  followersCount: number
+  followingCount: number
   listings: MemberListing[]
 }) {
   const { t, language } = useLocale()
@@ -239,6 +255,16 @@ export function MemberProfile({
 
         <FollowButton userId={member.id} variant="quiet" className="mt-1 md:mt-0" />
       </header>
+
+      {/* The social shape of the profile in one glance — the row every
+          marketplace profile teaches people to look for. Counts are compact
+          ("1,2K") past a thousand, because the exact figure stops mattering
+          exactly when it stops fitting. */}
+      <div className="mt-5 flex items-center gap-8 border-b border-neutral-100 pb-5 md:gap-10">
+        <Stat value={listingsCount} label={language === "ro" ? "Articole" : "Listings"} lang={language} />
+        <Stat value={followersCount} label={language === "ro" ? "Urmăritori" : "Followers"} lang={language} />
+        <Stat value={followingCount} label={language === "ro" ? "Urmărește" : "Following"} lang={language} />
+      </div>
 
       <section className="mt-8 md:mt-10">
         {listings.length === 0 ? (

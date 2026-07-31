@@ -3,7 +3,7 @@
 import { memo, useState, useRef, useCallback } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { getStoreUrl } from "@/lib/url-helpers"
+
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
 import { SmartLink } from "@/components/smart-link"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -232,7 +232,9 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   // document load — that is most of why opening a listing now feels instant.
   const productUrl = getListingUrl(product.slug || "", origin)
   // "#" when username is unknown so the creator link is a safe no-op.
-  const storeUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
+  // The marketplace member page, not the creator storefront — a listing's
+  // seller is a person with more listings, and that is what this shows.
+  const storeUrl = creatorUsername ? `/member/${encodeURIComponent(creatorUsername)}` : "#"
 
   const savesCount = product.saves_count ?? 0
 

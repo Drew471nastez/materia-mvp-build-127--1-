@@ -6,7 +6,9 @@ import { Heart, Send, BadgeCheck, ChevronLeft } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
-import { getStoreUrl } from "@/lib/url-helpers"
+// Seller identity on a listing goes to the marketplace member page — the
+// storefront URL is the digital-shop world, and tapping a fashion seller there
+// dropped buyers into the wrong product universe.
 import { getListingUrl } from "@/lib/marketplace/listing-url"
 import { CONDITIONS } from "@/lib/marketplace/categories"
 import { FollowButton } from "@/components/explore/follow-button"
@@ -117,7 +119,7 @@ export const MobileListingCard = memo(function MobileListingCard({
   // page instead of loading a document. `origin` is how the back arrow knows
   // where to return to, and which surfaces actually convert.
   const productUrl = getListingUrl(product.slug || "", "reels")
-  const storeUrl = username ? getStoreUrl(username) : "#"
+  const storeUrl = username ? `/member/${encodeURIComponent(username)}` : "#"
   const cond = conditionLabel(product.condition)
   // A follow points at the person, so it needs the seller's profile id — the
   // creator row is only how their listings hang off them.

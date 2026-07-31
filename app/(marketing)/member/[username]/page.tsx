@@ -178,6 +178,14 @@ export default async function MemberPage({ params }: MemberPageProps) {
   const seen = profile.last_seen_at ? Date.parse(profile.last_seen_at) : NaN
   const online = presenceKnown ? (Number.isFinite(seen) ? Date.now() - seen < ONLINE_WINDOW_MS : false) : null
 
+  // The social shape of the profile — how many follow them, how many they
+  // follow. head:true counts cost the database an index scan and the wire
+  // nothing, and both run alongside each other.
+  const [followersRes, followingRes] = await Promise.all([
+    admin.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
+    admin.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id),
+  ])
+
   return (
     <MemberProfile
       member={{
@@ -189,6 +197,8 @@ export default async function MemberPage({ params }: MemberPageProps) {
         online,
       }}
       listingsCount={listingsCount}
+      followersCount={followersRes.count ?? 0}
+      followingCount={followingRes.count ?? 0}
       listings={listings}
     />
   )

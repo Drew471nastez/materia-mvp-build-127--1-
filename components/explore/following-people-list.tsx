@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useToggleFollow } from "@/components/explore/follow-store"
-import { getStoreUrl } from "@/lib/url-helpers"
+
 import { cn } from "@/lib/utils"
 
 export type FollowedPerson = {
@@ -104,7 +104,7 @@ export function FollowingPeopleList({
             }}
           >
             <SmartLink
-              href={p.username ? getStoreUrl(p.username) : "#"}
+              href={p.username ? `/member/${encodeURIComponent(p.username)}` : "#"}
               className="relative shrink-0"
               aria-label={name}
             >
@@ -130,7 +130,7 @@ export function FollowingPeopleList({
             </SmartLink>
 
             <SmartLink
-              href={p.username ? getStoreUrl(p.username) : "#"}
+              href={p.username ? `/member/${encodeURIComponent(p.username)}` : "#"}
               className="min-w-0 flex-1"
             >
               <p className="truncate text-[15px] font-semibold text-neutral-900">{name}</p>
