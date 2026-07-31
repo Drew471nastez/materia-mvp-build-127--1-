@@ -266,7 +266,13 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               quality={70}
               placeholder="blur"
               blurDataURL={BLUR_DATA_URL}
-              className="object-cover select-none transition-opacity duration-[550ms] ease-[cubic-bezier(0.33,0,0.2,1)] md:group-hover:opacity-0"
+              // Never fades. The second photo is layered ON TOP and fades in over
+              // it, so the primary is always behind whatever is showing. That's
+              // what removes the white flash: a listing with one photo has no
+              // second layer at all, and one whose second photo hasn't decoded
+              // yet simply keeps showing the first instead of blanking to the
+              // empty well underneath.
+              className="object-cover select-none"
               draggable={false}
               priority={priority}
               loading={priority ? undefined : "lazy"}
@@ -276,12 +282,15 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               <span className="text-4xl">👜</span>
             </div>
           )}
-          {/* Second photo, revealed on hover by fading the first one out over it.
-              Both are stacked, so this is two opacity transitions on the
-              compositor — no layout, no swap, and nothing to load at the moment
-              you hover. Pointer devices only: on touch there is no hover state,
-              and preloading a second full image per card would cost the mobile
-              feed for nothing. */}
+          {/* Second photo, fading in on top on hover — the plain crossfade every
+              marketplace uses, because it's the one that reads as the garment
+              turning rather than as an effect.
+              Rendered only when there IS a second photo, so a single-photo
+              listing has no hover behaviour instead of dissolving into nothing.
+              One opacity transition on the compositor: no layout, no repaint,
+              nothing that can't hold 120fps. Pointer devices only — there's no
+              hover on touch, and a second full image per card would cost the
+              mobile feed for nothing. */}
           {hoverImage && (
             <Image
               src={hoverImage}
@@ -290,9 +299,12 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               fill
               sizes={GRID_IMAGE_SIZES}
               quality={70}
-              className="hidden object-cover opacity-0 transition-opacity duration-[550ms] ease-[cubic-bezier(0.33,0,0.2,1)] md:block md:group-hover:opacity-100"
+              // 240ms, not 550. Long crossfades read as the page struggling; at
+              // this length it feels immediate but still lands softly.
+              className="hidden object-cover opacity-0 transition-opacity duration-[240ms] ease-out md:block md:group-hover:opacity-100"
               draggable={false}
               loading="lazy"
+              decoding="async"
             />
           )}
         </SmartLink>
