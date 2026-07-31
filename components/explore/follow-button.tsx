@@ -66,7 +66,11 @@ export function FollowButton({
       aria-pressed={following}
       aria-label={following ? t("mfeed.following_action") : t("mfeed.follow_action")}
       className={cn(
-        "no-tap-fade relative inline-flex h-8 shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full px-3 text-[12.5px] font-semibold",
+        "no-tap-fade relative inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full px-3 text-[12.5px] font-semibold",
+        // The visible pill is small, so the tap target is grown past it with a
+        // transparent pseudo-element rather than by padding the pill out of shape.
+        // Near enough counts as a hit — you shouldn't have to aim at this.
+        "after:absolute after:-inset-x-3 after:-inset-y-2.5 after:content-['']",
         // Slow enough to watch, and every property here is composited or a paint
         // of a tiny element — nothing that can cost a frame in the feed.
         "transition-[background-color,color,box-shadow,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]",

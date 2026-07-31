@@ -267,7 +267,7 @@ export const MobileListingCard = memo(function MobileListingCard({
       </div>
 
       {/* Bottom info overlay */}
-      <SmartLink href={productUrl} className="absolute inset-x-0 bottom-0 block p-4 pr-20 text-white">
+      <SmartLink href={productUrl} className="absolute inset-x-0 bottom-0 block p-4 pb-14 pr-20 text-white">
         <h3 className="text-[19px] font-semibold leading-tight">{product.title}</h3>
         <div className="mt-1.5 flex items-baseline gap-2">
           <span className="text-[22px] font-bold">{product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}</span>
@@ -280,7 +280,15 @@ export const MobileListingCard = memo(function MobileListingCard({
             {[product.size, cond].filter(Boolean).join(" · ")}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-1.5">
+      </SmartLink>
+
+      {/* The seller row sits OUTSIDE the product link. It used to be inside it,
+          which put a <button> inside an <a> — invalid HTML that the browser
+          re-parses, and a tap that reached the link underneath however hard the
+          handler tried to stop it. That's why following sometimes navigated you
+          somewhere else entirely. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1.5 p-4 pr-20 text-white">
+        <SmartLink href={storeUrl} className="pointer-events-auto flex min-w-0 items-center gap-1.5">
           <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-white/25">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -289,9 +297,9 @@ export const MobileListingCard = memo(function MobileListingCard({
           </span>
           <span className="truncate text-[13px] font-medium">{username || creatorName}</span>
           <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-sky-300" />
-          <FollowButton userId={sellerId} onFollowed={onFollowed} className="ml-1.5" />
-        </div>
-      </SmartLink>
+        </SmartLink>
+        <FollowButton userId={sellerId} onFollowed={onFollowed} className="pointer-events-auto ml-1.5" />
+      </div>
     </div>
   )
 })
