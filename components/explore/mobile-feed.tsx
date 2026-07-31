@@ -462,43 +462,42 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
       {/* Subtle divider sits BETWEEN the tabs and the category pills. */}
       <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />
 
-      {/* ---- Category pills — sticky-on-scroll-up: collapses on scroll-down,
-             glides back on scroll-up. ---- */}
-      <div
-        className="shrink-0 overflow-hidden"
-        style={{
-          maxHeight: pillsHidden ? 0 : 62,
-          opacity: pillsHidden ? 0 : 1,
-          transition:
-            "max-height 0.42s cubic-bezier(0.22,1,0.36,1), opacity 0.3s cubic-bezier(0.22,1,0.36,1)",
-        }}
-      >
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setCat(c.id)}
-              className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
-                cat === c.id ? "bg-neutral-900 text-white shadow-sm" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
-              )}
-            >
-              {t(`category.${c.id}`)}
-            </button>
-          ))}
+      {/* ---- Feed area: 2-col grid, with the category bar as a transform
+             overlay (sticky-on-scroll-up) ---- */}
+      <div className="relative flex-1 min-h-0 overflow-hidden">
+        {/* Category pills — hide on scroll-down / reveal on scroll-up via a GPU
+            transform only. No max-height/reflow, so it never lags the scroll. */}
+        <div
+          className="absolute inset-x-0 top-0 z-20 bg-white"
+          style={{
+            transform: pillsHidden ? "translateY(-102%)" : "translateY(0)",
+            transition: "transform 0.42s cubic-bezier(0.22,1,0.36,1)",
+            willChange: "transform",
+          }}
+        >
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCat(c.id)}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all duration-200 active:scale-95",
+                  cat === c.id ? "bg-neutral-900 text-white shadow-sm" : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
+                )}
+              >
+                {t(`category.${c.id}`)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-
-      {/* ---- Feed area: 2-col grid ---- */}
-      <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
           className="absolute inset-0 overflow-y-auto overscroll-contain scrollbar-hide"
           style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
         >
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-3.5"
+            className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-[66px]"
             style={{
               opacity: phase === "refreshing" ? 1 : Math.min(1, pullDistance / 40),
               transform: `scale(${phase === "refreshing" ? 1 : 0.7 + Math.min(1, pullDistance / 70) * 0.3})`,
@@ -520,6 +519,9 @@ export function MobileFeed({ initialProducts, searchQuery = "" }: { initialProdu
                   : "transform 0.62s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
+            {/* Spacer that reserves the category-bar overlay's height so the
+                grid starts below it (the overlay is absolutely positioned). */}
+            <div aria-hidden className="h-[58px] shrink-0" />
             {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
                 listings. The For You grid fades only when the CATEGORY changes. */}
             {tab === "following" ? (
