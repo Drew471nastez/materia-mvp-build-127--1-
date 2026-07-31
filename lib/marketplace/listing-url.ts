@@ -19,6 +19,11 @@ export type ListingOrigin =
   | "wishlist"
   | "following"
   | "category"
+  // A seller's public /member/<username> page. The token cannot carry the
+  // username, so this origin leans on the other half of the back contract:
+  // a warm back navigation pops real history and lands on the exact profile
+  // you left, and only a cold arrival (shared link, new tab) falls to the feed.
+  | "member"
   | "direct"
 
 export function getListingUrl(slug: string, origin: ListingOrigin = "direct"): string {
@@ -37,6 +42,9 @@ export function backHrefFor(origin: string | null | undefined): string {
     case "feed":
     case "category":
     case "search":
+    // "member" cannot name the seller it came from, so the feed is the honest
+    // cold-arrival fallback; the warm path goes back through history instead.
+    case "member":
     default:
       return "/"
   }

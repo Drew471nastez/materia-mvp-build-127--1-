@@ -36,6 +36,9 @@ function isKnownPlatformPath(p: string): boolean {
     p.startsWith("/creators") ||
     p.startsWith("/wishlist") ||
     p.startsWith("/cart") ||
+    p.startsWith("/member/") ||
+    p.startsWith("/purchases") ||
+    p.startsWith("/sales") ||
     p.startsWith("/products/") ||
     p.startsWith("/settings") ||
     p.startsWith("/messages") ||
