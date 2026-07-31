@@ -183,7 +183,11 @@ html.capacitor a.no-tap-fade:active {
    Movement is depth only, matching the grid/reels switch: opening a listing it
    comes toward you and the feed carries on past; going back it reverses. No
    sliding in either direction. */
-::view-transition-group(root) { animation-duration: 380ms; }
+::view-transition-group(root) { animation-duration: 340ms; }
+/* Back is shorter than in. Going somewhere is worth a beat; coming back from
+   somewhere you have already seen is not, and a return that lingers is the main
+   way a transition starts to feel like an obstacle. */
+html[data-blend="back"]::view-transition-group(root) { animation-duration: 260ms; }
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -212,16 +216,16 @@ html.capacitor a.no-tap-fade:active {
 }
 
 html[data-blend="enter"]::view-transition-old(root) {
-  animation: blend-old-away 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: blend-old-away 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 html[data-blend="enter"]::view-transition-new(root) {
-  animation: blend-new-forward 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: blend-new-forward 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 html[data-blend="back"]::view-transition-old(root) {
-  animation: blend-old-behind 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: blend-old-behind 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 html[data-blend="back"]::view-transition-new(root) {
-  animation: blend-new-settle 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: blend-new-settle 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 /* Desktop keeps the cross-fade but drops the zoom — a full-viewport scale on a

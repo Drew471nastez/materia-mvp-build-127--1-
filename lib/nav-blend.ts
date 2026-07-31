@@ -54,15 +54,16 @@ function supported(): boolean {
 }
 
 /**
- * Hold the transition open for at most this long. Past it, the destination is
- * either slower than any animation should wait for or it never signalled, and a
- * frozen screen is far worse than an unblended swap. Routes are warmed on touch
- * (see SmartLink), so in practice arrival beats this comfortably.
+ * How long each direction will wait for its destination.
  *
- * It has to clear the destination's own wait for its hero image — 340ms there
- * plus a render — or this cap would fire first and make that wait pointless.
+ * Opening a listing has a fetch and a hero image in front of it, so it gets room
+ * to clear the page's own 340ms image wait plus a render. Going back has
+ * neither — the feed is sat in the router cache — so it gets barely more than
+ * the couple of frames it needs to remount and restore its scroll offset.
+ * Waiting longer there would only make back feel heavier than it is, and back
+ * should feel like nothing at all.
  */
-const MAX_HOLD = 550
+const HOLD: Record<Blend, number> = { enter: 600, back: 260 }
 
 /**
  * Run `go` as a blended navigation.
@@ -89,6 +90,7 @@ export function navigateBlended(kind: Blend, go: () => void): void {
 
   root.dataset.blend = kind
 
+  let lateArrival = false
   const transition = (document as any).startViewTransition(() => {
     const settled = new Promise<void>((resolve) => {
       arrive = resolve
@@ -96,9 +98,30 @@ export function navigateBlended(kind: Blend, go: () => void): void {
     go()
     return Promise.race([
       settled,
-      new Promise<void>((resolve) => setTimeout(resolve, MAX_HOLD)),
+      new Promise<void>((resolve) =>
+        setTimeout(() => {
+          lateArrival = true
+          resolve()
+        }, HOLD[kind]),
+      ),
     ])
   })
+
+  // If we ran out of patience, throw the animation away rather than play it.
+  //
+  // This matters more than it sounds. When the hold expires the route has NOT
+  // committed, so the new state the browser is about to photograph is still the
+  // old screen — and it would dutifully cross-fade the feed into the feed, which
+  // is a few hundred milliseconds of nothing, and then the real page would land
+  // afterwards with no animation left to give it. Two events where there should
+  // be one: the doubled, glitchy open. Skipping leaves a clean instant swap,
+  // which is the honest result when the destination wasn't ready.
+  transition.updateCallbackDone.then(
+    () => {
+      if (lateArrival) transition.skipTransition()
+    },
+    () => {},
+  )
 
   const clear = () => {
     delete root.dataset.blend

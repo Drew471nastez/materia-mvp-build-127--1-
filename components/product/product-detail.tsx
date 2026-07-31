@@ -49,14 +49,26 @@ function since(iso?: string | null): string | null {
   return `acum ${months} ${months === 1 ? "lună" : "luni"}`
 }
 
-export function ProductDetail({ product, origin }: { product: any; origin?: string | null }) {
+export function ProductDetail({ product }: { product: any }) {
   const { t, formatPrice } = useLocale()
   const router = useRouter()
-  // `origin` arrives as a prop from the server. It used to come from
-  // useSearchParams, which forces Next to wrap this in a Suspense boundary — so
-  // the component mounted, suspended, and mounted AGAIN. The enter animation
-  // therefore played twice, with the page appearing to arrive a second time.
-  // That is the double slide; the fix is to stop suspending, not to retime it.
+  // Where you came from, straight off the URL.
+  //
+  // Not useSearchParams: that hook forces Next to wrap this in a Suspense
+  // boundary, so the component mounted, suspended, and mounted AGAIN — the enter
+  // animation played twice and the page appeared to arrive a second time. And
+  // not a server prop either: reading searchParams on the server opts the whole
+  // route out of caching, which is far more expensive than this one breadcrumb
+  // is worth. Read once, at first client render, from a source that costs
+  // nothing and suspends nothing.
+  const [origin] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      return new URLSearchParams(window.location.search).get("origin")
+    } catch {
+      return null
+    }
+  })
 
   const wishlisted = useIsWishlisted(product.id)
   const toggleWishlist = useToggleWishlist()

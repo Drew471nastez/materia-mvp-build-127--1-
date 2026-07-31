@@ -3,7 +3,21 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ProductDetail } from "@/components/product/product-detail"
 
-export const dynamic = "force-dynamic"
+// NOT force-dynamic, and it deliberately does not read searchParams.
+//
+// Both of those made this page uncacheable, and an uncacheable page cannot be
+// prefetched: router.prefetch on a dynamic route fetches nothing useful, so
+// every tap started two database round trips from cold and the page could not
+// appear for the better part of a second. That was also the doubled animation —
+// the transition's hold expired before the route had committed, so it played
+// against the feed (a fade from the feed to the feed, i.e. nothing), and the
+// product page then arrived afterwards with no animation left to give it.
+//
+// Cached and revalidated instead, so a tap is served from the router cache the
+// prefetch already filled. Five minutes is well inside how fresh a listing needs
+// to be, and price, availability and the buyer's own wishlist state are all read
+// client-side anyway.
+export const revalidate = 300
 
 const COLS =
   "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, category, subcategory, brand, condition, size, colour, era, source_tags, style_tags, created_at, creator_id, status"
@@ -78,22 +92,15 @@ export async function generateMetadata({
 
 export default async function ProductPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ origin?: string }>
 }) {
   const { slug } = await params
   const product = await load(slug)
   if (!product || product.status !== "published") notFound()
-  // Read here rather than with useSearchParams in the client component — that
-  // hook forces a Suspense boundary, which made the page mount twice and play
-  // its enter animation twice.
-  let origin: string | null = null
-  try {
-    origin = (await searchParams)?.origin ?? null
-  } catch {
-    /* no params */
-  }
-  return <ProductDetail product={product} origin={origin} />
+  // `origin` is read on the client, from window.location — see ProductDetail.
+  // Reading it here would opt the whole page back into dynamic rendering for the
+  // sake of one analytics breadcrumb, and reading it with useSearchParams would
+  // force a Suspense boundary, which is what used to mount the page twice.
+  return <ProductDetail product={product} />
 }
