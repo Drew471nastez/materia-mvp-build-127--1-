@@ -10,6 +10,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
 import { navigateBlended, signalArrival } from "@/lib/nav-blend"
+import { enableEdgeBack } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
@@ -86,6 +87,14 @@ export function ProductDetail({ product }: { product: any }) {
   // scroll position you left it, with the reel you were on still current.
   // `origin` is the fallback for a cold arrival (a shared link, a new tab),
   // where there is no history to return to.
+  // The navigation on its own, with nothing animating. The arrow wraps this in a
+  // pop transition; the edge drag has already done the animation by hand and
+  // only needs the move.
+  const goBack = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back()
+    else router.push(backHrefFor(origin))
+  }, [router, origin])
+
   const onBack = useCallback(() => {
     // history.back() so the feed comes back exactly as it was — same scroll
     // offset, same reel — rather than being re-entered from the top. `origin` is
@@ -100,11 +109,8 @@ export function ProductDetail({ product }: { product: any }) {
     // same acknowledgement. No gesture check needed: this is a button, and a
     // button is not something you scroll.
     void triggerHaptic("light")
-    navigateBlended("back", () => {
-      if (typeof window !== "undefined" && window.history.length > 1) router.back()
-      else router.push(backHrefFor(origin))
-    })
-  }, [router, origin])
+    navigateBlended("back", goBack)
+  }, [goBack])
 
   // Does this page have to animate itself in?
   //
@@ -124,6 +130,22 @@ export function ProductDetail({ product }: { product: any }) {
   useLayoutEffect(() => {
     if (!document.documentElement.dataset.blend) setSelfAnimate(true)
   }, [])
+
+  // Drag in from the left edge to go back, the way a native screen stack does.
+  //
+  // Bound to the same handler the arrow uses, so a dragged back and a tapped
+  // back land in exactly the same place. The gesture only arms itself when there
+  // is a picture of the previous screen to reveal — arriving here from a shared
+  // link there is nothing behind this page, and a drag that uncovers a blank
+  // screen is worse than no drag at all.
+  useEffect(
+    () =>
+      enableEdgeBack(() => {
+        void triggerHaptic("light")
+        goBack()
+      }),
+    [goBack],
+  )
 
   // Tell an in-flight blend that this page is genuinely on screen.
   //
