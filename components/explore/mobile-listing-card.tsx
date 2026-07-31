@@ -59,11 +59,15 @@ export const MobileListingCard = memo(function MobileListingCard({
   product,
   priority = false,
   active = false,
+  near = true,
 }: {
   product: MobileListingProduct
   priority?: boolean
   /** True for the currently-visible reel (drives the swipe hint timer). */
   active?: boolean
+  /** Current/adjacent card — only these render the heavy overlay chrome; far
+   *  windowed cards render just the photo so mounting them stays cheap. */
+  near?: boolean
 }) {
   const { t, formatPrice } = useLocale()
   const isWishlisted = useIsWishlisted(product.id)
@@ -93,15 +97,17 @@ export const MobileListingCard = memo(function MobileListingCard({
 
   // Smooth, staggered reveal when a reel settles into place — the gradient,
   // caption and action rail ease + slide in instead of snapping after the image.
+  // NOTE: no `will-change` here — permanent will-change on ~6 elements per card ×
+  // several windowed cards floods the compositor with layers and drops frames
+  // during the swipe. The transitions still run on the GPU without it.
   const reveal = (delay: number) => ({
     opacity: active ? 1 : 0,
     transform: active ? "translateY(0)" : "translateY(16px)",
-    transition: `opacity 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}s, transform 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}s`,
-    willChange: "opacity, transform",
+    transition: `opacity 0.5s cubic-bezier(0.22,1,0.36,1) ${delay}s, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${delay}s`,
   })
   const gradientReveal = {
     opacity: active ? 1 : 0,
-    transition: "opacity 0.6s cubic-bezier(0.22,1,0.36,1)",
+    transition: "opacity 0.55s cubic-bezier(0.22,1,0.36,1)",
   }
 
   const onLike = useCallback(
@@ -155,6 +161,10 @@ export const MobileListingCard = memo(function MobileListingCard({
         ))}
       </div>
 
+      {/* Only the current/adjacent cards render the overlay chrome — far windowed
+          cards stay just a photo, so mounting them mid-swipe stays cheap. */}
+      {near && (
+        <>
       {/* Legibility gradients */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent" />
       <div
@@ -252,6 +262,8 @@ export const MobileListingCard = memo(function MobileListingCard({
           <BadgeCheck className="h-3.5 w-3.5 text-sky-300" />
         </div>
       </SmartLink>
+        </>
+      )}
     </div>
   )
 })
