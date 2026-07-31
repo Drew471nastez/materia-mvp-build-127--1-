@@ -190,6 +190,8 @@ export function MobileFeed({
   const [fadeFrom, setFadeFrom] = useState<Screen | null>(null)
   const [fadedIn, setFadedIn] = useState(false)
   const prevScreen = useRef(screen)
+  /** A screen swap is in flight — everything else holds still until it isn't. */
+  const transitioning = fadeFrom !== null
 
   useLayoutEffect(() => {
     if (prevScreen.current === screen) return
@@ -203,16 +205,63 @@ export function MobileFeed({
   useEffect(() => {
     if (fadeFrom === null || fadedIn) return
     if (screen === "reels" && reelsHeight <= 0) return
-    // TWO frames, not one. With one, the opacity:0 starting style and the
-    // opacity:1 target could land in the same commit — the browser then sees no
-    // change to animate and jumps straight there. That's why the switch was
-    // sometimes smooth and sometimes an instant cut. Waiting a second frame
-    // guarantees the starting style has been committed and painted first.
+
+    let cancelled = false
+    let first = 0
     let second = 0
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => setFadedIn(true))
-    })
+    const begin = () => {
+      if (cancelled) return
+      // TWO frames, not one. With one, the opacity:0 starting style and the
+      // opacity:1 target could land in the same commit — the browser then sees no
+      // change to animate and jumps straight there. That's why the switch was
+      // sometimes smooth and sometimes an instant cut. Waiting a second frame
+      // guarantees the starting style has been committed and painted first.
+      first = requestAnimationFrame(() => {
+        second = requestAnimationFrame(() => {
+          if (!cancelled) setFadedIn(true)
+        })
+      })
+    }
+
+    // Going to reels, wait for the first photo to have actually arrived.
+    //
+    // This is the other half of the "double" — and it was never an animation at
+    // all. A reel is full-bleed, so it needs a much larger source than the grid
+    // thumbnail of the same listing; the browser has to fetch and decode a new
+    // file. Blend on mount and you dissolve to a black screen, and the photo
+    // lands a moment later on its own. Two events, and the eye reads the second
+    // as the transition happening again.
+    //
+    // The first slot is `priority`, so the request is already in flight by the
+    // time this runs — we are only declining to start until it lands. Capped,
+    // because on a bad connection a frozen screen is the worse failure.
+    if (screen === "reels") {
+      const img = stageRef.current?.querySelector<HTMLImageElement>(".reel-photo img")
+      if (img && !img.complete) {
+        let timer = 0
+        const go = () => {
+          window.clearTimeout(timer)
+          img.removeEventListener("load", go)
+          img.removeEventListener("error", go)
+          begin()
+        }
+        img.addEventListener("load", go, { once: true })
+        img.addEventListener("error", go, { once: true })
+        timer = window.setTimeout(go, 400)
+        return () => {
+          cancelled = true
+          window.clearTimeout(timer)
+          img.removeEventListener("load", go)
+          img.removeEventListener("error", go)
+          cancelAnimationFrame(first)
+          if (second) cancelAnimationFrame(second)
+        }
+      }
+    }
+
+    begin()
     return () => {
+      cancelled = true
       cancelAnimationFrame(first)
       if (second) cancelAnimationFrame(second)
     }
@@ -245,22 +294,27 @@ export function MobileFeed({
       //
       // transform + opacity only — both composited, so nothing here can drop a
       // frame regardless of what the main thread is doing behind it.
+      // The travel is deliberately small. A tenth of a scale is a gesture you
+      // notice; a twentieth is one you only feel, and feeling it is the point —
+      // this runs every time you change view, so anything with a flourish in it
+      // becomes tiresome by the third use and starts to read as the interface
+      // lurching rather than responding.
       const forward = screen === "reels"
       if (which === fadeFrom) {
         return {
           pointerEvents: "none", // inert, so it can't take a tap on its way out
           zIndex: 0,
           opacity: fadedIn ? 0 : 1,
-          transform: fadedIn ? `scale(${forward ? 1.12 : 0.93})` : "scale(1)",
-          // Fades a little ahead of the movement, so the screen is already gone
-          // by the time it stops travelling and you never see it park.
-          transition: `opacity ${Math.round(XFADE_MS * 0.55)}ms cubic-bezier(0.4, 0, 0.6, 1), transform ${XFADE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+          transform: fadedIn ? `scale(${forward ? 1.05 : 0.965})` : "scale(1)",
+          // Holds full opacity for most of the run and clears late, so the
+          // screen underneath is never showing through a half-transparent one.
+          transition: `opacity ${Math.round(XFADE_MS * 0.5)}ms cubic-bezier(0.4, 0, 0.6, 1) ${Math.round(XFADE_MS * 0.35)}ms, transform ${XFADE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
           willChange: "transform, opacity",
         }
       }
       return {
         opacity: fadedIn ? 1 : 0,
-        transform: fadedIn ? "scale(1)" : `scale(${forward ? 0.9 : 1.1})`,
+        transform: fadedIn ? "scale(1)" : `scale(${forward ? 0.965 : 1.045})`,
         // Opaque well before it stops moving, so most of what you watch is a
         // solid screen settling rather than a translucent one.
         transition: `opacity ${Math.round(XFADE_MS * 0.42)}ms cubic-bezier(0.4, 0, 0.4, 1), transform ${XFADE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
@@ -656,6 +710,7 @@ export function MobileFeed({
       <div
         ref={stageRef}
         className="relative flex min-h-0 flex-1 flex-col"
+        data-xfade={transitioning ? "1" : undefined}
         style={{ backgroundColor: screen === "reels" ? "#000" : "#fff" }}
       >
 
@@ -884,8 +939,15 @@ export function MobileFeed({
           style={{
             transform: pillsHidden ? "translateY(-102%)" : "translateY(0)",
             opacity: pillsHidden ? 0 : 1,
-            transition:
-              "transform 0.5s cubic-bezier(0.16,1,0.3,1), opacity 0.34s cubic-bezier(0.16,1,0.3,1)",
+            // Silent while the screens are swapping. Changing view resets this
+            // bar to visible, and its half-second slide was then running INSIDE
+            // a screen that was itself moving — a second, unrelated animation
+            // layered over the first, which is most of what read as the switch
+            // glitching twice. It still ends up in the right place; it just
+            // gets there without narrating it over the top of the transition.
+            transition: transitioning
+              ? "none"
+              : "transform 0.5s cubic-bezier(0.16,1,0.3,1), opacity 0.34s cubic-bezier(0.16,1,0.3,1)",
             willChange: "transform, opacity",
           }}
         >

@@ -180,7 +180,7 @@ export const MobileListingCard = memo(function MobileListingCard({
                 alt={product.title}
                 fill
                 sizes="100vw"
-                quality={88}
+                quality={68}
                 // Full-bleed, edge to edge. Contained-with-a-blurred-backdrop was
                 // the wrong call — a reel is meant to BE the photo, not a photo
                 // sitting inside a frame.

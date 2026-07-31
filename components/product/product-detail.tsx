@@ -173,7 +173,7 @@ export function ProductDetail({ product, origin }: { product: any; origin?: stri
                     alt={product.title}
                     fill
                     sizes="(min-width: 768px) 50vw, 100vw"
-                    quality={88}
+                    quality={68}
                     className="object-cover"
                     placeholder="blur"
                     blurDataURL={BLUR}

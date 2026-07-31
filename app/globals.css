@@ -298,6 +298,15 @@ html[data-blend="back"]::view-transition-new(root) {
     animation-range: entry 0% entry 100%;
   }
 }
+/* Never while the two screens are swapping. The reels layer is itself being
+   scaled by the switch, and a photo zooming inside a screen that is zooming is
+   two nested animations at different rates — which is exactly what a glitch
+   looks like. The settle belongs to scrolling; it has nothing to say here.
+   !important because the fallback path writes this transform inline per frame. */
+[data-xfade="1"] .reel-photo {
+  animation: none !important;
+  transform: none !important;
+}
 .ios-spin { animation: ios-spin 1s steps(12) infinite; }
 
 /* Satisfying wishlist "pop": a slow, observable overshoot that settles gently,

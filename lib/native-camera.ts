@@ -79,7 +79,12 @@ async function pickPhotoNative(
         : CameraSource.Photos
 
     const photo = await Camera.getPhoto({
-      quality: 90,
+      // The master a seller uploads, which every served size is derived from.
+      // 1920 is the widest we ever serve, so there is nothing above it to keep
+      // headroom for, and 85 vs 90 on a JPEG at that size is invisible once it
+      // has been through the optimizer — but it is a noticeably shorter upload
+      // on a phone connection, which is where these are taken.
+      quality: 85,
       allowEditing: false,
       resultType: CameraResultType.Base64,
       source: capSource,

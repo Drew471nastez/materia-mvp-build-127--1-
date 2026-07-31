@@ -34,8 +34,33 @@ const nextConfig = {
         hostname: 'i.pinimg.com',
       },
     ],
+    // AVIF first, WebP behind it. AVIF is roughly 30% smaller than WebP at
+    // matched quality on photographs, and every browser that misses it falls
+    // through to WebP rather than to the original JPEG.
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 31536000,
+
+    // The size ladder every srcset is built from. Two changes from the default,
+    // both about not sending pixels nobody can see:
+    //
+    // 2048 and 3840 are gone. Nothing here is ever laid out that wide — the
+    // widest thing on the site is a phone photo at full bleed — so those rungs
+    // only ever existed to be picked by a high-DPI device and then thrown away.
+    //
+    // And the top of the ladder is now finely spaced instead of jumping 1200 ->
+    // 1920. That gap was the real cost: a 430pt phone at 3x needs about 1290px,
+    // finds nothing between, and takes 1920 — 2.2x the pixels it asked for. With
+    // rungs at 1280 and 1440 the same device lands within a whisker of what it
+    // needs. Same picture, roughly half the bytes.
+    deviceSizes: [384, 640, 750, 828, 1080, 1200, 1280, 1440, 1600, 1920],
+    // Finer small end, for avatars, thumbnails and the draggable photo tiles in
+    // the listing form — none of which should be pulling a 640px file.
+    imageSizes: [24, 32, 48, 64, 96, 128, 192, 256, 384],
+
+    // Quality levels the optimizer will honour. Anything not listed here is
+    // rejected, so this doubles as the list of what we've actually decided on:
+    // 68 for photography, 75 where an image carries fine detail or text.
+    qualities: [60, 65, 68, 70, 75],
   },
   experimental: {
     serverActions: {
