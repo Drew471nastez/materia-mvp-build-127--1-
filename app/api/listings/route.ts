@@ -105,8 +105,26 @@ export async function POST(request: NextRequest) {
       draft_saved_at: draft ? new Date().toISOString() : null,
     }
 
-    const { data: created, error } = await admin.from("products").insert(row).select("id, slug").single()
-    if (error) throw error
+    // The resale attribute columns only exist after
+    // 20260801_listing_attributes.sql. Without that migration this insert fails
+    // outright on an unknown column, and every publish came back "could not be
+    // published" — a schema error surfacing as a validation-shaped message. Retry
+    // with just the columns that have always existed, so a listing can still be
+    // created; the extra attributes fill in once the migration is applied.
+    const OPTIONAL = ["subcategory", "colour", "era", "source_tags", "style_tags", "draft_saved_at"]
+
+    let created: any = null
+    const first = await admin.from("products").insert(row).select("id, slug").single()
+    if (first.error) {
+      console.error("[listings] full insert failed, retrying without new columns:", first.error.message)
+      const base: Record<string, any> = { ...row }
+      for (const k of OPTIONAL) delete base[k]
+      const retry = await admin.from("products").insert(base).select("id, slug").single()
+      if (retry.error) throw retry.error
+      created = retry.data
+    } else {
+      created = first.data
+    }
 
     return NextResponse.json({ id: created.id, slug: created.slug, draft })
   } catch (e: any) {

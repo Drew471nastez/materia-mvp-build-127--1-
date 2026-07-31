@@ -291,7 +291,15 @@ export function NewListingForm() {
             router.push("/login?redirect=/products/new")
             return
           }
-          setError("Nu am putut publica anunțul. Încearcă din nou.")
+          // Show what the server actually said. "Try again" told you nothing
+          // and repeating the same request would have failed the same way.
+          setError(
+            data?.fields?.length
+              ? `Mai lipsește: ${data.fields.join(", ")}.`
+              : data?.message
+                ? `Nu am putut publica anunțul: ${data.message}`
+                : "Nu am putut publica anunțul. Încearcă din nou.",
+          )
           setSaving(null)
           return
         }

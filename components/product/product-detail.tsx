@@ -162,18 +162,7 @@ export function ProductDetail({ product, origin }: { product: any; origin?: stri
   const summary = [product.size?.toUpperCase(), cond].filter(Boolean).join(" · ")
 
   return (
-    <div
-      className="listing-enter min-h-screen bg-white pb-28 md:pb-0"
-      style={
-        leaving
-          ? {
-              transform: "translateX(100%)",
-              transition: `transform ${LEAVE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
-              animation: "none", // the enter animation would pin the transform
-            }
-          : undefined
-      }
-    >
+    <div className={cn("min-h-screen bg-white pb-28 md:pb-0", leaving ? "listing-leave" : "listing-enter")}>
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">

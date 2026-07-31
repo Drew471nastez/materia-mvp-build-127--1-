@@ -138,9 +138,22 @@ html.capacitor a.no-tap-fade:active {
    edge. On a desktop the page is a window among windows, and a full-viewport
    slide reads as a website doing tricks. There it just appears, with a short
    fade so it isn't an abrupt swap. */
+@keyframes listing-leave {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
 @media (max-width: 767px) {
   .listing-enter {
     animation: listing-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    will-change: transform;
+  }
+  /* The exit is an ANIMATION too, not an inline transform with the enter
+     animation switched off. Turning `animation` off releases the fill that was
+     holding the element in place, so it snapped back to its base position for a
+     frame before the transition took over — that's the blink on the way back.
+     Two animations swapped by class never expose that gap. */
+  .listing-leave {
+    animation: listing-leave 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
     will-change: transform;
   }
 }
