@@ -299,7 +299,7 @@ export function NewListingForm() {
         // Let the confirmation be seen before moving — it's the only signal that
         // the listing is live.
         setTimeout(() => {
-          if (draft) router.push("/")
+          if (draft) router.push("/products/drafts")
           else if (postAnother) window.location.assign("/products/new")
           else router.push("/")
         }, 1100)
@@ -312,7 +312,7 @@ export function NewListingForm() {
   )
 
   return (
-    <div className="min-h-screen bg-[#f6f6f7] pb-40">
+    <div className="min-h-screen bg-[#f6f6f7] pb-[calc(env(safe-area-inset-bottom,0px)+210px)] md:pb-40">
       <div className="mx-auto w-full max-w-2xl px-4 pt-5 sm:pt-9">
       <header className="mb-5">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
@@ -481,7 +481,15 @@ export function NewListingForm() {
       )}
 
       {/* ---- Actions ---- */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md">
+      {/* Sits ABOVE the tab bar, not under it. The global bottom navigation is
+          fixed at z-80, and this bar was z-40 pinned to bottom-0 — so on a phone
+          the tab bar was drawn straight over the Publish button. The checkbox
+          above it stayed visible, which is why the form looked like it simply
+          had no way to submit. Offset by the tab bar's height, and stacked over
+          it. On desktop there is no tab bar, so it just sits at the bottom. */}
+      <div
+        className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+62px)] z-[90] border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:bottom-0"
+      >
        <div className="mx-auto w-full max-w-2xl space-y-2.5">
         <label className="flex items-center gap-2.5 text-[13.5px] text-neutral-600">
           <input

@@ -1,3 +1,12 @@
+// Moved off /products/<slug>.
+//
+// That path is the MARKETPLACE product page now (see
+// app/(marketing)/products/[slug]) — the address a listing is shared and linked
+// under. This renderer is the website-builder's product page, a different thing
+// entirely: it draws a seller's builder-authored sections rather than a listing.
+// Nothing in the app links here, so moving it breaks no navigation; it keeps
+// resolving for any builder storefront that still needs it.
+
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
