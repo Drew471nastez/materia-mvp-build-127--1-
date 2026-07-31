@@ -3,7 +3,8 @@
 import { memo, useState, useRef, useCallback } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
+import { getStoreUrl } from "@/lib/url-helpers"
+import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
 import { SmartLink } from "@/components/smart-link"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { useLocale } from "@/components/locale-provider"
@@ -139,6 +140,9 @@ function WishlistHeartButton({ productId, savesCount = 0 }: { productId: string;
 }
 
 interface ProductCardProps {
+  /** Which surface this card is on — recorded in the URL so the back arrow can
+   *  return you there, and so we can see which surfaces convert. */
+  origin?: ListingOrigin
   product: {
     id: string
     title: string
@@ -187,7 +191,7 @@ interface ProductCardProps {
   showSeller?: boolean
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false, showSeller = true }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false, showSeller = true, origin = "feed" }: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const touchStartY = useRef(0)
@@ -224,8 +228,9 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   // Only use the profile username — it's what /u/[username] routes look up.
   // creator.slug may differ from profile.username or be a UUID → broken URL.
   const creatorUsername = product.creator?.profile?.username || ""
-  const baseProductUrl = getProductUrl(creatorUsername, product.slug || "")
-  const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
+  // Relative /products/<slug>, so the tap is a client navigation rather than a
+  // document load — that is most of why opening a listing now feels instant.
+  const productUrl = getListingUrl(product.slug || "", origin)
   // "#" when username is unknown so the creator link is a safe no-op.
   const storeUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
 

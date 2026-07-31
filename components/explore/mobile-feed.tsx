@@ -498,7 +498,7 @@ export function MobileFeed({
                 : undefined
             }
           >
-            <ProductCard product={p} clientNav priority={i < 4} />
+            <ProductCard product={p} clientNav priority={i < 4} origin={searchQuery ? "search" : cat !== "all" ? "category" : "feed"} />
           </div>
         ))}
       </div>
