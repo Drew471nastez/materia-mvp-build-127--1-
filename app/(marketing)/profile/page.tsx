@@ -142,8 +142,11 @@ export default async function ProfilePage() {
   // header or throwing.
   const emailHandle = user.email?.split("@")[0] || null
 
+  // Arrives under its own animation, the way a listing page does — see
+  // `.tab-enter`: opaque, scaling down to 1, so nothing behind can show.
   return (
-    <MemberProfile
+    <div className="tab-enter">
+      <MemberProfile
       isOwner
       member={{
         id: user.id,
@@ -159,7 +162,8 @@ export default async function ProfilePage() {
       followersCount={followersRes.count ?? 0}
       followingCount={followingRes.count ?? 0}
       listings={listings}
-    />
+      />
+    </div>
   )
 }
 

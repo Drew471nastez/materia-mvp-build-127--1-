@@ -348,11 +348,62 @@ html.capacitor a.no-tap-fade:active {
 
 /* Plus (sell) button: a smooth, clean quarter-plus turn on tap. easeOut so it
    starts crisp and settles — the page navigation lands mid-turn for an instant feel. */
+/* The plus turning into a cross as the sell page opens.
+   
+   Longer than it was, and eased so that it MOVES for most of its length rather
+   than snapping and then sitting there: a quarter-second rotation reads as a
+   flick, and the page it introduces takes longer than that to arrive, so the
+   icon finished early and the wait afterwards felt like a stall. Now it turns
+   across the whole of the opening, with a touch of overshoot at the end so it
+   settles rather than stopping dead. Transform only — one small composited
+   element, so its frame rate is independent of everything the route is doing. */
 @keyframes plus-launch {
   0%   { transform: rotate(0deg) scale(1); }
+  70%  { transform: rotate(142deg) scale(1.12); }
   100% { transform: rotate(135deg) scale(1.08); }
 }
-.plus-launch { animation: plus-launch 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.plus-launch {
+  animation: plus-launch 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform;
+}
+
+/* ---------------------------------------------------------------------------
+   Arriving at a tab
+   ---------------------------------------------------------------------------
+   The same idea as `.listing-enter`, for the pages the bottom bar opens. Opaque
+   from the first frame and scaling DOWN to 1, so its edges always cover the
+   frame and nothing behind it can ever show through — the constraint that
+   governs every transition in this app, because Next unmounts the outgoing page
+   the instant it navigates and there is nothing back there to reveal.
+   
+   Short, because a tab is somewhere you go often and repetition is what makes
+   an animation tiresome. Transform only, on one element. */
+@keyframes tab-enter {
+  from { transform: scale(1.045); }
+  to   { transform: scale(1); }
+}
+@media (max-width: 767px) {
+  .tab-enter {
+    animation: tab-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform;
+  }
+}
+@media (min-width: 768px) {
+  .tab-enter { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-enter { animation: none; }
+}
+
+/* Momentum and a hard stop at the ends, on the surfaces that scroll their own
+   content. Without `overscroll-behavior` a short page rubber-bands against the
+   document behind it, which is the "scrolling in empty space" that reads as
+   broken; without `-webkit-overflow-scrolling` a WKWebView scroller has no
+   inertia at all, which is what "too direct" describes. */
+.native-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
 
 .dark {
   --background: oklch(0.1 0 0);

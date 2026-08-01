@@ -99,7 +99,11 @@ export function MobileBottomNav({
     <span
       className={cn(
         "flex flex-col items-center gap-1 text-[10px] font-medium",
-        "transition-transform duration-150 ease-out active:scale-[0.88]",
+        // group-active, not active. `:active` applies to the element being
+        // pressed and its ANCESTORS, never its descendants — so a dip declared
+        // on this span simply never fired, because what you actually press is
+        // the tab around it.
+        "transition-transform duration-150 ease-out group-active:scale-[0.86]",
         isActive ? "text-neutral-900" : "text-neutral-400",
       )}
     >
@@ -107,6 +111,17 @@ export function MobileBottomNav({
       {t(key)}
     </span>
   )
+
+  /**
+   * A whole fifth of the bar, not just the glyph inside it.
+   *
+   * Each tab was an inline element hugging its own icon and label, so the
+   * target was roughly 24px wide with dead space either side of it — press a
+   * centimetre off and nothing happened at all. Stretching every tab to fill
+   * its column means the miss is impossible: anywhere in that band is the tab.
+   * The visual is unchanged; only the region that answers you grew.
+   */
+  const TAB = "group flex min-h-[54px] flex-1 flex-col items-center justify-center"
 
   // Tapping a tab is a deliberate act with a result, so it gets the same
   // acknowledgement opening a listing does. A nav item is not a scroll surface,
@@ -118,10 +133,20 @@ export function MobileBottomNav({
       className="z-40 shrink-0 border-t border-neutral-200 bg-white/95 backdrop-blur-md"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="mx-auto flex max-w-lg items-center justify-around px-2 pt-2 pb-1.5">
-        <Link href="/" prefetch onClick={tap} aria-label={t("mfeed.home")}>{item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}</Link>
+      <div className="mx-auto flex max-w-lg items-stretch px-1 pt-1 pb-1">
+        <Link href="/" prefetch onClick={tap} aria-label={t("mfeed.home")} className={TAB}>
+          {item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}
+        </Link>
 
-        <button type="button" onClick={onSearch} aria-label={t("mfeed.search")}>
+        <button
+          type="button"
+          onClick={() => {
+            tap()
+            onSearch?.()
+          }}
+          aria-label={t("mfeed.search")}
+          className={TAB}
+        >
           {item("mfeed.search", <Search className="h-6 w-6" />, active === "search")}
         </button>
 
@@ -129,12 +154,12 @@ export function MobileBottomNav({
           type="button"
           onClick={onSell}
           aria-label={t("mfeed.sell")}
-          className="flex flex-col items-center gap-1"
+          className="group flex min-h-[54px] flex-1 flex-col items-center justify-center"
         >
           <span
             className={cn(
               "flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform duration-200",
-              !launching && "active:scale-95",
+              !launching && "group-active:scale-95",
             )}
             style={{
               background: "linear-gradient(150deg, #8b5cf6 0%, #7c3aed 100%)",
@@ -145,7 +170,7 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/messages" prefetch onClick={tap} aria-label={t("mfeed.inbox")} className="relative">
+        <Link href="/messages" prefetch onClick={tap} aria-label={t("mfeed.inbox")} className={cn(TAB, "relative")}>
           {item(
             "mfeed.inbox",
             <span className="relative">
@@ -164,7 +189,9 @@ export function MobileBottomNav({
             /settings, which redirected anyone without a creators row into
             onboarding — so for every buyer the Profile tab simply did not
             work. Settings is still one tap away, behind the gear up there. */}
-        <Link href="/profile" prefetch onClick={tap} aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, profileActive)}</Link>
+        <Link href="/profile" prefetch onClick={tap} aria-label={t("mfeed.profile")} className={TAB}>
+          {item("mfeed.profile", <User className="h-6 w-6" />, profileActive)}
+        </Link>
       </div>
     </nav>
   )
