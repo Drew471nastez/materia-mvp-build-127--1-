@@ -80,7 +80,12 @@ export function GlobalMobileTopBar() {
 
   return (
     <>
-      <div className="md:hidden sticky top-0 z-[60] border-b border-neutral-100 bg-white">
+      {/* .native-only-topbar: this strip is the app's substitute for a header —
+          it exists because the shell has no browser chrome and no site header to
+          carry search or categories. A mobile BROWSER has MobileWebHeader
+          instead, and both at once is search twice and two rows of navigation,
+          so CSS drops this one there. See app/globals.css. */}
+      <div className="native-only-topbar md:hidden sticky top-0 z-[60] border-b border-neutral-100 bg-white">
         <div
           className="px-4 pb-3"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}

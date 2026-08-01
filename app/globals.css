@@ -2254,3 +2254,42 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   animation-duration: 220ms !important;
   animation-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
 }
+/* ── Native app chrome vs mobile web chrome ──────────────────────────────────
+   Inside the shell the site has no header: the app carries a status bar, the
+   search + category strip, and the tab bar, and a site header stacked on top of
+   those is a second, redundant chrome. On a phone BROWSER none of that is true —
+   there is no tab bar and no way around a page except what the page itself
+   provides — so there the header is the navigation and the app's strip is the
+   redundant one.
+
+   The split is made here rather than in render because isNativeApp() can only be
+   answered from `window`, i.e. after hydration, so branching on it in a component
+   guarantees one painted frame of the wrong chrome plus a server/client
+   mismatch. The `capacitor` class is on <html> before the first pixel (the boot
+   script in app/layout.tsx), which makes CSS the only place this can be decided
+   correctly on frame one. Both chromes are always rendered; only one is ever
+   visible.                                                                     */
+html.capacitor .web-only-header {
+  display: none !important;
+}
+html:not(.capacitor) .native-only-topbar {
+  display: none !important;
+}
+
+/* The platform header renders several siblings (header, concave transition,
+   white search/category band) rather than one root, so ConditionalHeader wraps
+   them in .platform-header-shell to give them a single switch. display:contents
+   keeps the wrapper out of the layout everywhere else, so the marketing flex
+   column is laid out exactly as it was before the wrapper existed. */
+.platform-header-shell {
+  display: contents;
+}
+
+/* Below md on a browser, MobileWebHeader is the header — the platform header's
+   own mobile layout would be a second one directly above it. Desktop keeps it
+   untouched, and so does the app, where html.capacitor already governs it. */
+@media (max-width: 767px) {
+  html:not(.capacitor) .platform-header-shell {
+    display: none;
+  }
+}

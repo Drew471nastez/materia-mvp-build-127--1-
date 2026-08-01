@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
+import { MobileWebHeader } from "@/components/marketing/mobile-web-header"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/native-bridge"
@@ -71,6 +72,11 @@ export function ConditionalHeader() {
     // its own status bar and its own bottom navigation; a site header on top of
     // that is a second, redundant chrome that makes it read as a website in a
     // box rather than an app.
+    //
+    // This still runs, and still wins, but it is no longer what keeps the header
+    // off the app's first painted frame — html.capacitor does that in CSS before
+    // any JavaScript has had a chance to answer isNativeApp(). Leaving the check
+    // here means the app also stops paying for the header's effects and queries.
     if (isNativeApp()) {
       setShowPlatformHeader(false)
       return
@@ -111,12 +117,26 @@ export function ConditionalHeader() {
 
   if (!showPlatformHeader) return null
 
+  // Both headers are rendered; which one is visible is settled in CSS, on the
+  // first painted frame, by the `capacitor` class the boot script puts on <html>
+  // and by the viewport width. See app/globals.css.
+  //
+  // .platform-header-shell is display:contents everywhere except a mobile
+  // browser, so it adds no box to the layout — it exists purely so the platform
+  // header, which renders several siblings rather than one root, can be switched
+  // off as a unit where MobileWebHeader takes over.
+  //
   // PlatformHeaderClient calls useSearchParams(), which requires a Suspense boundary
   // for SSR streaming (Next.js 16 build requirement).  The black-bar fallback keeps
   // the layout stable — no gap above content while the client hydrates.
   return (
-    <Suspense fallback={<HeaderPlaceholder />}>
-      <PlatformHeaderClient />
-    </Suspense>
+    <>
+      <MobileWebHeader />
+      <div className="platform-header-shell">
+        <Suspense fallback={<HeaderPlaceholder />}>
+          <PlatformHeaderClient />
+        </Suspense>
+      </div>
+    </>
   )
 }
