@@ -21,6 +21,7 @@ import {
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
+import { warmListingImage } from "@/lib/warm-image"
 import { signalArrival } from "@/lib/nav-blend"
 import { navHint } from "@/lib/screen-transition"
 import { claimSurface } from "@/lib/surface-bg"
@@ -142,23 +143,39 @@ export function MobileFeed({
     try {
       localStorage.setItem("storelib_feed_view", view)
       document.cookie = `storelib_feed_view=${view}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+      // And the copy on <html>, which the boot script writes before first paint
+      // and NOTHING used to update afterwards. That staleness was the bug where
+      // going back from a listing landed you in the wrong view: flip to grid,
+      // open a listing, come back, and the attribute still said "reels" from
+      // whenever the app was launched. It is a live mirror of the state now, so
+      // anything reading it — the correction below, the entry curtain's colour —
+      // reads what you actually chose.
+      const html = document.documentElement
+      html.setAttribute("data-feed-view", view)
+      html.style.setProperty("--feed-entry-bg", view === "reels" ? "#000" : "#fff")
     } catch {
       /* storage unavailable */
     }
   }, [view])
 
-  // The cookie is the fast path, but it can be missing (WKWebView drops JS
-  // cookies between app launches). localStorage never is — the head script has
-  // already read it onto <html> before the first pixel, so correcting from it
-  // here, in a LAYOUT effect, lands before the browser paints the hydrated tree.
-  // The entry curtain covers the server's guess until this has settled, so a
-  // wrong cookie can no longer show up as a second of grid.
+  // localStorage is the authority on which view you chose, and this corrects the
+  // server's guess against it in a LAYOUT effect, before the browser paints.
+  //
+  // Read from storage rather than from the <html> attribute, and compared
+  // against the view actually being rendered rather than against `initialView`.
+  // Both of those were wrong, and together they were the whole bug. The feed is
+  // a cached dynamic route, so coming back from a listing reuses the payload
+  // rendered whenever you first arrived — `initialView` is therefore whatever
+  // the cookie said THEN, not now. The old check only corrected when the
+  // attribute disagreed with that stale prop, so when both were stale in the
+  // same direction it concluded everything was fine and left you in reels.
   useLayoutEffect(() => {
     try {
-      const v = document.documentElement.getAttribute("data-feed-view")
-      if ((v === "reels" || v === "grid") && v !== initialView) {
+      const stored = localStorage.getItem("storelib_feed_view")
+      const v = stored === "reels" || stored === "grid" ? stored : null
+      if (v && v !== view) {
         setView(v)
-        // Correcting a wrong server guess is NOT someone changing view, and it
+        // Correcting a stale server guess is NOT someone changing view, and it
         // must not play the grid/reels cross-fade. Left alone it did: the screen
         // changed a frame after mount, the cross-fade saw a change it had no
         // record of, and every return from a listing ran a 520ms transition
@@ -648,6 +665,11 @@ export function MobileFeed({
         {products.map((p, i) => (
           <div
             key={p.id}
+            // What this card would need if it were tapped, declared on the
+            // element itself so the observer below can read it without a second
+            // pass over `products` or a second copy of the origin rules.
+            data-warm-href={getListingUrl(p.slug || "", searchQuery ? "search" : cat !== "all" ? "category" : "feed")}
+            data-warm-img={p.thumbnail_url || ""}
             style={
               revealNonce > 0
                 ? {
@@ -667,7 +689,7 @@ export function MobileFeed({
         ))}
       </div>
     )
-  }, [products, revealNonce, t])
+  }, [products, revealNonce, t, searchQuery, cat])
 
   // Warm the listings you can actually see.
   //
@@ -717,6 +739,40 @@ export function MobileFeed({
       else window.clearTimeout(handle)
     }
   }, [products, reelsActive, router, searchQuery, cat])
+
+  // Warm what you are about to reach, not just what loaded first.
+  //
+  // The idle pass above covers the opening screenful, which is where most taps
+  // land — but scroll to the fortieth listing and every one of them was cold
+  // again, so the deeper you browsed the slower opening got. This walks with
+  // you: an observer over the scroller warms each card's route and its
+  // full-bleed photo once, 800px before it arrives — far enough ahead that the
+  // fetch has finished by the time the card is under your thumb, near enough
+  // that flicking past a hundred cards doesn't try to warm all of them.
+  //
+  // Unobserved on first hit, so each listing costs exactly one prefetch, and the
+  // browser's own cache absorbs any overlap with the idle pass.
+  useEffect(() => {
+    if (reelsActive) return
+    const root = scrollRef.current
+    if (!root || typeof IntersectionObserver === "undefined") return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const el = entry.target as HTMLElement
+          observer.unobserve(el)
+          const href = el.dataset.warmHref
+          if (href) router.prefetch(href)
+          warmListingImage(el.dataset.warmImg || null)
+        }
+      },
+      { root, rootMargin: "800px 0px", threshold: 0 },
+    )
+    root.querySelectorAll<HTMLElement>("[data-warm-href]").forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [products, reelsActive, router])
 
   // Opens the same full-screen overlay the grid strip's SearchTrigger does, for
   // the taps SearchTrigger doesn't cover: the reels overlay's search icon and
