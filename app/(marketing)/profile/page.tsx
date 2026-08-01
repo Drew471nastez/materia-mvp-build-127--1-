@@ -146,9 +146,13 @@ export default async function ProfilePage() {
   // on this route and it is what animates; by the time this replaces it the
   // screen is already in place, and animating again would be the same arrival
   // played twice for one navigation.
+  //
+  // Rendered straight into <main> with no wrapper: the profile sizes itself
+  // with `min-h-full`, and a plain div in between has no height of its own for
+  // that percentage to resolve against — it would silently collapse to nothing
+  // and the empty state would stop filling the screen.
   return (
-    <div>
-      <MemberProfile
+    <MemberProfile
       isOwner
       member={{
         id: user.id,
@@ -164,8 +168,7 @@ export default async function ProfilePage() {
       followersCount={followersRes.count ?? 0}
       followingCount={followingRes.count ?? 0}
       listings={listings}
-      />
-    </div>
+    />
   )
 }
 

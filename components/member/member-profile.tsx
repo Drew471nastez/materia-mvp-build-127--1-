@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Settings, Star } from "lucide-react"
+import { Settings, Shirt, Star } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
@@ -70,16 +70,8 @@ function joinedLabel(iso: string | null, locale: string): string | null {
   }
 }
 
-/** Romanian counts need three forms (1 anunț / 3 anunțuri / 20 de anunțuri),
+/** Romanian counts need three forms (1 recenzie / 3 recenzii / 20 de recenzii),
  *  which a flat dictionary key can't express — so the plural rule lives here. */
-function listingsLabel(count: number, language: string): string {
-  if (language === "ro") {
-    if (count === 1) return "1 anunț"
-    return count < 20 ? `${count} anunțuri` : `${count} de anunțuri`
-  }
-  return count === 1 ? "1 listing" : `${count} listings`
-}
-
 function reviewsLabel(count: number, language: string): string {
   if (language === "ro") {
     if (count === 1) return "1 recenzie"
@@ -201,15 +193,18 @@ export function MemberProfile({
 
   const name = member.displayName || member.username || "Storelib"
   const joined = joinedLabel(member.joinedAt, language)
-  const meta = [
-    listingsLabel(listingsCount, language),
-    joined ? `${t("mfeed.member_since")} ${joined}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ")
+  // Only the join date. The listing count used to ride along here and it was
+  // the half of the line that got cut off at 375px — while the stats row one
+  // line below already states it exactly, in a bigger type. Saying it twice
+  // was what made the sentence too long to fit in the first place.
+  const meta = joined ? `${t("mfeed.member_since")} ${joined}` : null
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-6 md:px-6 md:pt-10">
+    // A column that fills the screen and no more. Bottom padding lives on the
+    // grid and the empty state rather than here, because GlobalMobileNav
+    // already reserves its own strip below <main>: paying for it twice is what
+    // left a profile with nothing on it scrolling through empty space.
+    <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
       {/* Settings is a subpage of your own profile now, and the gear is the only
           door to it — the bottom tab that used to open it directly is what this
           screen replaced. It sits on its own row above the avatar rather than
@@ -260,7 +255,6 @@ export function MemberProfile({
             {name}
           </h1>
           <p className="truncate text-[13.5px] text-neutral-500">@{member.username}</p>
-          {meta && <p className="mt-1 truncate text-[12.5px] text-neutral-400">{meta}</p>}
 
           {/* Reviews strip — appears only once the seller has at least one
               review, so a new seller isn't introduced by an empty zero. */}
@@ -301,38 +295,76 @@ export function MemberProfile({
         )}
       </header>
 
+      {/* Below the header rather than inside it, on the full width of the
+          screen. In the header it shared a row with the edit button and lost:
+          at 375px there is roughly a hundred pixels left after the avatar and
+          the pill, which is where "Membr…" came from. Down here it has the
+          whole measure and needs no truncation at all. */}
+      {meta && <p className="mt-3.5 text-[12.5px] text-neutral-400">{meta}</p>}
+
       {/* The social shape of the profile in one glance — the row every
           marketplace profile teaches people to look for. Counts are compact
           ("1,2K") past a thousand, because the exact figure stops mattering
           exactly when it stops fitting. */}
-      <div className="mt-5 flex items-center gap-8 border-b border-neutral-100 pb-5 md:gap-10">
+      <div className="mt-4 flex items-center gap-8 border-b border-neutral-100 pb-5 md:gap-10">
         <Stat value={listingsCount} label={language === "ro" ? "Articole" : "Listings"} lang={language} />
         <Stat value={followersCount} label={language === "ro" ? "Urmăritori" : "Followers"} lang={language} />
         <Stat value={followingCount} label={language === "ro" ? "Urmărește" : "Following"} lang={language} />
       </div>
 
-      <section className="mt-8 md:mt-10">
+      {/* The shop, announced. Without a heading the grid simply started, and an
+          empty profile had nothing at all between the stats row and blank
+          space — which is most of why the screen read as failing to load
+          rather than as a shop with nothing in it yet. */}
+      <section className="mt-6 flex min-h-0 flex-1 flex-col md:mt-8">
+        {/* Not simply "Articole": the stats row directly above already carries
+            that word, and the same label twice in ten vertical pixels reads as
+            a template that was never finished. */}
+        <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
+          {language === "ro"
+            ? isOwner
+              ? "Articolele mele"
+              : "Articolele lui " + name
+            : isOwner
+              ? "My listings"
+              : `${name}'s listings`}
+        </h2>
+
         {listings.length === 0 ? (
-          // A quiet, centred line — an empty shop is a normal state for a new
-          // member, not an error worth illustrating. On your own profile the
-          // same emptiness is something you can act on, so it carries the one
-          // thing you'd want from it: a way to list.
-          <div className="flex flex-col items-center py-20 text-center">
-            <p className="text-[15px] font-medium text-neutral-500">
-              {isOwner ? "Nu ai niciun articol încă." : "Niciun articol încă."}
+          // An empty shop is a normal state for a new member, not an error — so
+          // it is drawn in the same language as the inbox's empty screens
+          // (circle, one line, one sentence) rather than left as a stray
+          // sentence floating in the middle of the page. It takes `flex-1` so
+          // it fills exactly what is left below the heading: asking for a fixed
+          // height here is what made a page with nothing on it scroll. The svh
+          // floor only matters in the layouts where a percentage height cannot
+          // resolve, and it stays under one screen on purpose.
+          <div className="flex min-h-[38svh] flex-1 flex-col items-center justify-center px-6 pb-10 pt-6 text-center">
+            <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+              <Shirt className="h-7 w-7" />
+            </span>
+            <p className="text-[17px] font-semibold text-neutral-900">
+              {isOwner ? "Niciun articol listat" : "Niciun articol încă"}
             </p>
+            <p className="mt-1.5 max-w-[280px] text-[14px] leading-relaxed text-neutral-500">
+              {isOwner
+                ? "Fă câteva poze, pune un preț și articolul apare aici în câteva minute."
+                : "Când acest membru listează ceva, apare aici."}
+            </p>
+            {/* On your own profile the same emptiness is something you can act
+                on, so it carries the one thing you'd want from it. */}
             {isOwner && (
               <Link
                 href="/products/new"
                 prefetch
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white transition-transform active:scale-[0.97]"
+                className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white transition-transform active:scale-[0.97]"
               >
                 Listează un articol
               </Link>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 md:gap-x-4 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:grid-cols-3 md:gap-x-4 md:pb-12 lg:grid-cols-4">
             {listings.map((listing, i) => (
               <ProductCard
                 key={listing.id}

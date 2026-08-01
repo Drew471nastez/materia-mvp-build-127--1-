@@ -21,13 +21,16 @@ export default function MessagesLoading() {
 
       {/* The control is drawn, not skeletonised: its labels are constants, so
           showing them is both cheaper and less jarring than two grey pills. */}
-      <div className="px-2 pb-2 pt-1">
-        <div className="relative flex h-10 items-center rounded-full bg-neutral-100 p-1">
-          <span aria-hidden className="absolute left-1 top-1 h-8 w-[calc(50%-4px)] rounded-full bg-white shadow-sm" />
-          <span className="relative flex h-8 flex-1 items-center justify-center text-[14px] font-semibold text-neutral-900">
+      <div className="px-2 pb-2.5 pt-1">
+        <div className="relative flex h-11 items-center rounded-full bg-neutral-100 p-1">
+          <span
+            aria-hidden
+            className="absolute left-1 top-1 h-9 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_1px_rgba(15,15,15,0.04),0_2px_6px_-1px_rgba(15,15,15,0.12)] ring-1 ring-black/[0.03]"
+          />
+          <span className="relative flex h-9 flex-1 items-center justify-center text-[14.5px] font-semibold tracking-[-0.01em] text-neutral-900">
             Mesaje
           </span>
-          <span className="relative flex h-8 flex-1 items-center justify-center text-[14px] font-semibold text-neutral-500">
+          <span className="relative flex h-9 flex-1 items-center justify-center text-[14.5px] font-medium tracking-[-0.01em] text-neutral-400">
             Notificări
           </span>
         </div>

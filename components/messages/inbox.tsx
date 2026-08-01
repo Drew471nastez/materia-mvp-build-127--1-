@@ -59,6 +59,15 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 }
 
 /**
+ * The hairline between two rows, inset to where the text column begins: 8px of
+ * row padding, a 48px avatar and the 12px gap between them. Written once so the
+ * two lists cannot drift into two different treatments, and dropped on the last
+ * row because a rule under the final row promises another one below it.
+ */
+const ROW_DIVIDER =
+  "relative after:pointer-events-none after:absolute after:bottom-0 after:left-[68px] after:right-2 after:h-px after:bg-neutral-100 after:content-[''] last:after:hidden"
+
+/**
  * The inbox: conversations and notifications behind one segmented control.
  * Messages keep their three states — signed out, empty, rows — and the
  * notifications side loads lazily on the first switch, because most visits
@@ -195,15 +204,25 @@ export function MessagesInbox() {
       <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
         {tab === "messages" ? "Mesaje" : "Notificări"}
       </h1>
-      <div className="px-2 pb-2 pt-1">
+      <div className="px-2 pb-2.5 pt-1">
         {/* One pill that slides, rather than two that blink. It is absolutely
             positioned and moved on a transform, so the browser composites it
             instead of relaying out the control on every frame — and the
-            buttons above it keep their exact geometry. */}
-        <div className="relative flex h-10 items-center rounded-full bg-neutral-100 p-1">
+            buttons above it keep their exact geometry.
+
+            The proportions are what the control lives or dies on. The track is
+            44px, the pill 36px inside a 4px inset, and because an absolutely
+            positioned box resolves its percentage width against the padding box
+            the pill is exactly one button wide — so translateX(100%) lands it on
+            the second label to the pixel rather than near it. The shadow is a
+            hairline plus a short drop, the amount a real key sitting on a
+            surface casts; a flat `shadow-sm` is what made it read as a coloured
+            rectangle. And the inactive label steps to neutral-400, far enough
+            below the active one to be legible as "not this one" at a glance. */}
+        <div className="relative flex h-11 items-center rounded-full bg-neutral-100 p-1">
           <span
             aria-hidden
-            className="absolute left-1 top-1 h-8 w-[calc(50%-4px)] rounded-full bg-white shadow-sm transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none"
+            className="pointer-events-none absolute left-1 top-1 h-9 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_1px_rgba(15,15,15,0.04),0_2px_6px_-1px_rgba(15,15,15,0.12)] ring-1 ring-black/[0.03] transition-transform duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none"
             style={{ transform: tab === "messages" ? "translateX(0%)" : "translateX(100%)" }}
           />
           {(
@@ -218,8 +237,8 @@ export function MessagesInbox() {
               aria-pressed={tab === s.key}
               onClick={() => switchTo(s.key)}
               className={cn(
-                "relative z-10 flex h-8 flex-1 items-center justify-center rounded-full text-[14px] font-semibold transition-colors duration-200",
-                tab === s.key ? "text-neutral-900" : "text-neutral-500",
+                "relative z-10 flex h-9 flex-1 items-center justify-center rounded-full text-[14.5px] tracking-[-0.01em] transition-colors duration-200",
+                tab === s.key ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
               )}
             >
               {s.label}
@@ -270,7 +289,13 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
   }
 
   return (
-    <ul className="divide-y divide-neutral-100 pb-8 md:pb-10">
+    // The rule starts where the text starts, not at the edge of the screen: a
+    // full-bleed `divide-y` cuts straight through the avatar column and reads as
+    // a table, while a line that begins under the name reads as one row ending
+    // and the next beginning. It is drawn per row rather than by `divide-y` so
+    // the last one can be dropped — a line under the final row is a promise of
+    // another row that isn't there.
+    <ul className="pb-8 md:pb-10">
       {rows.map((r) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
@@ -284,18 +309,34 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
               }`
             : r.lastMessage?.body || ""
         return (
-          <li key={r.id}>
+          <li key={r.id} className={ROW_DIVIDER}>
             <Link href={`/messages/${r.id}`} className="flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50">
               <Avatar name={name} url={r.other?.avatar_url ?? null} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1">
-                    <span className={cn("truncate text-[15px] text-neutral-900", r.unread > 0 ? "font-bold" : "font-semibold")}>
+                    {/* Unread is said three times over — the name goes bold and
+                        near-black, the hour turns purple, and the count sits at
+                        the end in the same purple. One of those alone is a
+                        difference you have to look for. */}
+                    <span
+                      className={cn(
+                        "truncate text-[15px]",
+                        r.unread > 0 ? "font-bold text-neutral-950" : "font-semibold text-neutral-900",
+                      )}
+                    >
                       {name}
                     </span>
                     {r.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
                   </span>
-                  <span className="shrink-0 text-[12px] text-neutral-400">{ago(r.lastMessageAt)}</span>
+                  <span
+                    className={cn(
+                      "shrink-0 text-[12px]",
+                      r.unread > 0 ? "font-semibold text-[#7c3aed]" : "text-neutral-400",
+                    )}
+                  >
+                    {ago(r.lastMessageAt)}
+                  </span>
                 </span>
                 <span className="mt-0.5 flex items-center gap-2">
                   <span className={cn("truncate text-[13.5px]", r.unread > 0 ? "font-medium text-neutral-800" : "text-neutral-500")}>
@@ -372,7 +413,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
   }
 
   return (
-    <ul className="divide-y divide-neutral-100 pb-8 md:pb-10">
+    <ul className="pb-8 md:pb-10">
       {items.map((n) => {
         const name = n.actor?.display_name || n.actor?.username || "Cineva"
         const { verb, accent } = notifText(n.kind)
@@ -403,7 +444,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
         )
         const rowClass = "flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50"
         return (
-          <li key={n.id}>
+          <li key={n.id} className={ROW_DIVIDER}>
             {href ? (
               <Link href={href} className={rowClass}>
                 {inner}

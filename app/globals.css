@@ -2339,3 +2339,26 @@ html:not(.capacitor):has(.web-only-header) .native-only-topbar {
     display: none;
   }
 }
+
+/* ── One surface, one colour ─────────────────────────────────────────────────
+   `html.capacitor body` is painted #f5f5f5 above as an anti-flash colour for
+   route swaps. On any screen that draws no background of its own — the profile,
+   the inbox, settings — that grey stops being a transition colour and becomes
+   the page itself, sitting between a white status strip and a white tab bar.
+   Three surfaces were each answering the question separately, and on the
+   profile they disagreed: the screenshot is a grey page under a white bar.
+
+   Ownership already exists for exactly this (lib/surface-bg.ts): the screen
+   that is up claims the strip and names its colour. So the body canvas simply
+   inherits that claim rather than holding an opinion of its own — whatever the
+   current screen asked the strip to be, the page is, and the two can no longer
+   drift apart. Unclaimed navigations still fall through to the #f5f5f5 rule,
+   so the flash guard it was written for is untouched.
+
+   The seller dashboard is excluded by name: it paints itself #111111 top to
+   bottom and is the one surface that never claims, so it must not inherit a
+   marketplace colour left over for the tick between a release and the next
+   screen's claim.                                                             */
+html.capacitor.native-feed-bg:not(.app-layout) body {
+  background-color: inherit;
+}

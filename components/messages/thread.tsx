@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, CheckCheck, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -17,6 +17,10 @@ type Msg = {
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
   created_at: string
+  /** Set the moment the other side opens the thread — GET marks every message
+   *  they hadn't read. Null on a message of theirs simply means we are the ones
+   *  who haven't read it yet, which is not worth saying on screen. */
+  read_at: string | null
 }
 
 type Thread = {
@@ -35,6 +39,41 @@ type Thread = {
 // reader who left the tab open overnight spent the night asking; fifteen still
 // feels live in a conversation people type into, at a third of the traffic.
 const POLL_MS = 15000
+
+/**
+ * How close together two messages from the same person have to be before they
+ * stop being two arrivals and become one thing said in two breaths. Four
+ * minutes is the window most chat apps settle on: long enough that a fast
+ * back-and-forth reads as one paragraph, short enough that picking a
+ * conversation back up after lunch still looks like picking it back up.
+ */
+const GROUP_MS = 4 * 60 * 1000
+
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  )
+}
+
+/** "Astăzi" / "Ieri" / "12 martie" — and the year only once it stops being
+ *  obvious, because a date that says 2026 in 2026 is noise. */
+function dayLabel(d: Date): string {
+  const now = new Date()
+  if (sameDay(d, now)) return "Astăzi"
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (sameDay(d, yesterday)) return "Ieri"
+  return d.toLocaleDateString(
+    "ro-RO",
+    d.getFullYear() === now.getFullYear()
+      ? { day: "numeric", month: "long" }
+      : { day: "numeric", month: "long", year: "numeric" },
+  )
+}
+
+function timeLabel(d: Date): string {
+  return d.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" })
+}
 
 /**
  * One conversation: the listing it is about pinned on top, the exchange below,
@@ -183,6 +222,15 @@ export function MessageThread({ id }: { id: string }) {
 
   const name = thread?.other?.display_name || thread?.other?.username || "Utilizator"
 
+  // The receipt is shown on the last thing YOU said and nowhere else. Every
+  // outgoing message technically knows whether it has been read, but printing
+  // that under each one turns a conversation into a delivery report — and once
+  // the other person has answered, the state of everything above their answer
+  // is already obvious.
+  const lastMineIndex = thread
+    ? thread.messages.reduce((acc, m, i) => (m.sender_id === thread.me ? i : acc), -1)
+    : -1
+
   return (
     <div className="mx-auto flex h-[calc(100dvh-0px)] max-w-2xl flex-col md:h-[calc(100vh-160px)] md:rounded-2xl md:border md:border-neutral-200">
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -246,33 +294,110 @@ export function MessageThread({ id }: { id: string }) {
             <div className="h-10 w-1/2 animate-pulse rounded-2xl bg-neutral-100" />
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5">
-            {thread.messages.map((m) => {
+          // No gap on the column: the space between two messages is not one
+          // number but three — a hair inside a run, a clear step between runs,
+          // and a wider one around a day divider — so each row carries its own.
+          <div className="flex flex-col">
+            {thread.messages.map((m, i, arr) => {
               const mine = m.sender_id === thread.me
-              if (m.kind === "offer") {
-                return (
-                  <OfferBubble
-                    key={m.id}
-                    msg={m}
-                    mine={mine}
-                    youAre={thread.youAre}
-                    listing={thread.listing}
-                    busy={answering === m.id}
-                    onAnswer={answer}
-                    formatPrice={formatPrice}
-                  />
-                )
-              }
+              const at = new Date(m.created_at)
+              const prev = i > 0 ? arr[i - 1] : null
+              const next = i + 1 < arr.length ? arr[i + 1] : null
+              const prevAt = prev ? new Date(prev.created_at) : null
+              const nextAt = next ? new Date(next.created_at) : null
+
+              const opensDay = !prevAt || !sameDay(prevAt, at)
+
+              // An offer is a card with state and actions, not a line of talk,
+              // so it never joins a run in either direction: it keeps its own
+              // corners, its own spacing and its own timestamp.
+              const grouped =
+                !!prev &&
+                !!prevAt &&
+                !opensDay &&
+                m.kind === "text" &&
+                prev.kind === "text" &&
+                prev.sender_id === m.sender_id &&
+                at.getTime() - prevAt.getTime() < GROUP_MS
+
+              const endsRun =
+                !next ||
+                !nextAt ||
+                m.kind !== "text" ||
+                next.kind !== "text" ||
+                next.sender_id !== m.sender_id ||
+                !sameDay(at, nextAt) ||
+                nextAt.getTime() - at.getTime() >= GROUP_MS
+
               return (
-                <div
-                  key={m.id}
-                  className={cn(
-                    "max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug",
-                    mine ? "self-end rounded-br-md bg-[#7c3aed] text-white" : "self-start rounded-bl-md bg-neutral-100 text-neutral-900",
+                <Fragment key={m.id}>
+                  {opensDay && (
+                    <div className={cn("flex justify-center", i === 0 ? "pb-3" : "py-4")}>
+                      <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11.5px] font-semibold text-neutral-500">
+                        {dayLabel(at)}
+                      </span>
+                    </div>
                   )}
-                >
-                  {m.body}
-                </div>
+
+                  <div
+                    className={cn(
+                      "flex flex-col",
+                      mine ? "items-end" : "items-start",
+                      i === 0 || opensDay ? "" : grouped ? "mt-[3px]" : "mt-3",
+                    )}
+                  >
+                    {m.kind === "offer" ? (
+                      <OfferBubble
+                        msg={m}
+                        mine={mine}
+                        youAre={thread.youAre}
+                        listing={thread.listing}
+                        busy={answering === m.id}
+                        onAnswer={answer}
+                        formatPrice={formatPrice}
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          "max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug",
+                          mine
+                            ? "rounded-br-md bg-[#7c3aed] text-white"
+                            : "rounded-bl-md bg-neutral-100 text-neutral-900",
+                          // The corner facing the message above closes up when
+                          // there is one, which is what makes a run read as a
+                          // single block rather than a stack of separate cards.
+                          grouped && (mine ? "rounded-tr-md" : "rounded-tl-md"),
+                        )}
+                      >
+                        {m.body}
+                      </div>
+                    )}
+
+                    {/* One line under the last message of a run, never under the
+                        ones above it — the time a run ended is the only time
+                        anyone reads, and repeating it per bubble is the noise
+                        that makes a thread look like a log file. */}
+                    {endsRun && (
+                      <div className="mt-1 flex items-center gap-1 px-1 text-[11px] leading-none text-neutral-400">
+                        <span className="tabular-nums">{timeLabel(at)}</span>
+                        {mine && i === lastMineIndex && (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span
+                              className={cn(
+                                "flex items-center gap-0.5 font-medium",
+                                m.read_at ? "text-[#7c3aed]" : "text-neutral-400",
+                              )}
+                            >
+                              <CheckCheck className="h-3 w-3" strokeWidth={2.5} />
+                              {m.read_at ? "Văzut" : "Trimis"}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Fragment>
               )
             })}
           </div>
