@@ -22,6 +22,21 @@ export const revalidate = 300
 const COLS =
   "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, category, subcategory, brand, condition, size, colour, era, source_tags, style_tags, created_at, creator_id, status"
 
+// The client needs exactly one bit of the seller's Stripe state: can checkout
+// succeed. The raw account id must never ship to the browser, so both columns
+// are collapsed here and dropped. `charges_enabled` only blocks on an explicit
+// false — null just means the row predates the webhook keeping it current, and
+// that is not evidence the seller can't be paid — whereas an id that isn't a
+// real Stripe one is. A creator read through the pre-Connect fallback carries
+// neither column; the flag stays unset there, and the client treats absence as
+// buyable.
+function withPaymentFlag(creator: any) {
+  if (!("stripe_account_id" in creator) && !("charges_enabled" in creator)) return creator
+  const { stripe_account_id, charges_enabled, ...rest } = creator
+  rest.can_take_payments = !!(stripe_account_id?.startsWith("acct_") && charges_enabled !== false)
+  return rest
+}
+
 async function load(slug: string) {
   const admin = createAdminClient()
   // Attributes after the base set only exist post-20260801; fall back so a
@@ -46,23 +61,35 @@ async function load(slug: string) {
   // foreign key, which makes it one.
   const { data: creator, error: joinErr } = await admin
     .from("creators")
-    .select("id, user_id, slug, profiles!creators_user_id_fkey (id, display_name, avatar_url, username)")
+    .select("id, user_id, slug, stripe_account_id, charges_enabled, profiles!creators_user_id_fkey (id, display_name, avatar_url, username)")
     .eq("id", product.creator_id)
     .maybeSingle()
 
   if (!joinErr && creator) {
     const embedded = (creator as any).profiles
     const profile = Array.isArray(embedded) ? embedded[0] ?? null : embedded ?? null
-    return { ...product, creator: { ...creator, profile } }
+    return { ...product, creator: withPaymentFlag({ ...creator, profile }) }
   }
 
   // The embed depends on the foreign key being named as expected; fall back to
   // the two-step read rather than losing the seller entirely if it isn't.
-  const { data: plain } = await admin
+  const withStripe = await admin
     .from("creators")
-    .select("id, user_id, slug")
+    .select("id, user_id, slug, stripe_account_id, charges_enabled")
     .eq("id", product.creator_id)
     .maybeSingle()
+  let plain: any = withStripe.data
+  // The Stripe columns arrived with the Connect migration, and a database
+  // without them fails the whole select — retry bare rather than losing the
+  // seller card. Payment readiness is simply unknown on that path.
+  if (!plain && withStripe.error) {
+    const bare = await admin
+      .from("creators")
+      .select("id, user_id, slug")
+      .eq("id", product.creator_id)
+      .maybeSingle()
+    plain = bare.data
+  }
   let profile: any = null
   if (plain?.user_id) {
     const { data } = await admin
@@ -72,7 +99,7 @@ async function load(slug: string) {
       .maybeSingle()
     profile = data
   }
-  return { ...product, creator: plain ? { ...plain, profile } : null }
+  return { ...product, creator: plain ? withPaymentFlag({ ...plain, profile }) : null }
 }
 
 export async function generateMetadata({

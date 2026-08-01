@@ -53,6 +53,17 @@ function since(iso?: string | null): string | null {
   return `acum ${months} ${months === 1 ? "lună" : "luni"}`
 }
 
+/** Stands in for the buy/offer buttons when the seller cannot be paid.
+    Offers go with them: an accepted offer still has to clear checkout, so
+    leaving that door open would only move the dead end one step later. */
+function PaymentsUnavailableNotice() {
+  return (
+    <div className="rounded-2xl border border-neutral-200/70 bg-neutral-50 px-4 py-3 text-center text-[13.5px] leading-relaxed text-neutral-600">
+      Vânzătorul nu a activat încă plățile. Articolul nu poate fi cumpărat momentan.
+    </div>
+  )
+}
+
 export function ProductDetail({ product }: { product: any }) {
   const { t, formatPrice } = useLocale()
   const router = useRouter()
@@ -87,6 +98,35 @@ export function ProductDetail({ product }: { product: any }) {
     const snap = readAuthSnapshot()
     if (snap?.signedIn && snap.userId && sellerUserId && snap.userId === sellerUserId) setIsOwn(true)
   }, [sellerUserId])
+
+  // The server collapsed the seller's Stripe state into this one flag (the
+  // account id itself never ships). Only an explicit false may take the buy
+  // buttons away — payloads cached from before the flag existed simply don't
+  // carry it, and those listings must keep selling.
+  const canTakePayments = product.creator?.can_take_payments !== false
+
+  // Stripe onboarding starts with a POST that answers a one-time account-link
+  // URL (see app/api/stripe/connect/start) — there is no GET route to link to,
+  // so the button has to fetch first and navigate after. Assigning
+  // location.href behaves the same in the Capacitor WebView as on the web, and
+  // the account link's return_url carries the seller back into the app.
+  const [connecting, setConnecting] = useState(false)
+  const onConnectStripe = useCallback(async () => {
+    if (connecting) return
+    void triggerHaptic("light")
+    setConnecting(true)
+    try {
+      const res = await fetch("/api/stripe/connect/start", { method: "POST" })
+      const data = await res.json().catch(() => null)
+      if (res.ok && typeof data?.url === "string") {
+        window.location.href = data.url
+        return
+      }
+    } catch {}
+    // Onboarding didn't start; release the button so the seller can retry
+    // instead of staring at a permanently pending label.
+    setConnecting(false)
+  }, [connecting])
 
   const onBuy = useCallback(() => {
     void triggerHaptic("light")
@@ -377,25 +417,51 @@ export function ProductDetail({ product }: { product: any }) {
             )}
           </div>
 
+          {/* Seller-facing: this listing is unsellable until Stripe onboarding
+              finishes, and the seller is the only person who can fix that — so
+              it's said here, on the page they check most, not buried in
+              settings. */}
+          {isOwn && !canTakePayments && product.price_cents > 0 && (
+            <div className="mt-5 rounded-2xl border border-[#7c3aed]/25 bg-[#7c3aed]/[0.06] px-4 py-3.5">
+              <p className="text-[13.5px] leading-relaxed text-neutral-700">
+                Anunțul tău nu poate fi cumpărat încă. Conectează Stripe ca să primești banii.
+              </p>
+              <button
+                type="button"
+                onClick={onConnectStripe}
+                disabled={connecting}
+                className="mt-2.5 h-11 w-full rounded-full bg-[#7c3aed] px-6 text-[14.5px] font-semibold text-white transition-transform duration-200 active:scale-[0.97] hover:bg-[#6d2fd6] disabled:opacity-60 md:w-auto"
+              >
+                {connecting ? "Se deschide…" : "Conectează Stripe"}
+              </button>
+            </div>
+          )}
+
           {/* Desktop buy row — the mobile bar is fixed to the viewport bottom
               and hidden at md, so without this the desktop page had no way to
               actually buy the thing it was showing. */}
           {!isOwn && product.price_cents > 0 && (
-            <div className="mt-5 hidden gap-2.5 md:flex">
-              <button
-                type="button"
-                onClick={onOffer}
-                className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98] hover:bg-[#7c3aed]/5"
-              >
-                Fă o ofertă
-              </button>
-              <button
-                type="button"
-                onClick={onBuy}
-                className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] hover:bg-[#6d2fd6]"
-              >
-                Cumpără acum
-              </button>
+            <div className="mt-5 hidden md:block">
+              {canTakePayments ? (
+                <div className="flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={onOffer}
+                    className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98] hover:bg-[#7c3aed]/5"
+                  >
+                    Fă o ofertă
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onBuy}
+                    className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] hover:bg-[#6d2fd6]"
+                  >
+                    Cumpără acum
+                  </button>
+                </div>
+              ) : (
+                <PaymentsUnavailableNotice />
+              )}
             </div>
           )}
 
@@ -479,22 +545,26 @@ export function ProductDetail({ product }: { product: any }) {
           transition: "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            onClick={onOffer}
-            className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98]"
-          >
-            Fă o ofertă
-          </button>
-          <button
-            type="button"
-            onClick={onBuy}
-            className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98]"
-          >
-            Cumpără acum
-          </button>
-        </div>
+        {canTakePayments ? (
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={onOffer}
+              className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98]"
+            >
+              Fă o ofertă
+            </button>
+            <button
+              type="button"
+              onClick={onBuy}
+              className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98]"
+            >
+              Cumpără acum
+            </button>
+          </div>
+        ) : (
+          <PaymentsUnavailableNotice />
+        )}
       </div>
       )}
 
