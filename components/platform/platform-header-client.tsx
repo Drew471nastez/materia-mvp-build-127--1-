@@ -846,10 +846,19 @@ export function PlatformHeaderClient() {
         // not need to re-verify a token, and anything that actually matters is
         // authorised server-side anyway. This alone removes a network round trip
         // from in front of the first paint.
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        const user = session?.user ?? null
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        const user = sessionData.session?.user ?? null
+
+        // An error here is the session failing to READ — a refresh that hit a
+        // rate limit, a dropped connection — not a session that isn't there.
+        // Treating the two alike is what turns a passing Supabase incident into
+        // a mass logout: the snapshot below is the durable record that draws the
+        // signed-in header, and clearing it on a failure we cannot interpret
+        // loses the user's state for a reason that may not survive the minute.
+        if (sessionError) {
+          if (!mountedRef.current) return
+          return
+        }
 
         if (!user) {
           if (!mountedRef.current) return

@@ -87,11 +87,15 @@ export function MobileWebHeader() {
       // Supabase to re-validate the JWT. This runs only to decide which icons to
       // draw, and everything that matters is authorised server-side anyway, so
       // it takes the local read and keeps the network off the first paint.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      const user = session?.user ?? null
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      const user = sessionData.session?.user ?? null
       if (!alive) return
+
+      // A session we failed to read is not a session that is absent. Falling
+      // through to the signed-out header on an error would drop the snapshot
+      // that draws the right header on the next load, so a transient auth
+      // failure would present as having been logged out. Keep what we have.
+      if (sessionError) return
 
       if (!user) {
         clearAuthSnapshot()

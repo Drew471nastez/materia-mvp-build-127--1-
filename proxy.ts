@@ -458,19 +458,38 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // This runs on every request the matcher accepts — every page and every one
+  // of the API routes. getUser() would make that a guaranteed round trip to the
+  // Supabase Auth server per request, which is the single largest consumer of
+  // the project's auth rate limit; getSession() reads the JWT from the cookies
+  // we were just handed and only reaches the network when the token is genuinely
+  // near expiry, which is the refresh this middleware exists to perform. The
+  // refresh — and therefore the Set-Cookie it produces — still happens exactly
+  // as before, it just stops happening on requests that never needed one.
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  const user = sessionData.session?.user ?? null
 
-  // Protect creator dashboard routes
-  if (request.nextUrl.pathname.startsWith("/app") && !user) {
+  // An error here means the session could not be read — a refresh that hit a
+  // rate limit, a network fault — which is emphatically not the same as being
+  // signed out. Redirecting on it would sign out every user holding a valid
+  // session the moment Supabase started returning 429s. Let the request through
+  // and let the layout below decide: /app and /dashboard both re-verify with
+  // getUser() server-side, so nothing is actually reachable on a bad session.
+  const sessionUnreadable = !!sessionError
+
+  // Protect creator dashboard routes. The check is a cheap first pass over the
+  // cookie, not the authority — app/app/layout.tsx re-verifies against the auth
+  // server before rendering anything — so a locally-read session is enough to
+  // decide whether it is worth routing there at all.
+  if (request.nextUrl.pathname.startsWith("/app") && !user && !sessionUnreadable) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
   }
 
-  // Protect customer dashboard routes
-  if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
+  // Protect customer dashboard routes. Same reasoning: app/dashboard/layout.tsx
+  // performs the verified check that actually gates the content.
+  if (request.nextUrl.pathname.startsWith("/dashboard") && !user && !sessionUnreadable) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)

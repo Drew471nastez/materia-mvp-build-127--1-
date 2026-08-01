@@ -174,9 +174,32 @@ export function usePresenceHeartbeat() {
     const ping = () => {
       void fetch("/api/presence", { method: "POST", credentials: "include" }).catch(() => {})
     }
-    ping()
-    // Two minutes keeps a five-minute "online" window honest without chattering.
-    const id = setInterval(ping, 120_000)
-    return () => clearInterval(id)
+
+    // Two minutes keeps a five-minute "online" window honest without chattering,
+    // and a hidden tab stops beating entirely: someone who has switched away is
+    // not present in any sense the dots are claiming, so the beacon would be
+    // both wasteful and untrue. Returning re-announces them immediately.
+    let id: ReturnType<typeof setInterval> | undefined
+    const stop = () => {
+      if (id !== undefined) {
+        clearInterval(id)
+        id = undefined
+      }
+    }
+    const sync = () => {
+      if (document.visibilityState === "visible") {
+        ping()
+        if (id === undefined) id = setInterval(ping, 120_000)
+      } else {
+        stop()
+      }
+    }
+
+    sync()
+    document.addEventListener("visibilitychange", sync)
+    return () => {
+      document.removeEventListener("visibilitychange", sync)
+      stop()
+    }
   }, [])
 }

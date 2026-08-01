@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
 import { fetchProfilesWithOfficial, getSystemUserId, isOfficialProfile } from "@/lib/system-account"
 
@@ -27,10 +28,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Bad id" }, { status: 400 })
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+  // An open thread re-reads this on a timer, so the identity comes from the
+  // session cookie rather than the auth server. Nothing here trusts that id on
+  // its own: the conversation is fetched through the caller's client, so RLS is
+  // still the membership check — a thread that isn't yours 404s below exactly
+  // as it did before — and the admin client further down is only ever handed
+  // ids that came back out of that RLS-scoped row.
+  const auth = await readSessionAuth(supabase)
+  // A session we could not read is not a session that isn't there. Saying 401
+  // here would send the poller's client straight to /login on a transient auth
+  // failure; 503 tells it to leave the reader where they are and try again.
+  if (auth.status === "indeterminate") {
+    return NextResponse.json({ error: "Auth unavailable" }, { status: 503 })
+  }
+  if (!auth.userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+  const user = { id: auth.userId }
 
   const { data: convo } = await supabase
     .from("conversations")

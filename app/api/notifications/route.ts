@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { readSessionAuth } from "@/lib/auth/current-user"
 
 /**
  * The notifications feed behind the inbox's second tab.
@@ -23,18 +24,24 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+  // Both shapes of this read — the marketplace feed below and the legacy seller
+  // list — run entirely on the caller's client, so RLS on notifications and
+  // seller_notifications is what restricts the rows and the id is the filter it
+  // already enforces. The admin client is only used afterwards to decorate
+  // actors and listings whose ids came out of those RLS-scoped rows.
+  const auth = await readSessionAuth(supabase)
+  if (auth.status === "indeterminate") {
+    return NextResponse.json({ error: "Auth unavailable" }, { status: 503 })
+  }
+  if (!auth.userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  if (searchParams.has("limit")) return legacyGet(supabase, user.id, searchParams)
+  if (searchParams.has("limit")) return legacyGet(supabase, auth.userId, searchParams)
 
   const { data: rows, error } = await supabase
     .from("notifications")
     .select("id, kind, actor_id, listing_id, conversation_id, created_at, read_at")
-    .eq("user_id", user.id)
+    .eq("user_id", auth.userId)
     .order("created_at", { ascending: false })
     .limit(50)
   // A missing table (migration not yet run) reads as an empty feed, not a 500 —

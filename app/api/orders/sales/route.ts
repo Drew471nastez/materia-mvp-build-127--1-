@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { readSessionAuth } from "@/lib/auth/current-user"
 
 /**
  * The seller's side of order history.
@@ -23,12 +24,18 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "auth_required" }, { status: 401 })
+  // The creator row and the listings under it are both read on the caller's own
+  // client, so RLS decides which creator this id can resolve to and which
+  // products hang off it. The admin client below is then scoped to product ids
+  // that came out of that RLS-scoped read, never to this id — so a session read
+  // locally cannot widen what comes back.
+  const auth = await readSessionAuth(supabase)
+  if (auth.status === "indeterminate") {
+    return NextResponse.json({ error: "auth_unavailable" }, { status: 503 })
+  }
+  if (!auth.userId) return NextResponse.json({ error: "auth_required" }, { status: 401 })
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", auth.userId).maybeSingle()
   if (!creator) return NextResponse.json({ orders: [] })
 
   const { data: products, error: productsError } = await supabase

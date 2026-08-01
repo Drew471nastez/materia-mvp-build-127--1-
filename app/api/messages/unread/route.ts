@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { getSessionUserId } from "@/lib/auth/current-user"
 
 /**
  * GET /api/messages/unread → { count }
@@ -11,15 +12,19 @@ import { createClient } from "@/lib/supabase/server"
  */
 export async function GET() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ count: 0 })
+  // The bottom nav asks this from every page, so the identity is read locally
+  // out of the session cookie rather than re-validated over the network. The
+  // count below runs on the caller's own client, so RLS is what decides which
+  // rows exist to be counted — the id only picks out which of the caller's own
+  // messages are someone else's, and a cookie the database won't vouch for
+  // counts nothing at all.
+  const userId = await getSessionUserId(supabase)
+  if (!userId) return NextResponse.json({ count: 0 })
 
   const { count } = await supabase
     .from("messages")
     .select("id", { count: "exact", head: true })
-    .neq("sender_id", user.id)
+    .neq("sender_id", userId)
     .is("read_at", null)
 
   return NextResponse.json({ count: count ?? 0 })

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { readSessionAuth } from "@/lib/auth/current-user"
 
 /**
  * The settings hub's one question: can this seller get paid yet?
@@ -16,15 +17,21 @@ import { createClient } from "@/lib/supabase/server"
 
 export async function GET() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "auth_required" }, { status: 401 })
+  // The settings page asks on every visit, and the answer is one row of the
+  // caller's own creator record read through their own client — so RLS on
+  // creators is the access check and the id is only the filter that finds the
+  // row. Reading it from the session cookie keeps the auth server out of a
+  // question that is already answered by the database.
+  const auth = await readSessionAuth(supabase)
+  if (auth.status === "indeterminate") {
+    return NextResponse.json({ error: "auth_unavailable" }, { status: 503 })
+  }
+  if (!auth.userId) return NextResponse.json({ error: "auth_required" }, { status: 401 })
 
   const { data: creator, error } = await supabase
     .from("creators")
     .select("stripe_account_id, charges_enabled")
-    .eq("user_id", user.id)
+    .eq("user_id", auth.userId)
     .maybeSingle()
   if (error) {
     console.error("[seller/payments-status] read failed:", error.message)

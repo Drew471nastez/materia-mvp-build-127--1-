@@ -3,6 +3,22 @@
 /**
  * components/native-auth-handler.tsx
  *
+ * NOT MOUNTED — do not add this back to a layout. lib/native-oauth.ts, wired up
+ * by app/NativeOAuthBridge.tsx, owns the appUrlOpen deep link.
+ *
+ * Both were mounted at once in app/layout.tsx, and both answered the same
+ * appUrlOpen event by calling exchangeCodeForSession() with the same OAuth
+ * authorization code. That code is single-use: the second exchange always
+ * failed, and this handler responded to that failure by routing to
+ * /login?error=oauth_failed — so a sign-in that had genuinely succeeded in the
+ * other handler still presented to the user as a failure. It also stopped after
+ * establishing the session in Capacitor Preferences, never calling
+ * /auth/sync-session, so on the runs where it won the race the Next.js server
+ * saw no cookies and bounced the user back out of /app anyway.
+ *
+ * Kept only for reference. The surviving handler covers everything below plus
+ * the recovery, bridge-code and cold-start launch URL paths.
+ *
  * Renders nothing. On mount (native only) registers a Capacitor `appUrlOpen`
  * listener that catches the OAuth deep-link redirect after Google sign-in.
  *

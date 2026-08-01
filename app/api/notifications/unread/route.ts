@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { getSessionUserId } from "@/lib/auth/current-user"
 
 /**
  * GET /api/notifications/unread → { count }
@@ -12,15 +13,17 @@ import { createClient } from "@/lib/supabase/server"
  */
 export async function GET() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ count: 0 })
+  // A badge on a segmented control does not warrant a round trip to the auth
+  // server: the id is read locally from the session cookie, and the head count
+  // below goes through the caller's own client, where RLS on notifications is
+  // what actually restricts the rows to this user.
+  const userId = await getSessionUserId(supabase)
+  if (!userId) return NextResponse.json({ count: 0 })
 
   const { count } = await supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .is("read_at", null)
 
   return NextResponse.json({ count: count ?? 0 })

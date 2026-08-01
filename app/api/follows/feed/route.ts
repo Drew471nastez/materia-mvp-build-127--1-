@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getSessionUserId } from "@/lib/auth/current-user"
 
 /**
  * GET /api/follows/feed → { items: Product[] }
@@ -20,8 +21,11 @@ const LIMIT = 100
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { data: auth } = await supabase.auth.getUser()
-    const userId = auth?.user?.id
+    // Same shape as the people list: the follows read runs on the caller's own
+    // client under RLS, and everything the admin client fetches afterwards is
+    // keyed off the ids that read returned rather than off this id. A locally
+    // read session therefore cannot reach anyone else's feed.
+    const userId = await getSessionUserId(supabase)
     if (!userId) return NextResponse.json({ items: [], reason: "auth_required" })
 
     const { data: followRows } = await supabase

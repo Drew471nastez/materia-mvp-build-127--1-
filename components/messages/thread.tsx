@@ -30,7 +30,11 @@ type Thread = {
   messages: Msg[]
 }
 
-const POLL_MS = 5000
+// A conversation refreshes on a timer because there is no socket behind it, so
+// the interval is the entire cost of having a thread open. Five seconds meant a
+// reader who left the tab open overnight spent the night asking; fifteen still
+// feels live in a conversation people type into, at a third of the traffic.
+const POLL_MS = 15000
 
 /**
  * One conversation: the listing it is about pinned on top, the exchange below,
@@ -53,10 +57,15 @@ export function MessageThread({ id }: { id: string }) {
   const load = useCallback(async () => {
     try {
       const r = await fetch(`/api/messages/${id}`, { credentials: "include" })
+      // 401 is the server saying there is no session; 503 is the server saying
+      // it could not tell. Only the first is grounds for sending someone to the
+      // login page — bouncing them on the second would turn a passing auth
+      // hiccup into a logout for everyone with a thread open.
       if (r.status === 401) {
         router.replace(`/login?next=${encodeURIComponent(`/messages/${id}`)}`)
         return
       }
+      if (r.status === 503) return
       if (!r.ok) {
         setFailed(true)
         return
@@ -67,10 +76,39 @@ export function MessageThread({ id }: { id: string }) {
     }
   }, [id, router])
 
+  // Poll only while the thread is actually on screen. A backgrounded tab cannot
+  // show a message that arrives, so asking for it is spend with nothing bought;
+  // the catch-up happens in one fetch the moment the reader comes back, which is
+  // the first instant the answer could matter to them.
   useEffect(() => {
-    load()
-    const timer = window.setInterval(load, POLL_MS)
-    return () => window.clearInterval(timer)
+    let timer: number | undefined
+
+    const stop = () => {
+      if (timer !== undefined) {
+        window.clearInterval(timer)
+        timer = undefined
+      }
+    }
+    const start = () => {
+      if (timer !== undefined) return
+      timer = window.setInterval(load, POLL_MS)
+    }
+
+    const sync = () => {
+      if (document.visibilityState === "visible") {
+        load()
+        start()
+      } else {
+        stop()
+      }
+    }
+
+    sync()
+    document.addEventListener("visibilitychange", sync)
+    return () => {
+      document.removeEventListener("visibilitychange", sync)
+      stop()
+    }
   }, [load])
 
   // Keep the newest message in view — but only when the reader was already at

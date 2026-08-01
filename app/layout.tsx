@@ -9,7 +9,6 @@ import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
-import { NativeAuthHandler } from "@/components/native-auth-handler"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
@@ -158,7 +157,18 @@ export default function RootLayout({
         <RotationGuard />
         <NativePushInit /> 
         <CookieConsentBanner />
-        <NativeAuthHandler />
+        {/*
+          NativeOAuthBridge owns the appUrlOpen deep link on its own. It used to
+          share it with NativeAuthHandler, and both handlers called
+          exchangeCodeForSession() on the same callback — but an OAuth
+          authorization code is single-use, so whichever one lost the race got
+          "invalid flow state" back from Supabase for a sign-in that had in fact
+          just succeeded, and sent the user to /login?error=oauth_failed. The
+          bridge is also the only one of the two that finishes the job: it
+          routes through /auth/sync-session so the WebView gets the cookies the
+          server needs, handles the recovery and cold-start launch URLs, and
+          holds a guard against re-entering itself.
+        */}
         <NativeOAuthBridge />
       </body>
     </html>

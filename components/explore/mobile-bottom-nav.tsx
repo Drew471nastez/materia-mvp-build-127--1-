@@ -58,11 +58,19 @@ export function MobileBottomNav({
   useEffect(() => {
     let alive = true
     const refresh = () => void fetchUnread().then((n) => alive && setUnread(n))
-    if (Date.now() - unreadCache.at > UNREAD_TTL) refresh()
-    window.addEventListener("focus", refresh)
+    // The TTL is what makes this bar cheap, so focus has to respect it too:
+    // this bar is mounted on every page, and a handler that refetched on every
+    // focus regardless of age meant the cache only ever covered navigation, not
+    // the alt-tabbing that actually dominates. Stale means stale in both paths.
+    const refreshIfStale = () => {
+      if (Date.now() - unreadCache.at <= UNREAD_TTL) return
+      refresh()
+    }
+    refreshIfStale()
+    window.addEventListener("focus", refreshIfStale)
     return () => {
       alive = false
-      window.removeEventListener("focus", refresh)
+      window.removeEventListener("focus", refreshIfStale)
     }
   }, [])
 

@@ -78,9 +78,21 @@ export function MessagesInbox() {
 
   useEffect(() => {
     let alive = true
-    const load = () =>
-      fetch("/api/messages", { credentials: "include" })
+    // Coming back to the tab is the moment new replies are most likely waiting,
+    // but focus fires far more often than replies arrive — every alt-tab, every
+    // dismissed dialog. The same thirty-second freshness window the bottom nav
+    // keeps applies here, so a burst of focus events costs one fetch rather than
+    // one each.
+    let lastLoadedAt = 0
+    const MIN_INTERVAL_MS = 30_000
+
+    const load = () => {
+      lastLoadedAt = Date.now()
+      return fetch("/api/messages", { credentials: "include" })
         .then((r) => {
+          // Only an outright 401 means signed out. A 503 is the server failing
+          // to read the session, and answering it with the signed-out inbox
+          // would tell a signed-in person they had been logged out.
           if (r.status === 401) {
             if (alive) setSignedOut(true)
             return null
@@ -91,9 +103,13 @@ export function MessagesInbox() {
           if (alive && data) setRows(data.conversations ?? [])
         })
         .catch(() => {})
+    }
+
     load()
-    // Coming back to the tab is the moment new replies are most likely waiting.
-    const onFocus = () => load()
+    const onFocus = () => {
+      if (Date.now() - lastLoadedAt < MIN_INTERVAL_MS) return
+      load()
+    }
     window.addEventListener("focus", onFocus)
     return () => {
       alive = false

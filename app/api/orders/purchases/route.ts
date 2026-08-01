@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { readSessionAuth } from "@/lib/auth/current-user"
 
 /**
  * The buyer's side of order history.
@@ -17,15 +18,21 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "auth_required" }, { status: 401 })
+  // The orders read below goes through the caller's own client, so the "users
+  // can view their own orders" policy is the access check and this id is only
+  // the filter that policy already enforces. The admin client further down
+  // never sees it — it is handed product and creator ids taken from rows RLS
+  // has already released — so the local session read gives up nothing.
+  const auth = await readSessionAuth(supabase)
+  if (auth.status === "indeterminate") {
+    return NextResponse.json({ error: "auth_unavailable" }, { status: 503 })
+  }
+  if (!auth.userId) return NextResponse.json({ error: "auth_required" }, { status: 401 })
 
   const { data: orders, error } = await supabase
     .from("orders")
     .select("id, product_id, amount_cents, status, created_at")
-    .eq("buyer_id", user.id)
+    .eq("buyer_id", auth.userId)
     .order("created_at", { ascending: false })
     .limit(50)
   if (error) {
