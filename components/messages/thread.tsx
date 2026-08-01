@@ -244,7 +244,12 @@ export function MessageThread({ id }: { id: string }) {
     // bar leaves the column the size of what you can actually see, so the only
     // thing that scrolls is the list of messages, which is the only thing that
     // should.
-    <div className="mx-auto flex h-[calc(100dvh-63px)] max-w-2xl flex-col md:h-[calc(100vh-160px)] md:rounded-2xl md:border md:border-neutral-200">
+    // `.thread-shell` carries the height (app/globals.css). It has to match
+    // GlobalMobileNav's spacer EXACTLY, and that spacer is `63px +
+    // env(safe-area-inset-bottom)` — not 63px. Leaving the inset out made this
+    // column a home indicator taller than the room it had, which is a page that
+    // scrolls by 34px with nothing 34px down to show for it.
+    <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
       {/* The inset is paid here rather than by a spacer above the page, so the

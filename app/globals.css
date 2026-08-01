@@ -1896,6 +1896,66 @@ html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
   min-height: calc(100svh - env(safe-area-inset-bottom, 0px));
 }
 
+/* ---------------------------------------------------------------------------
+ * Why a page with nothing to scroll could still be dragged.
+ * ---------------------------------------------------------------------------
+ * `overscroll-behavior: none`, which this file has set on html.capacitor for a
+ * long time, stops scroll CHAINING and pull-to-refresh. It does not stop
+ * WebKit's elastic bounce of the main document, and on a page that fits the
+ * screen the bounce is the only thing left: a finger goes down, the entire
+ * screen slides with it, and it springs back having achieved nothing. There is
+ * no property that switches that off, because it is not the document scrolling
+ * — it is the web view's own scroll view being elastic, and it is elastic even
+ * when there is nowhere to go.
+ *
+ * So the document is given nothing to bounce. <html> and <body> are locked to
+ * the viewport and clipped, and the app's shell scrolls instead. An ordinary
+ * overflow:auto element does NOT rubber-band when its content fits — only the
+ * document does — so a short page is now genuinely immovable, while a long one
+ * scrolls exactly as it did, momentum and all.
+ *
+ * Scoped with :has() to pages that actually have this shell. The dashboard, the
+ * library and the auth screens are laid out differently and scroll the document
+ * themselves; clipping it for them would leave them unable to scroll at all.
+ *
+ * The body's bottom inset goes with it. GlobalMobileNav's spacer already
+ * reserves `63px + env(safe-area-inset-bottom)` under every page, and the tab
+ * bar itself pays the same inset again inside its own fixed layer — a third
+ * copy on <body> was pure overflow, and it is what made the thread and the
+ * inbox scroll by a home indicator's height. One payment, in the spacer. */
+html.capacitor:has(.marketing-flex-wrapper),
+html.capacitor:has(.marketing-flex-wrapper) body {
+  height: 100%;
+  overflow: hidden;
+}
+html.capacitor:has(.marketing-flex-wrapper) body {
+  padding-bottom: 0;
+}
+html.capacitor .marketing-flex-wrapper {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Belt and braces: with the document clipped there is nothing left to chain
+     to, but a nested scroller reaching its end must not try. */
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* A modal has to freeze what actually moves. `body.modal-open` pins the
+   document, which in here is no longer the thing scrolling. */
+html.capacitor body.modal-open .marketing-flex-wrapper {
+  overflow: hidden;
+}
+
+/* A conversation is sized to the space it is given rather than scrolled into.
+   The subtraction is the bottom nav's spacer, and it has to be the WHOLE
+   spacer: `63px + env(safe-area-inset-bottom)`. See components/messages/thread.tsx. */
+.thread-shell {
+  height: calc(100dvh - 63px - env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .thread-shell { height: calc(100vh - 160px); }
+}
+
 /* The wash behind a profile header. Geometry only — the gradient itself is on
    the element, next to the rest of that screen's styling.
    Its top is pulled up by the status-bar inset and its height grown by the same

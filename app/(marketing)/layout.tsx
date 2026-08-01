@@ -5,6 +5,7 @@ import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { GlobalMobileNav } from "@/components/marketing/global-mobile-nav"
 import { GlobalMobileTopBar } from "@/components/marketing/global-mobile-topbar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
+import { ShellScrollReset } from "@/components/marketing/shell-scroll-reset"
 
 export default function MarketingLayout({
   children,
@@ -21,6 +22,9 @@ export default function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
+      <Suspense fallback={null}>
+        <ShellScrollReset />
+      </Suspense>
       <ConditionalHeader />
 
       <Suspense fallback={null}>
