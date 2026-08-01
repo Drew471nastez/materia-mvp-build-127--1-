@@ -41,6 +41,31 @@ async function load(slug: string) {
   const admin = createAdminClient()
   // Attributes after the base set only exist post-20260801; fall back so a
   // product page still renders if that migration hasn't run.
+  // One round trip for the whole page, where the database will give it.
+  //
+  // The listing and its seller were two awaits in series, and on a cache miss —
+  // which is every first open of a listing, and every open after a revalidation
+  // — the reader waits out both latencies back to back before a single byte is
+  // rendered. PostgREST can walk products -> creators -> profiles in one request,
+  // so it does, and everything below is the fallback for a schema where the
+  // foreign keys aren't named the way this embed assumes.
+  const embedded = await admin
+    .from("products")
+    .select(
+      `${COLS}, creators!products_creator_id_fkey (id, user_id, slug, stripe_account_id, charges_enabled, profiles!creators_user_id_fkey (id, display_name, avatar_url, username))`,
+    )
+    .eq("slug", slug)
+    .maybeSingle()
+  if (!embedded.error && embedded.data) {
+    const row: any = embedded.data
+    const creatorRaw = Array.isArray(row.creators) ? row.creators[0] ?? null : row.creators ?? null
+    if (creatorRaw) {
+      const profileRaw = Array.isArray(creatorRaw.profiles) ? creatorRaw.profiles[0] ?? null : creatorRaw.profiles ?? null
+      const { creators, ...rest } = row
+      return { ...rest, creator: withPaymentFlag({ ...creatorRaw, profiles: undefined, profile: profileRaw }) }
+    }
+  }
+
   let product: any = null
   const full = await admin.from("products").select(COLS).eq("slug", slug).maybeSingle()
   if (full.error) {

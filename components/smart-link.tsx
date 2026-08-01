@@ -255,7 +255,7 @@ export function SmartLink({
         if (needsHardNav || warmed.current) return
         warmed.current = true
         router.prefetch(resolvedHref)
-        warmListingImage(warmImage)
+        warmListingImage(warmImage, "high")
       }
 
       return (
@@ -322,7 +322,7 @@ export function SmartLink({
       if (warmed.current) return
       warmed.current = true
       router.prefetch(resolvedHref)
-      warmListingImage(warmImage)
+      warmListingImage(warmImage, "high")
     }
     return (
       <a
