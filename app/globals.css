@@ -2254,6 +2254,7 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   animation-duration: 220ms !important;
   animation-timing-function: cubic-bezier(0.4, 0, 1, 1) !important;
 }
+
 /* ── Native app chrome vs mobile web chrome ──────────────────────────────────
    Inside the shell the site has no header: the app carries a status bar, the
    search + category strip, and the tab bar, and a site header stacked on top of
@@ -2272,7 +2273,12 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 html.capacitor .web-only-header {
   display: none !important;
 }
-html:not(.capacitor) .native-only-topbar {
+/* Conditioned on the web header actually being on the page, not merely on being
+   a browser. Seller storefronts (/u/, /p/, /l/) deliberately get no platform
+   header at all, and there the strip is still the only search and the only way
+   to a category — dropping it there would leave those pages with no navigation
+   whatsoever. The two are never up at the same time, which is the whole point. */
+html:not(.capacitor):has(.web-only-header) .native-only-topbar {
   display: none !important;
 }
 
@@ -2288,8 +2294,37 @@ html:not(.capacitor) .native-only-topbar {
 /* Below md on a browser, MobileWebHeader is the header — the platform header's
    own mobile layout would be a second one directly above it. Desktop keeps it
    untouched, and so does the app, where html.capacitor already governs it. */
-@media (max-width: 767px) {
+/* Written as the exact complement of Tailwind's `md:` (>= 48rem) rather than as
+   a pixel value, so the two headers hand over on the same boundary even if the
+   root font size is not 16px — otherwise there is a band of widths showing both
+   of them, or neither. */
+@media (width < 48rem) {
   html:not(.capacitor) .platform-header-shell {
+    display: none;
+  }
+}
+
+
+/* ── The home feed on a phone browser ────────────────────────────────────────
+   The feed is `fixed inset-0` because inside the app it IS the screen: there is
+   no browser chrome, no site header, nothing above it. On a phone browser that
+   same rule painted straight over the header that had just rendered, which made
+   the home route the one page with no navigation out of it.
+
+   So on the web it starts below the header instead of at the top of the
+   viewport. The height follows, or the bottom of the feed would sit off-screen
+   by exactly the header's height and the tab bar would be unreachable.
+   --web-header-h is published by MobileWebHeader from a ResizeObserver, so this
+   tracks the real measured header rather than a number written twice.
+
+   Scoped to `html:not(.capacitor)` and to phone widths, so the app and the
+   desktop grid are untouched.                                                 */
+@media (width < 48rem) {
+  html:not(.capacitor) .mobile-feed-shell {
+    top: var(--web-header-h, 0px);
+    height: calc(100dvh - var(--web-header-h, 0px));
+  }
+  html:not(.capacitor) .feed-own-search {
     display: none;
   }
 }

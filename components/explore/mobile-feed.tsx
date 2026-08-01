@@ -787,7 +787,12 @@ export function MobileFeed({
 
   return (
     <div
-      className={cn("md:hidden fixed inset-0 z-[60] flex flex-col bg-white", returning && "feed-return")}
+      // mobile-feed-shell: on a phone BROWSER this stops being a viewport
+      // overlay and sits under the site header instead. It covers the whole
+      // screen in the app because there the app IS the screen — but on the web
+      // that meant the header rendered and was then painted over, so the home
+      // route was the one page with no way out of it. See app/globals.css.
+      className={cn("mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white", returning && "feed-return")}
       style={{ height: "100dvh" }}
     >
       {/* The shadow the feed comes back out of. Portalled to the body on purpose:
@@ -930,7 +935,12 @@ export function MobileFeed({
       {(screen === "grid" || fadeFrom === "grid") && (
       <div className="absolute inset-0 flex min-h-0 flex-col bg-white" style={layerStyle("grid")}>
       {/* ---- Search + filter ---- */}
-      <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
+      {/* feed-own-search: hidden on mobile web, where the site header carries a
+          search field of its own a few pixels above this one. Two search fields
+          stacked is the same redundancy the global strip already steps aside
+          for; the switcher and filter travel with it because they belong to
+          this row, and the category pills below are unaffected. */}
+      <div className="feed-own-search shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
           <SearchTrigger query={searchQuery} onOpen={() => setSearchOpen(true)} />
           {searchQuery ? (

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Heart, Menu, MessageCircle, ShoppingBag } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -199,9 +199,39 @@ export function MobileWebHeader() {
     </span>
   )
 
+  // Publish this header's real height, so anything that has to start below it
+  // measures rather than guesses.
+  //
+  // The home feed is the reason: it is `fixed inset-0`, because inside the app
+  // it IS the screen — and on the web that painted straight over this header,
+  // leaving the one route people land on with no navigation out of it. It reads
+  // --web-header-h to inset itself instead. A hard-coded number would be wrong
+  // the moment the safe-area inset changes, the search row wraps, or the logo
+  // font loads, so it is observed rather than written down twice.
+  const headerRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const publish = () => {
+      document.documentElement.style.setProperty("--web-header-h", `${Math.round(el.getBoundingClientRect().height)}px`)
+    }
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      // Leaving a stale height behind would inset a feed that no longer has a
+      // header above it — inside the app, that is the whole screen misplaced.
+      document.documentElement.style.removeProperty("--web-header-h")
+    }
+  }, [])
+
   return (
     <>
-      <header className="web-only-header sticky top-0 z-[55] border-b border-neutral-200 bg-white md:hidden">
+      <header
+        ref={headerRef}
+        className="web-only-header sticky top-0 z-[55] border-b border-neutral-200 bg-white md:hidden"
+      >
         {/* Padded rather than offset so the white surface runs up under the
             status bar on an installed/standalone browser instead of leaving a
             strip of page showing above it. */}
