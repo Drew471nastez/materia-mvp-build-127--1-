@@ -36,165 +36,137 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 
 // Primary categories (first 16)
 const PRIMARY_CATEGORIES = [
-  "Templates",
-  "Courses",
-  "Guides",
-  "Software",
-  "Assets",
-  "Memberships",
-  "Design Kits",
-  "Audio",
-  "Video",
-  "Education",
-  "Productivity",
-  "Marketing",
-  "Business",
-  "Photography",
-  "Writing",
-  "Finance"
+  "Damă",
+  "Bărbați",
+  "Sneakers",
+  "Încălțăminte",
+  "Genți",
+  "Accesorii",
+  "Vintage",
+  "Streetwear",
+  "Denim",
+  "Rochii",
+  "Jachete și paltoane",
+  "Sportswear",
+  "Bijuterii",
+  "Y2K",
+  "Designer",
+  "Copii"
 ]
 
-// Extended categories (30+ more)
+// Extended categories (the full list behind "Vezi mai multe")
 const EXTENDED_CATEGORIES = [
-  "3D Models",
-  "Animations",
-  "Apps",
-  "Art",
-  "Branding",
-  "Coaching",
-  "Community",
-  "Consulting",
-  "Content",
-  "Crafts",
-  "Data",
-  "Developer Tools",
-  "E-books",
-  "Fashion",
-  "Fitness",
-  "Food & Recipes",
-  "Gaming",
-  "Graphics",
-  "Health",
-  "Illustrations",
-  "Investing",
-  "Legal",
-  "Lifestyle",
-  "Music",
-  "Newsletter",
-  "Notion Templates",
-  "Podcast",
-  "Print on Demand",
-  "Real Estate",
-  "SaaS",
-  "Social Media",
-  "Spreadsheets",
-  "Startup",
-  "Stock Photos",
-  "Themes",
-  "Trading",
-  "UI Kits",
-  "Web Design",
-  "Wellness",
-  "Workshops",
-  // 30 more categories
-  "Automation",
-  "Beauty",
-  "Blogging",
-  "Calendars",
-  "Checklists",
-  "Copywriting",
-  "Crypto",
-  "Dance",
-  "Digital Art",
-  "Email Marketing",
-  "Engineering",
-  "Entrepreneurship",
-  "Events",
-  "Figma Templates",
-  "Fonts",
-  "Freelancing",
-  "Home & Garden",
-  "Icons",
-  "Interior Design",
-  "Journaling",
-  "Language Learning",
-  "Meditation",
-  "Mindfulness",
-  "Mockups",
-  "Parenting",
-  "Personal Finance",
-  "Planners",
-  "Presentation Templates",
-  "Project Management",
-  "Remote Work",
-  "Resume Templates",
-  "Self-Improvement",
-  "SEO",
-  "Side Hustle",
-  "Spirituality",
-  "Sports",
-  "Study Notes",
-  "Travel",
-  "Video Editing",
-  "Yoga",
-  // 50 additional popular categories
-  "AI Tools",
-  "AI Prompts",
-  "Amazon KDP",
-  "Android Apps",
-  "Arduino",
-  "Astrology",
-  "Bookkeeping",
-  "Brand Strategy",
-  "Canva Templates",
-  "Career Coaching",
-  "Children's Education",
-  "Cinema LUTs",
-  "Coding Courses",
-  "Comic Art",
-  "Conversion Optimization",
-  "Cooking Classes",
-  "Customer Support",
-  "Cybersecurity",
-  "Data Science",
-  "Discord Communities",
-  "Dropshipping",
-  "Etsy Printables",
-  "Excel Dashboards",
-  "Game Assets",
-  "Gumroad Templates",
-  "HR & Recruiting",
-  "iOS Apps",
-  "Illustrator Brushes",
-  "Interview Prep",
-  "Kids Activities",
-  "Kotlin Development",
-  "Lead Magnets",
-  "LinkedIn Growth",
-  "Machine Learning",
-  "Meal Plans",
-  "Micro SaaS",
-  "No-Code Tools",
-  "Online Tutoring",
-  "Packaging Design",
-  "Paid Ads",
-  "Pitch Decks",
-  "Podcast Editing",
-  "Prayer & Faith",
-  "Procreate Brushes",
-  "Product Research",
-  "Public Speaking",
-  "React Templates",
-  "Sales Funnels",
-  "Script Writing",
-  "Shopify Apps",
-  "Startup Legal",
-  "Teaching Resources",
-  "UI Animation",
-  "Virtual Assistance",
-  "Wedding Templates",
-  "WordPress Themes",
-  "YouTube Growth"
+  // Îmbrăcăminte
+  "Athleisure",
+  "Blugi",
+  "Bluze",
+  "Body-uri",
+  "Bomber",
+  "Cardigane",
+  "Cămăși",
+  "Chinos",
+  "Colanți",
+  "Corsete",
+  "Costume",
+  "Crop top-uri",
+  "Fuste",
+  "Hanorace",
+  "Jachete de piele",
+  "Jachete din denim",
+  "Kimono",
+  "Lenjerie",
+  "Maiouri",
+  "Paltoane",
+  "Pantaloni de trening",
+  "Pantaloni scurți",
+  "Pulovere",
+  "Rochii maxi",
+  "Rochii mini",
+  "Rochii de seară",
+  "Sacouri",
+  "Salopete",
+  "Tricouri",
+  "Tricouri polo",
+  "Trench",
+  "Veste",
+  // Încălțăminte
+  "Balerini",
+  "Ghete și cizme",
+  "Mocasini",
+  "Pantofi cu toc",
+  "Papuci și slapi",
+  "Sandale",
+  "Sneakers rare",
+  // Genți și accesorii
+  "Brățări",
+  "Cercei",
+  "Ceasuri",
+  "Coliere",
+  "Curele",
+  "Cravate",
+  "Eșarfe",
+  "Genți de mână",
+  "Genți de umăr",
+  "Inele",
+  "Mănuși",
+  "Ochelari de soare",
+  "Portofele",
+  "Rucsacuri",
+  "Șepci și pălării",
+  "Șosete",
+  // Stiluri și epoci
+  "Anii '70",
+  "Anii '80",
+  "Anii '90",
+  "Academia",
+  "Boho",
+  "Coquette",
+  "Cottagecore",
+  "Gorpcore",
+  "Grunge",
+  "Militar",
+  "Minimalist",
+  "Old money",
+  "Preppy",
+  "Punk",
+  "Retro",
+  "Skate",
+  "Techwear",
+  "Western",
+  "Workwear",
+  // Cum vinzi
+  "Piese unicat",
+  "Lux la mâna a doua",
+  "Deadstock",
+  "Ediții limitate",
+  "Handmade",
+  "Upcycled",
+  "Sustenabil",
+  "Dressing personal",
+  "Lichidare de dulap",
+  "Loturi și pachete",
+  // Ocazii și sezoane
+  "Ținute de birou",
+  "Ținute de ocazie",
+  "Ținute de nuntă",
+  "Ținute de festival",
+  "Plajă și costume de baie",
+  "Haine de iarnă",
+  "Echipament de schi",
+  "Echipament sportiv",
+  "Tricouri de fotbal",
+  "Tricouri de trupe",
+  "Merch",
+  "Pijamale și halate",
+  "Haine de gravide",
+  "Haine pentru bebeluși",
+  "Uniforme școlare",
+  // Altele din marketplace
+  "Cărți",
+  "Vinyl",
+  "Obiecte vintage",
+  "Decorațiuni",
+  "Textile de casă"
 ]
 
 // Confetti animation component
@@ -667,7 +639,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
       setCropBox({ x: 50, y: 50, size: 200 })
     } catch (e) {
       console.error("Error uploading avatar:", e)
-      alert('Failed to upload image')
+      alert("Nu am putut încărca poza. Încearcă din nou.")
     } finally {
       setUploadingAvatar(false)
     }
@@ -1121,15 +1093,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
               isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
               isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
             )}>
-              {/* Step 1: Let's get started */}
+              {/* Step 1: Să începem */}
               {currentStep === 1 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-4 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Let's get started <span className="inline-block">👋</span>
+                      Să începem <span className="inline-block">👋</span>
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Start with your name — everything can be changed later
+                      Începe cu numele sub care vinzi — poți schimba orice mai târziu
                     </p>
                   </div>
 
@@ -1150,7 +1122,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           onChange={(e) => setDisplayName(e.target.value)}
                           onFocus={() => setUsernameFocused(true)}
                           onBlur={() => setUsernameFocused(false)}
-                          placeholder="Your store name"
+                          placeholder="Numele tău de vânzător"
                           className="flex-1 text-base outline-none bg-transparent"
                           autoFocus={false}
                           autoComplete="off"
@@ -1166,7 +1138,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                         )}
                       </div>
                       {usernameAvailable === false && (
-                        <p className="text-red-500 text-xs mt-1.5 ml-1">This name is not available</p>
+                        <p className="text-red-500 text-xs mt-1.5 ml-1">Numele acesta e deja luat</p>
                       )}
                     </div>
 
@@ -1176,7 +1148,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
                       <span className="text-base">
-                        <span className="text-black font-medium">{getSlug() || "username"}</span>
+                        <span className="text-black font-medium">{getSlug() || "numele-tau"}</span>
                         <span className="text-gray-400">.storelib.com</span>
                       </span>
                     </div>
@@ -1189,7 +1161,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                       <textarea
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        placeholder="Tell us a few words about you..."
+                        placeholder="Spune în câteva cuvinte ce fel de haine vinzi..."
                         rows={2}
                         className="flex-1 text-base outline-none bg-transparent resize-none"
                       />
@@ -1198,15 +1170,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                 </div>
               )}
 
-              {/* Step 2: Store Category */}
+              {/* Step 2: Ce vinzi */}
               {currentStep === 2 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-4 sm:mb-6">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Store category
+                      Ce vinzi cel mai des?
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Choose what best fits your store.
+                      Alege categoria care ți se potrivește. O poți schimba oricând.
                     </p>
                   </div>
 
@@ -1238,27 +1210,27 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                       </button>
                     )}
 
-                    {/* See more button */}
+                    {/* Buton "vezi mai multe" */}
                     <button
                       onClick={() => setShowCategoryModal(true)}
                       className="px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      See more....
+                      Vezi mai multe...
                     </button>
                   </div>
 
                 </div>
               )}
 
-              {/* Step 3: Socials & Profile */}
+              {/* Step 3: Rețele sociale și poză de profil */}
               {currentStep === 3 && (
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-3 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Add your socials
+                      Adaugă-ți rețelele
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      These will appear on your OnePage
+                      Apar pe profilul tău, ca să aibă cumpărătorii încredere în tine
                     </p>
                   </div>
 
@@ -1279,7 +1251,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                         className="mt-2 sm:mt-3 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
                       >
                         <Pencil className="w-4 h-4" />
-                        Edit
+                        Schimbă
                       </button>
                       <input
                         ref={avatarInputRef}
@@ -1300,7 +1272,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           type="text"
                           value={socials.instagram}
                           onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
-                          placeholder="username"
+                          placeholder="utilizator"
                           className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
@@ -1313,7 +1285,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           type="text"
                           value={socials.tiktok}
                           onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
-                          placeholder="username"
+                          placeholder="utilizator"
                           className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
@@ -1325,7 +1297,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           type="text"
                           value={socials.youtube}
                           onChange={(e) => setSocials({ ...socials, youtube: e.target.value })}
-                          placeholder="youtube.com/@username"
+                          placeholder="youtube.com/@numeletau"
                           className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
@@ -1334,15 +1306,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                 </div>
               )}
 
-              {/* Step 4: Choose a Plan */}
+              {/* Step 4: Alegerea planului */}
               {currentStep === 4 && (
                 <div className="flex flex-col">
                   <div className="text-center mb-5 sm:mb-7">
                     <h1 className="text-[22px] sm:text-[34px] font-bold leading-tight">
-                      Choose your plan
+                      Alege-ți planul
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5">
-                      Start free or unlock more. You can upgrade anytime.
+                      Începe gratuit și listează câte articole vrei. Poți trece la alt plan oricând.
                     </p>
                   </div>
 
@@ -1356,16 +1328,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                       },
                       loadingPlan: planCheckoutLoading,
                       ctaLabels: {
-                        free: "Start Free",
-                        growth: "Get Growth",
-                        pro: "Get Professional",
+                        free: "Începe gratuit",
+                        growth: "Alege Growth",
+                        pro: "Alege Professional",
                       },
                     }}
                   />
                 </div>
               )}
 
-              {/* Step 5: Setup - centered content */}
+              {/* Step 5: Pregătirea contului */}
               {currentStep === 5 && (
                 <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[350px] px-4 pt-6 sm:pt-0">
                   {/* Logo with pulse effect */}
@@ -1386,31 +1358,31 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                     {isSettingUp && setupPhase === "creating" ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          Creating your profile...
+                          Îți creăm profilul...
                         </h1>
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : isSettingUp && setupPhase === "applying" ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          Applying your settings...
+                          Îți salvăm setările...
                         </h1>
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : isSettingUp && setupPhase === "almost" ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          Almost ready...
+                          Aproape gata...
                         </h1>
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
                       </div>
                     ) : setupError ? (
                       <div className="flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
                         <h1 className="text-lg sm:text-2xl font-bold text-red-600">
-                          Something went wrong
+                          Ceva n-a mers
                         </h1>
                         <p className="text-sm text-gray-500 text-center max-w-xs">
-                          We couldn't save your profile. Please try again.
+                          Nu am putut salva profilul. Încearcă din nou.
                         </p>
                         <button
                           onClick={() => {
@@ -1419,13 +1391,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           }}
                           className="mt-2 px-6 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
                         >
-                          Try Again
+                          Încearcă din nou
                         </button>
                       </div>
                     ) : setupComplete ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in zoom-in duration-500">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          Your Store is now ready.
+                          Profilul tău e gata.
                         </h1>
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
                           <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
@@ -1441,33 +1413,33 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                   <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
                     <p className="text-gray-500 text-xs sm:text-sm italic">
                       <span className="text-purple-600 font-medium not-italic">"</span>
-                      Logic will get you from A to B. Imagination will take you everywhere.
+                      Hainele bune nu se termină. Doar își schimbă dulapul.
                       <span className="text-purple-600 font-medium not-italic">"</span>
                     </p>
-                    <p className="text-gray-400 text-[10px] sm:text-xs mt-1">- Albert Einstein</p>
+                    <p className="text-gray-400 text-[10px] sm:text-xs mt-1">- Storelib</p>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Footer with buttons — steps 1-3 */}
+            {/* Butoanele de jos — pașii 1-3 */}
             {currentStep >= 1 && currentStep <= 3 && (
               <div className={cn(
                 "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0",
                 "pb-5 sm:pb-4",
                 currentStep === 2 && "sm:pb-7"
               )}>
-                {/* Back button and Other - left side */}
+                {/* Înapoi și Altele - în stânga */}
                 <div className="flex items-center gap-3">
                   {currentStep > 1 && (
                     <button
                       onClick={handleBack}
                       className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
                     >
-                      Back
+                      Înapoi
                     </button>
                   )}
-                  {/* Other button - only on category step */}
+                  {/* Butonul Altele - doar la pasul cu categoria */}
                   {currentStep === 2 && (
                     <button
                       onClick={() => {
@@ -1476,19 +1448,19 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                       }}
                       className="px-4 sm:px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      Other
+                      Altele
                     </button>
                   )}
                 </div>
 
-                {/* Skip and Next buttons - right side */}
+                {/* Sari peste și Continuă - în dreapta */}
                 <div className="flex items-center gap-3 sm:gap-4">
                   {canSkip() && (
                     <button
                       onClick={handleSkip}
                       className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
                     >
-                      Skip
+                      Sari peste
                     </button>
                   )}
 
@@ -1502,13 +1474,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     )}
                   >
-                    Next
+                    Continuă
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Step 4 (plan selection) — Back button only; plan cards contain the CTAs */}
+            {/* Pasul 4 (planul) — doar butonul Înapoi; CTA-urile sunt pe carduri */}
             {currentStep === 4 && (
               <div className="px-4 sm:px-12 pt-2 pb-5 sm:pb-4 flex items-center shrink-0">
                 <button
@@ -1516,12 +1488,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                   disabled={!!planCheckoutLoading}
                   className="px-5 sm:px-6 py-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Back
+                  Înapoi
                 </button>
               </div>
             )}
 
-            {/* Step 5 (setup) — no buttons, just bottom spacing */}
+            {/* Pasul 5 (pregătire) — fără butoane, doar spațiu jos */}
             {currentStep === 5 && (
               <div className="h-16" />
             )}
@@ -1529,7 +1501,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
         </DialogContent>
       </Dialog>
 
-      {/* Category Modal */}
+      {/* Modalul cu categorii */}
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
           <div className="p-5 border-b flex flex-row items-center gap-3">
@@ -1539,10 +1511,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">More Categories</h2>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Mai multe categorii</h2>
           </div>
 
-          {/* Search */}
+          {/* Căutare */}
           <div className="p-4 border-b">
             <div className="flex items-center gap-3 px-4 h-[44px] rounded-xl bg-gray-100">
               <Search className="w-4 h-4 text-gray-400" />
@@ -1550,13 +1522,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                 type="text"
                 value={categorySearch}
                 onChange={(e) => setCategorySearch(e.target.value)}
-                placeholder="Search categories..."
+                placeholder="Caută o categorie..."
                 className="flex-1 text-sm outline-none bg-transparent"
               />
             </div>
           </div>
 
-          {/* Categories list */}
+          {/* Lista de categorii */}
           <div className="p-4 max-h-[360px] overflow-y-auto">
             <div className="flex flex-wrap gap-2">
               {filteredCategories.map((category) => (
@@ -1582,7 +1554,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
         </DialogContent>
       </Dialog>
 
-      {/* Image Crop Modal */}
+      {/* Modalul de decupare a pozei */}
       <Dialog open={showCropModal} onOpenChange={(open) => {
         setShowCropModal(open)
         if (!open && tempImageUrl) {
@@ -1600,7 +1572,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</h2>
+            <h2 className="text-lg font-semibold flex-1 text-center pr-8">Decupează poza</h2>
           </div>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -1673,7 +1645,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                   {/* Image */}
                   <img
                     src={tempImageUrl}
-                    alt="Preview"
+                    alt="Previzualizare"
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
                     style={{
                       width: imageSizeCrop.width,
@@ -1758,7 +1730,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                 </div>
 
                 <p className="text-xs text-center text-gray-500">
-                  Drag to move, drag bottom-right corner to resize
+                  Trage de pătrat ca să-l muți, de colțul din dreapta jos ca să-l redimensionezi
                 </p>
 
                 <canvas ref={canvasRef} className="hidden" />
@@ -1768,14 +1740,14 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                     onClick={() => { setShowCropModal(false); setTempImageUrl(null); setAvatarFile(null); setCropBox({ x: 50, y: 50, size: 200 }) }}
                     className="flex-1 py-3 rounded-xl font-medium text-sm border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    Anulează
                   </button>
                   <button
                     onClick={handleCropComplete}
                     disabled={uploadingAvatar}
                     className="flex-1 py-3 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />Saving...</> : "Save"}
+                    {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />Se salvează...</> : "Salvează"}
                   </button>
                 </div>
               </>
@@ -1795,17 +1767,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
               className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"
               aria-hidden="true"
             />
-            <h2 className="text-xl font-semibold text-gray-900">Setting things up...</h2>
-            <p className="mt-2 text-sm text-gray-500">Redirecting to your dashboard.</p>
+            <h2 className="text-xl font-semibold text-gray-900">Pregătim totul...</h2>
+            <p className="mt-2 text-sm text-gray-500">Te ducem în contul tău de vânzător.</p>
 
             {redirectFailed && (
               <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm text-gray-700">This is taking longer than expected. You can continue manually.</p>
+                <p className="text-sm text-gray-700">Durează mai mult decât ne așteptam. Poți continua manual.</p>
                 <button
                   onClick={startDashboardRedirect}
                   className="mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-purple-600 px-4 text-sm font-medium text-white hover:bg-purple-700"
                 >
-                  Go to Dashboard
+                  Mergi în contul meu
                 </button>
               </div>
             )}

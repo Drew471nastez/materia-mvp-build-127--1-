@@ -86,11 +86,11 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.err_passwords_no_match": "Parolele nu coincid",
     // Signup success (role chooser)
     "auth.welcome_heading": "Bun venit",
-    "auth.welcome_choose": "Alege cum vrei să folosești Storelib.",
-    "auth.im_creator": "Sunt creator",
-    "auth.creator_desc": "Creează pagini și vinde produse.",
-    "auth.im_buyer": "Sunt cumpărător",
-    "auth.buyer_desc": "Explorează și cumpără de la creatori.",
+    "auth.welcome_choose": "Alege cum vrei să începi. Poți face și una, și alta.",
+    "auth.im_creator": "Vreau să vând",
+    "auth.creator_desc": "Fotografiază hainele pe care nu le mai porți și pune-le la vânzare.",
+    "auth.im_buyer": "Vreau să cumpăr",
+    "auth.buyer_desc": "Caută prin dressingurile altora și cumpără la mâna a doua.",
     "auth.switch_later": "Poți schimba mai târziu.",
     // Verify (signup/verify + verify-email)
     "auth.check_email": "Verifică-ți emailul",
@@ -221,11 +221,11 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.err_passwords_no_match": "Passwords do not match",
     // Signup success (role chooser)
     "auth.welcome_heading": "Welcome",
-    "auth.welcome_choose": "Choose how you want to use Storelib.",
-    "auth.im_creator": "I'm a creator",
-    "auth.creator_desc": "Create pages and sell products.",
-    "auth.im_buyer": "I'm a buyer",
-    "auth.buyer_desc": "Explore and purchase from creators.",
+    "auth.welcome_choose": "Choose how you want to start. You can do both.",
+    "auth.im_creator": "I want to sell",
+    "auth.creator_desc": "Photograph the clothes you no longer wear and list them.",
+    "auth.im_buyer": "I want to buy",
+    "auth.buyer_desc": "Browse other people's wardrobes and buy second-hand.",
     "auth.switch_later": "You can switch later.",
     // Verify (signup/verify + verify-email)
     "auth.check_email": "Check your email",

@@ -3,20 +3,16 @@
 import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Loader2 } from "lucide-react"
+import { Loader2, Shirt } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useLocale } from "@/components/locale-provider"
 import Image from "next/image"
 
-// Store/Creator icon - matches UserIcon style
-const StoreIcon = () => (
-  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M9 22V12H15V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-)
+// Iconiță pentru vânzător — hainele pe care le pui la vânzare
+const SellerIcon = () => <Shirt className="w-7 h-7" strokeWidth={2} />
+
 
 const UserIcon = () => (
   <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -293,7 +289,7 @@ function SuccessContent() {
               "flex flex-col gap-3 mb-6 transition-opacity duration-300",
               isLoading && "opacity-50"
             )}>
-              {/* Creator Card */}
+              {/* Cardul vânzătorului */}
               <div
                 className={cn(
                   "p-5 rounded-[16px] border-2 cursor-pointer transition-all duration-300 ease-out",
@@ -308,7 +304,7 @@ function SuccessContent() {
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-100 text-gray-600 shrink-0">
-                    <StoreIcon />
+                    <SellerIcon />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-base font-semibold mb-0.5">{t("auth.im_creator")}</h3>
@@ -335,7 +331,7 @@ function SuccessContent() {
                 </div>
               </div>
 
-              {/* Buyer Card */}
+              {/* Cardul cumpărătorului */}
               <div
                 className={cn(
                   "p-5 rounded-[16px] border-2 cursor-pointer transition-all duration-300 ease-out",
@@ -389,7 +385,7 @@ function SuccessContent() {
         <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
           <Image
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/awapage.png"
-            alt="Welcome banner"
+            alt="Bun venit pe Storelib"
             fill
             className="object-cover object-center"
             sizes="(min-width: 1024px) 50vw, 0px"
@@ -399,7 +395,7 @@ function SuccessContent() {
         </div>
       </div>
 
-      {/* Creator Onboarding Modal */}
+      {/* Modalul de onboarding pentru vânzători */}
       <CreatorOnboardingModal
         open={showCreatorOnboarding}
         onClose={handleCreatorOnboardingComplete}
