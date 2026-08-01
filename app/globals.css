@@ -1873,6 +1873,42 @@ html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
   padding-top: calc(68px + env(safe-area-inset-top, 0px));
 }
 
+/* Why a page with nothing on it still scrolled.
+ *
+ * <body> carries `padding-bottom: env(safe-area-inset-bottom)` — about 34px on
+ * a phone with a home indicator. This wrapper was `min-h-svh`, a full viewport
+ * on its own. A full viewport INSIDE a box that also has 34px of padding under
+ * it is 34px of document taller than the screen, so every short page — your
+ * profile with no listings, an inbox with two conversations, settings — had
+ * exactly one home-indicator's worth of scroll in it. Just enough to drag, move,
+ * and bounce back, with nothing at the bottom to have moved for. That is the
+ * scrolling on pages with nothing to scroll.
+ *
+ * It was also paying that inset twice over: GlobalMobileNav's spacer already
+ * reserves `63px + env(safe-area-inset-bottom)` so the tab bar never sits on a
+ * page's last row.
+ *
+ * So the wrapper asks for the viewport MINUS what the body is already adding
+ * under it. The two together come to exactly one screen, and a page that fits
+ * does not move. Nothing changes anywhere without a bottom inset — on desktop
+ * and on Android the env() resolves to zero and this is `100svh`, as before. */
+.marketing-flex-wrapper {
+  min-height: calc(100svh - env(safe-area-inset-bottom, 0px));
+}
+
+/* The wash behind a profile header. Geometry only — the gradient itself is on
+   the element, next to the rest of that screen's styling.
+   Its top is pulled up by the status-bar inset and its height grown by the same
+   amount, so it starts at the physical top of the screen instead of at the top
+   of the page. See components/member/member-profile.tsx. */
+.profile-wash {
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  height: calc(260px + env(safe-area-inset-top, 0px));
+}
+@media (min-width: 768px) {
+  .profile-wash { height: 320px; }
+}
+
 /* Prevent the white body flash during page transitions in Capacitor.
    When Next.js swaps routes the bare <body> is briefly visible; #f5f5f5
    matches the explore/marketing skeleton background so the transition is

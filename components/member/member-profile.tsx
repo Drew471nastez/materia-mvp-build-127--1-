@@ -237,9 +237,17 @@ export function MemberProfile({
           turning it into a banner. `inset-x-0` resolves against this column's
           padding box, so it runs edge to edge on a phone rather than stopping
           at the 16px gutter and reading as a stray rectangle. */}
+      {/*  …and it runs UNDER the status bar rather than stopping at it.
+          In the app the page begins below a spacer the height of the status
+          bar, so a wash anchored to the top of this column started at the
+          bottom edge of the clock: a hard line across the screen with a white
+          band above it, which is the one place on the page where a boundary
+          reads as damage rather than design. Extending it up by the same inset
+          means the colour starts where the screen does and there is no edge.
+          Zero everywhere without a notch, so this is a no-op on desktop. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[260px] bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent md:h-[320px]"
+        className="profile-wash pointer-events-none absolute inset-x-0 -z-10 bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent"
       />
 
       {/* Settings is a subpage of your own profile now, and the gear is the only

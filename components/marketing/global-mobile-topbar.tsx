@@ -99,9 +99,22 @@ export function GlobalMobileTopBar() {
     // above the page, so there is no inset to stand in for.
     if (ownsNoChrome) {
       return (
+        // Deliberately NOT painted. It reserves height and nothing else.
+        //
+        // It used to be `bg-white`, which turned it into an opaque band across
+        // the top of the screen that the page below could not reach past — so a
+        // profile, whose header carries a wash of colour from its first pixel,
+        // had that wash begin abruptly at the bottom edge of the status bar with
+        // a hard white strip above it. A spacer that reserves room should not
+        // also decide what colour that room is.
+        //
+        // Transparent, the strip shows whatever is behind it: the root, which
+        // surface-bg has already painted white, or the page's own background if
+        // the page chooses to extend up into it. Which is exactly what the
+        // profile wash now does.
         <div
           aria-hidden
-          className="native-only-topbar md:hidden shrink-0 bg-white"
+          className="native-only-topbar md:hidden shrink-0"
           style={{ height: "env(safe-area-inset-top, 0px)" }}
         />
       )

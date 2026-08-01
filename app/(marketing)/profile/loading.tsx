@@ -27,9 +27,12 @@ import { Settings } from "lucide-react"
 export default function ProfileLoading() {
   return (
     <div className="tab-enter relative isolate mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
+      {/* `.profile-wash` carries the geometry, including the pull up into the
+          status bar — the same class the real screen uses, so the colour does
+          not shift by an inset at the swap. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[260px] bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent md:h-[320px]"
+        className="profile-wash pointer-events-none absolute inset-x-0 -z-10 bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent"
       />
 
       {/* The gear's own row, at its real height — the 44px this shell used to

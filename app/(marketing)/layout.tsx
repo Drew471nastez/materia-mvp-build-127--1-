@@ -12,7 +12,10 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh flex-col marketing-flex-wrapper">
+    // The minimum height is in CSS, not here: it has to subtract the bottom
+    // safe-area inset that <body> already pays for, and `min-h-svh` cannot.
+    // See `.marketing-flex-wrapper` in app/globals.css.
+    <div className="flex flex-col marketing-flex-wrapper">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
