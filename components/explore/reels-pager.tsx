@@ -71,6 +71,24 @@ const ReelSlot = memo(function ReelSlot({
   )
 })
 
+/**
+ * Which reel you were on, kept for the length of the session.
+ *
+ * The index and not the offset: a reel is exactly one viewport tall, so the
+ * pixel position means nothing after a rotation or a keyboard opening, while
+ * "the seventh listing" survives all of it.
+ */
+const REEL_INDEX_KEY = "storelib_reel_index_v1"
+
+function readSavedIndex(): number {
+  try {
+    const n = Number(sessionStorage.getItem(REEL_INDEX_KEY))
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+  } catch {
+    return 0
+  }
+}
+
 export function ReelsPager({
   products,
   height,
@@ -80,8 +98,19 @@ export function ReelsPager({
   height: number
   onRefresh: () => Promise<void>
 }) {
-  const [index, setIndex] = useState(0)
-  const indexRef = useRef(0)
+  // Start ON the saved reel rather than at zero and scrolling there. The window
+  // of mounted slots is built from this, so seeding it means the listing you
+  // return to is rendered in the very first commit — restoring into a pager
+  // that had already decided only the first three listings existed would show
+  // you a blank screen until the scroll landed and React caught up.
+  const [index, setIndex] = useState(() => {
+    if (typeof window === "undefined") return 0
+    // Clamped against the list actually being rendered: the saved index can
+    // outlive the feed that produced it — a category filter, a pull-to-refresh,
+    // a shorter list — and pointing past the end would restore into nothing.
+    return Math.min(readSavedIndex(), Math.max(0, products.length - 1))
+  })
+  const indexRef = useRef(index)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const shiftRef = useRef<HTMLDivElement>(null)
@@ -98,6 +127,54 @@ export function ReelsPager({
   useEffect(() => {
     driveSettle.current = !hasScrollTimeline()
   }, [])
+
+  // Put the scroller where the index says, once, on the way back in.
+  //
+  // A layout effect so it lands before the browser paints — the pager must never
+  // be seen at the top before jumping. And it retries across frames because
+  // scrollTop on a container that has not laid out yet is accepted and silently
+  // discarded: the slots each need their height first, and on a cold mount that
+  // is a frame or two away. The same trap the grid's restore fell into.
+  const restored = useRef(false)
+  useLayoutEffect(() => {
+    if (restored.current) return
+    const target = indexRef.current
+    if (!target) {
+      restored.current = true
+      return
+    }
+    let raf = 0
+    const deadline = performance.now() + 1000
+    const attempt = () => {
+      const el = scrollRef.current
+      const step = hRef.current
+      if (el && step > 0 && el.scrollHeight > el.clientHeight) {
+        // Instant, not smooth: this is a restoration, not a movement. Anything
+        // animated here would read as the feed scrolling itself.
+        el.scrollTop = target * step
+        if (Math.abs(el.scrollTop - target * step) < 2) {
+          restored.current = true
+          return
+        }
+      }
+      if (performance.now() < deadline) raf = requestAnimationFrame(attempt)
+      else restored.current = true
+    }
+    raf = requestAnimationFrame(attempt)
+    return () => cancelAnimationFrame(raf)
+    // Mount-only: every later change of position is the user's own scrolling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // And remember it. Written from the index rather than on every scroll frame,
+  // so this costs one storage write per listing you actually land on.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(REEL_INDEX_KEY, String(index))
+    } catch {
+      /* storage unavailable */
+    }
+  }, [index])
 
   // Last scale written per element, so a frame that wouldn't change anything
   // doesn't touch the DOM at all. Style writes invalidate, and this runs on every
