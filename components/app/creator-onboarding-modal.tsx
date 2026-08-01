@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
+import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 
 // Storelib logo SVG component - inlined for instant loading
 const StorelibLogo = ({ className }: { className?: string }) => (
@@ -362,7 +363,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
 
     // Use hard navigation so the server-side layout always reads fresh DB state
     // after onboarding_completed is written — avoids bouncing back to /signup/success
-    window.location.replace("/app")
+    window.location.replace(POST_LOGIN_HOME)
   }
 
   useEffect(() => {

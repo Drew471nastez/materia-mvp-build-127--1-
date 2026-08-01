@@ -16,6 +16,7 @@ import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { useLocale } from "@/components/locale-provider"
+import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 
 function LoginFormContent() {
   const { t } = useLocale()
@@ -128,13 +129,13 @@ function LoginFormContent() {
             `/auth/sync-session` +
             `?access_token=${encodeURIComponent(gateSession.access_token)}` +
             `&refresh_token=${encodeURIComponent(gateSession.refresh_token)}` +
-            `&next=${encodeURIComponent("/app")}`
+            `&next=${encodeURIComponent(POST_LOGIN_HOME)}`
           )
         } else {
-          window.location.assign("/app")
+          window.location.assign(POST_LOGIN_HOME)
         }
       } catch {
-        window.location.assign("/app")
+        window.location.assign(POST_LOGIN_HOME)
       }
     }, 6000)
 
@@ -154,10 +155,10 @@ function LoginFormContent() {
 
       let nextPath = "/signup/success"
       if (creatorRow?.onboarding_completed) {
-        nextPath = "/app"
+        nextPath = POST_LOGIN_HOME
       } else if (creatorRow === undefined) {
         // Query timed out — assume creator to keep flow moving; layout will re-check.
-        nextPath = "/app"
+        nextPath = POST_LOGIN_HOME
       } else {
         const profileRes = await withTimeout(
           supabase.from("profiles").select("is_creator, welcome_completed").eq("id", user.id).maybeSingle(),
@@ -165,10 +166,10 @@ function LoginFormContent() {
         )
         const profile = (profileRes as any)?.data as { is_creator: boolean; welcome_completed: boolean } | null | undefined
         if (profile?.welcome_completed) {
-          nextPath = profile.is_creator ? "/app" : "/library"
+          nextPath = POST_LOGIN_HOME
         } else if (profile === undefined) {
           // Timed out — default to /app; /app layout will re-check.
-          nextPath = "/app"
+          nextPath = POST_LOGIN_HOME
         }
       }
 
@@ -178,7 +179,7 @@ function LoginFormContent() {
         (window as any).Capacitor.isNativePlatform()
 
       // Cache home route so NativeStartupRouter can skip DB on next cold start
-      if (nextPath === "/app" || nextPath === "/library") {
+      if (nextPath === POST_LOGIN_HOME) {
         cacheNativeHome(nextPath)
       }
 
@@ -383,14 +384,14 @@ function LoginFormContent() {
           if (creator.onboarding_completed === false) {
             navigateWithFallback("/signup/success")
           } else {
-            cacheNativeHome("/app")
-            navigateWithFallback("/app")
+            cacheNativeHome(POST_LOGIN_HOME)
+            navigateWithFallback(POST_LOGIN_HOME)
           }
         } else {
           // Buyer — welcome_completed is already true (passed gate 2)
           localStorage.setItem("storelib_welcome_shown", "true")
-          cacheNativeHome("/library")
-          navigateWithFallback("/library")
+          cacheNativeHome(POST_LOGIN_HOME)
+          navigateWithFallback(POST_LOGIN_HOME)
         }
         router.refresh()
       }

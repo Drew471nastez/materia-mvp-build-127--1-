@@ -31,6 +31,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { cacheNativeHome } from "@/lib/native-bridge"
+import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 
 const TAG = "[NativeOAuth]"
 const DEBUG =
@@ -449,7 +450,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
         .maybeSingle()
       if (creatorRow?.onboarding_completed) {
         // Fully onboarded creator → /app
-        nextPath = "/app"
+        nextPath = POST_LOGIN_HOME
       } else {
         const { data: profile } = await supabase
           .from("profiles")
@@ -458,7 +459,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
           .maybeSingle()
         if (profile?.welcome_completed) {
           // Returning user who already chose a role
-          nextPath = profile.is_creator ? "/app" : "/library"
+          nextPath = POST_LOGIN_HOME
         }
         // else: new user or welcome not completed → /signup/success (default)
       }
@@ -469,7 +470,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
 
     // Cache the home route so NativeStartupRouter can use it on the next
     // cold start without a DB query.
-    if (nextPath === "/app" || nextPath === "/library") {
+    if (nextPath === POST_LOGIN_HOME) {
       cacheNativeHome(nextPath)
     }
 

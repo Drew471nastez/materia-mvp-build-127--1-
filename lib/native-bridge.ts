@@ -12,6 +12,8 @@
  *   - The nativeAuthInProgress flag is owned here so all callers agree on state.
  */
 
+import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
+
 // ── Bridge accessor ──────────────────────────────────────────────────────────
 function bridge(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null
@@ -261,14 +263,14 @@ export async function handleNativeOAuthCallback(
     const { data: creator } = await supabaseClient.from("creators")
       .select("onboarding_completed").eq("user_id", userId).maybeSingle()
     if (creator?.onboarding_completed) {
-      await cacheNativeHome("/app")
-      return { success: true, isCreator: true, nextPath: "/app" }
+      await cacheNativeHome(POST_LOGIN_HOME)
+      return { success: true, isCreator: true, nextPath: POST_LOGIN_HOME }
     }
 
     const { data: profile } = await supabaseClient.from("profiles")
       .select("is_creator, welcome_completed").eq("id", userId).maybeSingle()
     if (profile?.welcome_completed) {
-      const dest = profile.is_creator ? "/app" : "/library"
+      const dest = POST_LOGIN_HOME
       await cacheNativeHome(dest)
       return { success: true, isCreator: !!profile.is_creator, nextPath: dest }
     }

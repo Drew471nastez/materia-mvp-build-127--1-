@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useLocale } from "@/components/locale-provider"
 import Image from "next/image"
+import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 
 // Iconiță pentru vânzător — hainele pe care le pui la vânzare
 const SellerIcon = () => <Shirt className="w-7 h-7" strokeWidth={2} />
@@ -113,7 +114,7 @@ function SuccessContent() {
         if (cancelled) return
 
         if (creator?.onboarding_completed === true) {
-          window.location.replace("/app")
+          window.location.replace(POST_LOGIN_HOME)
           return
         }
 
@@ -135,7 +136,7 @@ function SuccessContent() {
         if (cancelled) return
 
         if (profile?.welcome_completed === true && profile?.is_creator === false) {
-          window.location.replace("/library")
+          window.location.replace(POST_LOGIN_HOME)
           return
         }
 
@@ -226,13 +227,13 @@ function SuccessContent() {
 
       // Show full-screen loader, then navigate to library (hard navigation for fresh server state)
       setIsRouting(true)
-      window.location.replace("/library")
+      window.location.replace(POST_LOGIN_HOME)
     }
   }
 
   const handleCreatorOnboardingComplete = () => {
     // Onboarding modal has saved everything to database
-    // The modal handles navigation via window.location.replace("/app")
+    // The modal handles navigation via window.location.replace(POST_LOGIN_HOME)
     setShowCreatorOnboarding(false)
   }
 
