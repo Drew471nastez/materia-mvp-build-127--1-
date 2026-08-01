@@ -33,7 +33,7 @@ type Tab = "for-you" | "following" | "saved"
 /** Opening the app: a longer, calmer arrival. */
 const ENTRY_MS = 700
 /** Coming back from a listing. Must match `.feed-return` in globals.css. */
-const RETURN_MS = 470
+const RETURN_MS = 420
 /** Swapping one screen for the other. The motion is depth only — see
  *  `layerStyle` — and depth reads fast, so this is shorter than a slide would
  *  need to be without feeling clipped. */

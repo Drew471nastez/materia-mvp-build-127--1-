@@ -147,44 +147,42 @@ html.capacitor a.no-tap-fade:active {
   to   { transform: scale(1); }
 }
 /* Coming back to the feed.
-   
-   The pop half of a native screen stack, done from the arriving side only: the
-   feed comes back from the left, slightly small and under a shadow, as though it
-   had been sitting beneath the listing all along and is now being uncovered.
-   
-   The dim is a separate full-screen layer, NOT a filter on the feed. Two reasons,
-   and both of them matter. A filter on a subtree this size — a fixed root holding
-   a scroller and a screenful of photographs — is not reliably composited, and
-   animating one can repaint the lot every frame; opacity on a flat black plate is
-   the cheapest thing a compositor does. And a filter would travel WITH the feed,
-   leaving the strip of frame the slide uncovers at full brightness beside a
-   darkened screen: a bright band down one edge, which is the opposite of what
-   the shadow is for. The plate is portalled to the body so it stays still and
-   covers everything, strip included.
-   
-   That uncovered strip is the root, which surface-bg has already painted this
-   exact screen's colour — white behind the grid, black behind a full-bleed reel.
-   Nothing to see there, which is the only reason this can travel at all. */
-/* TRANSLATE ONLY, and TWO stops.
 
-   Both of those are corrections. The scale had to go: scaling a full-screen
-   composited layer resamples every rasterized tile in it on every frame, which
-   on a phone holding a screenful of photographs is the difference between a
-   transform the compositor does for free and one that costs real milliseconds —
-   and it softens the text for the length of the animation as a bonus. Pure
-   translation is a matrix offset applied to tiles that never change.
+   The arriving side does all of it — the listing is unmounted the instant the
+   navigation starts, so there is never a second screen to animate out and never
+   anything behind this one.
 
-   And the middle keyframe had to go with it. It put 83% of the travel in the
-   first half and then crawled the rest, on top of an easing curve that was
-   already doing exactly that — the timing was warped twice, so the screen
-   lunged almost home and then oozed the last two percent. That is the "pop"
-   followed by the drag. One curve, doing the job once. */
+   The dim is a separate full-screen layer, NOT a filter on the feed. A filter on
+   a subtree this size — a fixed root holding a scroller and a screenful of
+   photographs — is not reliably composited, and animating one can repaint the
+   lot every frame; opacity on a flat black plate is the cheapest thing a
+   compositor does. It is portalled to the body so it stays put at full size
+   while the feed scales inside it, and covers the frame edge to edge for the
+   whole animation.
+
+   Behind the feed is the root, which surface-bg has already painted this exact
+   screen's colour before the first frame — white behind the grid, black behind a
+   full-bleed reel. So the margin the scale leaves around the edges is the same
+   colour as the screen sitting in it, and there is nothing there to see. */
+/* DEPTH, not direction.
+
+   The sideways travel is gone. A screen sliding in from the edge is the one
+   thing on a phone that has to be perfect to be acceptable — it is a hard edge
+   crossing the whole viewport, so every dropped frame is visible as a stutter in
+   a straight line, and the strip it uncovers is a second surface that has to be
+   the right colour at exactly the right moment or it reads as a tear. It is a
+   lot of risk for a motion nobody asked for.
+
+   So the feed comes FORWARD instead. It was behind the listing; now the listing
+   is gone and it rises back to the front. Nothing crosses the frame, no edge
+   travels, nothing is uncovered — the whole screen simply resolves towards you.
+   There is no direction to get wrong and no strip to paint. */
 @keyframes feed-return {
-  from { transform: translate3d(-22%, 0, 0); }
-  to   { transform: translate3d(0, 0, 0); }
+  from { transform: scale(0.94); }
+  to   { transform: scale(1); }
 }
 @keyframes feed-return-dim {
-  from { opacity: 0.24; }
+  from { opacity: 0.22; }
   to   { opacity: 0; }
 }
 .feed-return-dim {
@@ -194,10 +192,10 @@ html.capacitor a.no-tap-fade:active {
   background: #000;
   pointer-events: none;
   opacity: 0;
-  /* Same duration and the same curve as the slide, so the shadow lifts exactly
-     as fast as the screen arrives. Two animations of different shapes over the
-     same span read as one of them lagging the other. */
-  animation: feed-return-dim 470ms cubic-bezier(0.34, 0.02, 0.16, 1) both;
+  /* Same duration and the same curve as the feed, so the veil lifts at exactly
+     the rate the screen comes forward. Two animations of different shapes over
+     the same span read as one of them lagging the other. */
+  animation: feed-return-dim 420ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
   will-change: opacity;
 }
 @media (min-width: 768px) {
@@ -218,37 +216,24 @@ html.capacitor a.no-tap-fade:active {
     transform-origin: 50% 42%;
   }
   .feed-return {
-    /* Longer, further, and with a soft start.
+    /* Six percent, eased in and out, over four hundred and twenty milliseconds.
 
-       The iOS curve this used — off the mark at full speed, then a flat tail —
-       is tuned for a screen you are dragging with your thumb, where the motion
-       has to pick up exactly where your finger left it. Nobody is dragging this;
-       it is a button. Started at full speed from nothing, that curve reads as a
-       snap: the screen is most of the way home before your eye has found it, and
-       what you actually watch is only the tail. That is "too direct".
+       Small on purpose. Depth does not need distance to read — the eye picks up
+       a scale change of a few percent across a whole screen instantly, because
+       every element in the frame moves in agreement. Sideways travel needed 22%
+       to be legible; this needs 6%, which means the layer is never resampled far
+       enough from its rasterised size to soften the text.
 
-       So it eases IN as well as out. The 0.34/0.02 handle holds the first few
-       frames back, so the screen builds speed the way a real object would, and
-       the 0.16/1 handle gives it the long glide to rest. Symmetrical enough to
-       feel considered, still weighted towards the end so it never drags.
+       The curve eases in as well as out for the same reason the slide did: this
+       is fired by a button, not carried over from a finger, so it has to start
+       from a standstill the way something with weight would rather than leaving
+       the mark at full speed.
 
-       Further, too — 22% rather than 15%. A longer animation over a short
-       distance is just a slow one; over a longer distance it is the same
-       velocity with more of it to see. There is more travel to follow and the
-       shadow spends longer over the strip it is uncovering.
-
-       One composited property, one layer, no repaint — this is a matrix offset
-       per frame no matter how many photographs are on the screen behind it, so
-       the extra length costs nothing. */
-    animation: feed-return 470ms cubic-bezier(0.34, 0.02, 0.16, 1) both;
+       The transform origin is the middle of the screen and nothing is ever
+       translated, so the feed cannot expose an edge no matter where in the
+       animation a frame lands. That is the whole point of doing it this way. */
+    animation: feed-return 420ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
     will-change: transform;
-    /* Cast to the RIGHT, across the strip the slide uncovers. This is the depth
-       cue that makes a pop read as one screen coming out from under another
-       rather than a page being nudged sideways: the edge that is arriving has a
-       real shadow under it, thrown onto what it is about to cover. It is painted
-       into the same layer that is moving, so it costs nothing to animate, and it
-       leaves the frame entirely the moment the screen lands. */
-    box-shadow: 10px 0 36px rgba(0, 0, 0, 0.34);
   }
 }
 @media (min-width: 768px) {
