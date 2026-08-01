@@ -280,6 +280,26 @@ function LoginFormContent() {
       })
 
       if (error) {
+        // Say which limit was hit, and to whom.
+        //
+        // Supabase answers every exhausted budget with the same sentence —
+        // "Request rate limit reached" — whether what ran out was sign-in
+        // attempts, token refreshes, or the two verification emails an hour the
+        // built-in mailer allows. Passing that through verbatim tells a person
+        // nothing they can act on and tells us nothing we can debug, which is
+        // why this has been diagnosed by inference rather than by reading. The
+        // status and code go to the console for us; the reader gets a sentence
+        // that says what to do.
+        const status = (error as { status?: number }).status
+        const code = (error as { code?: string }).code
+        if (status === 429 || code === "over_request_rate_limit" || /rate limit/i.test(error.message)) {
+          console.error("[auth] rate limited", { status, code, message: error.message })
+          throw new Error(
+            "Prea multe încercări. Așteaptă câteva minute și încearcă din nou.",
+          )
+        }
+        console.error("[auth] sign-in failed", { status, code, message: error.message })
+
         // Handle specific error messages
         if (error.message.includes("Email not confirmed")) {
           // User hasn't verified email — redirect to our custom verify page
