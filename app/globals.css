@@ -180,11 +180,11 @@ html.capacitor a.no-tap-fade:active {
    lunged almost home and then oozed the last two percent. That is the "pop"
    followed by the drag. One curve, doing the job once. */
 @keyframes feed-return {
-  from { transform: translate3d(-15%, 0, 0); }
+  from { transform: translate3d(-22%, 0, 0); }
   to   { transform: translate3d(0, 0, 0); }
 }
 @keyframes feed-return-dim {
-  from { opacity: 0.18; }
+  from { opacity: 0.24; }
   to   { opacity: 0; }
 }
 .feed-return-dim {
@@ -196,8 +196,8 @@ html.capacitor a.no-tap-fade:active {
   opacity: 0;
   /* Same duration and the same curve as the slide, so the shadow lifts exactly
      as fast as the screen arrives. Two animations of different shapes over the
-     same 380ms read as one of them lagging the other. */
-  animation: feed-return-dim 330ms cubic-bezier(0.32, 0.72, 0, 1) both;
+     same span read as one of them lagging the other. */
+  animation: feed-return-dim 470ms cubic-bezier(0.34, 0.02, 0.16, 1) both;
   will-change: opacity;
 }
 @media (min-width: 768px) {
@@ -218,15 +218,29 @@ html.capacitor a.no-tap-fade:active {
     transform-origin: 50% 42%;
   }
   .feed-return {
-    /* The curve iOS uses to bring a screen back: off the mark immediately, then
-       a long flat tail it glides into. Fast enough to read as direct, settled
-       enough at the end that you watch it arrive rather than notice it already
-       has. 330ms, because past about a third of a second a pop stops feeling
-       like a response to your finger and starts feeling like a wait.
+    /* Longer, further, and with a soft start.
+
+       The iOS curve this used — off the mark at full speed, then a flat tail —
+       is tuned for a screen you are dragging with your thumb, where the motion
+       has to pick up exactly where your finger left it. Nobody is dragging this;
+       it is a button. Started at full speed from nothing, that curve reads as a
+       snap: the screen is most of the way home before your eye has found it, and
+       what you actually watch is only the tail. That is "too direct".
+
+       So it eases IN as well as out. The 0.34/0.02 handle holds the first few
+       frames back, so the screen builds speed the way a real object would, and
+       the 0.16/1 handle gives it the long glide to rest. Symmetrical enough to
+       feel considered, still weighted towards the end so it never drags.
+
+       Further, too — 22% rather than 15%. A longer animation over a short
+       distance is just a slow one; over a longer distance it is the same
+       velocity with more of it to see. There is more travel to follow and the
+       shadow spends longer over the strip it is uncovering.
 
        One composited property, one layer, no repaint — this is a matrix offset
-       per frame no matter how many photographs are on the screen behind it. */
-    animation: feed-return 330ms cubic-bezier(0.32, 0.72, 0, 1) both;
+       per frame no matter how many photographs are on the screen behind it, so
+       the extra length costs nothing. */
+    animation: feed-return 470ms cubic-bezier(0.34, 0.02, 0.16, 1) both;
     will-change: transform;
     /* Cast to the RIGHT, across the strip the slide uncovers. This is the depth
        cue that makes a pop read as one screen coming out from under another
@@ -234,7 +248,7 @@ html.capacitor a.no-tap-fade:active {
        real shadow under it, thrown onto what it is about to cover. It is painted
        into the same layer that is moving, so it costs nothing to animate, and it
        leaves the frame entirely the moment the screen lands. */
-    box-shadow: 7px 0 28px rgba(0, 0, 0, 0.32);
+    box-shadow: 10px 0 36px rgba(0, 0, 0, 0.34);
   }
 }
 @media (min-width: 768px) {

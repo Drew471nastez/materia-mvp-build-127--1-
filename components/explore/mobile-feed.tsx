@@ -33,7 +33,7 @@ type Tab = "for-you" | "following" | "saved"
 /** Opening the app: a longer, calmer arrival. */
 const ENTRY_MS = 700
 /** Coming back from a listing. Must match `.feed-return` in globals.css. */
-const RETURN_MS = 330
+const RETURN_MS = 470
 /** Swapping one screen for the other. The motion is depth only — see
  *  `layerStyle` — and depth reads fast, so this is shorter than a slide would
  *  need to be without feeling clipped. */
@@ -771,6 +771,14 @@ export function MobileFeed({
   // a render rather than a request. Capped and idle-scheduled: prefetching a
   // hundred dynamic pages to open one would trade this delay for a worse one.
   useEffect(() => {
+    // Not while a transition is on the screen. Warming is speculative work for a
+    // tap that has not happened yet; the animation is work the user is looking
+    // at right now. Idle time during a compositor animation is real idle time,
+    // so this WOULD run — a dozen route fetches and their payloads landing on
+    // the main thread in the middle of the return slide, which is exactly the
+    // half-second the slide has to stay smooth for. It costs nothing to wait:
+    // the effect re-runs the moment the animation is done.
+    if (returning) return
     // The SAME href the cards link to, `?origin=` and all.
     //
     // This prefetched the bare /products/<slug> while every card pointed at
@@ -807,7 +815,7 @@ export function MobileFeed({
       if (ric && (window as any).cancelIdleCallback) (window as any).cancelIdleCallback(handle)
       else window.clearTimeout(handle)
     }
-  }, [products, reelsActive, router, searchQuery, cat])
+  }, [products, reelsActive, router, searchQuery, cat, returning])
 
   // Warm what you are about to reach, not just what loaded first.
   //
@@ -822,7 +830,11 @@ export function MobileFeed({
   // Unobserved on first hit, so each listing costs exactly one prefetch, and the
   // browser's own cache absorbs any overlap with the idle pass.
   useEffect(() => {
-    if (reelsActive) return
+    // Same reason as above, and more so: this one fires the instant it attaches,
+    // with 800px of margin either side, so on a return it would hand the main
+    // thread a screenful of route prefetches and image decodes on the first
+    // frame of the animation. It attaches when the animation is over.
+    if (reelsActive || returning) return
     const root = scrollRef.current
     if (!root || typeof IntersectionObserver === "undefined") return
 
@@ -841,7 +853,7 @@ export function MobileFeed({
     )
     root.querySelectorAll<HTMLElement>("[data-warm-href]").forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [products, reelsActive, router])
+  }, [products, reelsActive, router, returning])
 
   // Opens the same full-screen overlay the grid strip's SearchTrigger does, for
   // the taps SearchTrigger doesn't cover: the reels overlay's search icon and
