@@ -23,7 +23,7 @@ import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
 import { warmListingImage } from "@/lib/warm-image"
 import { signalArrival } from "@/lib/nav-blend"
-import { navHint } from "@/lib/screen-transition"
+import { consumeNavHint } from "@/lib/screen-transition"
 import { claimSurface } from "@/lib/surface-bg"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -32,6 +32,8 @@ type Tab = "for-you" | "following" | "saved"
 
 /** Opening the app: a longer, calmer arrival. */
 const ENTRY_MS = 700
+/** Coming back from a listing. Must match `.feed-return` in globals.css. */
+const RETURN_MS = 330
 /** Swapping one screen for the other. The motion is depth only — see
  *  `layerStyle` — and depth reads fast, so this is shorter than a slide would
  *  need to be without feeling clipped. */
@@ -200,8 +202,39 @@ export function MobileFeed({
   // would be paid back in memory during every scroll afterwards.
   const [returning, setReturning] = useState(false)
   useLayoutEffect(() => {
-    if (navHint() === "back") setReturning(true)
+    if (consumeNavHint() !== "back") return
+    setReturning(true)
+    // Cleared on a timer rather than on the dim plate's animationend. The plate
+    // is display:none on desktop and under reduced motion, and an element that
+    // is never rendered never fires an animation event — so the class, and the
+    // compositor layer `will-change` asks for, stayed on for the rest of the
+    // session on exactly the machines that had opted out of the animation.
+    const t = window.setTimeout(() => setReturning(false), RETURN_MS + 60)
+    return () => window.clearTimeout(t)
   }, [])
+
+  // Changing category fades the grid. MOUNTING it must not — and until now it
+  // did, because the fade was unconditional on a wrapper that is remounted every
+  // time this component is.
+  //
+  // This is the flash on the way back from a listing, and it was hiding in plain
+  // sight behind a comment explaining why it couldn't happen. Returning from a
+  // listing does not re-enter the feed, it REMOUNTS it: `key={cat}` was never
+  // the point, the wrapper is new either way. So every single return played a
+  // 300ms fade of the entire grid up from nothing — over a white background,
+  // underneath the return slide, at the same time as it. Two animations, one of
+  // them starting from transparent. That is the flash, the double, and most of
+  // what read as the page reloading itself.
+  //
+  // So the fade is armed by a category actually changing, and is not there for
+  // the first paint of a freshly mounted feed.
+  const [catFade, setCatFade] = useState(false)
+  const catAtMount = useRef(cat)
+  useLayoutEffect(() => {
+    if (catAtMount.current === cat) return
+    catAtMount.current = cat
+    setCatFade(true)
+  }, [cat])
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const feedContentRef = useRef<HTMLDivElement>(null)
@@ -422,7 +455,15 @@ export function MobileFeed({
   // switching to reels meant tap → nothing → measure → only then the dissolve
   // could start. That dead beat before anything moved is most of why the switch
   // felt abrupt: it read as a stall followed by a jump.
-  useEffect(() => {
+  //
+  // And measure it BEFORE the first paint, not after. The pager renders nothing
+  // at all until this height exists, so with a passive effect the opening frame
+  // of every arrival into reels was an empty black rectangle and the reel itself
+  // appeared on the frame after — a screen that loads in two steps, which is
+  // most of what "it refreshes" describes on the way back from a listing. A
+  // layout effect measures and re-renders before anything reaches the screen, so
+  // the first frame already has the listing in it.
+  useLayoutEffect(() => {
     const el = stageRef.current
     if (!el) return
     const measure = () => setReelsHeight((prev) => (prev === el.clientHeight ? prev : el.clientHeight))
@@ -457,8 +498,16 @@ export function MobileFeed({
   // This used to save and restore html.style.background itself, which meant
   // leaving the feed reverted the colour the arriving screen had just set. See
   // claimSurface: ownership is counted, and handovers never pass through nobody.
+  //
+  // A LAYOUT effect, not a passive one, and that distinction is a visible bug on
+  // its own. Passive effects run after the browser has painted, so the first
+  // frame of a return from a listing was drawn with the strip still the colour
+  // the listing had claimed — white. Coming back to a full-bleed reel, that is a
+  // white band down the edge the slide uncovers, on a black screen, for one
+  // frame. Claiming before paint means the strip is already this screen's colour
+  // when the screen first appears.
   const surface = useRef<{ set: (c: string) => void; release: () => void } | null>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     surface.current = claimSurface(reelsActive ? "#000000" : "#ffffff")
     return () => {
       surface.current?.release()
@@ -544,22 +593,42 @@ export function MobileFeed({
     // filtered category, a refreshed list).
     let raf = 0
     const deadline = performance.now() + 1000
-    const attempt = () => {
+    /** @returns true once the offset has actually landed. */
+    const place = () => {
       const el = scrollRef.current
-      if (el && el.scrollHeight > el.clientHeight) {
-        el.scrollTop = saved
-        lastScrollY.current = el.scrollTop
-        // Landed close enough — images still loading can shift it by a pixel or
-        // two, and chasing that would fight the user's own scrolling.
-        if (Math.abs(el.scrollTop - saved) < 4) {
-          signalArrival()
-          return
-        }
+      if (!el || el.scrollHeight <= el.clientHeight) return false
+      el.scrollTop = saved
+      lastScrollY.current = el.scrollTop
+      // Landed close enough — images still loading can shift it by a pixel or
+      // two, and chasing that would fight the user's own scrolling.
+      return Math.abs(el.scrollTop - saved) < 4
+    }
+    const attempt = () => {
+      if (place()) {
+        signalArrival()
+        return
       }
       if (performance.now() < deadline) raf = requestAnimationFrame(attempt)
       else signalArrival() // gave up, but the feed is still what you're looking at
     }
-    raf = requestAnimationFrame(attempt)
+
+    // Try it NOW — synchronously, inside the layout effect, before the browser
+    // has painted anything at all.
+    //
+    // Going straight to requestAnimationFrame, which is what this did, GUARANTEED
+    // the jump it was written to prevent. A rAF callback runs just before the
+    // next frame, so frame one always painted the feed sitting at the top and
+    // frame two snapped it down to where you had been. On the way back from a
+    // listing that snap lands in the middle of the return slide — a screen
+    // arriving and lurching at the same time, which is the pop.
+    //
+    // The retry loop still exists, because a container that has not laid out yet
+    // accepts a scrollTop write and silently discards it. But it is now the
+    // fallback rather than the path: the grid is built from data the server
+    // already sent, so by the time this runs it has its full height and the
+    // write sticks first time.
+    if (place()) signalArrival()
+    else raf = requestAnimationFrame(attempt)
     return () => cancelAnimationFrame(raf)
     // Mount-only: later scrolling is the user's own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -801,11 +870,7 @@ export function MobileFeed({
       {returning &&
         typeof document !== "undefined" &&
         createPortal(
-          <div
-            aria-hidden="true"
-            className="feed-return-dim"
-            onAnimationEnd={() => setReturning(false)}
-          />,
+          <div aria-hidden="true" className="feed-return-dim" />,
           document.body,
         )}
       {/* Entry curtain — opaque, already the destination view's colour on the
@@ -1121,7 +1186,7 @@ export function MobileFeed({
             ) : tab === "saved" ? (
               <SavedTab t={t} reloadSignal={savedReload} />
             ) : (
-              <div key={cat} className="animate-in fade-in-0 duration-300 ease-out">
+              <div key={cat} className={catFade ? "animate-in fade-in-0 duration-300 ease-out" : undefined}>
                 {forYouGrid}
               </div>
             )}

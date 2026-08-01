@@ -132,6 +132,20 @@ export async function navigateScreen(kind: Kind, go: () => void): Promise<void> 
   window.clearTimeout(clearHint)
   clearHint = window.setTimeout(() => delete root.dataset.nav, HINT_MS)
 
+  // Going back is not a load.
+  //
+  // The screen you are returning to is already in the client router cache — no
+  // request goes out, nothing is fetched, and the only thing standing between
+  // the tap and the feed is React re-rendering a tree it already has. A progress
+  // bar over that can only ever be a purple line appearing and vanishing again
+  // in the same third of a second. That is one of the flashes on the way back,
+  // and the honest fix is not to draw it: back gets the haptic and the slide,
+  // and nothing else competing for the eye.
+  if (kind === "pop") {
+    go()
+    return
+  }
+
   const done = showBar()
   const settled = new Promise<void>((resolve) => {
     arrive = resolve
@@ -150,4 +164,22 @@ export function navHint(): "enter" | "back" | null {
   if (typeof document === "undefined") return null
   const v = document.documentElement.dataset.nav
   return v === "enter" || v === "back" ? v : null
+}
+
+/**
+ * The same answer, but taken rather than read.
+ *
+ * A hint is for exactly one arrival. Left lying on <html> for its full 900ms it
+ * is still there for whatever mounts next — a tab change, a category swap, a
+ * remount for any reason at all — and that screen animates in as though you had
+ * pressed back, which is a transition appearing out of nowhere. Whoever acts on
+ * the hint clears it.
+ */
+export function consumeNavHint(): "enter" | "back" | null {
+  const v = navHint()
+  if (v && typeof document !== "undefined") {
+    window.clearTimeout(clearHint)
+    delete document.documentElement.dataset.nav
+  }
+  return v
 }

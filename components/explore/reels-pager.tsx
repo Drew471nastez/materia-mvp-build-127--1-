@@ -145,22 +145,33 @@ export function ReelsPager({
     }
     let raf = 0
     const deadline = performance.now() + 1000
-    const attempt = () => {
+    /** @returns true once the scroller is sitting on the saved reel. */
+    const place = () => {
       const el = scrollRef.current
       const step = hRef.current
-      if (el && step > 0 && el.scrollHeight > el.clientHeight) {
-        // Instant, not smooth: this is a restoration, not a movement. Anything
-        // animated here would read as the feed scrolling itself.
-        el.scrollTop = target * step
-        if (Math.abs(el.scrollTop - target * step) < 2) {
-          restored.current = true
-          return
-        }
+      if (!el || step <= 0 || el.scrollHeight <= el.clientHeight) return false
+      // Instant, not smooth: this is a restoration, not a movement. Anything
+      // animated here would read as the feed scrolling itself.
+      el.scrollTop = target * step
+      return Math.abs(el.scrollTop - target * step) < 2
+    }
+    const attempt = () => {
+      if (place()) {
+        restored.current = true
+        return
       }
       if (performance.now() < deadline) raf = requestAnimationFrame(attempt)
       else restored.current = true
     }
-    raf = requestAnimationFrame(attempt)
+
+    // Synchronously first, and only then across frames. Handing this to rAF
+    // unconditionally meant the first painted frame ALWAYS showed the top of the
+    // pager and the second one snapped to the reel you were actually on — the
+    // exact "seen at the top before jumping" this comment promises never happens.
+    // The slot heights come from `height`, which is measured before the pager
+    // mounts, so the write almost always sticks right here.
+    if (place()) restored.current = true
+    else raf = requestAnimationFrame(attempt)
     return () => cancelAnimationFrame(raf)
     // Mount-only: every later change of position is the user's own scrolling.
     // eslint-disable-next-line react-hooks/exhaustive-deps
