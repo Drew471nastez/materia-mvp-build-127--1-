@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,8 @@ type Thread = {
   me: string
   listing: { id: string; title: string; slug: string; thumbnail_url: string | null; price_cents: number; status: string } | null
   other: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null
+  // The other party is Storelib: verified, and writing about no listing.
+  official?: boolean
   messages: Msg[]
 }
 
@@ -164,9 +166,14 @@ export function MessageThread({ id }: { id: string }) {
               {name.slice(0, 1).toUpperCase()}
             </span>
           )}
-          <span className="min-w-0 flex-1 truncate text-[15.5px] font-semibold text-neutral-900">{name}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1">
+            <span className="truncate text-[15.5px] font-semibold text-neutral-900">{name}</span>
+            {thread?.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
+          </span>
         </div>
-        {thread?.listing && (
+        {/* Storelib's thread has no item behind it, so the strip that would
+            normally say "about this listing" has nothing to say and is gone. */}
+        {thread?.listing && !thread.official && (
           <Link
             href={`/products/${encodeURIComponent(thread.listing.slug)}?origin=messages`}
             className="flex items-center gap-3 border-t border-neutral-100 px-4 py-2.5 transition-colors active:bg-neutral-50"

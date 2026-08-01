@@ -32,6 +32,11 @@ export const RESERVED_WORDS = [
   // permanently unreachable.
   "profile",
   "member",
+  // The platform's own account. Identity is conferred by profiles.is_official,
+  // which only an operator can set, so a squatter could never be rendered as
+  // Storelib — but they could take the handle first and force the real account
+  // onto a different one.
+  "storelib",
   "messages",
   "purchases",
   "sales",

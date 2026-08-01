@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
+import { fetchProfilesWithOfficial, getSystemUserId, isOfficialProfile } from "@/lib/system-account"
 
 /**
  * One conversation.
@@ -13,6 +14,10 @@ import { createNotification } from "@/lib/notifications"
  * it, and a separate receipt endpoint would just be this with extra requests.
  * Everything runs on the caller's client except the listing/profile enrichment,
  * so RLS is the membership check: a conversation that isn't yours 404s.
+ *
+ * A thread with Storelib is the same object with listing_id null and an
+ * official party on the other end, so both are handled as absences rather than
+ * as a second code path.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -52,21 +57,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient()
   const otherId = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
-  const [{ data: listing }, { data: other }] = await Promise.all([
-    admin
-      .from("products")
-      .select("id, title, slug, thumbnail_url, price_cents, status")
-      .eq("id", convo.listing_id)
-      .maybeSingle(),
-    admin.from("profiles").select("id, display_name, username, avatar_url").eq("id", otherId).maybeSingle(),
+  // No listing_id means a system thread: there is nothing to look up, and
+  // asking products for a null id would only cost a round trip to learn that.
+  const [{ data: listing }, profiles, systemId] = await Promise.all([
+    convo.listing_id
+      ? admin
+          .from("products")
+          .select("id, title, slug, thumbnail_url, price_cents, status")
+          .eq("id", convo.listing_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    fetchProfilesWithOfficial(admin, [otherId]),
+    getSystemUserId(admin),
   ])
+  const other = profiles.get(otherId) ?? null
 
   return NextResponse.json({
     id: convo.id,
     youAre: convo.buyer_id === user.id ? "buyer" : "seller",
     me: user.id,
     listing: listing ?? null,
-    other: other ?? null,
+    other,
+    official: isOfficialProfile(other, systemId),
     messages: messagesRes.data ?? [],
   })
 }
@@ -94,7 +106,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // RLS proves membership: a conversation the caller isn't in reads as absent.
   // The party and listing columns come along so the notification below knows
-  // who to address without a second read.
+  // who to address without a second read. Writing to Storelib needs no special
+  // case — the caller is the buyer_id on that thread, so the same policy that
+  // lets them answer a seller lets them answer support.
   const { data: convo } = await supabase
     .from("conversations")
     .select("id, listing_id, buyer_id, seller_id")
@@ -123,6 +137,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
 
   // Whoever is on the other side of this thread hears about the new message.
+  // listing_id is null on a system thread, which the notification already
+  // treats as "about no particular item".
   await createNotification(createAdminClient(), {
     userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,
     kind: offerCents !== null ? "offer_received" : "message",

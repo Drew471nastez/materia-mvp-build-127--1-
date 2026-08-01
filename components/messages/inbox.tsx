@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Bell, MessageCircle } from "lucide-react"
+import { BadgeCheck, Bell, MessageCircle } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
 
@@ -13,6 +13,9 @@ type Row = {
   youAre: "buyer" | "seller"
   listing: { id: string; title: string; slug: string; thumbnail_url: string | null; price_cents: number } | null
   other: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null
+  // Storelib itself writing to you: a verified check, no item, always on top.
+  // The server decides this; the row only has to render it.
+  official?: boolean
   lastMessage: {
     sender_id: string
     kind: "text" | "offer"
@@ -192,6 +195,9 @@ export function MessagesInbox() {
 
 function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: (cents: number) => string }) {
   if (rows === null) return <ListSkeleton />
+  // Rare now: everyone gets the Storelib thread on their first visit here, so
+  // this only shows where the official account isn't configured at all. The
+  // copy stays as it was, because that state still reads as "no messages yet".
   if (rows.length === 0) {
     return (
       <Empty
@@ -222,8 +228,11 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
               <Avatar name={name} url={r.other?.avatar_url ?? null} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
-                  <span className={cn("truncate text-[15px] text-neutral-900", r.unread > 0 ? "font-bold" : "font-semibold")}>
-                    {name}
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className={cn("truncate text-[15px] text-neutral-900", r.unread > 0 ? "font-bold" : "font-semibold")}>
+                      {name}
+                    </span>
+                    {r.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
                   </span>
                   <span className="shrink-0 text-[12px] text-neutral-400">{ago(r.lastMessageAt)}</span>
                 </span>
@@ -238,6 +247,9 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
                   )}
                 </span>
               </span>
+              {/* The grey square is a placeholder for a listing whose photo
+                  hasn't loaded. Storelib's thread is about no listing at all,
+                  so it gets nothing there rather than an empty promise. */}
               {r.listing?.thumbnail_url ? (
                 <Image
                   src={r.listing.thumbnail_url}
@@ -246,7 +258,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
                   height={48}
                   className="h-12 w-12 shrink-0 rounded-lg object-cover"
                 />
-              ) : (
+              ) : r.official ? null : (
                 <span className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
               )}
             </Link>
