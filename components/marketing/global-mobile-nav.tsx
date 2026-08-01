@@ -72,7 +72,11 @@ export function GlobalMobileNav() {
   return (
     <>
       {/* Reserves the bar's height so a page's last row isn't sat on. */}
-      <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 62px)" }} />
+      {/* Stands in for the fixed bar below, so a page's last row isn't sat on.
+          It has to track the bar's real height: the tabs grew to fill their
+          columns (54px plus the row's padding and the top border), and a
+          spacer left behind would put every page a few pixels under it. */}
+      <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }} />
       <div className="md:hidden fixed inset-x-0 bottom-0 z-[80]">
         <MobileBottomNav active={active as any} onSearch={() => {
           void triggerHaptic("light")

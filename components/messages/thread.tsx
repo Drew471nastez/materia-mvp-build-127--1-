@@ -189,8 +189,18 @@ export function MessageThread({ id }: { id: string }) {
         )}
       </div>
 
-      {/* The exchange */}
-      <div ref={scrollerRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      {/* The exchange.
+          `overscroll-y-contain` is what stops a two-message conversation from
+          bouncing: without it the scroller chains its overscroll to the
+          document, so dragging on a thread that does not scroll drags the whole
+          page and reveals empty space under the composer. Contained, the drag
+          simply does nothing, which is the honest answer when there is nothing
+          above or below to reach. */}
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4"
+      >
         {thread === null ? (
           <div className="space-y-3">
             <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />

@@ -65,6 +65,13 @@ export function GlobalMobileTopBar() {
     // screen.
     pathname.startsWith("/profile") ||
     pathname.startsWith("/settings") ||
+    // Messages are correspondence, not a catalogue. The inbox has its own
+    // title and segmented control, and a thread has its own header with the
+    // person's name in it — a search field for listings above either of them
+    // is answering a question nobody asked here. It also cost the thread its
+    // geometry: that page sizes itself to the viewport, so a strip stacked
+    // above it pushed the composer below the fold.
+    pathname.startsWith("/messages") ||
     pathname.startsWith("/purchases") ||
     pathname.startsWith("/sales") ||
     isListingPage

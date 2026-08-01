@@ -12,17 +12,22 @@ import type { SupabaseClient } from "@supabase/supabase-js"
  * there is no backfill job to run when this ships.
  *
  * Everything here is best-effort by design. The account is identified by
- * configuration (an env var, or a profile someone marked official), and in an
- * environment where nobody has done either — which is every environment until
- * an operator acts — every function below returns null quietly. A missing
- * migration behaves the same way: the insert fails, the error is logged, and
- * the inbox renders the conversations that do exist. Messaging must never go
- * down because a marketing feature is half-configured.
+ * configuration — an env var, a profile marked official, or the reserved
+ * "storelib" handle — and in an environment where none of the three is present
+ * every function below returns null quietly. A missing migration behaves the
+ * same way: the insert fails, the error is logged, and the inbox renders the
+ * conversations that do exist. Messaging must never go down because a
+ * marketing feature is half-configured.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Tie-breaker when more than one profile carries the official flag. */
+/**
+ * The reserved handle. It tie-breaks when more than one profile carries the
+ * official flag, and it resolves the account on its own when the flag is not
+ * available. Safe as an identifier because lib/reserved-words.ts lists it, so
+ * no ordinary account can ever hold it.
+ */
 const SYSTEM_USERNAME = "storelib"
 
 /**
@@ -69,7 +74,8 @@ let columnMissUntil = 0
  * The auth user id behind the official account, or null when nobody has
  * configured one. STORELIB_SYSTEM_USER_ID wins because it is unambiguous;
  * otherwise the account is whichever profile an operator flagged is_official,
- * preferring the reserved handle if several are flagged.
+ * preferring the reserved handle if several are flagged; and failing that, the
+ * profile holding the reserved handle itself.
  */
 export async function getSystemUserId(admin: SupabaseClient): Promise<string | null> {
   if (cachedId) return cachedId
@@ -82,16 +88,15 @@ export async function getSystemUserId(admin: SupabaseClient): Promise<string | n
   }
 
   try {
-    // The flag is the credential, never the handle on its own: "storelib" is
-    // not a reserved username, so anyone could register it, and an account
-    // that gets to impersonate the platform in every inbox is not a risk worth
-    // carrying for the convenience of a name lookup. Among flagged profiles
-    // the reserved handle wins, and the username ordering makes the fallback
-    // deterministic rather than whatever the planner returns first.
+    // The flag is the primary credential: it is set by a migration or by an
+    // operator's UPDATE, so nothing a signup flow can reach ever grants it.
+    // Among flagged profiles the reserved handle wins, and the username
+    // ordering makes the tie-break deterministic rather than whatever the
+    // planner returns first.
     //
     // is_official arrives with 20260804_system_account.sql; before it, this
-    // query errors instead of returning rows, which reads as "not configured"
-    // and is exactly right.
+    // query errors instead of returning rows, and the handle lookup below is
+    // what keeps the account resolvable in that window.
     const { data: official } = await admin
       .from("profiles")
       .select("id, username")
@@ -105,6 +110,29 @@ export async function getSystemUserId(admin: SupabaseClient): Promise<string | n
     }
   } catch (e: any) {
     console.error("[system-account] lookup failed:", e?.message || e)
+  }
+
+  try {
+    // Fall back to the handle. This used to be refused on the grounds that
+    // anyone could register "storelib" — but they cannot: it sits in
+    // RESERVED_WORDS, and validateUsername in lib/reserved-words.ts rejects it
+    // on every path that lets someone choose a username. So the handle is a
+    // second operator-controlled credential rather than a public one, and
+    // leaning on it is what makes 20260805_storelib_seed.sql work on a
+    // deployment whose is_official column is missing or whose flag an operator
+    // has not yet set — no env var, no redeploy.
+    const { data: byHandle } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("username", SYSTEM_USERNAME)
+      .limit(1)
+      .maybeSingle()
+    if (byHandle?.id) {
+      cachedId = byHandle.id as string
+      return cachedId
+    }
+  } catch (e: any) {
+    console.error("[system-account] handle lookup failed:", e?.message || e)
   }
 
   missUntil = Date.now() + MISS_TTL_MS

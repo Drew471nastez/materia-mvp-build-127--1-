@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { BadgeCheck, Bell, MessageCircle } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 type Row = {
@@ -66,6 +67,10 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 export function MessagesInbox() {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">("messages")
+  // Nothing animates on the first paint — a list that fades in on arrival reads
+  // as a slow page, not as a transition. The flag flips on the first switch and
+  // stays flipped, so only the swaps a person actually asked for are animated.
+  const [switched, setSwitched] = useState(false)
   const [rows, setRows] = useState<Row[] | null>(null)
   const [signedOut, setSignedOut] = useState(false)
   const [notifs, setNotifs] = useState<Notif[] | null>(null)
@@ -141,9 +146,23 @@ export function MessagesInbox() {
     }
   }, [tab, notifs])
 
+  // A switch is a deliberate, physical act on a phone, so it answers like one:
+  // a tick of haptic on the way, and never on a re-tap of the segment you are
+  // already reading.
+  const switchTo = useCallback(
+    (next: "messages" | "notifications") => {
+      if (next === tab) return
+      void triggerHaptic("light")
+      setSwitched(true)
+      setTab(next)
+    },
+    [tab],
+  )
+
   if (signedOut) {
     return (
       <Empty
+        className="min-h-[60svh]"
         title="Conectează-te pentru mesaje"
         body="Conversațiile cu vânzătorii și cumpărătorii apar aici după ce te conectezi."
         cta={{ href: "/login?next=/messages", label: "Conectează-te" }}
@@ -152,12 +171,25 @@ export function MessagesInbox() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-2 pb-24 md:pb-10">
+    // The column fills the space the marketing layout gives it and no more.
+    // Bottom padding lives on the lists rather than here, because the layout's
+    // mobile nav already reserves its own strip below <main>: paying for it
+    // twice was most of the empty space this page used to scroll through.
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col px-2">
       <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
         {tab === "messages" ? "Mesaje" : "Notificări"}
       </h1>
       <div className="px-2 pb-2 pt-1">
-        <div className="flex h-10 items-center rounded-full bg-neutral-100 p-1">
+        {/* One pill that slides, rather than two that blink. It is absolutely
+            positioned and moved on a transform, so the browser composites it
+            instead of relaying out the control on every frame — and the
+            buttons above it keep their exact geometry. */}
+        <div className="relative flex h-10 items-center rounded-full bg-neutral-100 p-1">
+          <span
+            aria-hidden
+            className="absolute left-1 top-1 h-8 w-[calc(50%-4px)] rounded-full bg-white shadow-sm transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none"
+            style={{ transform: tab === "messages" ? "translateX(0%)" : "translateX(100%)" }}
+          />
           {(
             [
               { key: "messages", label: "Mesaje" },
@@ -167,10 +199,11 @@ export function MessagesInbox() {
             <button
               key={s.key}
               type="button"
-              onClick={() => setTab(s.key)}
+              aria-pressed={tab === s.key}
+              onClick={() => switchTo(s.key)}
               className={cn(
-                "relative flex h-8 flex-1 items-center justify-center rounded-full text-[14px] font-semibold transition-colors",
-                tab === s.key ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500",
+                "relative z-10 flex h-8 flex-1 items-center justify-center rounded-full text-[14px] font-semibold transition-colors duration-200",
+                tab === s.key ? "text-neutral-900" : "text-neutral-500",
               )}
             >
               {s.label}
@@ -184,11 +217,22 @@ export function MessagesInbox() {
         </div>
       </div>
 
-      {tab === "messages" ? (
-        <MessagesList rows={rows} formatPrice={formatPrice} />
-      ) : (
-        <NotificationsList items={notifs} />
-      )}
+      {/* Remounted per tab so the incoming list fades up instead of appearing
+          mid-slide. Opacity only, and the box it happens in is the same flex
+          child either way, so nothing under it moves. */}
+      <div
+        key={tab}
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          switched && "animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none",
+        )}
+      >
+        {tab === "messages" ? (
+          <MessagesList rows={rows} formatPrice={formatPrice} />
+        ) : (
+          <NotificationsList items={notifs} />
+        )}
+      </div>
     </div>
   )
 }
@@ -201,6 +245,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
   if (rows.length === 0) {
     return (
       <Empty
+        className="min-h-[40svh] flex-1"
         title="Niciun mesaj încă"
         body="Scrie-i unui vânzător sau fă o ofertă la un articol — conversația apare aici."
         cta={{ href: "/", label: "Descoperă anunțuri" }}
@@ -209,7 +254,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
   }
 
   return (
-    <ul className="divide-y divide-neutral-100">
+    <ul className="divide-y divide-neutral-100 pb-8 md:pb-10">
       {rows.map((r) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
@@ -297,8 +342,11 @@ function notifHref(n: Notif): string | null {
 function NotificationsList({ items }: { items: Notif[] | null }) {
   if (items === null) return <ListSkeleton />
   if (items.length === 0) {
+    // Same bargain as the messages side: fill what is left of the screen, put
+    // a floor under it for the layouts where a percentage height cannot
+    // resolve, and never ask for more room than the viewport has.
     return (
-      <div className="flex flex-col items-center px-6 py-20 text-center">
+      <div className="flex min-h-[40svh] flex-1 flex-col items-center justify-center px-6 py-10 text-center">
         <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
           <Bell className="h-6 w-6" />
         </span>
@@ -308,7 +356,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
   }
 
   return (
-    <ul className="divide-y divide-neutral-100">
+    <ul className="divide-y divide-neutral-100 pb-8 md:pb-10">
       {items.map((n) => {
         const name = n.actor?.display_name || n.actor?.username || "Cineva"
         const { verb, accent } = notifText(n.kind)
@@ -356,7 +404,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
 
 function ListSkeleton() {
   return (
-    <div className="px-2 py-1">
+    <div className="px-2 pb-8 pt-1 md:pb-10">
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex items-center gap-3 py-3.5">
           <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
@@ -371,9 +419,37 @@ function ListSkeleton() {
   )
 }
 
-function Empty({ title, body, cta }: { title: string; body: string; cta: { href: string; label: string } }) {
+/**
+ * The empty state, sized by its caller.
+ *
+ * It used to be a flat `min-h-[60svh]` wherever it appeared, and inside the
+ * inbox that was the bug: 60svh plus the heading, the segmented control, the
+ * page's own bottom padding and the strip the mobile nav already reserves came
+ * to more than one screen, so a page with nothing on it still scrolled — over
+ * nothing, which is exactly the feeling being fixed. In the inbox it now takes
+ * `flex-1` and fills whatever is actually left; standing alone under <main> it
+ * still asks for a fixed slice, because there is no column above it to measure
+ * against. The svh floors are what keep it centred rather than clinging to the
+ * top in the layouts where a percentage height cannot resolve.
+ */
+function Empty({
+  title,
+  body,
+  cta,
+  className,
+}: {
+  title: string
+  body: string
+  cta: { href: string; label: string }
+  className?: string
+}) {
   return (
-    <div className="mx-auto flex min-h-[60svh] max-w-xl flex-col items-center justify-center px-6 py-16 text-center">
+    <div
+      className={cn(
+        "mx-auto flex w-full max-w-xl flex-col items-center justify-center px-6 py-10 text-center",
+        className,
+      )}
+    >
       <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
         <MessageCircle className="h-7 w-7" />
       </span>
