@@ -28,10 +28,30 @@ function HeaderPlaceholder() {
   )
 }
 
-/** Paths that are always platform pages (never custom-domain seller pages). */
+/**
+ * Paths that are always platform pages (never custom-domain seller pages).
+ *
+ * This has to be a list rather than "everything that isn't a seller path",
+ * because /[sellername] is a real route: any single unknown segment is somebody's
+ * storefront, and those deliberately carry no platform chrome. So a page missing
+ * from here does not get a header — which is exactly what had happened to
+ * /profile and to the pages below it. On the web that leaves you on a screen
+ * with no search, no account menu and no way anywhere except the browser's own
+ * back button. Anything the app adds under a fixed path belongs in this list.
+ */
 function isKnownPlatformPath(p: string): boolean {
   return (
     p.startsWith("/feed") ||
+    // Your own account, and everything reached from it.
+    p.startsWith("/profile") ||
+    p.startsWith("/orders") ||
+    p.startsWith("/offers") ||
+    // Legal and static content, which is as much a platform page as any other.
+    p.startsWith("/legal") ||
+    p.startsWith("/help") ||
+    // Category and collection listings.
+    p.startsWith("/c/") ||
+    p.startsWith("/w/") ||
     p.startsWith("/explore") ||
     p.startsWith("/features") ||
     p.startsWith("/creators") ||

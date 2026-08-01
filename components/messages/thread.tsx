@@ -82,10 +82,13 @@ function timeLabel(d: Date): string {
  * or decline a pending one, and an accepted one becomes the buyer's way into
  * checkout at the agreed price.
  */
-export function MessageThread({ id }: { id: string }) {
+export function MessageThread({ id, initial = null }: { id: string; initial?: Thread | null }) {
   const { formatPrice } = useLocale()
   const router = useRouter()
-  const [thread, setThread] = useState<Thread | null>(null)
+  // Born with the conversation in it. The server read it in the same request
+  // that rendered this page, so there is no skeleton, no fetch-on-mount and no
+  // second arrival — see app/(marketing)/messages/[id]/page.tsx.
+  const [thread, setThread] = useState<Thread | null>(initial)
   const [failed, setFailed] = useState(false)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
@@ -119,6 +122,12 @@ export function MessageThread({ id }: { id: string }) {
   // show a message that arrives, so asking for it is spend with nothing bought;
   // the catch-up happens in one fetch the moment the reader comes back, which is
   // the first instant the answer could matter to them.
+  // Skipped exactly once, when the server already handed us the conversation.
+  // Fetching it again on mount would be a second, identical read landing a few
+  // hundred milliseconds after the first paint — and with it a re-render of
+  // every bubble on screen, which is the flicker that made an already-rendered
+  // thread look like it was still loading.
+  const skipFirstLoad = useRef(initial !== null)
   useEffect(() => {
     let timer: number | undefined
 
@@ -135,7 +144,8 @@ export function MessageThread({ id }: { id: string }) {
 
     const sync = () => {
       if (document.visibilityState === "visible") {
-        load()
+        if (skipFirstLoad.current) skipFirstLoad.current = false
+        else load()
         start()
       } else {
         stop()
@@ -150,6 +160,57 @@ export function MessageThread({ id }: { id: string }) {
     }
   }, [load])
 
+  // ---- The screen the keyboard leaves you ----
+  //
+  // A conversation is sized to what you can SEE, which on a phone is not the
+  // viewport: open the keyboard and half of it is behind glass. `dvh` does not
+  // help — the viewport units deliberately ignore the virtual keyboard — so a
+  // column measured in them keeps its full height, the composer stays where it
+  // was, underneath the keys, and the browser's only way to show you the field
+  // you just tapped is to scroll the whole document. That scroll is what took
+  // the header up off the top of the screen: it was never moving on its own,
+  // the entire page was being pushed to reach the input.
+  //
+  // visualViewport reports the real thing. Its height is what is left above the
+  // keyboard, and its offsetTop is how far the layout viewport has already been
+  // scrolled away — both are needed, because a fixed element is anchored to the
+  // layout viewport and has to be pushed back down by exactly that much to stay
+  // on screen. With the two, the conversation is always precisely the visible
+  // area: the header pinned to the top of it, the composer sitting on the
+  // keyboard, and the messages scrolling between them. The page itself never
+  // moves, which is what "like WhatsApp" means.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [keyboard, setKeyboard] = useState(false)
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const vv = window.visualViewport
+    const apply = () => {
+      const h = Math.round(vv?.height ?? window.innerHeight)
+      el.style.setProperty("--vv-h", `${h}px`)
+      el.style.setProperty("--vv-top", `${Math.round(vv?.offsetTop ?? 0)}px`)
+      // Anything that eats a serious fraction of the screen is the keyboard.
+      // The threshold is deliberately loose — a browser toolbar collapsing is
+      // 60-odd pixels, a keyboard is never less than about a quarter of the
+      // screen — so a scroll-driven toolbar change cannot be mistaken for one.
+      setKeyboard(window.innerHeight - h > window.innerHeight * 0.2)
+    }
+    apply()
+    vv?.addEventListener("resize", apply)
+    // The scroll listener is not optional on iOS: the page can be scrolled
+    // underneath an open keyboard, and without following offsetTop the pinned
+    // column drifts off the top of the screen exactly as it did before.
+    vv?.addEventListener("scroll", apply)
+    window.addEventListener("resize", apply)
+    window.addEventListener("orientationchange", apply)
+    return () => {
+      vv?.removeEventListener("resize", apply)
+      vv?.removeEventListener("scroll", apply)
+      window.removeEventListener("resize", apply)
+      window.removeEventListener("orientationchange", apply)
+    }
+  }, [])
+
   // Keep the newest message in view — but only when the reader was already at
   // the bottom. Someone scrolled up through the history has left the present,
   // and yanking them back down on every poll would make the history unreadable.
@@ -157,6 +218,28 @@ export function MessageThread({ id }: { id: string }) {
     const el = scrollerRef.current
     if (el && stickBottom.current) el.scrollTop = el.scrollHeight
   }, [thread?.messages.length])
+
+  // The keyboard opening shortens the scroller under it, so whatever was at the
+  // bottom is suddenly above the fold. Follow it down, for the same reason a new
+  // message does: the end of the conversation is where you were looking.
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (el && stickBottom.current) el.scrollTop = el.scrollHeight
+  }, [keyboard])
+
+  // Which bubbles are new enough to be worth animating.
+  //
+  // Everything that was on screen when the thread arrived is history and must
+  // simply be there; only what turns up afterwards — what you just sent, what
+  // just came in — gets an entrance. Ids are recorded after each commit, so a
+  // message animates exactly once and a re-render for any other reason cannot
+  // replay the whole conversation.
+  const seen = useRef<Set<string> | null>(null)
+  const isFresh = useCallback((msgId: string) => seen.current !== null && !seen.current.has(msgId), [])
+  useEffect(() => {
+    if (seen.current === null) seen.current = new Set()
+    for (const m of thread?.messages ?? []) seen.current.add(m.id)
+  }, [thread?.messages])
   const onScroll = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
@@ -244,12 +327,16 @@ export function MessageThread({ id }: { id: string }) {
     // bar leaves the column the size of what you can actually see, so the only
     // thing that scrolls is the list of messages, which is the only thing that
     // should.
-    // `.thread-shell` carries the height (app/globals.css). It has to match
-    // GlobalMobileNav's spacer EXACTLY, and that spacer is `63px +
-    // env(safe-area-inset-bottom)` — not 63px. Leaving the inset out made this
-    // column a home indicator taller than the room it had, which is a page that
-    // scrolls by 34px with nothing 34px down to show for it.
-    <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
+    // `.thread-shell` carries the geometry (app/globals.css): on a phone it is
+    // pinned to the visible area — the one the keyboard leaves — and on a
+    // desktop it goes back to being a card in the page. `data-keyboard` is how
+    // the composer knows to drop the home-indicator inset, which is dead space
+    // when there is a keyboard where the home indicator used to be.
+    <div
+      ref={rootRef}
+      data-keyboard={keyboard ? "open" : undefined}
+      className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200"
+    >
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
       {/* The inset is paid here rather than by a spacer above the page, so the
@@ -367,6 +454,10 @@ export function MessageThread({ id }: { id: string }) {
                       "flex flex-col",
                       mine ? "items-end" : "items-start",
                       i === 0 || opensDay ? "" : grouped ? "mt-[3px]" : "mt-3",
+                      // Only what arrived after you got here. It rises from the
+                      // side it belongs to, so a message you sent comes off the
+                      // composer rather than materialising above it.
+                      isFresh(m.id) && (mine ? "msg-in-mine" : "msg-in-theirs"),
                     )}
                   >
                     {m.kind === "offer" ? (
@@ -427,8 +518,11 @@ export function MessageThread({ id }: { id: string }) {
         )}
       </div>
 
-      {/* Composer — pinned above the mobile bottom nav, flush on desktop. */}
-      <div className="shrink-0 border-t border-neutral-100 bg-white px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 md:pb-3">
+      {/* Composer — on the bottom edge of what you can see, whatever that is.
+          The home-indicator inset is real when the phone is idle and pure dead
+          space the moment a keyboard covers that part of the screen, so
+          `.thread-composer` drops it while one is open. */}
+      <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
         <div className="flex items-end gap-2">
           <textarea
             value={draft}

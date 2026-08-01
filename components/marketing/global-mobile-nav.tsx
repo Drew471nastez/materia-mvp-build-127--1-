@@ -21,10 +21,29 @@ import { isNativeApp } from "@/lib/native-bridge"
  * rather than stacking two.
  */
 
+/**
+ * A conversation is a screen, not a tab.
+ *
+ * Every chat app on a phone drops its tab bar when you open a thread, and for
+ * two reasons that are both visible here. It is dead furniture — you came to
+ * read and to type, and the way out is the back arrow already in the header —
+ * and it is in the way: the composer has to sit on the bottom edge of the
+ * screen, so a bar under it is a white band between the input and the keyboard
+ * that goes nowhere. Its spacer is the empty space below the composer, and the
+ * bar itself is the thing that ends up wedged against an open keyboard.
+ *
+ * The inbox keeps it. /messages is a list you browse, and browsing is exactly
+ * what tabs are for.
+ */
+function isConversation(pathname: string): boolean {
+  return pathname.startsWith("/messages/") && pathname.length > "/messages/".length
+}
+
 /** Routes that ship their own bottom bar, or where one would be in the way. */
 function suppressed(pathname: string): boolean {
   return (
     pathname === "/" ||
+    isConversation(pathname) ||
     pathname.startsWith("/explore") ||
     pathname.startsWith("/checkout") ||
     pathname.startsWith("/login") ||
@@ -55,7 +74,7 @@ export function GlobalMobileNav() {
   // In the app the tab bar is the ONLY navigation — there's no header and no
   // browser back button — so it stays up even on checkout and auth screens.
   const hideBar = native
-    ? pathname === "/" || pathname.startsWith("/explore")
+    ? pathname === "/" || pathname.startsWith("/explore") || isConversation(pathname)
     : suppressed(pathname)
   if (hideBar) return null
 

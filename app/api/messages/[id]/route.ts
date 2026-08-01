@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
-import { fetchProfilesWithOfficial, getSystemUserId, isOfficialProfile } from "@/lib/system-account"
+import { readThread } from "@/lib/messages/thread"
 
 /**
  * One conversation.
@@ -44,55 +44,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!auth.userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
   const user = { id: auth.userId }
 
-  const { data: convo } = await supabase
-    .from("conversations")
-    .select("id, listing_id, buyer_id, seller_id")
-    .eq("id", id)
-    .maybeSingle()
-  if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
-  const [messagesRes, markRead] = await Promise.all([
-    supabase
-      .from("messages")
-      .select("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
-      .eq("conversation_id", id)
-      .order("created_at", { ascending: true })
-      .limit(500),
-    supabase
-      .from("messages")
-      .update({ read_at: new Date().toISOString() })
-      .eq("conversation_id", id)
-      .neq("sender_id", user.id)
-      .is("read_at", null),
-  ])
-  void markRead
-
-  const admin = createAdminClient()
-  const otherId = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
-  // No listing_id means a system thread: there is nothing to look up, and
-  // asking products for a null id would only cost a round trip to learn that.
-  const [{ data: listing }, profiles, systemId] = await Promise.all([
-    convo.listing_id
-      ? admin
-          .from("products")
-          .select("id, title, slug, thumbnail_url, price_cents, status")
-          .eq("id", convo.listing_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-    fetchProfilesWithOfficial(admin, [otherId]),
-    getSystemUserId(admin),
-  ])
-  const other = profiles.get(otherId) ?? null
-
-  return NextResponse.json({
-    id: convo.id,
-    youAre: convo.buyer_id === user.id ? "buyer" : "seller",
-    me: user.id,
-    listing: listing ?? null,
-    other,
-    official: isOfficialProfile(other, systemId),
-    messages: messagesRes.data ?? [],
-  })
+  // The body of this lives in lib/messages/thread.ts, because /messages/[id]
+  // now renders the same conversation on the server for its first paint and the
+  // two must produce exactly the same object — the client swaps the server's for
+  // a fetched one on its next poll, and any difference between them would read
+  // as the thread rearranging itself after it had already arrived.
+  const payload = await readThread({ asCaller: supabase, userId: user.id, id })
+  if (!payload) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  return NextResponse.json(payload)
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

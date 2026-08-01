@@ -239,7 +239,7 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
     // Bottom padding lives on the lists rather than here, because the layout's
     // mobile nav already reserves its own strip below <main>: paying for it
     // twice was most of the empty space this page used to scroll through.
-    <div className="mx-auto flex min-h-full max-w-2xl flex-col px-2">
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col px-2 md:px-0 md:py-8">
       <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
         {tab === "messages" ? "Mesaje" : "Notificări"}
       </h1>
@@ -351,6 +351,12 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
           <li key={r.id} className={ROW_DIVIDER}>
             <Link
               href={`/messages/${r.id}`}
+              // The thread route has a loading boundary now, so there is finally
+              // a static shell for this to fetch: the tap paints a conversation
+              // -shaped screen immediately instead of leaving you on the inbox
+              // while the payload travels.
+              prefetch
+              onClick={() => void triggerHaptic("light")}
               className={cn(
                 ROW_INNER,
                 // An unread thread is a different kind of row, so it is a
