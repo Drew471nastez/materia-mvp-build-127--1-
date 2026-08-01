@@ -21,7 +21,14 @@ type Msg = {
    *  they hadn't read. Null on a message of theirs simply means we are the ones
    *  who haven't read it yet, which is not worth saying on screen. */
   read_at: string | null
+  /** On screen, not yet on the server. Local only — never comes back from an
+   *  API, and is gone the moment the real row replaces it. */
+  pending?: boolean
 }
+
+/** Ids for messages that exist only on this screen so far. */
+let tempSeq = 0
+const nextTempId = () => `tmp-${++tempSeq}`
 
 type Thread = {
   id: string
@@ -112,7 +119,15 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         setFailed(true)
         return
       }
-      setThread(await r.json())
+      const fresh: Thread = await r.json()
+      // A poll must never eat a message that is still in flight. The server's
+      // copy of the thread does not contain it yet by definition, so replacing
+      // wholesale would make what you just sent vanish for the rest of the round
+      // trip and then reappear — which looks exactly like a message failing.
+      setThread((prev) => {
+        const inFlight = prev?.messages.filter((m) => m.pending) ?? []
+        return inFlight.length ? { ...fresh, messages: [...fresh.messages, ...inFlight] } : fresh
+      })
     } catch {
       /* transient — the next poll retries */
     }
@@ -227,6 +242,21 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     if (el && stickBottom.current) el.scrollTop = el.scrollHeight
   }, [keyboard])
 
+  // The field grows with what you write, up to four lines, then scrolls.
+  //
+  // `rows={1}` with a max height is a box that never changes size: type a
+  // paragraph and it scrolls inside 44px, so you can see one line of your own
+  // message while writing it. Height is reset to auto before it is read, because
+  // scrollHeight of an element with an explicit height is that height — without
+  // the reset the field can only ever grow, never shrink back when you delete.
+  const fieldRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = fieldRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${Math.min(el.scrollHeight, 112)}px`
+  }, [draft])
+
   // Which bubbles are new enough to be worth animating.
   //
   // Everything that was on screen when the thread arrived is history and must
@@ -246,11 +276,44 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }, [])
 
+  // Sending puts the message on screen NOW.
+  //
+  // It used to wait for the round trip: you tapped send, the field emptied, and
+  // for as long as the request took there was no message anywhere — the thing
+  // you had just written had simply vanished. On anything less than perfect
+  // signal that is several seconds of wondering whether it worked. The bubble
+  // is drawn immediately and marked pending, the server's real row replaces it
+  // when it lands, and a failure puts the text back in the field where you can
+  // see it. Nothing is ever silently lost, and the common case — it works —
+  // feels instant because it is.
   const send = useCallback(async () => {
     const body = draft.trim()
     if (!body || sending) return
+    const tempId = nextTempId()
     setSending(true)
     setDraft("")
+    stickBottom.current = true
+    setThread((t) =>
+      t
+        ? {
+            ...t,
+            messages: [
+              ...t.messages,
+              {
+                id: tempId,
+                sender_id: t.me,
+                kind: "text",
+                body,
+                offer_cents: null,
+                offer_status: null,
+                created_at: new Date().toISOString(),
+                read_at: null,
+                pending: true,
+              },
+            ],
+          }
+        : t,
+    )
     try {
       const r = await fetch(`/api/messages/${id}`, {
         method: "POST",
@@ -260,12 +323,20 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       })
       if (r.ok) {
         const { message } = await r.json()
+        // The real id is recorded as already-seen in the same breath as the
+        // swap, or the bubble would count as new and play its entrance a second
+        // time — the same message animating twice for one send.
+        seen.current?.add(message.id)
         stickBottom.current = true
-        setThread((t) => (t ? { ...t, messages: [...t.messages, message] } : t))
+        setThread((t) =>
+          t ? { ...t, messages: t.messages.map((m) => (m.id === tempId ? message : m)) } : t,
+        )
       } else {
+        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
         setDraft(body) // give the text back rather than losing it
       }
     } catch {
+      setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
       setDraft(body)
     } finally {
       setSending(false)
@@ -477,6 +548,10 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                           mine
                             ? "rounded-br-md bg-[#7c3aed] text-white"
                             : "rounded-bl-md bg-neutral-100 text-neutral-900",
+                          // In flight: present, readable, and visibly not
+                          // finished. It settles to full strength the moment the
+                          // server's row replaces it.
+                          m.pending && "opacity-70 transition-opacity duration-200",
                           // The corner facing the message above closes up when
                           // there is one, which is what makes a run read as a
                           // single block rather than a stack of separate cards.
@@ -503,8 +578,12 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                                 m.read_at ? "text-[#7c3aed]" : "text-neutral-400",
                               )}
                             >
-                              <CheckCheck className="h-3 w-3" strokeWidth={2.5} />
-                              {m.read_at ? "Văzut" : "Trimis"}
+                              {m.pending ? (
+                                <Check className="h-3 w-3 opacity-50" strokeWidth={2.5} />
+                              ) : (
+                                <CheckCheck className="h-3 w-3" strokeWidth={2.5} />
+                              )}
+                              {m.pending ? "Se trimite…" : m.read_at ? "Văzut" : "Trimis"}
                             </span>
                           </>
                         )}
@@ -525,6 +604,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
         <div className="flex items-end gap-2">
           <textarea
+            ref={fieldRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -535,7 +615,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
             }}
             rows={1}
             placeholder="Scrie un mesaj…"
-            className="max-h-28 min-h-[44px] flex-1 resize-none rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[15px] outline-none placeholder:text-neutral-400 focus:border-[#7c3aed]/50"
+            className="max-h-28 min-h-[44px] flex-1 resize-none overflow-y-auto rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[15px] leading-[1.35] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/50"
           />
           <button
             type="button"

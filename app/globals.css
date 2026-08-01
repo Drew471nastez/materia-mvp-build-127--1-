@@ -398,9 +398,23 @@ html.capacitor a.no-tap-fade:active {
    
    Short, because a tab is somewhere you go often and repetition is what makes
    an animation tiresome. Transform only, on one element. */
+/* Never from zero, and never from bigger than itself.
+ *
+ * Fading up from nothing means the first frames of every tab you open are a
+ * blank white rectangle — the page announcing itself rather than being there.
+ * And starting oversized reads as the screen falling towards you, which is the
+ * wrong direction: a tab you switch to was already open, conceptually, and comes
+ * FORWARD. Same language as coming back from a listing, so the whole app moves
+ * one way.
+ *
+ * It also has to survive being interrupted. The skeleton is what animates and
+ * the real page replaces it the moment the server answers, which can land at any
+ * point in this timeline — so the distance between the first frame and the last
+ * is deliberately small. At 0.72 opacity and 0.6% of scale, a swap caught
+ * mid-flight is a step nobody can see; from zero it would be a visible jump
+ * every time the network was quick. */
 @keyframes tab-enter {
-  from { opacity: 0; transform: scale(1.018); }
-  55%  { opacity: 1; }
+  from { opacity: 0.72; transform: scale(0.994); }
   to   { opacity: 1; transform: scale(1); }
 }
 @media (max-width: 767px) {
@@ -415,7 +429,11 @@ html.capacitor a.no-tap-fade:active {
        white on a white document, so the frames where the layer is translucent
        have nothing to reveal. Opacity and transform only — two composited
        properties on one element, independent of whatever the route is doing. */
-    animation: tab-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* The curve the feed return uses, so switching tabs and coming back from a
+       listing are recognisably the same gesture rather than two effects that
+       happen to live in the same app. Eased in as well as out: this is fired by
+       a finger on a tab, not carried over from one, so it starts from rest. */
+    animation: tab-enter 300ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
     will-change: transform, opacity;
   }
 }
@@ -1989,7 +2007,13 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
    moment a keyboard is covering the part of the screen it lives in — which is
    the empty band under the composer. Paid only when there is no keyboard. */
 .thread-composer {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  /* The home indicator needs the FIELD kept out of its way, not the whole bar.
+     Paying the full inset plus padding put 44px of blank white under the input —
+     a band as tall as the input itself, with nothing in it. The bar's own
+     background covers the indicator's strip, the field clears it by enough to
+     tap without fighting the swipe-up, and the gap stops reading as a mistake.
+     Floors at 8px so a device with no inset still has breathing room. */
+  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 14px), 8px);
 }
 .thread-shell[data-keyboard="open"] .thread-composer {
   padding-bottom: 10px;

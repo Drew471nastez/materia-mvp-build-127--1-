@@ -63,6 +63,12 @@ export function clearAuthSnapshot(): void {
     localStorage.removeItem(KEY)
     // Legacy key from the previous avatar-only cache.
     localStorage.removeItem("_sl_avatar")
+    // Which listings were saved is this person's, not this device's. The
+    // wishlist store reads it back synchronously on the next load precisely so
+    // hearts are right before any request is made — which would mean the next
+    // visitor to this phone opening the app to somebody else's saves. Signing
+    // out is the moment that has to stop being true.
+    localStorage.removeItem("storelib_wishlist_ids_v1")
   } catch {
     /* ignore */
   }

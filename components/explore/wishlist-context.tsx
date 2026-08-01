@@ -12,7 +12,46 @@ const STORE_EVENT_SOURCE = "wishlist-store"
 // A Set held in state re-renders every memo()'d card in the grid on each toggle,
 // which kills the press animation on a 30-card feed. useSyncExternalStore with a
 // per-id snapshot re-renders only the card that actually changed.
-let wishlistedIds = new Set<string>()
+/**
+ * What was saved last time this browser looked.
+ *
+ * The store is authoritative once it has answered, but until then every heart on
+ * the screen is drawn from nothing — and "nothing" renders as not-saved, so a
+ * listing you saved last week comes up hollow and fills in a second later when
+ * the fetch lands. That is not a slow heart, it is a WRONG heart: for the length
+ * of that round trip the page is actively telling you something untrue about
+ * your own account.
+ *
+ * So the last known answer is kept and read back synchronously, at module load,
+ * before anything renders. It is a cache and it is treated as one — the fetch
+ * still runs and still wins — but it means the common case, opening the app as
+ * the same person on the same phone, is correct on the first painted frame
+ * rather than eventually.
+ */
+const CACHE_KEY = "storelib_wishlist_ids_v1"
+
+function readCache(): Set<string> {
+  if (typeof localStorage === "undefined") return new Set()
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return new Set()
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? new Set(parsed.filter((v): v is string => typeof v === "string")) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function writeCache(ids: Set<string>): void {
+  if (typeof localStorage === "undefined") return
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify([...ids]))
+  } catch {
+    /* quota, private mode — the store still works, it is just cold next time */
+  }
+}
+
+let wishlistedIds = readCache()
 let loaded = false
 let inflight: Promise<void> | null = null
 // /api/wishlist/ids is the one-query endpoint; fall back to the existing list route
@@ -84,6 +123,10 @@ function ensureLoaded(): Promise<void> {
   inflight = fetchWishlistedIds()
     .then((ids) => {
       wishlistedIds = applyPendingToggles(new Set(ids))
+      // The server has spoken; that is what the next cold start starts from,
+      // including when the answer is "nothing" — a wishlist emptied on another
+      // device must not come back the next time this one opens.
+      writeCache(wishlistedIds)
     })
     // Fail closed: on any error nothing renders as wishlisted rather than blocking the grid.
     .catch(() => undefined)
@@ -165,6 +208,7 @@ export function useToggleWishlist(): (productId: string) => Promise<void> {
     if (wasWishlisted) optimistic.delete(productId)
     else optimistic.add(productId)
     wishlistedIds = optimistic
+    writeCache(optimistic)
     emit()
 
     try {
@@ -197,6 +241,7 @@ export function useToggleWishlist(): (productId: string) => Promise<void> {
       if (wasWishlisted) rolledBack.add(productId)
       else rolledBack.delete(productId)
       wishlistedIds = rolledBack
+      writeCache(rolledBack)
       emit()
     } finally {
       pendingToggles.delete(productId)
