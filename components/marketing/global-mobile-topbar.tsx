@@ -63,7 +63,10 @@ export function GlobalMobileTopBar() {
   const ownsNoChrome =
     pathname.startsWith("/profile") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/messages") ||
+    // The inbox, but not a thread: a conversation renders its own header and
+    // pays the status-bar inset inside it, so a spacer here would push it down
+    // by that inset twice.
+    pathname === "/messages" ||
     pathname.startsWith("/purchases") ||
     pathname.startsWith("/sales")
 

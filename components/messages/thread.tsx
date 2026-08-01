@@ -232,10 +232,28 @@ export function MessageThread({ id }: { id: string }) {
     : -1
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-0px)] max-w-2xl flex-col md:h-[calc(100vh-160px)] md:rounded-2xl md:border md:border-neutral-200">
+    // Exactly the room that is left, and not a pixel more.
+    //
+    // This asked for a whole viewport while the layout was also stacking a
+    // 63px spacer for the tab bar underneath it, so the document was always
+    // taller than the screen — and that one number is every symptom at once.
+    // The page scrolled when a two-message thread had nothing to scroll; the
+    // header, which is `shrink-0` inside this column and therefore cannot move
+    // on its own, went up under the status bar because the ENTIRE column was
+    // moving; and the slack showed as white below the composer. Subtracting the
+    // bar leaves the column the size of what you can actually see, so the only
+    // thing that scrolls is the list of messages, which is the only thing that
+    // should.
+    <div className="mx-auto flex h-[calc(100dvh-63px)] max-w-2xl flex-col md:h-[calc(100vh-160px)] md:rounded-2xl md:border md:border-neutral-200">
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
-      <div className="shrink-0 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
+      {/* The inset is paid here rather than by a spacer above the page, so the
+          white of the header runs up behind the clock instead of leaving a
+          strip of conversation showing through it. */}
+      <div
+        className="shrink-0 border-b border-neutral-100 bg-white/95 backdrop-blur-md"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <div className="flex items-center gap-2 px-2 py-2">
           <button
             type="button"
@@ -405,7 +423,7 @@ export function MessageThread({ id }: { id: string }) {
       </div>
 
       {/* Composer — pinned above the mobile bottom nav, flush on desktop. */}
-      <div className="shrink-0 border-t border-neutral-100 bg-white px-3 pb-[calc(env(safe-area-inset-bottom,0px)+70px)] pt-2.5 md:pb-3">
+      <div className="shrink-0 border-t border-neutral-100 bg-white px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 md:pb-3">
         <div className="flex items-end gap-2">
           <textarea
             value={draft}
