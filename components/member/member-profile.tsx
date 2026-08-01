@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Star } from "lucide-react"
+import Link from "next/link"
+import { Settings, Star } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
@@ -19,6 +20,11 @@ import { cn } from "@/lib/utils"
  * There is deliberately NO "send message" button here: conversations on this
  * marketplace start from a listing, so the honest entry point is tapping an
  * item below, not a context-free chat with the seller.
+ *
+ * /profile renders this same screen with `isOwner`, so that you and everyone
+ * else are looking at one profile rather than two that drift apart. Ownership
+ * only swaps the three controls that would be nonsense pointed at yourself —
+ * follow, the empty-shop line, and the way out to settings.
  */
 
 export type MemberListing = {
@@ -179,6 +185,7 @@ export function MemberProfile({
   followersCount,
   followingCount,
   listings,
+  isOwner = false,
 }: {
   member: MemberSummary
   /** Exact total from the server — the grid itself is capped, so it may show fewer. */
@@ -186,6 +193,8 @@ export function MemberProfile({
   followersCount: number
   followingCount: number
   listings: MemberListing[]
+  /** True only on /profile, where the person reading is the person shown. */
+  isOwner?: boolean
 }) {
   const { t, language } = useLocale()
   const reviews = useSellerReviews(member.id)
@@ -201,6 +210,24 @@ export function MemberProfile({
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-6 md:px-6 md:pt-10">
+      {/* Settings is a subpage of your own profile now, and the gear is the only
+          door to it — the bottom tab that used to open it directly is what this
+          screen replaced. It sits on its own row above the avatar rather than
+          inside the header, because the header's right edge already belongs to
+          the edit button and 375px has no room to share. */}
+      {isOwner && (
+        <div className="-mt-1 mb-1 flex justify-end">
+          <Link
+            href="/settings"
+            prefetch
+            aria-label="Setări"
+            className="-mr-2.5 flex h-11 w-11 items-center justify-center rounded-full text-neutral-700 transition-transform active:scale-95"
+          >
+            <Settings className="h-[22px] w-[22px]" />
+          </Link>
+        </div>
+      )}
+
       <header className="flex items-start gap-4 md:items-center md:gap-6">
         {/* Large avatar with the same initial fallback and ringed presence dot
             the Following list uses, so a seller looks the same everywhere. */}
@@ -253,7 +280,25 @@ export function MemberProfile({
           )}
         </div>
 
-        <FollowButton userId={member.id} variant="quiet" className="mt-1 md:mt-0" />
+        {/* Same slot, same proportions as the follow pill it stands in for — a
+            full-height CTA here would break the header row at 375px. The tap
+            target is grown past the visible pill with a transparent
+            pseudo-element, exactly as FollowButton does it. */}
+        {isOwner ? (
+          <Link
+            href="/settings"
+            prefetch
+            className={cn(
+              "no-tap-fade relative mt-1 inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800 md:mt-0",
+              "after:absolute after:-inset-x-3 after:-inset-y-2.5 after:content-['']",
+              "transition-transform active:scale-[0.94]",
+            )}
+          >
+            Editează profilul
+          </Link>
+        ) : (
+          <FollowButton userId={member.id} variant="quiet" className="mt-1 md:mt-0" />
+        )}
       </header>
 
       {/* The social shape of the profile in one glance — the row every
@@ -269,9 +314,22 @@ export function MemberProfile({
       <section className="mt-8 md:mt-10">
         {listings.length === 0 ? (
           // A quiet, centred line — an empty shop is a normal state for a new
-          // member, not an error worth illustrating.
+          // member, not an error worth illustrating. On your own profile the
+          // same emptiness is something you can act on, so it carries the one
+          // thing you'd want from it: a way to list.
           <div className="flex flex-col items-center py-20 text-center">
-            <p className="text-[15px] font-medium text-neutral-500">Niciun articol încă.</p>
+            <p className="text-[15px] font-medium text-neutral-500">
+              {isOwner ? "Nu ai niciun articol încă." : "Niciun articol încă."}
+            </p>
+            {isOwner && (
+              <Link
+                href="/products/new"
+                prefetch
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white transition-transform active:scale-[0.97]"
+              >
+                Listează un articol
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 md:gap-x-4 lg:grid-cols-4">

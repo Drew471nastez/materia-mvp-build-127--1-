@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Home, Search, Plus, MessageSquare, User } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
@@ -44,7 +44,14 @@ export function MobileBottomNav({
 }) {
   const { t } = useLocale()
   const router = useRouter()
+  const pathname = usePathname()
   const [launching, setLaunching] = useState(false)
+
+  // The Profile tab points at /profile now, but the callers that compute
+  // `active` still only know about /settings, so the tab would sit unlit on the
+  // very screen it opened. Reading the path here lights it without every caller
+  // having to learn the new route.
+  const profileActive = active === "profile" || (pathname?.startsWith("/profile") ?? false)
 
   const [unread, setUnread] = useState(unreadCache.count)
   useEffect(() => {
@@ -63,7 +70,7 @@ export function MobileBottomNav({
   // route is already in the client cache and the navigation is a render, not a
   // round trip. This is the difference between "instant" and "a second".
   useEffect(() => {
-    for (const href of ["/", "/products/new", "/messages", "/settings"]) {
+    for (const href of ["/", "/products/new", "/messages", "/profile", "/settings"]) {
       router.prefetch(href)
     }
   }, [router])
@@ -133,7 +140,11 @@ export function MobileBottomNav({
           )}
         </Link>
 
-        <Link href="/settings" prefetch aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, active === "profile")}</Link>
+        {/* Your profile, not the seller settings form. This used to open
+            /settings, which redirected anyone without a creators row into
+            onboarding — so for every buyer the Profile tab simply did not
+            work. Settings is still one tap away, behind the gear up there. */}
+        <Link href="/profile" prefetch aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, profileActive)}</Link>
       </div>
     </nav>
   )

@@ -27,6 +27,14 @@ export const RESERVED_WORDS = [
   "c",
   "explore",
   "settings",
+  // Marketplace routes. A username matching one of these would sit behind a
+  // static route it can never win against, leaving that seller's storefront
+  // permanently unreachable.
+  "profile",
+  "member",
+  "messages",
+  "purchases",
+  "sales",
   "products",
   "courses",
   "community",

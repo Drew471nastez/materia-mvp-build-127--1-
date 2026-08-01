@@ -63,7 +63,9 @@ export function GlobalMobileNav() {
     ? "sell"
     : pathname.startsWith("/messages")
       ? "inbox"
-      : pathname.startsWith("/settings")
+      : // Settings is reached FROM the profile and is still part of it, so both
+        // paths light the same tab rather than dropping the highlight to Home.
+        pathname.startsWith("/profile") || pathname.startsWith("/settings")
         ? "profile"
         : "home"
 
