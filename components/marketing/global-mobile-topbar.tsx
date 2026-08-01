@@ -54,6 +54,19 @@ export function GlobalMobileTopBar() {
     !pathname.startsWith("/products/new") &&
     !pathname.startsWith("/products/drafts")
 
+  // Pages with no chrome of their own. They dropped the strip because a listings
+  // search does not belong over an account or a conversation — but the strip was
+  // also the only thing padding them below the status bar in the app, so without
+  // a replacement their first line renders straight through the clock and the
+  // battery. That is the overlap: not a layout bug in those pages, a missing
+  // inset that used to arrive by accident.
+  const ownsNoChrome =
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/purchases") ||
+    pathname.startsWith("/sales")
+
   const hidden =
     pathname === "/" || // the feed renders its own, with tabs
     pathname.startsWith("/explore") ||
@@ -76,7 +89,22 @@ export function GlobalMobileTopBar() {
     pathname.startsWith("/sales") ||
     isListingPage
 
-  if (hidden) return null
+  if (hidden) {
+    // The inset those pages lost, and nothing else. A listing page is excluded
+    // deliberately — its photo is MEANT to run under the status bar — and so is
+    // the feed, which pads itself. Native only: a browser draws its own chrome
+    // above the page, so there is no inset to stand in for.
+    if (ownsNoChrome) {
+      return (
+        <div
+          aria-hidden
+          className="native-only-topbar md:hidden shrink-0 bg-white"
+          style={{ height: "env(safe-area-inset-top, 0px)" }}
+        />
+      )
+    }
+    return null
+  }
 
   return (
     <>

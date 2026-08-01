@@ -142,10 +142,12 @@ export default async function ProfilePage() {
   // header or throwing.
   const emailHandle = user.email?.split("@")[0] || null
 
-  // Arrives under its own animation, the way a listing page does — see
-  // `.tab-enter`: opaque, scaling down to 1, so nothing behind can show.
+  // No entry animation here on purpose. The loading shell is what appears first
+  // on this route and it is what animates; by the time this replaces it the
+  // screen is already in place, and animating again would be the same arrival
+  // played twice for one navigation.
   return (
-    <div className="tab-enter">
+    <div>
       <MemberProfile
       isOwner
       member={{

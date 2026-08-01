@@ -16,7 +16,7 @@
  */
 export default function MessagesLoading() {
   return (
-    <div className="mx-auto flex min-h-full max-w-2xl flex-col px-2">
+    <div className="tab-enter mx-auto flex min-h-full max-w-2xl flex-col px-2">
       <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">Mesaje</h1>
 
       {/* The control is drawn, not skeletonised: its labels are constants, so

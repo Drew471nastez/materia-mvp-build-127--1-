@@ -14,7 +14,7 @@
  */
 export default function ProfileLoading() {
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-6 md:px-6 md:pt-10">
+    <div className="tab-enter mx-auto w-full max-w-[1400px] px-4 pb-12 pt-6 md:px-6 md:pt-10">
       <div className="flex items-start gap-4 md:items-center md:gap-6">
         <div className="h-20 w-20 shrink-0 animate-pulse rounded-full bg-neutral-100 md:h-24 md:w-24" />
         <div className="min-w-0 flex-1 space-y-2.5">
