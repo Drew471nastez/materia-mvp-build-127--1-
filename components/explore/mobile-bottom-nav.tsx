@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Home, Search, Plus, MessageSquare, User } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 // Module-scoped so sixty page navigations do not mean sixty counts: every
@@ -82,16 +83,35 @@ export function MobileBottomNav({
   // navigation instead of in front of it.
   const onSell = useCallback(() => {
     if (launching) return
+    void triggerHaptic("light")
     setLaunching(true)
     router.push("/products/new")
   }, [launching, router])
 
+  // Every tab answers the finger before the route does.
+  //
+  // A tab change has a render behind it however well it is warmed, and the gap
+  // between touching a tab and seeing anything move is where the bar feels
+  // sluggish — not in the milliseconds afterwards. The icon dips on press and
+  // buzzes on the tap, both immediately, so the bar is never the thing you are
+  // waiting on. The dip is a composited transform on one small element.
   const item = (key: string, icon: React.ReactNode, isActive: boolean) => (
-    <span className={cn("flex flex-col items-center gap-1 text-[10px] font-medium", isActive ? "text-neutral-900" : "text-neutral-400")}>
+    <span
+      className={cn(
+        "flex flex-col items-center gap-1 text-[10px] font-medium",
+        "transition-transform duration-150 ease-out active:scale-[0.88]",
+        isActive ? "text-neutral-900" : "text-neutral-400",
+      )}
+    >
       {icon}
       {t(key)}
     </span>
   )
+
+  // Tapping a tab is a deliberate act with a result, so it gets the same
+  // acknowledgement opening a listing does. A nav item is not a scroll surface,
+  // so there is no gesture to disambiguate first.
+  const tap = () => void triggerHaptic("light")
 
   return (
     <nav
@@ -99,7 +119,7 @@ export function MobileBottomNav({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-center justify-around px-2 pt-2 pb-1.5">
-        <Link href="/" prefetch aria-label={t("mfeed.home")}>{item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}</Link>
+        <Link href="/" prefetch onClick={tap} aria-label={t("mfeed.home")}>{item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}</Link>
 
         <button type="button" onClick={onSearch} aria-label={t("mfeed.search")}>
           {item("mfeed.search", <Search className="h-6 w-6" />, active === "search")}
@@ -125,7 +145,7 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/messages" prefetch aria-label={t("mfeed.inbox")} className="relative">
+        <Link href="/messages" prefetch onClick={tap} aria-label={t("mfeed.inbox")} className="relative">
           {item(
             "mfeed.inbox",
             <span className="relative">
@@ -144,7 +164,7 @@ export function MobileBottomNav({
             /settings, which redirected anyone without a creators row into
             onboarding — so for every buyer the Profile tab simply did not
             work. Settings is still one tap away, behind the gear up there. */}
-        <Link href="/profile" prefetch aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, profileActive)}</Link>
+        <Link href="/profile" prefetch onClick={tap} aria-label={t("mfeed.profile")}>{item("mfeed.profile", <User className="h-6 w-6" />, profileActive)}</Link>
       </div>
     </nav>
   )

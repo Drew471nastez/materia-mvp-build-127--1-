@@ -58,6 +58,15 @@ export function GlobalMobileTopBar() {
     pathname === "/" || // the feed renders its own, with tabs
     pathname.startsWith("/explore") ||
     pathname.startsWith("/app") ||
+    // Your account is not a place you browse. A search field and a rail of
+    // category pills belong above things to look through — over your own
+    // profile, your settings, or your order history they are furniture from
+    // another room, and they push the thing you actually came for down the
+    // screen.
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/purchases") ||
+    pathname.startsWith("/sales") ||
     isListingPage
 
   if (hidden) return null

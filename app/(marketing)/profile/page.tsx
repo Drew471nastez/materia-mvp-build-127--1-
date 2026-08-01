@@ -47,19 +47,16 @@ export default async function ProfilePage() {
   // owner-scoped RLS policies would only make the two pages diverge.
   const admin = createAdminClient()
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id, username, display_name, avatar_url, created_at")
-    .eq("id", user.id)
-    .maybeSingle()
-
+  // Both keyed off the same id we already hold from the session, so neither
+  // waits on the other. They were in series, which on a page the account tab
+  // opens meant paying two round trips before the first query even mattered.
+  //
   // A creators row is what listings hang off. Its absence is the normal state
   // of a buyer, not a failure — it just means the shelf below is empty.
-  const { data: creator } = await admin
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
+  const [{ data: profile }, { data: creator }] = await Promise.all([
+    admin.from("profiles").select("id, username, display_name, avatar_url, created_at").eq("id", user.id).maybeSingle(),
+    admin.from("creators").select("id").eq("user_id", user.id).maybeSingle(),
+  ])
 
   const BASE_COLS =
     "id, title, slug, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, created_at"
