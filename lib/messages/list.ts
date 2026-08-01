@@ -42,7 +42,7 @@ export type InboxListing = {
 
 export type InboxLastMessage = {
   sender_id: string
-  kind: "text" | "offer"
+  kind: "text" | "offer" | "image"
   body: string | null
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
@@ -65,6 +65,18 @@ type ConvoRow = {
   buyer_id: string
   seller_id: string
   last_message_at: string
+  /** Optional: present only once 20260806_message_images_and_safety has run. */
+  buyer_deleted_at?: string | null
+  seller_deleted_at?: string | null
+}
+
+/** When THIS caller left the thread, if they did. */
+function deletedAtFor(c: ConvoRow, userId: string): string | null {
+  return (c.buyer_id === userId ? c.buyer_deleted_at : c.seller_deleted_at) ?? null
+}
+
+function deletedForMe(c: ConvoRow, userId: string): boolean {
+  return deletedAtFor(c, userId) !== null
 }
 
 /**
@@ -107,25 +119,50 @@ export async function listConversations({
   const systemConvoId = asAdmin ? await ensureSystemConversation(asAdmin, userId) : null
   const systemId = asAdmin ? await getSystemUserId(asAdmin) : null
 
-  const { data: page, error } = await asCaller
-    .from("conversations")
-    .select("id, listing_id, buyer_id, seller_id, last_message_at")
-    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
-    .order("last_message_at", { ascending: false })
-    .limit(60)
+  // The per-person delete columns are asked for optimistically and dropped if
+  // the database does not have them yet. A schema change and the code that uses
+  // it never land at the same instant — the deploy is live the moment it builds
+  // and the migration is run by hand afterwards — and in that window a select
+  // naming a column that does not exist is not a degraded inbox, it is no inbox
+  // at all. So the narrow query is the fallback, and the only thing lost until
+  // the migration runs is that a deleted thread stays visible.
+  const WITH_DELETES = "id, listing_id, buyer_id, seller_id, last_message_at, buyer_deleted_at, seller_deleted_at"
+  const BASE = "id, listing_id, buyer_id, seller_id, last_message_at"
+
+  const listPage = (columns: string) =>
+    asCaller
+      .from("conversations")
+      .select(columns)
+      .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+      .order("last_message_at", { ascending: false })
+      .limit(60)
+
+  let { data: page, error } = await listPage(WITH_DELETES)
+  let selectColumns = WITH_DELETES
+  if (error) {
+    selectColumns = BASE
+    ;({ data: page, error } = await listPage(BASE))
+  }
   if (error) throw new InboxReadError(error.message)
 
-  const convos: ConvoRow[] = (page as ConvoRow[]) ?? []
+  const convos: ConvoRow[] = ((page as unknown as ConvoRow[]) ?? []).filter(
+    // Deleting is per person: the row survives for the other party, and comes
+    // back for this one if they are written to again — `last_message_at` moving
+    // past the delete is exactly that.
+    (c) =>
+      !deletedForMe(c, userId) ||
+      (c.last_message_at ?? "") > (deletedAtFor(c, userId) ?? ""),
+  )
   // Sixty active threads can push a quiet Storelib conversation off the page,
   // and a pin that disappears when you get popular is not a pin. Fetch it back
   // in that one case — normally this branch never runs.
   if (systemConvoId && !convos.some((c) => c.id === systemConvoId)) {
     const { data: pinned } = await asCaller
       .from("conversations")
-      .select("id, listing_id, buyer_id, seller_id, last_message_at")
+      .select(selectColumns)
       .eq("id", systemConvoId)
       .maybeSingle()
-    if (pinned) convos.push(pinned as ConvoRow)
+    if (pinned) convos.push(pinned as unknown as ConvoRow)
   }
   if (!convos.length) return []
 

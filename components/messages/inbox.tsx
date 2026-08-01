@@ -1,11 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { BadgeCheck, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { MessagesEmptyState } from "@/components/messages/empty-state"
+import { IosSpinner } from "@/components/explore/ios-spinner"
+import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
+import { consumeNavHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -20,7 +23,7 @@ export type Row = {
   official?: boolean
   lastMessage: {
     sender_id: string
-    kind: "text" | "offer"
+    kind: "text" | "offer" | "image"
     body: string | null
     offer_cents: number | null
     offer_status: "pending" | "accepted" | "declined" | null
@@ -207,6 +210,62 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
     }
   }, [tab, notifs])
 
+  // Arriving back from a conversation, the inbox comes forward rather than
+  // simply being there. Read once, from the hint the back button left on <html>,
+  // so opening the tab fresh does not animate — only an actual return does. The
+  // class is dropped on a timer rather than on animationend, because
+  // `will-change: transform` asks the compositor to hold a layer and there is no
+  // reason to hold one for the rest of the session.
+  const [returning, setReturning] = useState(false)
+  useLayoutEffect(() => {
+    if (consumeNavHint() !== "back") return
+    setReturning(true)
+    const t = window.setTimeout(() => setReturning(false), 480)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  // Pull down to see what has arrived.
+  //
+  // The inbox refreshes on focus and nothing else, which is right for the case
+  // where you leave and come back — and no use at all for the one where you are
+  // sitting on it wondering whether they have answered. The grid has answered
+  // that with a pull since day one; there is no reason a list of conversations
+  // should be the one list on the phone you cannot ask.
+  //
+  // Same hook, so it is the same gesture: armed at the top, resisted like
+  // rubber, spinner held long enough that a fast answer does not flash.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const spinnerRef = useRef<HTMLDivElement>(null)
+
+  const onRefresh = useCallback(async () => {
+    // Whichever list is actually on screen. Refreshing the other one would be
+    // work nobody asked for and, on the notifications side, would mark a batch
+    // read that has not been looked at.
+    try {
+      if (tab === "messages") {
+        const r = await fetch("/api/messages", { credentials: "include" })
+        if (r.ok) setRows((await r.json()).conversations ?? [])
+      } else {
+        const r = await fetch("/api/notifications", { credentials: "include" })
+        if (r.ok) {
+          setNotifs((await r.json()).notifications ?? [])
+          setNotifUnread(0)
+        }
+      }
+    } catch {
+      /* the list stays as it was, which is the honest outcome of a failed pull */
+    }
+  }, [tab])
+
+  useFeedPullRefresh({
+    scrollRef,
+    contentRef: listRef,
+    spinnerRef,
+    onRefresh,
+    enabled: true,
+  })
+
   // A switch is a deliberate, physical act on a phone, so it answers like one:
   // a tick of haptic on the way, and never on a re-tap of the segment you are
   // already reading.
@@ -239,11 +298,16 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
     // Bottom padding lives on the lists rather than here, because the layout's
     // mobile nav already reserves its own strip below <main>: paying for it
     // twice was most of the empty space this page used to scroll through.
-    <div className="mx-auto flex min-h-full max-w-2xl flex-col px-2 md:px-0 md:py-8">
-      <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
+    <div
+      className={cn(
+        "mx-auto flex h-full min-h-full max-w-2xl flex-col px-2 md:px-0 md:py-8",
+        returning && "screen-return",
+      )}
+    >
+      <h1 className="shrink-0 px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
         {tab === "messages" ? "Mesaje" : "Notificări"}
       </h1>
-      <div className="px-2 pb-2.5 pt-1">
+      <div className="shrink-0 px-2 pb-2.5 pt-1">
         {/* One pill that slides, rather than two that blink. It is absolutely
             positioned and moved on a transform, so the browser composites it
             instead of relaying out the control on every frame — and the
@@ -291,21 +355,47 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
         </div>
       </div>
 
-      {/* Remounted per tab so the incoming list fades up instead of appearing
-          mid-slide. Opacity only, and the box it happens in is the same flex
-          child either way, so nothing under it moves. */}
-      <div
-        key={tab}
-        className={cn(
-          "flex min-h-0 flex-1 flex-col",
-          switched && "animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none",
-        )}
-      >
-        {tab === "messages" ? (
-          <MessagesList rows={rows} formatPrice={formatPrice} />
-        ) : (
-          <NotificationsList items={notifs} />
-        )}
+      {/* The list owns the scrolling, not the page.
+          A pull has to be a gesture on a scroll container that is already at its
+          top, and the page's scroller is the app shell — shared with the header
+          and the tab bar, and not something a list may commandeer. Giving the
+          list its own means the pull belongs to it, the title and the switcher
+          stay put while it moves, and a short list still cannot scroll. */}
+      <div className="relative min-h-0 flex-1">
+        {/* Parked above the frame and clipped, so it is invisible at rest and
+            rides down into the band the pull opens. */}
+        <div
+          ref={spinnerRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+          style={{ transform: "translate3d(0, -40px, 0)", opacity: 0 }}
+        >
+          <IosSpinner size={22} />
+        </div>
+
+        <div ref={scrollRef} className="absolute inset-0 overflow-y-auto overscroll-y-contain scrollbar-hide">
+          {/* Remounted per tab so the incoming list fades up instead of
+              appearing mid-slide. Opacity only, and the box it happens in is the
+              same flex child either way, so nothing under it moves.
+              translate3d puts the pull on its own compositor layer — the hook
+              writes the transform straight to this node, so a drag never goes
+              through React. */}
+          <div ref={listRef} className="min-h-full" style={{ transform: "translate3d(0, 0, 0)" }}>
+            <div
+              key={tab}
+              className={cn(
+                "flex min-h-full flex-col",
+                switched && "animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none",
+              )}
+            >
+              {tab === "messages" ? (
+                <MessagesList rows={rows} formatPrice={formatPrice} />
+              ) : (
+                <NotificationsList items={notifs} />
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -338,7 +428,9 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
       {rows.map((r) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
-          r.lastMessage?.kind === "offer"
+          r.lastMessage?.kind === "image"
+            ? r.lastMessage.body || "📷 Fotografie"
+            : r.lastMessage?.kind === "offer"
             ? `Ofertă: ${formatPrice(r.lastMessage.offer_cents ?? 0)}${
                 r.lastMessage.offer_status === "accepted"
                   ? " · acceptată"

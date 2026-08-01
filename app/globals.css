@@ -2003,6 +2003,40 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
   .thread-shell { height: calc(100vh - 160px); }
 }
 
+/* Opening a conversation, and coming back out of one.
+ *
+ * The same two motions as the feed and a listing, in the same direction, for the
+ * same reason: forward pushes IN (settling down from slightly larger), back
+ * comes FORWARD (rising from slightly behind). Applied to the loading shell on
+ * the way in and to the arriving inbox on the way out, so neither plays twice.
+ *
+ * `.screen-return` is the generic name for what `.feed-return` does — one
+ * vocabulary, so returning from a listing and returning from a conversation are
+ * recognisably the same gesture rather than two effects that happen to live in
+ * the same app. */
+@keyframes screen-push {
+  from { transform: scale(1.035); }
+  to   { transform: scale(1); }
+}
+@media (width < 48rem) {
+  .screen-push {
+    animation: screen-push 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform;
+  }
+  .screen-return {
+    animation: feed-return 420ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+    will-change: transform;
+  }
+}
+@media (min-width: 768px) {
+  .screen-push,
+  .screen-return { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-push,
+  .screen-return { animation: none; }
+}
+
 /* The home indicator is real when the phone is idle and is pure dead space the
    moment a keyboard is covering the part of the screen it lives in — which is
    the empty band under the composer. Paid only when there is no keyboard. */

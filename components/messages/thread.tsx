@@ -4,16 +4,24 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, CheckCheck, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+import { IosSpinner } from "@/components/explore/ios-spinner"
+import { ThreadDetails } from "@/components/messages/thread-details"
+import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
+import { navigateBlended } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 type Msg = {
   id: string
   sender_id: string
-  kind: "text" | "offer"
+  kind: "text" | "offer" | "image"
   body: string | null
+  /** Signed and short-lived by the time it reaches here — what is stored is an
+   *  object path in a private bucket. On an optimistic bubble it is a local
+   *  blob: URL, so the photo is on screen before it has left the phone. */
+  image_url?: string | null
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
   created_at: string
@@ -100,6 +108,9 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [answering, setAnswering] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const stickBottom = useRef(true)
 
@@ -276,6 +287,19 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }, [])
 
+  // Pull down at the top of the conversation to ask for it again, rather than
+  // waiting out the poll. The same hook the grid uses, so it is the same
+  // gesture everywhere in the app.
+  const listRef = useRef<HTMLDivElement>(null)
+  const spinnerRef = useRef<HTMLDivElement>(null)
+  useFeedPullRefresh({
+    scrollRef: scrollerRef,
+    contentRef: listRef,
+    spinnerRef,
+    onRefresh: load,
+    enabled: true,
+  })
+
   // Sending puts the message on screen NOW.
   //
   // It used to wait for the round trip: you tapped send, the field emptied, and
@@ -342,6 +366,77 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       setSending(false)
     }
   }, [draft, id, sending])
+
+  // Sending a photo, the same way as sending words: on screen first.
+  //
+  // The optimistic bubble carries a blob: URL of the file the user just picked,
+  // so the picture they chose is in the conversation before a single byte has
+  // left the phone. When the server answers with the real row — and a signed
+  // link for it — the two are swapped and the object URL is revoked, because a
+  // blob held past its usefulness is the file kept in memory for the life of
+  // the tab.
+  const sendImage = useCallback(
+    async (file: File) => {
+      if (!file || sending) return
+      const tempId = nextTempId()
+      const localUrl = URL.createObjectURL(file)
+      setSending(true)
+      void triggerHaptic("light")
+      stickBottom.current = true
+      setThread((t) =>
+        t
+          ? {
+              ...t,
+              messages: [
+                ...t.messages,
+                {
+                  id: tempId,
+                  sender_id: t.me,
+                  kind: "image",
+                  body: null,
+                  image_url: localUrl,
+                  offer_cents: null,
+                  offer_status: null,
+                  created_at: new Date().toISOString(),
+                  read_at: null,
+                  pending: true,
+                },
+              ],
+            }
+          : t,
+      )
+      try {
+        const form = new FormData()
+        form.append("file", file)
+        const r = await fetch(`/api/messages/${id}/image`, {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        })
+        if (r.ok) {
+          const { message } = await r.json()
+          seen.current?.add(message.id)
+          stickBottom.current = true
+          setThread((t) =>
+            t ? { ...t, messages: t.messages.map((m) => (m.id === tempId ? message : m)) } : t,
+          )
+        } else {
+          const { error } = await r.json().catch(() => ({ error: null }))
+          setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+          setImageError(error || "Fotografia nu a putut fi trimisă")
+        }
+      } catch {
+        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+        setImageError("Fotografia nu a putut fi trimisă")
+      } finally {
+        // Revoked either way: on success the bubble now points at the signed
+        // URL, on failure there is no bubble left to point at anything.
+        URL.revokeObjectURL(localUrl)
+        setSending(false)
+      }
+    },
+    [id, sending],
+  )
 
   const answer = useCallback(
     async (messageId: string, action: "accept" | "decline") => {
@@ -421,7 +516,16 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           <button
             type="button"
             aria-label="Înapoi"
-            onClick={() => (window.history.length > 1 ? router.back() : router.push("/messages"))}
+            // A pop, announced as one: the hint on <html> is what tells the
+            // inbox it is being returned to rather than opened, so it comes
+            // forward under a lifting veil instead of simply being there. Same
+            // gesture as coming back from a listing, because it is one.
+            onClick={() => {
+              void triggerHaptic("light")
+              navigateBlended("back", () =>
+                window.history.length > 1 ? router.back() : router.push("/messages"),
+              )
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
@@ -437,6 +541,21 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
             <span className="truncate text-[15.5px] font-semibold text-neutral-900">{name}</span>
             {thread?.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
           </span>
+          {/* Everything you might want to DO about this conversation, behind one
+              button, because none of it belongs in the header itself: a row of
+              icons for report and block turns a conversation with a person into
+              a moderation console. */}
+          <button
+            type="button"
+            aria-label="Detalii conversație"
+            onClick={() => {
+              void triggerHaptic("light")
+              setDetailsOpen(true)
+            }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors active:bg-neutral-100"
+          >
+            <Info className="h-[21px] w-[21px]" />
+          </button>
         </div>
         {/* Storelib's thread has no item behind it, so the strip that would
             normally say "about this listing" has nothing to say and is gone. */}
@@ -463,11 +582,25 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           page and reveals empty space under the composer. Contained, the drag
           simply does nothing, which is the honest answer when there is nothing
           above or below to reach. */}
+      <div className="relative min-h-0 flex-1">
+        {/* The same pull the grid and the inbox have. A conversation polls every
+            fifteen seconds, which is fine when you are reading and useless when
+            you are waiting — this is how you ask. Parked above the frame and
+            clipped, so it only exists while you are pulling. */}
+        <div
+          ref={spinnerRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+          style={{ transform: "translate3d(0, -40px, 0)", opacity: 0 }}
+        >
+          <IosSpinner size={22} />
+        </div>
       <div
         ref={scrollerRef}
         onScroll={onScroll}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4"
+        className="absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
+        <div ref={listRef} style={{ transform: "translate3d(0, 0, 0)" }}>
         {thread === null ? (
           <div className="space-y-3">
             <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />
@@ -541,6 +674,41 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                         onAnswer={answer}
                         formatPrice={formatPrice}
                       />
+                    ) : m.kind === "image" ? (
+                      <div
+                        className={cn(
+                          "max-w-[72%] overflow-hidden rounded-2xl bg-neutral-100",
+                          mine ? "rounded-br-md" : "rounded-bl-md",
+                          m.pending && "opacity-70 transition-opacity duration-200",
+                        )}
+                      >
+                        {m.image_url ? (
+                          // A plain img, not next/image: the src is a signed URL
+                          // that expires, so it is neither cacheable by the
+                          // optimizer nor stable enough to be worth optimising.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={m.image_url}
+                            alt={m.body || "Fotografie"}
+                            className="block max-h-[320px] w-full object-cover"
+                            draggable={false}
+                          />
+                        ) : (
+                          <div className="flex h-40 w-56 items-center justify-center text-neutral-400">
+                            <ImageIcon className="h-6 w-6" />
+                          </div>
+                        )}
+                        {m.body && (
+                          <div
+                            className={cn(
+                              "whitespace-pre-wrap break-words px-3.5 py-2 text-[15px] leading-snug",
+                              mine ? "bg-[#7c3aed] text-white" : "bg-neutral-100 text-neutral-900",
+                            )}
+                          >
+                            {m.body}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div
                         className={cn(
@@ -595,6 +763,8 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
             })}
           </div>
         )}
+        </div>
+      </div>
       </div>
 
       {/* Composer — on the bottom edge of what you can see, whatever that is.
@@ -602,7 +772,38 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           space the moment a keyboard covers that part of the screen, so
           `.thread-composer` drops it while one is open. */}
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
+        {imageError && (
+          <p className="pb-2 text-center text-[13px] text-red-600">{imageError}</p>
+        )}
         <div className="flex items-end gap-2">
+          {/* The picker is a hidden input driven by the button beside it, so the
+              button can look like the rest of the composer instead of like a
+              browser's file control. Reset to "" after every pick, or choosing
+              the same photo twice in a row fires no change event at all. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ""
+              setImageError(null)
+              if (file) void sendImage(file)
+            }}
+          />
+          <button
+            type="button"
+            aria-label="Trimite o fotografie"
+            disabled={sending}
+            onClick={() => {
+              void triggerHaptic("light")
+              fileRef.current?.click()
+            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-[transform,color] duration-200 active:scale-[0.93] active:text-[#7c3aed] disabled:opacity-40"
+          >
+            <ImagePlus className="h-[21px] w-[21px]" />
+          </button>
           <textarea
             ref={fieldRef}
             value={draft}
@@ -620,14 +821,41 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           <button
             type="button"
             aria-label="Trimite"
-            onClick={() => void send()}
+            onClick={() => {
+              void triggerHaptic("light")
+              void send()
+            }}
             disabled={!draft.trim() || sending}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#7c3aed] text-white transition-transform active:scale-[0.93] disabled:opacity-40"
+            // Two states in one control. Empty, it is a flat disc that visibly
+            // does nothing; with something to send it lifts on the brand
+            // gradient and presses in when tapped. The scale-down is what makes
+            // the send feel like it left — the bubble appearing at the same
+            // instant is the other half of it.
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white",
+              "transition-[transform,box-shadow,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
+              "active:scale-[0.88] disabled:opacity-40 disabled:shadow-none",
+            )}
+            style={{
+              background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
+              boxShadow:
+                draft.trim() && !sending
+                  ? "0 1px 2px rgba(76,29,149,0.28), 0 6px 16px -4px rgba(124,58,237,0.55), inset 0 1px 0 rgba(255,255,255,0.22)"
+                  : "none",
+            }}
           >
-            <Send className="h-[18px] w-[18px]" />
+            {sending ? <IosSpinner size={17} /> : <Send className="h-[18px] w-[18px]" />}
           </button>
         </div>
       </div>
+
+      <ThreadDetails
+        conversationId={id}
+        other={thread?.other ?? null}
+        official={thread?.official}
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+      />
     </div>
   )
 }

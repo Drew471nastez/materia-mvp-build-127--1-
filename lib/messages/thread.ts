@@ -24,8 +24,11 @@ import { fetchProfilesWithOfficial, getSystemUserId, isOfficialProfile } from "@
 export type ThreadMessage = {
   id: string
   sender_id: string
-  kind: "text" | "offer"
+  kind: "text" | "offer" | "image"
   body: string | null
+  /** A signed, short-lived URL by the time this leaves here. What is STORED is
+   *  the object path in a private bucket — see the signing step below. */
+  image_url: string | null
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
   created_at: string
@@ -71,13 +74,27 @@ export async function readThread({
     .maybeSingle()
   if (!convo) return null
 
-  const [messagesRes] = await Promise.all([
+  // `image_url` is asked for optimistically. A deploy is live the moment it
+  // builds and its migration is run by hand afterwards, so for that window the
+  // column does not exist — and a select naming a missing column does not
+  // degrade the thread, it empties it. The narrow query is the fallback and the
+  // only thing lost meanwhile is a feature nobody can have used yet.
+  const readMessages = (columns: string) =>
     asCaller
       .from("messages")
-      .select("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
+      .select(columns)
       .eq("conversation_id", id)
       .order("created_at", { ascending: true })
-      .limit(500),
+      .limit(500)
+
+  const [messagesRes] = await Promise.all([
+    readMessages(
+      "id, sender_id, kind, body, image_url, offer_cents, offer_status, created_at, read_at",
+    ).then((res) =>
+      res.error
+        ? readMessages("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
+        : res,
+    ),
     markRead
       ? asCaller
           .from("messages")
@@ -105,6 +122,25 @@ export async function readThread({
   ])
   const other = profiles.get(otherId) ?? null
 
+  // Photos live in a private bucket and what the row holds is the object path,
+  // so a reader gets a link minted for them, now, that expires. One batch call
+  // rather than one per photo — a thread with twenty pictures in it must not be
+  // twenty round trips to storage.
+  const messages = ((messagesRes.data ?? []) as unknown as ThreadMessage[]).map((m) => ({
+    ...m,
+    image_url: m.image_url ?? null,
+  }))
+  const paths = messages
+    .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
+    .map((m) => m.image_url as string)
+  if (paths.length) {
+    const { data: signed } = await admin.storage.from("messages").createSignedUrls(paths, 60 * 60)
+    const byPath = new Map((signed ?? []).map((s) => [s.path as string, s.signedUrl]))
+    for (const m of messages) {
+      if (m.kind === "image" && m.image_url) m.image_url = byPath.get(m.image_url) ?? null
+    }
+  }
+
   return {
     id: convo.id,
     youAre: convo.buyer_id === userId ? "buyer" : "seller",
@@ -112,6 +148,6 @@ export async function readThread({
     listing: (listing as ThreadListing | null) ?? null,
     other,
     official: isOfficialProfile(other, systemId),
-    messages: (messagesRes.data ?? []) as ThreadMessage[],
+    messages,
   }
 }
