@@ -5,14 +5,22 @@
  * so `prefetch` on the tab bar link had nothing to prefetch and every tap sat
  * on the previous screen until the RSC payload landed and the client bundle
  * hydrated. Only then did the inbox's own skeleton appear, and only after
- * /api/messages answered did "Niciun mesaj încă" — two waits stacked on top of
- * each other, which is why the empty state read as arriving late.
+ * /api/messages answered did the conversations — three waits stacked on top of
+ * each other, which is why the inbox read as arriving in pieces. Two of those
+ * are gone: page.tsx now fetches the first payload on the server and the client
+ * starts with rows in hand, so this shell hands over directly to the real list.
  *
- * It repeats the real header, the segmented control and MessagesInbox's own
- * ListSkeleton so the handover looks like data arriving rather than one screen
- * replacing another. The height math matches the inbox too: the bottom nav
- * already reserves its own strip in the marketing layout, so nothing here adds
- * a second reservation and the page has no empty space to scroll through.
+ * Which makes the geometry below the whole job. Every measurement here is
+ * copied from components/messages/inbox.tsx — the header padding, the 44px
+ * switcher track, the card's radius and hairline, the 8px row padding, the
+ * 14px above and below a 48px avatar, the divider inset to 68px where the text
+ * column starts. Nothing may move when the swap happens; if it does, the
+ * handover reads as two events again no matter how fast it is.
+ *
+ * This is also the only thing on the route that animates. The real page is
+ * deliberately still: the arrival has already been played once by the time it
+ * mounts, and playing it twice for one navigation is the doubled entrance this
+ * whole change exists to remove.
  */
 export default function MessagesLoading() {
   return (
@@ -36,17 +44,24 @@ export default function MessagesLoading() {
         </div>
       </div>
 
-      <div className="px-2 py-1">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-3 py-3.5">
-            <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3.5 w-36 animate-pulse rounded bg-neutral-100" />
-              <div className="h-3 w-52 animate-pulse rounded bg-neutral-100" />
+      {/* The same flex child the real list sits in, so the card starts at the
+          same y whichever of the two is on screen. */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mb-8 overflow-hidden rounded-2xl border border-neutral-200/70 bg-white md:mb-10">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="relative flex items-center gap-3 px-2 py-3.5 after:pointer-events-none after:absolute after:bottom-0 after:left-[68px] after:right-2 after:h-px after:bg-neutral-100 after:content-[''] last:after:hidden"
+            >
+              <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 w-36 animate-pulse rounded bg-neutral-100" />
+                <div className="h-3 w-52 animate-pulse rounded bg-neutral-100" />
+              </div>
+              <div className="h-12 w-12 animate-pulse rounded-lg bg-neutral-100" />
             </div>
-            <div className="h-12 w-12 animate-pulse rounded-lg bg-neutral-100" />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { BadgeCheck, Bell, MessageCircle } from "lucide-react"
+import { BadgeCheck, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+import { MessagesEmptyState } from "@/components/messages/empty-state"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
-type Row = {
+export type Row = {
   id: string
   lastMessageAt: string
   youAre: "buyer" | "seller"
@@ -68,22 +69,52 @@ const ROW_DIVIDER =
   "relative after:pointer-events-none after:absolute after:bottom-0 after:left-[68px] after:right-2 after:h-px after:bg-neutral-100 after:content-[''] last:after:hidden"
 
 /**
+ * Both lists are one card rather than a run of loose rows.
+ *
+ * The rows themselves were already right — the frame is what was missing, and
+ * without it the screen was a stack of divs on a white page with nothing to say
+ * where the list began or ended. It is the same card the rest of the app uses
+ * (rounded-2xl, a neutral-200/70 hairline), and `overflow-hidden` is what lets
+ * a row paint edge to edge: the unread wash and the pressed state reach the
+ * card's corners instead of stopping short of them.
+ *
+ * The row padding stays at 8px so that, with the card's own hairline, the
+ * avatars land within a pixel of where the title above them starts. A list that
+ * is indented from its own heading reads as a nested thing rather than as the
+ * content of the screen.
+ */
+const LIST_CARD = "overflow-hidden rounded-2xl border border-neutral-200/70 bg-white"
+
+/** Every row in both lists is the same object: 48px of avatar with 14px of air
+ *  above and below it, which is the 76px the loading skeleton also draws. */
+const ROW_INNER = "flex items-center gap-3 px-2 py-3.5 transition-colors"
+
+/**
  * The inbox: conversations and notifications behind one segmented control.
  * Messages keep their three states — signed out, empty, rows — and the
  * notifications side loads lazily on the first switch, because most visits
  * here are about replying, not about the feed of who followed whom.
+ *
+ * `initialConversations` is the whole point of the server component above: with
+ * rows in hand from the first frame there is no skeleton to paint here and no
+ * fetch to wait on, so the inbox arrives once instead of three times. Null
+ * means the server could not answer — a signed-in session whose read failed —
+ * and only then does the old client-first path run.
  */
-export function MessagesInbox() {
+export function MessagesInbox({ initialConversations = null }: { initialConversations?: Row[] | null }) {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">("messages")
   // Nothing animates on the first paint — a list that fades in on arrival reads
   // as a slow page, not as a transition. The flag flips on the first switch and
   // stays flipped, so only the swaps a person actually asked for are animated.
   const [switched, setSwitched] = useState(false)
-  const [rows, setRows] = useState<Row[] | null>(null)
+  const [rows, setRows] = useState<Row[] | null>(initialConversations)
   const [signedOut, setSignedOut] = useState(false)
   const [notifs, setNotifs] = useState<Notif[] | null>(null)
   const [notifUnread, setNotifUnread] = useState(0)
+  // Read once, at mount, and never again: a later render must not be able to
+  // turn "the server already answered" into "fetch now".
+  const [servedFromServer] = useState(() => initialConversations !== null)
 
   useEffect(() => {
     let alive = true
@@ -92,7 +123,12 @@ export function MessagesInbox() {
     // dismissed dialog. The same thirty-second freshness window the bottom nav
     // keeps applies here, so a burst of focus events costs one fetch rather than
     // one each.
-    let lastLoadedAt = 0
+    //
+    // Rows rendered by the server are milliseconds old, so the clock starts as
+    // if they had just been fetched — the freshness window the component
+    // already keeps is what suppresses the duplicate mount request, rather than
+    // a second rule that could drift out of step with it.
+    let lastLoadedAt = servedFromServer ? Date.now() : 0
     const MIN_INTERVAL_MS = 30_000
 
     const load = () => {
@@ -114,7 +150,7 @@ export function MessagesInbox() {
         .catch(() => {})
     }
 
-    load()
+    if (!servedFromServer) load()
     const onFocus = () => {
       if (Date.now() - lastLoadedAt < MIN_INTERVAL_MS) return
       load()
@@ -124,7 +160,7 @@ export function MessagesInbox() {
       alive = false
       window.removeEventListener("focus", onFocus)
     }
-  }, [])
+  }, [servedFromServer])
 
   // The red dot on the Notificări segment costs one head count on mount.
   useEffect(() => {
@@ -184,9 +220,12 @@ export function MessagesInbox() {
     [tab],
   )
 
+  // The page renders this same screen for a visitor who was never signed in.
+  // What is left here is the session that expired while the tab sat open: the
+  // 401 lands on a client that is already mounted, and it has to say so.
   if (signedOut) {
     return (
-      <Empty
+      <MessagesEmptyState
         className="min-h-[60svh]"
         title="Conectează-te pentru mesaje"
         body="Conversațiile cu vânzătorii și cumpărătorii apar aici după ce te conectezi."
@@ -279,7 +318,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
   // copy stays as it was, because that state still reads as "no messages yet".
   if (rows.length === 0) {
     return (
-      <Empty
+      <MessagesEmptyState
         className="min-h-[40svh] flex-1"
         title="Niciun mesaj încă"
         body="Scrie-i unui vânzător sau fă o ofertă la un articol — conversația apare aici."
@@ -295,7 +334,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
     // and the next beginning. It is drawn per row rather than by `divide-y` so
     // the last one can be dropped — a line under the final row is a promise of
     // another row that isn't there.
-    <ul className="pb-8 md:pb-10">
+    <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
       {rows.map((r) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
@@ -310,7 +349,20 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
             : r.lastMessage?.body || ""
         return (
           <li key={r.id} className={ROW_DIVIDER}>
-            <Link href={`/messages/${r.id}`} className="flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50">
+            <Link
+              href={`/messages/${r.id}`}
+              className={cn(
+                ROW_INNER,
+                // An unread thread is a different kind of row, so it is a
+                // different surface. The wash is faint on purpose — it has to
+                // survive being seen next to six read rows without turning the
+                // list into stripes — and it is what the bold name, the purple
+                // hour and the count were previously being asked to do alone,
+                // all of them inside the text column where the eye is already
+                // busy reading.
+                r.unread > 0 ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "active:bg-neutral-50",
+              )}
+            >
               <Avatar name={name} url={r.other?.avatar_url ?? null} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
@@ -339,7 +391,18 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
                   </span>
                 </span>
                 <span className="mt-0.5 flex items-center gap-2">
-                  <span className={cn("truncate text-[13.5px]", r.unread > 0 ? "font-medium text-neutral-800" : "text-neutral-500")}>
+                  <span
+                    className={cn(
+                      "truncate text-[13.5px]",
+                      // An offer keeps the darker weight whether or not the
+                      // thread has been read: it is about money, and
+                      // "Ofertă: 120 lei" is the line a seller scans the list
+                      // for long after they have opened it once.
+                      r.unread > 0 || r.lastMessage?.kind === "offer"
+                        ? "font-medium text-neutral-800"
+                        : "text-neutral-500",
+                    )}
+                  >
                     {preview}
                   </span>
                   {r.unread > 0 && (
@@ -353,12 +416,15 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
                   hasn't loaded. Storelib's thread is about no listing at all,
                   so it gets nothing there rather than an empty promise. */}
               {r.listing?.thumbnail_url ? (
+                // The hairline is what stops a photo with pale edges from
+                // dissolving into the card behind it — inside a bordered
+                // surface an unframed thumbnail loses its own shape.
                 <Image
                   src={r.listing.thumbnail_url}
                   alt=""
                   width={48}
                   height={48}
-                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-black/[0.06]"
                 />
               ) : r.official ? null : (
                 <span className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
@@ -413,7 +479,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
   }
 
   return (
-    <ul className="pb-8 md:pb-10">
+    <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
       {items.map((n) => {
         const name = n.actor?.display_name || n.actor?.username || "Cineva"
         const { verb, accent } = notifText(n.kind)
@@ -437,12 +503,17 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
                 alt=""
                 width={48}
                 height={48}
-                className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-black/[0.06]"
               />
             )}
           </>
         )
-        const rowClass = "flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50"
+        // Same surface rule as the inbox side, so the two lists behind one
+        // switcher never read as two different screens.
+        const rowClass = cn(
+          ROW_INNER,
+          unread ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "active:bg-neutral-50",
+        )
         return (
           <li key={n.id} className={ROW_DIVIDER}>
             {href ? (
@@ -459,11 +530,21 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
   )
 }
 
+/**
+ * The last resort, not the normal path.
+ *
+ * /messages is server-rendered now, so somebody opening the inbox never sees
+ * this — loading.tsx covers the wait and the conversations are in the first
+ * paint. It survives for the two cases that genuinely have nothing to draw yet:
+ * the notifications feed on its first switch, and a server read that failed and
+ * left the client to retry. Its geometry is the card's, to the pixel, so even
+ * those swaps move nothing.
+ */
 function ListSkeleton() {
   return (
-    <div className="px-2 pb-8 pt-1 md:pb-10">
+    <div className={cn(LIST_CARD, "mb-8 md:mb-10")}>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="flex items-center gap-3 py-3.5">
+        <div key={i} className={cn(ROW_INNER, ROW_DIVIDER)}>
           <div className="h-12 w-12 animate-pulse rounded-full bg-neutral-100" />
           <div className="flex-1 space-y-2">
             <div className="h-3.5 w-36 animate-pulse rounded bg-neutral-100" />
@@ -472,52 +553,6 @@ function ListSkeleton() {
           <div className="h-12 w-12 animate-pulse rounded-lg bg-neutral-100" />
         </div>
       ))}
-    </div>
-  )
-}
-
-/**
- * The empty state, sized by its caller.
- *
- * It used to be a flat `min-h-[60svh]` wherever it appeared, and inside the
- * inbox that was the bug: 60svh plus the heading, the segmented control, the
- * page's own bottom padding and the strip the mobile nav already reserves came
- * to more than one screen, so a page with nothing on it still scrolled — over
- * nothing, which is exactly the feeling being fixed. In the inbox it now takes
- * `flex-1` and fills whatever is actually left; standing alone under <main> it
- * still asks for a fixed slice, because there is no column above it to measure
- * against. The svh floors are what keep it centred rather than clinging to the
- * top in the layouts where a percentage height cannot resolve.
- */
-function Empty({
-  title,
-  body,
-  cta,
-  className,
-}: {
-  title: string
-  body: string
-  cta: { href: string; label: string }
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        "mx-auto flex w-full max-w-xl flex-col items-center justify-center px-6 py-10 text-center",
-        className,
-      )}
-    >
-      <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
-        <MessageCircle className="h-7 w-7" />
-      </span>
-      <h1 className="text-xl font-semibold text-neutral-900">{title}</h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">{body}</p>
-      <Link
-        href={cta.href}
-        className="mt-7 inline-flex h-11 items-center justify-center rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white transition-transform active:scale-[0.97]"
-      >
-        {cta.label}
-      </Link>
     </div>
   )
 }

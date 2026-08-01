@@ -80,7 +80,7 @@ function reviewsLabel(count: number, language: string): string {
   return count === 1 ? "1 review" : `${count} reviews`
 }
 
-type ReviewsSummary = { average: number; count: number }
+export type ReviewsSummary = { average: number; count: number }
 
 /**
  * Average stars + count for this seller, from GET /api/reviews?sellerId=…
@@ -88,11 +88,17 @@ type ReviewsSummary = { average: number; count: number }
  * That endpoint is landing in a parallel branch, so this reads defensively:
  * any non-OK status, unparseable body or unfamiliar shape simply keeps the
  * strip hidden. A missing reviews row must never cost the profile anything.
+ *
+ * `sellerId` is null when the caller already handed us the summary — /profile
+ * reads it on the server, where the numbers are simply part of the first paint
+ * — and a null id skips the request entirely rather than firing one whose
+ * answer would be thrown away.
  */
-function useSellerReviews(sellerId: string): ReviewsSummary | null {
+function useSellerReviews(sellerId: string | null): ReviewsSummary | null {
   const [summary, setSummary] = useState<ReviewsSummary | null>(null)
 
   useEffect(() => {
+    if (!sellerId) return
     let cancelled = false
     const load = async () => {
       try {
@@ -159,14 +165,22 @@ function Stars({ value }: { value: number }) {
   )
 }
 
+/**
+ * One cell of the stats card. The height is fixed rather than derived from the
+ * two line boxes inside it, because /profile/loading.tsx has to draw the same
+ * card a beat earlier and two grey bars do not measure the same as a number
+ * over a caption. A stated height is a number both files can hold.
+ */
+const STAT_CELL = "flex h-[70px] flex-col items-center justify-center gap-0.5 px-2"
+
 function Stat({ value, label, lang }: { value: number; label: string; lang: string }) {
   const compact = value >= 1000
     ? new Intl.NumberFormat(lang === "ro" ? "ro-RO" : "en-GB", { notation: "compact", maximumFractionDigits: 1 }).format(value)
     : String(value)
   return (
-    <span className="flex flex-col">
+    <span className={STAT_CELL}>
       <span className="text-[17px] font-bold leading-tight text-neutral-900 tabular-nums">{compact}</span>
-      <span className="text-[12.5px] text-neutral-500">{label}</span>
+      <span className="text-[12.5px] leading-tight text-neutral-500">{label}</span>
     </span>
   )
 }
@@ -178,6 +192,7 @@ export function MemberProfile({
   followingCount,
   listings,
   isOwner = false,
+  reviews: reviewsFromServer,
 }: {
   member: MemberSummary
   /** Exact total from the server — the grid itself is capped, so it may show fewer. */
@@ -187,9 +202,14 @@ export function MemberProfile({
   listings: MemberListing[]
   /** True only on /profile, where the person reading is the person shown. */
   isOwner?: boolean
+  /** Already counted on the server. Passing it means the stars are in the first
+   *  paint instead of appearing a moment after the rest of the header, and the
+   *  client makes no request at all. */
+  reviews?: ReviewsSummary | null
 }) {
   const { t, language } = useLocale()
-  const reviews = useSellerReviews(member.id)
+  const fetchedReviews = useSellerReviews(reviewsFromServer === undefined ? member.id : null)
+  const reviews = reviewsFromServer === undefined ? fetchedReviews : reviewsFromServer
 
   const name = member.displayName || member.username || "Storelib"
   const joined = joinedLabel(member.joinedAt, language)
@@ -204,7 +224,24 @@ export function MemberProfile({
     // grid and the empty state rather than here, because GlobalMobileNav
     // already reserves its own strip below <main>: paying for it twice is what
     // left a profile with nothing on it scrolling through empty space.
-    <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
+    //
+    // `isolate` is what makes the wash below safe: it gives the negative layer
+    // a stacking context of its own, so it can sit behind everything in this
+    // column without ever slipping behind the page itself.
+    <div className="relative isolate mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
+      {/* The one piece of colour on the screen, and it is barely there.
+          A profile is a person, and a header floating on plain white had
+          nothing to say that this was the top of anything — the avatar simply
+          began. A few percent of the brand purple, fading out by the time it
+          reaches the stats, gives the top of the page a boundary without
+          turning it into a banner. `inset-x-0` resolves against this column's
+          padding box, so it runs edge to edge on a phone rather than stopping
+          at the 16px gutter and reading as a stray rectangle. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[260px] bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent md:h-[320px]"
+      />
+
       {/* Settings is a subpage of your own profile now, and the gear is the only
           door to it — the bottom tab that used to open it directly is what this
           screen replaced. It sits on its own row above the avatar rather than
@@ -227,7 +264,10 @@ export function MemberProfile({
         {/* Large avatar with the same initial fallback and ringed presence dot
             the Following list uses, so a seller looks the same everywhere. */}
         <div className="relative shrink-0">
-          <span className="block h-20 w-20 overflow-hidden rounded-full bg-neutral-100 md:h-24 md:w-24">
+          {/* The white ring and the short shadow are what let the avatar sit ON
+              the wash rather than in it. Both are drawn outside the box, so the
+              80px the layout is built around is unchanged. */}
+          <span className="block h-20 w-20 overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-24 md:w-24">
             {member.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" />
@@ -300,13 +340,24 @@ export function MemberProfile({
           at 375px there is roughly a hundred pixels left after the avatar and
           the pill, which is where "Membr…" came from. Down here it has the
           whole measure and needs no truncation at all. */}
-      {meta && <p className="mt-3.5 text-[12.5px] text-neutral-400">{meta}</p>}
+      {/* The line box is stated rather than inherited: /profile/loading.tsx
+          reserves exactly this much room a beat earlier, and a line height that
+          depends on whatever the document sets would let the two disagree. */}
+      {meta && <p className="mt-3.5 text-[12.5px] leading-[18px] text-neutral-400">{meta}</p>}
 
       {/* The social shape of the profile in one glance — the row every
           marketplace profile teaches people to look for. Counts are compact
           ("1,2K") past a thousand, because the exact figure stops mattering
-          exactly when it stops fitting. */}
-      <div className="mt-4 flex items-center gap-8 border-b border-neutral-100 pb-5 md:gap-10">
+          exactly when it stops fitting.
+
+          It is a card now rather than three numbers over a hairline. Three
+          left-aligned pairs with a rule underneath were the most unfinished
+          thing on the screen: nothing said they belonged together, and the
+          hairline was doing double duty as both their container and the
+          section break below. On the white card they read as one object, they
+          give the wash above something to end against, and the thirds put each
+          number where the eye expects the next one. */}
+      <div className="mt-5 grid grid-cols-3 divide-x divide-neutral-200/70 rounded-2xl border border-neutral-200/70 bg-white">
         <Stat value={listingsCount} label={language === "ro" ? "Articole" : "Listings"} lang={language} />
         <Stat value={followersCount} label={language === "ro" ? "Urmăritori" : "Followers"} lang={language} />
         <Stat value={followingCount} label={language === "ro" ? "Urmărește" : "Following"} lang={language} />
@@ -319,16 +370,28 @@ export function MemberProfile({
       <section className="mt-6 flex min-h-0 flex-1 flex-col md:mt-8">
         {/* Not simply "Articole": the stats row directly above already carries
             that word, and the same label twice in ten vertical pixels reads as
-            a template that was never finished. */}
-        <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
-          {language === "ro"
-            ? isOwner
-              ? "Articolele mele"
-              : "Articolele lui " + name
-            : isOwner
-              ? "My listings"
-              : `${name}'s listings`}
-        </h2>
+            a template that was never finished.
+
+            The count sits at the far end of the same baseline. It is the same
+            number the stats card states, but here it is doing a different job —
+            it closes the heading row, so the grid below starts under a line
+            that spans the measure instead of under a phrase that trails off. */}
+        <div className="flex h-[22px] items-baseline justify-between gap-3">
+          <h2 className="truncate text-[15px] font-semibold leading-[22px] tracking-[-0.01em] text-neutral-900">
+            {language === "ro"
+              ? isOwner
+                ? "Articolele mele"
+                : "Articolele lui " + name
+              : isOwner
+                ? "My listings"
+                : `${name}'s listings`}
+          </h2>
+          {listingsCount > 0 && (
+            <span className="shrink-0 text-[12.5px] font-medium leading-[22px] text-neutral-400 tabular-nums">
+              {listingsCount}
+            </span>
+          )}
+        </div>
 
         {listings.length === 0 ? (
           // An empty shop is a normal state for a new member, not an error — so

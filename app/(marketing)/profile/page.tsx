@@ -4,7 +4,7 @@ import { UserRound } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { MemberProfile, type MemberListing } from "@/components/member/member-profile"
+import { MemberProfile, type MemberListing, type ReviewsSummary } from "@/components/member/member-profile"
 
 /**
  * /profile — your own profile, and the destination of the Profile tab.
@@ -132,9 +132,14 @@ export default async function ProfilePage() {
     created_at: r.created_at ?? null,
   }))
 
-  const [followersRes, followingRes] = await Promise.all([
+  const [followersRes, followingRes, reviews] = await Promise.all([
     admin.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),
     admin.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id),
+    // The stars used to be fetched by the client, once the header was already
+    // on screen — the one thing on this page that arrived after the page did.
+    // Counted here it is simply part of the first paint, and MemberProfile
+    // makes no request at all.
+    loadReviewsSummary(admin, creator?.id ?? null),
   ])
 
   // A brand-new account can reach this page before its profiles row is written,
@@ -168,8 +173,35 @@ export default async function ProfilePage() {
       followersCount={followersRes.count ?? 0}
       followingCount={followingRes.count ?? 0}
       listings={listings}
+      reviews={reviews}
     />
   )
+}
+
+/**
+ * Average stars and how many, or null when there is nothing to say yet.
+ *
+ * Reviews hang off the creators row, not off the auth user, so a buyer who has
+ * never listed anything has no creator id and therefore no reviews — that is
+ * the normal case here, and it costs no query at all. Everything else is
+ * best-effort: the strip is decoration, and a profile must never fail to render
+ * because a ratings table did.
+ */
+async function loadReviewsSummary(
+  admin: ReturnType<typeof createAdminClient>,
+  creatorId: string | null,
+): Promise<ReviewsSummary | null> {
+  if (!creatorId) return null
+  try {
+    const { data, error } = await admin.from("reviews").select("rating").eq("creator_id", creatorId).limit(2000)
+    if (error || !data?.length) return null
+    const ratings = data.map((r: any) => Number(r?.rating)).filter((n) => Number.isFinite(n) && n > 0)
+    if (!ratings.length) return null
+    const average = ratings.reduce((a, b) => a + b, 0) / ratings.length
+    return { average: Math.min(5, Math.max(0, average)), count: ratings.length }
+  } catch {
+    return null
+  }
 }
 
 /**
