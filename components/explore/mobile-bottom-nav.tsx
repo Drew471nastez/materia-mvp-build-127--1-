@@ -99,11 +99,14 @@ export function MobileBottomNav({
     <span
       className={cn(
         "flex flex-col items-center gap-1 text-[10px] font-medium",
-        // group-active, not active. `:active` applies to the element being
-        // pressed and its ANCESTORS, never its descendants — so a dip declared
-        // on this span simply never fired, because what you actually press is
-        // the tab around it.
-        "transition-transform duration-150 ease-out group-active:scale-[0.86]",
+        // No scale. A tab that shrinks under the finger is a web affordance
+        // borrowed from buttons, and on a bar you press dozens of times a
+        // session it reads as cheap — a native tab bar never does it. The
+        // acknowledgement is the haptic, which is instant and silent, and then
+        // the page itself, which now paints its shell on the same frame. The
+        // colour still settles into the active tint, and that is the whole of
+        // the visual feedback a tab needs.
+        "transition-colors duration-150 ease-out",
         isActive ? "text-neutral-900" : "text-neutral-400",
       )}
     >
