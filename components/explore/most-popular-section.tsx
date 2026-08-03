@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ProductCard } from "./product-card"
 
 interface MostPopularSectionProps {
@@ -56,12 +55,20 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   const scrollToProduct = useCallback((index: number) => {
     if (mobileScrollRef.current) {
       const container = mobileScrollRef.current
-      const itemWidth = container.clientWidth * 0.85 + 16 // 85% width + gap
-      container.scrollTo({
-        left: index * itemWidth,
-        behavior: 'smooth'
-      })
+      const targetSlide = container.querySelector<HTMLElement>(`[data-popular-slide="${index}"]`)
+
+      if (targetSlide) {
+        const targetLeft = targetSlide.offsetLeft - (container.clientWidth - targetSlide.offsetWidth) / 2
+        const maxScrollLeft = container.scrollWidth - container.clientWidth
+        const clampedLeft = Math.max(0, Math.min(targetLeft, maxScrollLeft))
+
+        container.scrollTo({
+          left: clampedLeft,
+          behavior: "smooth",
+        })
+      }
     }
+
     setCurrentMobileIndex(index)
   }, [])
 
@@ -69,12 +76,6 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   const goToNextMobile = useCallback(() => {
     const nextIndex = (currentMobileIndex + 1) % totalMobileProducts
     scrollToProduct(nextIndex)
-  }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
-
-  // Go to previous product (mobile)
-  const goToPrevMobile = useCallback(() => {
-    const prevIndex = (currentMobileIndex - 1 + totalMobileProducts) % totalMobileProducts
-    scrollToProduct(prevIndex)
   }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
 
   // Mobile autoplay (5s interval, pauses on touch)
@@ -92,15 +93,46 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
 
   // Handle scroll events to update current index
   const handleScroll = useCallback(() => {
-    if (mobileScrollRef.current) {
-      const container = mobileScrollRef.current
-      const itemWidth = container.clientWidth * 0.85 + 16
-      const newIndex = Math.round(container.scrollLeft / itemWidth)
-      if (newIndex !== currentMobileIndex && newIndex >= 0 && newIndex < totalMobileProducts) {
-        setCurrentMobileIndex(newIndex)
-      }
+    if (!mobileScrollRef.current) return
+
+    const container = mobileScrollRef.current
+    const slides = Array.from(container.querySelectorAll<HTMLElement>("[data-popular-slide]"))
+    if (slides.length === 0) return
+
+    const maxScrollLeft = container.scrollWidth - container.clientWidth
+    const edgeThreshold = 8
+
+    // Clamp edge cases so last/first dot stays accurate when browser cannot fully center slides at bounds
+    if (container.scrollLeft <= edgeThreshold) {
+      if (currentMobileIndex !== 0) setCurrentMobileIndex(0)
+      return
     }
-  }, [currentMobileIndex, totalMobileProducts])
+
+    if (container.scrollLeft >= maxScrollLeft - edgeThreshold) {
+      const lastIndex = slides.length - 1
+      if (currentMobileIndex !== lastIndex) setCurrentMobileIndex(lastIndex)
+      return
+    }
+
+    const containerCenter = container.scrollLeft + container.clientWidth / 2
+
+    let closestIndex = 0
+    let closestDistance = Number.POSITIVE_INFINITY
+
+    slides.forEach((slide, index) => {
+      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2
+      const distance = Math.abs(slideCenter - containerCenter)
+
+      if (distance < closestDistance) {
+        closestDistance = distance
+        closestIndex = index
+      }
+    })
+
+    if (closestIndex !== currentMobileIndex) {
+      setCurrentMobileIndex(closestIndex)
+    }
+  }, [currentMobileIndex])
 
   // Pause autoplay on touch, resume after delay so it doesn't fight manual swiping
   const handleTouchStart = useCallback(() => {
@@ -140,25 +172,6 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           </span>
         </div>
 
-        {/* Mobile prev/next arrows */}
-        <div className="flex items-center gap-2 md:hidden">
-          <button
-            type="button"
-            onClick={goToPrevMobile}
-            className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
-            aria-label="Previous"
-          >
-            <ChevronLeft className="w-4 h-4 text-white" />
-          </button>
-          <button
-            type="button"
-            onClick={goToNextMobile}
-            className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
-            aria-label="Next"
-          >
-            <ChevronRight className="w-4 h-4 text-white" />
-          </button>
-        </div>
       </div>
 
       {/* Desktop: Static 3x2 grid - no carousel, no dots */}
@@ -186,8 +199,9 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <div className="flex gap-4">
+            <div className="flex-shrink-0 w-[7.5%]" aria-hidden="true" />
             {mobileProducts.map((product, index) => (
-              <div key={product.id} className="flex-shrink-0 w-[85%] snap-center">
+              <div key={product.id} data-popular-slide={index} className="flex-shrink-0 w-[85%] snap-center">
                 <ProductCard
                   product={product}
                   srcParam="?src=platform"
@@ -195,6 +209,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
                 />
               </div>
             ))}
+            <div className="flex-shrink-0 w-[7.5%]" aria-hidden="true" />
           </div>
         </div>
 

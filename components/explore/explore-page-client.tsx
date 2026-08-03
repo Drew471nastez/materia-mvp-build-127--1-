@@ -9,41 +9,39 @@ import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
-// Tap detection helpers for mobile - distinguishes taps from scrolls
-const _tapStart = { x: 0, y: 0 }
-function onTapStart(e: React.TouchEvent) {
-  _tapStart.x = e.touches[0].clientX
-  _tapStart.y = e.touches[0].clientY
-}
-function onTapEnd(callback: () => void) {
-  return (e: React.TouchEvent) => {
-    const touch = e.changedTouches[0]
-    const dx = Math.abs(touch.clientX - _tapStart.x)
-    const dy = Math.abs(touch.clientY - _tapStart.y)
-    if (dx < 10 && dy < 10) {
-      e.preventDefault()
-      callback()
-    }
-  }
-}
-
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
+let lockedScrollY = 0
+
+function getCurrentScrollY() {
+  return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0
+}
+
 function lockBodyScroll() {
   if (scrollLockCount === 0) {
-    const scrollY = window.scrollY
-    document.body.style.setProperty('--scroll-y', `-${scrollY}px`)
+    lockedScrollY = getCurrentScrollY()
+    document.body.style.setProperty('--scroll-y', `-${lockedScrollY}px`)
     document.body.classList.add('modal-open')
   }
   scrollLockCount++
 }
+
 function unlockBodyScroll() {
   scrollLockCount = Math.max(0, scrollLockCount - 1)
   if (scrollLockCount === 0) {
-    const scrollY = document.body.style.getPropertyValue('--scroll-y')
     document.body.classList.remove('modal-open')
     document.body.style.removeProperty('--scroll-y')
-    window.scrollTo(0, parseInt(scrollY || '0') * -1)
+
+    const html = document.documentElement
+    const previousScrollBehavior = html.style.scrollBehavior
+    html.style.scrollBehavior = 'auto'
+
+    requestAnimationFrame(() => {
+      window.scrollTo(0, lockedScrollY)
+      document.body.scrollTop = lockedScrollY
+      html.scrollTop = lockedScrollY
+      html.style.scrollBehavior = previousScrollBehavior
+    })
   }
 }
 
@@ -372,27 +370,41 @@ function MobileFilterSheet({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
+  const hasBodyScrollLock = useRef(false)
+
   useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
+    if (!isOpen) return
+
+    setIsVisible(true)
+    if (!hasBodyScrollLock.current) {
       lockBodyScroll()
+      hasBodyScrollLock.current = true
+    }
+
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
+        setIsAnimating(true)
       })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      unlockBodyScroll()
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
+    })
+
     return () => {
-      if (isVisible) unlockBodyScroll()
+      if (hasBodyScrollLock.current) {
+        unlockBodyScroll()
+        hasBodyScrollLock.current = false
+      }
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen || !isVisible) return
+
+    setIsAnimating(false)
+    const timer = setTimeout(() => {
+      setIsVisible(false)
+      setDragY(0)
+    }, 400)
+
+    return () => clearTimeout(timer)
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -575,29 +587,43 @@ function CategorySelectorModal({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
+  const hasBodyScrollLock = useRef(false)
+
   useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      setExpandedCategory(null)
+    if (!isOpen) return
+
+    setIsVisible(true)
+    setExpandedCategory(null)
+    if (!hasBodyScrollLock.current) {
       lockBodyScroll()
+      hasBodyScrollLock.current = true
+    }
+
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
+        setIsAnimating(true)
       })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      unlockBodyScroll()
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-        setExpandedCategory(null)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
+    })
+
     return () => {
-      if (isVisible) unlockBodyScroll()
+      if (hasBodyScrollLock.current) {
+        unlockBodyScroll()
+        hasBodyScrollLock.current = false
+      }
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen || !isVisible) return
+
+    setIsAnimating(false)
+    const timer = setTimeout(() => {
+      setIsVisible(false)
+      setDragY(0)
+      setExpandedCategory(null)
+    }, 400)
+
+    return () => clearTimeout(timer)
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -765,8 +791,6 @@ function CategorySelectorModal({
               <div key={cat.id}>
                 <button
                   onClick={() => handleCategoryClick(cat)}
-                  onTouchStart={onTapStart}
-                  onTouchEnd={onTapEnd(() => handleCategoryClick(cat))}
                   className={`flex items-center gap-3 w-full px-4 py-4 rounded-xl text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                     isSelected
                       ? "bg-neutral-900 text-white"
@@ -785,8 +809,6 @@ function CategorySelectorModal({
                   <div className="ml-6 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={() => handleSelectCategory(cat.id)}
-                      onTouchStart={onTapStart}
-                      onTouchEnd={onTapEnd(() => handleSelectCategory(cat.id))}
                       className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                         selectedCategory === cat.id && !selectedSubcategory
                           ? "bg-violet-100 text-violet-700 font-medium"
@@ -800,8 +822,6 @@ function CategorySelectorModal({
                       <button
                         key={sub.id}
                         onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
-                        onTouchStart={onTapStart}
-                        onTouchEnd={onTapEnd(() => handleSelectSubcategory(cat.id, sub.id, sub.label))}
                         className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2 ${
                           selectedSubcategory === sub.id
                             ? "bg-violet-100 text-violet-700 font-medium"
@@ -873,18 +893,17 @@ function SearchInput({
   )
 }
 
-// Smooth scroll utility function
-function smoothScrollToSection(ref: React.RefObject<HTMLElement | null>) {
-  if (ref.current) {
-    const yOffset = -100 // Offset for fixed header
-    const element = ref.current
-    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
 
-    window.scrollTo({
-      top: y,
-      behavior: 'smooth'
-    })
-  }
+function smoothScrollToRecommendedSection(ref: React.RefObject<HTMLElement | null>) {
+  if (!ref.current) return
+
+  const yOffset = -96
+  const y = ref.current.getBoundingClientRect().top + window.pageYOffset + yOffset
+
+  window.scrollTo({
+    top: Math.max(0, y),
+    behavior: "smooth",
+  })
 }
 
 interface ExplorePageClientProps {
@@ -916,6 +935,8 @@ export function ExplorePageClient({
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const categorySectionRef = useRef<HTMLElement>(null)
+  const categoryAutoScrollTimeoutRef = useRef<number | null>(null)
+  const pendingCategoryAutoScrollRef = useRef(false)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -933,20 +954,6 @@ export function ExplorePageClient({
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
-
-  // Smooth scroll to Recommended section when category changes from URL
-  useEffect(() => {
-    const categoryParam = searchParams.get("category")
-    const subParam = searchParams.get("sub")
-
-    if (categoryParam && categoryParam !== "all") {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        smoothScrollToSection(categorySectionRef)
-      }, 200)
-      return () => clearTimeout(timer)
-    }
-  }, [searchParams])
 
   // Reset page when filters change
   useEffect(() => {
@@ -1175,14 +1182,35 @@ export function ExplorePageClient({
     return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
   }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
 
-  // Handle category change - updates main category and scrolls to Recommended section
-  const handleCategoryChange = useCallback((categoryId: string, subcategoryId?: string, subcategoryLabel?: string) => {
+  const scrollRecommendedSectionWithRetry = useCallback((attempt = 0) => {
+    if (urlSearchQuery) return
+
+    if (categorySectionRef.current) {
+      smoothScrollToRecommendedSection(categorySectionRef)
+      return
+    }
+
+    if (attempt >= 8) return
+
+    categoryAutoScrollTimeoutRef.current = window.setTimeout(() => {
+      scrollRecommendedSectionWithRetry(attempt + 1)
+    }, 60)
+  }, [urlSearchQuery])
+
+  // Handle category change - updates main category and can smooth-scroll to Recommended section
+  const handleCategoryChange = useCallback((
+    categoryId: string,
+    subcategoryId?: string,
+    subcategoryLabel?: string,
+    shouldAutoScrollToRecommended = false,
+  ) => {
     setMainCategory(categoryId)
     setBrowseCategory(categoryId)
     setSelectedSubcategoryId(subcategoryId || null)
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setIsLoadingCategory(true)
+    pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
 
@@ -1199,34 +1227,54 @@ export function ExplorePageClient({
       })
       setIsLoadingCategory(false)
 
-      // Smooth scroll to Recommended section for both desktop and mobile
-      // Wait 450ms for modal animation to complete before scrolling
-      if (categoryId !== "all" || subcategoryId) {
-        setTimeout(() => {
-          smoothScrollToSection(categorySectionRef)
-        }, 450)
-      }
     }, 100)
   }, [router, urlSearchQuery])
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
-    handleCategoryChange(categoryId, subcategoryId, subcategoryLabel)
+    handleCategoryChange(categoryId, subcategoryId, subcategoryLabel, true)
   }, [handleCategoryChange])
 
-  // Handle browse category change from pills (only updates browse section, not recommended)
+  // Handle browse category change from pills and smooth-scroll to Recommended section
   const handleBrowseCategoryChange = useCallback((categoryId: string) => {
-    setBrowseCategory(categoryId)
-  }, [])
+    handleCategoryChange(categoryId, undefined, undefined, true)
+  }, [handleCategoryChange])
 
   // Handle category selection from modal - updates MAIN category and scrolls
   const handleCategorySelectorSelect = useCallback((categoryId: string) => {
-    handleCategoryChange(categoryId)
+    handleCategoryChange(categoryId, undefined, undefined, true)
   }, [handleCategoryChange])
+
+
+  useEffect(() => {
+    if (
+      urlSearchQuery ||
+      isLoadingCategory ||
+      categorySelectorOpen ||
+      !pendingCategoryAutoScrollRef.current
+    ) {
+      return
+    }
+
+    pendingCategoryAutoScrollRef.current = false
+
+    requestAnimationFrame(() => {
+      scrollRecommendedSectionWithRetry()
+    })
+  }, [
+    categorySelectorOpen,
+    isLoadingCategory,
+    mainCategory,
+    scrollRecommendedSectionWithRetry,
+    selectedSubcategoryId,
+    urlSearchQuery,
+  ])
+
 
   useEffect(() => {
     return () => {
       if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
+      if (categoryAutoScrollTimeoutRef.current) window.clearTimeout(categoryAutoScrollTimeoutRef.current)
     }
   }, [])
 
