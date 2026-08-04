@@ -43,14 +43,14 @@ import { markNavigated } from "@/lib/session-nav"
  * animation. A movement nobody can see traded for a jump everybody can.
  * Opacity creates a stacking context but never a containing block.
  *
- * And opacity is inherited by the entire subtree, which is why arriving at HOME
- * does not animate at all. On every other tab the bottom bar is a sibling of
- * <main> and stays solid — but the feed is a full-screen fixed shell that
- * renders ITS OWN copy of the bar, inside <main>. Fading <main> there would
- * fade the tab bar under the finger that just pressed it, and a descendant
- * cannot opt out of an ancestor's opacity. The feed is opaque and covers the
- * screen edge to edge, so it swaps like a native tab controller does — which is
- * the correct behaviour for a full-bleed surface, not a gap in this one.
+ * Opacity is inherited by the entire subtree, and that used to exclude HOME
+ * from this entirely: the feed rendered its own copy of the tab bar INSIDE
+ * <main>, so fading <main> there would have dimmed the bar under the finger
+ * that had just pressed it, and a descendant cannot opt out of an ancestor's
+ * opacity. There is one bar now, mounted by the layout as a sibling of <main>
+ * on every route (see global-mobile-nav.tsx), so the exception is gone and all
+ * five tabs arrive the same way — which was the point of moving the animation
+ * up here in the first place.
  *
  * It fires between TABS only. Opening a listing, a conversation or a seller
  * already has its own transition, and stacking a second fade under those is how
@@ -116,8 +116,6 @@ export function TabTransition({
     // thread. Firing this on top of them is precisely the doubled animation
     // that moving the entrance up here was meant to end.
     if (from === null) return
-    // The feed owns its arrival — and its own tab bar. See the note above.
-    if (tab === "home") return
 
     const root = document.documentElement
     // Removed, reflowed, re-added. A CSS animation does not restart just

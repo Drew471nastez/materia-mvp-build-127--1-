@@ -1,5 +1,4 @@
 import { SlidersHorizontal, GalleryVerticalEnd, Search } from "lucide-react"
-import { MobileBottomNav } from "@/components/explore/mobile-bottom-nav"
 
 /**
  * The shell the Acasă tab paints the instant it is tapped.
@@ -18,14 +17,13 @@ import { MobileBottomNav } from "@/components/explore/mobile-bottom-nav"
  * dozen other routes that look nothing like it. The group adds no URL segment —
  * this is still `/`.
  *
- * THE TAB BAR IS RENDERED HERE, and that is not decoration. The feed supplies
- * its own bar (it is a fixed full-screen overlay with its own stacking context),
- * which is why GlobalMobileNav steps aside on `/`. So during the moment this
- * shell is on screen, neither of them exists — the bar you just tapped
- * disappears, and comes back when the feed lands. Drawing it here makes the
- * handover invisible: global bar → this bar → the feed's bar, all identical
- * pixels in the same place. The unread badge carries across because its count
- * lives in a module-scoped cache, not in component state.
+ * THE TAB BAR IS NOT HERE, and that is the point. It used to be — because the
+ * feed rendered its own and GlobalMobileNav stepped aside on `/`, so during
+ * this skeleton neither existed and the bar you had just tapped disappeared.
+ * The answer turned out to be one bar for the whole app rather than three that
+ * hand off to each other: the layout renders it once, on every route, and it is
+ * already on screen above this shell. Nothing here to hand over, nothing to
+ * rebuild, and the tab you pressed stays lit the entire time.
  *
  * Everything else is measured against components/explore/mobile-feed.tsx — the
  * safe-area padding above the search row, the 44px controls, the 15px tab row
@@ -125,7 +123,15 @@ export default function FeedLoading() {
           </div>
         </div>
 
-        <MobileBottomNav active="home" />
+        {/* The same reservation the real feed makes. The bar is rendered once,
+            by the layout, and is already on screen above this — so drawing
+            another one here would be two bars stacked for the length of the
+            skeleton. */}
+        <div
+          aria-hidden
+          className="shrink-0"
+          style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }}
+        />
       </div>
 
       {/* Desktop is a plain grid under the site header, so it gets a plain grid

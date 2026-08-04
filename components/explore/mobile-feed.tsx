@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronLeft } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { CategoryPillRail, SearchTrigger } from "@/components/marketplace/search-row"
-import { MobileBottomNav } from "./mobile-bottom-nav"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
 import { WishlistToast } from "./wishlist-toast"
 import { ReelsPager } from "./reels-pager"
@@ -877,7 +876,6 @@ export function MobileFeed({
     void triggerHaptic("light")
     setSearchOpen(true)
   }, [])
-  const focusSearch = openSearch
 
   return (
     <div
@@ -886,6 +884,21 @@ export function MobileFeed({
       // screen in the app because there the app IS the screen — but on the web
       // that meant the header rendered and was then painted over, so the home
       // route was the one page with no way out of it. See app/globals.css.
+      // ONE TAB BAR IN THE APP, and it is not this component's.
+      //
+      // The feed used to render its own copy, which is why the bar POPPED every
+      // time you crossed between Acasă and anything else: two different React
+      // trees own the bar on either side of that boundary, so the navigation
+      // destroyed one <nav> and mounted another. A brand-new DOM node has no
+      // previous state to animate from, so the icon fill — which is a CSS
+      // transition and needs a "from" — simply did not play, the whole bar was
+      // rebuilt mid-navigation, and the optimistic press state that lights a tab
+      // the instant you touch it was thrown away with the component that held
+      // it. Profile to Messages animated; Home to anything snapped.
+      //
+      // GlobalMobileNav now renders on every route including this one, at
+      // z-[80] above this shell, mounted once in the layout and never
+      // unmounted. See components/marketing/global-mobile-nav.tsx.
       className={cn("mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white", returning && "feed-return")}
       style={{ height: "100dvh" }}
     >
@@ -1226,7 +1239,16 @@ export function MobileFeed({
 
       </div>
 
-      <MobileBottomNav active="home" onSearch={focusSearch} />
+      {/* The bar itself is NOT here any more — see the note below. This reserves
+          exactly the room it occupies, so the feed's scroller still ends where
+          the bar begins and nothing under it is unreachable. 63px is the bar's
+          real height (54px of tab, 8px of row padding, a 1px top border) plus
+          whatever the home indicator asks for. */}
+      <div
+        aria-hidden
+        className="shrink-0"
+        style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }}
+      />
 
       {/* Reels puts it at the top (the bottom is the caption and action rail);
           the grid keeps it at the bottom, clear of the search row. */}

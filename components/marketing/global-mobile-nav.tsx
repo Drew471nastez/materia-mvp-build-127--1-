@@ -8,17 +8,27 @@ import { triggerHaptic } from "@/lib/native-bridge"
 import { isNativeApp } from "@/lib/native-bridge"
 
 /**
- * The bottom navigation, on every page — not just the feed.
+ * The bottom navigation. ONE of them, for the whole app.
  *
  * It used to live inside MobileFeed alone, so it vanished the moment you opened
- * a listing, your settings or the sell form. On a phone (and especially inside
- * the app, where there is no browser chrome to fall back on) that leaves you
- * with no way back except the OS gesture. A tab bar that disappears isn't a tab
- * bar.
+ * a listing, your settings or the sell form. On a phone — especially inside the
+ * app, where there is no browser chrome to fall back on — that leaves you with
+ * no way back except the OS gesture. A tab bar that disappears isn't a tab bar.
  *
- * The feed still renders its own — it's a full-screen fixed overlay with its own
- * stacking context and its own search handler — so this one steps aside there
- * rather than stacking two.
+ * This one was added for those routes, and the feed kept rendering its own,
+ * which fixed the disappearance and left something subtler behind: THE BAR WAS
+ * REBUILT every time you crossed between Acasă and anywhere else, because two
+ * different React trees owned it on either side of that boundary. A brand-new
+ * <nav> has no previous state to animate from, so the icon's fill — a CSS
+ * transition, which needs a "from" — did not play at all on those crossings,
+ * and the optimistic press state that lights a tab the instant you touch it was
+ * thrown away with the component that held it. Profile to Messages eased;
+ * Acasă to anything snapped. Half the taps in the app.
+ *
+ * So it renders here on every route including the feed, at z-[80] above the
+ * feed's own z-[60] shell, mounted once in the marketing layout and never
+ * unmounted. The feed reserves the height with a spacer instead of drawing a
+ * second bar.
  */
 
 /**
@@ -39,10 +49,9 @@ function isConversation(pathname: string): boolean {
   return pathname.startsWith("/messages/") && pathname.length > "/messages/".length
 }
 
-/** Routes that ship their own bottom bar, or where one would be in the way. */
+/** Routes where a bottom bar would be in the way. */
 function suppressed(pathname: string): boolean {
   return (
-    pathname === "/" ||
     isConversation(pathname) ||
     pathname.startsWith("/explore") ||
     pathname.startsWith("/checkout") ||
@@ -51,6 +60,16 @@ function suppressed(pathname: string): boolean {
     // Seller dashboard has its own navigation entirely.
     pathname.startsWith("/app")
   )
+}
+
+/**
+ * The feed is a fixed full-screen overlay that pays for the bar with a spacer of
+ * its own, so the flow spacer below would be 63px of document that nothing is
+ * standing in for — which is enough to make a page with nothing to scroll
+ * scrollable. The bar itself still renders there; only the placeholder does not.
+ */
+function ownsItsOwnSpace(pathname: string): boolean {
+  return pathname === "/"
 }
 
 export function GlobalMobileNav() {
@@ -74,7 +93,12 @@ export function GlobalMobileNav() {
   // In the app the tab bar is the ONLY navigation — there's no header and no
   // browser back button — so it stays up even on checkout and auth screens.
   const hideBar = native
-    ? pathname === "/" || pathname.startsWith("/explore") || isConversation(pathname)
+    ? // The seller dashboard is excluded in the app as well as on the web, and
+      // that was missing. It paints itself #111111 top to bottom and carries its
+      // own navigation, so a white marketplace tab bar sat across the bottom of
+      // it — a second, contradictory way to navigate, in the wrong colour, on
+      // the one surface that is not the marketplace.
+      pathname.startsWith("/explore") || pathname.startsWith("/app") || isConversation(pathname)
     : suppressed(pathname)
   if (hideBar) return null
 
@@ -95,7 +119,9 @@ export function GlobalMobileNav() {
           It has to track the bar's real height: the tabs grew to fill their
           columns (54px plus the row's padding and the top border), and a
           spacer left behind would put every page a few pixels under it. */}
-      <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }} />
+      {!ownsItsOwnSpace(pathname) && (
+        <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }} />
+      )}
       <div className="md:hidden fixed inset-x-0 bottom-0 z-[80]">
         {/* Search lights up while its overlay is open. It is the one tab that
             opens something rather than going somewhere, so nothing about the
