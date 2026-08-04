@@ -408,6 +408,73 @@ export function MessageThread({
     stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }, [])
 
+  // ---- Nothing appears after you arrive --------------------------------------
+  //
+  // The messages are server-rendered, so the TEXT is there on the first frame.
+  // The photographs are not: each is a separate fetch of a signed URL, so they
+  // land one at a time over the second after the screen does. Even with a
+  // reserved box under each, that reads as a conversation assembling itself
+  // while you watch — which is what "messages and photos appear randomly" is
+  // describing.
+  //
+  // So the screen is held. A light cover sits over the exchange until its
+  // pictures have actually decoded, then lifts, revealing a finished
+  // conversation rather than a loading one. Nothing pops, because nothing is
+  // visible until there is nothing left to pop.
+  //
+  // Capped at 1.2 seconds, past which the cover does more harm than the popping
+  // ever did — a slow photo must not hold up a conversation you could already
+  // be reading. And it covers on the FIRST paint only: a poll or a new message
+  // must never drop a loading screen over a thread you are in the middle of.
+  const [covered, setCovered] = useState(() => (initial?.messages ?? []).some((m) => m.kind === "image"))
+  useEffect(() => {
+    if (!covered) return
+    const el = scrollerRef.current
+    if (!el) {
+      setCovered(false)
+      return
+    }
+    let done = false
+    const uncover = () => {
+      if (done) return
+      done = true
+      setCovered(false)
+    }
+    const pending = Array.from(el.querySelectorAll("img")).filter((i) => !i.complete)
+    if (!pending.length) {
+      // Already decoded. Uncovered on the next frame rather than synchronously,
+      // so the lift is a transition rather than a flicker of something that was
+      // never really there.
+      const raf = requestAnimationFrame(uncover)
+      return () => cancelAnimationFrame(raf)
+    }
+    let left = pending.length
+    const tick = () => {
+      left -= 1
+      if (left <= 0) uncover()
+    }
+    for (const img of pending) {
+      img.addEventListener("load", tick, { once: true })
+      img.addEventListener("error", tick, { once: true })
+    }
+    const cap = window.setTimeout(uncover, 1200)
+    return () => {
+      window.clearTimeout(cap)
+      for (const img of pending) {
+        img.removeEventListener("load", tick)
+        img.removeEventListener("error", tick)
+      }
+    }
+    // Mount-only: this is about the arrival, not about later changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // The scroller was sized for whatever the cover was hiding, so land on the end
+  // again the moment it lifts.
+  useEffect(() => {
+    if (!covered && stickBottom.current) scrollToEnd()
+  }, [covered, scrollToEnd])
+
   // ---- Live, so there is nothing to pull for --------------------------------
   //
   // A conversation had pull-to-refresh, and it was the wrong answer to the right
@@ -958,6 +1025,16 @@ export function MessageThread({
           simply does nothing, which is the honest answer when there is nothing
           above or below to reach. */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
+        {/* Over the exchange, not over the header or the composer: those are
+            correct from the first frame, and covering them would turn a screen
+            that HAD arrived into one that looks like it had not. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white transition-opacity duration-[240ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]"
+          style={{ opacity: covered ? 1 : 0, visibility: covered ? "visible" : "hidden" }}
+        >
+          <IosSpinner size={24} />
+        </div>
       <div
         ref={scrollerRef}
         onScroll={onScroll}
