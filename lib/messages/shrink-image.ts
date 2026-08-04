@@ -25,6 +25,43 @@
 
 const MAX_EDGE = 1440
 const QUALITY = 0.82
+/**
+ * The size past which a photo is re-encoded harder.
+ *
+ * 1440px of detail at q0.82 is usually 200-350KB, but a busy frame — foliage,
+ * a patterned fabric, a crowd — can land at over a megabyte at exactly the same
+ * settings, because JPEG spends bits on detail rather than on pixels. That is
+ * the photo somebody sends on mobile data and watches crawl. A second pass at
+ * lower quality brings the tail back in line, and it only ever runs on the
+ * files that need it.
+ */
+const TARGET_BYTES = 420 * 1024
+const FALLBACK_QUALITY = 0.68
+
+/**
+ * WebP where the browser can write it, JPEG where it cannot.
+ *
+ * WebP is roughly a third smaller than JPEG at matched perceptual quality, and
+ * every engine that matters — both WebViews included — has been able to encode
+ * it for years. It is the single biggest thing available here: a third off
+ * every photo in every conversation, for a feature detection and no visible
+ * difference. The bucket already accepts it (see the `messages` bucket's
+ * allowed_mime_types), and the check is memoised because it costs a canvas.
+ */
+let encoder: { type: string; ext: string } | null = null
+
+function pickEncoder(): { type: string; ext: string } {
+  if (encoder) return encoder
+  try {
+    const probe = document.createElement("canvas")
+    probe.width = probe.height = 1
+    const ok = probe.toDataURL("image/webp").startsWith("data:image/webp")
+    encoder = ok ? { type: "image/webp", ext: "webp" } : { type: "image/jpeg", ext: "jpg" }
+  } catch {
+    encoder = { type: "image/jpeg", ext: "jpg" }
+  }
+  return encoder
+}
 
 export async function shrinkImage(file: File): Promise<File> {
   if (typeof document === "undefined") return file
@@ -62,15 +99,26 @@ export async function shrinkImage(file: File): Promise<File> {
     ctx.drawImage(bitmap as CanvasImageSource, 0, 0, canvas.width, canvas.height)
     closeBitmap(bitmap)
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", QUALITY),
-    )
+    const { type, ext } = pickEncoder()
+    const encode = (q: number) =>
+      new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, q))
+
+    let blob = await encode(QUALITY)
     // A re-encode that came out bigger is still the one that gets sent: it is
     // the one without the GPS coordinates in it. Only a failed encode falls
     // back to the original.
     if (!blob) return file
 
-    return new File([blob], renameToJpeg(file.name), { type: "image/jpeg", lastModified: Date.now() })
+    // The second pass, only for the frames that need it. Compared against the
+    // first result rather than assumed better — at very low complexity the
+    // lower quality can produce a file within a few bytes of the first, and
+    // there is no reason to take the worse picture for that.
+    if (blob.size > TARGET_BYTES) {
+      const harder = await encode(FALLBACK_QUALITY)
+      if (harder && harder.size < blob.size * 0.85) blob = harder
+    }
+
+    return new File([blob], renameTo(file.name, ext), { type, lastModified: Date.now() })
   } catch {
     return file
   }
@@ -105,7 +153,7 @@ function closeBitmap(b: ImageBitmap | HTMLImageElement): void {
   if (typeof ImageBitmap !== "undefined" && b instanceof ImageBitmap) b.close()
 }
 
-function renameToJpeg(name: string): string {
+function renameTo(name: string, ext: string): string {
   const base = name.replace(/\.[^.]+$/, "")
-  return `${base || "photo"}.jpg`
+  return `${base || "photo"}.${ext}`
 }

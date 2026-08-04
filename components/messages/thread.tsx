@@ -437,8 +437,12 @@ export function MessageThread({
     put()
     requestAnimationFrame(put)
     // One late correction, after the arrival animation and the composer's own
-    // resize have both landed.
-    window.setTimeout(put, 280)
+    // resize have both landed. 420ms because the bubble you sent now takes 380
+    // to come to rest — a correction fired at 280 was landing while it was still
+    // moving, so the last few pixels of the scroll happened underneath an
+    // animation that had not finished, which is a small jolt at the exact moment
+    // the send is supposed to feel settled.
+    window.setTimeout(put, 420)
   }, [])
 
   useEffect(() => {

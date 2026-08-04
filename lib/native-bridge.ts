@@ -297,6 +297,41 @@ export async function nativeLogout(
 // ── Haptic feedback ──────────────────────────────────────────────────────────
 
 /**
+ * The haptics module, fetched once and kept.
+ *
+ * `await import(...)` inside the tap handler is what made the buzz land after
+ * the thing it was supposed to accompany. The FIRST call on a cold app pays for
+ * fetching, parsing and evaluating a chunk before it can ask the OS for
+ * anything — tens of milliseconds on a phone — and even a warm one costs a
+ * promise tick, so the feedback always arrived a beat behind the finger. On a
+ * tab bar, where the haptic IS the acknowledgement, a beat behind is the
+ * difference between the bar answering you and the bar confirming something you
+ * had already noticed.
+ *
+ * So it is warmed on first use and held. The dynamic import is kept — it is
+ * what keeps the plugin out of the web bundle, which is the whole reason it was
+ * written this way — but it is paid once instead of on every press.
+ */
+let hapticsModule: Promise<typeof import("@capacitor/haptics")> | null = null
+
+function loadHaptics(): Promise<typeof import("@capacitor/haptics")> {
+  if (!hapticsModule) hapticsModule = import("@capacitor/haptics")
+  return hapticsModule
+}
+
+/**
+ * Fetch the haptics chunk before anything needs it.
+ *
+ * Called from the tab bar on mount, so by the time a finger lands on it the
+ * module is resolved and `triggerHaptic` is a straight call into the OS.
+ */
+export function warmHaptics(): void {
+  if (typeof window === "undefined") return
+  if (!(window as any).Capacitor?.isNativePlatform?.()) return
+  void loadHaptics().catch(() => {})
+}
+
+/**
  * Trigger a short haptic impact on iOS/Android via @capacitor/haptics.
  * No-op on web or SSR. Dynamically imported so it never bloats the web bundle.
  *
@@ -307,9 +342,12 @@ export async function triggerHaptic(style: "light" | "medium" | "heavy" = "light
   const cap = (window as any).Capacitor
   if (!cap?.isNativePlatform?.()) return
   try {
-    const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
+    const { Haptics, ImpactStyle } = await loadHaptics()
     const styleMap = { light: ImpactStyle.Light, medium: ImpactStyle.Medium, heavy: ImpactStyle.Heavy }
-    await Haptics.impact({ style: styleMap[style] })
+    // Not awaited. The OS call is a round trip through the bridge and nothing
+    // here depends on its result; awaiting it only means the caller's own work
+    // — the navigation, the send — waits behind a vibration.
+    void Haptics.impact({ style: styleMap[style] })
   } catch { /* plugin unavailable or permission denied — silent no-op */ }
 }
 

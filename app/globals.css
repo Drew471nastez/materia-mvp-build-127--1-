@@ -2032,11 +2032,11 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
  * recognisably the same gesture rather than two effects that happen to live in
  * the same app. */
 @keyframes screen-push {
-  from { transform: scale(1.022); }
+  from { transform: scale(1.02); }
   to   { transform: scale(1); }
 }
 @keyframes screen-return {
-  from { transform: scale(0.962); }
+  from { transform: scale(0.972); }
   to   { transform: scale(1); }
 }
 @media (width < 48rem) {
@@ -2046,12 +2046,26 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
      percent in, four out, and neither of them ever exposes an edge: the push
      settles DOWN to 1 so it always covers the frame, and the return grows into
      a root that surface-bg has already painted this screen's colour. */
+  /* Longer, and on a curve with a much longer tail — easeOutExpo rather than
+     the symmetrical one these used to share.
+     
+     "Snappy" is what a short animation on a symmetrical curve feels like: it
+     covers most of its distance in the middle and then STOPS, and the stopping
+     is the part you notice. Nearly all of the time below is spent in the last
+     few percent of the movement, where each frame moves the screen a fraction
+     of a pixel — which is why it reads as coming to rest rather than as
+     finishing.
+     
+     The distances came DOWN as the durations went up, and that is deliberate
+     rather than a compromise: 4% of scale over 360ms is a zoom, 2.8% over 460 is
+     depth. Slower and smaller is the combination that reads as smooth; slower
+     and further just reads as slow. */
   .screen-push {
-    animation: screen-push 300ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+    animation: screen-push 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
     will-change: transform;
   }
   .screen-return {
-    animation: screen-return 360ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+    animation: screen-return 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
     will-change: transform;
   }
 }
@@ -2192,6 +2206,35 @@ html[data-keyboard="open"] .thread-composer {
    yours expands from its bottom-right, which is where the send button is, and
    theirs from the bottom-left. Slid horizontally instead — which is what this
    did — a bubble looks like it was pushed on from off-screen by something. */
+/* ---------------------------------------------------------------------------
+   A tab filling in
+   ---------------------------------------------------------------------------
+   The solid glyph only exists while its tab is active, so this plays exactly
+   once per press and never on a re-render — which is what lets it overshoot
+   without becoming tiresome. From 0.72 with a spring past 1: the icon reads as
+   being pressed INTO its filled state rather than as one picture being swapped
+   for another, and that half-frame of overshoot is the whole of why a tab bar
+   feels good to press.
+
+   Fast — 220ms — because it is acknowledging a finger, and an acknowledgement
+   that is still arriving when you have looked away has acknowledged nothing.
+   `transform-box: fill-box` and a centre origin are what make an SVG path scale
+   about ITSELF rather than about the corner of the viewport, which is the
+   difference between a glyph swelling and a glyph flying in from the left. */
+@keyframes tab-icon-fill {
+  from { opacity: 0; transform: scale(0.72); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.tab-icon-fill {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tab-icon-fill 220ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-icon-fill { animation: none; }
+}
+
 /* Ten percent of scale was too much, and the reason is about pixels rather
    than taste. A bubble is a box of TEXT: animate it from 0.9 and the browser
    re-rasterizes every glyph in it on every frame, at a size it will never be
@@ -2204,25 +2247,44 @@ html[data-keyboard="open"] .thread-composer {
    0.94 and 8px keeps the cue — a bubble growing out of the corner it came
    from — at an amplitude where nothing has to be redrawn to notice it. */
 @keyframes msg-in-mine {
-  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); }
+  /* A touch further and a touch smaller than one that arrives: it is coming up
+     off the composer, which is below and to the right of where it lands, so it
+     has further to travel than a bubble that was simply delivered. */
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.92); }
+  55%  { opacity: 1; transform: translate3d(0, 2px, 0) scale(0.995); }
   to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 @keyframes msg-in-theirs {
   from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); }
   to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
-/* 240ms. The bubble is drawn the instant you press send, so this is the only
-   thing standing between pressing and reading it — but at 200 the curve's long
-   tail had nowhere to go and the whole thing read as a snap with a bump on the
-   end. Forty more milliseconds is the difference between arriving and landing,
-   and it is still finished before the eye has followed the scroll down to it. */
+/* 380ms for one you SENT, 260 for one that arrived, and the asymmetry is the
+   point.
+
+   A message you sent is the result of an action you just took, and the
+   animation is the app showing you that it landed — it is allowed to take its
+   time, and at 240ms it did not have any: the bubble was in place before the
+   press had finished registering, which is why it read as appearing rather than
+   as arriving. Nearly four tenths of a second on this curve — almost all of it
+   in the long, decelerating tail — is a bubble that leaves the composer, travels,
+   and comes to rest. That tail is the whole of "satisfying"; the distance
+   travelled barely changes.
+
+   One that arrived is not the result of anything you did, so it should not
+   command the same amount of your attention. It settles quickly and gets out of
+   the way of being read.
+
+   Two composited properties on a promoted layer, so the length costs nothing:
+   this is the same number of frames' work either way, spread over more of
+   them — which is precisely what makes a long animation look smoother than a
+   short one rather than slower. */
 .msg-in-mine {
-  animation: msg-in-mine 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: msg-in-mine 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transform-origin: 100% 100%;
   will-change: transform, opacity;
 }
 .msg-in-theirs {
-  animation: msg-in-theirs 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: msg-in-theirs 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: 0% 100%;
   will-change: transform, opacity;
 }

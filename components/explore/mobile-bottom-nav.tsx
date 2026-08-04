@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, Search, Plus, MessageSquare, User } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
-import { triggerHaptic } from "@/lib/native-bridge"
+import { HomeIcon, InboxIcon, ProfileIcon, SearchIcon } from "./tab-icons"
+import { triggerHaptic, warmHaptics } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 // Module-scoped so sixty page navigations do not mean sixty counts: every
@@ -91,7 +92,8 @@ export function MobileBottomNav({
   // navigation instead of in front of it.
   const onSell = useCallback(() => {
     if (launching) return
-    void triggerHaptic("light")
+    // The buzz already fired on pointerdown, with the finger rather than after
+    // it — see `tap` below.
     setLaunching(true)
     router.push("/products/new")
   }, [launching, router])
@@ -106,7 +108,8 @@ export function MobileBottomNav({
   const item = (key: string, icon: React.ReactNode, isActive: boolean) => (
     <span
       className={cn(
-        "flex flex-col items-center gap-1 text-[10px] font-medium",
+        "flex flex-col items-center gap-1 text-[10px]",
+        isActive ? "font-semibold" : "font-medium",
         // No scale. A tab that shrinks under the finger is a web affordance
         // borrowed from buttons, and on a bar you press dozens of times a
         // session it reads as cheap — a native tab bar never does it. The
@@ -137,7 +140,19 @@ export function MobileBottomNav({
   // Tapping a tab is a deliberate act with a result, so it gets the same
   // acknowledgement opening a listing does. A nav item is not a scroll surface,
   // so there is no gesture to disambiguate first.
+  //
+  // On POINTERDOWN, not click. A haptic is meant to be the bar answering your
+  // finger, and click fires on release — so the buzz was arriving after the
+  // press had already finished, which reads as confirmation of something you
+  // had noticed rather than as feedback. Down is when the finger lands, which
+  // is when a physical button would have clicked.
   const tap = () => void triggerHaptic("light")
+
+  // The haptics chunk, fetched while the bar mounts rather than while a finger
+  // is waiting on it. See warmHaptics in lib/native-bridge.ts.
+  useEffect(() => {
+    warmHaptics()
+  }, [])
 
   return (
     <nav
@@ -145,24 +160,23 @@ export function MobileBottomNav({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-stretch px-1 pt-1 pb-1">
-        <Link href="/" prefetch onClick={tap} aria-label={t("mfeed.home")} className={TAB}>
-          {item("mfeed.home", <Home className="h-6 w-6" strokeWidth={active === "home" ? 2.4 : 2} />, active === "home")}
+        <Link href="/" prefetch onPointerDown={tap} aria-label={t("mfeed.home")} className={TAB}>
+          {item("mfeed.home", <HomeIcon active={active === "home"} className="h-[25px] w-[25px]" />, active === "home")}
         </Link>
 
         <button
           type="button"
-          onClick={() => {
-            tap()
-            onSearch?.()
-          }}
+          onPointerDown={tap}
+          onClick={() => onSearch?.()}
           aria-label={t("mfeed.search")}
           className={TAB}
         >
-          {item("mfeed.search", <Search className="h-6 w-6" />, active === "search")}
+          {item("mfeed.search", <SearchIcon active={active === "search"} className="h-[25px] w-[25px]" />, active === "search")}
         </button>
 
         <button
           type="button"
+          onPointerDown={() => void triggerHaptic("light")}
           onClick={onSell}
           aria-label={t("mfeed.sell")}
           className="group flex min-h-[54px] flex-1 flex-col items-center justify-center"
@@ -181,11 +195,11 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/messages" prefetch onClick={tap} aria-label={t("mfeed.inbox")} className={cn(TAB, "relative")}>
+        <Link href="/messages" prefetch onPointerDown={tap} aria-label={t("mfeed.inbox")} className={cn(TAB, "relative")}>
           {item(
             "mfeed.inbox",
             <span className="relative">
-              <MessageSquare className="h-6 w-6" />
+              <InboxIcon active={active === "inbox"} className="h-[25px] w-[25px]" />
               {unread > 0 && (
                 <span className="absolute -right-1.5 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#7c3aed] px-[3px] text-[10px] font-bold leading-none text-white ring-2 ring-white">
                   {unread > 9 ? "9+" : unread}
@@ -200,8 +214,8 @@ export function MobileBottomNav({
             /settings, which redirected anyone without a creators row into
             onboarding — so for every buyer the Profile tab simply did not
             work. Settings is still one tap away, behind the gear up there. */}
-        <Link href="/profile" prefetch onClick={tap} aria-label={t("mfeed.profile")} className={TAB}>
-          {item("mfeed.profile", <User className="h-6 w-6" />, profileActive)}
+        <Link href="/profile" prefetch onPointerDown={tap} aria-label={t("mfeed.profile")} className={TAB}>
+          {item("mfeed.profile", <ProfileIcon active={profileActive} className="h-[25px] w-[25px]" />, profileActive)}
         </Link>
       </div>
     </nav>
