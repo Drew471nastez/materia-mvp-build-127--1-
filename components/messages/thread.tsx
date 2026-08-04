@@ -583,25 +583,48 @@ export function MessageThread({
     if (peerTyping && stickBottom.current) scrollToEnd()
   }, [peerTyping, scrollToEnd])
 
-  /** Announce a change on this thread to whoever else has it open. */
-  const announce = useCallback((event: "msg" | "typing") => {
+  /**
+   * Announce a change on this thread to whoever else has it open.
+   *
+   * Returns whether it went. It used to return nothing and fail silently, which
+   * hid the one case that matters: with the channel not yet SUBSCRIBED there is
+   * no `ch` and the call did nothing at all, so whatever depended on it simply
+   * did not happen and nothing anywhere said why.
+   */
+  const announce = useCallback((event: "msg" | "typing"): boolean => {
     const ch = channelRef.current
-    if (!ch || !meRef.current) return
+    if (!ch || !meRef.current) return false
     try {
       void ch.send({ type: "broadcast", event, payload: { from: meRef.current } })
+      return true
     } catch {
       /* the poll is the net under this */
+      return false
     }
   }, [])
 
-  /** Throttled hard: one ping every two seconds is plenty to keep a dot alive,
-   *  and a broadcast per keystroke would be a message a second per typist. */
+  /**
+   * Throttled hard: one ping every two seconds is plenty to keep a dot alive,
+   * and a broadcast per keystroke would be a message a second per typist.
+   *
+   * Two routes, and which one is used is decided by whether the socket is
+   * actually up. `announce` is a no-op when the channel has not reached
+   * SUBSCRIBED, and it returns false to say so — which used to mean the dots
+   * simply never appeared during the first seconds in a conversation, while the
+   * channel was still connecting. That is the worst window to lose: it is
+   * exactly when the other person is watching to see whether you are replying.
+   * So the server rings it instead, over the same channel. One request per two
+   * seconds of active typing, and only when the fast path could not be taken.
+   */
   const noteTyping = useCallback(() => {
     const now = Date.now()
     if (now - typingSentAt.current < 2000) return
     typingSentAt.current = now
-    announce("typing")
-  }, [announce])
+    if (announce("typing")) return
+    void fetch(`/api/messages/${id}/typing`, { method: "POST", credentials: "include" }).catch(() => {
+      /* a missing typing indicator is not worth reporting to anyone */
+    })
+  }, [announce, id])
 
   useEffect(() => {
     const supabase = createClient()
@@ -1052,7 +1075,27 @@ export function MessageThread({
     // desktop it goes back to being a card in the page. `data-keyboard` is how
     // the composer knows to drop the home-indicator inset, which is dead space
     // when there is a keyboard where the home indicator used to be.
-    <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
+    <div
+      className={cn(
+        "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
+        // The push, on the arrivals that never got one.
+        //
+        // It lives on loading.tsx, which Next only shows when it has nothing
+        // cached — so opening a conversation you had opened in the last three
+        // minutes skipped the skeleton and therefore skipped the animation
+        // entirely, and the thread hard-cut into place. Half the taps eased in
+        // and half did not, decided by something invisible; that is the same
+        // inconsistency the tab bar had, in the one screen you open most.
+        //
+        // `stalePayload` IS that case, exactly: a payload older than ten
+        // seconds came out of the router cache, which means no skeleton
+        // rendered, which means nothing has played this yet. A fresh one was
+        // rendered by the server for this navigation, which means the skeleton
+        // did show and did play it — and adding it here too would be the same
+        // motion twice for one tap.
+        stalePayload && "screen-push",
+      )}
+    >
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
       {/* The inset is paid here rather than by a spacer above the page, so the
@@ -1441,7 +1484,11 @@ export function MessageThread({
             the one thing you cannot see without scrolling. */}
         {peerTyping && (
           <div className="flex items-center gap-1 px-1 pt-2">
-            <span className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-neutral-100 px-3 py-2.5">
+            {/* Arrives the way a message from them does, because that is what it
+                is standing in for. It used to appear fully formed on one frame,
+                which on a screen where everything else eases in read as a
+                glitch rather than as somebody starting to type. */}
+            <span className="msg-in-theirs flex items-center gap-1 rounded-2xl rounded-bl-md bg-neutral-100 px-3 py-2.5">
               <span className="typing-dot" />
               <span className="typing-dot" style={{ animationDelay: "160ms" }} />
               <span className="typing-dot" style={{ animationDelay: "320ms" }} />
@@ -1510,8 +1557,30 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Trimite"
+            // THE KEYBOARD DOES NOT CLOSE WHEN YOU SEND.
+            //
+            // Tapping any button moves focus to it, and focus leaving a
+            // textarea is what dismisses a phone keyboard. So every message
+            // sent by tapping this collapsed the keyboard, scrolled the whole
+            // conversation as the viewport grew back, and left you tapping the
+            // field again to write the next line — in an exchange that is
+            // usually several lines, that is the single most annoying thing
+            // about the composer.
+            //
+            // Preventing the default on pointerdown is what stops the focus
+            // transfer before it happens; the click still fires. Every chat on
+            // the web does this, and there is no other way — a `.focus()` after
+            // the fact cannot reopen a keyboard on iOS unless it runs inside the
+            // gesture that closed it, and by then the viewport has already
+            // animated.
+            onPointerDown={(e) => e.preventDefault()}
             onClick={() => {
               void triggerHaptic("light")
+              // Belt to the braces above: on the browsers where preventDefault
+              // on pointerdown is not enough (older WebViews fire mousedown
+              // separately), this runs inside the click — still the same user
+              // gesture — so the keyboard is never given a frame to leave.
+              fieldRef.current?.focus()
               void send()
             }}
             disabled={!draft.trim() || sending}

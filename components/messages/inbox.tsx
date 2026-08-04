@@ -852,14 +852,21 @@ function NotificationsList({
             )}
           </>
         )
-        // Same surface rule as the inbox side, so the two lists behind one
-        // switcher never read as two different screens. A read notification is
-        // deliberately quieter than an unread one rather than identical to it:
-        // the whole point of the list is which ones are new.
-        const rowClass = cn(
-          ROW_INNER,
-          unread ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "opacity-[0.72] active:bg-neutral-50",
-        )
+        // A READ NOTIFICATION IS NOT A FADED ONE.
+        //
+        // This dimmed the whole row to 72% once you had seen it, and that is the
+        // fade in this list — the avatar, the name, the thumbnail and the time
+        // all going grey together, which reads as the row being disabled or
+        // half-loaded rather than as "you have seen this". It is also the one
+        // thing neither Depop nor Vinted does: open either of their activity
+        // feeds and a read row is at exactly the same strength as an unread one.
+        //
+        // Unread is marked by the two things that cost nothing to read at a
+        // glance and nothing in legibility: a tinted background behind the row
+        // and a bold first line. Read is the plain surface. Every pixel of
+        // content stays at full strength in both, because a notification you
+        // have already seen is still one you might be trying to find again.
+        const rowClass = cn(ROW_INNER, unread ? "bg-[#7c3aed]/[0.06] active:bg-[#7c3aed]/[0.11]" : "active:bg-neutral-50")
         return (
           <Fragment key={n.id}>
             {opensBucket && (

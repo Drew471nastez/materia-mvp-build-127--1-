@@ -27,7 +27,8 @@ import "server-only"
  */
 export async function announceThread(
   conversationId: string,
-  event: "msg" | "read" = "msg",
+  event: "msg" | "read" | "typing" = "msg",
+  payload: Record<string, unknown> = {},
 ): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -42,12 +43,14 @@ export async function announceThread(
         Authorization: `Bearer ${key}`,
       },
       // The topic is the channel name as supabase-js sees it — `thread:<uuid>`,
-      // with no `realtime:` prefix. The payload is deliberately empty of
-      // content: the receiver re-reads the thread through its own session, so
-      // nothing here needs to carry a message, and a broadcast is not a place to
-      // put one — anyone who can guess a conversation id could otherwise listen.
+      // with no `realtime:` prefix. The payload carries no message CONTENT, on
+      // purpose: the receiver re-reads the thread through its own session, so
+      // nothing here needs to hold what was said, and a broadcast is not a place
+      // to put it — anyone who can guess a conversation id could otherwise
+      // listen. The only thing it ever carries is who acted, which the typing
+      // indicator needs in order to ignore its own echo.
       body: JSON.stringify({
-        messages: [{ topic: `thread:${conversationId}`, event, payload: {} }],
+        messages: [{ topic: `thread:${conversationId}`, event, payload }],
       }),
       // Two seconds is far longer than this call ever takes and far shorter than
       // anyone should wait for a doorbell. Without it a hung socket would hold
