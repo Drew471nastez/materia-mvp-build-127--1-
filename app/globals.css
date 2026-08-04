@@ -2073,6 +2073,25 @@ html[data-keyboard="open"] .thread-composer {
    is a visible animation happening to a screen that had already arrived, which
    is what "fade in up" was. */
 
+/* Someone is writing. Three dots, offset in phase, on the smallest animation
+   that still reads as alive — opacity and a pixel of travel, so it costs one
+   composited layer and can run for as long as they keep typing. */
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.28; transform: translateY(0); }
+  30%           { opacity: 0.9;  transform: translateY(-2px); }
+}
+.typing-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #737373;
+  animation: typing-dot 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot { animation: none; opacity: 0.5; }
+}
+
 /* A held bubble belongs to the app, not to the operating system.
  *
  * Press and hold anything with text on a phone and the OS puts selection

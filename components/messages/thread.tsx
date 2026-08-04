@@ -137,6 +137,10 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   /** The message being held, and therefore the one the action sheet is about. */
   const [acting, setActing] = useState<Msg | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  /** Object URLs still being displayed. Released when the thread unmounts —
+   *  earlier than that and the img whose src they are goes blank. */
+  const blobs = useRef<string[]>([])
+  useEffect(() => () => blobs.current.forEach(URL.revokeObjectURL), [])
   const scrollerRef = useRef<HTMLDivElement>(null)
   const stickBottom = useRef(true)
 
@@ -163,7 +167,18 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       // trip and then reappear — which looks exactly like a message failing.
       setThread((prev) => {
         const inFlight = prev?.messages.filter((m) => m.pending) ?? []
-        return inFlight.length ? { ...fresh, messages: [...fresh.messages, ...inFlight] } : fresh
+        // A photo already on screen keeps the copy already decoded in memory.
+        // The server's signed URL is the same picture behind a network fetch, so
+        // adopting it would blank the bubble for the length of that fetch — the
+        // "disappears for a second and comes back" on every refresh after a send.
+        const localBlobs = new Map<string, string>()
+        for (const m of prev?.messages ?? []) {
+          if (m.image_url?.startsWith("blob:")) localBlobs.set(m.id, m.image_url)
+        }
+        const merged = fresh.messages.map((m) =>
+          localBlobs.has(m.id) ? { ...m, image_url: localBlobs.get(m.id)! } : m,
+        )
+        return { ...fresh, messages: inFlight.length ? [...merged, ...inFlight] : merged }
       })
     } catch {
       /* transient — the next poll retries */
@@ -386,6 +401,32 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   const meRef = useRef<string | null>(initial?.me ?? null)
   meRef.current = thread?.me ?? meRef.current
 
+  /** The live channel, once it is actually carrying this thread. */
+  const channelRef = useRef<any>(null)
+  const [peerTyping, setPeerTyping] = useState(false)
+  const typingOff = useRef<number | undefined>(undefined)
+  const typingSentAt = useRef(0)
+
+  /** Announce a change on this thread to whoever else has it open. */
+  const announce = useCallback((event: "msg" | "typing") => {
+    const ch = channelRef.current
+    if (!ch || !meRef.current) return
+    try {
+      void ch.send({ type: "broadcast", event, payload: { from: meRef.current } })
+    } catch {
+      /* the poll is the net under this */
+    }
+  }, [])
+
+  /** Throttled hard: one ping every two seconds is plenty to keep a dot alive,
+   *  and a broadcast per keystroke would be a message a second per typist. */
+  const noteTyping = useCallback(() => {
+    const now = Date.now()
+    if (now - typingSentAt.current < 2000) return
+    typingSentAt.current = now
+    announce("typing")
+  }, [announce])
+
   useEffect(() => {
     const supabase = createClient()
     let timer: number | undefined
@@ -441,7 +482,28 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     }
 
     const channel = supabase
-      .channel(`thread:${id}`)
+      .channel(`thread:${id}`, { config: { broadcast: { self: false } } })
+      // Told directly, rather than overheard from Postgres.
+      //
+      // postgres_changes only fires for tables that are IN the `supabase_realtime`
+      // publication — and on a database whose migration has not been run, they
+      // are not. The channel subscribes, reports itself connected, and no event
+      // ever arrives: a conversation that looks live and silently is not.
+      //
+      // A broadcast needs no publication, no table and no schema at all. Both
+      // sides are already on this channel; the sender simply says so. It is the
+      // fast path in every case and the ONLY path on a database that has not
+      // been migrated, which is why the poll below still exists behind it.
+      .on("broadcast", { event: "msg" }, () => refetch())
+      .on("broadcast", { event: "typing" }, (p: any) => {
+        if (!p?.payload?.from || p.payload.from === meRef.current) return
+        setPeerTyping(true)
+        window.clearTimeout(typingOff.current)
+        // Typing is a claim with a shelf life. Nobody sends "I stopped" 
+        // reliably — they close the tab, lose signal, put the phone down — so it
+        // expires on its own rather than waiting to be withdrawn.
+        typingOff.current = window.setTimeout(() => setPeerTyping(false), 4000)
+      })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
@@ -465,6 +527,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         },
       )
       .subscribe((status: string) => {
+        channelRef.current = status === "SUBSCRIBED" ? channel : null
         // Only SUBSCRIBED means the socket is actually carrying this thread.
         // Anything else — the publication not including `messages`, a blocked
         // websocket, a dropped connection — has to fall back to asking, or the
@@ -474,6 +537,8 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
 
     return () => {
       window.clearTimeout(timer)
+      window.clearTimeout(typingOff.current)
+      channelRef.current = null
       void supabase.removeChannel(channel)
     }
   }, [id, load])
@@ -533,6 +598,8 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         setThread((t) =>
           t ? { ...t, messages: t.messages.map((m) => (m.id === tempId ? message : m)) } : t,
         )
+        // The other side hears about it now rather than on their next poll.
+        announce("msg")
       } else {
         setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
         setDraft(body) // give the text back rather than losing it
@@ -543,7 +610,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     } finally {
       setSending(false)
     }
-  }, [draft, id, sending])
+  }, [announce, draft, id, sending])
 
   // Sending a photo, the same way as sending words: on screen first.
   //
@@ -600,25 +667,43 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           const { message } = await r.json()
           seen.current?.add(message.id)
           stickBottom.current = true
+          // The row is the server's; the PICTURE stays the one already on
+          // screen. Swapping in the signed URL means the img element's src
+          // changes to something that has to be fetched over the network — so
+          // the photo you were looking at vanishes for as long as that takes
+          // and then comes back. It is the same image either way, and the blob
+          // is already decoded in memory, so the bubble keeps it and the signed
+          // link is simply never needed on this device.
           setThread((t) =>
-            t ? { ...t, messages: t.messages.map((m) => (m.id === tempId ? message : m)) } : t,
+            t
+              ? {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === tempId ? { ...message, image_url: localUrl } : m,
+                  ),
+                }
+              : t,
           )
+          // Held until the screen goes, not revoked here: revoking now would
+          // break the src we have just committed to.
+          blobs.current.push(localUrl)
+          announce("msg")
+          return
         } else {
           const { error } = await r.json().catch(() => ({ error: null }))
           setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+          URL.revokeObjectURL(localUrl)
           setImageError(error || "Fotografia nu a putut fi trimisă")
         }
       } catch {
         setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+        URL.revokeObjectURL(localUrl)
         setImageError("Fotografia nu a putut fi trimisă")
       } finally {
-        // Revoked either way: on success the bubble now points at the signed
-        // URL, on failure there is no bubble left to point at anything.
-        URL.revokeObjectURL(localUrl)
         setSending(false)
       }
     },
-    [id, sending],
+    [announce, id, sending],
   )
 
   // ---- Press and hold ------------------------------------------------------
@@ -1101,6 +1186,19 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           </div>
         )}
         </div>
+
+        {/* Someone is writing. Below the exchange because that is where their
+            next message will land, and it disappears on its own — nobody
+            reliably sends "I stopped typing", they just put the phone down. */}
+        {peerTyping && (
+          <div className="flex items-center gap-1 px-1 pt-2">
+            <span className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-neutral-100 px-3 py-2.5">
+              <span className="typing-dot" />
+              <span className="typing-dot" style={{ animationDelay: "160ms" }} />
+              <span className="typing-dot" style={{ animationDelay: "320ms" }} />
+            </span>
+          </div>
+        )}
       </div>
       </div>
 
@@ -1144,7 +1242,10 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           <textarea
             ref={fieldRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              if (e.target.value) noteTyping()
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault()

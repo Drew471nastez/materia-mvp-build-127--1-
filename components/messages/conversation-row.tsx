@@ -54,6 +54,7 @@ export function ConversationRow({
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const drag = useRef({ armed: false, active: false, startX: 0, startY: 0, dx: 0, base: 0 })
+  const swallowClick = useRef(false)
 
   const place = useCallback((x: number, animate: boolean) => {
     const el = surfaceRef.current
@@ -119,6 +120,14 @@ export function ConversationRow({
     d.armed = false
     if (!d.active) return
     d.active = false
+    // A swipe must not also open the conversation. The browser fires a click
+    // after a touch that did not scroll, and the row's whole surface is a link —
+    // so without swallowing exactly one click, every swipe ended on the thread
+    // you were trying to file away.
+    swallowClick.current = true
+    window.setTimeout(() => {
+      swallowClick.current = false
+    }, 400)
     if (d.dx <= -COMMIT_AT) {
       void triggerHaptic("light")
       // Off the side of the screen, then gone. Deleting a row that is still
@@ -157,6 +166,14 @@ export function ConversationRow({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onClickCapture={(e) => {
+          // Captured, so it never reaches the link inside.
+          if (swallowClick.current || open) {
+            e.preventDefault()
+            e.stopPropagation()
+            if (open) settle("closed")
+          }
+        }}
         // Vertical panning stays with the list; horizontal is ours to claim.
         style={{ touchAction: "pan-y" }}
         className="relative bg-white will-change-transform"

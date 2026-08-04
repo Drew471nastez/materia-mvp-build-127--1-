@@ -201,7 +201,20 @@ export async function listConversations({
     for (const l of listingsRes.data ?? []) listings.set(l.id, l as InboxListing)
     profiles = profilesRes
     // First hit per conversation in a created_at-desc list IS its latest message.
-    for (const m of lastRes.data ?? []) if (!last.has(m.conversation_id)) last.set(m.conversation_id, m as any)
+    //
+    // Decoded on the way past. A photo stored the fallback way is a text row
+    // whose body carries a sentinel and an object path — which the preview was
+    // printing verbatim, so an inbox row for a picture read
+    // "\u0001storelib:image\u0001a81ccv72e-f3…". The row must not have to know
+    // there are two ways a photo can be filed; it only has to know it is one.
+    for (const m of lastRes.data ?? []) {
+      if (last.has(m.conversation_id)) continue
+      const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
+      last.set(
+        m.conversation_id,
+        encoded ? ({ ...m, kind: "image", body: encoded.caption } as any) : (m as any),
+      )
+    }
     for (const m of unreadRes.data ?? []) unread.set(m.conversation_id, (unread.get(m.conversation_id) ?? 0) + 1)
   }
 
