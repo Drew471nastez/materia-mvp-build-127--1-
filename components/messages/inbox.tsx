@@ -8,8 +8,10 @@ import { useLocale } from "@/components/locale-provider"
 import { ConversationRow } from "@/components/messages/conversation-row"
 import { MessagesEmptyState } from "@/components/messages/empty-state"
 import { IosSpinner } from "@/components/explore/ios-spinner"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
+import { hiddenConversations, hideConversation } from "@/lib/messages/hidden-conversations"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -104,6 +106,7 @@ const ROW_INNER = "flex items-center gap-3 px-2 py-3.5 transition-colors"
 export function MessagesInbox({
   initialConversations = null,
   renderedAt,
+  viewerId,
 }: {
   initialConversations?: Row[] | null
   /**
@@ -122,6 +125,9 @@ export function MessagesInbox({
    * assumption, and a cached payload refetches immediately.
    */
   renderedAt?: number
+  /** Whose inbox this is. Only used to key the local record of conversations
+   *  removed on this device — see lib/messages/hidden-conversations.ts. */
+  viewerId?: string | null
 }) {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">("messages")
@@ -130,6 +136,12 @@ export function MessagesInbox({
   // stays flipped, so only the swaps a person actually asked for are animated.
   const [switched, setSwitched] = useState(false)
   const [rows, setRows] = useState<Row[] | null>(initialConversations)
+  // Read once. A set rebuilt on every render would make the memo below useless
+  // and, worse, would let a row flicker back in between a delete and its write.
+  const [hidden] = useState(() => hiddenConversations(viewerId))
+  /** The row a swipe has proposed deleting, held until it is confirmed. */
+  const [pendingDelete, setPendingDelete] = useState<Row | null>(null)
+  const visibleRows = rows ? rows.filter((r) => !hidden.has(r.id)) : rows
   const [signedOut, setSignedOut] = useState(false)
   const [notifs, setNotifs] = useState<Notif[] | null>(null)
   const [notifUnread, setNotifUnread] = useState(0)
@@ -279,19 +291,27 @@ export function MessagesInbox({
   // Optimistic, and deliberately so: the row is already off the side of the
   // screen by the time this runs, and putting it back for the length of a round
   // trip would be the one animation nobody wants to see reversed.
-  const removeConversation = useCallback(async (conversationId: string) => {
-    setRows((prev) => (prev ? prev.filter((r) => r.id !== conversationId) : prev))
-    try {
-      await fetch(`/api/messages/${conversationId}/actions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ action: "delete" }),
-      })
-    } catch {
-      /* the next focus refresh reconciles */
-    }
-  }, [])
+  const removeConversation = useCallback(
+    async (conversationId: string) => {
+      setRows((prev) => (prev ? prev.filter((r) => r.id !== conversationId) : prev))
+      // Recorded locally FIRST, and unconditionally. Whether the server can
+      // remember this is a question about someone else's database; whether the
+      // row comes back on this screen is a promise already made to the person
+      // who pressed the button.
+      hideConversation(viewerId, conversationId)
+      try {
+        await fetch(`/api/messages/${conversationId}/actions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "delete" }),
+        })
+      } catch {
+        /* the local record still holds */
+      }
+    },
+    [viewerId],
+  )
 
   /** Dismiss one notification, or all of them. Optimistic for the same reason
    *  the conversation swipe is: the row is already off the side of the screen. */
@@ -479,7 +499,7 @@ export function MessagesInbox({
                   pieces — every row visibly moving into place before you can use
                   it. The list is simply there. */}
               {tab === "messages" ? (
-                <MessagesList rows={rows} formatPrice={formatPrice} onDelete={removeConversation} />
+                <MessagesList rows={visibleRows} formatPrice={formatPrice} onDelete={(id) => setPendingDelete(rows?.find((r) => r.id === id) ?? null)} />
               ) : (
                 <NotificationsList items={notifs} onDismiss={dismissNotif} onClear={clearNotifs} />
               )}
@@ -487,6 +507,48 @@ export function MessagesInbox({
           </div>
         </div>
       </div>
+
+      {/* Asked, not assumed.
+          A swipe is easy to do by accident on a list you scroll with your thumb,
+          and until the migration lands a delete is remembered on this device
+          only — so it is worth one deliberate tap, and worth saying plainly what
+          will happen to the other person's copy. */}
+      <BottomSheet
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        label="Șterge conversația"
+        header={
+          <div className="px-5 pb-2 pt-4">
+            <p className="text-[17px] font-semibold text-neutral-900">Ștergi conversația?</p>
+            <p className="mt-1 text-[13.5px] leading-snug text-neutral-500">
+              {pendingDelete
+                ? `Conversația cu ${pendingDelete.other?.display_name || pendingDelete.other?.username || "acest utilizator"} dispare din lista ta. Cealaltă persoană își păstrează conversația.`
+                : ""}
+            </p>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-2 px-3 pb-1 pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              const target = pendingDelete
+              setPendingDelete(null)
+              if (target) void removeConversation(target.id)
+            }}
+            className="h-12 w-full rounded-full bg-red-600 text-[15.5px] font-semibold text-white transition-transform active:scale-[0.98]"
+          >
+            Șterge conversația
+          </button>
+          <button
+            type="button"
+            onClick={() => setPendingDelete(null)}
+            className="h-12 w-full rounded-full border border-neutral-200 text-[15.5px] font-semibold text-neutral-700 transition-transform active:scale-[0.98]"
+          >
+            Renunță
+          </button>
+        </div>
+      </BottomSheet>
     </div>
   )
 }

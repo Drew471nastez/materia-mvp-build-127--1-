@@ -73,5 +73,5 @@ export default async function MessagesPage() {
     initialConversations = null
   }
 
-  return <MessagesInbox initialConversations={initialConversations} renderedAt={Date.now()} />
+  return <MessagesInbox initialConversations={initialConversations} renderedAt={Date.now()} viewerId={user.id} />
 }

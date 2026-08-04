@@ -105,8 +105,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         .from("conversations")
         .update(iAmBuyer ? { buyer_deleted_at: new Date().toISOString() } : { seller_deleted_at: new Date().toISOString() })
         .eq("id", id)
-      if (error) return NextResponse.json({ error: "Could not delete" }, { status: 500 })
-      return NextResponse.json({ ok: true, deleted: true })
+      if (error) {
+        // The column does not exist yet, so the server cannot remember this.
+        // Saying so lets the client remember it instead — see
+        // lib/messages/hidden-conversations.ts. Reporting a 500 here is what
+        // made delete look like it worked and then undo itself on the next
+        // load; reporting success would be a lie of a different shape.
+        console.error("[messages/actions] delete failed:", error.message)
+        return NextResponse.json({ ok: true, deleted: true, persisted: false })
+      }
+      return NextResponse.json({ ok: true, deleted: true, persisted: true })
     }
 
     default:

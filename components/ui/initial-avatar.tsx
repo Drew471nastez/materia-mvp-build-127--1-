@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -63,14 +64,24 @@ export function InitialAvatar({
   className?: string
 }) {
   const dimension = { width: size, height: size }
+  // An avatar url that does not resolve must not leave a hole.
+  //
+  // This is the other half of the question mark: a broken <img> paints the
+  // BROWSER's placeholder — a grey box with a "?" in it — and that looks
+  // identical to a missing name, so the two bugs were indistinguishable from
+  // the outside. A url can fail for reasons nobody here controls: an account
+  // deleted its picture, an OAuth avatar moved, a host is not on the optimizer's
+  // allowlist. In all of them the right answer is the letter, immediately.
+  const [broken, setBroken] = useState(false)
 
-  if (url) {
+  if (url && !broken) {
     return (
       <Image
         src={url}
         alt=""
         width={size}
         height={size}
+        onError={() => setBroken(true)}
         className={cn("shrink-0 rounded-full object-cover", className)}
         style={dimension}
       />

@@ -1115,9 +1115,19 @@ export function MessageThread({
                           // that expires, so it is neither cacheable by the
                           // optimizer nor stable enough to be worth optimising.
                           // eslint-disable-next-line @next/next/no-img-element
+                          // Fades in over its own placeholder rather than
+                          // arriving into a zero-height box. Without a reserved
+                          // size the bubble is nothing until the bytes land and
+                          // then snaps to full height, which is what makes a
+                          // conversation look like it is assembling itself after
+                          // you have already arrived — every photo pushing the
+                          // ones above it as it loads.
                           <img
                             src={m.image_url}
                             alt={m.body || "Fotografie"}
+                            onLoad={(e) => {
+                              e.currentTarget.style.opacity = "1"
+                            }}
                             onClick={() => {
                               // A pending photo is a local blob mid-upload;
                               // opening it full screen would show a picture that
@@ -1134,6 +1144,7 @@ export function MessageThread({
                               m.pending && "scale-[1.02] opacity-60 blur-[2px]",
                             )}
                             draggable={false}
+                            style={{ opacity: 0, transition: "opacity 220ms ease" }}
                           />
                         ) : (
                           <div className="flex h-40 w-56 items-center justify-center text-neutral-400">

@@ -33,6 +33,23 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'i.pinimg.com',
       },
+      // Avatars that arrive with an OAuth identity rather than an upload.
+      //
+      // A host that is not listed here is not "unoptimised" — next/image REFUSES
+      // it, the request 400s, and the browser paints its own broken-image glyph:
+      // a grey box with a question mark in it, sitting where somebody's face
+      // should be, on every screen that shows them. Every account created with
+      // Google or Apple has its picture on one of these.
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'lh4.googleusercontent.com' },
+      { protocol: 'https', hostname: 'lh5.googleusercontent.com' },
+      { protocol: 'https', hostname: 'lh6.googleusercontent.com' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      { protocol: 'https', hostname: 'gravatar.com' },
+      { protocol: 'https', hostname: 'www.gravatar.com' },
+      { protocol: 'https', hostname: 'secure.gravatar.com' },
+      { protocol: 'https', hostname: 'appleid.cdn-apple.com' },
+      { protocol: 'https', hostname: 'pbs.twimg.com' },
     ],
     // AVIF first, WebP behind it. AVIF is roughly 30% smaller than WebP at
     // matched quality on photographs, and every browser that misses it falls
