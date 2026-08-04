@@ -58,6 +58,60 @@ type Msg = {
    * completion. Local only — the server has never heard of it.
    */
   localKey?: string
+  /**
+   * The picture's width÷height, on a photo that is still going up.
+   *
+   * Without it the bubble has NO HEIGHT until the browser has decoded the file:
+   * the img is `w-full` with a max height and no intrinsic size yet, so the
+   * bubble is a few pixels tall on the frame it appears and then snaps to two
+   * hundred and sixty. Which is a layout jump inside the one animation that
+   * exists to make sending look continuous — and now that the thread glides to
+   * the bottom over half a second, it is a jump that happens mid-glide and
+   * moves the target underneath it.
+   *
+   * Read off the blob as soon as the browser can say, which is a frame or two,
+   * and applied as an `aspect-ratio` so the box is right before the pixels are.
+   */
+  aspect?: number
+}
+
+/**
+ * A picture's width÷height, as cheaply as the browser will give it.
+ *
+ * `createImageBitmap` decodes off the main thread where it exists, which is
+ * what keeps this from costing a frame on the very interaction it is meant to
+ * smooth. The <img> path is the fallback for the formats it refuses — HEIC,
+ * mainly — and is still only a decode, not a render.
+ *
+ * Returns null rather than throwing: a photo whose shape we could not work out
+ * still sends, it just reserves the default box.
+ */
+async function measureAspect(url: string): Promise<number | null> {
+  try {
+    if (typeof createImageBitmap === "function") {
+      const res = await fetch(url)
+      const bmp = await createImageBitmap(await res.blob())
+      const ratio = bmp.width / bmp.height
+      bmp.close()
+      return Number.isFinite(ratio) && ratio > 0 ? ratio : null
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    // `document.createElement`, not `new Image()`: this file imports next/image
+    // as `Image`, which shadows the DOM constructor — and the resulting error is
+    // about construct signatures rather than about the name collision, which
+    // makes it a genuinely confusing thing to hit.
+    const img = document.createElement("img")
+    img.decoding = "async"
+    img.src = url
+    await img.decode()
+    const ratio = img.naturalWidth / img.naturalHeight
+    return Number.isFinite(ratio) && ratio > 0 ? ratio : null
+  } catch {
+    return null
+  }
 }
 
 /** Ids for messages that exist only on this screen so far. */
@@ -1074,6 +1128,19 @@ export function MessageThread({
       if (!file || uploading) return
       const tempId = nextTempId()
       const localUrl = URL.createObjectURL(file)
+      // Kicked off now and NOT awaited. Decoding enough of a four-megapixel JPEG
+      // to know its dimensions takes a frame or two, and the whole point of an
+      // optimistic bubble is that it is there before anything has been decoded,
+      // uploaded or agreed. So the bubble goes up immediately with a portrait
+      // reservation — what a phone camera produces most of the time — and the
+      // exact ratio replaces it the moment it is known, which is almost always
+      // before the first paint has settled.
+      void measureAspect(localUrl).then((aspect) => {
+        if (!aspect) return
+        setThread((t) =>
+          t ? { ...t, messages: t.messages.map((m) => (m.id === tempId ? { ...m, aspect } : m)) } : t,
+        )
+      })
       setUploading(true)
       void triggerHaptic("light")
       stickBottom.current = true
@@ -1155,7 +1222,9 @@ export function MessageThread({
               ? {
                   ...t,
                   messages: t.messages.map((m) =>
-                    m.id === tempId ? { ...message, image_url: localUrl, localKey: tempId } : m,
+                    m.id === tempId
+                      ? { ...message, image_url: localUrl, localKey: tempId, aspect: m.aspect }
+                      : m,
                   ),
                 }
               : t,
@@ -1455,6 +1524,13 @@ export function MessageThread({
           page and reveals empty space under the composer. Contained, the drag
           simply does nothing, which is the honest answer when there is nothing
           above or below to reach. */}
+      {/* Below the header, above the conversation — chrome rather than content.
+          The exchange begins under it and is never overlapped by it, and it does
+          not move when you scroll, because it is not in the scroller. Never on
+          the Storelib thread: warning somebody about the platform, inside the
+          platform's own thread, reads as the app not knowing who it is. */}
+      {thread && !thread.official && <SafetyNotice />}
+
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {/* Over the exchange, not over the header or the composer: those are
             correct from the first frame, and covering them would turn a screen
@@ -1504,14 +1580,6 @@ export function MessageThread({
             the same viewport numbers, so the handover is already invisible and
             an animation over an invisible swap is just a visible animation. */}
         <div className="flex min-h-full flex-col justify-end">
-        {/* Sticky at the top of the reading area rather than scrolling away with
-            the history: the conversation moves under it and it stays where it is
-            any use. Inside the bottom-aligned column so a short thread has it
-            directly above the first message instead of stranded at the top of an
-            empty screen. Never over the Storelib thread — warning somebody about
-            the platform, inside the platform's own thread, reads as the app not
-            knowing who it is. */}
-        {thread && !thread.official && <SafetyNotice />}
         {thread === null ? (
           // The last resort, and it is now shaped like the conversation it is
           // standing in for rather than like three grey bars: alternating sides,
@@ -1701,7 +1769,31 @@ export function MessageThread({
                               m.pending && "blur-[1.5px]",
                             )}
                             draggable={false}
-                            style={{ opacity: 0, transition: "opacity 220ms ease" }}
+                            decoding="async"
+                            style={{
+                              opacity: 0,
+                              transition: "opacity 220ms ease",
+                              // THE BOX BEFORE THE PIXELS.
+                              //
+                              // `w-full` with a max height and no intrinsic size
+                              // means the img is zero pixels tall until the file
+                              // has decoded — so the bubble appeared as a sliver
+                              // and snapped to its real height a moment later,
+                              // shoving the whole conversation up with it. Now
+                              // that a send glides the scroller over half a
+                              // second, that snap lands mid-glide and moves the
+                              // target underneath the animation.
+                              //
+                              // 3/4 until the real ratio is known, because a
+                              // phone camera in someone's hand produces portrait
+                              // far more often than not, and being right most of
+                              // the time costs nothing when the correction
+                              // arrives within a frame or two. Only ever applied
+                              // to a photo still going up: one that came from
+                              // the server is fetched with its dimensions in the
+                              // file, and forcing a ratio on it would crop it.
+                              ...(m.pending ? { aspectRatio: String(m.aspect ?? 0.75) } : null),
+                            }}
                           />
                         ) : (
                           <div className="flex h-40 w-56 items-center justify-center text-neutral-400">

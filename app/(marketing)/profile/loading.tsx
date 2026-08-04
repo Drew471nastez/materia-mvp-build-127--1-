@@ -28,11 +28,10 @@ import { SurfaceClaim } from "@/components/surface-claim"
 export default function ProfileLoading() {
   return (
     <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
-      {/* The same claim the real screen makes, from the first frame. Without it
-          the strip behind the clock is white while this shell is up and purple
-          the instant it is replaced — a colour change at the very top of the
-          screen, which is the "it glitches straight into appearing". */}
-      <SurfaceClaim colour="#f3edfd" />
+      {/* The same claim the real screen makes, from the first frame: white, so
+          the wash — which reaches up into the status-bar strip on its own — is
+          the only thing colouring it. See member-profile.tsx. */}
+      <SurfaceClaim colour="#ffffff" />
       {/* `.profile-wash` carries the geometry, including the pull up into the
           status bar — the same class the real screen uses, so the colour does
           not shift by an inset at the swap. */}

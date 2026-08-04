@@ -235,15 +235,22 @@ export function MemberProfile({
     // is what makes this read as a page rather than as a phone layout that has
     // been stretched.
     <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
-      {/* The strip behind the clock, in the wash's own top colour. The wash is
-          pulled up into that strip by the safe-area inset, but the strip itself
-          is painted by whoever last claimed it — and on this route that was the
-          top bar, declaring white. So the colour stopped dead at the bottom
-          edge of the status bar with a white band above it, which is the one
-          place on a page where a boundary reads as damage. #f3edfd is
-          `#7c3aed` at 9% over white: the exact value of the gradient's first
-          row, so there is no seam where the two meet. */}
-      <SurfaceClaim colour="#f3edfd" />
+      {/* WHITE, and the wash paints the strip itself.
+          
+          `.profile-wash` is already pulled up into the status-bar strip by the
+          safe-area inset — it starts at the physical top of the screen, not at
+          the top of this column. The claim exists only to take down the opaque
+          bar the app draws over that strip (html.capacitor::before) so the wash
+          can be seen through it.
+          
+          Claiming the TINT instead was a mistake with a very visible result:
+          the strip got the flat colour and then the wash's top on top of it,
+          while the content below y=0 got the wash alone over white. Two
+          different recipes for what is supposed to be one gradient, meeting at
+          a hard line under the clock — a darker, flat band across the top of
+          the screen. White underneath everywhere means one recipe, and the
+          gradient runs unbroken from the first pixel of the display. */}
+      <SurfaceClaim colour="#ffffff" />
       {/* The one piece of colour on the screen, and it is barely there.
           A profile is a person, and a header floating on plain white had
           nothing to say that this was the top of anything — the avatar simply

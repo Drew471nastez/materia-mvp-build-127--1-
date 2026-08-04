@@ -13,28 +13,26 @@ import { ShieldCheck, X } from "lucide-react"
  * the only one that works before anything has gone wrong.
  *
  * ---------------------------------------------------------------------------
- * Why it is a chip and not a card
+ * Where it sits, and why that changed twice
  * ---------------------------------------------------------------------------
- * The first version was a full-width panel with an icon column and three lines
- * of copy, and it was wrong in a way worth naming: the biggest, boldest thing
- * on the screen was a warning nobody had asked for, sitting on top of the
- * conversation somebody had actually come to read. Safety copy that shouts is
- * safety copy that gets dismissed unread, which leaves you with the liability
- * and none of the protection.
+ * It began as a full-width panel with three lines of copy inside the message
+ * list, which made a warning nobody asked for the largest thing on a screen
+ * somebody had come to read. It then became a small floating chip, which was
+ * subtle enough but put a second object on top of the exchange — one more thing
+ * between you and the messages.
  *
- * A quiet centred chip is what the apps this is measured against use, for the
- * same reason. It is legible, it is one line, and it does not pretend to be
- * more important than the exchange it sits above.
+ * This is neither: a slim band BELOW THE HEADER and above the conversation, so
+ * it is part of the screen's chrome rather than part of the conversation. The
+ * exchange starts under it and is never overlapped by it. It reads as
+ * something the app is telling you, which is what it is, instead of as
+ * something in the thread.
  *
- * It is STICKY, so scrolling back through a long history does not lose it — the
- * conversation moves under it and it stays at the top of the reading area,
- * which is the one place it is any use. And it is dismissible, permanently: a
- * banner that returns on every visit trains the exact habit it exists to
- * interrupt.
+ * Two lines of copy at most, and dismissible for good: a banner that returns on
+ * every visit trains the exact habit it exists to interrupt.
  *
  * It renders nothing until the stored answer has been read, because rendering
- * it and removing it a frame later is a flash of a warning at the top of every
- * conversation.
+ * it and removing it a frame later is a flash across the top of every
+ * conversation you open.
  */
 
 const KEY = "storelib_chat_safety_dismissed_v1"
@@ -56,21 +54,12 @@ export function SafetyNotice() {
   if (!show) return null
 
   return (
-    <div className="sticky top-0 z-10 flex justify-center pb-2.5">
-      <span className="flex max-w-full items-center gap-1.5 rounded-full border border-black/[0.05] bg-white/85 py-1 pl-2.5 pr-1 shadow-[0_1px_3px_rgba(15,15,15,0.05)] backdrop-blur-md">
-        <ShieldCheck className="h-[13px] w-[13px] shrink-0 text-[#7c3aed]" strokeWidth={2.4} />
-        {/* ONE LINE, and the length was measured rather than guessed. At 11.5px
-            in a 390px column this chip has about 300px of room for text before
-            it wraps, and a wrapped pill is 41px tall with the shield stranded
-            beside two lines — which is the panel this replaced, in a smaller
-            font. Rendered five candidates in Chromium: 62 chars wraps, 53 fits
-            at 84% of the width, 48 fits at 78%. This one, and it keeps both
-            halves of the warning: do not hand over bank details, and pay
-            through us. `whitespace-nowrap` so a longer translation is caught in
-            review rather than quietly wrapping in production. */}
-        <span className="whitespace-nowrap text-[11.5px] leading-[1.35] text-neutral-500">
-          Nu da date bancare. Plătește doar prin Storelib.
-        </span>
+    <div className="shrink-0 border-b border-[#7c3aed]/[0.09] bg-[#7c3aed]/[0.045] px-3 py-2">
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-[15px] w-[15px] shrink-0 text-[#7c3aed]" strokeWidth={2.3} />
+        <p className="min-w-0 flex-1 text-[12px] leading-[1.4] text-neutral-600">
+          Nu da date bancare sau personale. Plătește doar prin Storelib.
+        </p>
         <button
           type="button"
           aria-label="Închide"
@@ -82,11 +71,11 @@ export function SafetyNotice() {
               /* it will be shown again, which is the harmless direction */
             }
           }}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors active:bg-black/[0.06]"
+          className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors active:bg-[#7c3aed]/10"
         >
-          <X className="h-[12px] w-[12px]" strokeWidth={2.4} />
+          <X className="h-[14px] w-[14px]" strokeWidth={2.4} />
         </button>
-      </span>
+      </div>
     </div>
   )
 }
