@@ -63,5 +63,5 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  return <MessageThread id={id} initial={initial} />
+  return <MessageThread id={id} initial={initial} renderedAt={Date.now()} />
 }

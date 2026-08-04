@@ -87,6 +87,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle()
   if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  // Blocking has to stop the messages, not just hide the thread.
+  //
+  // It hid the conversation from the person who blocked and left the sender able
+  // to keep writing into it, which is the shape of the bug that makes a block
+  // feel like a setting rather than a boundary — every new message would quietly
+  // resurrect the thread they had just removed.
+  //
+  // Checked in one direction only, and deliberately: if THEY blocked YOU, you
+  // are refused. If you blocked them, your own message still goes — you can
+  // always write to someone you have blocked, you simply do not hear back. And
+  // the refusal says nothing about a block existing, because "you have been
+  // blocked" is information the blocked party is not owed.
+  const otherParty = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
+  const { data: blockedBy } = await createAdminClient()
+    .from("user_blocks")
+    .select("blocker_id")
+    .eq("blocker_id", otherParty)
+    .eq("blocked_id", user.id)
+    .maybeSingle()
+  if (blockedBy) {
+    return NextResponse.json({ error: "Nu poți trimite mesaje în această conversație." }, { status: 403 })
+  }
+
   const { data: inserted, error } = await supabase
     .from("messages")
     .insert(

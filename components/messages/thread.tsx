@@ -121,7 +121,19 @@ function timeLabel(d: Date): string {
  * or decline a pending one, and an accepted one becomes the buyer's way into
  * checkout at the agreed price.
  */
-export function MessageThread({ id, initial = null }: { id: string; initial?: Thread | null }) {
+export function MessageThread({
+  id,
+  initial = null,
+  renderedAt,
+}: {
+  id: string
+  initial?: Thread | null
+  /** When the server produced `initial`. A conversation route is held in the
+   *  client router cache too, so "the server just told us" is an assumption
+   *  rather than a fact — and acting on it means opening a thread to messages
+   *  that are minutes old with nothing on screen admitting it. */
+  renderedAt?: number
+}) {
   const { formatPrice } = useLocale()
   const router = useRouter()
   // Born with the conversation in it. The server read it in the same request
@@ -197,7 +209,10 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   // hundred milliseconds after the first paint — and with it a re-render of
   // every bubble on screen, which is the flicker that made an already-rendered
   // thread look like it was still loading.
-  const skipFirstLoad = useRef(initial !== null)
+  // Skipped only when the payload is genuinely new. A cached one is refetched
+  // immediately, which is the difference between opening a conversation and
+  // opening a photograph of one.
+  const skipFirstLoad = useRef(initial !== null && Date.now() - (renderedAt ?? 0) < 10_000)
   // Read by the timer rather than closed over, so the socket connecting changes
   // how often this asks WITHOUT rebuilding the effect. Making `live` a real
   // dependency was tempting and wrong: the effect re-runs its `sync()`, which

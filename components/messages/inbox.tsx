@@ -105,7 +105,28 @@ const ROW_INNER = "flex items-center gap-3 px-2 py-3.5 transition-colors"
  * means the server could not answer — a signed-in session whose read failed —
  * and only then does the old client-first path run.
  */
-export function MessagesInbox({ initialConversations = null }: { initialConversations?: Row[] | null }) {
+export function MessagesInbox({
+  initialConversations = null,
+  renderedAt,
+}: {
+  initialConversations?: Row[] | null
+  /**
+   * When the server actually produced these rows.
+   *
+   * This exists because of a bug that took three rounds to find: the inbox is a
+   * dynamic route held in the CLIENT ROUTER CACHE for three minutes, so tapping
+   * the Messages tab can serve a payload rendered minutes ago — from before the
+   * conversation you started on a listing page existed. The client had no way to
+   * know that. It assumed anything the server handed it was new, started its
+   * thirty-second freshness clock at mount, and so refused to refetch for half a
+   * minute on rows that were already stale when they arrived. That is the
+   * conversation that is missing until you reload the page.
+   *
+   * With the render time stamped, "how old is this" is a fact rather than an
+   * assumption, and a cached payload refetches immediately.
+   */
+  renderedAt?: number
+}) {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">("messages")
   // Nothing animates on the first paint — a list that fades in on arrival reads
@@ -132,7 +153,9 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
     // if they had just been fetched — the freshness window the component
     // already keeps is what suppresses the duplicate mount request, rather than
     // a second rule that could drift out of step with it.
-    let lastLoadedAt = servedFromServer ? Date.now() : 0
+    // The server's clock, not ours. See `renderedAt` above — assuming the
+    // payload was fresh is exactly what hid a new conversation until a reload.
+    let lastLoadedAt = servedFromServer ? renderedAt ?? Date.now() : 0
     const MIN_INTERVAL_MS = 30_000
 
     const load = () => {
@@ -154,17 +177,33 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
         .catch(() => {})
     }
 
-    if (!servedFromServer) load()
-    const onFocus = () => {
+    const maybeLoad = () => {
       if (Date.now() - lastLoadedAt < MIN_INTERVAL_MS) return
       load()
     }
-    window.addEventListener("focus", onFocus)
+
+    // On mount too, and gated by the same clock. Arriving on a payload the
+    // router cached minutes ago is indistinguishable from arriving on a fresh
+    // one, so the check has to be about AGE rather than about which path got
+    // here.
+    maybeLoad()
+
+    // `focus` does not fire when you tap a tab — the window never lost focus.
+    // `visibilitychange` covers coming back to the app; `pageshow` covers a
+    // back-forward-cache restore, where nothing else fires at all.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") maybeLoad()
+    }
+    window.addEventListener("focus", maybeLoad)
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("pageshow", maybeLoad)
     return () => {
       alive = false
-      window.removeEventListener("focus", onFocus)
+      window.removeEventListener("focus", maybeLoad)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("pageshow", maybeLoad)
     }
-  }, [servedFromServer])
+  }, [servedFromServer, renderedAt])
 
   // The red dot on the Notificări segment costs one head count on mount.
   useEffect(() => {
