@@ -361,9 +361,10 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
           and the tab bar, and not something a list may commandeer. Giving the
           list its own means the pull belongs to it, the title and the switcher
           stay put while it moves, and a short list still cannot scroll. */}
-      <div className="relative min-h-0 flex-1">
-        {/* Parked above the frame and clipped, so it is invisible at rest and
-            rides down into the band the pull opens. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {/* Parked above the frame and clipped BY THE BOX ABOVE — without the
+            clip those 40px are drawn over the segmented control, so a spinner
+            sits on the switcher permanently. */}
         <div
           ref={spinnerRef}
           aria-hidden

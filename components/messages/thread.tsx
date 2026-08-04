@@ -596,7 +596,13 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           page and reveals empty space under the composer. Contained, the drag
           simply does nothing, which is the honest answer when there is nothing
           above or below to reach. */}
-      <div className="relative min-h-0 flex-1">
+      {/* `overflow-hidden` is not decoration. The spinner below is parked 40px
+          ABOVE this box and slides down into the band a pull opens — with
+          nothing clipping it, those 40px were drawn straight over the
+          conversation header, so a spinner sat on top of the name of the person
+          you are talking to at all times. Clipped here, it does not exist until
+          it is pulled into view, which is the whole idea. */}
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         {/* The same pull the grid and the inbox have. A conversation polls every
             fifteen seconds, which is fine when you are reading and useless when
             you are waiting — this is how you ask. Parked above the frame and
