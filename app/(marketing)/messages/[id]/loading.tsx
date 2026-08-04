@@ -43,7 +43,12 @@ export default function ThreadLoading() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden px-4 py-4">
+      {/* Bottom-aligned, because a real conversation opens scrolled to its end.
+          Drawn at the top, these bars sat where no message ever is, and the
+          swap moved the whole exchange from the top of the screen to the
+          bottom in one frame — the single most visible thing about opening a
+          thread, and the reason it read as a jump rather than a load. */}
+      <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-4">
         <div className="flex flex-col gap-3">
           <div className="h-9 w-2/3 animate-pulse rounded-2xl rounded-bl-md bg-neutral-100" />
           <div className="ml-auto h-9 w-1/2 animate-pulse rounded-2xl rounded-br-md bg-neutral-100" />

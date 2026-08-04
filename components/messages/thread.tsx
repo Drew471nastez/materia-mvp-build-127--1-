@@ -9,6 +9,7 @@ import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
+import { shrinkImage } from "@/lib/messages/shrink-image"
 import { navigateBlended } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -205,53 +206,44 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   // area: the header pinned to the top of it, the composer sitting on the
   // keyboard, and the messages scrolling between them. The page itself never
   // moves, which is what "like WhatsApp" means.
-  const rootRef = useRef<HTMLDivElement>(null)
-  const [keyboard, setKeyboard] = useState(false)
-  useEffect(() => {
-    const el = rootRef.current
-    if (!el) return
-    const vv = window.visualViewport
-    const apply = () => {
-      const h = Math.round(vv?.height ?? window.innerHeight)
-      el.style.setProperty("--vv-h", `${h}px`)
-      el.style.setProperty("--vv-top", `${Math.round(vv?.offsetTop ?? 0)}px`)
-      // Anything that eats a serious fraction of the screen is the keyboard.
-      // The threshold is deliberately loose — a browser toolbar collapsing is
-      // 60-odd pixels, a keyboard is never less than about a quarter of the
-      // screen — so a scroll-driven toolbar change cannot be mistaken for one.
-      setKeyboard(window.innerHeight - h > window.innerHeight * 0.2)
-    }
-    apply()
-    vv?.addEventListener("resize", apply)
-    // The scroll listener is not optional on iOS: the page can be scrolled
-    // underneath an open keyboard, and without following offsetTop the pinned
-    // column drifts off the top of the screen exactly as it did before.
-    vv?.addEventListener("scroll", apply)
-    window.addEventListener("resize", apply)
-    window.addEventListener("orientationchange", apply)
-    return () => {
-      vv?.removeEventListener("resize", apply)
-      vv?.removeEventListener("scroll", apply)
-      window.removeEventListener("resize", apply)
-      window.removeEventListener("orientationchange", apply)
-    }
-  }, [])
+  // The numbers themselves are published once, from the root, so this screen and
+  // the skeleton that preceded it are sized identically — see
+  // components/viewport-vars.tsx. All this has to do is follow them down.
 
   // Keep the newest message in view — but only when the reader was already at
   // the bottom. Someone scrolled up through the history has left the present,
   // and yanking them back down on every poll would make the history unreadable.
+  //
+  // The FIRST landing is instant, because there is no "movement" from a screen
+  // that has not been seen yet — animating it would be the conversation
+  // visibly scrolling itself on arrival. Everything after that glides, which is
+  // what makes sending feel like the thread makes room for your message rather
+  // than teleporting to it.
+  const landed = useRef(false)
   useEffect(() => {
     const el = scrollerRef.current
-    if (el && stickBottom.current) el.scrollTop = el.scrollHeight
+    if (!el || !stickBottom.current) return
+    if (!landed.current) {
+      landed.current = true
+      el.scrollTop = el.scrollHeight
+      return
+    }
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
   }, [thread?.messages.length])
 
   // The keyboard opening shortens the scroller under it, so whatever was at the
   // bottom is suddenly above the fold. Follow it down, for the same reason a new
   // message does: the end of the conversation is where you were looking.
   useEffect(() => {
-    const el = scrollerRef.current
-    if (el && stickBottom.current) el.scrollTop = el.scrollHeight
-  }, [keyboard])
+    const vv = window.visualViewport
+    if (!vv) return
+    const follow = () => {
+      const el = scrollerRef.current
+      if (el && stickBottom.current) el.scrollTop = el.scrollHeight
+    }
+    vv.addEventListener("resize", follow)
+    return () => vv.removeEventListener("resize", follow)
+  }, [])
 
   // The field grows with what you write, up to four lines, then scrolls.
   //
@@ -406,8 +398,13 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           : t,
       )
       try {
+        // Resized on the device before it goes anywhere. A phone photo is four
+        // megabytes and four thousand pixels wide, and it is going into a bubble
+        // a few hundred pixels across — sending the original is several seconds
+        // of waiting for detail nobody can see. See lib/messages/shrink-image.
+        const small = await shrinkImage(file)
         const form = new FormData()
-        form.append("file", file)
+        form.append("file", small)
         const r = await fetch(`/api/messages/${id}/image`, {
           method: "POST",
           credentials: "include",
@@ -498,11 +495,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     // desktop it goes back to being a card in the page. `data-keyboard` is how
     // the composer knows to drop the home-indicator inset, which is dead space
     // when there is a keyboard where the home indicator used to be.
-    <div
-      ref={rootRef}
-      data-keyboard={keyboard ? "open" : undefined}
-      className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200"
-    >
+    <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
       {/* The inset is paid here rather than by a spacer above the page, so the
@@ -600,7 +593,13 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         onScroll={onScroll}
         className="absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
-        <div ref={listRef} style={{ transform: "translate3d(0, 0, 0)" }}>
+        {/* The exchange arrives as one thing.
+            The skeleton before this is four grey bars; this is the real
+            conversation. Swapped hard, that is a visible substitution no matter
+            how well the boxes line up — so the column resolves in over a fifth
+            of a second and the handover reads as the placeholder becoming the
+            content. One element, opacity and transform, on white. */}
+        <div ref={listRef} className="thread-reveal" style={{ transform: "translate3d(0, 0, 0)" }}>
         {thread === null ? (
           <div className="space-y-3">
             <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />
@@ -677,9 +676,8 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                     ) : m.kind === "image" ? (
                       <div
                         className={cn(
-                          "max-w-[72%] overflow-hidden rounded-2xl bg-neutral-100",
+                          "relative max-w-[62%] overflow-hidden rounded-2xl bg-neutral-100",
                           mine ? "rounded-br-md" : "rounded-bl-md",
-                          m.pending && "opacity-70 transition-opacity duration-200",
                         )}
                       >
                         {m.image_url ? (
@@ -690,13 +688,28 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                           <img
                             src={m.image_url}
                             alt={m.body || "Fotografie"}
-                            className="block max-h-[320px] w-full object-cover"
+                            className={cn(
+                              "block max-h-[260px] w-full object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
+                              // While it is going up it is dimmed and softened,
+                              // and it resolves to the real thing the moment the
+                              // server answers. Two properties, both composited,
+                              // on one element — the photo is never replaced,
+                              // only sharpened, so there is nothing to flash.
+                              m.pending && "scale-[1.02] opacity-60 blur-[2px]",
+                            )}
                             draggable={false}
                           />
                         ) : (
                           <div className="flex h-40 w-56 items-center justify-center text-neutral-400">
                             <ImageIcon className="h-6 w-6" />
                           </div>
+                        )}
+                        {m.pending && (
+                          <span className="absolute inset-0 flex items-center justify-center">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm">
+                              <IosSpinner size={17} />
+                            </span>
+                          </span>
                         )}
                         {m.body && (
                           <div

@@ -4,6 +4,7 @@ import { Inter, Plus_Jakarta_Sans, Space_Grotesk, DM_Sans, Poppins, Montserrat }
 import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
+import { ViewportVars } from "@/components/viewport-vars"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
 import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
@@ -151,6 +152,10 @@ export default function RootLayout({
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         <PrefetchLinks />
         <BodyScrollRestorer />
+        {/* One publisher of the visible viewport, at the root, so a route's
+            loading skeleton and the screen that replaces it are sized from the
+            same number. See components/viewport-vars.tsx. */}
+        <ViewportVars />
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
         <KeyboardGuard />
