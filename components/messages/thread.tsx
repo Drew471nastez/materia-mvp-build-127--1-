@@ -183,12 +183,21 @@ export function MessageThread({
         // The server's signed URL is the same picture behind a network fetch, so
         // adopting it would blank the bubble for the length of that fetch — the
         // "disappears for a second and comes back" on every refresh after a send.
-        const localBlobs = new Map<string, string>()
+        // EVERY photo already on screen keeps the URL it is already showing,
+        // not only the local ones.
+        //
+        // Signed links are minted per request, so a refetch hands back a
+        // different URL for the same picture every time — and changing an img's
+        // src makes the browser drop what it has and fetch again. That is the
+        // photo blinking out and back on arrival, on the poll, and on every
+        // realtime nudge. The bytes have not changed; only the query string has,
+        // so the one already decoded is kept and the new link is discarded.
+        const shown = new Map<string, string>()
         for (const m of prev?.messages ?? []) {
-          if (m.image_url?.startsWith("blob:")) localBlobs.set(m.id, m.image_url)
+          if (m.image_url) shown.set(m.id, m.image_url)
         }
         const merged = fresh.messages.map((m) =>
-          localBlobs.has(m.id) ? { ...m, image_url: localBlobs.get(m.id)! } : m,
+          shown.has(m.id) ? { ...m, image_url: shown.get(m.id)! } : m,
         )
         return { ...fresh, messages: inFlight.length ? [...merged, ...inFlight] : merged }
       })

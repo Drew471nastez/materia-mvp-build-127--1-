@@ -28,9 +28,19 @@ const QUALITY = 0.82
 
 export async function shrinkImage(file: File): Promise<File> {
   if (typeof document === "undefined") return file
-  // Nothing to gain on a file that is already small, and decoding it would cost
-  // more than it saves.
-  if (file.size < 320 * 1024) return file
+  // Every image is re-encoded, including small ones, and that is a privacy
+  // decision rather than a size one.
+  //
+  // A photo straight off a phone carries EXIF, and EXIF carries GPS. On a
+  // marketplace that is a picture of your coat with the coordinates of your
+  // flat attached, sent to a stranger you are about to meet. Drawing it to a
+  // canvas and re-encoding produces a file with no metadata at all — no
+  // location, no camera serial, no capture time — because canvas only ever
+  // holds pixels. Passing small files straight through, which is what this did,
+  // meant the ones that skipped the resize also skipped the scrub.
+  //
+  // The size check below still exists; it just decides how hard to compress
+  // rather than whether to touch the file.
 
   try {
     const bitmap = await loadBitmap(file)
@@ -38,11 +48,6 @@ export async function shrinkImage(file: File): Promise<File> {
 
     const { width, height } = bitmap
     const scale = Math.min(1, MAX_EDGE / Math.max(width, height))
-    // Already within bounds AND not worth re-encoding.
-    if (scale === 1 && file.size < 1024 * 1024) {
-      closeBitmap(bitmap)
-      return file
-    }
 
     const canvas = document.createElement("canvas")
     canvas.width = Math.round(width * scale)
@@ -60,7 +65,10 @@ export async function shrinkImage(file: File): Promise<File> {
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", QUALITY),
     )
-    if (!blob || blob.size >= file.size) return file
+    // A re-encode that came out bigger is still the one that gets sent: it is
+    // the one without the GPS coordinates in it. Only a failed encode falls
+    // back to the original.
+    if (!blob) return file
 
     return new File([blob], renameToJpeg(file.name), { type: "image/jpeg", lastModified: Date.now() })
   } catch {

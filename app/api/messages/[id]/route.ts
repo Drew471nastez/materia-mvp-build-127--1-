@@ -110,6 +110,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Nu poți trimite mesaje în această conversație." }, { status: 403 })
   }
 
+  // A ceiling on how fast one person can write into one thread.
+  //
+  // Not a performance measure — an abuse one. Without it, a script with a valid
+  // session can push thousands of rows into somebody's inbox in a minute, and
+  // every one of them fires a notification. Twenty in thirty seconds is far
+  // above what a person types and far below what a loop does, and it is counted
+  // per conversation so a busy seller answering five buyers at once is never
+  // the one who trips it.
+  //
+  // Counted from the table rather than held in memory on purpose: serverless
+  // instances do not share memory, so an in-process counter is a limit that
+  // resets whenever the platform decides to scale.
+  const since = new Date(Date.now() - 30_000).toISOString()
+  const { count: recent } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", id)
+    .eq("sender_id", user.id)
+    .gte("created_at", since)
+  if ((recent ?? 0) >= 20) {
+    return NextResponse.json(
+      { error: "Prea multe mesaje trimise. Așteaptă câteva secunde." },
+      { status: 429 },
+    )
+  }
+
   const { data: inserted, error } = await supabase
     .from("messages")
     .insert(
