@@ -7,7 +7,9 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
+import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { MessageActions } from "@/components/messages/message-actions"
+import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
@@ -148,6 +150,8 @@ export function MessageThread({
   const [detailsOpen, setDetailsOpen] = useState(false)
   /** The message being held, and therefore the one the action sheet is about. */
   const [acting, setActing] = useState<Msg | null>(null)
+  /** The photo being looked at full screen, if any. */
+  const [viewing, setViewing] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   /** Object URLs still being displayed. Released when the thread unmounts —
    *  earlier than that and the img whose src they are goes blank. */
@@ -899,13 +903,12 @@ export function MessageThread({
               is a fair question. Storelib has no member page, so there it stays
               a plain avatar rather than a link that goes nowhere. */}
           <PartyLink username={thread?.other?.username} official={thread?.official}>
-            {thread?.other?.avatar_url ? (
-              <Image src={thread.other.avatar_url} alt="" width={34} height={34} className="h-[34px] w-[34px] rounded-full object-cover" />
-            ) : (
-              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#7c3aed]/10 text-[14px] font-semibold text-[#7c3aed]">
-                {name.slice(0, 1).toUpperCase()}
-              </span>
-            )}
+            <InitialAvatar
+              name={thread?.other?.display_name || thread?.other?.username}
+              url={thread?.other?.avatar_url}
+              seed={thread?.other?.id}
+              size={34}
+            />
           </PartyLink>
           <PartyLink username={thread?.other?.username} official={thread?.official} className="min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-1">
@@ -1115,8 +1118,14 @@ export function MessageThread({
                           <img
                             src={m.image_url}
                             alt={m.body || "Fotografie"}
+                            onClick={() => {
+                              // A pending photo is a local blob mid-upload;
+                              // opening it full screen would show a picture that
+                              // is about to be replaced.
+                              if (!m.pending && m.image_url) setViewing(m.image_url)
+                            }}
                             className={cn(
-                              "block max-h-[260px] w-full object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
+                              "block max-h-[260px] w-full cursor-zoom-in object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
                               // While it is going up it is dimmed and softened,
                               // and it resolves to the real thing the moment the
                               // server answers. Two properties, both composited,
@@ -1319,6 +1328,8 @@ export function MessageThread({
           </button>
         </div>
       </div>
+
+      <ImageViewer src={viewing} onClose={() => setViewing(null)} />
 
       <MessageActions
         message={

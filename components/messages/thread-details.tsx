@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Ban, BadgeCheck, ChevronRight, Trash2, UserRound } from "lucide-react"
 import { BottomSheet, SHEET_ROW } from "@/components/ui/bottom-sheet"
+import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { navigateBlended } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -153,13 +154,7 @@ export function ThreadDetails({
         // unambiguously as being about THEM. Inside the grab area, because the
         // header is the natural place to take hold of a sheet.
         <div className="flex items-center gap-3 px-5 pb-4 pt-4">
-          {other?.avatar_url ? (
-            <Image src={other.avatar_url} alt="" width={52} height={52} className="h-[52px] w-[52px] rounded-full object-cover" />
-          ) : (
-            <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#7c3aed]/10 text-[19px] font-semibold text-[#7c3aed]">
-              {name.slice(0, 1).toUpperCase()}
-            </span>
-          )}
+          <InitialAvatar name={other?.display_name || other?.username} url={other?.avatar_url} seed={other?.id} size={52} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="flex items-center gap-1">
               <span className="truncate text-[18px] font-semibold text-neutral-900">{name}</span>

@@ -8,6 +8,7 @@ import { useLocale } from "@/components/locale-provider"
 import { ConversationRow } from "@/components/messages/conversation-row"
 import { MessagesEmptyState } from "@/components/messages/empty-state"
 import { IosSpinner } from "@/components/explore/ios-spinner"
+import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -52,15 +53,10 @@ function ago(iso: string): string {
   return `${Math.round(days / 7)} săpt`
 }
 
-function Avatar({ name, url }: { name: string; url: string | null }) {
-  if (url) {
-    return <Image src={url} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-full object-cover" />
-  }
-  return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#7c3aed]/10 text-[17px] font-semibold text-[#7c3aed]">
-      {(name || "?").slice(0, 1).toUpperCase()}
-    </span>
-  )
+/** One avatar treatment for both lists. The "?" this used to fall back to is
+ *  gone — see components/ui/initial-avatar.tsx. */
+function Avatar({ name, url, seed }: { name: string; url: string | null; seed?: string | null }) {
+  return <InitialAvatar name={name} url={url} seed={seed} size={48} />
 }
 
 /**
@@ -539,7 +535,7 @@ function MessagesList({
                 r.unread > 0 ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "active:bg-neutral-50",
               )}
             >
-              <Avatar name={name} url={r.other?.avatar_url ?? null} />
+              <Avatar name={name} url={r.other?.avatar_url ?? null} seed={r.other?.id} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1">
@@ -664,7 +660,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
         const href = notifHref(n)
         const inner = (
           <>
-            <Avatar name={name} url={n.actor?.avatar_url ?? null} />
+            <Avatar name={name} url={n.actor?.avatar_url ?? null} seed={n.actor?.id} />
             <span className="min-w-0 flex-1">
               <span className={cn("block text-[14.5px] leading-snug text-neutral-900", unread ? "font-bold" : "font-normal")}>
                 <span className="font-semibold">{name}</span> <span className={accent}>{verb}</span>
