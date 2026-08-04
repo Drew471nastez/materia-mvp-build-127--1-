@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AlertTriangle, Ban, BadgeCheck, ChevronRight, HelpCircle, Trash2, UserRound, X } from "lucide-react"
+import { navigateBlended } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -101,6 +102,15 @@ export function ThreadDetails({
     [busy, conversationId],
   )
 
+  // Leaving a thread is a POP, and has to look like one — a hard replace
+  // dropped you onto the inbox with no motion at all, which after a deliberate,
+  // confirmed action reads as the app losing its place rather than obeying you.
+  // The sheet closes first so the animation is not playing behind a scrim.
+  const leaveToInbox = useCallback(() => {
+    onClose()
+    navigateBlended("back", () => router.replace("/messages"))
+  }, [onClose, router])
+
   const onBlock = useCallback(async () => {
     void triggerHaptic("light")
     const res = await act(blocked ? "unblock" : "block")
@@ -108,15 +118,15 @@ export function ThreadDetails({
     setBlocked(!!res.blocked)
     setConfirming(null)
     // Blocking also leaves the thread, so there is nothing left here to look at.
-    if (res.blocked) router.replace("/messages")
-  }, [act, blocked, router])
+    if (res.blocked) leaveToInbox()
+  }, [act, blocked, leaveToInbox])
 
   const onDelete = useCallback(async () => {
     void triggerHaptic("light")
     const res = await act("delete")
     if (!res) return
-    router.replace("/messages")
-  }, [act, router])
+    leaveToInbox()
+  }, [act, leaveToInbox])
 
   const onReport = useCallback(
     async (reason: string) => {

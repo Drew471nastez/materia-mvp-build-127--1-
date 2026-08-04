@@ -63,8 +63,16 @@ export async function POST(req: NextRequest) {
   const body = typeof payload.body === "string" ? payload.body.trim().slice(0, 2000) : ""
   const offerCents = Number.isFinite(payload.offerCents) ? Math.round(payload.offerCents as number) : null
   if (!listingId || !UUID_RE.test(listingId)) return NextResponse.json({ error: "Bad listing" }, { status: 400 })
-  if (!body && !offerCents) return NextResponse.json({ error: "Empty message" }, { status: 400 })
   if (offerCents !== null && offerCents <= 0) return NextResponse.json({ error: "Bad offer" }, { status: 400 })
+
+  // Neither a message nor an offer is a valid request, and it is the one every
+  // marketplace actually needs: "message this seller about this item" opens the
+  // conversation and lets you type IN it, rather than making you compose your
+  // first sentence in a modal on the product page before you are allowed in.
+  // The thread is created, nothing is said, and nobody is notified — a seller
+  // does not want a ping for a buyer who opened a chat window and thought
+  // better of it.
+  const openOnly = !body && offerCents === null
 
   // Resolve the seller. Admin client: products → creators is not a chain the
   // caller can read, and the answer is not secret — it's who they're writing to.
@@ -109,6 +117,8 @@ export async function POST(req: NextRequest) {
     if (createErr || !created) return NextResponse.json({ error: "Could not start conversation" }, { status: 500 })
     conversationId = created.id
   }
+
+  if (openOnly) return NextResponse.json({ conversationId })
 
   const { error: msgErr } = await supabase.from("messages").insert(
     offerCents !== null

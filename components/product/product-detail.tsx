@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Flag, Heart, Share2 } from "lucide-react"
+import { ArrowLeft, Flag, Heart, MessageCircle, Share2 } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -102,6 +102,40 @@ export function ProductDetail({ product }: { product: any }) {
     void triggerHaptic("light")
     setOfferOpen(true)
   }, [])
+
+  // "Ask the seller", which on a marketplace is not a nicety — it is how half of
+  // everything gets sold. Is it still available, does it run small, can you send
+  // a photo of the label.
+  //
+  // It opens the conversation and takes you into it rather than asking you to
+  // compose your first sentence in a box on this page. The thread is about THIS
+  // listing, which is the whole difference between a marketplace chat and an
+  // inbox: the item is pinned above the exchange, so neither side has to say
+  // which of the seller's forty things they mean.
+  const [opening, setOpening] = useState(false)
+  const onMessage = useCallback(async () => {
+    if (opening) return
+    void triggerHaptic("light")
+    setOpening(true)
+    try {
+      const r = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ listingId: product.id }),
+      })
+      if (r.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+        return
+      }
+      const data = await r.json()
+      if (r.ok && data?.conversationId) router.push(`/messages/${data.conversationId}`)
+    } catch {
+      /* nothing opened; the button simply comes back */
+    } finally {
+      setOpening(false)
+    }
+  }, [opening, product.id, router])
 
   const wishlisted = useIsWishlisted(product.id)
   const toggleWishlist = useToggleWishlist()
@@ -426,6 +460,22 @@ export function ProductDetail({ product }: { product: any }) {
             </SmartLink>
             <FollowButton userId={product.creator?.user_id} variant="quiet" />
           </div>
+
+          {/* Asking a question sits WITH the seller, not in the buy bar. It is
+              addressed to a person, not to the item, and putting a third button
+              beside "buy" and "offer" would turn a two-choice decision into a
+              menu. Hidden on your own listing, where there is nobody to ask. */}
+          {!isOwn && (
+            <button
+              type="button"
+              onClick={() => void onMessage()}
+              disabled={opening}
+              className="mt-2.5 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-neutral-200 text-[14.5px] font-semibold text-neutral-800 transition-[transform,background-color] duration-200 active:scale-[0.98] active:bg-neutral-50 disabled:opacity-50"
+            >
+              <MessageCircle className="h-[17px] w-[17px]" />
+              {opening ? "Se deschide…" : `Întreabă-l pe ${sellerName.split(" ")[0]}`}
+            </button>
+          )}
 
           {/* Description */}
           {product.description && (

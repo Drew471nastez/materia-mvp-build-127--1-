@@ -388,10 +388,14 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
                 switched && "animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none",
               )}
             >
+              {/* Never both at once. Coming back from a conversation the whole
+                  screen is already animating forward, and a stagger underneath
+                  it is a second entrance riding on the first — which is exactly
+                  the doubled arrival this app keeps having to remove. */}
               {tab === "messages" ? (
-                <MessagesList rows={rows} formatPrice={formatPrice} />
+                <MessagesList rows={rows} formatPrice={formatPrice} stagger={!returning} />
               ) : (
-                <NotificationsList items={notifs} />
+                <NotificationsList items={notifs} stagger={!returning} />
               )}
             </div>
           </div>
@@ -401,7 +405,16 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
   )
 }
 
-function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: (cents: number) => string }) {
+function MessagesList({
+  rows,
+  formatPrice,
+  stagger,
+}: {
+  rows: Row[] | null
+  formatPrice: (cents: number) => string
+  /** False while the whole screen is already animating in — see the call site. */
+  stagger: boolean
+}) {
   if (rows === null) return <ListSkeleton />
   // Rare now: everyone gets the Storelib thread on their first visit here, so
   // this only shows where the official account isn't configured at all. The
@@ -425,7 +438,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
     // the last one can be dropped — a line under the final row is a promise of
     // another row that isn't there.
     <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
-      {rows.map((r) => {
+      {rows.map((r, i) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
           r.lastMessage?.kind === "image"
@@ -440,7 +453,14 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
               }`
             : r.lastMessage?.body || ""
         return (
-          <li key={r.id} className={ROW_DIVIDER}>
+          <li
+            key={r.id}
+            className={cn(ROW_DIVIDER, stagger && "list-row-in")}
+            // Capped at eight, so a long inbox still finishes in a fifth of a
+            // second. The stagger is there to lead the eye down the list once,
+            // not to be sat through.
+            style={stagger ? { animationDelay: `${Math.min(i, 8) * 22}ms` } : undefined}
+          >
             <Link
               href={`/messages/${r.id}`}
               // The thread route has a loading boundary now, so there is finally
@@ -560,7 +580,7 @@ function notifHref(n: Notif): string | null {
   return n.listing?.slug ? `/products/${n.listing.slug}` : null
 }
 
-function NotificationsList({ items }: { items: Notif[] | null }) {
+function NotificationsList({ items, stagger }: { items: Notif[] | null; stagger: boolean }) {
   if (items === null) return <ListSkeleton />
   if (items.length === 0) {
     // Same bargain as the messages side: fill what is left of the screen, put
@@ -578,7 +598,7 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
 
   return (
     <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
-      {items.map((n) => {
+      {items.map((n, i) => {
         const name = n.actor?.display_name || n.actor?.username || "Cineva"
         const { verb, accent } = notifText(n.kind)
         const unread = !n.readAt
@@ -613,7 +633,11 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
           unread ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "active:bg-neutral-50",
         )
         return (
-          <li key={n.id} className={ROW_DIVIDER}>
+          <li
+            key={n.id}
+            className={cn(ROW_DIVIDER, stagger && "list-row-in")}
+            style={stagger ? { animationDelay: `${Math.min(i, 8) * 22}ms` } : undefined}
+          >
             {href ? (
               <Link href={href} className={rowClass}>
                 {inner}

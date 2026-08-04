@@ -65,6 +65,18 @@ const POLL_MS = 15000
  */
 const GROUP_MS = 4 * 60 * 1000
 
+/**
+ * What people actually open a marketplace chat to ask, in the order they ask it.
+ * Offered rather than sent — tapping one fills the field so it can be edited,
+ * which is the difference between a suggestion and a canned message.
+ */
+const STARTERS = [
+  "Bună! Mai este disponibil?",
+  "Poți trimite mai multe poze?",
+  "Ce măsură este exact?",
+  "Accepți o ofertă?",
+] as const
+
 function sameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
@@ -523,17 +535,26 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
           </button>
-          {thread?.other?.avatar_url ? (
-            <Image src={thread.other.avatar_url} alt="" width={34} height={34} className="h-[34px] w-[34px] rounded-full object-cover" />
-          ) : (
-            <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#7c3aed]/10 text-[14px] font-semibold text-[#7c3aed]">
-              {name.slice(0, 1).toUpperCase()}
+          {/* The person, not just their name. Tapping who you are talking to and
+              landing on their profile is the first thing anyone tries on a
+              marketplace — you are about to send them money, and "who is this"
+              is a fair question. Storelib has no member page, so there it stays
+              a plain avatar rather than a link that goes nowhere. */}
+          <PartyLink username={thread?.other?.username} official={thread?.official}>
+            {thread?.other?.avatar_url ? (
+              <Image src={thread.other.avatar_url} alt="" width={34} height={34} className="h-[34px] w-[34px] rounded-full object-cover" />
+            ) : (
+              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[#7c3aed]/10 text-[14px] font-semibold text-[#7c3aed]">
+                {name.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </PartyLink>
+          <PartyLink username={thread?.other?.username} official={thread?.official} className="min-w-0 flex-1">
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-[15.5px] font-semibold text-neutral-900">{name}</span>
+              {thread?.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
             </span>
-          )}
-          <span className="flex min-w-0 flex-1 items-center gap-1">
-            <span className="truncate text-[15.5px] font-semibold text-neutral-900">{name}</span>
-            {thread?.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
-          </span>
+          </PartyLink>
           {/* Everything you might want to DO about this conversation, behind one
               button, because none of it belongs in the header itself: a row of
               icons for report and block turns a conversation with a person into
@@ -605,6 +626,41 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
             <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />
             <div className="ml-auto h-10 w-1/2 animate-pulse rounded-2xl bg-neutral-100" />
             <div className="h-10 w-1/2 animate-pulse rounded-2xl bg-neutral-100" />
+          </div>
+        ) : thread.messages.length === 0 ? (
+          // A conversation opened from a listing starts empty, and an empty
+          // white screen with a keyboard under it is the least helpful thing
+          // this page could do with the moment. The questions below are the ones
+          // actually asked on a second-hand marketplace, in the order they get
+          // asked — tapping one puts it in the field rather than sending it, so
+          // it is a starting point you can edit and not a canned message.
+          <div className="flex h-full flex-col items-center justify-center px-2 text-center">
+            <p className="text-[15px] font-semibold text-neutral-900">
+              {thread.listing ? "Întreabă despre acest articol" : `Scrie-i lui ${name}`}
+            </p>
+            <p className="mt-1 max-w-[280px] text-[13.5px] leading-snug text-neutral-500">
+              {thread.listing
+                ? "Vânzătorul vede articolul de mai sus, așa că nu trebuie să spui despre care e vorba."
+                : "Mesajele tale apar aici."}
+            </p>
+            {thread.listing && (
+              <div className="mt-5 flex w-full max-w-[320px] flex-col gap-2">
+                {STARTERS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => {
+                      void triggerHaptic("light")
+                      setDraft(q)
+                      fieldRef.current?.focus()
+                    }}
+                    className="rounded-full border border-neutral-200 px-4 py-2.5 text-[14px] font-medium text-neutral-700 transition-[transform,background-color] duration-200 active:scale-[0.98] active:bg-neutral-50"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           // No gap on the column: the space between two messages is not one
@@ -753,10 +809,18 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                         {mine && i === lastMineIndex && (
                           <>
                             <span aria-hidden>·</span>
+                            {/* Keyed on the state itself, so going from sent to
+                                seen replaces the element and plays the receipt
+                                animation. Without the key React would edit the
+                                text in place and "Trimis" would become "Văzut"
+                                by silently swapping four letters — the one
+                                moment in a conversation worth noticing, and the
+                                one it was doing invisibly. */}
                             <span
+                              key={m.pending ? "sending" : m.read_at ? "seen" : "sent"}
                               className={cn(
-                                "flex items-center gap-0.5 font-medium",
-                                m.read_at ? "text-[#7c3aed]" : "text-neutral-400",
+                                "receipt flex items-center gap-0.5 font-medium",
+                                m.read_at && !m.pending ? "text-[#7c3aed]" : "text-neutral-400",
                               )}
                             >
                               {m.pending ? (
@@ -870,6 +934,32 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         onClose={() => setDetailsOpen(false)}
       />
     </div>
+  )
+}
+
+/** The other party's name and face, linked to them where there is somebody to
+ *  link to. Storelib has no member page, so it renders as plain content. */
+function PartyLink({
+  username,
+  official,
+  className,
+  children,
+}: {
+  username?: string | null
+  official?: boolean
+  className?: string
+  children: React.ReactNode
+}) {
+  if (!username || official) return <span className={cn("shrink-0", className)}>{children}</span>
+  return (
+    <Link
+      href={`/member/${encodeURIComponent(username)}`}
+      prefetch
+      onClick={() => void triggerHaptic("light")}
+      className={cn("shrink-0 rounded-full transition-opacity active:opacity-60", className)}
+    >
+      {children}
+    </Link>
   )
 }
 

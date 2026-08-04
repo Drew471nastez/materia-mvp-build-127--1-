@@ -2070,6 +2070,39 @@ html[data-keyboard="open"] .thread-composer {
   .thread-reveal { animation: none; }
 }
 
+/* A list assembling instead of appearing.
+ *
+ * Applied per row with a stagger set inline, capped so a long list still
+ * finishes in a fifth of a second — the point is that the eye is led down the
+ * list once, not that you wait for the eighteenth row. Transform and opacity, so
+ * the whole thing is one compositor pass regardless of how many rows there are.
+ *
+ * On the FIRST paint only. A list that replays this every time it refreshes is a
+ * page that never settles, and pull-to-refresh would make the inbox flicker on
+ * every tug. */
+@keyframes list-row-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.list-row-in {
+  animation: list-row-in 300ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-row-in { animation: none; }
+}
+
+/* Sent → Văzut. Small, because it is a footnote under a message, and worth
+   animating at all because it is the one line in a conversation that changes on
+   its own while you are looking at it. */
+@keyframes receipt-in {
+  from { opacity: 0; transform: translate3d(0, 3px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.receipt { animation: receipt-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .receipt { animation: none; }
+}
+
 /* A message arriving. It rises from the side it belongs to, so something you
    just sent comes up off the composer rather than appearing above it. Transform
    and opacity only, and short — a conversation is a place people go quickly, and
