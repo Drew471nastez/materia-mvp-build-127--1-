@@ -26,6 +26,9 @@ export type ThreadMessage = {
   sender_id: string
   kind: "text" | "offer" | "image"
   body: string | null
+  /** Unsent by its author. The row survives so the conversation keeps its shape;
+   *  its contents do not. */
+  deleted_at?: string | null
   /** A signed, short-lived URL by the time this leaves here. What is STORED is
    *  the object path in a private bucket — see the signing step below. */
   image_url: string | null
@@ -89,12 +92,18 @@ export async function readThread({
 
   const [messagesRes] = await Promise.all([
     readMessages(
-      "id, sender_id, kind, body, image_url, offer_cents, offer_status, created_at, read_at",
-    ).then((res) =>
-      res.error
-        ? readMessages("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
-        : res,
-    ),
+      "id, sender_id, kind, body, image_url, deleted_at, offer_cents, offer_status, created_at, read_at",
+    )
+      .then((res) =>
+        res.error
+          ? readMessages("id, sender_id, kind, body, image_url, offer_cents, offer_status, created_at, read_at")
+          : res,
+      )
+      .then((res) =>
+        res.error
+          ? readMessages("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
+          : res,
+      ),
     markRead
       ? asCaller
           .from("messages")

@@ -2073,25 +2073,23 @@ html[data-keyboard="open"] .thread-composer {
    is a visible animation happening to a screen that had already arrived, which
    is what "fade in up" was. */
 
-/* A list assembling instead of appearing.
+/* A held bubble belongs to the app, not to the operating system.
  *
- * Applied per row with a stagger set inline, capped so a long list still
- * finishes in a fifth of a second — the point is that the eye is led down the
- * list once, not that you wait for the eighteenth row. Transform and opacity, so
- * the whole thing is one compositor pass regardless of how many rows there are.
+ * Press and hold anything with text on a phone and the OS puts selection
+ * handles and a grey Copy / Look Up / Share callout over it — which is the
+ * platform answering a question this app answers better, with actions that
+ * actually apply to a message. `-webkit-touch-callout` is what suppresses that
+ * menu on iOS, and `user-select: none` is what stops the blue selection from
+ * appearing under it.
  *
- * On the FIRST paint only. A list that replays this every time it refreshes is a
- * page that never settles, and pull-to-refresh would make the inbox flicker on
- * every tug. */
-@keyframes list-row-in {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-.list-row-in {
-  animation: list-row-in 300ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .list-row-in { animation: none; }
+ * The trade is real and worth naming: you can no longer select part of a
+ * message to copy it. Which is why "Copiază textul" is the first row of the
+ * sheet that comes up instead — the whole message, in one tap, which is what
+ * that gesture was reaching for nine times out of ten anyway. */
+.msg-bubble {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Sent → Văzut. Small, because it is a footnote under a message, and worth

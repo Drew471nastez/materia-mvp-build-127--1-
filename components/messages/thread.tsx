@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
+import { MessageActions } from "@/components/messages/message-actions"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
@@ -23,6 +24,8 @@ type Msg = {
    *  object path in a private bucket. On an optimistic bubble it is a local
    *  blob: URL, so the photo is on screen before it has left the phone. */
   image_url?: string | null
+  /** Unsent by its author. The row stays so the conversation keeps its shape. */
+  deleted_at?: string | null
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
   created_at: string
@@ -130,6 +133,8 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   const [answering, setAnswering] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  /** The message being held, and therefore the one the action sheet is about. */
+  const [acting, setActing] = useState<Msg | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const stickBottom = useRef(true)
@@ -266,16 +271,44 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   // what makes sending feel like the thread makes room for your message rather
   // than teleporting to it.
   const landed = useRef(false)
-  useEffect(() => {
+
+  /**
+   * Put the end of the conversation on the bottom edge, and then check again.
+   *
+   * The check is the important half, and its absence is the empty space under a
+   * message you just sent. Sending resets the composer: a draft that had grown
+   * to three lines snaps back to one, the composer gets shorter, and the
+   * scroller it sits above gets TALLER by the same amount — after we had
+   * already scrolled to the bottom of the old, shorter box. The result is the
+   * last message sitting a few dozen pixels above the composer with nothing
+   * under it, every single time you send more than one line.
+   *
+   * So it corrects on the next frame, once the composer's new height is in
+   * layout, and once more after the arrival animation and any image decode have
+   * settled. Three cheap writes beat one that is right only sometimes.
+   */
+  const scrollToEnd = useCallback((smooth: boolean) => {
     const el = scrollerRef.current
-    if (!el || !stickBottom.current) return
-    if (!landed.current) {
-      landed.current = true
-      el.scrollTop = el.scrollHeight
-      return
+    if (!el) return
+    const put = (behavior: ScrollBehavior) => {
+      const el2 = scrollerRef.current
+      if (!el2) return
+      el2.scrollTo({ top: el2.scrollHeight, behavior })
     }
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
-  }, [thread?.messages.length])
+    put(smooth ? "smooth" : "auto")
+    requestAnimationFrame(() => put("auto"))
+    window.setTimeout(() => put("auto"), 260)
+  }, [])
+
+  useEffect(() => {
+    if (!scrollerRef.current || !stickBottom.current) return
+    // The first landing is instant: there is no "movement" from a screen that
+    // has not been seen yet, and animating it would be the conversation
+    // visibly scrolling itself on arrival.
+    const first = !landed.current
+    landed.current = true
+    scrollToEnd(!first)
+  }, [thread?.messages.length, scrollToEnd])
 
   // The keyboard opening shortens the scroller under it, so whatever was at the
   // bottom is suddenly above the fold. Follow it down, for the same reason a new
@@ -284,12 +317,11 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     const vv = window.visualViewport
     if (!vv) return
     const follow = () => {
-      const el = scrollerRef.current
-      if (el && stickBottom.current) el.scrollTop = el.scrollHeight
+      if (stickBottom.current) scrollToEnd(false)
     }
     vv.addEventListener("resize", follow)
     return () => vv.removeEventListener("resize", follow)
-  }, [])
+  }, [scrollToEnd])
 
   // The field grows with what you write, up to four lines, then scrolls.
   //
@@ -517,6 +549,74 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       }
     },
     [id, sending],
+  )
+
+  // ---- Press and hold ------------------------------------------------------
+  //
+  // 480ms, and abandoned the moment the finger travels more than a few pixels —
+  // otherwise every scroll that happens to start on a bubble ends in a sheet.
+  // The haptic fires when the press is RECOGNISED rather than when the sheet
+  // appears, because the whole point of a long press is being told you have held
+  // it long enough before anything visible happens.
+  const press = useRef<{ timer: number; x: number; y: number } | null>(null)
+
+  const cancelPress = useCallback(() => {
+    if (press.current) {
+      window.clearTimeout(press.current.timer)
+      press.current = null
+    }
+  }, [])
+
+  const beginPress = useCallback(
+    (m: Msg, e: React.PointerEvent) => {
+      cancelPress()
+      const timer = window.setTimeout(() => {
+        press.current = null
+        void triggerHaptic("light")
+        setActing(m)
+      }, 480)
+      press.current = { timer, x: e.clientX, y: e.clientY }
+    },
+    [cancelPress],
+  )
+
+  const movePress = useCallback(
+    (e: React.PointerEvent) => {
+      const p = press.current
+      if (!p) return
+      if (Math.abs(e.clientX - p.x) > 8 || Math.abs(e.clientY - p.y) > 8) cancelPress()
+    },
+    [cancelPress],
+  )
+
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      // Gone from the screen first. The row is already unrecoverable server-side
+      // by the time the request returns, so waiting for it would only mean
+      // staring at a message you have just decided to unsend.
+      setThread((t) =>
+        t
+          ? {
+              ...t,
+              messages: t.messages.map((m) =>
+                m.id === messageId
+                  ? { ...m, deleted_at: new Date().toISOString(), body: null, image_url: null }
+                  : m,
+              ),
+            }
+          : t,
+      )
+      try {
+        const r = await fetch(`/api/messages/${id}/message?messageId=${encodeURIComponent(messageId)}`, {
+          method: "DELETE",
+          credentials: "include",
+        })
+        if (!r.ok) await load() // the server disagreed; its version wins
+      } catch {
+        await load()
+      }
+    },
+    [id, load],
   )
 
   const answer = useCallback(
@@ -778,7 +878,20 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                       isFresh(m.id) && (mine ? "msg-in-mine" : "msg-in-theirs"),
                     )}
                   >
-                    {m.kind === "offer" ? (
+                    {m.deleted_at ? (
+                      // The row survives so the day dividers and grouping above
+                      // it do not reshuffle; what it said does not.
+                      <div
+                        className={cn(
+                          "max-w-[78%] rounded-2xl border border-dashed px-3.5 py-2 text-[14px] italic leading-snug",
+                          mine
+                            ? "rounded-br-md border-[#7c3aed]/30 text-[#7c3aed]/70"
+                            : "rounded-bl-md border-neutral-200 text-neutral-400",
+                        )}
+                      >
+                        Mesaj șters
+                      </div>
+                    ) : m.kind === "offer" ? (
                       <OfferBubble
                         msg={m}
                         mine={mine}
@@ -790,8 +903,13 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                       />
                     ) : m.kind === "image" ? (
                       <div
+                        onPointerDown={(e) => beginPress(m, e)}
+                        onPointerMove={movePress}
+                        onPointerUp={cancelPress}
+                        onPointerCancel={cancelPress}
+                        onContextMenu={(e) => e.preventDefault()}
                         className={cn(
-                          "relative max-w-[62%] overflow-hidden rounded-2xl bg-neutral-100",
+                          "msg-bubble relative max-w-[62%] overflow-hidden rounded-2xl bg-neutral-100",
                           mine ? "rounded-br-md" : "rounded-bl-md",
                         )}
                       >
@@ -839,8 +957,13 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
                       </div>
                     ) : (
                       <div
+                        onPointerDown={(e) => beginPress(m, e)}
+                        onPointerMove={movePress}
+                        onPointerUp={cancelPress}
+                        onPointerCancel={cancelPress}
+                        onContextMenu={(e) => e.preventDefault()}
                         className={cn(
-                          "max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug",
+                          "msg-bubble max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug",
                           mine
                             ? "rounded-br-md bg-[#7c3aed] text-white"
                             : "rounded-bl-md bg-neutral-100 text-neutral-900",
@@ -984,6 +1107,24 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           </button>
         </div>
       </div>
+
+      <MessageActions
+        message={
+          acting
+            ? {
+                id: acting.id,
+                body: acting.body,
+                kind: acting.kind,
+                created_at: acting.created_at,
+                read_at: acting.read_at,
+                mine: !!thread && acting.sender_id === thread.me,
+                pending: acting.pending,
+              }
+            : null
+        }
+        onClose={() => setActing(null)}
+        onDelete={deleteMessage}
+      />
 
       <ThreadDetails
         conversationId={id}

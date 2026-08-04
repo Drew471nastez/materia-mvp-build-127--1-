@@ -393,14 +393,15 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
                 switched && "animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none",
               )}
             >
-              {/* Never both at once. Coming back from a conversation the whole
-                  screen is already animating forward, and a stagger underneath
-                  it is a second entrance riding on the first — which is exactly
-                  the doubled arrival this app keeps having to remove. */}
+              {/* No entrance on the rows.
+                  A staggered rise looked considered in isolation and reads, on a
+                  screen you open twenty times a day, as the inbox arriving in
+                  pieces — every row visibly moving into place before you can use
+                  it. The list is simply there. */}
               {tab === "messages" ? (
-                <MessagesList rows={rows} formatPrice={formatPrice} stagger={!returning} />
+                <MessagesList rows={rows} formatPrice={formatPrice} />
               ) : (
-                <NotificationsList items={notifs} stagger={!returning} />
+                <NotificationsList items={notifs} />
               )}
             </div>
           </div>
@@ -410,16 +411,7 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
   )
 }
 
-function MessagesList({
-  rows,
-  formatPrice,
-  stagger,
-}: {
-  rows: Row[] | null
-  formatPrice: (cents: number) => string
-  /** False while the whole screen is already animating in — see the call site. */
-  stagger: boolean
-}) {
+function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: (cents: number) => string }) {
   if (rows === null) return <ListSkeleton />
   // Rare now: everyone gets the Storelib thread on their first visit here, so
   // this only shows where the official account isn't configured at all. The
@@ -443,7 +435,7 @@ function MessagesList({
     // the last one can be dropped — a line under the final row is a promise of
     // another row that isn't there.
     <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
-      {rows.map((r, i) => {
+      {rows.map((r) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
           r.lastMessage?.kind === "image"
@@ -460,11 +452,7 @@ function MessagesList({
         return (
           <li
             key={r.id}
-            className={cn(ROW_DIVIDER, stagger && "list-row-in")}
-            // Capped at eight, so a long inbox still finishes in a fifth of a
-            // second. The stagger is there to lead the eye down the list once,
-            // not to be sat through.
-            style={stagger ? { animationDelay: `${Math.min(i, 8) * 22}ms` } : undefined}
+            className={ROW_DIVIDER}
           >
             <Link
               href={`/messages/${r.id}`}
@@ -585,7 +573,7 @@ function notifHref(n: Notif): string | null {
   return n.listing?.slug ? `/products/${n.listing.slug}` : null
 }
 
-function NotificationsList({ items, stagger }: { items: Notif[] | null; stagger: boolean }) {
+function NotificationsList({ items }: { items: Notif[] | null }) {
   if (items === null) return <ListSkeleton />
   if (items.length === 0) {
     // Same bargain as the messages side: fill what is left of the screen, put
@@ -603,7 +591,7 @@ function NotificationsList({ items, stagger }: { items: Notif[] | null; stagger:
 
   return (
     <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
-      {items.map((n, i) => {
+      {items.map((n) => {
         const name = n.actor?.display_name || n.actor?.username || "Cineva"
         const { verb, accent } = notifText(n.kind)
         const unread = !n.readAt
@@ -640,8 +628,7 @@ function NotificationsList({ items, stagger }: { items: Notif[] | null; stagger:
         return (
           <li
             key={n.id}
-            className={cn(ROW_DIVIDER, stagger && "list-row-in")}
-            style={stagger ? { animationDelay: `${Math.min(i, 8) * 22}ms` } : undefined}
+            className={ROW_DIVIDER}
           >
             {href ? (
               <Link href={href} className={rowClass}>

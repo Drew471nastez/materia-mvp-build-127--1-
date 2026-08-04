@@ -26,6 +26,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MAX_BYTES = 10 * 1024 * 1024
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"])
 
+/** Anything the browser hands us that is not in ALLOWED but IS an image — a
+ *  phone can produce avif, and refusing it outright is worse than storing it. */
+const IMAGE_RE = /^image\//
+
 function extensionFor(type: string): string {
   if (type === "image/png") return "png"
   if (type === "image/webp") return "webp"
@@ -65,14 +69,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 })
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "Imaginea este prea mare" }, { status: 413 })
-  if (!ALLOWED.has(file.type)) return NextResponse.json({ error: "Format neacceptat" }, { status: 415 })
+  if (!IMAGE_RE.test(file.type)) return NextResponse.json({ error: "Format neacceptat" }, { status: 415 })
 
   const admin = createAdminClient()
   const path = `${user.id}/${id}/${crypto.randomUUID()}.${extensionFor(file.type)}`
-  const { error: upErr } = await admin.storage
-    .from("messages")
-    .upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false })
-  if (upErr) return NextResponse.json({ error: "Încărcarea a eșuat" }, { status: 500 })
+
+  const put = () =>
+    admin.storage
+      .from("messages")
+      .upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false })
+
+  let { error: upErr } = await put()
+
+  // The bucket makes itself.
+  //
+  // "Încărcare eșuată" with nothing else to go on is almost always this: the
+  // migration that declares the `messages` bucket has not been run, so the very
+  // first photo anyone tries to send fails with a message that says nothing
+  // about why. A bucket is not schema — there is no data in it to migrate and
+  // nothing to get wrong — so the service role simply creates it and tries
+  // again. The SQL remains the source of truth for the storage POLICIES; this
+  // only removes a dead end.
+  if (upErr && /bucket.*not.*found/i.test(upErr.message || "")) {
+    await admin.storage.createBucket("messages", {
+      public: false,
+      fileSizeLimit: MAX_BYTES,
+      allowedMimeTypes: [...ALLOWED],
+    })
+    ;({ error: upErr } = await put())
+  }
+
+  if (upErr) {
+    // The real reason, not a shrug. A failed upload that says only "it failed"
+    // is unfixable by anyone, including whoever wrote this.
+    console.error("[messages/image] upload failed:", upErr)
+    return NextResponse.json(
+      { error: `Încărcarea a eșuat: ${upErr.message || "eroare necunoscută"}` },
+      { status: 500 },
+    )
+  }
 
   // The PATH, not a URL. See the note at the top: what is readable is decided
   // at read time, for the reader who is asking, not baked into a row forever.

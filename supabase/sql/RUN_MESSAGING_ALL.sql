@@ -1,5 +1,5 @@
 -- ===========================================================================
--- STORELIB — MESSAGING, ALL OF IT, IN ORDER
+-- STORELIB — MESSAGING, ALL OF IT, IN ORDER  (run this one file)
 -- ===========================================================================
 -- Paste this whole file into the Supabase SQL editor and run it once.
 --
@@ -466,14 +466,137 @@ do $$ begin
   end if;
 end $$;
 
+
 -- ===========================================================================
--- What actually ran
+-- 6. Realtime, unsending a message, and leaving a conversation
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- Live messages
+-- ---------------------------------------------------------------------------
+-- Realtime only forwards rows from tables that are IN the publication, and by
+-- default `messages` is not. Without this the client subscribes, the channel
+-- reports itself connected, and no event ever arrives — a thread that looks
+-- live and silently is not, which is worse than one that is honestly slow.
+--
+-- `add table` raises if the table is already published, so it is guarded rather
+-- than wrapped in a begin/exception block: an error swallowed here would hide a
+-- genuinely missing publication.
+do $$ begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    raise notice 'publication supabase_realtime not found — is Realtime enabled on this project?';
+    return;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+
+  -- Conversations too: `last_message_at` moving is what re-sorts the inbox, and
+  -- it is the cheapest possible signal that something happened in a thread you
+  -- do not currently have open.
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'conversations'
+  ) then
+    alter publication supabase_realtime add table public.conversations;
+  end if;
+end $$;
+
+-- What a subscriber is allowed to hear.
+--
+-- This is the part that is easy to get dangerously wrong. Realtime evaluates
+-- RLS against the subscriber's own JWT, so `messages_select` — which already
+-- says "only if you are a party to the parent conversation" — is what stops one
+-- person's socket receiving another person's messages. It is enabled by
+-- 20260802 and is asserted here rather than assumed, because a table published
+-- to Realtime WITHOUT row-level security broadcasts every row to every
+-- subscriber.
+do $$ begin
+  if to_regclass('public.messages') is not null then
+    execute 'alter table public.messages enable row level security';
+  end if;
+  if to_regclass('public.conversations') is not null then
+    execute 'alter table public.conversations enable row level security';
+  end if;
+end $$;
+
+-- The filter the client subscribes with is `conversation_id=eq.<id>`, and
+-- Realtime applies it server-side per row. This index is what keeps that cheap
+-- and is almost certainly already here from 20260802.
+create index if not exists messages_conversation_idx
+  on public.messages (conversation_id, created_at);
+
+
+-- ---------------------------------------------------------------------------
+-- 2. Leaving a conversation
+-- ---------------------------------------------------------------------------
+-- Per person, not per thread. A conversation is shared, so one party pressing
+-- delete must not reach into the other party's inbox and remove something they
+-- are still in the middle of — it hides the thread from whoever asked, and
+-- comes back for them if the other person writes again (the inbox compares
+-- `last_message_at` against the delete stamp).
+alter table public.conversations add column if not exists buyer_deleted_at timestamptz;
+alter table public.conversations add column if not exists seller_deleted_at timestamptz;
+
+-- No new policy: `conversations_touch` from 20260802 already restricts updates
+-- to the two parties, and which of the two columns a caller may set is decided
+-- by the API, which knows which side they are on.
+
+
+
+-- ---------------------------------------------------------------------------
+-- Unsending one message
+-- ---------------------------------------------------------------------------
+-- Soft, not hard. A row that simply disappears leaves the other person looking
+-- at a gap where something used to be, with no way to tell whether they
+-- misremembered it — so it becomes "Mesaj șters", which is both honest and what
+-- every chat app does. It also keeps the day dividers and message grouping
+-- intact, which a vanished row would otherwise reshuffle.
+alter table public.messages add column if not exists deleted_at timestamptz;
+
+-- The shape constraint has to allow an emptied row. A deleted message keeps its
+-- `kind` — the conversation still knows a photo was there — but loses its body
+-- and its image, and both of those are `not null` for their kind under the
+-- constraint written above. Without this, the delete fails with a check
+-- violation and the message stays on screen.
+alter table public.messages drop constraint if exists messages_shape;
+alter table public.messages
+  add constraint messages_shape check (
+    deleted_at is not null
+    or (kind = 'text'  and body is not null and offer_cents is null)
+    or (kind = 'offer' and offer_cents is not null and offer_status is not null)
+    or (kind = 'image' and image_url is not null and offer_cents is null)
+  );
+
+-- No new RLS policy, deliberately. `messages_update` requires
+-- `sender_id <> auth.uid()` — it exists so the OTHER party can mark things read
+-- and answer offers — so an author editing their own row is exactly the case it
+-- forbids. Rather than widen it and hand every client a way to rewrite its own
+-- history, the delete endpoint proves ownership through the caller's client and
+-- then writes this one field with the service role.
+
+
+-- ===========================================================================
+-- What actually ran — every number here should be as commented
 -- ===========================================================================
 select
-  to_regclass('public.products')             as products,
-  to_regclass('public.profiles')             as profiles,
-  to_regclass('public.conversations')        as conversations,
-  to_regclass('public.messages')             as messages,
-  to_regclass('public.notifications')        as notifications,
-  to_regclass('public.user_blocks')          as user_blocks,
-  to_regclass('public.conversation_reports') as conversation_reports;
+  to_regclass('public.products')             as products,               -- not null
+  to_regclass('public.conversations')        as conversations,          -- not null
+  to_regclass('public.messages')             as messages,               -- not null
+  to_regclass('public.notifications')        as notifications,          -- not null
+  to_regclass('public.user_blocks')          as user_blocks,            -- not null
+  to_regclass('public.conversation_reports') as conversation_reports,   -- not null
+  (select count(*) from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public'
+      and tablename in ('messages', 'conversations'))                   as realtime_tables,   -- 2
+  (select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'conversations'
+      and column_name in ('buyer_deleted_at', 'seller_deleted_at'))     as delete_columns,    -- 2
+  (select count(*) from information_schema.columns
+    where table_schema = 'public' and table_name = 'messages'
+      and column_name in ('image_url', 'deleted_at'))                   as message_columns,   -- 2
+  (select count(*) from storage.buckets where id = 'messages')          as messages_bucket;   -- 1
