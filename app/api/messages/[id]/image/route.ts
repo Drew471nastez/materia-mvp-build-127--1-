@@ -241,7 +241,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Signed for the sender straight away, so the bubble it replaces can show the
   // real photo rather than waiting for the next poll to hand it a link.
-  const { data: signed } = await admin.storage.from("messages").createSignedUrl(path, 60 * 60)
+  // Same fifteen-minute window as every other link this app mints for a private
+  // photo — see the note in lib/messages/thread.ts. This one is barely used at
+  // all: the sender keeps the local blob it already has on screen, so the link
+  // below is a fallback for the case where that was lost.
+  const { data: signed } = await admin.storage.from("messages").createSignedUrl(path, 15 * 60)
 
   // Handed back in the shape the client renders, whichever way it was stored —
   // the encoded body is an implementation detail of the row, not of the message.

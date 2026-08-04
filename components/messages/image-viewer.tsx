@@ -88,6 +88,16 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
     [paint],
   )
 
+  /**
+   * Where the picture actually is when a dismiss drag ends.
+   *
+   * A ref rather than state because it is written on every pointermove — sixty
+   * times a second — and the only thing that ever reads it is the dismiss
+   * animation, one frame later. Reset on every open so a viewer never inherits
+   * the last one's ending position.
+   */
+  const drop = useRef({ x: 0, y: 0, scale: 1 })
+
   const settle = useCallback(
     (to: "open" | "gone") => {
       const img = imgRef.current
@@ -97,11 +107,25 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       scrim.style.transition = SPRING
       if (to === "open") {
         view.current = { ...IDENTITY }
+        drop.current = { x: 0, y: 0, scale: 1 }
         img.style.transform = "translate3d(0, 0, 0) scale(1)"
         img.style.opacity = "1"
         scrim.style.opacity = "1"
       } else {
-        img.style.transform = "translate3d(0, 60px, 0) scale(0.92)"
+        // FROM WHERE THE FINGER LEFT IT, not from a canonical position.
+        //
+        // This used to animate to a fixed `translate3d(0, 60px)` whatever the
+        // drag had done — so letting go 200px down snapped the photo back UP to
+        // 60 and then faded it, and a flick sideways teleported it back to
+        // centre first. That contradiction between the gesture and what follows
+        // it is the whole of "it feels cheap": the picture stops being the
+        // thing you were holding.
+        //
+        // Continuing 140px past wherever it already is, on the axis it was
+        // already travelling, is what makes the release read as letting go of
+        // something rather than as an animation starting.
+        const from = drop.current
+        img.style.transform = `translate3d(${from.x}px, ${from.y + 140}px, 0) scale(${Math.max(0.7, from.scale - 0.08)})`
         img.style.opacity = "0"
         scrim.style.opacity = "0"
       }
@@ -244,9 +268,20 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       g.lastT = now
       g.dy = dy
 
+      // BOTH AXES. A dismiss drag that only moves vertically is a picture stuck
+      // on a rail: your finger goes one way and the photo goes another, which
+      // is the single clearest tell that a gesture is being interpreted rather
+      // than followed. Every photo viewer worth the comparison lets it track
+      // sideways too — it is the same picture, in your hand.
+      //
+      // Upward travel is damped to a third because there is nothing up there to
+      // dismiss to; sideways is damped a little as well, so the drag still
+      // reads as being ABOUT going down.
       const travel = dy < 0 ? dy * 0.3 : dy
+      const slide = dx * 0.6
       const scale = Math.max(0.72, 1 - Math.abs(travel) / 1200)
-      img.style.transform = `translate3d(0, ${travel}px, 0) scale(${scale})`
+      drop.current = { x: slide, y: travel, scale }
+      img.style.transform = `translate3d(${slide}px, ${travel}px, 0) scale(${scale})`
       scrim.style.opacity = String(Math.max(0, 1 - Math.abs(travel) / 420))
     },
     [setView],

@@ -38,8 +38,13 @@ export default function ThreadLoading() {
             </svg>
           </span>
           <span className="h-[34px] w-[34px] shrink-0 animate-pulse rounded-full bg-neutral-100" />
-          <span className="flex min-w-0 flex-1 items-center">
+          {/* Two lines, because the real header now carries presence under the
+              name. One line here and two there means the whole header grows by
+              a row at the swap, and everything below it steps down — the exact
+              jump this file exists to prevent. */}
+          <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
             <span className="h-[15px] w-32 animate-pulse rounded bg-neutral-100" />
+            <span className="h-[10px] w-16 animate-pulse rounded bg-neutral-100" />
           </span>
         </div>
       </div>
@@ -50,14 +55,19 @@ export default function ThreadLoading() {
           visible no matter how well the boxes line up. One quiet indicator says
           the honest thing — this is loading — and has nothing to be replaced BY.
           Centred, because that is where the eye already is. */}
-      <div className="flex min-h-0 flex-1 items-center justify-center">
+      <div className="thread-surface flex min-h-0 flex-1 items-center justify-center">
         <IosSpinner size={26} />
       </div>
 
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
+        {/* No send button. It does not exist on the real composer either until
+            there is something to send, and drawing a purple disc here that the
+            arriving screen immediately removes is a control that flashes on and
+            off for one navigation. The photo button on the left is on every
+            conversation, so it stays. */}
         <div className="flex items-end gap-2">
+          <div className="h-11 w-11 shrink-0 rounded-full bg-neutral-100" />
           <div className="h-[44px] flex-1 rounded-3xl border border-neutral-200 bg-neutral-50" />
-          <div className="h-11 w-11 shrink-0 rounded-full bg-[#7c3aed]/25" />
         </div>
       </div>
     </div>

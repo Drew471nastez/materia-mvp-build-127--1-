@@ -7,6 +7,7 @@ import { GlobalMobileTopBar } from "@/components/marketing/global-mobile-topbar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { ShellScrollReset } from "@/components/marketing/shell-scroll-reset"
 import { TabTransition } from "@/components/marketing/tab-transition"
+import { PresenceBeacon } from "@/components/presence-beacon"
 
 export default function MarketingLayout({
   children,
@@ -23,6 +24,7 @@ export default function MarketingLayout({
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
+      <PresenceBeacon />
       <Suspense fallback={null}>
         <ShellScrollReset />
       </Suspense>

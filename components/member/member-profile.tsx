@@ -1,5 +1,6 @@
 "use client"
 
+import { SurfaceClaim } from "@/components/surface-claim"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Settings, Shirt, Star } from "lucide-react"
@@ -233,7 +234,16 @@ export function MemberProfile({
     // track while the avatar sits marooned at the far left. The narrower measure
     // is what makes this read as a page rather than as a phone layout that has
     // been stretched.
-    <div className="relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
+    <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
+      {/* The strip behind the clock, in the wash's own top colour. The wash is
+          pulled up into that strip by the safe-area inset, but the strip itself
+          is painted by whoever last claimed it — and on this route that was the
+          top bar, declaring white. So the colour stopped dead at the bottom
+          edge of the status bar with a white band above it, which is the one
+          place on a page where a boundary reads as damage. #f3edfd is
+          `#7c3aed` at 9% over white: the exact value of the gradient's first
+          row, so there is no seam where the two meet. */}
+      <SurfaceClaim colour="#f3edfd" />
       {/* The one piece of colour on the screen, and it is barely there.
           A profile is a person, and a header floating on plain white had
           nothing to say that this was the top of anything — the avatar simply

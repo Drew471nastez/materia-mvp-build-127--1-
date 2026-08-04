@@ -75,6 +75,31 @@ export function InitialAvatar({
   const [broken, setBroken] = useState(false)
 
   if (url && !broken) {
+    // An SVG cannot go through next/image, and the reason is not a limitation
+    // to work around: the optimizer refuses vector sources unless
+    // `dangerouslyAllowSVG` is turned on, which would apply to EVERY remote
+    // host in remotePatterns — including the OAuth avatar providers — and an
+    // SVG served from a host you do not control is a script-execution surface.
+    //
+    // A plain <img> is the correct answer instead of the flag. An SVG loaded as
+    // an image is rendered with scripting disabled by the browser itself, so
+    // the one asset that needs this (Storelib's own mark) is safe, and nothing
+    // else gains permission it did not have. There is nothing to optimise
+    // either: it is vector, and already a few hundred bytes.
+    if (/\.svgx?(\?|$)/i.test(url)) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          width={size}
+          height={size}
+          onError={() => setBroken(true)}
+          className={cn("shrink-0 rounded-full object-cover", className)}
+          style={dimension}
+        />
+      )
+    }
     return (
       <Image
         src={url}

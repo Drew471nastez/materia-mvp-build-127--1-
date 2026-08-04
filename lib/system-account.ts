@@ -48,7 +48,23 @@ export type OfficialProfile = {
   username: string | null
   avatar_url: string | null
   is_official?: boolean | null
+  /** Ships with 20260731_presence.sql; absent means "we cannot tell", which the
+   *  UI must render as nothing rather than as offline. */
+  last_seen_at?: string | null
 }
+
+/**
+ * Storelib's own face, for the one account that will never upload one.
+ *
+ * The official thread sits in every inbox and was showing the letter avatar —
+ * a violet circle with an S in it — which is the correct fallback for a person
+ * and the wrong one for the platform: the brand has a mark, and a thread from
+ * Storelib that does not carry it looks like a thread from a user called
+ * Storelib. Applied at read time rather than written into the profile row so it
+ * follows the asset, and only when the account has not set one of its own.
+ */
+export const STORELIB_AVATAR_URL =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
 /**
  * Resolution is memoised per process because it never changes at runtime, and
@@ -221,9 +237,13 @@ export async function fetchProfilesWithOfficial(
   if (!unique.length) return new Map()
 
   if (hasOfficialColumn || Date.now() >= columnMissUntil) {
+    // Both optional columns in one select. They ship in the same consolidated
+    // script, so a database that has one has the other — and asking for them
+    // separately would be a second round trip on every inbox render to cover a
+    // combination that does not occur.
     const withFlag = await admin
       .from("profiles")
-      .select("id, display_name, username, avatar_url, is_official")
+      .select("id, display_name, username, avatar_url, is_official, last_seen_at")
       .in("id", unique)
     if (!withFlag.error) {
       hasOfficialColumn = true

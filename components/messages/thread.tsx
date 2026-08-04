@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
+import { SafetyNotice } from "@/components/messages/safety-notice"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
@@ -50,7 +51,15 @@ type Thread = {
   youAre: "buyer" | "seller"
   me: string
   listing: { id: string; title: string; slug: string; thumbnail_url: string | null; price_cents: number; status: string } | null
-  other: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null
+  other: {
+    id: string
+    display_name: string | null
+    username: string | null
+    avatar_url: string | null
+    /** Undefined means the column is not in this database — an unknown presence
+     *  must render as nothing, never as "offline". */
+    last_seen_at?: string | null
+  } | null
   // The other party is Storelib: verified, and writing about no listing.
   official?: boolean
   messages: Msg[]
@@ -127,6 +136,50 @@ function dayLabel(d: Date): string {
 
 function timeLabel(d: Date): string {
   return d.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" })
+}
+
+/** Five minutes, the same window the member page and the follow list use, so
+ *  one person is never online in one place and offline in another. */
+const ONLINE_WINDOW_MS = 5 * 60 * 1000
+
+/**
+ * Whether the person you are talking to is around, and what to call it.
+ *
+ * Returns null in the two cases where the honest answer is to say nothing at
+ * all, and getting these right is most of the value of the line:
+ *
+ *   - `last_seen_at` is undefined. The column is not in this database, so we do
+ *     not know — and "activ acum 2 zile" invented from a missing column is
+ *     worse than a header with one line in it.
+ *   - The other party is Storelib. A platform account has no presence to
+ *     report and claiming it was "last active four hours ago" would be a small
+ *     lie told constantly.
+ *
+ * The wording steps down in the same places a person's sense of recency does:
+ * a minute is "now", an hour is minutes, a day is hours, and past a week it
+ * stops counting and says "a long time ago" — because the difference between
+ * eleven and nineteen days is not information anyone acts on.
+ */
+function presenceOf(
+  lastSeenAt: string | null | undefined,
+  official: boolean | undefined,
+): { online: boolean; label: string } | null {
+  if (official) return null
+  if (lastSeenAt === undefined) return null
+  const at = lastSeenAt ? Date.parse(lastSeenAt) : NaN
+  if (!Number.isFinite(at)) return null
+
+  const ago = Date.now() - at
+  if (ago < ONLINE_WINDOW_MS) return { online: true, label: "activ acum" }
+
+  const minutes = Math.floor(ago / 60_000)
+  if (minutes < 60) return { online: false, label: `activ acum ${minutes} min` }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return { online: false, label: `activ acum ${hours} h` }
+  const days = Math.floor(hours / 24)
+  if (days === 1) return { online: false, label: "activ ieri" }
+  if (days < 7) return { online: false, label: `activ acum ${days} zile` }
+  return { online: false, label: "activ acum mult timp" }
 }
 
 /**
@@ -1047,6 +1100,10 @@ export function MessageThread({
   }
 
   const name = thread?.other?.display_name || thread?.other?.username || "Utilizator"
+  const presence = presenceOf(thread?.other?.last_seen_at, thread?.official)
+  /** Whether there is anything to send — and therefore whether the button that
+   *  sends it exists at all. */
+  const canSend = draft.trim().length > 0
 
   // The receipt is shown on the last thing YOU said and nowhere else. Every
   // outgoing message technically knows whether it has been read, but printing
@@ -1137,9 +1194,27 @@ export function MessageThread({
             />
           </PartyLink>
           <PartyLink username={thread?.other?.username} official={thread?.official} className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-[15.5px] font-semibold text-neutral-900">{name}</span>
-              {thread?.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
+            {/* Two lines, not one row that has to share its width. Presence
+                sitting BESIDE the name would compete with it for the same
+                truncation budget — a long display name would push "activ acum"
+                off the end, or worse, elide the name to make room for it. Under
+                it, at a smaller size, each has the whole width and neither can
+                ever overlap the other. */}
+            <span className="flex min-w-0 flex-col">
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate text-[15.5px] font-semibold leading-[1.2] text-neutral-900">{name}</span>
+                {thread?.official && <BadgeCheck className="h-4 w-4 shrink-0 text-[#1d9bf0]" />}
+              </span>
+              {presence && (
+                <span
+                  className={cn(
+                    "truncate text-[11.5px] leading-[1.3]",
+                    presence.online ? "font-medium text-emerald-600" : "text-neutral-400",
+                  )}
+                >
+                  {presence.label}
+                </span>
+              )}
             </span>
           </PartyLink>
           {/* Everything you might want to DO about this conversation, behind one
@@ -1189,7 +1264,12 @@ export function MessageThread({
             that HAD arrived into one that looks like it had not. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white transition-opacity duration-[240ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]"
+          // `.thread-surface`, not `bg-white`: the cover has to be the same
+          // surface as the thing underneath it, or lifting it is a change of
+          // background as well as a reveal — a flat white panel dissolving into
+          // a textured one, which is a flicker of exactly the kind this exists
+          // to prevent.
+          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-[240ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]"
           style={{ opacity: covered ? 1 : 0, visibility: covered ? "visible" : "hidden" }}
         >
           {/* Held back a quarter of a second. Most covers lift faster than
@@ -1205,7 +1285,7 @@ export function MessageThread({
       <div
         ref={scrollerRef}
         onScroll={onScroll}
-        className="absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
+        className="thread-surface absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
         {/* Bottom-aligned, and this is the empty space.
             A conversation with four messages in it does not fill the screen, and
@@ -1221,11 +1301,37 @@ export function MessageThread({
             the same viewport numbers, so the handover is already invisible and
             an animation over an invisible swap is just a visible animation. */}
         <div className="flex min-h-full flex-col justify-end">
+        {/* Above the exchange and inside the bottom-aligned column, so on a
+            short thread it sits directly over the first message and on a long
+            one it scrolls away with the history — which is where a notice about
+            how to behave belongs. Never over the Storelib thread: warning
+            somebody about the platform, inside the platform's own thread, reads
+            as the app not knowing who it is. */}
+        {thread && !thread.official && <SafetyNotice />}
         {thread === null ? (
-          <div className="space-y-3">
-            <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />
-            <div className="ml-auto h-10 w-1/2 animate-pulse rounded-2xl bg-neutral-100" />
-            <div className="h-10 w-1/2 animate-pulse rounded-2xl bg-neutral-100" />
+          // The last resort, and it is now shaped like the conversation it is
+          // standing in for rather than like three grey bars: alternating sides,
+          // varied widths, the bubbles' own radius and the same 82%/68%
+          // ceilings. A skeleton whose geometry disagrees with what replaces it
+          // is a layout jump dressed up as a loading state.
+          <div className="space-y-2.5">
+            {[
+              { mine: false, w: "62%" },
+              { mine: true, w: "45%" },
+              { mine: false, w: "74%" },
+              { mine: true, w: "38%" },
+              { mine: false, w: "52%" },
+            ].map((b, i) => (
+              <div key={i} className={cn("flex", b.mine ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "h-[42px] animate-pulse rounded-[20px] bg-neutral-100",
+                    b.mine ? "rounded-br-md" : "rounded-bl-md",
+                  )}
+                  style={{ width: b.w }}
+                />
+              </div>
+            ))}
           </div>
         ) : thread.messages.length === 0 ? (
           // A conversation opened from a listing starts empty, and an empty
@@ -1324,7 +1430,7 @@ export function MessageThread({
                       // it do not reshuffle; what it said does not.
                       <div
                         className={cn(
-                          "max-w-[78%] rounded-2xl border border-dashed px-3.5 py-2 text-[14px] italic leading-snug",
+                          "max-w-[82%] rounded-[20px] border border-dashed px-4 py-2.5 text-[15px] italic leading-[1.4]",
                           mine
                             ? "rounded-br-md border-[#7c3aed]/30 text-[#7c3aed]/70"
                             : "rounded-bl-md border-neutral-200 text-neutral-400",
@@ -1350,7 +1456,7 @@ export function MessageThread({
                         onPointerCancel={cancelPress}
                         onContextMenu={(e) => e.preventDefault()}
                         className={cn(
-                          "msg-bubble relative max-w-[62%] overflow-hidden rounded-2xl bg-neutral-100",
+                          "msg-bubble relative max-w-[68%] overflow-hidden rounded-[20px] bg-neutral-100",
                           mine ? "rounded-br-md" : "rounded-bl-md",
                         )}
                       >
@@ -1402,7 +1508,7 @@ export function MessageThread({
                         {m.body && (
                           <div
                             className={cn(
-                              "whitespace-pre-wrap break-words px-3.5 py-2 text-[15px] leading-snug",
+                              "whitespace-pre-wrap break-words px-4 py-2.5 text-[16px] leading-[1.4]",
                               mine ? "bg-[#7c3aed] text-white" : "bg-neutral-100 text-neutral-900",
                             )}
                           >
@@ -1418,7 +1524,17 @@ export function MessageThread({
                         onPointerCancel={cancelPress}
                         onContextMenu={(e) => e.preventDefault()}
                         className={cn(
-                          "msg-bubble max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug",
+                          // 16px over 15, on 82% of the width instead of 78,
+                          // with a millimetre more padding around it. A message
+                          // is the only thing on this screen anybody came to
+                          // read, and it was set smaller than the listing
+                          // titles in the feed — which made a conversation feel
+                          // like a caption track rather than the content. 16px
+                          // is also the size below which iOS zooms a focused
+                          // input, so the composer had to be 16 anyway: what
+                          // you type and what you sent are now the same size,
+                          // which they visibly were not.
+                          "msg-bubble max-w-[82%] whitespace-pre-wrap break-words rounded-[20px] px-4 py-2.5 text-[16px] leading-[1.4]",
                           mine
                             ? "rounded-br-md bg-[#7c3aed] text-white"
                             : "rounded-bl-md bg-neutral-100 text-neutral-900",
@@ -1537,73 +1653,84 @@ export function MessageThread({
           >
             <ImagePlus className="h-[21px] w-[21px]" />
           </button>
-          <textarea
-            ref={fieldRef}
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              if (e.target.value) noteTyping()
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault()
-                void send()
-              }
-            }}
-            rows={1}
-            placeholder="Scrie un mesaj…"
-            className="max-h-28 min-h-[44px] flex-1 resize-none overflow-y-auto rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[15px] leading-[1.35] outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/50"
-          />
-          <button
-            type="button"
-            aria-label="Trimite"
-            // THE KEYBOARD DOES NOT CLOSE WHEN YOU SEND.
-            //
-            // Tapping any button moves focus to it, and focus leaving a
-            // textarea is what dismisses a phone keyboard. So every message
-            // sent by tapping this collapsed the keyboard, scrolled the whole
-            // conversation as the viewport grew back, and left you tapping the
-            // field again to write the next line — in an exchange that is
-            // usually several lines, that is the single most annoying thing
-            // about the composer.
-            //
-            // Preventing the default on pointerdown is what stops the focus
-            // transfer before it happens; the click still fires. Every chat on
-            // the web does this, and there is no other way — a `.focus()` after
-            // the fact cannot reopen a keyboard on iOS unless it runs inside the
-            // gesture that closed it, and by then the viewport has already
-            // animated.
-            onPointerDown={(e) => e.preventDefault()}
-            onClick={() => {
-              void triggerHaptic("light")
-              // Belt to the braces above: on the browsers where preventDefault
-              // on pointerdown is not enough (older WebViews fire mousedown
-              // separately), this runs inside the click — still the same user
-              // gesture — so the keyboard is never given a frame to leave.
-              fieldRef.current?.focus()
-              void send()
-            }}
-            disabled={!draft.trim() || sending}
-            // Two states in one control. Empty, it is a flat disc that visibly
-            // does nothing; with something to send it lifts on the brand
-            // gradient and presses in when tapped. The scale-down is what makes
-            // the send feel like it left — the bubble appearing at the same
-            // instant is the other half of it.
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white",
-              "transition-[transform,box-shadow,opacity] duration-[220ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
-              "active:scale-[0.88] disabled:opacity-40 disabled:shadow-none",
+          {/* THE FIELD AND THE SEND BUTTON ARE ONE CONTROL.
+              The button used to be a third disc outside the input, permanently
+              on screen and permanently disabled — a control that is visible
+              before it can do anything is a control you have to learn to
+              ignore. It lives inside the field now, and only exists once there
+              is something to send, which is the moment it starts meaning
+              anything. Relative box, textarea padded on the right by exactly
+              the room the button occupies, button pinned to the bottom of it so
+              it stays with the last line as the field grows. */}
+          <div className="relative min-w-0 flex-1">
+            <textarea
+              ref={fieldRef}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                if (e.target.value) noteTyping()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  void send()
+                }
+              }}
+              rows={1}
+              placeholder="Scrie un mesaj…"
+              className={cn(
+                "block max-h-28 min-h-[44px] w-full resize-none overflow-y-auto rounded-3xl border border-neutral-200 bg-neutral-50 py-[11px] pl-4 text-[16px] leading-[1.35] outline-none placeholder:text-neutral-400 focus:border-[#7c3aed]/50",
+                // 16px, and this is a functional number rather than a
+                // typographic one: iOS Safari zooms the whole page when a field
+                // under 16px takes focus, and that zoom is never undone — it is
+                // the single most common reason a chat "jumps" the first time
+                // you tap the input. It also happens to be the size the bubbles
+                // now use, so what you type and what you sent are the same size.
+                "transition-[padding,border-color] duration-200 ease-out",
+                // The room the button takes, paid only while it is there — so an
+                // empty field uses its whole width for the placeholder.
+                canSend ? "pr-[46px]" : "pr-4",
+              )}
+            />
+            {canSend && (
+              <button
+                type="button"
+                aria-label="Trimite"
+                // THE KEYBOARD DOES NOT CLOSE WHEN YOU SEND.
+                //
+                // Tapping any button moves focus to it, and focus leaving a
+                // textarea is what dismisses a phone keyboard. So every message
+                // sent by tapping this collapsed the keyboard, scrolled the
+                // whole conversation as the viewport grew back, and left you
+                // tapping the field again to write the next line.
+                //
+                // Preventing the default on pointerdown is what stops the focus
+                // transfer before it happens; the click still fires. There is no
+                // other way — a `.focus()` after the fact cannot reopen a
+                // keyboard on iOS unless it runs inside the gesture that closed
+                // it, and by then the viewport has already animated.
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  void triggerHaptic("light")
+                  // Belt to the braces above, for WebViews where preventDefault
+                  // on pointerdown is not enough.
+                  fieldRef.current?.focus()
+                  void send()
+                }}
+                disabled={sending}
+                className={cn(
+                  "send-pop absolute bottom-[5px] right-[5px] flex h-[34px] w-[34px] items-center justify-center rounded-full text-white",
+                  "transition-transform duration-[200ms] ease-[cubic-bezier(0.32,0.06,0.16,1)] active:scale-[0.86] disabled:opacity-60",
+                )}
+                style={{
+                  background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
+                  boxShadow: "0 1px 2px rgba(76,29,149,0.3), 0 4px 10px -3px rgba(124,58,237,0.5)",
+                }}
+              >
+                {sending ? <IosSpinner size={15} /> : <Send className="h-[16px] w-[16px]" />}
+              </button>
             )}
-            style={{
-              background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
-              boxShadow:
-                draft.trim() && !sending
-                  ? "0 1px 2px rgba(76,29,149,0.28), 0 6px 16px -4px rgba(124,58,237,0.55), inset 0 1px 0 rgba(255,255,255,0.22)"
-                  : "none",
-            }}
-          >
-            {sending ? <IosSpinner size={17} /> : <Send className="h-[18px] w-[18px]" />}
-          </button>
+          </div>
         </div>
       </div>
 

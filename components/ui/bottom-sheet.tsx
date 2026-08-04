@@ -34,10 +34,26 @@ import { cn } from "@/lib/utils"
  *   at the same time.
  */
 
-/** The curve iOS uses for a sheet: quick off the mark, long glide to rest. */
-const SPRING = "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)"
-const SCRIM_TWEEN = "opacity 380ms cubic-bezier(0.32, 0.72, 0, 1)"
-const OUT_MS = 340
+/**
+ * The curve iOS uses for a sheet: quick off the mark, long glide to rest.
+ *
+ * Two durations, not one. Opening is the sheet ARRIVING and wants the full
+ * glide — you are about to read it, and the last hundred milliseconds of that
+ * curve are what make it feel like it settled rather than stopped. Closing is
+ * the sheet getting out of the way of a decision you have already made, and the
+ * same 380ms there is a third of a second of watching something leave. 300 out
+ * against 380 in is the asymmetry every native sheet has and the single
+ * cheapest thing that makes one feel responsive.
+ */
+const SPRING_IN = "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)"
+const SPRING_OUT = "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)"
+const SCRIM_IN = "opacity 380ms cubic-bezier(0.32, 0.72, 0, 1)"
+/* The scrim clears FASTER than the sheet slides. It is the thing making the
+   page behind it unreadable, so the screen you are going back to is bright
+   again while the sheet is still on its way down — which reads as the sheet
+   leaving rather than as the app waiting for it. */
+const SCRIM_OUT = "opacity 220ms cubic-bezier(0.32, 0.72, 0, 1)"
+const OUT_MS = 310
 /** Past this share of its own height, letting go throws it away. */
 const DISMISS_RATIO = 0.28
 /** …or past this speed, in px/ms, however far it got. A flick is an intention. */
@@ -69,8 +85,8 @@ export function BottomSheet({
     const sheet = sheetRef.current
     const scrim = scrimRef.current
     if (!sheet || !scrim) return
-    sheet.style.transition = SPRING
-    scrim.style.transition = SCRIM_TWEEN
+    sheet.style.transition = to === "open" ? SPRING_IN : SPRING_OUT
+    scrim.style.transition = to === "open" ? SCRIM_IN : SCRIM_OUT
     sheet.style.transform = to === "open" ? "translate3d(0, 0, 0)" : "translate3d(0, 100%, 0)"
     scrim.style.opacity = to === "open" ? "1" : "0"
   }, [])
@@ -199,7 +215,17 @@ export function BottomSheet({
 
   return createPortal(
     <div className="fixed inset-0 z-[95]" role="dialog" aria-modal="true" aria-label={label}>
-      <div ref={scrimRef} onClick={dismiss} className="absolute inset-0 bg-black/45" style={{ opacity: 0 }} />
+      {/* `will-change: opacity` on the scrim as well as the sheet. Both are
+          animated on every open and close, and a full-screen black layer that
+          is NOT promoted is a full-screen repaint per frame behind a sheet that
+          is trying to slide at sixty — the one element on this component most
+          likely to be the reason it is not. */}
+      <div
+        ref={scrimRef}
+        onClick={dismiss}
+        className="absolute inset-0 bg-black/45 will-change-[opacity]"
+        style={{ opacity: 0 }}
+      />
 
       <div
         ref={sheetRef}
@@ -209,7 +235,7 @@ export function BottomSheet({
         onPointerCancel={onPointerUp}
         className={cn(
           "absolute inset-x-0 bottom-0 mx-auto flex max-h-[86dvh] max-w-lg flex-col rounded-t-3xl bg-white",
-          "shadow-[0_-8px_44px_rgba(0,0,0,0.2)] will-change-transform",
+          "shadow-[0_-8px_44px_rgba(0,0,0,0.2)] will-change-transform [backface-visibility:hidden]",
           className,
         )}
         style={{ transform: "translate3d(0, 100%, 0)" }}
@@ -241,4 +267,7 @@ export function BottomSheet({
 
 /** The row shape both sheets use, so they cannot drift apart. */
 export const SHEET_ROW =
-  "flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left text-[15.5px] transition-colors active:bg-neutral-100"
+  // 16px and a little more air. A sheet is a list of decisions read at arm's
+  // length with a thumb over half the screen, and 15.5 was set to match a
+  // conversation that has itself moved to 16 — the two must not disagree.
+  "flex w-full items-center gap-3 rounded-xl px-3 py-[15px] text-left text-[16px] transition-colors active:bg-neutral-100"

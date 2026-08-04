@@ -8,6 +8,7 @@ import {
   ensureSystemConversation,
   fetchProfilesWithOfficial,
   getSystemUserId,
+  STORELIB_AVATAR_URL,
   isOfficialProfile,
   type OfficialProfile,
 } from "@/lib/system-account"
@@ -237,13 +238,16 @@ export async function listConversations({
   const rows: InboxConversation[] = convos.map((c) => {
     const otherId = c.buyer_id === userId ? c.seller_id : c.buyer_id
     const other = profiles.get(otherId) ?? null
+    const official = isOfficialProfile(other, systemId) || (systemConvoId !== null && c.id === systemConvoId)
     return {
       id: c.id,
       lastMessageAt: c.last_message_at,
       youAre: c.buyer_id === userId ? "buyer" : "seller",
       listing: (c.listing_id && listings.get(c.listing_id)) || null,
-      other,
-      official: isOfficialProfile(other, systemId) || (systemConvoId !== null && c.id === systemConvoId),
+      // The same substitution the thread makes, so the row you tap and the
+      // screen it opens show the same face. See STORELIB_AVATAR_URL.
+      other: other && official && !other.avatar_url ? { ...other, avatar_url: STORELIB_AVATAR_URL } : other,
+      official,
       lastMessage: last.get(c.id) ?? null,
       unread: unread.get(c.id) ?? 0,
     }

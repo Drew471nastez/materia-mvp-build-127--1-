@@ -2083,6 +2083,49 @@ html[data-keyboard="open"] .thread-composer {
   .thread-composer { padding-bottom: 12px; }
 }
 
+/* The send button coming into existence.
+ *
+ * It only exists once there is something to send, so its arrival is a real
+ * event and not a state change on a control that was already there — which is
+ * why it grows rather than fades. From 0.4 with a touch of overshoot in the
+ * curve, so it reads as popping into the field the instant the first character
+ * lands. 160ms: any longer and the button is still arriving when a fast typist
+ * has finished the word. */
+@keyframes send-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.send-pop {
+  animation: send-pop 160ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .send-pop { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   The surface a conversation happens on
+   ---------------------------------------------------------------------------
+   Flat white behind two columns of bubbles reads as empty rather than as calm —
+   there is nothing to tell you the exchange is sitting ON something, so short
+   threads look like a page that failed to load the rest of itself.
+
+   So: a very faint brand-tinted dot grid, at an amplitude you notice only as
+   depth. Two constraints decide every number here.
+
+   It has to survive being scrolled. A repeating background on a scroller is
+   repainted on every frame unless it is cheap, so this is one radial-gradient
+   tile the compositor can cache, not an image and not a layered stack.
+
+   And it must never compete with type. #7c3aed at 5% on white is under two
+   levels of contrast — invisible behind a bubble, present in the gaps. The dots
+   are 1px on a 22px pitch, which is fine enough that at any real viewing
+   distance it reads as texture rather than as a pattern of dots. */
+.thread-surface {
+  background-color: #ffffff;
+  background-image: radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.05) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
 /* There is deliberately no entrance on the message column.
    Once the skeleton and the real screen became the same box — bottom-aligned,
    sized from the same viewport numbers — the handover was already invisible, and
@@ -2196,6 +2239,17 @@ html[data-keyboard="open"] .thread-composer {
 .profile-wash {
   top: calc(-1 * env(safe-area-inset-top, 0px));
   height: calc(260px + env(safe-area-inset-top, 0px));
+}
+
+/* The profile paints its own white, because the canvas behind it is no longer
+   white: `SurfaceClaim` sets the root to the wash's top colour so the strip
+   behind the clock matches. Without a floor of its own, that tint would show
+   through the whole page — the wash fades to transparent by 260px and there is
+   nothing under it — turning a white profile into a faintly lilac one from the
+   stats down. So the column is white and the wash sits on it, which is what the
+   gradient was always drawn against. */
+.profile-surface {
+  background-color: #ffffff;
 }
 @media (min-width: 768px) {
   .profile-wash { height: 320px; }

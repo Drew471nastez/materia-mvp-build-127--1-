@@ -4,7 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
-import { fetchProfilesWithOfficial, getSystemUserId, isOfficialProfile } from "@/lib/system-account"
+import {
+  STORELIB_AVATAR_URL,
+  fetchProfilesWithOfficial,
+  getSystemUserId,
+  isOfficialProfile,
+} from "@/lib/system-account"
 
 /**
  * One conversation, read once for the two places that need it.
@@ -53,7 +58,16 @@ export type ThreadPayload = {
   youAre: "buyer" | "seller"
   me: string
   listing: ThreadListing | null
-  other: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null
+  other: {
+    id: string
+    display_name: string | null
+    username: string | null
+    avatar_url: string | null
+    /** When they were last anywhere in the app. Undefined means the column is
+     *  not there to read, which the header draws as nothing at all — an unknown
+     *  presence must never be shown as "offline". */
+    last_seen_at?: string | null
+  } | null
   official: boolean
   messages: ThreadMessage[]
 }
@@ -156,20 +170,40 @@ export async function readThread({
     .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
     .map((m) => m.image_url as string)
   if (paths.length) {
-    const { data: signed } = await admin.storage.from("messages").createSignedUrls(paths, 60 * 60)
+    // Fifteen minutes, not an hour.
+    //
+    // A signed URL is a bearer token: anyone who has the string can fetch that
+    // photograph, with no session and no membership check, for as long as it is
+    // valid. It leaks the way every URL leaks — a screenshot of the address
+    // bar, a "copy image address", a browser extension, an analytics script
+    // that records resource loads — and an hour of validity is an hour of
+    // somebody else being able to open a private picture.
+    //
+    // Nothing needs an hour. A thread re-reads itself every 2.5 to 30 seconds
+    // and re-signs on each read, so links are replaced continuously while the
+    // screen is open; the only thing this window has to cover is a tab left
+    // untouched with the socket down, and fifteen minutes covers that several
+    // times over. Shortening it costs nothing and removes 45 minutes of reach
+    // from every link that gets out.
+    const { data: signed } = await admin.storage.from("messages").createSignedUrls(paths, 15 * 60)
     const byPath = new Map((signed ?? []).map((s) => [s.path as string, s.signedUrl]))
     for (const m of messages) {
       if (m.kind === "image" && m.image_url) m.image_url = byPath.get(m.image_url) ?? null
     }
   }
 
+  const official = isOfficialProfile(other, systemId)
+
   return {
     id: convo.id,
     youAre: convo.buyer_id === userId ? "buyer" : "seller",
     me: userId,
     listing: (listing as ThreadListing | null) ?? null,
-    other,
-    official: isOfficialProfile(other, systemId),
+    // Storelib wears its own mark. Only when the account has not set a picture
+    // of its own, so an operator who uploads one is not overridden by a
+    // constant. See STORELIB_AVATAR_URL.
+    other: other && official && !other.avatar_url ? { ...other, avatar_url: STORELIB_AVATAR_URL } : other,
+    official,
     messages,
   }
 }
