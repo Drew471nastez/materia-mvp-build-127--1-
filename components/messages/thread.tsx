@@ -41,6 +41,23 @@ type Msg = {
   /** On screen, not yet on the server. Local only — never comes back from an
    *  API, and is gone the moment the real row replaces it. */
   pending?: boolean
+  /**
+   * The React key this bubble keeps for its whole life on screen.
+   *
+   * This exists because of the one bug that made sending look janky no matter
+   * how the animation was tuned. A message you send is drawn immediately with a
+   * temporary id, and 150-400ms later the server's row replaces it — with a
+   * REAL id. Keyed by id, that is a different key, so React unmounts the bubble
+   * and mounts a new one in its place. Which lands, on a typical connection,
+   * squarely in the middle of the 380ms arrival: the element carrying the
+   * animation is destroyed and its replacement has no animation on it at all,
+   * so the bubble stops dead wherever it had got to and snaps to its final
+   * position. Every send, invisible in code, obvious on screen.
+   *
+   * Carried across the swap, the DOM node survives and the animation runs to
+   * completion. Local only — the server has never heard of it.
+   */
+  localKey?: string
 }
 
 /** Ids for messages that exist only on this screen so far. */
@@ -476,12 +493,11 @@ export function MessageThread({
     put()
     requestAnimationFrame(put)
     // One late correction, after the arrival animation and the composer's own
-    // resize have both landed. 420ms because the bubble you sent now takes 380
-    // to come to rest — a correction fired at 280 was landing while it was still
-    // moving, so the last few pixels of the scroll happened underneath an
-    // animation that had not finished, which is a small jolt at the exact moment
-    // the send is supposed to feel settled.
-    window.setTimeout(put, 420)
+    // resize have both landed. 560ms, because the bubble you sent now takes 520
+    // to come to rest — a correction fired while it is still moving puts the
+    // last few pixels of the scroll underneath an unfinished animation, which is
+    // a jolt at the exact moment the send is supposed to feel settled.
+    window.setTimeout(put, 560)
   }, [])
 
   useEffect(() => {
@@ -530,10 +546,35 @@ export function MessageThread({
   // message animates exactly once and a re-render for any other reason cannot
   // replay the whole conversation.
   const seen = useRef<Set<string> | null>(null)
-  const isFresh = useCallback((msgId: string) => seen.current !== null && !seen.current.has(msgId), [])
+  /**
+   * Decided ONCE per bubble, and then never revisited.
+   *
+   * The memo is the point, and without it the send animation could not finish
+   * however long it was given. `seen` is filled from the messages after every
+   * commit, so asking "is this fresh" a second time about the same bubble
+   * answers no — and the second time comes 150-400ms after the first, when the
+   * server's row replaces the optimistic one, which is the middle of the
+   * animation. The class was removed from an element that was still moving, so
+   * the bubble stopped dead and snapped into place. Every send.
+   *
+   * Keyed on `localKey` where there is one, so the optimistic bubble and the
+   * real row it becomes are the same bubble to this map, exactly as they are to
+   * React's reconciler.
+   */
+  const settled = useRef(new Map<string, boolean>())
+  const isFresh = useCallback((key: string) => {
+    const already = settled.current.get(key)
+    if (already !== undefined) return already
+    const fresh = seen.current !== null && !seen.current.has(key)
+    settled.current.set(key, fresh)
+    return fresh
+  }, [])
   useEffect(() => {
     if (seen.current === null) seen.current = new Set()
-    for (const m of thread?.messages ?? []) seen.current.add(m.id)
+    for (const m of thread?.messages ?? []) {
+      seen.current.add(m.id)
+      if (m.localKey) seen.current.add(m.localKey)
+    }
   }, [thread?.messages])
   const onScroll = useCallback(() => {
     const el = scrollerRef.current
@@ -881,6 +922,7 @@ export function MessageThread({
                 created_at: new Date().toISOString(),
                 read_at: null,
                 pending: true,
+                localKey: tempId,
               },
             ],
           }
@@ -901,7 +943,14 @@ export function MessageThread({
         seen.current?.add(message.id)
         stickBottom.current = true
         setThread((t) =>
-          t ? { ...t, messages: t.messages.map((m) => (m.id === tempId ? message : m)) } : t,
+          t
+            ? {
+                ...t,
+                // `localKey` rides along so React sees the same element rather
+                // than a new one — see the note on the field.
+                messages: t.messages.map((m) => (m.id === tempId ? { ...message, localKey: tempId } : m)),
+              }
+            : t,
         )
         // The other side hears about it now rather than on their next poll.
         announce("msg")
@@ -954,6 +1003,7 @@ export function MessageThread({
                   created_at: new Date().toISOString(),
                   read_at: null,
                   pending: true,
+                  localKey: tempId,
                 },
               ],
             }
@@ -1010,7 +1060,7 @@ export function MessageThread({
               ? {
                   ...t,
                   messages: t.messages.map((m) =>
-                    m.id === tempId ? { ...message, image_url: localUrl } : m,
+                    m.id === tempId ? { ...message, image_url: localUrl, localKey: tempId } : m,
                   ),
                 }
               : t,
@@ -1458,7 +1508,7 @@ export function MessageThread({
                 nextAt.getTime() - at.getTime() >= GROUP_MS
 
               return (
-                <Fragment key={m.id}>
+                <Fragment key={m.localKey ?? m.id}>
                   {opensDay && (
                     <div className={cn("flex justify-center", i === 0 ? "pb-3" : "py-4")}>
                       <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11.5px] font-semibold text-neutral-500">
@@ -1475,7 +1525,7 @@ export function MessageThread({
                       // Only what arrived after you got here. It rises from the
                       // side it belongs to, so a message you sent comes off the
                       // composer rather than materialising above it.
-                      isFresh(m.id) && (mine ? "msg-in-mine" : "msg-in-theirs"),
+                      isFresh(m.localKey ?? m.id) && (mine ? "msg-in-mine" : "msg-in-theirs"),
                     )}
                   >
                     {m.deleted_at ? (
@@ -1745,10 +1795,21 @@ export function MessageThread({
                 canSend ? "pr-[46px]" : "pr-4",
               )}
             />
-            {canSend && (
-              <button
+            {/* ALWAYS RENDERED, never conditionally mounted.
+                It used to appear and disappear with `canSend`, which meant the
+                purple disc you had just pressed VANISHED on the frame the field
+                cleared — the one control in the send that is under your finger,
+                and the only part of the interaction with no animation on it at
+                all. A mounted element can transition in both directions; an
+                unmounted one can only pop. Inert and untabbable while there is
+                nothing to send, so it is invisible to a finger and to a
+                keyboard exactly when it is invisible to the eye. */}
+            <button
                 type="button"
                 aria-label="Trimite"
+                data-ready={canSend ? "1" : undefined}
+                tabIndex={canSend ? 0 : -1}
+                aria-hidden={!canSend}
                 // THE KEYBOARD DOES NOT CLOSE WHEN YOU SEND.
                 //
                 // Tapping any button moves focus to it, and focus leaving a
@@ -1770,11 +1831,8 @@ export function MessageThread({
                   fieldRef.current?.focus()
                   void send()
                 }}
-                disabled={sending}
-                className={cn(
-                  "send-pop absolute bottom-[5px] right-[5px] flex h-[34px] w-[34px] items-center justify-center rounded-full text-white",
-                  "transition-transform duration-[200ms] ease-[cubic-bezier(0.32,0.06,0.16,1)] active:scale-[0.86] disabled:opacity-60",
-                )}
+                disabled={sending || !canSend}
+                className="send-fab absolute bottom-[5px] right-[5px] flex h-[34px] w-[34px] items-center justify-center rounded-full text-white"
                 style={{
                   background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
                   boxShadow: "0 1px 2px rgba(76,29,149,0.3), 0 4px 10px -3px rgba(124,58,237,0.5)",
@@ -1782,7 +1840,6 @@ export function MessageThread({
               >
                 {sending ? <IosSpinner size={15} /> : <Send className="h-[16px] w-[16px]" />}
               </button>
-            )}
           </div>
         </div>
       </div>

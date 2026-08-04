@@ -2097,23 +2097,51 @@ html[data-keyboard="open"] .thread-composer {
   .thread-composer { padding-bottom: 12px; }
 }
 
-/* The send button coming into existence.
+/* The send button arriving, and leaving.
  *
- * It only exists once there is something to send, so its arrival is a real
- * event and not a state change on a control that was already there — which is
- * why it grows rather than fades. From 0.4 with a touch of overshoot in the
- * curve, so it reads as popping into the field the instant the first character
- * lands. 160ms: any longer and the button is still arriving when a fast typist
- * has finished the word. */
-@keyframes send-pop {
-  from { opacity: 0; transform: scale(0.4); }
-  to   { opacity: 1; transform: scale(1); }
+ * It exists only while there is something to send, so its appearance is a real
+ * event rather than a state change on a control that was already there — which
+ * is why it grows rather than fades. And it LEAVES the same way, which it did
+ * not: it used to be mounted conditionally, so the purple disc you had just
+ * pressed vanished on the frame the field cleared. The one control in the send
+ * that is under your finger, and the only part of the interaction with no
+ * animation on it.
+ *
+ * A transition rather than a keyframe, for the same reason the tab glyphs use
+ * one: it runs backwards for free, and an interrupted change reverses from
+ * wherever it actually is instead of restarting. Type, delete, type again
+ * quickly and the button follows continuously.
+ *
+ * Asymmetric, deliberately. IN is 260ms with a spring past full size — it is
+ * answering a keystroke and should feel eager. OUT is 180ms and flat, because
+ * it is getting out of the way of a message that has already gone; lingering
+ * there would be the app taking a bow.
+ *
+ * Inert while invisible: a 34px target sitting at zero opacity over the corner
+ * of the text field would swallow taps meant for the field itself.
+ */
+.send-fab {
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
+  transition: opacity 180ms ease-out, transform 180ms cubic-bezier(0.4, 0, 1, 1);
 }
-.send-pop {
-  animation: send-pop 160ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+.send-fab[data-ready] {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  transition: opacity 140ms ease-out, transform 260ms cubic-bezier(0.16, 2.2, 0.4, 1);
+}
+.send-fab[data-ready]:active {
+  transform: scale(0.86);
+  transition: transform 90ms ease-out;
+}
+.send-fab:disabled[data-ready] {
+  opacity: 0.6;
 }
 @media (prefers-reduced-motion: reduce) {
-  .send-pop { animation: none; }
+  .send-fab,
+  .send-fab[data-ready] { transition: opacity 120ms linear; transform: scale(1); }
 }
 
 /* ---------------------------------------------------------------------------
@@ -2288,54 +2316,60 @@ html[data-keyboard="open"] .thread-composer {
    than taste. A bubble is a box of TEXT: animate it from 0.9 and the browser
    re-rasterizes every glyph in it on every frame, at a size it will never be
    seen at again, which is the shimmer that made a send look juddery rather
-   than fast. `will-change` below is the other half of that fix — it promotes
-   the bubble to its own layer so the type is rendered ONCE at its final size
-   and the compositor scales the finished picture, which is both smooth and
-   free.
+   than fast. An accelerated transform animation gets its own compositor layer,
+   so the type is rendered ONCE at its final size and the compositor scales the
+   finished picture — smooth, and free.
 
-   0.94 and 8px keeps the cue — a bubble growing out of the corner it came
-   from — at an amplitude where nothing has to be redrawn to notice it. */
+   0.92 keeps the cue — a bubble growing out of the corner it came from — at an
+   amplitude where nothing has to be redrawn to notice it. */
 @keyframes msg-in-mine {
-  /* A touch further and a touch smaller than one that arrives: it is coming up
-     off the composer, which is below and to the right of where it lands, so it
-     has further to travel than a bubble that was simply delivered. */
-  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.92); }
-  55%  { opacity: 1; transform: translate3d(0, 2px, 0) scale(0.995); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  /* 22px, and further than it was. The whole complaint about this animation was
+     that its smoothness was not VISIBLE, and an eased curve over 14 pixels has
+     nothing to be smooth across — most of its life is spent moving less than a
+     pixel per frame, which is indistinguishable from not moving. Twice the
+     distance over a longer time is the same gentleness with something to look
+     at. It comes up off the composer, which is below and to the right of where
+     it lands, so it has further to travel than one that was simply delivered. */
+  from { opacity: 0; transform: translate3d(0, 22px, 0) scale(0.92); }
+  /* 99%, then `none`. The final keyframe is held forever by `both`, and a held
+     transform holds a compositor LAYER — on a thread of five hundred messages
+     that is five hundred layers kept for the rest of the session, because the
+     class is never taken off (it cannot be: removing it mid-flight is the bug
+     this animation just stopped having). Landing on `transform: none` means the
+     bubble is a plain box again the instant it arrives, and the class costs
+     nothing to leave on. */
+  99% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to  { opacity: 1; transform: none; }
 }
 @keyframes msg-in-theirs {
-  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.94); }
+  99% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to  { opacity: 1; transform: none; }
 }
-/* 380ms for one you SENT, 260 for one that arrived, and the asymmetry is the
+/* 520ms for one you SENT, 280 for one that arrived, and the asymmetry is the
    point.
 
    A message you sent is the result of an action you just took, and the
    animation is the app showing you that it landed — it is allowed to take its
-   time, and at 240ms it did not have any: the bubble was in place before the
-   press had finished registering, which is why it read as appearing rather than
-   as arriving. Nearly four tenths of a second on this curve — almost all of it
-   in the long, decelerating tail — is a bubble that leaves the composer, travels,
-   and comes to rest. That tail is the whole of "satisfying"; the distance
-   travelled barely changes.
+   time. Half a second on easeOutExpo puts nearly all of that time in the tail,
+   where the bubble is travelling a fraction of a pixel per frame: on a 120Hz
+   screen that is sixty-odd frames of visible, continuous deceleration, which is
+   the "extreme smoothness" this is for. On a 60Hz screen it is thirty, and the
+   same shape. Neither costs more than the other — both are the same composited
+   transform handed to the GPU, and a longer animation is not more work, it is
+   the same work spread across more frames. Which is exactly why a long one
+   looks smoother rather than slower.
 
    One that arrived is not the result of anything you did, so it should not
    command the same amount of your attention. It settles quickly and gets out of
-   the way of being read.
-
-   Two composited properties on a promoted layer, so the length costs nothing:
-   this is the same number of frames' work either way, spread over more of
-   them — which is precisely what makes a long animation look smoother than a
-   short one rather than slower. */
+   the way of being read. */
 .msg-in-mine {
-  animation: msg-in-mine 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: msg-in-mine 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transform-origin: 100% 100%;
-  will-change: transform, opacity;
 }
 .msg-in-theirs {
-  animation: msg-in-theirs 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: msg-in-theirs 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: 0% 100%;
-  will-change: transform, opacity;
 }
 @media (prefers-reduced-motion: reduce) {
   .msg-in-mine,
