@@ -17,6 +17,7 @@ import {
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
 import { wasServedFromCache } from "@/lib/render-key"
+import { createClient } from "@/lib/supabase/client"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -258,13 +259,47 @@ export function MessagesInbox({
     window.addEventListener("focus", maybeLoad)
     document.addEventListener("visibilitychange", onVisible)
     window.addEventListener("pageshow", maybeLoad)
+
+    // LIVE, not on a thirty-second floor.
+    //
+    // This was the one screen in the app with no live path at all: it refreshed
+    // on focus, on visibility, and otherwise no sooner than every half minute.
+    // So you could sit looking at your messages while a reply landed and see
+    // nothing — on the exact screen where anybody decides whether an app is
+    // realtime.
+    //
+    // The channel is keyed to the PERSON rather than to a conversation, because
+    // that is the question this screen asks: has anything anywhere changed for
+    // me. One subscription covers every thread they have, including ones that
+    // did not exist when the screen was opened — which a per-conversation
+    // subscription structurally cannot, and which is exactly "somebody messaged
+    // me about a listing for the first time". The server rings it; see
+    // announceInbox in lib/messages/announce.ts.
+    //
+    // The polling above stays exactly as it was. This is a doorbell, not a
+    // replacement for asking: a socket that never connects, or connects and
+    // goes quiet, leaves the screen no worse than it was yesterday.
+    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
+    if (viewerId) {
+      channel = createClient()
+        .channel(`inbox:${viewerId}`, { config: { broadcast: { self: false } } })
+        .on("broadcast", { event: "changed" }, () => {
+          // Straight past the freshness window: something has definitely
+          // changed, which is the one case the window exists to guess at.
+          lastLoadedAt = 0
+          maybeLoad()
+        })
+        .subscribe()
+    }
+
     return () => {
       alive = false
       window.removeEventListener("focus", maybeLoad)
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("pageshow", maybeLoad)
+      if (channel) void createClient().removeChannel(channel)
     }
-  }, [servedFromServer, fromCache])
+  }, [servedFromServer, fromCache, viewerId])
 
   // The red dot on the Notificări segment costs one head count on mount.
   useEffect(() => {

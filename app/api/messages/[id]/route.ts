@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
 import { readThread } from "@/lib/messages/thread"
-import { announceThread } from "@/lib/messages/announce"
+import { announceInbox, announceThread } from "@/lib/messages/announce"
 
 /**
  * One conversation.
@@ -181,8 +181,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // notification insert takes a database round trip out of the path between the
   // row being committed and the other person's screen knowing about it — and
   // nothing below can fail in a way that should stop it ringing.
+  const recipient = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
   await Promise.all([
     announceThread(id),
+    // …and their conversation LIST, which is a different screen with a
+    // different subscription. Somebody sitting on their inbox sees the row move
+    // and the unread count change now, rather than on a thirty-second poll.
+    announceInbox(recipient),
     supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id),
     // Whoever is on the other side of this thread hears about the new message.
     // listing_id is null on a system thread, which the notification already

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
+import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { listConversations, optionalAdminClient } from "@/lib/messages/list"
 
 /**
@@ -134,16 +135,25 @@ export async function POST(req: NextRequest) {
   )
   if (msgErr) return NextResponse.json({ error: "Could not send" }, { status: 500 })
 
-  await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversationId)
-
-  // The seller hears about it either way; an offer is louder than a message.
-  await createNotification(admin, {
-    userId: sellerId,
-    kind: offerCents !== null ? "offer_received" : "message",
-    actorId: user.id,
-    listingId,
-    conversationId,
-  })
+  await Promise.all([
+    supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversationId),
+    // This route is the ONLY one that can create a conversation that did not
+    // exist a moment ago, which is precisely the case a per-thread subscription
+    // structurally cannot cover: the seller's inbox is not listening to a
+    // channel for a thread nobody had opened. Their list would have waited out
+    // a thirty-second poll for the one message most worth seeing immediately —
+    // a stranger asking about something they are selling.
+    announceInbox(sellerId),
+    announceThread(conversationId as string),
+    // The seller hears about it either way; an offer is louder than a message.
+    createNotification(admin, {
+      userId: sellerId,
+      kind: offerCents !== null ? "offer_received" : "message",
+      actorId: user.id,
+      listingId,
+      conversationId,
+    }),
+  ])
 
   return NextResponse.json({ conversationId })
 }

@@ -30,6 +30,36 @@ export async function announceThread(
   event: "msg" | "read" | "typing" = "msg",
   payload: Record<string, unknown> = {},
 ): Promise<void> {
+  await broadcast(`thread:${conversationId}`, event, payload)
+}
+
+/**
+ * Tell somebody their INBOX has changed.
+ *
+ * The conversation list was the one screen in the app with no live path at all:
+ * it refreshed on focus, on visibility, and otherwise no sooner than every
+ * thirty seconds. So you could sit looking at your messages while a reply
+ * arrived and see nothing for half a minute — on the exact screen where anybody
+ * decides whether an app is realtime.
+ *
+ * A channel per RECIPIENT rather than per conversation, because that is the
+ * question the inbox asks: has anything anywhere changed for me. One
+ * subscription covers every thread they have, including ones that did not exist
+ * when the screen was opened — which is the case a per-conversation
+ * subscription structurally cannot cover, and which is exactly "somebody
+ * messaged me about a listing for the first time".
+ *
+ * Carries no payload at all. The client re-reads the list through its own
+ * session, so there is nothing this needs to say beyond "look again" — and a
+ * broadcast channel has no RLS, so anything it did say would be readable by
+ * anyone who guessed the user id.
+ */
+export async function announceInbox(userId: string): Promise<void> {
+  if (!userId) return
+  await broadcast(`inbox:${userId}`, "changed", {})
+}
+
+async function broadcast(topic: string, event: string, payload: Record<string, unknown>): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return
@@ -49,9 +79,7 @@ export async function announceThread(
       // to put it — anyone who can guess a conversation id could otherwise
       // listen. The only thing it ever carries is who acted, which the typing
       // indicator needs in order to ignore its own echo.
-      body: JSON.stringify({
-        messages: [{ topic: `thread:${conversationId}`, event, payload }],
-      }),
+      body: JSON.stringify({ messages: [{ topic, event, payload }] }),
       // Two seconds is far longer than this call ever takes and far shorter than
       // anyone should wait for a doorbell. Without it a hung socket would hold
       // the send response open.

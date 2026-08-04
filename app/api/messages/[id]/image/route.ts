@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
-import { announceThread } from "@/lib/messages/announce"
+import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { encodeImageBody } from "@/lib/messages/image-fallback"
 
 /**
@@ -227,8 +227,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Rung from the server, so the other side hears about the photo even if the
   // sender's socket never came up. See lib/messages/announce.ts.
+  const recipient = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
   await Promise.all([
     announceThread(id),
+    announceInbox(recipient),
     supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id),
     createNotification(admin, {
       userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,

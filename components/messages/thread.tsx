@@ -9,6 +9,7 @@ import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
 import { wasServedFromCache } from "@/lib/render-key"
+import { readDraft, saveDraft } from "@/lib/messages/drafts"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
@@ -190,6 +191,11 @@ const POLL_LIVE_MS = 12000
  *  movement, so they have to be one duration. */
 const GLIDE_MS = 420
 
+/** What the server accepts (`slice(0, 2000)` in app/api/messages/[id]/route.ts).
+ *  Enforced in the field as well, or the end of a long message is deleted on
+ *  the way out with nothing saying so. */
+const MAX_MESSAGE_CHARS = 2000
+
 /**
  * How close together two messages from the same person have to be before they
  * stop being two arrivals and become one thing said in two breaths. Four
@@ -319,7 +325,13 @@ export function MessageThread({
   // second arrival — see app/(marketing)/messages/[id]/page.tsx.
   const [thread, setThread] = useState<Thread | null>(initial)
   const [failed, setFailed] = useState(false)
-  const [draft, setDraft] = useState("")
+  /**
+   * Restored from the last time you were in this conversation, if there was
+   * anything to restore. Read in the initialiser rather than in an effect: an
+   * effect would paint an empty field first and then fill it, which is the
+   * text appearing to type itself on every arrival.
+   */
+  const [draft, setDraft] = useState(() => readDraft(id))
   /**
    * An upload in progress. There is deliberately no equivalent for text.
    *
@@ -710,6 +722,24 @@ export function MessageThread({
   }, [])
 
   useEffect(() => () => stopGlide(), [stopGlide])
+
+  // Written down, so leaving the screen does not lose it.
+  //
+  // Debounced rather than saved per keystroke: this is localStorage, which is
+  // synchronous and on the main thread, and writing on every character means a
+  // JSON serialise between one letter and the next. Half a second of idle is
+  // far below the time it takes to leave a screen and far above the gap between
+  // two keystrokes.
+  //
+  // The cleanup saves too, and that is the case that actually matters —
+  // navigating away unmounts this before any debounce could fire.
+  useEffect(() => {
+    const t = window.setTimeout(() => saveDraft(id, draft), 500)
+    return () => {
+      window.clearTimeout(t)
+      saveDraft(id, draft)
+    }
+  }, [draft, id])
 
   // The field grows with what you write, up to four lines, then scrolls.
   //
@@ -1254,6 +1284,7 @@ export function MessageThread({
     if (!body) return
     const tempId = nextTempId()
     setDraft("")
+    saveDraft(id, "")
     stickBottom.current = true
     // This one movement is yours, so the thread travels with the bubble.
     glideNext.current = true
@@ -1789,6 +1820,16 @@ export function MessageThread({
         // scroll is genuinely worse than a jump.
         onPointerDown={stopGlide}
         onWheel={stopGlide}
+        // A conversation is a log that updates on its own, and a screen reader
+        // was told nothing when a message arrived — the one thing on this
+        // screen that changes without the reader doing anything. `polite`
+        // rather than `assertive` so it waits for a gap instead of interrupting
+        // whatever is being read out, which is what an incoming message should
+        // do to a sighted reader too.
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label="Conversație"
         className="thread-surface absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
         {/* Bottom-aligned, and this is the empty space.
@@ -2230,6 +2271,12 @@ export function MessageThread({
                 }
               }}
               rows={1}
+              // The server trims to 2000 and the database refuses past 4000, so
+              // without this the field happily accepted three thousand
+              // characters and then silently sent two — the end of your message
+              // deleted, with nothing anywhere saying so. A maxLength stops the
+              // typing instead, which is the only honest place to stop it.
+              maxLength={MAX_MESSAGE_CHARS}
               placeholder="Scrie un mesaj…"
               className={cn(
                 "block max-h-28 min-h-[44px] w-full resize-none overflow-y-auto rounded-3xl border border-neutral-200 bg-neutral-50 py-[11px] pl-4 text-[16px] leading-[1.35] outline-none placeholder:text-neutral-400 focus:border-[#7c3aed]/50",
@@ -2254,6 +2301,13 @@ export function MessageThread({
                 unmounted one can only pop. Inert and untabbable while there is
                 nothing to send, so it is invisible to a finger and to a
                 keyboard exactly when it is invisible to the eye. */}
+            {/* Shown only in the last tenth, because a counter on an empty
+                field is a limit nobody was near being told about. */}
+            {draft.length > MAX_MESSAGE_CHARS * 0.9 && (
+              <span className="pointer-events-none absolute -top-5 right-1 text-[11px] font-medium tabular-nums text-neutral-400">
+                {MAX_MESSAGE_CHARS - draft.length}
+              </span>
+            )}
             <button
                 type="button"
                 aria-label="Trimite"
