@@ -63,5 +63,23 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  return <MessageThread id={id} initial={initial} renderedAt={Date.now()} />
+  // A NONCE, not a timestamp.
+  //
+  // This used to hand down `renderedAt={Date.now()}` and the client worked out
+  // whether the payload was stale by comparing it against its own clock. Those
+  // are two different machines, and a phone whose clock is a few minutes off —
+  // which is common and which nothing here controls — gets the answer wrong in
+  // the direction that hurts: a clock running BEHIND the server makes the
+  // difference negative, so a payload that came out of the three-minute router
+  // cache measures as "rendered a moment ago", the client skips its refresh,
+  // and the conversation sits showing whatever it showed last time until a poll
+  // tick catches it. Up to thirty seconds of that if the socket is up. Which is
+  // exactly "it shows the first message and updates the messages later".
+  //
+  // A fresh random value per render answers the real question — WAS THIS
+  // RENDER PRODUCED FOR THIS NAVIGATION — with no clock involved at all. Next
+  // re-uses a cached payload without re-running this component, so a nonce the
+  // client has already seen can only have arrived from the cache. See
+  // `fromCache` in components/messages/thread.tsx.
+  return <MessageThread id={id} initial={initial} renderKey={crypto.randomUUID()} />
 }

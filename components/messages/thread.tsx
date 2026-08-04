@@ -87,9 +87,15 @@ const POLL_MS = 2500
  * The poll once messages are actually being pushed to us. It is not the
  * mechanism then, it is the net under it — a websocket can drop without saying
  * so, and a thread that quietly stops updating is worse than one that is a few
- * seconds behind. Thirty seconds is a heartbeat, not a refresh.
+ * seconds behind.
+ *
+ * Twelve seconds, down from thirty. A socket does not only die loudly: it can
+ * report SUBSCRIBED and then silently route nothing, in which case this
+ * interval IS the delivery time, and thirty seconds of it is the difference
+ * between a chat and an email client. Twelve is a heartbeat you would not
+ * notice paying for and a worst case you would not notice waiting out.
  */
-const POLL_LIVE_MS = 30000
+const POLL_LIVE_MS = 12000
 
 /**
  * How close together two messages from the same person have to be before they
@@ -189,21 +195,57 @@ function presenceOf(
  * or decline a pending one, and an accepted one becomes the buyer's way into
  * checkout at the agreed price.
  */
+/**
+ * Every render nonce this tab has already mounted a thread with.
+ *
+ * Module scope, so it outlives the component and every navigation inside the
+ * session — which is the whole mechanism. Next re-uses a cached RSC payload
+ * WITHOUT re-running the server component, so the nonce comes back unchanged;
+ * a value already in here therefore proves the payload was served from the
+ * router cache rather than rendered for this navigation. A full page load
+ * empties both this set and that cache together, so the two can never disagree.
+ *
+ * Bounded because a long session opening many conversations would otherwise
+ * accumulate one string per open forever. Two hundred is far past any real
+ * session and the cost of forgetting an old one is a single redundant refresh.
+ */
+const seenRenderKeys = new Set<string>()
+
+function markSeen(key: string): boolean {
+  const already = seenRenderKeys.has(key)
+  if (!already) {
+    if (seenRenderKeys.size > 200) seenRenderKeys.clear()
+    seenRenderKeys.add(key)
+  }
+  return already
+}
+
 export function MessageThread({
   id,
   initial = null,
-  renderedAt,
+  renderKey,
 }: {
   id: string
   initial?: Thread | null
-  /** When the server produced `initial`. A conversation route is held in the
-   *  client router cache too, so "the server just told us" is an assumption
-   *  rather than a fact — and acting on it means opening a thread to messages
-   *  that are minutes old with nothing on screen admitting it. */
-  renderedAt?: number
+  /** A value the server generates fresh on every render of this route. Seeing
+   *  the same one twice is proof the second was a cache hit — see the note in
+   *  app/(marketing)/messages/[id]/page.tsx for why this replaced a timestamp. */
+  renderKey?: string
 }) {
   const { formatPrice } = useLocale()
   const router = useRouter()
+  /**
+   * Whether the conversation we were handed came out of the router cache.
+   *
+   * Decided once, during the first render, and never re-decided: the answer is
+   * a property of this mount, and a later render must not be able to change it
+   * — that would mean the cover could re-arm over a thread somebody is reading.
+   */
+  const fromCacheRef = useRef<boolean | null>(null)
+  if (fromCacheRef.current === null) {
+    fromCacheRef.current = initial !== null && (!renderKey || markSeen(renderKey))
+  }
+  const fromCache = fromCacheRef.current
   // Born with the conversation in it. The server read it in the same request
   // that rendered this page, so there is no skeleton, no fetch-on-mount and no
   // second arrival — see app/(marketing)/messages/[id]/page.tsx.
@@ -247,6 +289,14 @@ export function MessageThread({
   const onFirstLoad = useRef<null | (() => void)>(null)
 
   const load = useCallback(async () => {
+    // Whatever happens below — a thread, a 503, a dead socket — the screen must
+    // not still be covered when this returns. A cover exists to hide a handover,
+    // and there is no handover to hide once the attempt is over; leaving it up
+    // would turn a failed request into a blank conversation.
+    const release = () => {
+      onFirstLoad.current?.()
+      onFirstLoad.current = null
+    }
     try {
       const r = await fetch(`/api/messages/${id}`, { credentials: "include" })
       // 401 is the server saying there is no session; 503 is the server saying
@@ -257,10 +307,10 @@ export function MessageThread({
         router.replace(`/login?next=${encodeURIComponent(`/messages/${id}`)}`)
         return
       }
-      if (r.status === 503) return
+      if (r.status === 503) return release()
       if (!r.ok) {
         setFailed(true)
-        return
+        return release()
       }
       const fresh: Thread = await r.json()
       // A poll must never eat a message that is still in flight. The server's
@@ -293,10 +343,10 @@ export function MessageThread({
       })
       // The thread on screen is now the server's, not a three-minute-old copy
       // out of the router cache. Whatever was covering that gap can go.
-      onFirstLoad.current?.()
-      onFirstLoad.current = null
+      release()
     } catch {
-      /* transient — the next poll retries */
+      /* transient — the next poll retries, but the screen comes back now */
+      release()
     }
   }, [id, router])
 
@@ -307,15 +357,16 @@ export function MessageThread({
   /** True while Postgres is actually pushing this thread's changes to us. */
   const [live, setLive] = useState(false)
 
-  // Skipped exactly once, when the server already handed us the conversation.
-  // Fetching it again on mount would be a second, identical read landing a few
-  // hundred milliseconds after the first paint — and with it a re-render of
-  // every bubble on screen, which is the flicker that made an already-rendered
-  // thread look like it was still loading.
-  // Skipped only when the payload is genuinely new. A cached one is refetched
-  // immediately, which is the difference between opening a conversation and
-  // opening a photograph of one.
-  const skipFirstLoad = useRef(initial !== null && Date.now() - (renderedAt ?? 0) < 10_000)
+  // Skipped exactly once, and only when the server produced this payload for
+  // THIS navigation. Fetching it again then would be a second identical read
+  // landing a few hundred milliseconds after the first paint, re-rendering every
+  // bubble on screen for no new information.
+  //
+  // A payload out of the router cache is the opposite case and gets no such
+  // benefit of the doubt: it is refetched immediately, and the screen is held
+  // until that lands. `fromCache` is what tells the two apart, and it is a
+  // nonce comparison rather than a clock difference — see above.
+  const skipFirstLoad = useRef(!fromCache && initial !== null)
   // Read by the timer rather than closed over, so the socket connecting changes
   // how often this asks WITHOUT rebuilding the effect. Making `live` a real
   // dependency was tempting and wrong: the effect re-runs its `sync()`, which
@@ -522,73 +573,85 @@ export function MessageThread({
   // must never drop a loading screen over a thread you are in the middle of.
   //
   // THE SECOND REASON IT COVERS is the one that was missing, and it is the whole
-  // of "I land on the conversation and it is empty, then the messages appear".
+  // of "it shows the first message and updates the messages later".
   //
   // `experimental.staleTimes.dynamic` holds this route's rendered payload in the
   // client router cache for three minutes. Re-open a thread inside that window
   // and Next hands back the copy from LAST time — a conversation as it stood
-  // when you last looked, missing everything said since. `skipFirstLoad` above
-  // already knows this and refetches immediately, which is correct and is also
-  // exactly what you were watching: the old thread paints, then a few hundred
-  // milliseconds later every message that arrived while you were away drops in
-  // at once.
+  // when you last looked, missing everything said since. So a cached payload is
+  // refetched immediately AND the screen is held until that lands. The arrival
+  // becomes one event instead of two.
   //
-  // So a stale payload covers too, and lifts when the real one has landed. The
-  // arrival becomes one event instead of two — which is what "it should already
-  // be loaded when I land" means. Same 1.2s cap: a slow network uncovers to the
-  // cached thread rather than holding a blank screen indefinitely.
-  const stalePayload = initial !== null && Date.now() - (renderedAt ?? 0) >= 10_000
-  const [imagesPending, setImagesPending] = useState(
-    () => (initial?.messages ?? []).some((m) => m.kind === "image"),
-  )
-  const [awaitingFresh, setAwaitingFresh] = useState(() => stalePayload)
-  const covered = imagesPending || awaitingFresh
+  // The two waits happen IN ORDER, and that ordering is the fix that was
+  // missing before. It used to wait for the fresh data and for images to decode
+  // as two independent races, with the image pass reading the DOM once at
+  // mount — so it inspected the pictures in the STALE thread, finished, and had
+  // nothing to say about the ones that arrived with the fresh payload. Those
+  // then loaded in afterwards, one at a time, over a conversation that had
+  // already been revealed. Waiting for the data first and only then for its
+  // pictures means what is uncovered is finished.
+  const [dataReady, setDataReady] = useState(!fromCache)
+  const [pixelsReady, setPixelsReady] = useState(false)
+  const covered = !dataReady || !pixelsReady
 
-  // Lifted when the refetch `skipFirstLoad` triggers has actually landed, or at
-  // the cap — whichever is first. `load()` sets this; the timer is the floor
-  // under a request that never comes back.
+  // Wait one: the server's copy of this conversation.
+  //
+  // Four seconds, not the 1.2 this used to allow. The cap exists so a dead
+  // network cannot hold a blank screen forever — but at 1.2s a merely slow one
+  // hit it routinely, and what happens then is precisely the reported bug: the
+  // cover lifts on the stale thread and the real messages drop in behind it a
+  // moment later. Past four seconds the request has effectively failed and
+  // showing the cached conversation is the better of two bad options; under it,
+  // waiting is always right.
   useEffect(() => {
-    if (!awaitingFresh) return
-    onFirstLoad.current = () => setAwaitingFresh(false)
-    const cap = window.setTimeout(() => setAwaitingFresh(false), 1200)
+    if (dataReady) return
+    onFirstLoad.current = () => setDataReady(true)
+    const cap = window.setTimeout(() => setDataReady(true), 4000)
     return () => {
       onFirstLoad.current = null
       window.clearTimeout(cap)
     }
-  }, [awaitingFresh])
+  }, [dataReady])
 
+  // Wait two: the pictures in whatever that turned out to be.
+  //
+  // Runs when the data is settled, not at mount, so it measures the thread that
+  // is actually going to be revealed. A conversation with no photographs in it
+  // finds nothing pending and clears on the next frame, so text threads pay a
+  // single frame for this and nothing more.
   useEffect(() => {
-    if (!imagesPending) return
-    const setCovered = setImagesPending
+    if (!dataReady || pixelsReady) return
     const el = scrollerRef.current
     if (!el) {
-      setCovered(false)
+      setPixelsReady(true)
       return
     }
     let done = false
-    const uncover = () => {
+    const ready = () => {
       if (done) return
       done = true
-      setCovered(false)
+      setPixelsReady(true)
     }
     const pending = Array.from(el.querySelectorAll("img")).filter((i) => !i.complete)
     if (!pending.length) {
-      // Already decoded. Uncovered on the next frame rather than synchronously,
-      // so the lift is a transition rather than a flicker of something that was
+      // Already decoded. Cleared on the next frame rather than synchronously, so
+      // the lift is a transition rather than a flicker of something that was
       // never really there.
-      const raf = requestAnimationFrame(uncover)
+      const raf = requestAnimationFrame(ready)
       return () => cancelAnimationFrame(raf)
     }
     let left = pending.length
     const tick = () => {
       left -= 1
-      if (left <= 0) uncover()
+      if (left <= 0) ready()
     }
     for (const img of pending) {
       img.addEventListener("load", tick, { once: true })
       img.addEventListener("error", tick, { once: true })
     }
-    const cap = window.setTimeout(uncover, 1200)
+    // A slow photo must not hold up a conversation you could already be reading;
+    // past this it is uncovered and the last picture fades in on its own.
+    const cap = window.setTimeout(ready, 1800)
     return () => {
       window.clearTimeout(cap)
       for (const img of pending) {
@@ -596,9 +659,7 @@ export function MessageThread({
         img.removeEventListener("error", tick)
       }
     }
-    // Mount-only: this is about the arrival, not about later changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [dataReady, pixelsReady])
 
   // The scroller was sized for whatever the cover was hiding, so land on the end
   // again the moment it lifts.
@@ -1148,13 +1209,12 @@ export function MessageThread({
         // and half did not, decided by something invisible; that is the same
         // inconsistency the tab bar had, in the one screen you open most.
         //
-        // `stalePayload` IS that case, exactly: a payload older than ten
-        // seconds came out of the router cache, which means no skeleton
-        // rendered, which means nothing has played this yet. A fresh one was
-        // rendered by the server for this navigation, which means the skeleton
-        // did show and did play it — and adding it here too would be the same
-        // motion twice for one tap.
-        stalePayload && "screen-push",
+        // `fromCache` IS that case, exactly: a payload the router had already
+        // means no skeleton rendered, which means nothing has played this yet.
+        // A payload rendered for this navigation means the skeleton did show
+        // and did play it — and adding it here too would be the same motion
+        // twice for one tap.
+        fromCache && "screen-push",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
