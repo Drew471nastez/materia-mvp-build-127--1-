@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
 import { readThread } from "@/lib/messages/thread"
+import { announceThread } from "@/lib/messages/announce"
 
 /**
  * One conversation.
@@ -176,18 +177,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Could not send" }, { status: 500 })
   }
 
-  await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
-
-  // Whoever is on the other side of this thread hears about the new message.
-  // listing_id is null on a system thread, which the notification already
-  // treats as "about no particular item".
-  await createNotification(createAdminClient(), {
-    userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,
-    kind: offerCents !== null ? "offer_received" : "message",
-    actorId: user.id,
-    listingId: convo.listing_id,
-    conversationId: id,
-  })
+  // The doorbell first, then the bookkeeping. Announcing before the
+  // notification insert takes a database round trip out of the path between the
+  // row being committed and the other person's screen knowing about it — and
+  // nothing below can fail in a way that should stop it ringing.
+  await Promise.all([
+    announceThread(id),
+    supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id),
+    // Whoever is on the other side of this thread hears about the new message.
+    // listing_id is null on a system thread, which the notification already
+    // treats as "about no particular item". Consecutive messages collapse into
+    // one unread row — see lib/notifications.ts.
+    createNotification(createAdminClient(), {
+      userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,
+      kind: offerCents !== null ? "offer_received" : "message",
+      actorId: user.id,
+      listingId: convo.listing_id,
+      conversationId: id,
+    }),
+  ])
 
   return NextResponse.json({ message: inserted })
 }

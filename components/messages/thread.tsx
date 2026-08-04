@@ -56,18 +56,31 @@ type Thread = {
   messages: Msg[]
 }
 
-// A conversation refreshes on a timer because there is no socket behind it, so
-// the interval is the entire cost of having a thread open. Five seconds meant a
-// reader who left the tab open overnight spent the night asking; fifteen still
-// feels live in a conversation people type into, at a third of the traffic.
-const POLL_MS = 15000
 /**
- * The poll once Postgres is pushing changes to us. It is not the mechanism any
- * more, it is the net under it — a websocket can drop without saying so, and a
- * thread that quietly stops updating is worse than one that is a few seconds
- * behind.
+ * How often a thread asks when the socket is NOT carrying it.
+ *
+ * This was fifteen seconds, chosen when the poll was a background top-up behind
+ * a working socket. It is not that: whenever realtime fails to subscribe — a
+ * blocked websocket, a cold WebView, a project without the publication — the
+ * poll IS the delivery mechanism, and a chat that delivers every fifteen
+ * seconds is one where you leave the conversation, come back, and only then see
+ * the reply. That is exactly the reported bug, and no amount of animation
+ * covers a fifteen-second wait.
+ *
+ * Two and a half seconds is chat-grade. It costs one indexed read per tick, only
+ * while the tab is visible and only while the socket is down, which after the
+ * server-side broadcast (lib/messages/announce.ts) should be rare rather than
+ * normal. Being a little expensive in the degraded case is the correct trade
+ * against a conversation that looks broken.
  */
-const POLL_LIVE_MS = 45000
+const POLL_MS = 2500
+/**
+ * The poll once messages are actually being pushed to us. It is not the
+ * mechanism then, it is the net under it — a websocket can drop without saying
+ * so, and a thread that quietly stops updating is worse than one that is a few
+ * seconds behind. Thirty seconds is a heartbeat, not a refresh.
+ */
+const POLL_LIVE_MS = 30000
 
 /**
  * How close together two messages from the same person have to be before they
@@ -169,6 +182,16 @@ export function MessageThread({
   useEffect(() => () => blobs.current.forEach(URL.revokeObjectURL), [])
   const scrollerRef = useRef<HTMLDivElement>(null)
   const stickBottom = useRef(true)
+  /**
+   * Called once, by the first `load()` that comes back with a thread in it.
+   *
+   * A ref rather than a dependency because `load` is defined here, above the
+   * cover it releases, and threading the setter down would mean rebuilding
+   * `load` — and therefore the poll effect that depends on it — every time the
+   * cover changed. It is installed by that cover's own effect and cleared the
+   * moment it fires.
+   */
+  const onFirstLoad = useRef<null | (() => void)>(null)
 
   const load = useCallback(async () => {
     try {
@@ -215,6 +238,10 @@ export function MessageThread({
         )
         return { ...fresh, messages: inFlight.length ? [...merged, ...inFlight] : merged }
       })
+      // The thread on screen is now the server's, not a three-minute-old copy
+      // out of the router cache. Whatever was covering that gap can go.
+      onFirstLoad.current?.()
+      onFirstLoad.current = null
     } catch {
       /* transient — the next poll retries */
     }
@@ -436,9 +463,46 @@ export function MessageThread({
   // ever did — a slow photo must not hold up a conversation you could already
   // be reading. And it covers on the FIRST paint only: a poll or a new message
   // must never drop a loading screen over a thread you are in the middle of.
-  const [covered, setCovered] = useState(() => (initial?.messages ?? []).some((m) => m.kind === "image"))
+  //
+  // THE SECOND REASON IT COVERS is the one that was missing, and it is the whole
+  // of "I land on the conversation and it is empty, then the messages appear".
+  //
+  // `experimental.staleTimes.dynamic` holds this route's rendered payload in the
+  // client router cache for three minutes. Re-open a thread inside that window
+  // and Next hands back the copy from LAST time — a conversation as it stood
+  // when you last looked, missing everything said since. `skipFirstLoad` above
+  // already knows this and refetches immediately, which is correct and is also
+  // exactly what you were watching: the old thread paints, then a few hundred
+  // milliseconds later every message that arrived while you were away drops in
+  // at once.
+  //
+  // So a stale payload covers too, and lifts when the real one has landed. The
+  // arrival becomes one event instead of two — which is what "it should already
+  // be loaded when I land" means. Same 1.2s cap: a slow network uncovers to the
+  // cached thread rather than holding a blank screen indefinitely.
+  const stalePayload = initial !== null && Date.now() - (renderedAt ?? 0) >= 10_000
+  const [imagesPending, setImagesPending] = useState(
+    () => (initial?.messages ?? []).some((m) => m.kind === "image"),
+  )
+  const [awaitingFresh, setAwaitingFresh] = useState(() => stalePayload)
+  const covered = imagesPending || awaitingFresh
+
+  // Lifted when the refetch `skipFirstLoad` triggers has actually landed, or at
+  // the cap — whichever is first. `load()` sets this; the timer is the floor
+  // under a request that never comes back.
   useEffect(() => {
-    if (!covered) return
+    if (!awaitingFresh) return
+    onFirstLoad.current = () => setAwaitingFresh(false)
+    const cap = window.setTimeout(() => setAwaitingFresh(false), 1200)
+    return () => {
+      onFirstLoad.current = null
+      window.clearTimeout(cap)
+    }
+  }, [awaitingFresh])
+
+  useEffect(() => {
+    if (!imagesPending) return
+    const setCovered = setImagesPending
     const el = scrollerRef.current
     if (!el) {
       setCovered(false)
@@ -1085,7 +1149,15 @@ export function MessageThread({
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white transition-opacity duration-[240ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]"
           style={{ opacity: covered ? 1 : 0, visibility: covered ? "visible" : "hidden" }}
         >
-          <IosSpinner size={24} />
+          {/* Held back a quarter of a second. Most covers lift faster than
+              that — a stale payload is one round trip, and photos already in
+              the browser cache decode in a frame — and a spinner that appears
+              and disappears inside 200ms is a blink, which is exactly the kind
+              of flicker the cover exists to prevent. `both` keeps it invisible
+              during the delay rather than merely un-animated. */}
+          <span className="animate-[fade-in_200ms_ease-out_260ms_both]">
+            <IosSpinner size={24} />
+          </span>
         </div>
       <div
         ref={scrollerRef}

@@ -178,6 +178,31 @@ create policy notifications_update on public.notifications
   for update using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- And you may throw your own away.
+--
+-- This was missing, and its absence is a specific bug rather than a gap. RLS is
+-- deny-by-default per COMMAND: with select and update policies present and no
+-- delete policy, a DELETE is not rejected — it matches zero rows and reports
+-- success. So the app's "dismiss notification" removed the row from the screen,
+-- got `{ ok: true }` back, and watched it return on the next load, with nothing
+-- anywhere saying why.
+--
+-- The app no longer deletes notifications at all (it marks them read, which is
+-- what Depop and Vinted do and what the update policy above already allowed),
+-- so this exists to make DELETE /api/notifications mean what it says if anything
+-- ever calls it — an account teardown, a moderation tool — rather than to
+-- restore a button.
+drop policy if exists notifications_delete on public.notifications;
+create policy notifications_delete on public.notifications
+  for delete using (auth.uid() = user_id);
+
+-- "My unread, in this conversation" — the lookup that collapses a burst of
+-- messages into one notification instead of one per line (lib/notifications.ts).
+-- Partial, because a read row is never the answer to it.
+create index if not exists notifications_convo_unread_idx
+  on public.notifications (user_id, conversation_id)
+  where read_at is null;
+
 
 -- ===========================================================================
 -- The official Storelib account

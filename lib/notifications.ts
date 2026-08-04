@@ -31,6 +31,40 @@ export async function createNotification(
 ): Promise<void> {
   if (!input.userId || input.userId === input.actorId) return
   try {
+    // One unread notification per conversation, not one per message.
+    //
+    // A message notification is "somebody wrote to you", and that fact does not
+    // become truer the fourth time. Sending five lines in a row produced five
+    // rows here, so a two-minute exchange buried the follows and the offers —
+    // the things you actually needed to be told — under a transcript of a
+    // conversation you were already reading. Every chat app collapses this; the
+    // unread badge is what carries the count.
+    //
+    // Scoped to `message` and to UNREAD rows: once you have seen the old one it
+    // has done its job, and the next message is news again. Reading the row you
+    // would be duplicating is one indexed lookup on a partial index that already
+    // exists for the badge.
+    if (input.kind === "message" && input.conversationId) {
+      const { data: already } = await admin
+        .from("notifications")
+        .select("id")
+        .eq("user_id", input.userId)
+        .eq("kind", "message")
+        .eq("conversation_id", input.conversationId)
+        .is("read_at", null)
+        .limit(1)
+        .maybeSingle()
+      if (already) {
+        // Moved to the top of the feed rather than left where it was. The row
+        // is about the conversation, and the conversation just moved.
+        await admin
+          .from("notifications")
+          .update({ created_at: new Date().toISOString(), actor_id: input.actorId })
+          .eq("id", already.id)
+        return
+      }
+    }
+
     const { error } = await admin.from("notifications").insert({
       user_id: input.userId,
       kind: input.kind,

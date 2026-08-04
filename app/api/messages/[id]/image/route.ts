@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
+import { announceThread } from "@/lib/messages/announce"
 import { encodeImageBody } from "@/lib/messages/image-fallback"
 
 /**
@@ -224,15 +225,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     )
   }
 
-  await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
-
-  await createNotification(admin, {
-    userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,
-    kind: "message",
-    actorId: user.id,
-    listingId: convo.listing_id,
-    conversationId: id,
-  })
+  // Rung from the server, so the other side hears about the photo even if the
+  // sender's socket never came up. See lib/messages/announce.ts.
+  await Promise.all([
+    announceThread(id),
+    supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id),
+    createNotification(admin, {
+      userId: convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id,
+      kind: "message",
+      actorId: user.id,
+      listingId: convo.listing_id,
+      conversationId: id,
+    }),
+  ])
 
   // Signed for the sender straight away, so the bubble it replaces can show the
   // real photo rather than waiting for the next poll to hand it a link.

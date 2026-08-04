@@ -28,6 +28,19 @@ import { readSessionAuth } from "@/lib/auth/current-user"
  *
  * On the caller's own client, so RLS is what limits it to their rows — a delete
  * naming somebody else's id simply matches nothing.
+ *
+ * NOT WIRED TO ANYTHING in the app, deliberately, and worth reading before it
+ * is. The `notifications` table has row-level security enabled with a select
+ * policy and an update policy and no DELETE policy, which means these
+ * statements match zero rows, raise no error, and return `{ ok: true }` over
+ * rows that are all still there. That is what made "delete notification" appear
+ * to work and undo itself on the next load.
+ *
+ * The feed marks read instead (POST below), which is both what Depop and Vinted
+ * do and what the current policies actually permit. This handler stays for a
+ * future moderation or account-deletion path, and the delete policy that would
+ * make it real is in supabase/sql/RUN_MESSAGING_ALL.sql — until that has run,
+ * calling this is a no-op that says otherwise.
  */
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient()
@@ -124,18 +137,45 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
 
-  let payload: { action?: string }
+  let payload: { action?: string; id?: string }
   try {
     payload = await request.json()
   } catch {
     return NextResponse.json({ error: "Bad body" }, { status: 400 })
   }
+
+  const now = new Date().toISOString()
+
+  // Marking ONE read — what tapping a notification does.
+  //
+  // This is the write the feed is actually built on now. Dismissing used to be a
+  // DELETE, and the table has RLS enabled with select and update policies and no
+  // delete policy, so every one of those statements matched nothing, raised
+  // nothing, and reported success over a row that was still there. Read is an
+  // UPDATE, which the existing `notifications_update` policy allows, so it works
+  // on the schema as it stands rather than on the schema somebody has to
+  // remember to migrate to.
+  if (payload?.action === "read") {
+    const id = typeof payload.id === "string" ? payload.id : ""
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    // The user_id filter is belt to RLS's braces: the policy already restricts
+    // this to the caller's rows, so naming somebody else's id updates nothing.
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read_at: now })
+      .eq("user_id", user.id)
+      .eq("id", id)
+      .is("read_at", null)
+    if (error) console.error("[notifications] read failed:", error.message)
+    return NextResponse.json({ ok: true })
+  }
+
   if (payload?.action !== "read-all") return NextResponse.json({ error: "Bad action" }, { status: 400 })
 
   // Caller's client on purpose: RLS makes "all unread" mean "all of MY unread".
   const { error } = await supabase
     .from("notifications")
-    .update({ read_at: new Date().toISOString() })
+    .update({ read_at: now })
     .eq("user_id", user.id)
     .is("read_at", null)
   if (error) console.error("[notifications] read-all failed:", error.message)

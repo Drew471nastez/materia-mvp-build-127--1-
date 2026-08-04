@@ -131,10 +131,15 @@ export function MessagesInbox({
 }) {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">("messages")
-  // Nothing animates on the first paint — a list that fades in on arrival reads
-  // as a slow page, not as a transition. The flag flips on the first switch and
-  // stays flipped, so only the swaps a person actually asked for are animated.
-  const [switched, setSwitched] = useState(false)
+  // No entrance on the lists behind this switcher, in either direction.
+  //
+  // There used to be a 180ms fade on the incoming one. The intent was to soften
+  // the swap; the effect was that the notifications you had just asked to see
+  // arrived slightly translucent and then settled, which reads as the tab
+  // loading rather than as the tab changing. The pill already slides — that IS
+  // the transition, it is continuous, and it tracks the finger. A second
+  // animation on the content underneath it is one more thing happening than was
+  // asked for, on a control you press constantly.
   const [rows, setRows] = useState<Row[] | null>(initialConversations)
   // Read once. A set rebuilt on every render would make the memo below useless
   // and, worse, would let a row flicker back in between a delete and its write.
@@ -313,26 +318,63 @@ export function MessagesInbox({
     [viewerId],
   )
 
-  /** Dismiss one notification, or all of them. Optimistic for the same reason
-   *  the conversation swipe is: the row is already off the side of the screen. */
-  const dismissNotif = useCallback(async (notifId: string) => {
-    setNotifs((prev) => (prev ? prev.filter((n) => n.id !== notifId) : prev))
+  /**
+   * Read, not deleted — which is both what the platforms do and what actually
+   * works here.
+   *
+   * The old behaviour was a swipe on each row that called DELETE, and it never
+   * persisted: `public.notifications` has RLS enabled with a select policy and
+   * an update policy and NO delete policy, so the statement matched zero rows,
+   * returned no error, and the API answered `{ ok: true }` over a row that was
+   * still there. The list emptied optimistically and refilled on the next load.
+   * A delete that silently does nothing is worse than no delete at all.
+   *
+   * But the fix is not "add a delete policy". Look at what a notification is:
+   * a nudge about something that already happened, which is still on its own
+   * screen — the follow is on your profile, the offer is in the thread. Neither
+   * Depop nor Vinted lets you delete them one by one, because there is nothing
+   * to curate; you read them and they stop being new. So tapping one marks it
+   * read, "mark all read" clears the badge in one go, and the thirty-day horizon
+   * in the API drops the old ones on its own. Nothing to swipe, nothing that can
+   * fail silently, and the same behaviour as every app this one is measured
+   * against.
+   */
+  const readNotif = useCallback(async (notifId: string) => {
+    let wasUnread = false
+    setNotifs((prev) => {
+      if (!prev) return prev
+      return prev.map((n) => {
+        if (n.id !== notifId || n.readAt) return n
+        wasUnread = true
+        return { ...n, readAt: new Date().toISOString() }
+      })
+    })
+    if (!wasUnread) return
+    setNotifUnread((u) => Math.max(0, u - 1))
     try {
-      await fetch(`/api/notifications?id=${encodeURIComponent(notifId)}`, {
-        method: "DELETE",
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({ action: "read", id: notifId }),
       })
     } catch {
       /* the next load reconciles */
     }
   }, [])
 
-  const clearNotifs = useCallback(async () => {
+  const readAllNotifs = useCallback(async () => {
     void triggerHaptic("light")
-    setNotifs([])
+    const now = new Date().toISOString()
+    setNotifs((prev) => (prev ? prev.map((n) => (n.readAt ? n : { ...n, readAt: now })) : prev))
     setNotifUnread(0)
     try {
-      await fetch("/api/notifications", { method: "DELETE", credentials: "include" })
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "read-all" }),
+      })
     } catch {
       /* the next load reconciles */
     }
@@ -373,7 +415,6 @@ export function MessagesInbox({
     (next: "messages" | "notifications") => {
       if (next === tab) return
       void triggerHaptic("light")
-      setSwitched(true)
       setTab(next)
     },
     [tab],
@@ -486,13 +527,7 @@ export function MessagesInbox({
               writes the transform straight to this node, so a drag never goes
               through React. */}
           <div ref={listRef} className="min-h-full" style={{ transform: "translate3d(0, 0, 0)" }}>
-            <div
-              key={tab}
-              className={cn(
-                "flex min-h-full flex-col",
-                switched && "animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none",
-              )}
-            >
+            <div key={tab} className="flex min-h-full flex-col">
               {/* No entrance on the rows.
                   A staggered rise looked considered in isolation and reads, on a
                   screen you open twenty times a day, as the inbox arriving in
@@ -501,7 +536,7 @@ export function MessagesInbox({
               {tab === "messages" ? (
                 <MessagesList rows={visibleRows} formatPrice={formatPrice} onDelete={(id) => setPendingDelete(rows?.find((r) => r.id === id) ?? null)} />
               ) : (
-                <NotificationsList items={notifs} onDismiss={dismissNotif} onClear={clearNotifs} />
+                <NotificationsList items={notifs} onRead={readNotif} onReadAll={readAllNotifs} />
               )}
             </div>
           </div>
@@ -740,12 +775,12 @@ const BUCKET_LABEL: Record<string, string> = {
 
 function NotificationsList({
   items,
-  onDismiss,
-  onClear,
+  onRead,
+  onReadAll,
 }: {
   items: Notif[] | null
-  onDismiss: (id: string) => void
-  onClear: () => void
+  onRead: (id: string) => void
+  onReadAll: () => void
 }) {
   if (items === null) return <ListSkeleton />
   if (items.length === 0) {
@@ -769,15 +804,21 @@ function NotificationsList({
 
   return (
     <>
-      <div className="flex justify-end px-2 pb-2">
-        <button
-          type="button"
-          onClick={onClear}
-          className="rounded-full px-2.5 py-1 text-[13px] font-semibold text-neutral-500 transition-colors active:bg-neutral-100"
-        >
-          Șterge tot
-        </button>
-      </div>
+      {/* Shown only when there is something to mark. A permanently visible
+          action over a list that is entirely read is a button that does
+          nothing — and "Șterge tot", which this replaces, was worse than that:
+          it did nothing while appearing to work. */}
+      {items.some((n) => !n.readAt) && (
+        <div className="flex justify-end px-2 pb-2">
+          <button
+            type="button"
+            onClick={onReadAll}
+            className="rounded-full px-2.5 py-1 text-[13px] font-semibold text-[#7c3aed] transition-colors active:bg-[#7c3aed]/10"
+          >
+            Marchează toate ca citite
+          </button>
+        </div>
+      )}
 
       <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
         {items.map((n) => {
@@ -826,20 +867,20 @@ function NotificationsList({
                 {BUCKET_LABEL[bucket]}
               </li>
             )}
-            <li className={cn(ROW_DIVIDER, "group/row")}>
-              <ConversationRow
-                onDelete={() => onDismiss(n.id)}
-                actionLabel="Ascunde"
-                ariaLabel="Ascunde notificarea"
-              >
-                {href ? (
-                  <Link href={href} className={rowClass}>
-                    {inner}
-                  </Link>
-                ) : (
-                  <span className={rowClass}>{inner}</span>
-                )}
-              </ConversationRow>
+            {/* No swipe wrapper. There is nothing to delete — see readNotif
+                above — and a row that slides open onto an action that cannot
+                persist is an invitation to discover that it does not. Tapping
+                marks it read on the way to wherever it points. */}
+            <li className={ROW_DIVIDER}>
+              {href ? (
+                <Link href={href} className={rowClass} onClick={() => onRead(n.id)}>
+                  {inner}
+                </Link>
+              ) : (
+                <button type="button" className={cn(rowClass, "w-full text-left")} onClick={() => onRead(n.id)}>
+                  {inner}
+                </button>
+              )}
             </li>
           </Fragment>
         )
