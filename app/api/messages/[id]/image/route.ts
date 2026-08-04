@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
+import { encodeImageBody } from "@/lib/messages/image-fallback"
 
 /**
  * POST /api/messages/:id/image  (multipart: file)  → { message }
@@ -111,7 +112,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // The PATH, not a URL. See the note at the top: what is readable is decided
   // at read time, for the reader who is asking, not baked into a row forever.
-  const { data: inserted, error } = await supabase
+  const COLUMNS = "id, sender_id, kind, body, image_url, offer_cents, offer_status, created_at, read_at"
+  const COLUMNS_LEGACY = "id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at"
+
+  let { data: inserted, error } = await supabase
     .from("messages")
     .insert({
       conversation_id: id,
@@ -120,26 +124,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       image_url: path,
       body: caption || null,
     })
-    .select("id, sender_id, kind, body, image_url, offer_cents, offer_status, created_at, read_at")
+    .select(COLUMNS)
     .single()
+
+  // The database has not had its migration run — no `image_url`, or a shape
+  // constraint that still refuses an image row. That is not the sender's fault
+  // and it should not be the sender's problem, so the photo goes in as a text
+  // message with its path encoded in the body, which the reader decodes back.
+  // See lib/messages/image-fallback.ts for why this is safe to leave in place
+  // permanently rather than being a thing to clean up later.
+  let encoded = false
+  if (error && /image_url|messages_shape|messages_kind_check|column .* does not exist|violates check constraint/i.test(error.message || "")) {
+    encoded = true
+    ;({ data: inserted, error } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: id,
+        sender_id: user.id,
+        kind: "text",
+        body: encodeImageBody(path, caption || null),
+      })
+      .select(COLUMNS_LEGACY)
+      .single())
+  }
+
   if (error || !inserted) {
     // The row is what makes the object reachable; without it the upload is
     // litter in a private bucket nobody will ever ask for again.
     await admin.storage.from("messages").remove([path])
     console.error("[messages/image] insert failed:", error)
-    // The two failures worth naming, because they are the two that actually
-    // happen and neither is the user's doing: the column the photo's path goes
-    // in does not exist yet, or the constraint that permits an image row has not
-    // been widened. Both mean the migration has not been run, and "Could not
-    // send" sends whoever hits it looking in entirely the wrong place.
-    const detail = error?.message || ""
-    const migrationMissing = /image_url|messages_shape|messages_kind_check|column .* does not exist/i.test(detail)
     return NextResponse.json(
-      {
-        error: migrationMissing
-          ? "Trimiterea de fotografii nu este activată încă pe acest server."
-          : `Nu am putut trimite fotografia: ${detail || "eroare necunoscută"}`,
-      },
+      { error: `Nu am putut trimite fotografia: ${error?.message || "eroare necunoscută"}` },
       { status: 500 },
     )
   }
@@ -158,5 +173,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // real photo rather than waiting for the next poll to hand it a link.
   const { data: signed } = await admin.storage.from("messages").createSignedUrl(path, 60 * 60)
 
-  return NextResponse.json({ message: { ...inserted, image_url: signed?.signedUrl ?? null } })
+  // Handed back in the shape the client renders, whichever way it was stored —
+  // the encoded body is an implementation detail of the row, not of the message.
+  return NextResponse.json({
+    message: {
+      ...(inserted as Record<string, unknown>),
+      kind: "image",
+      body: encoded ? caption || null : (inserted as { body: string | null }).body,
+      image_url: signed?.signedUrl ?? null,
+    },
+  })
 }

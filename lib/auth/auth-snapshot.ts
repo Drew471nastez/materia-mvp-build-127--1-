@@ -69,6 +69,8 @@ export function clearAuthSnapshot(): void {
     // visitor to this phone opening the app to somebody else's saves. Signing
     // out is the moment that has to stop being true.
     localStorage.removeItem("storelib_wishlist_ids_v1")
+    // Same reasoning: who you follow is yours, not this device's.
+    localStorage.removeItem("storelib_following_ids_v1")
   } catch {
     /* ignore */
   }

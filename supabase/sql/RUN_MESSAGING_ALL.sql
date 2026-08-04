@@ -573,6 +573,86 @@ alter table public.messages
 -- then writes this one field with the service role.
 
 
+
+-- ===========================================================================
+-- Following, and who is online
+-- ===========================================================================
+-- Not messaging, but in this file for the same reason everything else is: the
+-- Follow button on a member page cannot work if `public.follows` does not
+-- exist, and the symptom — a button that does nothing — looks like a bug in the
+-- button rather than a table that was never created.
+
+-- (supabase/migrations/20260731_follows.sql)
+
+-- ============================================================================
+-- storelib — the follow graph
+--
+-- Backs the Following tab in the mobile feed and the Follow control on each
+-- listing. Safe to run more than once.
+--
+-- A follow points at a PROFILE (which is an auth user), not at a creator row.
+-- Sellers are reached through creators, but a person is the thing you follow —
+-- that way the People results in search can use exactly the same button, and a
+-- seller who later gains or changes a creator row keeps their followers.
+-- ============================================================================
+
+create table if not exists public.follows (
+  id uuid primary key default gen_random_uuid(),
+  follower_id uuid not null references auth.users (id) on delete cascade,
+  following_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  -- Following yourself is never meaningful and would pollute follower counts.
+  constraint follows_no_self check (follower_id <> following_id),
+  -- Makes a follow idempotent: the API can upsert without racing itself when a
+  -- button is double-tapped.
+  constraint follows_unique unique (follower_id, following_id)
+);
+
+-- "Who do I follow" (the Following feed, and hydrating button state).
+create index if not exists idx_follows_follower_id on public.follows (follower_id);
+-- "How many follow them" (follower counts on a profile).
+create index if not exists idx_follows_following_id on public.follows (following_id);
+
+alter table public.follows enable row level security;
+
+-- The graph is public, the same way follower counts are public on any
+-- marketplace: anyone may read it, but you may only ever add or remove your own
+-- follows. follower_id is never taken from the request body.
+drop policy if exists "follows are readable by everyone" on public.follows;
+create policy "follows are readable by everyone"
+  on public.follows for select
+  using (true);
+
+drop policy if exists "users insert their own follows" on public.follows;
+create policy "users insert their own follows"
+  on public.follows for insert
+  with check (auth.uid() = follower_id);
+
+drop policy if exists "users delete their own follows" on public.follows;
+create policy "users delete their own follows"
+  on public.follows for delete
+  using (auth.uid() = follower_id);
+
+-- (supabase/migrations/20260731_presence.sql)
+
+-- ============================================================================
+-- storelib — last-seen presence
+--
+-- Backs the online/offline dot on the Following list. Deliberately a single
+-- timestamp rather than a realtime presence channel: the dot only needs to say
+-- "around recently", and a column costs nothing to read alongside the profile
+-- rows we already fetch. Safe to run more than once.
+-- ============================================================================
+
+alter table public.profiles
+  add column if not exists last_seen_at timestamptz;
+
+-- Read as part of "who do I follow", so it's worth an index once follow lists
+-- get long enough to sort or filter on.
+create index if not exists idx_profiles_last_seen_at
+  on public.profiles (last_seen_at desc nulls last);
+
+
 -- ===========================================================================
 -- What actually ran — every number here should be as commented
 -- ===========================================================================
@@ -592,4 +672,6 @@ select
   (select count(*) from information_schema.columns
     where table_schema = 'public' and table_name = 'messages'
       and column_name in ('image_url', 'deleted_at'))                   as message_columns,   -- 2
-  (select count(*) from storage.buckets where id = 'messages')          as messages_bucket;   -- 1
+  (select count(*) from storage.buckets where id = 'messages')          as messages_bucket,   -- 1
+  to_regclass('public.follows')              as follows,                -- not null
+  to_regclass('public.wishlist_items')       as wishlist_items;         -- not null

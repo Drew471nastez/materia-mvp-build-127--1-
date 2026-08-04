@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { BadgeCheck, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+import { ConversationRow } from "@/components/messages/conversation-row"
 import { MessagesEmptyState } from "@/components/messages/empty-state"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
@@ -238,6 +239,25 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
   const listRef = useRef<HTMLDivElement>(null)
   const spinnerRef = useRef<HTMLDivElement>(null)
 
+  // Removing a conversation from this list, from the list itself.
+  //
+  // Optimistic, and deliberately so: the row is already off the side of the
+  // screen by the time this runs, and putting it back for the length of a round
+  // trip would be the one animation nobody wants to see reversed.
+  const removeConversation = useCallback(async (conversationId: string) => {
+    setRows((prev) => (prev ? prev.filter((r) => r.id !== conversationId) : prev))
+    try {
+      await fetch(`/api/messages/${conversationId}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "delete" }),
+      })
+    } catch {
+      /* the next focus refresh reconciles */
+    }
+  }, [])
+
   const onRefresh = useCallback(async () => {
     // Whichever list is actually on screen. Refreshing the other one would be
     // work nobody asked for and, on the notifications side, would mark a batch
@@ -399,7 +419,7 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
                   pieces — every row visibly moving into place before you can use
                   it. The list is simply there. */}
               {tab === "messages" ? (
-                <MessagesList rows={rows} formatPrice={formatPrice} />
+                <MessagesList rows={rows} formatPrice={formatPrice} onDelete={removeConversation} />
               ) : (
                 <NotificationsList items={notifs} />
               )}
@@ -411,7 +431,15 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
   )
 }
 
-function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: (cents: number) => string }) {
+function MessagesList({
+  rows,
+  formatPrice,
+  onDelete,
+}: {
+  rows: Row[] | null
+  formatPrice: (cents: number) => string
+  onDelete: (id: string) => void
+}) {
   if (rows === null) return <ListSkeleton />
   // Rare now: everyone gets the Storelib thread on their first visit here, so
   // this only shows where the official account isn't configured at all. The
@@ -450,10 +478,8 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
               }`
             : r.lastMessage?.body || ""
         return (
-          <li
-            key={r.id}
-            className={ROW_DIVIDER}
-          >
+          <li key={r.id} className={cn(ROW_DIVIDER, "group/row")}>
+            <ConversationRow onDelete={() => onDelete(r.id)}>
             <Link
               href={`/messages/${r.id}`}
               // The thread route has a loading boundary now, so there is finally
@@ -541,6 +567,7 @@ function MessagesList({ rows, formatPrice }: { rows: Row[] | null; formatPrice: 
                 <span className="h-12 w-12 shrink-0 rounded-lg bg-neutral-100" />
               )}
             </Link>
+            </ConversationRow>
           </li>
         )
       })}

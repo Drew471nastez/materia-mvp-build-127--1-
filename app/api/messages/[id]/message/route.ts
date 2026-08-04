@@ -54,13 +54,25 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   const admin = createAdminClient()
-  const { error } = await admin
+
+  // Soft first. On a database that has not had its migration run there is no
+  // `deleted_at` to set and no widened constraint to permit an emptied row, so
+  // the update is refused — and a delete that silently does nothing is the worst
+  // of the three outcomes. It falls through to removing the row outright, which
+  // is what the reader sees either way: the message is gone. The only thing lost
+  // is the "Mesaj șters" marker in its place.
+  let { error } = await admin
     .from("messages")
     .update({ deleted_at: new Date().toISOString(), body: null, image_url: null })
     .eq("id", messageId)
+
+  if (error && /deleted_at|image_url|messages_shape|column .* does not exist|violates check constraint/i.test(error.message || "")) {
+    ;({ error } = await admin.from("messages").delete().eq("id", messageId))
+  }
+
   if (error) {
     console.error("[messages/message] delete failed:", error)
-    return NextResponse.json({ error: "Nu am putut șterge mesajul" }, { status: 500 })
+    return NextResponse.json({ error: `Nu am putut șterge mesajul: ${error.message}` }, { status: 500 })
   }
 
   // The photo goes with it. Leaving the object behind would mean a "deleted"

@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { decodeImageBody } from "@/lib/messages/image-fallback"
 import {
   ensureSystemConversation,
   fetchProfilesWithOfficial,

@@ -9,6 +9,7 @@ import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { MessageActions } from "@/components/messages/message-actions"
 import { ThreadDetails } from "@/components/messages/thread-details"
+import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
@@ -415,7 +416,9 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       // Ours. We drew it the instant it was typed; the server agreeing is not
       // news, and re-rendering the thread to celebrate is the glitch.
       if (row.sender_id === meRef.current) return
-      if (row.kind === "image") return refetch()
+      // An image, or a text row that is really an image filed the fallback way:
+      // either needs a signed link, and only the server can mint one.
+      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
@@ -448,6 +451,18 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
         (p: any) => onUpdate(p.new),
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        (p: any) => {
+          // A hard delete — what unsending falls back to where the soft-delete
+          // column does not exist. Postgres only carries the primary key on a
+          // DELETE, which is all that is needed to drop it from the list.
+          const gone = p.old?.id
+          if (!gone) return
+          setThread((t2) => (t2 ? { ...t2, messages: t2.messages.filter((m) => m.id !== gone) } : t2))
+        },
       )
       .subscribe((status: string) => {
         // Only SUBSCRIBED means the socket is actually carrying this thread.

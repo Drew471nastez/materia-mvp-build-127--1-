@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { decodeImageBody } from "@/lib/messages/image-fallback"
 import { fetchProfilesWithOfficial, getSystemUserId, isOfficialProfile } from "@/lib/system-account"
 
 /**
@@ -135,10 +136,16 @@ export async function readThread({
   // so a reader gets a link minted for them, now, that expires. One batch call
   // rather than one per photo — a thread with twenty pictures in it must not be
   // twenty round trips to storage.
-  const messages = ((messagesRes.data ?? []) as unknown as ThreadMessage[]).map((m) => ({
-    ...m,
-    image_url: m.image_url ?? null,
-  }))
+  // A photo stored the fallback way is a text row with its path in the body.
+  // Decoded here, once, so nothing downstream — the client, the inbox preview,
+  // the action sheet — has to know there are two ways a photo can be filed.
+  const messages = ((messagesRes.data ?? []) as unknown as ThreadMessage[]).map((m) => {
+    const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
+    if (encoded) {
+      return { ...m, kind: "image" as const, body: encoded.caption, image_url: encoded.path }
+    }
+    return { ...m, image_url: m.image_url ?? null }
+  })
   const paths = messages
     .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
     .map((m) => m.image_url as string)

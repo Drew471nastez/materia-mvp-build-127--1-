@@ -9,7 +9,39 @@ import { useCallback, useSyncExternalStore } from "react"
 // card you actually tapped. useSyncExternalStore with a per-id snapshot re-renders
 // only the button that changed. Same reasoning as the wishlist store next door.
 
-let following = new Set<string>()
+/**
+ * Who this browser last knew you were following.
+ *
+ * The same correction the wishlist store needed, for the same reason: until the
+ * graph is fetched, every Follow button on the screen is drawn from an empty
+ * set — and empty renders as "not following". For the length of that round trip
+ * the page is telling you something untrue about your own account, and the
+ * button you press to unfollow says Follow. Read back synchronously at module
+ * load, before anything renders; the fetch still wins.
+ */
+const CACHE_KEY = "storelib_following_ids_v1"
+
+function readCache(): Set<string> {
+  if (typeof localStorage === "undefined") return new Set()
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) ? new Set(parsed.filter((v): v is string => typeof v === "string")) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function writeCache(ids: Set<string>): void {
+  if (typeof localStorage === "undefined") return
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify([...ids]))
+  } catch {
+    /* quota, private mode — the store still works, it is just cold next time */
+  }
+}
+
+let following = readCache()
 let loaded = false
 let inflight: Promise<void> | null = null
 
@@ -40,6 +72,7 @@ async function load(): Promise<void> {
       const next = new Set<string>(Array.isArray(data?.ids) ? data.ids : [])
       for (const [id, on] of pending) on ? next.add(id) : next.delete(id)
       following = next
+      writeCache(next)
       loaded = true
       emit()
     } catch {
@@ -90,6 +123,7 @@ export function useToggleFollow() {
     const optimistic = new Set(following)
     next ? optimistic.add(id) : optimistic.delete(id)
     following = optimistic
+    writeCache(optimistic)
     pending.set(id, next)
     emit()
 
@@ -105,6 +139,7 @@ export function useToggleFollow() {
         const rolled = new Set(following)
         next ? rolled.delete(id) : rolled.add(id)
         following = rolled
+        writeCache(rolled)
         pending.delete(id)
         emit()
         return null
@@ -125,6 +160,7 @@ export function useToggleFollow() {
 /** Drop the cache so the next read refetches (after sign-in, or a feed refresh). */
 export function resetFollowStore() {
   following = new Set()
+  writeCache(following)
   loaded = false
   pending.clear()
   emit()

@@ -1,3 +1,4 @@
+import { IosSpinner } from "@/components/explore/ios-spinner"
 /**
  * The shell a conversation paints the instant a row is tapped.
  *
@@ -43,18 +44,14 @@ export default function ThreadLoading() {
         </div>
       </div>
 
-      {/* Bottom-aligned, because a real conversation opens scrolled to its end.
-          Drawn at the top, these bars sat where no message ever is, and the
-          swap moved the whole exchange from the top of the screen to the
-          bottom in one frame — the single most visible thing about opening a
-          thread, and the reason it read as a jump rather than a load. */}
-      <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-4">
-        <div className="flex flex-col gap-3">
-          <div className="h-9 w-2/3 animate-pulse rounded-2xl rounded-bl-md bg-neutral-100" />
-          <div className="ml-auto h-9 w-1/2 animate-pulse rounded-2xl rounded-br-md bg-neutral-100" />
-          <div className="h-16 w-3/5 animate-pulse rounded-2xl rounded-bl-md bg-neutral-100" />
-          <div className="ml-auto h-9 w-2/5 animate-pulse rounded-2xl rounded-br-md bg-neutral-100" />
-        </div>
+      {/* A spinner, not a mock-up of a conversation.
+          Grey bars pretending to be messages are a guess at content nobody can
+          read, and the moment they are replaced by real words the swap is
+          visible no matter how well the boxes line up. One quiet indicator says
+          the honest thing — this is loading — and has nothing to be replaced BY.
+          Centred, because that is where the eye already is. */}
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <IosSpinner size={26} />
       </div>
 
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
