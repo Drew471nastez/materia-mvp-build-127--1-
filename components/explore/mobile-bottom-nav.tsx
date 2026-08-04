@@ -234,11 +234,27 @@ export function MobileBottomNav({
             "mfeed.inbox",
             <span className="relative">
               <InboxIcon active={shown === "inbox"} className="tab-press h-[25px] w-[25px]" />
-              {unread > 0 && (
-                <span className="absolute -right-1.5 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#7c3aed] px-[3px] text-[10px] font-bold leading-none text-white ring-2 ring-white">
-                  {unread > 9 ? "9+" : unread}
-                </span>
-              )}
+              {/* A DOT, not a count.
+                  
+                  A number on a tab is a number you cannot act on: it tells you
+                  "four" while giving you nothing to do about any of them, and
+                  it has to shout to be legible at ten pixels — bold white on
+                  brand purple with a ring around it, which on a bar of quiet
+                  grey glyphs is the loudest thing on the screen by some
+                  distance. The count is a fact about a LIST, and it is already
+                  in the list, on the rows it belongs to.
+                  
+                  What a tab needs to say is only "there is something here",
+                  and a dot says exactly that in eight pixels. It is what
+                  Instagram and Depop both settled on, for the same reason.
+                  
+                  The white ring stays: it is what keeps the dot legible where
+                  it overlaps the glyph, and it is one pixel. */}
+              <span
+                aria-label={unread > 0 ? `${unread} necitite` : undefined}
+                className="unread-dot absolute -right-[3px] -top-[2px] h-[8px] w-[8px] rounded-full bg-[#7c3aed] ring-[1.5px] ring-white"
+                data-on={unread > 0 ? "1" : undefined}
+              />
             </span>,
             shown === "inbox",
           )}

@@ -2266,6 +2266,60 @@ html[data-keyboard="open"] .thread-composer {
    while the scale is still travelling: a glyph that fades over the whole
    movement reads as soft, one that is fully there while it is still moving
    reads as solid — which is the entire point of a filled state. */
+/* The dip under a finger, on the GLYPH and nothing else.
+ *
+ * RESTORED. This was deleted by accident when the fill animation was rewritten
+ * as a cross-fade — the replacement block swallowed the rule while every tab
+ * kept `.tab-press` in its markup, so the press feedback silently did nothing
+ * for several commits. Markup referencing a class that no longer exists fails
+ * exactly this quietly, which is why it survived being looked at.
+ *
+ * A tab bar must acknowledge a press, and the two obvious ways are both wrong:
+ * scaling the whole tab drags the label around with it, which is the cheap
+ * web-button look a native bar never has, and the platform's own tap highlight
+ * paints a grey rectangle over a fifth of the bar.
+ *
+ * So the icon alone dips 8%, instantly — no transition on the way down, because
+ * a press that eases in has already stopped being a response to the press.
+ * Coming back up is eased, because that half is the release.
+ *
+ * `:active` on the ancestor rather than on the svg: the whole column is the
+ * target, so pressing anywhere in that band has to move the glyph in it. */
+.group:active .tab-press {
+  transform: scale(0.92);
+  transition: none;
+}
+.tab-press {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:active .tab-press { transform: none; }
+}
+
+/* The unread dot on the inbox tab.
+ *
+ * Transitioned rather than mounted, for the same reason the glyphs below are:
+ * it appears the moment a message lands on a screen somebody is looking at, and
+ * a dot that pops into existence at full size in the corner of the eye is a
+ * flicker. It grows from nothing with a little overshoot and shrinks away the
+ * same path when the last one is read.
+ *
+ * `pointer-events: none` because it sits over the glyph inside the tap target
+ * and must never be the thing a tap lands on. */
+.unread-dot {
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+  transition: opacity 140ms ease-out, transform 300ms cubic-bezier(0.16, 2.2, 0.4, 1);
+}
+.unread-dot[data-on] {
+  opacity: 1;
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .unread-dot { transition: opacity 120ms linear; transform: scale(1); }
+}
+
 .tab-glyph {
   position: relative;
   display: block;

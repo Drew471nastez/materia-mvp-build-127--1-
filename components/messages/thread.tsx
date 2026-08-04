@@ -422,7 +422,17 @@ export function MessageThread({
       // wholesale would make what you just sent vanish for the rest of the round
       // trip and then reappear — which looks exactly like a message failing.
       setThread((prev) => {
-        const inFlight = prev?.messages.filter((m) => m.pending) ?? []
+        // PENDING **AND FAILED**, and leaving the second one out was a bug that
+        // undid the whole point of having a failed state.
+        //
+        // A message that did not send exists only here — the server has never
+        // heard of it, so it is not in `fresh` and never will be. Keeping only
+        // the pending ones meant the next poll dropped it, which on a 2.5s
+        // interval is two and a half seconds after it failed: the bubble, the
+        // text, and the "Reîncearcă" that was supposed to save it, all gone
+        // before you could reach for it. Exactly the loss the failed state was
+        // added to prevent, arriving by a different route.
+        const inFlight = prev?.messages.filter((m) => m.pending || m.failed) ?? []
         // A photo already on screen keeps the copy already decoded in memory.
         // The server's signed URL is the same picture behind a network fetch, so
         // adopting it would blank the bubble for the length of that fetch — the
@@ -1501,12 +1511,31 @@ export function MessageThread({
         // sendImage draws a fresh optimistic bubble from the same file, so the
         // upload ring and the progress start again from zero rather than
         // resuming a number that means nothing.
+        //
+        // CHECKED FIRST, because `sendImage` refuses while another upload is in
+        // flight — and this had already deleted the bubble by then. Tapping
+        // retry at the wrong moment destroyed the photo outright: removed from
+        // the conversation, nothing sent, and the file only recoverable from
+        // the camera roll. The guard has to be on this side of the delete.
+        if (uploading) {
+          setThread((t) =>
+            t
+              ? {
+                  ...t,
+                  messages: t.messages.map((x) =>
+                    x.id === m.id ? { ...x, pending: false, failed: true } : x,
+                  ),
+                }
+              : t,
+          )
+          return
+        }
         outbox.current.delete(m.id)
         setThread((t) => (t ? { ...t, messages: t.messages.filter((x) => x.id !== m.id) } : t))
         void sendImage(held.file)
       }
     },
-    [deliverText, enqueue, sendImage],
+    [deliverText, enqueue, sendImage, uploading],
   )
 
   // ---- Press and hold ------------------------------------------------------

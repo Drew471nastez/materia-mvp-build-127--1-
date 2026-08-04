@@ -574,7 +574,12 @@ export function MessagesInbox({
             >
               {s.label}
               {s.key === "notifications" && notifUnread > 0 && (
-                <span className="absolute right-2 top-1/2 flex h-[16px] min-w-[16px] -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-[3px] text-[10px] font-bold leading-none text-white">
+                // Brand purple, not red. Red is the colour of something having
+                // gone wrong, and unread notifications are the ordinary state
+                // of an app somebody uses. A count IS right here — this is a
+                // list header, where the number is about to become rows you can
+                // act on — it just does not need to be an alarm.
+                <span className="absolute right-2 top-1/2 flex h-[15px] min-w-[15px] -translate-y-1/2 items-center justify-center rounded-full bg-[#7c3aed] px-[4px] text-[9.5px] font-bold leading-none text-white">
                   {notifUnread > 9 ? "9+" : notifUnread}
                 </span>
               )}
