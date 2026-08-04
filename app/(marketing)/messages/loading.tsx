@@ -17,14 +17,14 @@
  * column starts. Nothing may move when the swap happens; if it does, the
  * handover reads as two events again no matter how fast it is.
  *
- * This is also the only thing on the route that animates. The real page is
- * deliberately still: the arrival has already been played once by the time it
- * mounts, and playing it twice for one navigation is the doubled entrance this
- * whole change exists to remove.
+ * Nothing here animates its own arrival any more. The entrance belongs to the
+ * navigation, not to whichever of the two things rendered — it is played once,
+ * by <main> in the marketing layout, so the tap looks the same whether this
+ * shell was shown at all. See components/marketing/tab-transition.tsx.
  */
 export default function MessagesLoading() {
   return (
-    <div className="tab-enter mx-auto flex min-h-full max-w-2xl flex-col px-2">
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col px-2">
       <h1 className="px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">Mesaje</h1>
 
       {/* The control is drawn, not skeletonised: its labels are constants, so

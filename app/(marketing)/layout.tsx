@@ -6,6 +6,7 @@ import { GlobalMobileNav } from "@/components/marketing/global-mobile-nav"
 import { GlobalMobileTopBar } from "@/components/marketing/global-mobile-topbar"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { ShellScrollReset } from "@/components/marketing/shell-scroll-reset"
+import { TabTransition } from "@/components/marketing/tab-transition"
 
 export default function MarketingLayout({
   children,
@@ -31,7 +32,9 @@ export default function MarketingLayout({
         <GlobalMobileTopBar />
       </Suspense>
 
-      <main className="flex-1 [overflow-x:clip]">{children}</main>
+      {/* Renders the <main> itself — the tab arrival has to be on the element
+          that survives the route swap, not inside it. See tab-transition.tsx. */}
+      <TabTransition className="flex-1 [overflow-x:clip]">{children}</TabTransition>
 
       <Suspense fallback={null}>
         <ConditionalFooter />

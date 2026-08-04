@@ -7,7 +7,7 @@ import {
   FEED_OG_IMAGE,
   FEED_OG_IMAGE_ALT,
   type FeedSearchParams,
-} from "./_explore-feed"
+} from "../_explore-feed"
 
 // SEO-optimized metadata — "/" is the primary marketplace surface.
 // The previous SaaS landing page lives on in ./_legacy-landing.tsx (not routed).

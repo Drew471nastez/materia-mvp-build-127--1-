@@ -9,7 +9,7 @@
  */
 export default function NewListingLoading() {
   return (
-    <div className="tab-enter mx-auto w-full max-w-3xl px-4 py-6">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6">
       <div className="h-6 w-48 animate-pulse rounded bg-neutral-100" />
 
       {/* Photo wells */}

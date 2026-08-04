@@ -26,7 +26,7 @@ import { Settings } from "lucide-react"
  */
 export default function ProfileLoading() {
   return (
-    <div className="tab-enter relative isolate mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
+    <div className="relative isolate mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
       {/* `.profile-wash` carries the geometry, including the pull up into the
           status bar — the same class the real screen uses, so the colour does
           not shift by an inset at the swap. */}
