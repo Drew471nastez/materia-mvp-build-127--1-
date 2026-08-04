@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, RotateCw, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
@@ -73,6 +73,9 @@ type Msg = {
    * and applied as an `aspect-ratio` so the box is right before the pixels are.
    */
   aspect?: number
+  /** The request behind this bubble did not make it. Local only; it stays on
+   *  screen, in place, with a tap to try again. */
+  failed?: boolean
 }
 
 /**
@@ -304,16 +307,17 @@ export function MessageThread({
   const [thread, setThread] = useState<Thread | null>(initial)
   const [failed, setFailed] = useState(false)
   const [draft, setDraft] = useState("")
-  const [sending, setSending] = useState(false)
   /**
-   * An upload specifically, kept apart from `sending`.
+   * An upload in progress. There is deliberately no equivalent for text.
    *
-   * The photo button was disabled — and therefore dimmed to 40% — for the
-   * duration of every TEXT send, because both shared one flag. So the composer
-   * blinked on each message: a control unrelated to what you had just done
-   * fading out and back for the length of a round trip. The two are independent
-   * anyway; nothing about a line of text being in flight makes picking a
-   * photograph unsafe.
+   * A `sending` flag used to gate both, and it did two unhelpful things: it
+   * dimmed the photo button for the length of every TEXT round trip — a control
+   * unrelated to what you had just done, blinking in the corner of the composer
+   * — and it REFUSED a second message until the first came back, which on a
+   * slow connection is a composer that ignores you. Text is queued instead (see
+   * `enqueue`), so you can send as many as you like and they still arrive in
+   * order. A photo keeps its flag, because two uploads at once from one phone
+   * is a genuinely bad idea for the connection they share.
    */
   const [uploading, setUploading] = useState(false)
   const [answering, setAnswering] = useState<string | null>(null)
@@ -455,6 +459,13 @@ export function MessageThread({
     let timer: number | undefined
 
     const ask = () => {
+      // Nothing to ask when there is nothing to ask over. A phone in a lift
+      // polls every 2.5 seconds into a network that is not there, which costs
+      // battery and radio for a request that cannot succeed — and, worse, means
+      // the moment signal returns is up to 2.5 seconds before anyone notices.
+      // The `online` event below is what actually brings the thread back, so
+      // this is a saving with no latency traded for it.
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return
       // The tick is fixed; whether it acts is not. With the socket up, most
       // ticks do nothing — this is a heartbeat checking that realtime has not
       // silently died, not the way messages arrive.
@@ -490,10 +501,19 @@ export function MessageThread({
       }
     }
 
+    // Signal coming back is the single most likely moment for there to be
+    // something waiting, so it is read immediately rather than on the next tick.
+    const onOnline = () => {
+      lastLoadAt.current = 0
+      ask()
+    }
+
     sync()
     document.addEventListener("visibilitychange", sync)
+    window.addEventListener("online", onOnline)
     return () => {
       document.removeEventListener("visibilitychange", sync)
+      window.removeEventListener("online", onOnline)
       stop()
     }
   }, [load])
@@ -1036,25 +1056,113 @@ export function MessageThread({
     }
   }, [id, load])
 
+  /**
+   * Sends go out ONE AT A TIME, in the order you wrote them.
+   *
+   * They used to be gated on `sending`, which meant a second message was simply
+   * refused until the first came back — on a slow connection, a composer that
+   * ignores you. Firing them all in parallel instead is worse: whichever
+   * request wins the race is inserted first, so on a bad connection your
+   * messages arrive out of order for the person reading them, which is the one
+   * failure in a chat that cannot be shrugged off.
+   *
+   * A chain gives both. The bubble is drawn the instant you press send, always;
+   * the REQUEST joins a queue and leaves when the one before it has finished.
+   * Type five lines quickly and all five appear at once and arrive in order.
+   *
+   * `.then(job, job)` rather than `.then(job)`: a rejected link must not break
+   * the chain, or one failed send would silently stop every message after it.
+   */
+  const queue = useRef<Promise<unknown>>(Promise.resolve())
+  const enqueue = useCallback((job: () => Promise<unknown>) => {
+    queue.current = queue.current.then(job, job)
+  }, [])
+
+  /** The text of a message that has not made it, kept for the retry. */
+  const outbox = useRef(new Map<string, { body: string } | { file: File }>())
+
+  /** Mark a bubble as having failed, in place. */
+  const markFailed = useCallback((tempId: string) => {
+    setThread((t) =>
+      t
+        ? {
+            ...t,
+            messages: t.messages.map((m) =>
+              m.id === tempId ? { ...m, pending: false, failed: true } : m,
+            ),
+          }
+        : t,
+    )
+  }, [])
+
+  /**
+   * The request behind a text bubble that is already on screen.
+   *
+   * Split out from `send` so a retry is the same code path as the first
+   * attempt, rather than a second implementation that can drift from it.
+   */
+  const deliverText = useCallback(
+    async (tempId: string, body: string) => {
+      try {
+        const r = await fetch(`/api/messages/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ body }),
+        })
+        if (!r.ok) return markFailed(tempId)
+        const { message } = await r.json()
+        // The real id is recorded as already-seen in the same breath as the
+        // swap, or the bubble would count as new and play its entrance a second
+        // time — the same message animating twice for one send.
+        seen.current?.add(message.id)
+        outbox.current.delete(tempId)
+        stickBottom.current = true
+        setThread((t) =>
+          t
+            ? {
+                ...t,
+                // `localKey` rides along so React sees the same element rather
+                // than a new one — see the note on the field.
+                messages: t.messages.map((m) =>
+                  m.id === tempId ? { ...message, localKey: tempId } : m,
+                ),
+              }
+            : t,
+        )
+        // The other side hears about it now rather than on their next poll.
+        announce("msg")
+      } catch {
+        markFailed(tempId)
+      }
+    },
+    [announce, id, markFailed],
+  )
+
   // Sending puts the message on screen NOW.
   //
   // It used to wait for the round trip: you tapped send, the field emptied, and
   // for as long as the request took there was no message anywhere — the thing
   // you had just written had simply vanished. On anything less than perfect
   // signal that is several seconds of wondering whether it worked. The bubble
-  // is drawn immediately and marked pending, the server's real row replaces it
-  // when it lands, and a failure puts the text back in the field where you can
-  // see it. Nothing is ever silently lost, and the common case — it works —
-  // feels instant because it is.
-  const send = useCallback(async () => {
+  // is drawn immediately and marked pending, and the server's real row replaces
+  // it when it lands.
+  //
+  // A FAILURE NOW LEAVES THE MESSAGE WHERE IT IS, marked, with a tap to try
+  // again. It used to delete the bubble and put the text back in the field,
+  // which is worse in three separate ways: it overwrites whatever you had
+  // started typing since, it loses the message's place in the conversation, and
+  // it makes a failure look like the app forgot. Every chat worth copying keeps
+  // the bubble and puts a retry on it.
+  const send = useCallback(() => {
     const body = draft.trim()
-    if (!body || sending) return
+    if (!body) return
     const tempId = nextTempId()
-    setSending(true)
     setDraft("")
     stickBottom.current = true
     // This one movement is yours, so the thread travels with the bubble.
     glideNext.current = true
+    outbox.current.set(tempId, { body })
     setThread((t) =>
       t
         ? {
@@ -1077,43 +1185,8 @@ export function MessageThread({
           }
         : t,
     )
-    try {
-      const r = await fetch(`/api/messages/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ body }),
-      })
-      if (r.ok) {
-        const { message } = await r.json()
-        // The real id is recorded as already-seen in the same breath as the
-        // swap, or the bubble would count as new and play its entrance a second
-        // time — the same message animating twice for one send.
-        seen.current?.add(message.id)
-        stickBottom.current = true
-        setThread((t) =>
-          t
-            ? {
-                ...t,
-                // `localKey` rides along so React sees the same element rather
-                // than a new one — see the note on the field.
-                messages: t.messages.map((m) => (m.id === tempId ? { ...message, localKey: tempId } : m)),
-              }
-            : t,
-        )
-        // The other side hears about it now rather than on their next poll.
-        announce("msg")
-      } else {
-        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
-        setDraft(body) // give the text back rather than losing it
-      }
-    } catch {
-      setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
-      setDraft(body)
-    } finally {
-      setSending(false)
-    }
-  }, [announce, draft, id, sending])
+    enqueue(() => deliverText(tempId, body))
+  }, [deliverText, draft, enqueue])
 
   // Sending a photo, the same way as sending words: on screen first.
   //
@@ -1135,6 +1208,7 @@ export function MessageThread({
       // reservation — what a phone camera produces most of the time — and the
       // exact ratio replaces it the moment it is known, which is almost always
       // before the first paint has settled.
+      outbox.current.set(tempId, { file })
       void measureAspect(localUrl).then((aspect) => {
         if (!aspect) return
         setThread((t) =>
@@ -1232,6 +1306,7 @@ export function MessageThread({
           // Held until the screen goes, not revoked here: revoking now would
           // break the src we have just committed to.
           blobs.current.push(localUrl)
+          outbox.current.delete(tempId)
           announce("msg")
           return
         } else {
@@ -1241,13 +1316,17 @@ export function MessageThread({
           } catch {
             /* a non-JSON body means the message below is the best we have */
           }
-          setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
-          URL.revokeObjectURL(localUrl)
+          // The bubble stays, with the picture still in it, marked and
+          // retryable. Deleting it meant a photo that took ten seconds to
+          // upload vanished on a hiccup and had to be found in the camera roll
+          // again. The blob is kept alive for the same reason.
+          markFailed(tempId)
+          blobs.current.push(localUrl)
           setImageError(error || "Fotografia nu a putut fi trimisă")
         }
       } catch {
-        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
-        URL.revokeObjectURL(localUrl)
+        markFailed(tempId)
+        blobs.current.push(localUrl)
         setImageError("Fotografia nu a putut fi trimisă")
       } finally {
         setUploading(false)
@@ -1264,7 +1343,44 @@ export function MessageThread({
         }, 220)
       }
     },
-    [announce, id, sending],
+    [announce, id, markFailed, uploading],
+  )
+
+  /**
+   * Try again, from the bubble that failed.
+   *
+   * The same code path as the first attempt — `deliverText` / `sendImage` — so
+   * a retry cannot drift from a send. The bubble goes back to pending in place;
+   * it never leaves the conversation and never has to be retyped.
+   */
+  const retrySend = useCallback(
+    (m: Msg) => {
+      const held = outbox.current.get(m.id)
+      if (!held) return
+      void triggerHaptic("light")
+      setThread((t) =>
+        t
+          ? {
+              ...t,
+              messages: t.messages.map((x) =>
+                x.id === m.id ? { ...x, failed: false, pending: true } : x,
+              ),
+            }
+          : t,
+      )
+      if ("body" in held) {
+        enqueue(() => deliverText(m.id, held.body))
+      } else {
+        // A photo takes its bubble with it: the failed one is dropped and
+        // sendImage draws a fresh optimistic bubble from the same file, so the
+        // upload ring and the progress start again from zero rather than
+        // resuming a number that means nothing.
+        outbox.current.delete(m.id)
+        setThread((t) => (t ? { ...t, messages: t.messages.filter((x) => x.id !== m.id) } : t))
+        void sendImage(held.file)
+      }
+    },
+    [deliverText, enqueue, sendImage],
   )
 
   // ---- Press and hold ------------------------------------------------------
@@ -1867,10 +1983,10 @@ export function MessageThread({
                         ones above it — the time a run ended is the only time
                         anyone reads, and repeating it per bubble is the noise
                         that makes a thread look like a log file. */}
-                    {endsRun && (
+                    {(endsRun || m.failed) && (
                       <div className="mt-1 flex items-center gap-1 px-1 text-[11px] leading-none text-neutral-400">
                         <span className="tabular-nums">{timeLabel(at)}</span>
-                        {mine && i === lastMineIndex && (
+                        {mine && (i === lastMineIndex || m.failed) && (
                           <>
                             <span aria-hidden>·</span>
                             {/* Keyed on the state itself, so going from sent to
@@ -1880,6 +1996,22 @@ export function MessageThread({
                                 by silently swapping four letters — the one
                                 moment in a conversation worth noticing, and the
                                 one it was doing invisibly. */}
+                            {m.failed ? (
+                              // The retry lives HERE, on the receipt line, not
+                              // on the bubble. A bubble that is also a button is
+                              // a bubble you cannot long-press for the actions
+                              // sheet without wondering what a tap will do — and
+                              // a failed message is exactly when you want to be
+                              // able to copy the text out of it.
+                              <button
+                                type="button"
+                                onClick={() => retrySend(m)}
+                                className="receipt flex items-center gap-1 font-semibold text-red-600 transition-opacity active:opacity-60"
+                              >
+                                <RotateCw className="h-3 w-3" strokeWidth={2.6} />
+                                Reîncearcă
+                              </button>
+                            ) : (
                             <span
                               key={m.pending ? "sending" : m.read_at ? "seen" : "sent"}
                               className={cn(
@@ -1894,6 +2026,7 @@ export function MessageThread({
                               )}
                               {m.pending ? "Se trimite…" : m.read_at ? "Văzut" : "Trimis"}
                             </span>
+                            )}
                           </>
                         )}
                       </div>
