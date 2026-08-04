@@ -9,15 +9,24 @@
 -- CREATES public.messages had never been run. 20260806 only adds a column to a
 -- table it assumed was already there.
 --
--- So the four messaging migrations are concatenated here in dependency order:
--- the tables, then notifications, then the official Storelib account, then
--- photos and the safety actions. Every statement in every one of them guards
--- itself (create if not exists / drop policy if exists / add column if not
--- exists), so running this is safe whether you have none of it, some of it, or
--- all of it already.
+-- Every messaging migration is concatenated here in dependency order: the
+-- tables, notifications, the official Storelib account, photos and the safety
+-- actions, then realtime and unsending. Every statement guards itself (create
+-- if not exists / drop policy if exists / add column if not exists), so running
+-- this is safe whether you have none of it, some of it, or all of it already.
 --
--- One prerequisite outside this file: public.products and public.profiles must
--- exist, which they do — the listings themselves depend on them.
+-- NO PREREQUISITES. An earlier version of this file said public.products and
+-- public.profiles had to exist first — they did not, and saying so was worse
+-- than useless because it made the 42P01 look like your database's fault. Every
+-- reference to them is now conditional: the messaging schema installs on an
+-- empty database, and picks up its foreign keys and the is_official flag the
+-- moment those tables appear. Run this file again after them and the
+-- constraints attach themselves.
+--
+-- The one thing to check BEFORE running it is that you are in the right
+-- project. `products` coming back null in the select at the bottom, on a site
+-- that is serving listings right now, means this ran somewhere the app never
+-- reads.
 -- ===========================================================================
 
 
@@ -428,7 +437,7 @@ alter table public.conversations add column if not exists seller_deleted_at time
 
 
 -- ===========================================================================
--- 5. Foreign keys to the listings tables, added only if those tables exist
+-- Foreign keys to the listings tables, added only if those tables exist
 -- ===========================================================================
 -- `listing_id` above is a plain uuid rather than an inline `references
 -- public.products(id)`, and that is not a shortcut — it is the difference
@@ -468,7 +477,7 @@ end $$;
 
 
 -- ===========================================================================
--- 6. Realtime, unsending a message, and leaving a conversation
+-- Realtime, and unsending a message
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
@@ -529,22 +538,6 @@ end $$;
 -- and is almost certainly already here from 20260802.
 create index if not exists messages_conversation_idx
   on public.messages (conversation_id, created_at);
-
-
--- ---------------------------------------------------------------------------
--- 2. Leaving a conversation
--- ---------------------------------------------------------------------------
--- Per person, not per thread. A conversation is shared, so one party pressing
--- delete must not reach into the other party's inbox and remove something they
--- are still in the middle of — it hides the thread from whoever asked, and
--- comes back for them if the other person writes again (the inbox compares
--- `last_message_at` against the delete stamp).
-alter table public.conversations add column if not exists buyer_deleted_at timestamptz;
-alter table public.conversations add column if not exists seller_deleted_at timestamptz;
-
--- No new policy: `conversations_touch` from 20260802 already restricts updates
--- to the two parties, and which of the two columns a caller may set is decided
--- by the API, which knows which side they are on.
 
 
 
