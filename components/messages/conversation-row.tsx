@@ -44,10 +44,15 @@ const SPRING = "transform 320ms cubic-bezier(0.32, 0.72, 0, 1)"
 export function ConversationRow({
   children,
   onDelete,
+  actionLabel = "Șterge",
+  ariaLabel = "Șterge conversația",
   className,
 }: {
   children: React.ReactNode
   onDelete: () => void
+  /** Word on the red panel. A notification is dismissed, not deleted. */
+  actionLabel?: string
+  ariaLabel?: string
   className?: string
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null)
@@ -145,7 +150,7 @@ export function ConversationRow({
           it is simply there, and the row is what travels. */}
       <button
         type="button"
-        aria-label="Șterge conversația"
+        aria-label={ariaLabel}
         onClick={() => {
           void triggerHaptic("light")
           onDelete()
@@ -156,7 +161,7 @@ export function ConversationRow({
       >
         <span className="flex flex-col items-center gap-1">
           <Trash2 className="h-[18px] w-[18px]" />
-          Șterge
+          {actionLabel}
         </span>
       </button>
 
@@ -185,7 +190,7 @@ export function ConversationRow({
         <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 md:block">
           <button
             type="button"
-            aria-label="Acțiuni conversație"
+            aria-label={ariaLabel}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -225,7 +230,7 @@ export function ConversationRow({
                   className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] font-medium text-red-600 transition-colors hover:bg-red-50"
                 >
                   <Trash2 className="h-[16px] w-[16px]" />
-                  Șterge conversația
+                  {ariaLabel}
                 </button>
               </div>
             </>

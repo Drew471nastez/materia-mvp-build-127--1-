@@ -22,6 +22,31 @@ import { readSessionAuth } from "@/lib/auth/current-user"
  * PATCH below exists solely for that same legacy modal.
  */
 
+/**
+ * DELETE /api/notifications        → clear the whole feed
+ * DELETE /api/notifications?id=…   → dismiss one
+ *
+ * On the caller's own client, so RLS is what limits it to their rows — a delete
+ * naming somebody else's id simply matches nothing.
+ */
+export async function DELETE(request: NextRequest) {
+  const supabase = await createClient()
+  const auth = await readSessionAuth(supabase)
+  if (auth.status === "indeterminate") {
+    return NextResponse.json({ error: "Auth unavailable" }, { status: 503 })
+  }
+  if (!auth.userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
+
+  const id = new URL(request.url).searchParams.get("id")
+  const q = supabase.from("notifications").delete().eq("user_id", auth.userId)
+  const { error } = id ? await q.eq("id", id) : await q
+  if (error) {
+    console.error("[notifications] delete failed:", error.message)
+    return NextResponse.json({ error: "Could not clear" }, { status: 500 })
+  }
+  return NextResponse.json({ ok: true })
+}
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
   // Both shapes of this read — the marketplace feed below and the legacy seller
@@ -38,10 +63,23 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   if (searchParams.has("limit")) return legacyGet(supabase, auth.userId, searchParams)
 
+  // Thirty days, and no further.
+  //
+  // A notification is a nudge about something that just happened, and it stops
+  // being that within about a week — "somebody followed you" from March is not
+  // news, it is an archive nobody asked for. Depop and Vinted both cut theirs;
+  // an infinite list is a screen that only ever gets slower and less useful, and
+  // the thing it is telling you about (the follow, the offer, the message) still
+  // exists on its own screen where it belongs.
+  //
+  // Applied as a read filter rather than a delete, so nothing is destroyed and
+  // the window can be widened again by changing one number.
+  const horizon = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const { data: rows, error } = await supabase
     .from("notifications")
     .select("id, kind, actor_id, listing_id, conversation_id, created_at, read_at")
     .eq("user_id", auth.userId)
+    .gte("created_at", horizon)
     .order("created_at", { ascending: false })
     .limit(50)
   // A missing table (migration not yet run) reads as an empty feed, not a 500 —

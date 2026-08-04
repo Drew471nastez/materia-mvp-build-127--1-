@@ -228,7 +228,12 @@ export function MemberProfile({
     // `isolate` is what makes the wash below safe: it gives the negative layer
     // a stacking context of its own, so it can sit behind everything in this
     // column without ever slipping behind the page itself.
-    <div className="relative isolate mx-auto flex min-h-full w-full max-w-[1400px] flex-col px-4 pt-6 md:px-6 md:pt-10">
+    // 1100px, not 1400. A profile is a header and a grid of squares, and at
+    // 1400 on a wide monitor the header's text runs to a line length nobody can
+    // track while the avatar sits marooned at the far left. The narrower measure
+    // is what makes this read as a page rather than as a phone layout that has
+    // been stretched.
+    <div className="relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
       {/* The one piece of colour on the screen, and it is barely there.
           A profile is a person, and a header floating on plain white had
           nothing to say that this was the top of anything — the avatar simply
@@ -275,12 +280,12 @@ export function MemberProfile({
           {/* The white ring and the short shadow are what let the avatar sit ON
               the wash rather than in it. Both are drawn outside the box, so the
               80px the layout is built around is unchanged. */}
-          <span className="block h-20 w-20 overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-24 md:w-24">
+          <span className="block h-20 w-20 overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-28 md:w-28 lg:h-32 lg:w-32">
             {member.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <span className="flex h-full w-full items-center justify-center text-[28px] font-semibold text-neutral-400 md:text-[32px]">
+              <span className="flex h-full w-full items-center justify-center text-[28px] font-semibold text-neutral-400 md:text-[38px] lg:text-[44px]">
                 {name.charAt(0).toUpperCase()}
               </span>
             )}
@@ -299,10 +304,10 @@ export function MemberProfile({
         </div>
 
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-semibold tracking-[-0.01em] text-neutral-900 md:text-2xl">
+          <h1 className="truncate text-xl font-semibold tracking-[-0.01em] text-neutral-900 md:text-[28px] lg:text-[32px]">
             {name}
           </h1>
-          <p className="truncate text-[13.5px] text-neutral-500">@{member.username}</p>
+          <p className="truncate text-[13.5px] text-neutral-500 md:text-[15px]">@{member.username}</p>
 
           {/* Reviews strip — appears only once the seller has at least one
               review, so a new seller isn't introduced by an empty zero. */}
@@ -365,7 +370,10 @@ export function MemberProfile({
           section break below. On the white card they read as one object, they
           give the wash above something to end against, and the thirds put each
           number where the eye expects the next one. */}
-      <div className="mt-5 grid grid-cols-3 divide-x divide-neutral-200/70 rounded-2xl border border-neutral-200/70 bg-white">
+      {/* Capped on a wide screen. Stretched to 1100px the three cells become
+          three numbers marooned in a lot of white, which is the "not adapted for
+          desktop" look — a phone card scaled up rather than a desktop one. */}
+      <div className="mt-5 grid w-full max-w-md grid-cols-3 divide-x divide-neutral-200/70 rounded-2xl border border-neutral-200/70 bg-white md:mt-7">
         <Stat value={listingsCount} label={language === "ro" ? "Articole" : "Listings"} lang={language} />
         <Stat value={followersCount} label={language === "ro" ? "Urmăritori" : "Followers"} lang={language} />
         <Stat value={followingCount} label={language === "ro" ? "Urmărește" : "Following"} lang={language} />
@@ -435,7 +443,7 @@ export function MemberProfile({
             )}
           </div>
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:grid-cols-3 md:gap-x-4 md:pb-12 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
             {listings.map((listing, i) => (
               <ProductCard
                 key={listing.id}

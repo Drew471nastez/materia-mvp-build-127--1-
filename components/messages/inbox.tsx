@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { BadgeCheck, Bell } from "lucide-react"
@@ -293,6 +293,31 @@ export function MessagesInbox({
     }
   }, [])
 
+  /** Dismiss one notification, or all of them. Optimistic for the same reason
+   *  the conversation swipe is: the row is already off the side of the screen. */
+  const dismissNotif = useCallback(async (notifId: string) => {
+    setNotifs((prev) => (prev ? prev.filter((n) => n.id !== notifId) : prev))
+    try {
+      await fetch(`/api/notifications?id=${encodeURIComponent(notifId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+    } catch {
+      /* the next load reconciles */
+    }
+  }, [])
+
+  const clearNotifs = useCallback(async () => {
+    void triggerHaptic("light")
+    setNotifs([])
+    setNotifUnread(0)
+    try {
+      await fetch("/api/notifications", { method: "DELETE", credentials: "include" })
+    } catch {
+      /* the next load reconciles */
+    }
+  }, [])
+
   const onRefresh = useCallback(async () => {
     // Whichever list is actually on screen. Refreshing the other one would be
     // work nobody asked for and, on the notifications side, would mark a batch
@@ -456,7 +481,7 @@ export function MessagesInbox({
               {tab === "messages" ? (
                 <MessagesList rows={rows} formatPrice={formatPrice} onDelete={removeConversation} />
               ) : (
-                <NotificationsList items={notifs} />
+                <NotificationsList items={notifs} onDismiss={dismissNotif} onClear={clearNotifs} />
               )}
             </div>
           </div>
@@ -635,7 +660,31 @@ function notifHref(n: Notif): string | null {
   return n.listing?.slug ? `/products/${n.listing.slug}` : null
 }
 
-function NotificationsList({ items }: { items: Notif[] | null }) {
+/** "Astăzi" / "Săptămâna aceasta" / "Mai demult" — the three buckets people
+ *  actually think in. Anything older than a month never arrives here; the API
+ *  cuts it, because a follow from March is an archive rather than a notice. */
+function bucketOf(iso: string): "today" | "week" | "older" {
+  const age = Date.now() - Date.parse(iso)
+  if (age < 24 * 60 * 60 * 1000) return "today"
+  if (age < 7 * 24 * 60 * 60 * 1000) return "week"
+  return "older"
+}
+
+const BUCKET_LABEL: Record<string, string> = {
+  today: "Astăzi",
+  week: "Săptămâna aceasta",
+  older: "Mai demult",
+}
+
+function NotificationsList({
+  items,
+  onDismiss,
+  onClear,
+}: {
+  items: Notif[] | null
+  onDismiss: (id: string) => void
+  onClear: () => void
+}) {
   if (items === null) return <ListSkeleton />
   if (items.length === 0) {
     // Same bargain as the messages side: fill what is left of the screen, put
@@ -651,13 +700,32 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
     )
   }
 
+  // Grouped, and the header is drawn only when the bucket changes — the same
+  // shape a conversation's day dividers have, so the two lists behind one
+  // switcher stay recognisably one design.
+  let lastBucket: string | null = null
+
   return (
-    <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
-      {items.map((n) => {
+    <>
+      <div className="flex justify-end px-2 pb-2">
+        <button
+          type="button"
+          onClick={onClear}
+          className="rounded-full px-2.5 py-1 text-[13px] font-semibold text-neutral-500 transition-colors active:bg-neutral-100"
+        >
+          Șterge tot
+        </button>
+      </div>
+
+      <ul className={cn(LIST_CARD, "mb-8 md:mb-10")}>
+        {items.map((n) => {
         const name = n.actor?.display_name || n.actor?.username || "Cineva"
         const { verb, accent } = notifText(n.kind)
         const unread = !n.readAt
         const href = notifHref(n)
+        const bucket = bucketOf(n.createdAt)
+        const opensBucket = bucket !== lastBucket
+        lastBucket = bucket
         const inner = (
           <>
             <Avatar name={name} url={n.actor?.avatar_url ?? null} seed={n.actor?.id} />
@@ -682,27 +750,40 @@ function NotificationsList({ items }: { items: Notif[] | null }) {
           </>
         )
         // Same surface rule as the inbox side, so the two lists behind one
-        // switcher never read as two different screens.
+        // switcher never read as two different screens. A read notification is
+        // deliberately quieter than an unread one rather than identical to it:
+        // the whole point of the list is which ones are new.
         const rowClass = cn(
           ROW_INNER,
-          unread ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "active:bg-neutral-50",
+          unread ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "opacity-[0.72] active:bg-neutral-50",
         )
         return (
-          <li
-            key={n.id}
-            className={ROW_DIVIDER}
-          >
-            {href ? (
-              <Link href={href} className={rowClass}>
-                {inner}
-              </Link>
-            ) : (
-              <span className={rowClass}>{inner}</span>
+          <Fragment key={n.id}>
+            {opensBucket && (
+              <li className="bg-neutral-50/70 px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-neutral-400">
+                {BUCKET_LABEL[bucket]}
+              </li>
             )}
-          </li>
+            <li className={cn(ROW_DIVIDER, "group/row")}>
+              <ConversationRow
+                onDelete={() => onDismiss(n.id)}
+                actionLabel="Ascunde"
+                ariaLabel="Ascunde notificarea"
+              >
+                {href ? (
+                  <Link href={href} className={rowClass}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <span className={rowClass}>{inner}</span>
+                )}
+              </ConversationRow>
+            </li>
+          </Fragment>
         )
       })}
-    </ul>
+      </ul>
+    </>
   )
 }
 
