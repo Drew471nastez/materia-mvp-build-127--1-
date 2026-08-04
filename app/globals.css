@@ -2207,96 +2207,81 @@ html[data-keyboard="open"] .thread-composer {
    theirs from the bottom-left. Slid horizontally instead — which is what this
    did — a bubble looks like it was pushed on from off-screen by something. */
 /* ---------------------------------------------------------------------------
-   A tab filling in
+   A tab filling in — and un-filling
    ---------------------------------------------------------------------------
-   The solid glyph only exists while its tab is active, so this plays exactly
-   once per press and never on a re-render — which is what lets it overshoot
-   without becoming tiresome. From 0.72 with a spring past 1: the icon reads as
-   being pressed INTO its filled state rather than as one picture being swapped
-   for another, and that half-frame of overshoot is the whole of why a tab bar
-   feels good to press.
+   Two glyphs stacked in the same box, cross-faded. The outline and the solid
+   are the same silhouette, so what you see is one shape filling with colour
+   rather than two pictures being swapped.
 
-   Fast — 220ms — because it is acknowledging a finger, and an acknowledgement
-   that is still arriving when you have looked away has acknowledged nothing.
-   `transform-box: fill-box` and a centre origin are what make an SVG path scale
-   about ITSELF rather than about the corner of the viewport, which is the
-   difference between a glyph swelling and a glyph flying in from the left. */
-/* Snappy at the front, slow at the back — which are not in tension, they are
-   the two halves of one movement, and a single timing function cannot give you
-   both. So the curve lives in the STOPS, with its own easing between each pair,
-   and the overall function is only there for the last leg.
+   TRANSITIONS, NOT A KEYFRAME, and that is the whole of "in between". A
+   keyframe only plays forwards on mount, so the tab you were LEAVING had its
+   filled icon removed from the DOM on the same frame the new one started
+   springing in — one side of every switch was considered and the other was a
+   cut. A transition runs backwards as readily as forwards for free, so
+   departing is the arrival in reverse.
 
-   0 → 28% (about 130ms of 470): the glyph goes from nothing to 20% oversized on
-   an easeOutExpo, which spends most of that distance in the first fifty
-   milliseconds. That is the snap, and it is where "bold" lives too — a fifth
-   over full size is a lot for an icon, and it is legible precisely because it
-   is gone again almost immediately.
+   It is also the only way to be correct under interruption. A keyframe restarts
+   from its first frame every time it is re-triggered, so tapping quickly
+   between two tabs snapped the glyph back to its smallest mid-flight; a
+   transition reverses from wherever it actually is. The icon can no longer be
+   somewhere the finger never put it.
 
-   28% → 100%: it settles. Under, over, and to rest, each leg gentler than the
-   last, over the remaining 340ms. This is the slow, smooth part, and it is
-   three quarters of the animation by time and almost none of it by distance —
-   which is exactly the ratio that reads as weight rather than as delay.
+   The overshoot lives in the curve, and the number in it was measured rather
+   than chosen. How far a spring bezier actually overshoots depends on how far
+   the property is TRAVELLING — the curve's excursion past 1 is multiplied by
+   the distance — so the same 1.55 that gives a lively bounce over a long
+   distance gave a peak of only 1.045 over the 0.48 this scale covers, which is
+   not a bounce, it is a wobble. Sampled in Chromium across four candidates:
+   1.55 → 1.045, 1.9 → 1.102, 2.2 → 1.157, 2.6 → 1.234. 2.2 is the one that
+   lands where the old hand-placed keyframe did.
 
-   Opacity is finished by 16%, deliberately out of step with the scale. A glyph
-   that fades in over the whole movement reads as soft; one that is fully there
-   while it is still moving reads as solid, which is the point of a filled
-   state. */
-@keyframes tab-icon-fill {
-  0% {
-    opacity: 0;
-    transform: scale(0.48);
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  16% { opacity: 1; }
-  28% {
-    opacity: 1;
-    transform: scale(1.2);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  56% {
-    transform: scale(0.955);
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  80% {
-    transform: scale(1.018);
-    animation-timing-function: cubic-bezier(0.33, 0, 0.35, 1);
-  }
-  100% { transform: scale(1); }
+   Snappy off the mark, bold at the top, and the last two thirds spent coming to
+   rest — which a single curve can carry now that there is no under/over
+   sequence to hand-place.
+
+   The two properties are deliberately out of step. Opacity finishes in 150ms
+   while the scale is still travelling: a glyph that fades over the whole
+   movement reads as soft, one that is fully there while it is still moving
+   reads as solid — which is the entire point of a filled state. */
+.tab-glyph {
+  position: relative;
+  display: block;
 }
-.tab-icon-fill {
-  transform-box: fill-box;
+.tab-glyph > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   transform-origin: center;
-  animation: tab-icon-fill 470ms linear both;
+  /* Promoted, because two of these are transforming at once on every tab
+     change and they are the only thing on screen the eye is following. */
+  will-change: transform, opacity;
+}
+.tab-glyph-out {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 150ms ease-out, transform 420ms cubic-bezier(0.16, 2.2, 0.4, 1);
+}
+.tab-glyph-in {
+  opacity: 0;
+  transform: scale(0.52);
+  transition: opacity 150ms ease-out, transform 420ms cubic-bezier(0.16, 2.2, 0.4, 1);
+}
+/* Active: the outline is absorbed — it grows very slightly as it goes, so it
+   reads as being filled from within rather than as being covered up — and the
+   solid springs out to full size. */
+.tab-glyph[data-active] .tab-glyph-out {
+  opacity: 0;
+  transform: scale(1.14);
+}
+.tab-glyph[data-active] .tab-glyph-in {
+  opacity: 1;
+  transform: scale(1);
 }
 @media (prefers-reduced-motion: reduce) {
-  .tab-icon-fill { animation: none; }
-}
-
-/* The dip under a finger, on the GLYPH and nothing else.
- *
- * A tab bar must acknowledge a press, and the two obvious ways are both wrong
- * here: scaling the whole tab drags the label around with it, which is the
- * cheap web-button look a native bar never has, and the platform's own tap
- * highlight paints a grey rectangle over a fifth of the bar (suppressed on the
- * tab itself with `-webkit-tap-highlight-color`).
- *
- * So the icon alone dips 8%, on press, instantly — no transition on the way
- * down, because a press that eases in has already stopped being a response to
- * the press. Coming back up is eased, because that half is the release and a
- * release that snaps reads as a glitch.
- *
- * `:active` on the ancestor rather than on the svg: the whole column is the
- * target (see TAB in mobile-bottom-nav.tsx), so pressing anywhere in that band
- * has to move the glyph in it. */
-.group:active .tab-press {
-  transform: scale(0.92);
-  transition: none;
-}
-.tab-press {
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  .group:active .tab-press { transform: none; }
+  .tab-glyph > svg { transition: opacity 100ms linear; }
+  .tab-glyph-in { transform: scale(1); }
+  .tab-glyph[data-active] .tab-glyph-out { transform: scale(1); }
 }
 
 /* Ten percent of scale was too much, and the reason is about pixels rather
