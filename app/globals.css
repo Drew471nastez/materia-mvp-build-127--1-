@@ -2031,42 +2031,37 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
  * vocabulary, so returning from a listing and returning from a conversation are
  * recognisably the same gesture rather than two effects that happen to live in
  * the same app. */
+/* OPACITY, NOT SCALE, and for the same reason the send stopped translating.
+   
+   Both of these were a "zoom settle": the whole screen arriving 2% too big and
+   shrinking into place, or 2.8% too small and growing. On a surface that is
+   almost entirely TEXT that is not depth, it is every glyph being resampled for
+   four hundred milliseconds — and on the way in it ran while the loading cover
+   was fading out and the scroller was being written to the bottom, three
+   simultaneous changes to the same pixels. That is the little bump on entry.
+   
+   A fade has nothing to interfere with. It does not move the text, it does not
+   resample it, and it composites as one layer — so the cover lifting, the
+   scroll landing and the screen arriving cannot produce a composite curve
+   between them, because only one of them is a curve. */
 @keyframes screen-push {
-  from { transform: scale(1.02); }
-  to   { transform: scale(1); }
+  from { opacity: 0.5; }
+  to   { opacity: 1; }
 }
 @keyframes screen-return {
-  from { transform: scale(0.972); }
-  to   { transform: scale(1); }
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
 }
 @media (width < 48rem) {
-  /* Both deliberately small. A conversation is somewhere you go many times a
-     day, and at 3.5% a scale stops reading as depth and starts reading as a
-     zoom — the screen doing something to itself rather than arriving. Two
-     percent in, four out, and neither of them ever exposes an edge: the push
-     settles DOWN to 1 so it always covers the frame, and the return grows into
-     a root that surface-bg has already painted this screen's colour. */
-  /* Longer, and on a curve with a much longer tail — easeOutExpo rather than
-     the symmetrical one these used to share.
-     
-     "Snappy" is what a short animation on a symmetrical curve feels like: it
-     covers most of its distance in the middle and then STOPS, and the stopping
-     is the part you notice. Nearly all of the time below is spent in the last
-     few percent of the movement, where each frame moves the screen a fraction
-     of a pixel — which is why it reads as coming to rest rather than as
-     finishing.
-     
-     The distances came DOWN as the durations went up, and that is deliberate
-     rather than a compromise: 4% of scale over 360ms is a zoom, 2.8% over 460 is
-     depth. Slower and smaller is the combination that reads as smooth; slower
-     and further just reads as slow. */
+  /* Short, because neither is carrying any distance any more — a fade only has
+     to be long enough to read as deliberate. Eased out hard so almost all of it
+     is spent at full strength, which is what keeps a fade from reading as the
+     screen being slow to load. */
   .screen-push {
-    animation: screen-push 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    will-change: transform;
+    animation: screen-push 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .screen-return {
-    animation: screen-return 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    will-change: transform;
+    animation: screen-return 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
 @media (min-width: 768px) {
@@ -2323,48 +2318,44 @@ html[data-keyboard="open"] .thread-composer {
    0.92 keeps the cue — a bubble growing out of the corner it came from — at an
    amplitude where nothing has to be redrawn to notice it. */
 @keyframes msg-in-mine {
-  /* 22px, and further than it was. The whole complaint about this animation was
-     that its smoothness was not VISIBLE, and an eased curve over 14 pixels has
-     nothing to be smooth across — most of its life is spent moving less than a
-     pixel per frame, which is indistinguishable from not moving. Twice the
-     distance over a longer time is the same gentleness with something to look
-     at. It comes up off the composer, which is below and to the right of where
-     it lands, so it has further to travel than one that was simply delivered. */
-  from { opacity: 0; transform: translate3d(0, 22px, 0) scale(0.92); }
-  /* 99%, then `none`. The final keyframe is held forever by `both`, and a held
-     transform holds a compositor LAYER — on a thread of five hundred messages
-     that is five hundred layers kept for the rest of the session, because the
-     class is never taken off (it cannot be: removing it mid-flight is the bug
-     this animation just stopped having). Landing on `transform: none` means the
-     bubble is a plain box again the instant it arrives, and the class costs
-     nothing to leave on. */
-  99% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  /* NO TRANSLATE, and removing it is what stopped the send being bumpy.
+     
+     Two things were moving this bubble on screen at the same time and they were
+     not moving on the same curve. The scroller glides on true easeOutExpo,
+     `1 - 2^(-10p)`, written out in JavaScript; the bubble translated on
+     `cubic-bezier(0.16, 1, 0.3, 1)`, which is the standard BEZIER APPROXIMATION
+     of that curve and differs from it by a few percent through the middle. Two
+     eases, one object, in the same direction — and the sum of two curves that
+     nearly agree is a curve with a kink in it. That is the bump, and no amount
+     of lengthening or softening either one could remove it, because it was the
+     relationship between them.
+     
+     So only one thing moves it now, and it is the right one: the thread scrolls
+     to make room, which is what physically happens. The bubble grows into the
+     slot it was placed in. One curve, one movement, nothing to disagree with.
+     
+     Scale about the bottom-right — where the send button is — is what is left
+     of "it came off the composer", and it costs no vertical travel at all. */
+  from { opacity: 0; transform: scale(0.9); }
+  99% { opacity: 1; transform: scale(1); }
   to  { opacity: 1; transform: none; }
 }
 @keyframes msg-in-theirs {
+  /* Theirs keeps a small rise. Nothing glides for a message that arrives — the
+     scroller is corrected instantly, because it is not a movement you made —
+     so this is the only curve on screen and has nothing to disagree with. */
   from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.94); }
   99% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   to  { opacity: 1; transform: none; }
 }
-/* 520ms for one you SENT, 280 for one that arrived, and the asymmetry is the
-   point.
+/* 420ms for one you SENT — the same number the glide uses, because they are one
+   movement and a difference between them would show as the bubble arriving
+   before or after the room made for it.
 
-   A message you sent is the result of an action you just took, and the
-   animation is the app showing you that it landed — it is allowed to take its
-   time. Half a second on easeOutExpo puts nearly all of that time in the tail,
-   where the bubble is travelling a fraction of a pixel per frame: on a 120Hz
-   screen that is sixty-odd frames of visible, continuous deceleration, which is
-   the "extreme smoothness" this is for. On a 60Hz screen it is thirty, and the
-   same shape. Neither costs more than the other — both are the same composited
-   transform handed to the GPU, and a longer animation is not more work, it is
-   the same work spread across more frames. Which is exactly why a long one
-   looks smoother rather than slower.
-
-   One that arrived is not the result of anything you did, so it should not
-   command the same amount of your attention. It settles quickly and gets out of
-   the way of being read. */
+   One that arrived is not the result of anything you did, so it settles quickly
+   and gets out of the way of being read. */
 .msg-in-mine {
-  animation: msg-in-mine 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: msg-in-mine 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transform-origin: 100% 100%;
 }
 .msg-in-theirs {

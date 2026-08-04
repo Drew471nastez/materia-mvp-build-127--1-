@@ -188,7 +188,7 @@ const POLL_LIVE_MS = 12000
 /** How long the thread takes to make room for a message you sent. Matches
  *  `.msg-in-mine` in app/globals.css — the bubble and the scroller are one
  *  movement, so they have to be one duration. */
-const GLIDE_MS = 520
+const GLIDE_MS = 420
 
 /**
  * How close together two messages from the same person have to be before they
@@ -665,8 +665,10 @@ export function MessageThread({
       }
       put()
       requestAnimationFrame(put)
-      // The composer's own resize lands after the commit that added the message.
-      window.setTimeout(put, 560)
+      // A late correction for anything whose height is not settled yet — a
+      // photograph decoding, mainly. Comfortably past the 420ms the bubble and
+      // the glide share, so it can never land underneath either of them.
+      window.setTimeout(put, 480)
       return
     }
 
