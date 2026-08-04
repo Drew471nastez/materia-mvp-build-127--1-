@@ -308,8 +308,20 @@ export function MessageThread({
         return
       }
       if (r.status === 503) return release()
-      if (!r.ok) {
+      // 404 is the only answer that means this conversation is not yours or is
+      // not there — a permanent fact, and the one thing worth showing a dead end
+      // for. Everything else in the 4xx/5xx range is the server having a bad
+      // moment, and treating those the same way was a real way to lose a
+      // conversation: one 500 on one poll and the thread was replaced by
+      // "Conversația nu a fost găsită" for good, with the messages still sitting
+      // in the database and the next poll never getting a chance to prove it.
+      // Now a transient failure changes nothing on screen and the poll retries.
+      if (r.status === 404) {
         setFailed(true)
+        return release()
+      }
+      if (!r.ok) {
+        console.error("[thread] load failed:", r.status)
         return release()
       }
       const fresh: Thread = await r.json()

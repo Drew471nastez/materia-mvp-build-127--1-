@@ -2272,6 +2272,33 @@ html[data-keyboard="open"] .thread-composer {
   .tab-icon-fill { animation: none; }
 }
 
+/* The dip under a finger, on the GLYPH and nothing else.
+ *
+ * A tab bar must acknowledge a press, and the two obvious ways are both wrong
+ * here: scaling the whole tab drags the label around with it, which is the
+ * cheap web-button look a native bar never has, and the platform's own tap
+ * highlight paints a grey rectangle over a fifth of the bar (suppressed on the
+ * tab itself with `-webkit-tap-highlight-color`).
+ *
+ * So the icon alone dips 8%, on press, instantly — no transition on the way
+ * down, because a press that eases in has already stopped being a response to
+ * the press. Coming back up is eased, because that half is the release and a
+ * release that snaps reads as a glitch.
+ *
+ * `:active` on the ancestor rather than on the svg: the whole column is the
+ * target (see TAB in mobile-bottom-nav.tsx), so pressing anywhere in that band
+ * has to move the glyph in it. */
+.group:active .tab-press {
+  transform: scale(0.92);
+  transition: none;
+}
+.tab-press {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .group:active .tab-press { transform: none; }
+}
+
 /* Ten percent of scale was too much, and the reason is about pixels rather
    than taste. A bubble is a box of TEXT: animate it from 0.9 and the browser
    re-rasterizes every glyph in it on every frame, at a size it will never be

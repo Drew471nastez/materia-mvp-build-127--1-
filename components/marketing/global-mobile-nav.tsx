@@ -97,7 +97,12 @@ export function GlobalMobileNav() {
           spacer left behind would put every page a few pixels under it. */}
       <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }} />
       <div className="md:hidden fixed inset-x-0 bottom-0 z-[80]">
-        <MobileBottomNav active={active as any} onSearch={() => {
+        {/* Search lights up while its overlay is open. It is the one tab that
+            opens something rather than going somewhere, so nothing about the
+            path can say it is the tab you are on — and a control that stays
+            unlit while the thing it opened is covering the screen reads as
+            never having been pressed. */}
+        <MobileBottomNav active={searchOpen ? "search" : (active as any)} onSearch={() => {
           void triggerHaptic("light")
           setSearchOpen(true)
         }} />

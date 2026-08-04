@@ -55,6 +55,38 @@ export function MobileBottomNav({
   // having to learn the new route.
   const profileActive = active === "profile" || (pathname?.startsWith("/profile") ?? false)
 
+  /**
+   * The tab your finger just landed on, before the router has caught up.
+   *
+   * This is the whole of "smooth in between". A tap on a tab used to produce
+   * nothing visible at all until the route committed: the haptic fired on
+   * pointerdown, the click fired 60–120ms later on release, then the navigation
+   * ran, and only when the new page committed did `active` change and the icon
+   * fill. On a warm route that gap is short and on a cold one it is not, but it
+   * is never zero — and for its whole length the bar is sitting there having
+   * apparently ignored you.
+   *
+   * So the bar answers immediately and the page arrives behind it, which is what
+   * a native tab bar does and why one feels instant even when it is not. The
+   * optimistic value is dropped the moment the real `active` agrees, and on a
+   * timer regardless — a navigation that never happens (a cancelled tap, a
+   * failed route) must not leave the wrong tab lit for the rest of the session.
+   */
+  const [pressed, setPressed] = useState<string | null>(null)
+  useEffect(() => {
+    if (!pressed) return
+    // Caught up: the route is here and `active` is the truth again.
+    if (pressed === active || (pressed === "profile" && profileActive)) {
+      setPressed(null)
+      return
+    }
+    const give = window.setTimeout(() => setPressed(null), 1400)
+    return () => window.clearTimeout(give)
+  }, [pressed, active, profileActive])
+
+  /** What the bar SHOWS: the tap if there is one, the route otherwise. */
+  const shown = pressed ?? (profileActive ? "profile" : active)
+
   const [unread, setUnread] = useState(unreadCache.count)
   useEffect(() => {
     let alive = true
@@ -110,13 +142,11 @@ export function MobileBottomNav({
       className={cn(
         "flex flex-col items-center gap-1 text-[10px]",
         isActive ? "font-semibold" : "font-medium",
-        // No scale. A tab that shrinks under the finger is a web affordance
-        // borrowed from buttons, and on a bar you press dozens of times a
-        // session it reads as cheap — a native tab bar never does it. The
-        // acknowledgement is the haptic, which is instant and silent, and then
-        // the page itself, which now paints its shell on the same frame. The
-        // colour still settles into the active tint, and that is the whole of
-        // the visual feedback a tab needs.
+        // The label does not move. A tab whose whole contents shrink under the
+        // finger is a web affordance borrowed from buttons, and on a bar you
+        // press dozens of times a session it reads as cheap — a native tab bar
+        // never does it. The ICON dips, which is `.tab-press` on the glyph
+        // below: small, immediate, and over before the navigation starts.
         "transition-colors duration-150 ease-out",
         isActive ? "text-neutral-900" : "text-neutral-400",
       )}
@@ -135,7 +165,8 @@ export function MobileBottomNav({
    * its column means the miss is impossible: anywhere in that band is the tab.
    * The visual is unchanged; only the region that answers you grew.
    */
-  const TAB = "group flex min-h-[54px] flex-1 flex-col items-center justify-center"
+  const TAB =
+    "group flex min-h-[54px] flex-1 flex-col items-center justify-center [-webkit-tap-highlight-color:transparent] touch-manipulation select-none"
 
   // Tapping a tab is a deliberate act with a result, so it gets the same
   // acknowledgement opening a listing does. A nav item is not a scroll surface,
@@ -146,7 +177,10 @@ export function MobileBottomNav({
   // press had already finished, which reads as confirmation of something you
   // had noticed rather than as feedback. Down is when the finger lands, which
   // is when a physical button would have clicked.
-  const tap = () => void triggerHaptic("light")
+  const tap = (going?: "home" | "search" | "sell" | "inbox" | "profile") => {
+    void triggerHaptic("light")
+    if (going) setPressed(going)
+  }
 
   // The haptics chunk, fetched while the bar mounts rather than while a finger
   // is waiting on it. See warmHaptics in lib/native-bridge.ts.
@@ -160,23 +194,23 @@ export function MobileBottomNav({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-stretch px-1 pt-1 pb-1">
-        <Link href="/" prefetch onPointerDown={tap} aria-label={t("mfeed.home")} className={TAB}>
-          {item("mfeed.home", <HomeIcon active={active === "home"} className="h-[25px] w-[25px]" />, active === "home")}
+        <Link href="/" prefetch onPointerDown={() => tap("home")} aria-label={t("mfeed.home")} className={TAB}>
+          {item("mfeed.home", <HomeIcon active={shown === "home"} className="tab-press h-[25px] w-[25px]" />, shown === "home")}
         </Link>
 
         <button
           type="button"
-          onPointerDown={tap}
+          onPointerDown={() => tap("search")}
           onClick={() => onSearch?.()}
           aria-label={t("mfeed.search")}
           className={TAB}
         >
-          {item("mfeed.search", <SearchIcon active={active === "search"} className="h-[25px] w-[25px]" />, active === "search")}
+          {item("mfeed.search", <SearchIcon active={shown === "search"} className="tab-press h-[25px] w-[25px]" />, shown === "search")}
         </button>
 
         <button
           type="button"
-          onPointerDown={() => void triggerHaptic("light")}
+          onPointerDown={() => tap("sell")}
           onClick={onSell}
           aria-label={t("mfeed.sell")}
           className="group flex min-h-[54px] flex-1 flex-col items-center justify-center"
@@ -195,18 +229,18 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/messages" prefetch onPointerDown={tap} aria-label={t("mfeed.inbox")} className={cn(TAB, "relative")}>
+        <Link href="/messages" prefetch onPointerDown={() => tap("inbox")} aria-label={t("mfeed.inbox")} className={cn(TAB, "relative")}>
           {item(
             "mfeed.inbox",
             <span className="relative">
-              <InboxIcon active={active === "inbox"} className="h-[25px] w-[25px]" />
+              <InboxIcon active={shown === "inbox"} className="tab-press h-[25px] w-[25px]" />
               {unread > 0 && (
                 <span className="absolute -right-1.5 -top-1 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#7c3aed] px-[3px] text-[10px] font-bold leading-none text-white ring-2 ring-white">
                   {unread > 9 ? "9+" : unread}
                 </span>
               )}
             </span>,
-            active === "inbox",
+            shown === "inbox",
           )}
         </Link>
 
@@ -214,8 +248,8 @@ export function MobileBottomNav({
             /settings, which redirected anyone without a creators row into
             onboarding — so for every buyer the Profile tab simply did not
             work. Settings is still one tap away, behind the gear up there. */}
-        <Link href="/profile" prefetch onPointerDown={tap} aria-label={t("mfeed.profile")} className={TAB}>
-          {item("mfeed.profile", <ProfileIcon active={profileActive} className="h-[25px] w-[25px]" />, profileActive)}
+        <Link href="/profile" prefetch onPointerDown={() => tap("profile")} aria-label={t("mfeed.profile")} className={TAB}>
+          {item("mfeed.profile", <ProfileIcon active={shown === "profile"} className="tab-press h-[25px] w-[25px]" />, shown === "profile")}
         </Link>
       </div>
     </nav>
