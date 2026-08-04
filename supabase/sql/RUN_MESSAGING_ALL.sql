@@ -654,6 +654,153 @@ create index if not exists idx_profiles_last_seen_at
 
 
 -- ===========================================================================
+-- Abuse limits, enforced where they cannot be gone around
+-- ===========================================================================
+-- The API already rate-limits sending, and that is the layer that produces a
+-- decent error message, so it stays. This is the layer underneath it.
+--
+-- The reason both are needed: Supabase publishes PostgREST, so anyone holding a
+-- valid session token can insert into public.messages directly with curl. Every
+-- rule that lives only in app/api/messages/**/route.ts is a rule that applies
+-- to the app and to nobody else — which is exactly the position a spammer wants
+-- to be in. RLS says WHO may write; these triggers say HOW MUCH and TO WHOM,
+-- and they run inside the transaction on every path into the table.
+--
+-- What is deliberately NOT here: anything about the content of a message. Word
+-- lists age badly, they are trivially defeated by a space, and they misfire on
+-- the languages this app is actually used in. Volume and consent are the two
+-- things a database can judge correctly, so they are the two things it judges.
+-- ---------------------------------------------------------------------------
+
+-- 1. Volume.
+--
+-- The window is the last minute, counted from the sender's own rows in this
+-- conversation and across all of them. Two limits rather than one because they
+-- catch different things: 20/min in one thread is somebody hammering a single
+-- seller, 60/min overall is somebody working through a list of them.
+--
+-- Generous on purpose. A real argument between a buyer and a seller can run at
+-- fifteen messages a minute and must not hit a wall; the numbers are set where
+-- only automation reaches them.
+create or replace function public.messages_rate_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  in_thread int;
+  overall   int;
+begin
+  select count(*) into in_thread
+    from public.messages
+   where sender_id = new.sender_id
+     and conversation_id = new.conversation_id
+     and created_at > now() - interval '1 minute';
+
+  if in_thread >= 20 then
+    raise exception 'rate_limited: too many messages in this conversation'
+      using errcode = '53400';
+  end if;
+
+  select count(*) into overall
+    from public.messages
+   where sender_id = new.sender_id
+     and created_at > now() - interval '1 minute';
+
+  if overall >= 60 then
+    raise exception 'rate_limited: too many messages'
+      using errcode = '53400';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists messages_rate_limit_trg on public.messages;
+create trigger messages_rate_limit_trg
+  before insert on public.messages
+  for each row execute function public.messages_rate_limit();
+
+-- The index that makes the two counts above cheap. Without it every insert
+-- scans the sender's whole history, and the rate limiter becomes the slowest
+-- thing about sending a message.
+create index if not exists messages_sender_recent_idx
+  on public.messages (sender_id, created_at desc);
+
+-- 2. Consent.
+--
+-- A block currently stops the app from delivering, and the app is not the only
+-- way in. This closes it at the table: if either party has blocked the other,
+-- neither can write to the thread.
+--
+-- Both directions, and that is the point. Blocking someone must stop them
+-- reaching you — but it must also stop YOU writing to them, or "block" becomes
+-- a one-way mute that still lets the blocker harass. Every large platform
+-- treats a block as severing the channel, not muting one end of it.
+create or replace function public.messages_respect_blocks()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  other uuid;
+begin
+  select case when c.buyer_id = new.sender_id then c.seller_id else c.buyer_id end
+    into other
+    from public.conversations c
+   where c.id = new.conversation_id;
+
+  if other is null then
+    return new; -- no counterparty to consider; membership is RLS's business
+  end if;
+
+  if exists (
+    select 1 from public.user_blocks b
+     where (b.blocker_id = new.sender_id and b.blocked_id = other)
+        or (b.blocker_id = other and b.blocked_id = new.sender_id)
+  ) then
+    -- Deliberately vague. "You are blocked" tells the sender something the
+    -- person who blocked them chose not to tell them.
+    raise exception 'blocked: message not delivered' using errcode = '53400';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists messages_respect_blocks_trg on public.messages;
+create trigger messages_respect_blocks_trg
+  before insert on public.messages
+  for each row execute function public.messages_respect_blocks();
+
+-- 3. Size.
+--
+-- A body cap so a single insert cannot be a megabyte of text. 4000 characters
+-- is far past any real message and far below anything worth storing by
+-- accident. Applied as a constraint rather than a trigger because it is a fact
+-- about the column, and it is checked on updates too.
+alter table public.messages drop constraint if exists messages_body_length;
+alter table public.messages
+  add constraint messages_body_length
+  check (body is null or char_length(body) <= 4000) not valid;
+-- `not valid` so the statement cannot fail on history that predates the rule;
+-- everything written from now on is checked. Validate it later if you want the
+-- old rows swept too:
+--   alter table public.messages validate constraint messages_body_length;
+
+-- 4. Reports, rate-limited the same way.
+--
+-- Report is a button anyone can press about anyone, which makes it a way to
+-- flood the moderation queue if it is not bounded. One report per person per
+-- conversation is the rule; pressing it again updates nothing and errors
+-- nothing the user needs to see.
+create unique index if not exists conversation_reports_one_per_reporter
+  on public.conversation_reports (conversation_id, reporter_id);
+
+
+-- ===========================================================================
 -- What actually ran — every number here should be as commented
 -- ===========================================================================
 select
@@ -673,5 +820,9 @@ select
     where table_schema = 'public' and table_name = 'messages'
       and column_name in ('image_url', 'deleted_at'))                   as message_columns,   -- 2
   (select count(*) from storage.buckets where id = 'messages')          as messages_bucket,   -- 1
+  (select count(*) from pg_trigger
+    where tgrelid = 'public.messages'::regclass and not tgisinternal
+      and tgname in ('messages_rate_limit_trg', 'messages_respect_blocks_trg'))
+                                                                        as abuse_triggers,    -- 2
   to_regclass('public.follows')              as follows,                -- not null
   to_regclass('public.wishlist_items')       as wishlist_items;         -- not null

@@ -94,7 +94,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         reason,
         detail,
       })
-      if (error) return NextResponse.json({ error: "Could not report" }, { status: 500 })
+      // 23505 is the one-report-per-person-per-thread index doing its job. From
+      // where the user is standing they reported this conversation and it is
+      // reported, which is true — telling them "you already did that" invites
+      // them to find another way to say it louder, and reporting twice was
+      // never going to make moderation move faster.
+      if (error && error.code !== "23505") {
+        console.error("[messages/actions] report failed:", error.message)
+        return NextResponse.json({ error: "Could not report" }, { status: 500 })
+      }
       return NextResponse.json({ ok: true, reported: true })
     }
 

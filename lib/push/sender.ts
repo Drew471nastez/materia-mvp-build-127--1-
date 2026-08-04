@@ -1,5 +1,5 @@
 import type { Message } from "firebase-admin/messaging"
-import admin from "@/lib/firebase/admin"
+import { getFirebaseAdmin } from "@/lib/firebase/admin"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export interface PushPayload {
@@ -15,6 +15,13 @@ export interface PushPayload {
  * Automatically removes invalid/expired tokens.
  */
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+  // Checked before the query: with no credentials there is nothing to send to,
+  // and reading every device token first only to throw them away is a round
+  // trip to say so. getFirebaseAdmin has already logged which variable is
+  // missing.
+  const firebase = getFirebaseAdmin()
+  if (!firebase) return
+
   const supabase = createAdminClient()
 
   const { data: tokens, error } = await supabase
@@ -66,7 +73,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       }
 
       try {
-        await admin.messaging().send(message)
+        await firebase.messaging().send(message)
         console.log(`[push] ✓ Sent to ${platform} device`)
       } catch (err: any) {
         console.error(`[push] ✗ Failed to send to ${platform} device — ${err.code ?? err.message}`)

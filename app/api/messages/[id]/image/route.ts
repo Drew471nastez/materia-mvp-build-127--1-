@@ -202,8 +202,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // litter in a private bucket nobody will ever ask for again.
     await admin.storage.from("messages").remove([path])
     console.error("[messages/image] insert failed:", error)
+    // The database's own abuse limits speak in these two prefixes. Passing the
+    // raw message through would show the user a Postgres exception; passing
+    // nothing through would show them a failure with no cause.
+    const raised = error?.message ?? ""
+    if (raised.startsWith("rate_limited")) {
+      return NextResponse.json(
+        { error: "Prea multe fotografii trimise. Așteaptă câteva secunde." },
+        { status: 429 },
+      )
+    }
+    if (raised.startsWith("blocked")) {
+      return NextResponse.json(
+        { error: "Nu poți trimite mesaje în această conversație." },
+        { status: 403 },
+      )
+    }
     return NextResponse.json(
-      { error: `Nu am putut trimite fotografia: ${error?.message || "eroare necunoscută"}` },
+      { error: `Nu am putut trimite fotografia: ${raised || "eroare necunoscută"}` },
       { status: 500 },
     )
   }

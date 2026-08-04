@@ -536,7 +536,7 @@ export function MessagesInbox({
               setPendingDelete(null)
               if (target) void removeConversation(target.id)
             }}
-            className="h-12 w-full rounded-full bg-red-600 text-[15.5px] font-semibold text-white transition-transform active:scale-[0.98]"
+            className="h-12 w-full rounded-full bg-neutral-900 text-[15.5px] font-semibold text-white transition-transform active:scale-[0.98]"
           >
             Șterge conversația
           </button>

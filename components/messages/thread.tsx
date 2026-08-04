@@ -152,6 +152,16 @@ export function MessageThread({
   const [acting, setActing] = useState<Msg | null>(null)
   /** The photo being looked at full screen, if any. */
   const [viewing, setViewing] = useState<string | null>(null)
+  /**
+   * How far along each in-flight photo is, 0→1, keyed by its optimistic id.
+   *
+   * Real bytes, not a fake sweep: an indeterminate spinner over an upload tells
+   * you something is happening and nothing else, so a slow connection and a
+   * stalled one look identical for as long as you are willing to wait. The
+   * numbers come off the XHR's upload progress events; the ring is the only
+   * honest way to say "this is nearly there".
+   */
+  const [progress, setProgress] = useState<Record<string, number>>({})
   const fileRef = useRef<HTMLInputElement>(null)
   /** Object URLs still being displayed. Released when the thread unmounts —
    *  earlier than that and the img whose src they are goes blank. */
@@ -730,6 +740,10 @@ export function MessageThread({
       setSending(true)
       void triggerHaptic("light")
       stickBottom.current = true
+      // Starts a little way round rather than at nothing. A ring at zero for the
+      // second the resize takes reads as "stuck", and the resize is real work
+      // that is genuinely part of sending the photo.
+      setProgress((p) => ({ ...p, [tempId]: 0.06 }))
       setThread((t) =>
         t
           ? {
@@ -758,15 +772,37 @@ export function MessageThread({
         // a few hundred pixels across — sending the original is several seconds
         // of waiting for detail nobody can see. See lib/messages/shrink-image.
         const small = await shrinkImage(file)
+        setProgress((p) => ({ ...p, [tempId]: 0.12 }))
         const form = new FormData()
         form.append("file", small)
-        const r = await fetch(`/api/messages/${id}/image`, {
-          method: "POST",
-          credentials: "include",
-          body: form,
+        // XHR rather than fetch, for one reason: fetch cannot report upload
+        // progress. Its request body is not observable, so a `fetch` upload is
+        // a promise that resolves and nothing in between. XHR still exposes
+        // upload.onprogress, which is the only source of the numbers the ring
+        // draws — so the old, larger API is the right one here.
+        const r = await new Promise<{ ok: boolean; status: number; text: string }>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open("POST", `/api/messages/${id}/image`)
+          xhr.withCredentials = true
+          xhr.upload.onprogress = (e) => {
+            if (!e.lengthComputable) return
+            // Capped below 1: the last stretch is the server storing the file
+            // and writing the row, which the browser knows nothing about. A
+            // ring that fills completely and then sits there is worse than one
+            // that stops just short and finishes when the answer arrives.
+            const sent = 0.12 + (e.loaded / e.total) * 0.8
+            setProgress((p) => (p[tempId] === undefined ? p : { ...p, [tempId]: Math.min(0.92, sent) }))
+          }
+          xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, text: xhr.responseText })
+          xhr.onerror = () => reject(new Error("network"))
+          xhr.onabort = () => reject(new Error("aborted"))
+          xhr.send(form)
         })
         if (r.ok) {
-          const { message } = await r.json()
+          const { message } = JSON.parse(r.text)
+          // Closed out before the swap, so the ring completes on the frame the
+          // photo sharpens rather than vanishing mid-arc.
+          setProgress((p) => ({ ...p, [tempId]: 1 }))
           seen.current?.add(message.id)
           stickBottom.current = true
           // The row is the server's; the PICTURE stays the one already on
@@ -792,7 +828,12 @@ export function MessageThread({
           announce("msg")
           return
         } else {
-          const { error } = await r.json().catch(() => ({ error: null }))
+          let error: string | null = null
+          try {
+            error = JSON.parse(r.text)?.error ?? null
+          } catch {
+            /* a non-JSON body means the message below is the best we have */
+          }
           setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
           URL.revokeObjectURL(localUrl)
           setImageError(error || "Fotografia nu a putut fi trimisă")
@@ -803,6 +844,17 @@ export function MessageThread({
         setImageError("Fotografia nu a putut fi trimisă")
       } finally {
         setSending(false)
+        // One tick behind the swap so the completed ring is on screen for a
+        // frame. Dropping it in the same commit as the finished photo would
+        // mean the arc never visibly reaches the end.
+        window.setTimeout(() => {
+          setProgress((p) => {
+            if (p[tempId] === undefined) return p
+            const next = { ...p }
+            delete next[tempId]
+            return next
+          })
+        }, 220)
       }
     },
     [announce, id, sending],
@@ -1213,12 +1265,15 @@ export function MessageThread({
                             }}
                             className={cn(
                               "block max-h-[260px] w-full cursor-zoom-in object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
-                              // While it is going up it is dimmed and softened,
-                              // and it resolves to the real thing the moment the
-                              // server answers. Two properties, both composited,
-                              // on one element — the photo is never replaced,
-                              // only sharpened, so there is nothing to flash.
-                              m.pending && "scale-[1.02] opacity-60 blur-[2px]",
+                              // While it is going up it is softened, and it
+                              // resolves to the real thing the moment the server
+                              // answers. The photo is never replaced, only
+                              // sharpened, so there is nothing to flash. The
+                              // dimming lives in the ring's wash, which drains
+                              // with the progress instead of switching off — two
+                              // separate opacities fighting over the same picture
+                              // is what made the finish look like a jump.
+                              m.pending && "blur-[1.5px]",
                             )}
                             draggable={false}
                             style={{ opacity: 0, transition: "opacity 220ms ease" }}
@@ -1228,13 +1283,7 @@ export function MessageThread({
                             <ImageIcon className="h-6 w-6" />
                           </div>
                         )}
-                        {m.pending && (
-                          <span className="absolute inset-0 flex items-center justify-center">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm">
-                              <IosSpinner size={17} />
-                            </span>
-                          </span>
-                        )}
+                        {m.pending && <UploadRing value={progress[m.id]} />}
                         {m.body && (
                           <div
                             className={cn(
@@ -1445,6 +1494,62 @@ export function MessageThread({
         onClose={() => setDetailsOpen(false)}
       />
     </div>
+  )
+}
+
+/**
+ * What a photograph looks like while it is going up.
+ *
+ * A determinate purple ring on a white disc, over a purple wash that drains
+ * off the picture as the upload completes. Three deliberate choices:
+ *
+ * The ring is DETERMINATE. A spinner says "wait" and keeps saying it; an arc
+ * that is three quarters round says how much longer, and on a bad connection
+ * that difference is whether you keep waiting or give up on a send that was
+ * nearly finished. The numbers behind it are real bytes off the wire.
+ *
+ * The colour is ours. A black scrim and a grey spinner is the platform's
+ * loading state borrowed; #7c3aed on white is Storelib's, and this is the one
+ * moment in the conversation where the app is visibly doing work for you.
+ *
+ * And it is drawn with stroke-dashoffset on a rotated circle, so the whole
+ * animation is one compositable property on one element. The transition is
+ * linear rather than eased because progress that accelerates into each new
+ * number reads as smoothing over a stall — an upload is allowed to look like
+ * exactly the speed it is.
+ */
+function UploadRing({ value }: { value?: number }) {
+  const R = 13
+  const C = 2 * Math.PI * R
+  // Undefined means the send has begun but no progress event has landed yet —
+  // the resize is still running. A hair of arc, so the ring reads as started.
+  const v = Math.max(0.04, Math.min(1, value ?? 0.06))
+  return (
+    <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      {/* The wash, fading out as the ring fills: the picture resolves as the
+          upload does, rather than staying dimmed until a state flips. */}
+      <span
+        className="absolute inset-0 bg-[#7c3aed] transition-opacity duration-300 ease-out"
+        style={{ opacity: 0.22 * (1 - v) + 0.06 }}
+      />
+      <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/92 shadow-[0_2px_10px_rgba(76,29,149,0.28)] backdrop-blur-sm">
+        <svg width={32} height={32} viewBox="0 0 32 32" className="-rotate-90">
+          <circle cx={16} cy={16} r={R} fill="none" stroke="#ede9fe" strokeWidth={3} />
+          <circle
+            cx={16}
+            cy={16}
+            r={R}
+            fill="none"
+            stroke="#7c3aed"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - v)}
+            style={{ transition: "stroke-dashoffset 220ms linear" }}
+          />
+        </svg>
+      </span>
+    </span>
   )
 }
 

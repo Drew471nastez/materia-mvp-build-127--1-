@@ -152,7 +152,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     )
     .select("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
     .single()
-  if (error || !inserted) return NextResponse.json({ error: "Could not send" }, { status: 500 })
+  if (error || !inserted) {
+    // The database has its own limits under this route's — see the abuse-limits
+    // section of supabase/sql/RUN_MESSAGING_ALL.sql. They exist because
+    // PostgREST is reachable without going through here at all, so the app's
+    // rate limit is not the last word. When one of them fires on a request that
+    // DID come through here, it is worth saying what happened rather than
+    // reporting a server fault the user cannot act on.
+    const raised = error?.message ?? ""
+    if (raised.startsWith("rate_limited")) {
+      return NextResponse.json(
+        { error: "Prea multe mesaje trimise. Așteaptă câteva secunde." },
+        { status: 429 },
+      )
+    }
+    if (raised.startsWith("blocked")) {
+      return NextResponse.json(
+        { error: "Nu poți trimite mesaje în această conversație." },
+        { status: 403 },
+      )
+    }
+    console.error("[messages/send] insert failed:", raised)
+    return NextResponse.json({ error: "Could not send" }, { status: 500 })
+  }
 
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)
 

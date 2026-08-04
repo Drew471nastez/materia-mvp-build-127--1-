@@ -155,7 +155,13 @@ export function ConversationRow({
           void triggerHaptic("light")
           onDelete()
         }}
-        className="absolute inset-y-0 right-0 flex items-center justify-center bg-red-600 text-[13px] font-semibold text-white"
+        // Black, not red. Red is for damage you cannot undo — a payment failing,
+        // an account closing. Removing a conversation from your own list is
+        // neither destructive nor irreversible for the other person, and a wall
+        // of red down a list you scroll with your thumb reads as danger where
+        // there is none. Mail uses grey for archive and red only for delete; the
+        // distinction is worth keeping.
+        className="absolute inset-y-0 right-0 flex items-center justify-center bg-neutral-900 text-[13px] font-semibold text-white"
         style={{ width: ACTION_W }}
         tabIndex={open ? 0 : -1}
       >
@@ -227,7 +233,7 @@ export function ConversationRow({
                     setMenuOpen(false)
                     onDelete()
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] font-medium text-red-600 transition-colors hover:bg-red-50"
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[14px] font-medium text-neutral-900 transition-colors hover:bg-neutral-100"
                 >
                   <Trash2 className="h-[16px] w-[16px]" />
                   {ariaLabel}
