@@ -73,5 +73,17 @@ export default async function MessagesPage() {
     initialConversations = null
   }
 
-  return <MessagesInbox initialConversations={initialConversations} renderedAt={Date.now()} viewerId={user.id} />
+  // A nonce, not a timestamp — the conversation route made the same mistake and
+  // it is documented in full in lib/render-key.ts. In short: the client used to
+  // compare this against its own clock to decide whether the payload had come
+  // out of the router cache, and on a phone whose clock runs behind the server
+  // that comparison says "fresh" about rows that are minutes old. Which is
+  // exactly the conversation that is missing from the list until you reload.
+  return (
+    <MessagesInbox
+      initialConversations={initialConversations}
+      renderKey={crypto.randomUUID()}
+      viewerId={user.id}
+    />
+  )
 }

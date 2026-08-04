@@ -11,7 +11,12 @@ import { IosSpinner } from "@/components/explore/ios-spinner"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
-import { hiddenConversations, hideConversation } from "@/lib/messages/hidden-conversations"
+import {
+  hiddenConversations,
+  hideConversation,
+  unhideConversation,
+} from "@/lib/messages/hidden-conversations"
+import { wasServedFromCache } from "@/lib/render-key"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -105,26 +110,30 @@ const ROW_INNER = "flex items-center gap-3 px-2 py-3.5 transition-colors"
  */
 export function MessagesInbox({
   initialConversations = null,
-  renderedAt,
+  renderKey,
   viewerId,
 }: {
   initialConversations?: Row[] | null
   /**
-   * When the server actually produced these rows.
+   * Proof of whether the server produced these rows for THIS navigation.
    *
-   * This exists because of a bug that took three rounds to find: the inbox is a
-   * dynamic route held in the CLIENT ROUTER CACHE for three minutes, so tapping
-   * the Messages tab can serve a payload rendered minutes ago — from before the
-   * conversation you started on a listing page existed. The client had no way to
-   * know that. It assumed anything the server handed it was new, started its
-   * thirty-second freshness clock at mount, and so refused to refetch for half a
-   * minute on rows that were already stale when they arrived. That is the
-   * conversation that is missing until you reload the page.
+   * This exists because of a bug that took several rounds to find: the inbox is
+   * a dynamic route held in the CLIENT ROUTER CACHE for three minutes, so
+   * tapping the Messages tab can serve a payload rendered minutes ago — from
+   * before the conversation you started on a listing page existed. The client
+   * assumed anything the server handed it was new, started its thirty-second
+   * freshness clock at mount, and refused to refetch for half a minute on rows
+   * that were already stale when they arrived. That is the conversation missing
+   * until you reload the page.
    *
-   * With the render time stamped, "how old is this" is a fact rather than an
-   * assumption, and a cached payload refetches immediately.
+   * The first attempt at this stamped the server's `Date.now()` here and
+   * compared it against the client's. Those are two different machines, and a
+   * phone whose clock runs behind the server measures a three-minute-old
+   * payload as brand new — reintroducing the exact bug the stamp was added to
+   * fix, on precisely the devices least likely to be noticed. A nonce answers
+   * the same question with no clock in it. See lib/render-key.ts.
    */
-  renderedAt?: number
+  renderKey?: string
   /** Whose inbox this is. Only used to key the local record of conversations
    *  removed on this device — see lib/messages/hidden-conversations.ts. */
   viewerId?: string | null
@@ -146,13 +155,49 @@ export function MessagesInbox({
   const [hidden] = useState(() => hiddenConversations(viewerId))
   /** The row a swipe has proposed deleting, held until it is confirmed. */
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null)
-  const visibleRows = rows ? rows.filter((r) => !hidden.has(r.id)) : rows
+  /**
+   * A conversation you removed stays removed until somebody says something new.
+   *
+   * This used to be `!hidden.has(r.id)` and that was a message-losing bug, not
+   * a cosmetic one: the id was hidden on this device with no rule that could
+   * ever put it back, so when the other person replied their message arrived,
+   * counted towards the unread badge, and was invisible. Comparing against WHEN
+   * it was hidden is the same rule the server's `buyer_deleted_at` column
+   * follows — you removed the conversation as it stood then, and anything said
+   * afterwards brings it back.
+   *
+   * The local record is tidied as a side effect rather than in an effect,
+   * deliberately: it is idempotent, it touches only rows that have already
+   * earned their way back, and doing it here means the storage cannot disagree
+   * with what is on screen even for one render.
+   */
+  const visibleRows = rows
+    ? rows.filter((r) => {
+        const hiddenAt = hidden.get(r.id)
+        if (hiddenAt === undefined) return true
+        const spokeSince = Date.parse(r.lastMessageAt) > hiddenAt
+        if (!spokeSince) return false
+        hidden.delete(r.id)
+        unhideConversation(viewerId, r.id)
+        return true
+      })
+    : rows
   const [signedOut, setSignedOut] = useState(false)
   const [notifs, setNotifs] = useState<Notif[] | null>(null)
   const [notifUnread, setNotifUnread] = useState(0)
   // Read once, at mount, and never again: a later render must not be able to
   // turn "the server already answered" into "fetch now".
   const [servedFromServer] = useState(() => initialConversations !== null)
+  /**
+   * Whether those rows came out of the router cache. Decided once, on the first
+   * render, and never re-decided — the answer is a property of this mount, and
+   * a later render must not be able to change it.
+   */
+  const fromCacheRef = useRef<boolean | null>(null)
+  if (fromCacheRef.current === null) {
+    fromCacheRef.current = initialConversations !== null && wasServedFromCache(renderKey)
+  }
+  const fromCache = fromCacheRef.current
 
   useEffect(() => {
     let alive = true
@@ -166,9 +211,12 @@ export function MessagesInbox({
     // if they had just been fetched — the freshness window the component
     // already keeps is what suppresses the duplicate mount request, rather than
     // a second rule that could drift out of step with it.
-    // The server's clock, not ours. See `renderedAt` above — assuming the
-    // payload was fresh is exactly what hid a new conversation until a reload.
-    let lastLoadedAt = servedFromServer ? renderedAt ?? Date.now() : 0
+    // Rows the server rendered for this navigation start the clock as if they
+    // had just been fetched; anything out of the router cache starts at zero, so
+    // the very next line refetches it. Both branches use the SAME clock — this
+    // one — which is the whole point of deciding it with a nonce instead of by
+    // subtracting the server's time from ours.
+    let lastLoadedAt = servedFromServer && !fromCache ? Date.now() : 0
     const MIN_INTERVAL_MS = 30_000
 
     const load = () => {
@@ -216,7 +264,7 @@ export function MessagesInbox({
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("pageshow", maybeLoad)
     }
-  }, [servedFromServer, renderedAt])
+  }, [servedFromServer, fromCache])
 
   // The red dot on the Notificări segment costs one head count on mount.
   useEffect(() => {

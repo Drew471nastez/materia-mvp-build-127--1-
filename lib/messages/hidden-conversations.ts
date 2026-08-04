@@ -27,14 +27,43 @@
 const KEY = "storelib_hidden_convos_v1"
 const CAP = 500
 
-type Store = Record<string, string[]>
+/**
+ * When each conversation was hidden, not merely that it was.
+ *
+ * The timestamp is what makes this correct rather than merely persistent, and
+ * its absence was a real way to lose a message. A hidden id used to be hidden
+ * forever: the row was filtered out of the inbox on this device with no rule
+ * that could ever put it back, so when the other person wrote again their
+ * reply arrived, sat in the database, counted towards the unread badge — and
+ * was invisible. `unhideConversation` existed for exactly this and was never
+ * called from anywhere.
+ *
+ * With a time on it, the rule is the same one the server's `buyer_deleted_at`
+ * column follows: you removed the conversation AS IT WAS THEN. Anything said
+ * afterwards is a new conversation with the same person, and it comes back.
+ */
+type Store = Record<string, Record<string, number>>
 
 function read(): Store {
   if (typeof localStorage === "undefined") return {}
   try {
     const raw = localStorage.getItem(KEY)
     const parsed: unknown = raw ? JSON.parse(raw) : null
-    return parsed && typeof parsed === "object" ? (parsed as Store) : {}
+    if (!parsed || typeof parsed !== "object") return {}
+    // Migrating the old shape, which was a bare array of ids with no times.
+    // They are stamped as hidden NOW rather than at zero: zero would mean "any
+    // message at all un-hides this", which would resurrect every conversation
+    // anyone had ever deleted the moment this shipped.
+    const out: Store = {}
+    const now = Date.now()
+    for (const [user, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (Array.isArray(value)) {
+        out[user] = Object.fromEntries(value.map((id) => [String(id), now]))
+      } else if (value && typeof value === "object") {
+        out[user] = value as Record<string, number>
+      }
+    }
+    return out
   } catch {
     return {}
   }
@@ -49,17 +78,25 @@ function write(store: Store): void {
   }
 }
 
-export function hiddenConversations(userId: string | null | undefined): Set<string> {
-  if (!userId) return new Set()
-  return new Set(read()[userId] ?? [])
+/** Conversation id → the moment it was removed, in epoch milliseconds. */
+export function hiddenConversations(userId: string | null | undefined): Map<string, number> {
+  if (!userId) return new Map()
+  return new Map(Object.entries(read()[userId] ?? {}))
 }
 
 export function hideConversation(userId: string | null | undefined, conversationId: string): void {
   if (!userId) return
   const store = read()
-  const list = store[userId] ?? []
-  if (list.includes(conversationId)) return
-  store[userId] = [conversationId, ...list].slice(0, CAP)
+  const list = store[userId] ?? {}
+  // Re-stamped rather than skipped if it is already there: hiding a
+  // conversation that came back is hiding it as it is NOW, and keeping the
+  // original time would let the same old messages un-hide it again.
+  list[conversationId] = Date.now()
+  const entries = Object.entries(list)
+  store[userId] =
+    entries.length > CAP
+      ? Object.fromEntries(entries.sort((a, b) => b[1] - a[1]).slice(0, CAP))
+      : list
   write(store)
 }
 
@@ -69,8 +106,8 @@ export function unhideConversation(userId: string | null | undefined, conversati
   if (!userId) return
   const store = read()
   const list = store[userId]
-  if (!list?.length) return
-  store[userId] = list.filter((id) => id !== conversationId)
+  if (!list || !(conversationId in list)) return
+  delete list[conversationId]
   write(store)
 }
 

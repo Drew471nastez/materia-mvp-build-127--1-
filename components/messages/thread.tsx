@@ -8,6 +8,7 @@ import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, S
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
+import { wasServedFromCache } from "@/lib/render-key"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
@@ -195,31 +196,6 @@ function presenceOf(
  * or decline a pending one, and an accepted one becomes the buyer's way into
  * checkout at the agreed price.
  */
-/**
- * Every render nonce this tab has already mounted a thread with.
- *
- * Module scope, so it outlives the component and every navigation inside the
- * session — which is the whole mechanism. Next re-uses a cached RSC payload
- * WITHOUT re-running the server component, so the nonce comes back unchanged;
- * a value already in here therefore proves the payload was served from the
- * router cache rather than rendered for this navigation. A full page load
- * empties both this set and that cache together, so the two can never disagree.
- *
- * Bounded because a long session opening many conversations would otherwise
- * accumulate one string per open forever. Two hundred is far past any real
- * session and the cost of forgetting an old one is a single redundant refresh.
- */
-const seenRenderKeys = new Set<string>()
-
-function markSeen(key: string): boolean {
-  const already = seenRenderKeys.has(key)
-  if (!already) {
-    if (seenRenderKeys.size > 200) seenRenderKeys.clear()
-    seenRenderKeys.add(key)
-  }
-  return already
-}
-
 export function MessageThread({
   id,
   initial = null,
@@ -243,7 +219,7 @@ export function MessageThread({
    */
   const fromCacheRef = useRef<boolean | null>(null)
   if (fromCacheRef.current === null) {
-    fromCacheRef.current = initial !== null && (!renderKey || markSeen(renderKey))
+    fromCacheRef.current = initial !== null && wasServedFromCache(renderKey)
   }
   const fromCache = fromCacheRef.current
   // Born with the conversation in it. The server read it in the same request
