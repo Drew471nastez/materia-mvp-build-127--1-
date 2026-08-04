@@ -185,17 +185,33 @@ export async function listConversations({
         ? asAdmin.from("products").select("id, title, slug, thumbnail_url, price_cents, status").in("id", listingIds)
         : Promise.resolve({ data: [] as any[] }),
       fetchProfilesWithOfficial(asAdmin, otherIds),
+      // Both of these were UNBOUNDED, and that is the most expensive thing in
+      // the inbox by a wide margin: `.in()` over sixty conversations with no
+      // limit fetches every message in all sixty, twice, on every load — tens of
+      // thousands of rows over the wire to render sixty previews and sixty
+      // counts.
+      //
+      // Four rows per conversation is enough to find each one's newest, because
+      // they arrive newest-first and only the first hit per conversation is
+      // kept. It degrades in exactly one case — a single thread with more than
+      // ~240 messages newer than another thread's newest — and it degrades
+      // cosmetically: that row shows no preview line, keeps its name, avatar and
+      // timestamp, and opens normally.
       asAdmin
         .from("messages")
         .select("conversation_id, sender_id, kind, body, offer_cents, offer_status, created_at")
         .in("conversation_id", convoIds)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(Math.max(120, convoIds.length * 4)),
+      // Unread is a badge, and a badge stops meaning anything past a hundred.
+      // Counting five hundred is far more than it can ever usefully show.
       asAdmin
         .from("messages")
         .select("conversation_id")
         .in("conversation_id", convoIds)
         .neq("sender_id", userId)
-        .is("read_at", null),
+        .is("read_at", null)
+        .limit(500),
     ])
 
     for (const l of listingsRes.data ?? []) listings.set(l.id, l as InboxListing)

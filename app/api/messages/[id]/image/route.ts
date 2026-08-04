@@ -31,6 +31,32 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", 
  *  phone can produce avif, and refusing it outright is worse than storing it. */
 const IMAGE_RE = /^image\//
 
+/**
+ * What the bytes actually are, rather than what the upload claims.
+ *
+ * `file.type` is whatever the client put in the multipart header — it is a
+ * label, not a fact, and a request built by hand can say "image/jpeg" over
+ * anything at all. Every serious platform sniffs the leading bytes instead,
+ * because that is the only part an attacker cannot simply relabel. It matters
+ * here specifically: these objects are served back to the other party from our
+ * own domain, so a file that is not the picture it claims to be is a file we
+ * would be handing to somebody else under our name.
+ */
+function sniff(bytes: Uint8Array): string | null {
+  const b = bytes
+  if (b.length < 12) return null
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg"
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png"
+  const ascii = (i: number, s: string) => String.fromCharCode(...b.slice(i, i + s.length)) === s
+  if (ascii(0, "RIFF") && ascii(8, "WEBP")) return "image/webp"
+  if (ascii(4, "ftyp")) {
+    const brand = String.fromCharCode(...b.slice(8, 12))
+    if (/^(heic|heix|hevc|hevx|mif1|msf1)$/.test(brand)) return "image/heic"
+  }
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif"
+  return null
+}
+
 function extensionFor(type: string): string {
   if (type === "image/png") return "png"
   if (type === "image/webp") return "webp"
@@ -72,13 +98,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "Imaginea este prea mare" }, { status: 413 })
   if (!IMAGE_RE.test(file.type)) return NextResponse.json({ error: "Format neacceptat" }, { status: 415 })
 
+  // The header said image; the bytes have to agree.
+  const head = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+  const sniffed = sniff(head)
+  if (!sniffed) {
+    return NextResponse.json({ error: "Fișierul nu este o imagine validă" }, { status: 415 })
+  }
+
+  // How many photos one person may put into one thread in a minute. A picture
+  // is three orders of magnitude more expensive than a line of text — bandwidth,
+  // storage, and a signed URL minted for it on every read — so it gets its own,
+  // much tighter ceiling than the twenty-messages one next door.
+  const since = new Date(Date.now() - 60_000).toISOString()
+  const { count: recent } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", id)
+    .eq("sender_id", user.id)
+    .gte("created_at", since)
+  if ((recent ?? 0) >= 30) {
+    return NextResponse.json({ error: "Prea multe trimiteri. Așteaptă un minut." }, { status: 429 })
+  }
+
   const admin = createAdminClient()
-  const path = `${user.id}/${id}/${crypto.randomUUID()}.${extensionFor(file.type)}`
+  const path = `${user.id}/${id}/${crypto.randomUUID()}.${extensionFor(sniffed)}`
 
   const put = () =>
     admin.storage
       .from("messages")
-      .upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false })
+      // The sniffed type, so what we serve back is described by what it is.
+      .upload(path, file, { contentType: sniffed, cacheControl: "31536000", upsert: false })
 
   let { error: upErr } = await put()
 

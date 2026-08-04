@@ -88,7 +88,12 @@ export async function readThread({
       .from("messages")
       .select(columns)
       .eq("conversation_id", id)
-      .order("created_at", { ascending: true })
+      // DESCENDING, then reversed below. Ascending with a limit returns the
+      // OLDEST five hundred — so a conversation with six hundred messages in it
+      // showed the first five hundred and never the newest hundred, including
+      // everything either party had said that week. The limit has to cut from
+      // the far end of the history, not the near one.
+      .order("created_at", { ascending: false })
       .limit(500)
 
   const [messagesRes] = await Promise.all([
@@ -139,7 +144,8 @@ export async function readThread({
   // A photo stored the fallback way is a text row with its path in the body.
   // Decoded here, once, so nothing downstream — the client, the inbox preview,
   // the action sheet — has to know there are two ways a photo can be filed.
-  const messages = ((messagesRes.data ?? []) as unknown as ThreadMessage[]).map((m) => {
+  // Back into reading order after the descending fetch above.
+  const messages = ((messagesRes.data ?? []) as unknown as ThreadMessage[]).slice().reverse().map((m) => {
     const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
     if (encoded) {
       return { ...m, kind: "image" as const, body: encoded.caption, image_url: encoded.path }
