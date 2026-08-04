@@ -347,6 +347,7 @@ export function MessageThread({
     scrollToEnd()
   }, [thread?.messages.length, scrollToEnd])
 
+
   // The keyboard opening shortens the scroller under it, so whatever was at the
   // bottom is suddenly above the fold. Follow it down, for the same reason a new
   // message does: the end of the conversation is where you were looking.
@@ -421,6 +422,12 @@ export function MessageThread({
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
+
+  // The dots add a row to the bottom of the conversation, so whatever was there
+  // is suddenly above the fold — the same reason a new message scrolls.
+  useEffect(() => {
+    if (peerTyping && stickBottom.current) scrollToEnd()
+  }, [peerTyping, scrollToEnd])
 
   /** Announce a change on this thread to whoever else has it open. */
   const announce = useCallback((event: "msg" | "typing") => {
@@ -1200,11 +1207,11 @@ export function MessageThread({
             })}
           </div>
         )}
-        </div>
 
-        {/* Someone is writing. Below the exchange because that is where their
-            next message will land, and it disappears on its own — nobody
-            reliably sends "I stopped typing", they just put the phone down. */}
+        {/* Someone is writing. Inside the bottom-aligned column, not after it:
+            outside, the column's own `min-h-full` pushes this below the fold, so
+            the one thing that is supposed to tell you something is happening is
+            the one thing you cannot see without scrolling. */}
         {peerTyping && (
           <div className="flex items-center gap-1 px-1 pt-2">
             <span className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-neutral-100 px-3 py-2.5">
@@ -1214,6 +1221,8 @@ export function MessageThread({
             </span>
           </div>
         )}
+        </div>
+
       </div>
       </div>
 
