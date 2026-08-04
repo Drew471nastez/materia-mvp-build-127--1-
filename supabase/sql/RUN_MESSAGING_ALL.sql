@@ -644,13 +644,22 @@ create policy "users delete their own follows"
 -- rows we already fetch. Safe to run more than once.
 -- ============================================================================
 
-alter table public.profiles
-  add column if not exists last_seen_at timestamptz;
+-- Guarded, like every other reference to public.profiles in this file. The
+-- header promises no prerequisites and this was the one statement that would
+-- still have stopped the script on a database without a profiles table.
+do $$ begin
+  if to_regclass('public.profiles') is null then
+    raise notice 'public.profiles not found — presence skipped. Re-run this file once profiles exists.';
+    return;
+  end if;
 
--- Read as part of "who do I follow", so it's worth an index once follow lists
--- get long enough to sort or filter on.
-create index if not exists idx_profiles_last_seen_at
-  on public.profiles (last_seen_at desc nulls last);
+  alter table public.profiles add column if not exists last_seen_at timestamptz;
+
+  -- Read as part of "who do I follow", so it's worth an index once follow lists
+  -- get long enough to sort or filter on.
+  create index if not exists idx_profiles_last_seen_at
+    on public.profiles (last_seen_at desc nulls last);
+end $$;
 
 
 -- ===========================================================================
