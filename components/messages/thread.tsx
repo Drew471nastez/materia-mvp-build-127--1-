@@ -1353,12 +1353,13 @@ export function MessageThread({
             the same viewport numbers, so the handover is already invisible and
             an animation over an invisible swap is just a visible animation. */}
         <div className="flex min-h-full flex-col justify-end">
-        {/* Above the exchange and inside the bottom-aligned column, so on a
-            short thread it sits directly over the first message and on a long
-            one it scrolls away with the history — which is where a notice about
-            how to behave belongs. Never over the Storelib thread: warning
-            somebody about the platform, inside the platform's own thread, reads
-            as the app not knowing who it is. */}
+        {/* Sticky at the top of the reading area rather than scrolling away with
+            the history: the conversation moves under it and it stays where it is
+            any use. Inside the bottom-aligned column so a short thread has it
+            directly above the first message instead of stranded at the top of an
+            empty screen. Never over the Storelib thread — warning somebody about
+            the platform, inside the platform's own thread, reads as the app not
+            knowing who it is. */}
         {thread && !thread.official && <SafetyNotice />}
         {thread === null ? (
           // The last resort, and it is now shaped like the conversation it is

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
+import { markNavigated } from "@/lib/session-nav"
 
 /**
  * One arrival, played the same way every time you change tab.
@@ -101,6 +102,11 @@ export function TabTransition({
     // page load, not a tab change, and animating it would put a fade over an
     // app that has only just appeared.
     if (from === undefined) return
+
+    // Past this line the app has definitely moved. Recorded for anything that
+    // needs to tell a cold start from a navigation — the home feed's entry
+    // curtain does, and got it wrong. See lib/session-nav.ts.
+    markNavigated()
     // Not a tab, or the same tab (a filter, a query string, a shallow push).
     if (!tab || tab === from) return
     // BOTH ends must be tabs. Coming back to a tab from somewhere that is not

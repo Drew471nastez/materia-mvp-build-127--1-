@@ -26,6 +26,7 @@ import { signalArrival } from "@/lib/nav-blend"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { claimSurface } from "@/lib/surface-bg"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { hasNavigated } from "@/lib/session-nav"
 import { cn } from "@/lib/utils"
 
 type Tab = "for-you" | "following" | "saved"
@@ -248,12 +249,24 @@ export function MobileFeed({
   const showCats = tab === "for-you"
   const catBarH = showCats ? CATBAR_H : 0
 
-  // The curtain now covers ONE case only: opening the app, where there is no
+  // The curtain covers ONE case only: opening the app, where there is no
   // previous screen to dissolve from. Every in-app change of screen cross-fades
   // instead (see below) — a curtain there meant staring at a flat black or white
   // rectangle mid-transition, which is exactly what read as a snap.
+  //
+  // `introPlayed` alone could not enforce that, and this is the flash on the
+  // Acasă tab. It means "has this component mounted before", which is a
+  // different question: a session that started anywhere else — a notification, a
+  // shared listing, signing in and landing on your profile — reaches the feed
+  // for the FIRST time by tapping a tab, and got the cold-start curtain over it.
+  // A screenful of skeleton, then an opaque panel for the best part of a second,
+  // then the feed. Black, for anyone whose last view was reels, because the
+  // curtain wears the colour of the view you left.
+  //
+  // `hasNavigated()` is the question that was actually meant: did the app move
+  // to get here. See lib/session-nav.ts.
   const [curtain, setCurtain] = useState<Curtain>(() =>
-    introPlayed ? { phase: "off", ms: 0 } : { phase: "cover", ms: ENTRY_MS },
+    introPlayed || hasNavigated() ? { phase: "off", ms: 0 } : { phase: "cover", ms: ENTRY_MS },
   )
 
   // ---- Screen cross-fade ----
