@@ -132,28 +132,74 @@ export function ThreadDetails({
   }, [mounted, open, settle])
 
   // ---- the drag -----------------------------------------------------------
-  const drag = useRef({ active: false, startY: 0, dy: 0, lastY: 0, lastT: 0, v: 0 })
+  const drag = useRef({
+    /** Touched, but not yet committed to either a drag or a scroll. */
+    armed: false,
+    active: false,
+    /** Started on the handle, where the gesture is unambiguously the sheet's. */
+    fromHandle: false,
+    startY: 0,
+    dy: 0,
+    lastY: 0,
+    lastT: 0,
+    v: 0,
+  })
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    // A drag that begins while the content is scrolled would fight the scroll.
-    // At the top there is nothing above to reach, so the gesture is the sheet's.
-    const body = bodyRef.current
-    if (body && body.scrollTop > 0) return
     const sheet = sheetRef.current
-    const scrim = scrimRef.current
-    if (!sheet || !scrim) return
-    drag.current = { active: true, startY: e.clientY, dy: 0, lastY: e.clientY, lastT: performance.now(), v: 0 }
-    sheet.style.transition = "none"
-    scrim.style.transition = "none"
-    sheet.setPointerCapture?.(e.pointerId)
+    if (!sheet) return
+    // The handle owns its gesture outright. Anywhere else the sheet and the
+    // scrollable body both have a claim on a vertical drag, so nothing is
+    // decided here — the first move decides, below.
+    const fromHandle = !!(e.target as HTMLElement).closest?.("[data-sheet-handle]")
+    drag.current = {
+      armed: true,
+      active: false,
+      fromHandle,
+      startY: e.clientY,
+      dy: 0,
+      lastY: e.clientY,
+      lastT: performance.now(),
+      v: 0,
+    }
   }, [])
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const d = drag.current
-    if (!d.active) return
     const sheet = sheetRef.current
     const scrim = scrimRef.current
     if (!sheet || !scrim) return
+
+    // ---- the one decision, made once, on the first real movement ----------
+    //
+    // Guarding only on `scrollTop > 0` was not enough and would have shown:
+    // with the body at the top, an UPWARD swipe is a scroll into the content,
+    // and the sheet would have followed the finger up at the same time. Both
+    // things happening to one gesture is the whole class of bug that makes a
+    // web sheet feel like a web sheet.
+    //
+    // So a gesture that does not start on the handle is only the sheet's if the
+    // body is at its top AND the finger is going down. Anything else is handed
+    // to the scroller and never taken back for the rest of the gesture.
+    if (d.armed && !d.active) {
+      const dy = e.clientY - d.startY
+      if (Math.abs(dy) < 4) return // still ambiguous; wait for a real direction
+      const body = bodyRef.current
+      const atTop = !body || body.scrollTop <= 0
+      if (!d.fromHandle && !(atTop && dy > 0)) {
+        d.armed = false
+        return
+      }
+      d.armed = false
+      d.active = true
+      d.startY = e.clientY // re-anchor so the sheet does not jump by the threshold
+      d.lastY = e.clientY
+      d.lastT = performance.now()
+      sheet.style.transition = "none"
+      scrim.style.transition = "none"
+      sheet.setPointerCapture?.(e.pointerId)
+    }
+    if (!d.active) return
 
     let dy = e.clientY - d.startY
     // Upward gets a quarter of the travel: there is nowhere above for the sheet
@@ -175,6 +221,7 @@ export function ThreadDetails({
 
   const onPointerUp = useCallback(() => {
     const d = drag.current
+    d.armed = false
     if (!d.active) return
     d.active = false
     const sheet = sheetRef.current
@@ -294,7 +341,11 @@ export function ThreadDetails({
         {/* The grab area. `touch-action: none` here and only here: the browser
             must not claim this gesture for a scroll before the handler sees it,
             and everything below still scrolls normally. */}
-        <div className="shrink-0 cursor-grab pt-2.5 active:cursor-grabbing" style={{ touchAction: "none" }}>
+        <div
+          data-sheet-handle
+          className="shrink-0 cursor-grab pt-2.5 active:cursor-grabbing"
+          style={{ touchAction: "none" }}
+        >
           <span aria-hidden className="mx-auto block h-1.5 w-10 rounded-full bg-neutral-200" />
 
           {/* Who this is about, stated at the top, so every row below reads
@@ -302,7 +353,7 @@ export function ThreadDetails({
               the whole header is a natural place to grab a sheet. */}
           <div className="flex items-center gap-3 px-5 pb-4 pt-4">
             {other?.avatar_url ? (
-              <Image src={other.avatar_url} alt="" width={52} height={52} className="h-13 w-13 rounded-full object-cover" style={{ height: 52, width: 52 }} />
+              <Image src={other.avatar_url} alt="" width={52} height={52} className="h-[52px] w-[52px] rounded-full object-cover" />
             ) : (
               <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#7c3aed]/10 text-[19px] font-semibold text-[#7c3aed]">
                 {name.slice(0, 1).toUpperCase()}

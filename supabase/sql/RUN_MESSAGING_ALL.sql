@@ -35,7 +35,7 @@
 
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
-  listing_id uuid not null references public.products(id) on delete cascade,
+  listing_id uuid,  -- FK to public.products added conditionally at the end
   buyer_id uuid not null references auth.users(id) on delete cascade,
   seller_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
@@ -143,7 +143,7 @@ create table if not exists public.notifications (
   user_id uuid not null references auth.users(id) on delete cascade,
   kind text not null check (kind in ('follow', 'offer_received', 'offer_accepted', 'offer_declined', 'message')),
   actor_id uuid references auth.users(id) on delete cascade,
-  listing_id uuid references public.products(id) on delete cascade,
+  listing_id uuid,  -- FK to public.products added conditionally at the end
   conversation_id uuid references public.conversations(id) on delete cascade,
   created_at timestamptz not null default now(),
   read_at timestamptz
@@ -185,8 +185,14 @@ create policy notifications_update on public.notifications
 
 -- A system thread has no item. listing_id stays a foreign key to products; it
 -- just stops being mandatory, so a conversation can exist without one.
-alter table public.conversations
-  alter column listing_id drop not null;
+-- Already nullable above; kept for databases created by the older migration.
+do $$ begin
+  if exists (select 1 from information_schema.columns
+              where table_schema='public' and table_name='conversations'
+                and column_name='listing_id' and is_nullable='NO') then
+    alter table public.conversations alter column listing_id drop not null;
+  end if;
+end $$;
 
 -- Which of the two shapes a row is. Everything written before today is a
 -- listing thread, and the default keeps the buyer→seller insert in
@@ -210,8 +216,11 @@ create unique index if not exists conversations_system_unique
 -- The blue check. A boolean rather than a roles table, because "official" is
 -- one bit about a handful of accounts and the inbox reads it in the same trip
 -- that already fetches the display name.
-alter table public.profiles
-  add column if not exists is_official boolean not null default false;
+do $$ begin
+  if to_regclass('public.profiles') is not null then
+    alter table public.profiles add column if not exists is_official boolean not null default false;
+  end if;
+end $$;
 
 -- Row-level security needs no change here, and that is worth stating rather
 -- than assuming:
@@ -416,3 +425,55 @@ alter table public.conversations add column if not exists seller_deleted_at time
 -- The existing update policy already restricts writes to the two parties, so no
 -- new policy is needed — a party may set their own side's column, and the API
 -- is what decides which one that is.
+
+
+-- ===========================================================================
+-- 5. Foreign keys to the listings tables, added only if those tables exist
+-- ===========================================================================
+-- `listing_id` above is a plain uuid rather than an inline `references
+-- public.products(id)`, and that is not a shortcut — it is the difference
+-- between this file running and this file stopping on line 40.
+--
+-- An inline FK is evaluated the moment the CREATE TABLE is parsed, so on a
+-- database without public.products the very first statement raises 42P01 and
+-- nothing after it runs. Declaring the column first and attaching the
+-- constraint here means the messaging schema installs on any database, and
+-- picks up its referential integrity the moment the listings tables are there —
+-- run this file again after them and the constraints appear.
+--
+-- Idempotent both ways: it does nothing if the table is missing, and nothing if
+-- the constraint already exists.
+
+do $$ begin
+  if to_regclass('public.products') is null then
+    raise notice 'public.products not found — conversations.listing_id left without a foreign key. Re-run this file once the listings schema exists.';
+    return;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'conversations_listing_id_fkey'
+  ) then
+    alter table public.conversations
+      add constraint conversations_listing_id_fkey
+      foreign key (listing_id) references public.products(id) on delete cascade;
+  end if;
+
+  if to_regclass('public.notifications') is not null
+     and not exists (select 1 from pg_constraint where conname = 'notifications_listing_id_fkey') then
+    alter table public.notifications
+      add constraint notifications_listing_id_fkey
+      foreign key (listing_id) references public.products(id) on delete cascade;
+  end if;
+end $$;
+
+-- ===========================================================================
+-- What actually ran
+-- ===========================================================================
+select
+  to_regclass('public.products')             as products,
+  to_regclass('public.profiles')             as profiles,
+  to_regclass('public.conversations')        as conversations,
+  to_regclass('public.messages')             as messages,
+  to_regclass('public.notifications')        as notifications,
+  to_regclass('public.user_blocks')          as user_blocks,
+  to_regclass('public.conversation_reports') as conversation_reports;

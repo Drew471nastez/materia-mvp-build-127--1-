@@ -300,7 +300,11 @@ export function MessagesInbox({ initialConversations = null }: { initialConversa
     // twice was most of the empty space this page used to scroll through.
     <div
       className={cn(
-        "mx-auto flex h-full min-h-full max-w-2xl flex-col px-2 md:px-0 md:py-8",
+        // `h-full`, not `min-h-full`: the list below owns the scrolling, and a
+        // scroll container needs a definite height to scroll INSIDE rather than
+        // pushing the page taller. Both at once is a contradiction the browser
+        // resolves in whichever direction the layout happens to fall.
+        "mx-auto flex h-full max-w-2xl flex-col px-2 md:px-0 md:py-8",
         returning && "screen-return",
       )}
     >
