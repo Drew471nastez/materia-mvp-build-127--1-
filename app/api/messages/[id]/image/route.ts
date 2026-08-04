@@ -126,7 +126,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // The row is what makes the object reachable; without it the upload is
     // litter in a private bucket nobody will ever ask for again.
     await admin.storage.from("messages").remove([path])
-    return NextResponse.json({ error: "Could not send" }, { status: 500 })
+    console.error("[messages/image] insert failed:", error)
+    // The two failures worth naming, because they are the two that actually
+    // happen and neither is the user's doing: the column the photo's path goes
+    // in does not exist yet, or the constraint that permits an image row has not
+    // been widened. Both mean the migration has not been run, and "Could not
+    // send" sends whoever hits it looking in entirely the wrong place.
+    const detail = error?.message || ""
+    const migrationMissing = /image_url|messages_shape|messages_kind_check|column .* does not exist/i.test(detail)
+    return NextResponse.json(
+      {
+        error: migrationMissing
+          ? "Trimiterea de fotografii nu este activată încă pe acest server."
+          : `Nu am putut trimite fotografia: ${detail || "eroare necunoscută"}`,
+      },
+      { status: 500 },
+    )
   }
 
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", id)

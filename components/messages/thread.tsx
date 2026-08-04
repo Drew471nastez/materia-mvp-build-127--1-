@@ -287,17 +287,24 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
    * layout, and once more after the arrival animation and any image decode have
    * settled. Three cheap writes beat one that is right only sometimes.
    */
-  const scrollToEnd = useCallback((smooth: boolean) => {
-    const el = scrollerRef.current
-    if (!el) return
-    const put = (behavior: ScrollBehavior) => {
-      const el2 = scrollerRef.current
-      if (!el2) return
-      el2.scrollTo({ top: el2.scrollHeight, behavior })
+  const scrollToEnd = useCallback(() => {
+    const put = () => {
+      const el = scrollerRef.current
+      if (!el) return
+      // Assigning scrollTop, not scrollTo({behavior}). A smooth scroll here was
+      // actively harmful: the correction a frame later CANCELS an in-flight
+      // smooth scroll and jumps to wherever it had got to, so what you saw was
+      // never the glide — it was a truncated one with a snap on the end, twice.
+      // The motion people read as smooth in a chat is the bubble arriving, not
+      // the viewport travelling; every app worth copying moves the scroller
+      // instantly and animates the message.
+      el.scrollTop = el.scrollHeight
     }
-    put(smooth ? "smooth" : "auto")
-    requestAnimationFrame(() => put("auto"))
-    window.setTimeout(() => put("auto"), 260)
+    put()
+    requestAnimationFrame(put)
+    // One late correction, after the arrival animation and the composer's own
+    // resize have both landed.
+    window.setTimeout(put, 280)
   }, [])
 
   useEffect(() => {
@@ -305,9 +312,8 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     // The first landing is instant: there is no "movement" from a screen that
     // has not been seen yet, and animating it would be the conversation
     // visibly scrolling itself on arrival.
-    const first = !landed.current
     landed.current = true
-    scrollToEnd(!first)
+    scrollToEnd()
   }, [thread?.messages.length, scrollToEnd])
 
   // The keyboard opening shortens the scroller under it, so whatever was at the
@@ -317,7 +323,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     const vv = window.visualViewport
     if (!vv) return
     const follow = () => {
-      if (stickBottom.current) scrollToEnd(false)
+      if (stickBottom.current) scrollToEnd()
     }
     vv.addEventListener("resize", follow)
     return () => vv.removeEventListener("resize", follow)
@@ -376,10 +382,15 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   //
   // Coalesced, because a burst (a message plus the read receipts it triggers) is
   // one thing to look at, not four round trips.
+  const meRef = useRef<string | null>(initial?.me ?? null)
+  meRef.current = thread?.me ?? meRef.current
+
   useEffect(() => {
     const supabase = createClient()
     let timer: number | undefined
-    const nudge = () => {
+
+    /** The heavy path, for the cases the event alone cannot answer. */
+    const refetch = () => {
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         lastLoadAt.current = Date.now()
@@ -387,12 +398,56 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       }, 120)
     }
 
+    // Events are APPLIED, not treated as a doorbell.
+    //
+    // Refetching the whole thread on every event was the flash when you sent a
+    // message, and it was self-inflicted twice over. Your own INSERT comes back
+    // to you over the same socket, so pressing send fetched the conversation you
+    // were already looking at and replaced every bubble in it. And a fetch marks
+    // the other side's messages read, which is an UPDATE, which the socket also
+    // delivers — so one message could set off a second round trip behind it.
+    //
+    // So the common cases are handled from the payload and touch nothing else.
+    // A refetch is kept for exactly two things it cannot do: a photo, whose
+    // signed link only the server can mint, and a row we do not already hold.
+    const onInsert = (row: any) => {
+      if (!row?.id) return refetch()
+      // Ours. We drew it the instant it was typed; the server agreeing is not
+      // news, and re-rendering the thread to celebrate is the glitch.
+      if (row.sender_id === meRef.current) return
+      if (row.kind === "image") return refetch()
+      setThread((t) => {
+        if (!t || t.messages.some((m) => m.id === row.id)) return t
+        return { ...t, messages: [...t.messages, row as Msg] }
+      })
+    }
+
+    const onUpdate = (row: any) => {
+      if (!row?.id) return refetch()
+      setThread((t) => {
+        if (!t) return t
+        const i = t.messages.findIndex((m) => m.id === row.id)
+        if (i < 0) return t
+        const next = t.messages.slice()
+        // Merged rather than replaced: the row on the wire holds an object path
+        // where the one on screen holds a signed URL, and overwriting it would
+        // turn a visible photo into a broken one.
+        next[i] = { ...next[i], ...row, image_url: next[i].image_url ?? row.image_url }
+        return { ...t, messages: next }
+      })
+    }
+
     const channel = supabase
       .channel(`thread:${id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
-        nudge,
+        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        (p: any) => onInsert(p.new),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        (p: any) => onUpdate(p.new),
       )
       .subscribe((status: string) => {
         // Only SUBSCRIBED means the socket is actually carrying this thread.
@@ -774,12 +829,20 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
         onScroll={onScroll}
         className="absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
-        {/* No entrance on this column.
-            The skeleton before it is the same box, bottom-aligned, sized from
-            the same viewport numbers — so the handover is already invisible, and
-            a fade-and-rise on top of an invisible swap is an animation you can
-            see happening to a screen that had already arrived. */}
-        <div>
+        {/* Bottom-aligned, and this is the empty space.
+            A conversation with four messages in it does not fill the screen, and
+            a column that starts at the top leaves the rest of the screen blank
+            BELOW the last thing anyone said — a gap between the conversation and
+            the composer that grows every time the composer shrinks. Every chat
+            app stacks the exchange against the bottom instead, so a new message
+            pushes the old ones up rather than extending a list downward into
+            emptiness. It also makes the skeleton, which is bottom-aligned, the
+            same picture as what replaces it.
+
+            No entrance on the column: the two are now the same box, sized from
+            the same viewport numbers, so the handover is already invisible and
+            an animation over an invisible swap is just a visible animation. */}
+        <div className="flex min-h-full flex-col justify-end">
         {thread === null ? (
           <div className="space-y-3">
             <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />
