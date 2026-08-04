@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 
 /**
@@ -14,28 +14,49 @@ import { usePathname } from "next/navigation"
  * next.config.mjs); tap it again inside that window and there is no skeleton at
  * all, so nothing animates and the screen hard-cuts. Same finger, same tab, two
  * different behaviours depending on something the user cannot see. That
- * unpredictability is what reads as glitching, far more than any single frame
- * does.
+ * unpredictability is what reads as glitching, far more than any single frame.
  *
- * Moving it here fixes that by construction. This wraps <main> in the marketing
- * layout, which is above the route and therefore survives the swap, so the
- * animation is attached to THE NAVIGATION rather than to whichever of the two
- * things happened to render. Cached or cold, skeleton or finished page, every
- * tab change looks the same.
+ * So it is driven from here instead: this renders the <main> in the marketing
+ * layout, which is above the route and therefore survives the swap, and marks
+ * the ROOT ELEMENT for the length of the arrival. Cached or cold, skeleton or
+ * finished page, every tab change looks the same.
  *
- * OPACITY ONLY, and that is a hard constraint rather than a taste. The home
- * feed is `fixed inset-0` (components/explore/mobile-feed.tsx), and a
- * `transform` — or even `will-change: transform` — on any ancestor makes that
- * ancestor the containing block for its fixed descendants. A 0.6% scale on
- * <main> would therefore re-anchor the entire feed for the length of the
- * animation, which is a real jump in exchange for a movement nobody can see.
- * Opacity creates a stacking context but never a containing block, so it is the
- * one composited property that is safe on every tab including this one.
+ * ---------------------------------------------------------------------------
+ * Why a class on <html> rather than one on this element
+ * ---------------------------------------------------------------------------
+ * Because a tab is not only its content. In the app, the strip above it —
+ * search and the category rail on the sell form, a bare safe-area spacer on
+ * your profile and the inbox — is chrome that belongs to the tab and is a
+ * SIBLING of <main>, not a child. Animating only <main> meant the content
+ * settled while that strip snapped, which is two different things happening
+ * for one tap. The root class lets CSS reach both, so the tab arrives as one
+ * piece. See `.tab-arriving` in app/globals.css.
  *
- * It fires on TAB changes only. Opening a listing, a conversation or a seller
+ * ---------------------------------------------------------------------------
+ * Why opacity, and why Home is excluded
+ * ---------------------------------------------------------------------------
+ * `.tab-enter` also carried a 0.6% scale. That is correct on a skeleton and
+ * forbidden on <main>: the home feed is `position: fixed`, and a transform on
+ * any ancestor makes that ancestor the containing block for its fixed
+ * descendants — the whole feed would re-anchor for the length of the
+ * animation. A movement nobody can see traded for a jump everybody can.
+ * Opacity creates a stacking context but never a containing block.
+ *
+ * And opacity is inherited by the entire subtree, which is why arriving at HOME
+ * does not animate at all. On every other tab the bottom bar is a sibling of
+ * <main> and stays solid — but the feed is a full-screen fixed shell that
+ * renders ITS OWN copy of the bar, inside <main>. Fading <main> there would
+ * fade the tab bar under the finger that just pressed it, and a descendant
+ * cannot opt out of an ancestor's opacity. The feed is opaque and covers the
+ * screen edge to edge, so it swaps like a native tab controller does — which is
+ * the correct behaviour for a full-bleed surface, not a gap in this one.
+ *
+ * It fires between TABS only. Opening a listing, a conversation or a seller
  * already has its own transition, and stacking a second fade under those is how
  * you get the doubled entrance this file exists to remove.
  */
+
+const ARRIVE_MS = 260
 
 /**
  * Which of the five tabs a path belongs to, or null for everything else.
@@ -62,9 +83,9 @@ export function TabTransition({
   className?: string
 }) {
   const pathname = usePathname()
-  const ref = useRef<HTMLElement>(null)
   /** undefined until the first commit — see below. */
   const previous = useRef<string | null | undefined>(undefined)
+  const clear = useRef<number | undefined>(undefined)
 
   // A layout effect, not an effect. This runs after React has committed the new
   // route but BEFORE the browser paints it, so the first painted frame of the
@@ -89,22 +110,40 @@ export function TabTransition({
     // thread. Firing this on top of them is precisely the doubled animation
     // that moving the entrance up here was meant to end.
     if (from === null) return
+    // The feed owns its arrival — and its own tab bar. See the note above.
+    if (tab === "home") return
 
-    const el = ref.current
-    if (!el) return
+    const root = document.documentElement
     // Removed, reflowed, re-added. A CSS animation does not restart just
     // because the class is already there, so tapping Messages → Profile →
     // Messages quickly would play it once and then never again. Reading
     // offsetWidth between the two forces the style flush that makes the browser
     // treat it as a new animation.
-    el.classList.remove("tab-arrive")
-    void el.offsetWidth
-    el.classList.add("tab-arrive")
+    root.classList.remove("tab-arriving")
+    void root.offsetWidth
+    root.classList.add("tab-arriving")
+
+    // Taken off again rather than left on. An animation with `both` holds its
+    // final frame forever, so a stuck class would leave every element it
+    // matches pinned to a computed opacity for the rest of the session — and
+    // any later style recalculation on them would be resolving against a rule
+    // that has nothing left to say. A timer rather than `animationend`, because
+    // an animation that is cancelled mid-flight (by the next tab change) never
+    // fires that event.
+    window.clearTimeout(clear.current)
+    clear.current = window.setTimeout(() => {
+      root.classList.remove("tab-arriving")
+    }, ARRIVE_MS + 60)
   }, [pathname])
 
-  return (
-    <main ref={ref} className={className}>
-      {children}
-    </main>
+  // Never leave the mark behind on a screen this component no longer owns.
+  useEffect(
+    () => () => {
+      window.clearTimeout(clear.current)
+      document.documentElement.classList.remove("tab-arriving")
+    },
+    [],
   )
+
+  return <main className={className}>{children}</main>
 }

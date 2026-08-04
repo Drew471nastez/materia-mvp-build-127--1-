@@ -201,7 +201,12 @@ export function MobileSearchOverlay({
       return () => cancelAnimationFrame(r)
     }
     setShown(false)
-    const timer = setTimeout(() => setMounted(false), 420)
+    // Just past the slowest of the two transitions above (320ms). Unmounting
+    // early would cut the close off mid-fade; unmounting late leaves an
+    // invisible full-screen layer over the page it just closed onto — and this
+    // one is z-[90], above the tab bar, so those extra frames are frames where
+    // the bar you are reaching for does not answer.
+    const timer = setTimeout(() => setMounted(false), 360)
     return () => clearTimeout(timer)
   }, [open])
 
@@ -346,12 +351,28 @@ export function MobileSearchOverlay({
         // Full-screen — never resizes, so no bottom gap/displacement.
         height: "100dvh",
         opacity: shown ? 1 : 0,
-        // Pure fade + a whisper of a slide — NO scale (which warps text). Long,
-        // soft easeOutExpo so it appears extremely smooth and subtle, not snappy.
+        // Pure fade + a whisper of a slide — NO scale (which warps text).
+        //
+        // 300ms, down from 460. Search is the middle TAB of the bottom bar, not
+        // a modal you open occasionally, and it has to answer at the same speed
+        // its four neighbours do — those settle in 260ms (`.tab-arriving` in
+        // app/globals.css), and half a second next to a quarter of one is what
+        // makes one of five tabs feel like the slow one. The curve is unchanged,
+        // so it is the same movement, finished sooner.
+        //
+        // The two durations stay a fraction apart on purpose: the slide landing
+        // just after the fade is what stops the panel arriving as a flat sheet.
         transform: shown ? "translateY(0)" : "translateY(-8px)",
         transition:
-          "opacity 460ms cubic-bezier(0.16,1,0.3,1), transform 480ms cubic-bezier(0.16,1,0.3,1)",
+          "opacity 300ms cubic-bezier(0.16,1,0.3,1), transform 320ms cubic-bezier(0.16,1,0.3,1)",
         willChange: "opacity, transform",
+        // Transparent to the finger the instant it starts closing, not when it
+        // finishes unmounting. This is a full-screen layer at z-[90] — above
+        // the tab bar — so for the third of a second it spends fading out it was
+        // swallowing every tap aimed at the screen behind it. Pressing a tab
+        // right after dismissing search did nothing at all, which is
+        // indistinguishable from the tab being broken.
+        pointerEvents: shown ? "auto" : "none",
       }}
     >
       {/* Header: search field + close */}
