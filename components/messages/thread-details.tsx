@@ -5,7 +5,7 @@ import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, Ban, BadgeCheck, ChevronRight, HelpCircle, Trash2, UserRound } from "lucide-react"
+import { AlertTriangle, Ban, BadgeCheck, ChevronRight, Trash2, UserRound } from "lucide-react"
 import { navigateBlended } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -282,7 +282,16 @@ export function ThreadDetails({
     settle("closed")
     window.setTimeout(() => {
       onClose()
-      navigateBlended("back", () => router.replace("/messages"))
+      navigateBlended("back", () => {
+        router.replace("/messages")
+        // Not optional, and the reason delete could look like it had not
+        // worked: the inbox is a dynamic route held in the client router cache
+        // for three minutes, so replacing into it serves the copy from before
+        // the row was hidden — the thread you just deleted, still sitting
+        // there. refresh() re-renders it on the server, where the delete is
+        // already true.
+        router.refresh()
+      })
     }, 300)
   }, [onClose, router, settle])
 
@@ -383,8 +392,6 @@ export function ThreadDetails({
               onNavigate={onClose}
             />
           )}
-          <Row icon={<HelpCircle className="h-[19px] w-[19px]" />} label="Ajutor" href="/help" onNavigate={onClose} />
-
           {!official && (
             <>
               {reported ? (

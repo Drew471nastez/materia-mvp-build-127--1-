@@ -8,8 +8,8 @@ import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, S
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { ThreadDetails } from "@/components/messages/thread-details"
-import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { shrinkImage } from "@/lib/messages/shrink-image"
+import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -55,6 +55,13 @@ type Thread = {
 // reader who left the tab open overnight spent the night asking; fifteen still
 // feels live in a conversation people type into, at a third of the traffic.
 const POLL_MS = 15000
+/**
+ * The poll once Postgres is pushing changes to us. It is not the mechanism any
+ * more, it is the net under it — a websocket can drop without saying so, and a
+ * thread that quietly stops updating is worse than one that is a few seconds
+ * behind.
+ */
+const POLL_LIVE_MS = 45000
 
 /**
  * How close together two messages from the same person have to be before they
@@ -161,6 +168,9 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   // show a message that arrives, so asking for it is spend with nothing bought;
   // the catch-up happens in one fetch the moment the reader comes back, which is
   // the first instant the answer could matter to them.
+  /** True while Postgres is actually pushing this thread's changes to us. */
+  const [live, setLive] = useState(false)
+
   // Skipped exactly once, when the server already handed us the conversation.
   // Fetching it again on mount would be a second, identical read landing a few
   // hundred milliseconds after the first paint — and with it a re-render of
@@ -178,7 +188,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     }
     const start = () => {
       if (timer !== undefined) return
-      timer = window.setInterval(load, POLL_MS)
+      timer = window.setInterval(load, live ? POLL_LIVE_MS : POLL_MS)
     }
 
     const sync = () => {
@@ -197,7 +207,9 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       document.removeEventListener("visibilitychange", sync)
       stop()
     }
-  }, [load])
+    // `live` is a dependency on purpose: the interval's length depends on it, so
+    // the timer has to be rebuilt when the socket connects or drops.
+  }, [load, live])
 
   // ---- The screen the keyboard leaves you ----
   //
@@ -291,18 +303,53 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
   }, [])
 
-  // Pull down at the top of the conversation to ask for it again, rather than
-  // waiting out the poll. The same hook the grid uses, so it is the same
-  // gesture everywhere in the app.
-  const listRef = useRef<HTMLDivElement>(null)
-  const spinnerRef = useRef<HTMLDivElement>(null)
-  useFeedPullRefresh({
-    scrollRef: scrollerRef,
-    contentRef: listRef,
-    spinnerRef,
-    onRefresh: load,
-    enabled: true,
-  })
+  // ---- Live, so there is nothing to pull for --------------------------------
+  //
+  // A conversation had pull-to-refresh, and it was the wrong answer to the right
+  // problem. A chat is the one screen where "drag down to see if they replied"
+  // makes no sense: you are looking straight at it, and the reply should simply
+  // arrive. It also has to fight the scroller, which in a thread is normally
+  // pinned to the bottom, so the gesture was only ever available after scrolling
+  // all the way up — a refresh control you cannot reach from where you actually
+  // sit.
+  //
+  // So it is gone, and this replaces it: Postgres tells us the moment a row
+  // lands. An event triggers a re-read rather than being applied directly,
+  // because the row it carries is raw — an image message holds an object path in
+  // a private bucket, and the signed link for it is minted server-side. One
+  // extra indexed query for a correct thread beats duplicating the enrichment on
+  // the client and getting it subtly wrong.
+  //
+  // Coalesced, because a burst (a message plus the read receipts it triggers) is
+  // one thing to look at, not four round trips.
+  useEffect(() => {
+    const supabase = createClient()
+    let timer: number | undefined
+    const nudge = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => void load(), 120)
+    }
+
+    const channel = supabase
+      .channel(`thread:${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        nudge,
+      )
+      .subscribe((status: string) => {
+        // Only SUBSCRIBED means the socket is actually carrying this thread.
+        // Anything else — the publication not including `messages`, a blocked
+        // websocket, a dropped connection — has to fall back to asking, or the
+        // screen silently stops updating and looks broken rather than slow.
+        setLive(status === "SUBSCRIBED")
+      })
+
+    return () => {
+      window.clearTimeout(timer)
+      void supabase.removeChannel(channel)
+    }
+  }, [id, load])
 
   // Sending puts the message on screen NOW.
   //
@@ -596,37 +643,18 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
           page and reveals empty space under the composer. Contained, the drag
           simply does nothing, which is the honest answer when there is nothing
           above or below to reach. */}
-      {/* `overflow-hidden` is not decoration. The spinner below is parked 40px
-          ABOVE this box and slides down into the band a pull opens — with
-          nothing clipping it, those 40px were drawn straight over the
-          conversation header, so a spinner sat on top of the name of the person
-          you are talking to at all times. Clipped here, it does not exist until
-          it is pulled into view, which is the whole idea. */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {/* The same pull the grid and the inbox have. A conversation polls every
-            fifteen seconds, which is fine when you are reading and useless when
-            you are waiting — this is how you ask. Parked above the frame and
-            clipped, so it only exists while you are pulling. */}
-        <div
-          ref={spinnerRef}
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
-          style={{ transform: "translate3d(0, -40px, 0)", opacity: 0 }}
-        >
-          <IosSpinner size={22} />
-        </div>
       <div
         ref={scrollerRef}
         onScroll={onScroll}
         className="absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
-        {/* The exchange arrives as one thing.
-            The skeleton before this is four grey bars; this is the real
-            conversation. Swapped hard, that is a visible substitution no matter
-            how well the boxes line up — so the column resolves in over a fifth
-            of a second and the handover reads as the placeholder becoming the
-            content. One element, opacity and transform, on white. */}
-        <div ref={listRef} className="thread-reveal" style={{ transform: "translate3d(0, 0, 0)" }}>
+        {/* No entrance on this column.
+            The skeleton before it is the same box, bottom-aligned, sized from
+            the same viewport numbers — so the handover is already invisible, and
+            a fade-and-rise on top of an invisible swap is an animation you can
+            see happening to a screen that had already arrived. */}
+        <div>
         {thread === null ? (
           <div className="space-y-3">
             <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-neutral-100" />

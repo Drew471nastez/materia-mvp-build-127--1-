@@ -2015,16 +2015,26 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
  * recognisably the same gesture rather than two effects that happen to live in
  * the same app. */
 @keyframes screen-push {
-  from { transform: scale(1.035); }
+  from { transform: scale(1.022); }
+  to   { transform: scale(1); }
+}
+@keyframes screen-return {
+  from { transform: scale(0.962); }
   to   { transform: scale(1); }
 }
 @media (width < 48rem) {
+  /* Both deliberately small. A conversation is somewhere you go many times a
+     day, and at 3.5% a scale stops reading as depth and starts reading as a
+     zoom — the screen doing something to itself rather than arriving. Two
+     percent in, four out, and neither of them ever exposes an edge: the push
+     settles DOWN to 1 so it always covers the frame, and the return grows into
+     a root that surface-bg has already painted this screen's colour. */
   .screen-push {
-    animation: screen-push 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: screen-push 300ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
     will-change: transform;
   }
   .screen-return {
-    animation: feed-return 420ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+    animation: screen-return 360ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
     will-change: transform;
   }
 }
@@ -2056,19 +2066,12 @@ html[data-keyboard="open"] .thread-composer {
   .thread-composer { padding-bottom: 12px; }
 }
 
-/* The conversation resolving out of its own skeleton. Deliberately short and
-   deliberately shallow — it is a handover, not an entrance, and anything longer
-   would be the thread making you wait to read it. */
-@keyframes thread-reveal {
-  from { opacity: 0.4; transform: translate3d(0, 6px, 0); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-.thread-reveal {
-  animation: thread-reveal 220ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .thread-reveal { animation: none; }
-}
+/* There is deliberately no entrance on the message column.
+   Once the skeleton and the real screen became the same box — bottom-aligned,
+   sized from the same viewport numbers — the handover was already invisible, and
+   a fade-and-rise laid over an invisible swap is not a smoother transition. It
+   is a visible animation happening to a screen that had already arrived, which
+   is what "fade in up" was. */
 
 /* A list assembling instead of appearing.
  *
