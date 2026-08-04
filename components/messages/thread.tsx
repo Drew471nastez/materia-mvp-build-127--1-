@@ -251,6 +251,17 @@ export function MessageThread({
   const [failed, setFailed] = useState(false)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
+  /**
+   * An upload specifically, kept apart from `sending`.
+   *
+   * The photo button was disabled — and therefore dimmed to 40% — for the
+   * duration of every TEXT send, because both shared one flag. So the composer
+   * blinked on each message: a control unrelated to what you had just done
+   * fading out and back for the length of a round trip. The two are independent
+   * anyway; nothing about a line of text being in flight makes picking a
+   * photograph unsafe.
+   */
+  const [uploading, setUploading] = useState(false)
   const [answering, setAnswering] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -1060,10 +1071,10 @@ export function MessageThread({
   // the tab.
   const sendImage = useCallback(
     async (file: File) => {
-      if (!file || sending) return
+      if (!file || uploading) return
       const tempId = nextTempId()
       const localUrl = URL.createObjectURL(file)
-      setSending(true)
+      setUploading(true)
       void triggerHaptic("light")
       stickBottom.current = true
       // Starts a little way round rather than at nothing. A ring at zero for the
@@ -1170,7 +1181,7 @@ export function MessageThread({
         URL.revokeObjectURL(localUrl)
         setImageError("Fotografia nu a putut fi trimisă")
       } finally {
-        setSending(false)
+        setUploading(false)
         // One tick behind the swap so the completed ring is on screen for a
         // frame. Dropping it in the same commit as the finished photo would
         // mean the arc never visibly reaches the end.
@@ -1731,10 +1742,25 @@ export function MessageThread({
                           mine
                             ? "rounded-br-md bg-[#7c3aed] text-white"
                             : "rounded-bl-md bg-neutral-100 text-neutral-900",
-                          // In flight: present, readable, and visibly not
-                          // finished. It settles to full strength the moment the
-                          // server's row replaces it.
-                          m.pending && "opacity-70 transition-opacity duration-200",
+                          // NO DIMMING WHILE IT IS IN FLIGHT, and removing it is
+                          // the last discontinuity in a send.
+                          //
+                          // The entry animation lives on the WRAPPER around this
+                          // bubble and ramps opacity 0 → 1. A 0.7 here multiplies
+                          // with it, so the message arrived at seven tenths
+                          // strength — and then, whenever the server happened to
+                          // answer, `opacity-70` was dropped and a second 200ms
+                          // ramp ran 0.7 → 1 ON TOP of the first one, which was
+                          // often still going. Two overlapping opacity curves on
+                          // nested elements, the second one triggered by a
+                          // network response: the brightness of your own message,
+                          // and when it changed, depended on the connection.
+                          //
+                          // A message you sent is full strength from its first
+                          // frame. That it has not landed yet is said by the
+                          // receipt underneath it — "Se trimite…" with a single
+                          // check — which is where every chat worth copying says
+                          // it, and which costs the message itself nothing.
                           // The corner facing the message above closes up when
                           // there is one, which is what makes a run read as a
                           // single block rather than a stack of separate cards.
@@ -1837,7 +1863,7 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Trimite o fotografie"
-            disabled={sending}
+            disabled={uploading}
             onClick={() => {
               void triggerHaptic("light")
               fileRef.current?.click()
@@ -1921,14 +1947,23 @@ export function MessageThread({
                   fieldRef.current?.focus()
                   void send()
                 }}
-                disabled={sending || !canSend}
+                // Not disabled by `sending`. The button is already on its way
+                // out by then — `canSend` went false the moment the field
+                // cleared — and disabling it as it leaves only dims a control
+                // nobody can see. The guard that matters is inside `send`.
+                disabled={!canSend}
                 className="send-fab absolute bottom-[5px] right-[5px] flex h-[34px] w-[34px] items-center justify-center rounded-full text-white"
                 style={{
                   background: "linear-gradient(160deg, #8b5cf6 0%, #7c3aed 52%, #6d28d9 100%)",
                   boxShadow: "0 1px 2px rgba(76,29,149,0.3), 0 4px 10px -3px rgba(124,58,237,0.5)",
                 }}
               >
-                {sending ? <IosSpinner size={15} /> : <Send className="h-[16px] w-[16px]" />}
+                {/* Always the arrow. A spinner here would be shown inside a
+                    34px disc that is shrinking to nothing over 180ms — nobody
+                    ever saw it, and the thing it was reporting is reported
+                    where it belongs: on the bubble, which is already on screen
+                    saying "Se trimite…". */}
+                <Send className="h-[16px] w-[16px]" />
               </button>
           </div>
         </div>
