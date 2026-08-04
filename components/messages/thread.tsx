@@ -117,6 +117,19 @@ async function measureAspect(url: string): Promise<number | null> {
   }
 }
 
+/**
+ * Who "me" is, for the purposes of a broadcast, without saying who I am.
+ *
+ * One random value per tab, generated once. It exists so a typing ping can be
+ * ignored by the tab that sent it without that ping containing an account id —
+ * see `announce`. A page reload picks a new one, which is fine: nothing
+ * remembers it across a session and nothing needs to.
+ */
+const sessionTag =
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `t${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+
 /** Ids for messages that exist only on this screen so far. */
 let tempSeq = 0
 const nextTempId = () => `tmp-${++tempSeq}`
@@ -418,7 +431,50 @@ export function MessageThread({
         const merged = fresh.messages.map((m) =>
           shown.has(m.id) ? { ...m, image_url: shown.get(m.id)! } : m,
         )
-        return { ...fresh, messages: inFlight.length ? [...merged, ...inFlight] : merged }
+
+        // READ-AFTER-WRITE. A message that has just been accepted — it has a
+        // real id, it is no longer pending — can still be missing from a read
+        // that started before the insert committed, or that hit a replica a
+        // moment behind. Replacing wholesale would make it vanish and come back
+        // one poll later, which looks exactly like a message failing and then
+        // un-failing. So anything we hold that is younger than fifteen seconds
+        // and is not in this answer is kept; after that the server is right and
+        // we are wrong, and holding it any longer would resurrect a message
+        // somebody deleted.
+        // A SOCKET IS JUDGED BY WHAT IT DELIVERS, not by what it says.
+        //
+        // `live` comes from the subscribe callback, and a channel that reports
+        // SUBSCRIBED and then quietly stops routing keeps that status forever —
+        // so the poll stays on its twelve-second heartbeat and the thread runs
+        // twelve seconds behind while insisting it is realtime. There is no
+        // event for "this socket has gone deaf".
+        //
+        // But there is evidence: if this poll turns up a message from the other
+        // side that the socket never handed us, it is not carrying this thread
+        // whatever it claims. Demote it and the interval drops straight back to
+        // 2.5s; a real event arriving later promotes it again, because that is
+        // evidence too. Done inside the updater because `prev` is the only
+        // reliably current value here — `load` is memoised and a `thread` read
+        // from its closure would be whatever it was when the callback was made.
+        if (liveRef.current) {
+          const held = new Set((prev?.messages ?? []).map((m) => m.id))
+          const missed = fresh.messages.some((m) => m.sender_id !== fresh.me && !held.has(m.id))
+          if (missed) queueMicrotask(() => setLive(false))
+        }
+
+        const known = new Set(merged.map((m) => m.id))
+        const cutoff = Date.now() - 15_000
+        const settling = (prev?.messages ?? []).filter(
+          (m) =>
+            !m.pending &&
+            !m.failed &&
+            !known.has(m.id) &&
+            !String(m.id).startsWith("tmp-") &&
+            Date.parse(m.created_at) > cutoff,
+        )
+
+        const all = [...merged, ...settling, ...inFlight]
+        return { ...fresh, messages: all }
       })
       // The thread on screen is now the server's, not a three-minute-old copy
       // out of the router cache. Whatever was covering that gap can go.
@@ -907,9 +963,20 @@ export function MessageThread({
    */
   const announce = useCallback((event: "msg" | "typing"): boolean => {
     const ch = channelRef.current
-    if (!ch || !meRef.current) return false
+    if (!ch) return false
     try {
-      void ch.send({ type: "broadcast", event, payload: { from: meRef.current } })
+      // `sessionTag`, NOT the user id.
+      //
+      // A broadcast channel is not access-controlled the way a postgres_changes
+      // subscription is — it carries no RLS, so anybody who can guess a
+      // conversation id can listen to `thread:<id>`. Nothing here has ever
+      // carried message content for exactly that reason, but the typing ping
+      // was sending the sender's real uuid, which handed a listener a
+      // participant's account id and a live feed of when they were at the
+      // keyboard. The only thing the receiver actually needs from this field is
+      // "was this me", and a random per-tab value answers that identically
+      // while identifying nobody.
+      void ch.send({ type: "broadcast", event, payload: { from: sessionTag } })
       return true
     } catch {
       /* the poll is the net under this */
@@ -965,7 +1032,19 @@ export function MessageThread({
     // So the common cases are handled from the payload and touch nothing else.
     // A refetch is kept for exactly two things it cannot do: a photo, whose
     // signed link only the server can mint, and a row we do not already hold.
+    /** Anything actually arriving over the socket proves it is carrying this
+     *  thread — which is the only thing that can undo the demotion above. */
+    const heard = () => {
+      if (!liveRef.current) setLive(true)
+      // They have stopped typing, because they have said the thing. Waiting out
+      // the four-second expiry leaves the dots up underneath the message they
+      // describe, which is the one place they are obviously wrong.
+      window.clearTimeout(typingOff.current)
+      setPeerTyping(false)
+    }
+
     const onInsert = (row: any) => {
+      heard()
       if (!row?.id) return refetch()
       // Ours. We drew it the instant it was typed; the server agreeing is not
       // news, and re-rendering the thread to celebrate is the glitch.
@@ -1007,9 +1086,23 @@ export function MessageThread({
       // sides are already on this channel; the sender simply says so. It is the
       // fast path in every case and the ONLY path on a database that has not
       // been migrated, which is why the poll below still exists behind it.
-      .on("broadcast", { event: "msg" }, () => refetch())
+      .on("broadcast", { event: "msg" }, () => {
+        heard()
+        refetch()
+      })
+      // Somebody read what you sent. Nothing about the messages changed, only
+      // their receipts — but that is the whole point of the event, and it is
+      // why it is worth a round trip that usually returns the same rows.
+      .on("broadcast", { event: "read" }, () => {
+        if (!liveRef.current) setLive(true)
+        refetch()
+      })
       .on("broadcast", { event: "typing" }, (p: any) => {
-        if (!p?.payload?.from || p.payload.from === meRef.current) return
+        // Anything not from this tab is the other party — including this tab's
+        // own user signed in somewhere else, which is correct: their other
+        // device typing IS somebody typing.
+        if (!p?.payload?.from || p.payload.from === sessionTag) return
+        if (!liveRef.current) setLive(true)
         setPeerTyping(true)
         window.clearTimeout(typingOff.current)
         // Typing is a claim with a shelf life. Nobody sends "I stopped" 
@@ -1483,6 +1576,20 @@ export function MessageThread({
   }
 
   const name = thread?.other?.display_name || thread?.other?.username || "Utilizator"
+  // A minute hand for the presence line.
+  //
+  // `presenceOf` turns a timestamp into "activ acum 3 min" at RENDER time, and
+  // a thread you are reading rather than typing in can go a long while without
+  // rendering — so the line quietly became a lie about how long ago that was.
+  // The cheapest possible correction: a tick that changes a number nothing else
+  // reads, once a minute, only while the tab is visible.
+  const [, setMinute] = useState(0)
+  useEffect(() => {
+    const tick = window.setInterval(() => {
+      if (document.visibilityState === "visible") setMinute((n) => n + 1)
+    }, 60_000)
+    return () => window.clearInterval(tick)
+  }, [])
   const presence = presenceOf(thread?.other?.last_seen_at, thread?.official)
   /** Whether there is anything to send — and therefore whether the button that
    *  sends it exists at all. */

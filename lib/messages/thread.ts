@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { announceThread } from "@/lib/messages/announce"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
 import {
   STORELIB_AVATAR_URL,
@@ -110,7 +111,7 @@ export async function readThread({
       .order("created_at", { ascending: false })
       .limit(500)
 
-  const [messagesRes] = await Promise.all([
+  const [messagesRes, readRes] = await Promise.all([
     readMessages(
       "id, sender_id, kind, body, image_url, deleted_at, offer_cents, offer_status, created_at, read_at",
     )
@@ -131,8 +132,30 @@ export async function readThread({
           .eq("conversation_id", id)
           .neq("sender_id", userId)
           .is("read_at", null)
+          // `select("id")` turns this into a returning update, which is the
+          // difference between "we ran an update" and "we changed something".
+          // Only the second is worth telling anyone about — see below.
+          .select("id")
       : Promise.resolve(null),
   ])
+
+  // "Văzut" arrives when they read it, not on the sender's next poll.
+  //
+  // A read receipt is an UPDATE, and updates only reach the other side over
+  // postgres_changes — which needs `messages` to be in the realtime publication,
+  // and on a database where that migration has not been run it is not. So the
+  // sender's "Trimis" sat there until a poll happened to pick it up: up to
+  // twelve seconds after the moment it describes, on the one line in a
+  // conversation whose entire job is to be timely.
+  //
+  // Rung explicitly instead, on the same broadcast channel the messages use. And
+  // only when rows actually changed: this runs on every poll of an open thread,
+  // several times a minute, and announcing "something was read" each time would
+  // be a broadcast storm reporting nothing.
+  const readRows = (readRes as { data?: unknown[] } | null)?.data
+  if (markRead && Array.isArray(readRows) && readRows.length > 0) {
+    void announceThread(id, "read")
+  }
 
   const admin = createAdminClient()
   const otherId = convo.buyer_id === userId ? convo.seller_id : convo.buyer_id

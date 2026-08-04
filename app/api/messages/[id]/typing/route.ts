@@ -43,8 +43,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle()
   if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // `from` is the whole payload. The listener uses it to ignore its own echo,
-  // and there is nothing else a typing indicator needs to know.
-  await announceThread(id, "typing", { from: user.id })
+  // An opaque per-request value, not the caller's account id.
+  //
+  // A broadcast channel carries no RLS — anyone who can guess a conversation id
+  // can listen to it — so putting a real uuid in the payload would hand a
+  // listener a participant's account id along with a live feed of when they
+  // were typing. The receiver only ever compares this against its OWN tag to
+  // ignore its echo, so any value it cannot have produced itself works, and one
+  // that identifies nobody is strictly better.
+  await announceThread(id, "typing", { from: crypto.randomUUID() })
   return NextResponse.json({ ok: true })
 }
