@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -114,6 +114,11 @@ const POLL_MS = 2500
  * notice paying for and a worst case you would not notice waiting out.
  */
 const POLL_LIVE_MS = 12000
+
+/** How long the thread takes to make room for a message you sent. Matches
+ *  `.msg-in-mine` in app/globals.css — the bubble and the scroller are one
+ *  movement, so they have to be one duration. */
+const GLIDE_MS = 520
 
 /**
  * How close together two messages from the same person have to be before they
@@ -462,43 +467,133 @@ export function MessageThread({
   // than teleporting to it.
   const landed = useRef(false)
 
+  /** The rAF handle of an in-flight glide, so nothing can ever run two. */
+  const gliding = useRef<number | undefined>(undefined)
+  /** Set by a send, consumed by the effect below. Only a send glides. */
+  const glideNext = useRef(false)
+
   /**
-   * Put the end of the conversation on the bottom edge, and then check again.
+   * Put the end of the conversation on the bottom edge.
    *
-   * The check is the important half, and its absence is the empty space under a
-   * message you just sent. Sending resets the composer: a draft that had grown
-   * to three lines snaps back to one, the composer gets shorter, and the
-   * scroller it sits above gets TALLER by the same amount — after we had
-   * already scrolled to the bottom of the old, shorter box. The result is the
-   * last message sitting a few dozen pixels above the composer with nothing
-   * under it, every single time you send more than one line.
+   * ---------------------------------------------------------------------------
+   * Why sending GLIDES and everything else jumps
+   * ---------------------------------------------------------------------------
+   * The bubble easing in over half a second was competing with the largest
+   * movement on the screen, which was instantaneous: adding a message makes the
+   * column taller, so staying at the bottom means the scroller jumps by the full
+   * height of that bubble — forty-odd pixels of everything else on screen
+   * teleporting upward on ONE frame while the new bubble travels twenty-two over
+   * five hundred milliseconds. The eye follows the big movement. Tuning the
+   * bubble could never fix that, because the bubble was not the thing that
+   * looked wrong.
    *
-   * So it corrects on the next frame, once the composer's new height is in
-   * layout, and once more after the arrival animation and any image decode have
-   * settled. Three cheap writes beat one that is right only sometimes.
+   * So on a send the scroller travels too, on the same easeOutExpo the bubble
+   * uses, over the same duration. The two are one movement: the thread makes
+   * room while the message settles into it.
+   *
+   * Every other reason to be at the bottom is still instant, and deliberately.
+   * The first landing is not a movement — there is no previous position to have
+   * come from, and animating it is the conversation visibly scrolling itself on
+   * arrival. The keyboard opening, the cover lifting and a message arriving from
+   * the other side are corrections, not events you caused.
+   *
+   * ---------------------------------------------------------------------------
+   * Why this is safe where `behavior: "smooth"` was not
+   * ---------------------------------------------------------------------------
+   * A native smooth scroll cannot be corrected mid-flight: the follow-up write
+   * this function has always needed CANCELS it and jumps to wherever it had got
+   * to, which is what made the earlier attempt worse than no animation. This
+   * glide re-reads the target on EVERY frame instead, so the correction is not a
+   * separate write that fights it — it is the animation itself noticing that the
+   * composer has shrunk back to one line and adjusting where it is heading. One
+   * mechanism, no fight, and it cannot end anywhere but the bottom.
    */
-  const scrollToEnd = useCallback(() => {
-    const put = () => {
-      const el = scrollerRef.current
-      if (!el) return
-      // Assigning scrollTop, not scrollTo({behavior}). A smooth scroll here was
-      // actively harmful: the correction a frame later CANCELS an in-flight
-      // smooth scroll and jumps to wherever it had got to, so what you saw was
-      // never the glide — it was a truncated one with a snap on the end, twice.
-      // The motion people read as smooth in a chat is the bubble arriving, not
-      // the viewport travelling; every app worth copying moves the scroller
-      // instantly and animates the message.
-      el.scrollTop = el.scrollHeight
+  const scrollToEnd = useCallback((glide = false) => {
+    const el = scrollerRef.current
+    if (!el) return
+    if (gliding.current !== undefined) {
+      cancelAnimationFrame(gliding.current)
+      gliding.current = undefined
     }
-    put()
-    requestAnimationFrame(put)
-    // One late correction, after the arrival animation and the composer's own
-    // resize have both landed. 560ms, because the bubble you sent now takes 520
-    // to come to rest — a correction fired while it is still moving puts the
-    // last few pixels of the scroll underneath an unfinished animation, which is
-    // a jolt at the exact moment the send is supposed to feel settled.
-    window.setTimeout(put, 560)
+    const bottom = () => el.scrollHeight - el.clientHeight
+
+    if (!glide) {
+      const put = () => {
+        const node = scrollerRef.current
+        if (node) node.scrollTop = node.scrollHeight
+      }
+      put()
+      requestAnimationFrame(put)
+      // The composer's own resize lands after the commit that added the message.
+      window.setTimeout(put, 560)
+      return
+    }
+
+    const from = el.scrollTop
+    // Under a pixel of travel is not a movement, and animating it would only
+    // delay the correction by half a second.
+    if (bottom() - from <= 1) {
+      el.scrollTop = bottom()
+      return
+    }
+    const t0 = performance.now()
+    const step = () => {
+      const node = scrollerRef.current
+      if (!node) {
+        gliding.current = undefined
+        return
+      }
+      const p = Math.min(1, (performance.now() - t0) / GLIDE_MS)
+      // The curve `.msg-in-mine` uses, in numbers: a long decelerating tail that
+      // has covered most of its distance early and spends the rest arriving.
+      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p)
+      node.scrollTop = from + (node.scrollHeight - node.clientHeight - from) * eased
+      if (p < 1) {
+        gliding.current = requestAnimationFrame(step)
+      } else {
+        gliding.current = undefined
+      }
+    }
+    gliding.current = requestAnimationFrame(step)
   }, [])
+
+  // A finger on the scroller outranks anything this component wanted. Without
+  // this, starting to scroll during the glide means fighting it for half a
+  // second — the one way a smooth scroll is worse than a jump.
+  const stopGlide = useCallback(() => {
+    if (gliding.current === undefined) return
+    cancelAnimationFrame(gliding.current)
+    gliding.current = undefined
+  }, [])
+
+  useEffect(() => () => stopGlide(), [stopGlide])
+
+  // The field grows with what you write, up to four lines, then scrolls.
+  //
+  // `rows={1}` with a max height is a box that never changes size: type a
+  // paragraph and it scrolls inside 44px, so you can see one line of your own
+  // message while writing it. Height is reset to auto before it is read, because
+  // scrollHeight of an element with an explicit height is that height — without
+  // the reset the field can only ever grow, never shrink back when you delete.
+  //
+  // A LAYOUT EFFECT, AND DECLARED BEFORE THE SCROLL BELOW. Both fire in the same
+  // commit as a send — the draft clears and the message is added together — and
+  // effects run in declaration order, so with this one second the glide measured
+  // where it was heading against a composer that was still three lines tall, and
+  // then the field collapsed underneath it. The scroller grows by exactly that
+  // much, its bottom moves, and a glide already in flight has to re-aim
+  // mid-movement: forty pixels backwards on one frame, halfway through the very
+  // animation that exists to stop the list jumping.
+  //
+  // Measured first, moved second. The composer is its final height before
+  // anything works out where the bottom is.
+  const fieldRef = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = fieldRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${Math.min(el.scrollHeight, 112)}px`
+  }, [draft])
 
   useEffect(() => {
     if (!scrollerRef.current || !stickBottom.current) return
@@ -506,7 +601,9 @@ export function MessageThread({
     // has not been seen yet, and animating it would be the conversation
     // visibly scrolling itself on arrival.
     landed.current = true
-    scrollToEnd()
+    const glide = glideNext.current
+    glideNext.current = false
+    scrollToEnd(glide)
   }, [thread?.messages.length, scrollToEnd])
 
 
@@ -522,21 +619,6 @@ export function MessageThread({
     vv.addEventListener("resize", follow)
     return () => vv.removeEventListener("resize", follow)
   }, [scrollToEnd])
-
-  // The field grows with what you write, up to four lines, then scrolls.
-  //
-  // `rows={1}` with a max height is a box that never changes size: type a
-  // paragraph and it scrolls inside 44px, so you can see one line of your own
-  // message while writing it. Height is reset to auto before it is read, because
-  // scrollHeight of an element with an explicit height is that height — without
-  // the reset the field can only ever grow, never shrink back when you delete.
-  const fieldRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    const el = fieldRef.current
-    if (!el) return
-    el.style.height = "auto"
-    el.style.height = `${Math.min(el.scrollHeight, 112)}px`
-  }, [draft])
 
   // Which bubbles are new enough to be worth animating.
   //
@@ -906,6 +988,8 @@ export function MessageThread({
     setSending(true)
     setDraft("")
     stickBottom.current = true
+    // This one movement is yours, so the thread travels with the bubble.
+    glideNext.current = true
     setThread((t) =>
       t
         ? {
@@ -1387,6 +1471,12 @@ export function MessageThread({
       <div
         ref={scrollerRef}
         onScroll={onScroll}
+        // A finger on the list outranks anything this component wanted. Without
+        // this, starting to scroll while the thread is making room means
+        // fighting it for half a second — which is the one way an animated
+        // scroll is genuinely worse than a jump.
+        onPointerDown={stopGlide}
+        onWheel={stopGlide}
         className="thread-surface absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
         {/* Bottom-aligned, and this is the empty space.
