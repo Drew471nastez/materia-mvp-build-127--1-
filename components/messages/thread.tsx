@@ -177,8 +177,27 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
   // every bubble on screen, which is the flicker that made an already-rendered
   // thread look like it was still loading.
   const skipFirstLoad = useRef(initial !== null)
+  // Read by the timer rather than closed over, so the socket connecting changes
+  // how often this asks WITHOUT rebuilding the effect. Making `live` a real
+  // dependency was tempting and wrong: the effect re-runs its `sync()`, which
+  // fetches — so the moment realtime came up, the first thing it did was an
+  // extra round trip to ask for what it had just been told it would be sent.
+  const liveRef = useRef(false)
+  liveRef.current = live
+  const lastLoadAt = useRef(0)
+
   useEffect(() => {
     let timer: number | undefined
+
+    const ask = () => {
+      // The tick is fixed; whether it acts is not. With the socket up, most
+      // ticks do nothing — this is a heartbeat checking that realtime has not
+      // silently died, not the way messages arrive.
+      const gap = liveRef.current ? POLL_LIVE_MS : POLL_MS
+      if (Date.now() - lastLoadAt.current < gap - 500) return
+      lastLoadAt.current = Date.now()
+      void load()
+    }
 
     const stop = () => {
       if (timer !== undefined) {
@@ -188,13 +207,18 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     }
     const start = () => {
       if (timer !== undefined) return
-      timer = window.setInterval(load, live ? POLL_LIVE_MS : POLL_MS)
+      timer = window.setInterval(ask, POLL_MS)
     }
 
     const sync = () => {
       if (document.visibilityState === "visible") {
-        if (skipFirstLoad.current) skipFirstLoad.current = false
-        else load()
+        if (skipFirstLoad.current) {
+          skipFirstLoad.current = false
+          lastLoadAt.current = Date.now()
+        } else {
+          lastLoadAt.current = Date.now()
+          void load()
+        }
         start()
       } else {
         stop()
@@ -207,9 +231,7 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
       document.removeEventListener("visibilitychange", sync)
       stop()
     }
-    // `live` is a dependency on purpose: the interval's length depends on it, so
-    // the timer has to be rebuilt when the socket connects or drops.
-  }, [load, live])
+  }, [load])
 
   // ---- The screen the keyboard leaves you ----
   //
@@ -327,7 +349,10 @@ export function MessageThread({ id, initial = null }: { id: string; initial?: Th
     let timer: number | undefined
     const nudge = () => {
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => void load(), 120)
+      timer = window.setTimeout(() => {
+        lastLoadAt.current = Date.now()
+        void load()
+      }, 120)
     }
 
     const channel = supabase
