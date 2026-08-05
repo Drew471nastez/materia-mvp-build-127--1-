@@ -97,28 +97,65 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Nothing to change" }, { status: 400 })
   }
 
-  // `.select()` makes this a RETURNING update, which is the difference between
-  // "the statement ran" and "a row changed". Without it a policy that does not
-  // permit the write comes back with no error and no rows, and this route would
-  // report success over a profile that is exactly as it was — the same failure
-  // that made deleting a conversation look like it had worked.
-  const { data, error } = await createAdminClient()
-    .from("profiles")
-    .update(patch)
-    .eq("id", user.id)
-    .select("display_name, bio, cover_url")
+  // A COLUMN THIS DATABASE HAS NOT GOT MUST NOT COST THE WHOLE SAVE.
+  //
+  // `bio` and `cover_url` arrive with a migration. Until it has been run, a
+  // PATCH naming either of them fails outright with 42703 — and this route
+  // answered 409 for the entire request, so pressing Salvează with a name typed
+  // into the form changed NOTHING and said so in a message at the bottom of a
+  // long page, below the fold. From where anybody is standing, the button did
+  // not work.
+  //
+  // So the missing column is read out of the error and dropped by name, exactly
+  // as lib/profile/read.ts does on the way in, and the rest is written. Your
+  // name saves; the fields that have nowhere to go come back in `skipped` and
+  // the form says which, once, where it can be seen.
+  //
+  // `.select()` makes each attempt a RETURNING update, which is the difference
+  // between "the statement ran" and "a row changed" — without it a write that
+  // matched nothing comes back with no error and no rows, and this route would
+  // report success over a profile that is exactly as it was.
+  const admin = createAdminClient()
+  const attempted = Object.keys(patch)
+  type SavedRow = { display_name?: string | null; bio?: string | null; cover_url?: string | null }
+  let data: SavedRow[] | null = null
+  let error: { code?: string; message?: string } | null = null
 
-  if (error) {
-    // 42703 is "column does not exist": the migration adding bio and cover_url
-    // has not been run against this database yet. Saying so plainly is worth
-    // more than a 500, because it is the one failure here with an obvious fix
-    // and the client can tell the person what it is.
-    if ((error as { code?: string }).code === "42703") {
-      return NextResponse.json(
-        { error: "Profilul extins nu este activat încă pe acest cont.", missingColumns: true },
-        { status: 409 },
-      )
+  for (let i = 0; i <= attempted.length; i++) {
+    const cols = Object.keys(patch)
+    if (cols.length === 0) break
+    const res = await admin
+      .from("profiles")
+      .update(patch)
+      .eq("id", user.id)
+      .select(cols.map((c) => c).join(", "))
+    if (!res.error) {
+      // Through `unknown`: PostgREST types a runtime-built column list as a
+      // union that includes its error shape, and there is nothing to narrow it
+      // against here — the columns are exactly the keys of `patch`. Named
+      // rather than `typeof data`, which at this point is narrowed to `null`
+      // by control flow and would make the cast a cast to nothing.
+      data = res.data as unknown as SavedRow[]
+      error = null
+      break
     }
+    error = res.error
+    const missing = /column\s+[\w".]*?\b(\w+)\s+does not exist/i.exec(res.error.message ?? "")?.[1]
+    if (!missing || !(missing in patch)) break
+    delete patch[missing]
+  }
+
+  const skipped = attempted.filter((c) => !(c in patch))
+
+  if (error && Object.keys(patch).length === 0) {
+    // Nothing survived — every field the form sent needs a column this database
+    // does not have.
+    return NextResponse.json(
+      { error: "Profilul extins nu este activat încă pe acest cont.", missingColumns: true, skipped },
+      { status: 409 },
+    )
+  }
+  if (error) {
     console.error("[profile] update failed:", error.message)
     return NextResponse.json({ error: "Could not save" }, { status: 500 })
   }
@@ -132,5 +169,8 @@ export async function PATCH(req: NextRequest) {
     displayName: data[0].display_name ?? null,
     bio: data[0].bio ?? null,
     cover: data[0].cover_url ?? null,
+    // Which fields had nowhere to go, so the form can say so rather than
+    // implying everything was kept.
+    skipped,
   })
 }

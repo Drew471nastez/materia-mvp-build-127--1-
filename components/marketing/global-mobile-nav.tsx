@@ -120,7 +120,26 @@ export function GlobalMobileNav() {
           columns (54px plus the row's padding and the top border), and a
           spacer left behind would put every page a few pixels under it. */}
       {!ownsItsOwnSpace(pathname) && (
-        <div aria-hidden className="md:hidden" style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }} />
+        // `shrink-0`, and it is not a detail — without it this spacer does not
+        // exist on any page long enough to scroll.
+        //
+        // The marketing shell is a FLEX COLUMN, and a flex item shrinks by
+        // default. On a page whose content overflows, the browser has to take
+        // that overflow out of something, and a zero-content div with a stated
+        // height is the cheapest thing in the column to squeeze — so it was
+        // compressed away entirely and the page's last row ended up under the
+        // bar. Measured in the app's own shell at 390x844: the final listing
+        // sat 24px BELOW the top of the bar with no inset, and 58px below it
+        // with a home indicator. With this, the clearance is +39px either way,
+        // which is the grid's own bottom padding.
+        //
+        // It looked fine on an empty profile and broke on one with listings,
+        // which is why it read as a problem with the listings.
+        <div
+          aria-hidden
+          className="md:hidden shrink-0"
+          style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }}
+        />
       )}
       <div className="md:hidden fixed inset-x-0 bottom-0 z-[80]">
         {/* Search lights up while its overlay is open. It is the one tab that

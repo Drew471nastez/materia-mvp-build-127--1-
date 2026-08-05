@@ -8,6 +8,7 @@ import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { ShellScrollReset } from "@/components/marketing/shell-scroll-reset"
 import { TabTransition } from "@/components/marketing/tab-transition"
 import { PresenceBeacon } from "@/components/presence-beacon"
+import { SurfaceClaim } from "@/components/surface-claim"
 
 export default function MarketingLayout({
   children,
@@ -23,6 +24,25 @@ export default function MarketingLayout({
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="preconnect" href="https://cdn.sanity.io" />
+      {/* THE WHITE LINE AT THE TOP WHEN YOU CHANGE PAGE.
+          
+          In the app a white bar is pinned over the status-bar strip at z-9999
+          (`html.capacitor::before`), and the only thing that takes it down is a
+          screen holding a surface claim. The feed, the profile and the top bar
+          each held one; the inbox, the sell form and /profile/edit did not — so
+          crossing from a screen that claims to one that does not RELEASED the
+          strip, the shield came back, and a white band appeared across the top
+          of the page for as long as you were on it. Crossing back made it
+          vanish again. That is the line, and it was never a loading state.
+          
+          Claimed here instead, once, for the whole shell. `claimSurface` is a
+          stack, so this sits underneath and a screen that wants a different
+          colour still pushes its own on top and pops it on the way out — the
+          difference is that the stack is never EMPTY while you are inside the
+          app, so there is no moment for the shield to return to. White because
+          that is what the marketplace is; the one screen that wants something
+          else says so for itself. */}
+      <SurfaceClaim colour="#ffffff" />
       <BodyScrollRestorer />
       <PresenceBeacon />
       <Suspense fallback={null}>

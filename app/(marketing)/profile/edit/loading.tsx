@@ -21,7 +21,16 @@ import { ArrowLeft } from "lucide-react"
 export default function ProfileEditLoading() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col pb-16">
-      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-2 border-b border-neutral-100 bg-white/95 px-2 py-2 backdrop-blur-md">
+      {/* The same inset arithmetic the real header does — see
+          components/member/profile-edit-form.tsx. If this shell and that header
+          disagree about it, the row moves by a notch's height at the swap. */}
+      <div
+        className="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-2 border-b border-neutral-100 bg-white/95 px-2 py-2 backdrop-blur-md"
+        style={{
+          marginTop: "calc(-1 * env(safe-area-inset-top, 0px))",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
+        }}
+      >
         <span className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-800">
           <ArrowLeft className="h-5 w-5" />
         </span>

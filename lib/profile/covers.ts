@@ -77,26 +77,52 @@ export type CoverPreset = {
   tint: string
 }
 
-/** Sized for the band it fills, and served in whatever format the browser
- *  prefers. Composed in one place so a change of width or quality cannot apply
- *  to the picker and not to the profile. */
-export function coverImageUrl(preset: CoverPreset, width = 1200): string {
-  return `https://images.unsplash.com/photo-${preset.photo}?w=${width}&q=72&auto=format&fit=crop`
+/**
+ * Sized for the band it fills, and served in whatever format the browser
+ * prefers. Composed in one place so a change of width or quality cannot apply
+ * to the picker and not to the profile.
+ *
+ * 900 rather than 1200, and q=68 rather than 72. The band is 140px tall and
+ * capped at 1100px wide, so a 1200px file was being downscaled on every device
+ * that ever showed it — paying for detail that is thrown away before anybody
+ * sees it, on the FIRST image the profile requests. next/image narrows it
+ * further per viewport on top of this; this is the ceiling, and the ceiling was
+ * too high.
+ */
+export function coverImageUrl(preset: CoverPreset, width = 900): string {
+  return `https://images.unsplash.com/photo-${preset.photo}?w=${width}&q=68&auto=format&fit=crop`
 }
 
 export const COVER_PRESETS: CoverPreset[] = [
-  { id: "umerase", label: "Umerașe", photo: "1490481651871-ab68de25d43d", tint: "#9d948e" },
-  { id: "tinuta", label: "Ținută", photo: "1479064555552-3ef4979f8908", tint: "#aca6a4" },
-  { id: "tricotaj", label: "Tricotaj", photo: "1434389677669-e08b4cac3105", tint: "#a59e96" },
+  // Twelve, chosen against the one thing the first set got wrong: they were all
+  // the same picture. A rail of clothes photographed from three feet away is
+  // the single most used image in fashion stock, and twelve of them is a
+  // library where every choice looks like the default.
+  //
+  // These are material and product instead — a denim jacket against black, one
+  // trainer on lime, folded jeans, a knit close enough to count the stitches.
+  // Detail reads as a shop that cares; a wide shot of a rail reads as a
+  // placeholder for one. The three rules from before still hold: no faces,
+  // nothing outside clothing and the making of it, and a quiet upper band,
+  // because the avatar, the name and four controls all sit against the top of
+  // whichever of these somebody picks.
+  //
+  // The no-faces rule is checked against the CROP, not the original: an image
+  // with the head out of frame at 3:2 can put a chin back in it at 16:7, which
+  // is what happened to the leather-jacket photograph that used to be third in
+  // this list. Every entry below was looked at in the band's own aspect ratio.
+  { id: "indigo", label: "Indigo", photo: "1611312449408-fcece27cdbb7", tint: "#101216" },
+  { id: "studio", label: "Studio", photo: "1544441893-675973e31985", tint: "#333536" },
+  { id: "curea", label: "Curea", photo: "1582418702059-97ebafb35d09", tint: "#757675" },
   { id: "denim", label: "Denim", photo: "1525507119028-ed4c629a60a3", tint: "#6f6867" },
+  { id: "blugi", label: "Blugi", photo: "1598554747436-c9293d6a588f", tint: "#8e8e90" },
+  { id: "tenisi", label: "Teniși", photo: "1606107557195-0e29a4b5b4aa", tint: "#8cab3b" },
+  { id: "roz", label: "Roz", photo: "1594633312681-425c7b97ccd1", tint: "#b6a6a2" },
+  { id: "tricotaj", label: "Tricotaj", photo: "1434389677669-e08b4cac3105", tint: "#a59e96" },
   { id: "dantela", label: "Dantelă", photo: "1509319117193-57bab727e09d", tint: "#7f7872" },
+  { id: "tinuta", label: "Ținută", photo: "1479064555552-3ef4979f8908", tint: "#aca6a4" },
   { id: "neutre", label: "Neutre", photo: "1558769132-cb1aea458c5e", tint: "#88776d" },
-  { id: "bumbac", label: "Bumbac", photo: "1523381210434-271e8be1f52b", tint: "#535b56" },
-  { id: "culori", label: "Culori", photo: "1489987707025-afc232f7ea0f", tint: "#6e564c" },
-  { id: "boutique", label: "Boutique", photo: "1445205170230-053b83016050", tint: "#5e5138" },
-  { id: "atelier", label: "Atelier", photo: "1441986300917-64674bd600d8", tint: "#3b3333" },
-  { id: "dressing", label: "Dressing", photo: "1567401893414-76b7b1e5a7a5", tint: "#403932" },
-  { id: "galben", label: "Galben", photo: "1515886657613-9f3515b0c78f", tint: "#908d62" },
+  { id: "umerase", label: "Umerașe", photo: "1490481651871-ab68de25d43d", tint: "#9d948e" },
 ]
 
 const BY_ID = new Map(COVER_PRESETS.map((p) => [p.id, p]))

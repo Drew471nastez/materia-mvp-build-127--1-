@@ -2651,12 +2651,18 @@ html[data-keyboard="open"] .thread-composer {
  * Every term is zero without an inset, so on the web this is exactly a 168px
  * band starting under the header, and nothing about the rule applies. */
 .profile-cover {
-  height: calc(168px + env(safe-area-inset-top, 0px));
+  /* 140, down from 168. A cover is a header, not a hero: at 168 it pushed the
+     name, the bio and the stats card down far enough that a phone screen showed
+     the band, an avatar and very little else — a page whose first screenful is
+     mostly a decorative image is one you have to scroll before it says
+     anything. It is also the first and largest thing fetched on this route, so
+     every pixel of it is paid for before the page is usable. */
+  height: calc(140px + env(safe-area-inset-top, 0px));
   margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   --cover-inset: env(safe-area-inset-top, 0px);
 }
 @media (min-width: 768px) {
-  .profile-cover { height: 220px; margin-top: 0; --cover-inset: 0px; }
+  .profile-cover { height: 190px; margin-top: 0; --cover-inset: 0px; }
 }
 
 /* The handover from the loading shell.
@@ -2787,12 +2793,58 @@ html[data-keyboard="open"] .thread-composer {
   .empty-shelf-spark { opacity: 1; transform: scale(1); }
 }
 
-/* The confirmation panel on /profile/edit.
+/* Choosing a cover.
  *
- * A spring in and nothing on the way out — it is on screen for 900ms and then
- * the route changes underneath it, so an exit animation would be an animation
- * competing with a navigation. Transform and opacity only, so it composites on
- * its own layer and the form behind it is not repainted for it. */
+ * The picker used to snap a purple ring on and off, which is the "direct" of a
+ * radio button: a state that changes with no movement between the two, on
+ * twelve tiles where you are comparing one against another. A choice you are
+ * weighing wants to be a thing that HAPPENS.
+ *
+ * So the ring grows out of the edge it is drawn on and the tile settles under
+ * it, and the tick arrives a beat later with its own small spring — late on
+ * purpose, so the order reads as "this one, and yes, that one". All of it is
+ * transform, opacity and box-shadow, none of which touches layout, so twelve of
+ * these can be pressed in a row without a single reflow. */
+.cover-tile {
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.cover-tile:active {
+  transform: scale(0.96);
+}
+.cover-tile[data-on] {
+  /* An inset ring and an outer halo, so the chosen tile reads as lifted rather
+     than as outlined. Two shadows are one paint; a border would be layout. */
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px #7c3aed,
+    0 8px 20px -8px rgba(124, 58, 237, 0.55);
+}
+.cover-tick {
+  transform: scale(0.4);
+  opacity: 0;
+  transition:
+    transform 300ms cubic-bezier(0.34, 1.5, 0.5, 1) 60ms,
+    opacity 160ms ease-out 60ms;
+}
+.cover-tile[data-on] .cover-tick {
+  transform: scale(1);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover-tile,
+  .cover-tick { transition: none; }
+}
+
+/* The notice panel on /profile/edit — whatever the outcome was.
+ *
+ * A fade and a spring in, and nothing on the way out: on a success it is on
+ * screen for under a second and then the route changes underneath it, so an
+ * exit animation would be an animation competing with a navigation. Transform
+ * and opacity only, so it composites on its own layer and the form behind it is
+ * not repainted for it. */
 @keyframes saved-pop {
   0%   { transform: scale(0.86); opacity: 0; }
   55%  { transform: scale(1.03); opacity: 1; }

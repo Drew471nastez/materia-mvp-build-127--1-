@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2 } from "lucide-react"
+import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, Loader2 } from "lucide-react"
 
 import {
   COVER_PRESETS,
@@ -71,8 +71,10 @@ export function ProfileEditForm({
   const [cover, setCover] = useState<string | null>(initial.cover)
   const [avatar, setAvatar] = useState<string | null>(initial.avatar)
   const [busy, setBusy] = useState<null | "cover" | "avatar" | "save">(null)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  /** The one thing this screen says back, whatever happened. */
+  const [notice, setNotice] = useState<{ tone: "good" | "part" | "bad"; title: string; detail: string | null } | null>(
+    null,
+  )
   const coverFile = useRef<HTMLInputElement>(null)
   const avatarFile = useRef<HTMLInputElement>(null)
 
@@ -94,18 +96,20 @@ export function ProfileEditForm({
   const upload = useCallback(
     async (kind: "cover" | "avatar", file: File) => {
       setBusy(kind)
-      setError(null)
+      setNotice(null)
       try {
         const body = new FormData()
         body.append("file", file)
         const res = await fetch(`/api/profile/${kind}`, { method: "POST", body, credentials: "include" })
         const data = await res.json().catch(() => null)
         if (!res.ok) {
-          setError(
-            data?.missingColumns
-              ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru a activa coperta și biografia."
-              : (data?.error ?? "Încărcarea a eșuat."),
-          )
+          setNotice({
+            tone: "bad",
+            title: "Încărcarea a eșuat",
+            detail: data?.missingColumns
+              ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru copertă."
+              : (data?.error ?? "Încearcă o altă imagine."),
+          })
           return
         }
         if (kind === "cover") setCover(data.url)
@@ -116,7 +120,7 @@ export function ProfileEditForm({
         // of date the moment it succeeds.
         router.refresh()
       } catch {
-        setError("Încărcarea a eșuat.")
+        setNotice({ tone: "bad", title: "Încărcarea a eșuat", detail: "Verifică conexiunea." })
       } finally {
         setBusy(null)
       }
@@ -125,8 +129,9 @@ export function ProfileEditForm({
   )
 
   const save = useCallback(async () => {
+    if (busy) return
     setBusy("save")
-    setError(null)
+    setNotice(null)
     try {
       const res = await fetch("/api/profile", {
         method: "PATCH",
@@ -139,35 +144,50 @@ export function ProfileEditForm({
         }),
       })
       const data = await res.json().catch(() => null)
+      setBusy(null)
+
       if (!res.ok) {
-        setError(
-          data?.missingColumns
-            ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru a activa coperta și biografia."
-            : (data?.error ?? "Salvarea a eșuat."),
-        )
-        setBusy(null)
+        // EVERY OUTCOME IS SAID IN THE SAME PLACE, over the middle of the
+        // screen. It used to be a paragraph appended after the cover picker —
+        // at the bottom of a form long enough that nothing about it was on
+        // screen when you pressed the button at the top. So a save that failed
+        // looked exactly like a button that did nothing, which is what it was
+        // reported as.
+        setNotice({
+          tone: "bad",
+          title: data?.missingColumns ? "Nu se poate salva" : "Salvarea a eșuat",
+          detail: data?.missingColumns
+            ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru biografie și copertă."
+            : (data?.error ?? "Încearcă din nou."),
+        })
         return
       }
+
       void triggerHaptic("medium")
-      setBusy(null)
-      // SAID, then left.
-      //
-      // It used to set a tick on the save button and navigate 380ms later, and
-      // a tick that appears inside the control you pressed, on a screen that is
-      // already leaving, is a confirmation nobody has time to read — which is
-      // the whole complaint about pressing Salvează and not knowing whether
-      // anything happened. The panel is a separate thing that arrives, holds
-      // long enough to be read, and only then does the screen go. It is also
-      // the last thing on screen before the profile appears, so the two are
-      // read as one action rather than as a save and an unrelated navigation.
-      setSaved(true)
+      // Some of it may have had nowhere to go — the columns for the bio and the
+      // cover arrive with a migration, and the server now writes what it can
+      // rather than refusing the lot. Saying which is the difference between a
+      // partial save and a silent one.
+      const skipped: string[] = Array.isArray(data?.skipped) ? data.skipped : []
+      setNotice(
+        skipped.length > 0
+          ? {
+              tone: "part",
+              title: "Nume salvat",
+              detail: "Biografia și coperta au nevoie de RUN_PROFILE_COVER_BIO.sql.",
+            }
+          : { tone: "good", title: "Profil salvat", detail: null },
+      )
       router.refresh()
-      window.setTimeout(back, 900)
+      // Long enough to read, and only then the screen goes — so the save and
+      // the return are one action rather than two. A failure does NOT navigate:
+      // you are still in the form, with what you typed, able to try again.
+      window.setTimeout(back, skipped.length > 0 ? 1500 : 950)
     } catch {
-      setError("Salvarea a eșuat.")
       setBusy(null)
+      setNotice({ tone: "bad", title: "Salvarea a eșuat", detail: "Verifică conexiunea și încearcă din nou." })
     }
-  }, [displayName, bio, cover, back, router])
+  }, [busy, displayName, bio, cover, back, router])
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col pb-16">
@@ -176,13 +196,28 @@ export function ProfileEditForm({
           scroll — you should be able to stop editing at any point without
           hunting for the way out.
           
-          The safe-area inset is deliberately NOT paid here. GlobalMobileTopBar
-          already reserves exactly that height above <main> on every /profile
-          route (see `ownsNoChrome` there), so adding it again would push this
-          header down by a notch's worth of nothing — the same inset paid twice,
-          which is a band of empty white above the only row on the screen you
-          need. */}
-      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-2 border-b border-neutral-100 bg-white/95 px-2 py-2 backdrop-blur-md">
+          PULLED UP BY THE INSET AND PAID BACK AS PADDING, which is the whole of
+          why it can be sticky at all.
+          
+          The shell reserves the safe-area strip above <main> on this route, and
+          that spacer SCROLLS AWAY — so a header stuck to `top: 0` rose past it
+          and came to rest under the clock and the signal bars, with the back
+          arrow and Salvează sitting behind them. Simply offsetting the sticky
+          top by the inset leaves a transparent gap above the header instead,
+          with the form visible through it.
+          
+          Paying the inset as padding means the header's own white fills that
+          strip whenever it is stuck, and the negative margin cancels it at rest
+          so nothing is pushed down while you are at the top of the page. Both
+          terms are zero on the web, where there is no inset and none of this
+          applies. */}
+      <div
+        className="sticky top-0 z-20 flex shrink-0 items-center justify-between gap-2 border-b border-neutral-100 bg-white/95 px-2 py-2 backdrop-blur-md"
+        style={{
+          marginTop: "calc(-1 * env(safe-area-inset-top, 0px))",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)",
+        }}
+      >
         <button
           type="button"
           onClick={back}
@@ -344,10 +379,8 @@ export function ProfileEditForm({
                 }}
                 aria-label={p.label}
                 aria-pressed={active}
-                className={cn(
-                  "relative aspect-[16/7] overflow-hidden rounded-xl transition-transform active:scale-[0.97]",
-                  active ? "ring-2 ring-[#7c3aed] ring-offset-2 ring-offset-white" : "ring-1 ring-black/10",
-                )}
+                data-on={active ? "1" : undefined}
+                className="cover-tile relative aspect-[16/7] overflow-hidden rounded-xl"
                 style={{ backgroundColor: p.tint }}
               >
                 {/* Small and lazy: twelve covers at full width would be twelve
@@ -369,11 +402,9 @@ export function ProfileEditForm({
                 <span className="absolute bottom-1 left-2 text-[11px] font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   {p.label}
                 </span>
-                {active && (
-                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#7c3aed] text-white">
-                    <Check className="h-3 w-3" strokeWidth={3.5} />
-                  </span>
-                )}
+                <span className="cover-tick absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#7c3aed] text-white">
+                  <Check className="h-3 w-3" strokeWidth={3.5} />
+                </span>
               </button>
             )
           })}
@@ -395,24 +426,44 @@ export function ProfileEditForm({
         )}
       </Section>
 
-      {error && (
-        <p className="mx-4 mt-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-red-700">
-          {error}
-        </p>
-      )}
-
-      {/* The confirmation. Centred rather than a corner toast, because it is
-          not a notification about something that happened elsewhere — it is the
-          result of the button you just pressed, and it is the last thing on
-          this screen. It springs in on a transform and an opacity, so it costs
-          the compositor one layer and nothing else on the page moves. */}
-      {saved && (
-        <div className="pointer-events-none fixed inset-0 z-[130] flex items-center justify-center">
-          <div className="saved-pop flex flex-col items-center gap-3 rounded-3xl bg-neutral-900/90 px-8 py-6 text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7c3aed]">
-              <Check className="h-6 w-6" strokeWidth={3} />
+      {/* THE ONE THING THIS SCREEN SAYS BACK.
+          
+          Centred rather than a corner toast, because it is not a notification
+          about something happening elsewhere — it is the result of the button
+          you just pressed, and on a success it is the last thing on this screen
+          before the profile appears. Fades and springs in on transform and
+          opacity alone, so it composites on its own layer and nothing behind it
+          is repainted for it. */}
+      {notice && (
+        <div className="pointer-events-none fixed inset-0 z-[130] flex items-center justify-center px-8">
+          <div
+            role="status"
+            aria-live="polite"
+            className="saved-pop flex max-w-[300px] flex-col items-center gap-2.5 rounded-3xl bg-neutral-900/92 px-7 py-6 text-center text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md"
+          >
+            <span
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-full",
+                notice.tone === "bad" ? "bg-red-500" : notice.tone === "part" ? "bg-amber-500" : "bg-[#7c3aed]",
+              )}
+            >
+              {notice.tone === "bad" ? (
+                <AlertCircle className="h-6 w-6" strokeWidth={2.6} />
+              ) : (
+                <Check className="h-6 w-6" strokeWidth={3} />
+              )}
             </span>
-            <span className="text-[15px] font-semibold">Profil salvat</span>
+            <span className="text-[15px] font-semibold">{notice.title}</span>
+            {notice.detail && <span className="text-[12.5px] leading-relaxed text-white/70">{notice.detail}</span>}
+            {notice.tone === "bad" && (
+              <button
+                type="button"
+                onClick={() => setNotice(null)}
+                className="pointer-events-auto mt-1 rounded-full bg-white/15 px-4 py-1.5 text-[12.5px] font-semibold"
+              >
+                Am înțeles
+              </button>
+            )}
           </div>
         </div>
       )}

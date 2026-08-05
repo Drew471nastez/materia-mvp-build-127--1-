@@ -9,6 +9,7 @@ import { Bookmark, Pencil, Settings, Share2, Star } from "lucide-react"
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
+import { ImageViewer } from "@/components/messages/image-viewer"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
@@ -255,6 +256,8 @@ export function MemberProfile({
    * and must not be reported as one.
    */
   const [shared, setShared] = useState(false)
+  /** The profile picture, full size. */
+  const [avatarOpen, setAvatarOpen] = useState(false)
   const share = useCallback(async () => {
     void triggerHaptic("light")
     const url = `${window.location.origin}/member/${encodeURIComponent(member.username)}`
@@ -433,16 +436,36 @@ export function MemberProfile({
           {/* The white ring and the short shadow are what let the avatar sit ON
               the cover rather than in it. Both are drawn outside the box, so the
               88px the layout is built around is unchanged. */}
-          <span className="block h-[88px] w-[88px] overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-28 md:w-28 lg:h-32 lg:w-32">
-            {member.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+          {/* TAPPING IT OPENS IT.
+              
+              A profile picture is the one image on a profile you might actually
+              want to look at closely — it is how you decide whether the person
+              you are about to send money to is who their listings suggest — and
+              on a phone it is 88 pixels across. Everybody tries the tap.
+              
+              A button only when there is a photograph: an initial has nothing
+              to enlarge, and a control that opens a bigger letter is a control
+              that punishes you for pressing it. */}
+          {member.avatarUrl ? (
+            <button
+              type="button"
+              aria-label="Vezi poza de profil"
+              onClick={() => {
+                void triggerHaptic("light")
+                setAvatarOpen(true)
+              }}
+              className="block h-[88px] w-[88px] cursor-zoom-in overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white transition-transform active:scale-[0.96] md:h-28 md:w-28 lg:h-32 lg:w-32"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
+            </button>
+          ) : (
+            <span className="block h-[88px] w-[88px] overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-28 md:w-28 lg:h-32 lg:w-32">
               <span className="flex h-full w-full items-center justify-center text-[32px] font-semibold text-neutral-400 md:text-[38px] lg:text-[44px]">
                 {name.charAt(0).toUpperCase()}
               </span>
-            )}
-          </span>
+            </span>
+          )}
           {/* Rendered only when the server could actually read last_seen_at —
               the white ring keeps it legible against any avatar. */}
           {member.online !== null && (
@@ -667,6 +690,10 @@ export function MemberProfile({
         )}
       </section>
 
+
+      {avatarOpen && member.avatarUrl && (
+        <ImageViewer src={member.avatarUrl} alt={name} onClose={() => setAvatarOpen(false)} />
+      )}
 
       {/* One line, on the one action with no other way of confirming itself.
           A share sheet closes over the app and that IS the confirmation; a
