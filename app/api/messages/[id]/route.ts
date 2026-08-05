@@ -50,7 +50,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // two must produce exactly the same object — the client swaps the server's for
   // a fetched one on its next poll, and any difference between them would read
   // as the thread rearranging itself after it had already arrived.
-  const payload = await readThread({ asCaller: supabase, userId: user.id, id })
+  // `?before=<iso>` asks for the page OLDER than that, which is how the client
+  // walks backwards through a long conversation. Validated as a date rather
+  // than trusted: it goes into a `lt()` on an indexed timestamp column, and a
+  // string that is not one would be a query error rather than an empty page.
+  const beforeParam = new URL(_req.url).searchParams.get("before")
+  const before = beforeParam && !Number.isNaN(Date.parse(beforeParam)) ? beforeParam : null
+
+  const payload = await readThread({ asCaller: supabase, userId: user.id, id, before })
   if (!payload) return NextResponse.json({ error: "Not found" }, { status: 404 })
   return NextResponse.json(payload)
 }

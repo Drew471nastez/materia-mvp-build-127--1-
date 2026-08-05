@@ -71,13 +71,30 @@ export type ThreadPayload = {
   } | null
   official: boolean
   messages: ThreadMessage[]
+  /** True when there is at least one message older than the oldest one here. */
+  hasMore: boolean
 }
+
+/**
+ * How many messages a read returns.
+ *
+ * Sixty rather than five hundred, and that is a change in kind rather than in
+ * number. Five hundred was "as much history as we are willing to send in one
+ * go", with everything past it simply unreachable — a conversation older than
+ * that had a floor you could scroll to and no way through. Sixty is a page,
+ * and `before` is how you ask for the next one, so there is no floor at all.
+ *
+ * It also makes opening a thread markedly cheaper: five hundred rows, every
+ * image among them signed, on every poll of every open conversation.
+ */
+const PAGE = 60
 
 export async function readThread({
   asCaller,
   userId,
   id,
   markRead = true,
+  before,
 }: {
   asCaller: SupabaseClient
   userId: string
@@ -85,6 +102,10 @@ export async function readThread({
   /** Opening a thread IS reading it. The server render does it too, so the
    *  receipt on the other side does not wait for the client's first poll. */
   markRead?: boolean
+  /** An ISO timestamp. Returns the page of messages OLDER than this — how the
+   *  client walks backwards through a long history. Reading older messages is
+   *  not reading new ones, so `markRead` is forced off for these. */
+  before?: string | null
 }): Promise<ThreadPayload | null> {
   const { data: convo } = await asCaller
     .from("conversations")
@@ -98,18 +119,23 @@ export async function readThread({
   // column does not exist — and a select naming a missing column does not
   // degrade the thread, it empties it. The narrow query is the fallback and the
   // only thing lost meanwhile is a feature nobody can have used yet.
-  const readMessages = (columns: string) =>
-    asCaller
+  const olderThan = before && !Number.isNaN(Date.parse(before)) ? before : null
+  const readMessages = (columns: string) => {
+    const q = asCaller
       .from("messages")
       .select(columns)
       .eq("conversation_id", id)
+    return (olderThan ? q.lt("created_at", olderThan) : q)
       // DESCENDING, then reversed below. Ascending with a limit returns the
       // OLDEST five hundred — so a conversation with six hundred messages in it
       // showed the first five hundred and never the newest hundred, including
       // everything either party had said that week. The limit has to cut from
       // the far end of the history, not the near one.
       .order("created_at", { ascending: false })
-      .limit(500)
+      // One more than a page, so the answer knows whether there IS another page
+      // without a second count query. The extra row is dropped below.
+      .limit(PAGE + 1)
+  }
 
   const [messagesRes, readRes] = await Promise.all([
     readMessages(
@@ -125,7 +151,7 @@ export async function readThread({
           ? readMessages("id, sender_id, kind, body, offer_cents, offer_status, created_at, read_at")
           : res,
       ),
-    markRead
+    markRead && !olderThan
       ? asCaller
           .from("messages")
           .update({ read_at: new Date().toISOString() })
@@ -182,7 +208,9 @@ export async function readThread({
   // Decoded here, once, so nothing downstream — the client, the inbox preview,
   // the action sheet — has to know there are two ways a photo can be filed.
   // Back into reading order after the descending fetch above.
-  const messages = ((messagesRes.data ?? []) as unknown as ThreadMessage[]).slice().reverse().map((m) => {
+  const page = (messagesRes.data ?? []) as unknown as ThreadMessage[]
+  const hasMore = page.length > PAGE
+  const messages = page.slice(0, PAGE).reverse().map((m) => {
     const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
     if (encoded) {
       return { ...m, kind: "image" as const, body: encoded.caption, image_url: encoded.path }
@@ -228,5 +256,6 @@ export async function readThread({
     other: other && official && !other.avatar_url ? { ...other, avatar_url: STORELIB_AVATAR_URL } : other,
     official,
     messages,
+    hasMore,
   }
 }

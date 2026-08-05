@@ -152,6 +152,8 @@ type Thread = {
   // The other party is Storelib: verified, and writing about no listing.
   official?: boolean
   messages: Msg[]
+  /** True when there is at least one message older than the oldest one held. */
+  hasMore?: boolean
 }
 
 /**
@@ -495,8 +497,28 @@ export function MessageThread({
             Date.parse(m.created_at) > cutoff,
         )
 
-        const all = [...merged, ...settling, ...inFlight]
-        return { ...fresh, messages: all }
+        // HISTORY YOU SCROLLED BACK TO SURVIVES THE POLL.
+        //
+        // A read returns one page — the newest sixty — so replacing the list
+        // with it would throw away every older page the reader had just walked
+        // back through, 2.5 seconds after they got there. The screen would
+        // silently snap forward to the present while they were reading last
+        // week, which is worse than never having been able to scroll back.
+        //
+        // Anything held that is OLDER than the oldest row in this answer is
+        // outside the window this read describes, so the read says nothing
+        // about it either way and it is kept. Everything inside the window is
+        // the server's to state.
+        const oldestFresh = fresh.messages.length ? Date.parse(fresh.messages[0].created_at) : null
+        const history =
+          oldestFresh === null
+            ? []
+            : (prev?.messages ?? []).filter(
+                (m) => !m.pending && !m.failed && Date.parse(m.created_at) < oldestFresh,
+              )
+
+        const all = [...history, ...merged, ...settling, ...inFlight]
+        return { ...fresh, messages: all, hasMore: prev?.hasMore ?? fresh.hasMore }
       })
       // The thread on screen is now the server's, not a three-minute-old copy
       // out of the router cache. Whatever was covering that gap can go.
@@ -595,6 +617,86 @@ export function MessageThread({
       stop()
     }
   }, [load])
+
+  /**
+   * The page before this one.
+   *
+   * A conversation used to hand back its newest five hundred messages and stop
+   * — everything older was simply unreachable, with a floor you could scroll to
+   * and no way through. Now a read is sixty rows and `before` walks backwards.
+   *
+   * The hard part is not the fetch, it is that PREPENDING TO A SCROLLER MOVES
+   * WHAT YOU ARE READING. Adding sixty messages above the viewport pushes the
+   * message you were looking at down by their combined height, so without an
+   * anchor the screen jumps a thousand pixels the moment older history arrives —
+   * which is worse than not having the feature. So the scroll height is measured
+   * before and after, and the difference is added to scrollTop in the same frame
+   * the rows land. The page grows upward and nothing under your eyes moves.
+   */
+  const [olderPending, setOlderPending] = useState(false)
+  const noMoreOlder = useRef(false)
+  /** Mirrors the loading cover, for the guards that run above its declaration. */
+  const coveredRef = useRef(true)
+  const loadOlder = useCallback(async () => {
+    const el = scrollerRef.current
+    if (!el || olderPending || noMoreOlder.current) return
+    const oldest = thread?.messages.find((m) => !m.pending && !m.failed)
+    if (!oldest) return
+    setOlderPending(true)
+    try {
+      const r = await fetch(`/api/messages/${id}?before=${encodeURIComponent(oldest.created_at)}`, {
+        credentials: "include",
+      })
+      if (!r.ok) return
+      const page: Thread = await r.json()
+      if (!page.messages.length) {
+        noMoreOlder.current = true
+        return
+      }
+      if (!page.hasMore) noMoreOlder.current = true
+      // Measured immediately before the commit that inserts them.
+      const beforeHeight = el.scrollHeight
+      const beforeTop = el.scrollTop
+      // Everything already on screen is history as far as the entrance
+      // animation is concerned — a page of old messages must not play sixty
+      // arrivals up the screen.
+      for (const m of page.messages) seen.current?.add(m.id)
+      setThread((t) => {
+        if (!t) return t
+        const have = new Set(t.messages.map((m) => m.id))
+        const fresh = page.messages.filter((m) => !have.has(m.id))
+        if (!fresh.length) return t
+        return { ...t, messages: [...fresh, ...t.messages] }
+      })
+      // Restored on the next frame, once the new rows are in layout. This is
+      // the anchor: whatever the page grew by is added back, so the viewport
+      // stays exactly where the reader left it.
+      requestAnimationFrame(() => {
+        const node = scrollerRef.current
+        if (!node) return
+        node.scrollTop = beforeTop + (node.scrollHeight - beforeHeight)
+      })
+    } catch {
+      /* the reader can pull again */
+    } finally {
+      setOlderPending(false)
+    }
+  }, [id, olderPending, thread?.messages])
+
+  // Near the top is the ask. 240px rather than zero, so the page is already
+  // arriving by the time the reader gets to the end of what they have — the
+  // difference between history that is there and history that has to be waited
+  // for. `covered` guards the arrival: the scroller is at the bottom and its
+  // height is still settling, and asking then would fetch a page nobody wants.
+  const onScrollTop = useCallback(() => {
+    const el = scrollerRef.current
+    // `coveredRef`, not the state: this is declared above the cover (the cover
+    // needs `scrollToEnd`, which needs to be above this), and reading the state
+    // here would be a use-before-declaration. A ref is the same value with no
+    // ordering constraint — and it is a guard, not something to re-render on.
+    if (!el || coveredRef.current) return
+    if (el.scrollTop < 240) void loadOlder()
+  }, [loadOlder])
 
   // ---- The screen the keyboard leaves you ----
   //
@@ -845,7 +947,8 @@ export function MessageThread({
     const el = scrollerRef.current
     if (!el) return
     stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-  }, [])
+    onScrollTop()
+  }, [onScrollTop])
 
   // ---- Nothing appears after you arrive --------------------------------------
   //
@@ -887,6 +990,7 @@ export function MessageThread({
   const [dataReady, setDataReady] = useState(!fromCache)
   const [pixelsReady, setPixelsReady] = useState(false)
   const covered = !dataReady || !pixelsReady
+  coveredRef.current = covered
 
   // Wait one: the server's copy of this conversation.
   //
