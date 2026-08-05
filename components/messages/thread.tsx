@@ -2533,7 +2533,17 @@ export function MessageThread({
         </div>
       </div>
 
-      <ImageViewer src={viewing} onClose={() => setViewing(null)} />
+      {/* MOUNTED ONLY WHILE A PHOTO IS OPEN.
+          It used to be mounted permanently with `src` going null when nothing
+          was showing, and the viewer renders null in that state — so it looked
+          equivalent. It is not: the component instance survives, and with it
+          every ref and every inline style written straight to the DOM. Which
+          photographs had decoded, the pan-and-zoom transform on the <img>, the
+          rail's overflow, the latch that stops the close running twice — all of
+          it carried into the NEXT photo you opened. The listing gallery and the
+          profile avatar have always mounted this conditionally and have never
+          had any of those faults. */}
+      {viewing && <ImageViewer src={viewing} onClose={() => setViewing(null)} />}
 
       <MessageActions
         message={

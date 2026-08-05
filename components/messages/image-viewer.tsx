@@ -211,8 +211,40 @@ export function ImageViewer({
     const rail = railRef.current
     iRef.current = index
     setI(index)
-    view.current = { ...IDENTITY }
-    setZoomed(false)
+
+    /**
+     * EVERYTHING THAT SURVIVES A CLOSE IS RESET HERE.
+     *
+     * The caller is supposed to mount this only while a photo is open, and all
+     * three now do. But "supposed to" is not a mechanism, and the one call site
+     * that kept it mounted permanently is where every one of these bugs was
+     * found — so an open leaves nothing of the last one behind, whether the
+     * instance is fresh or not.
+     *
+     * `resetView()` rather than assigning `view.current`, which is what this
+     * used to do. Setting the ref alone changed the number and never repainted,
+     * so the <img> kept the transform from the last time you pinched: close a
+     * photograph while zoomed into its corner, open the next one, and it
+     * appeared magnified and off-centre while the state said it was not.
+     * resetView writes the identity transform to the node AND restores the
+     * rail's overflow, which is set to hidden while zoomed so a pan is not also
+     * a swipe — and which otherwise stayed hidden, leaving the next photo
+     * unswipeable.
+     *
+     * `full` is which photographs have decoded, and it is why a poster is taken
+     * down. Carried over, index 0 of the NEW photo is already "decoded", so its
+     * poster never shows and you get the black frame the poster exists to
+     * prevent — from the second photo onward, every time.
+     */
+    resetView()
+    setFull(new Set())
+    // The gesture machine too. `mode` is what every pointer handler branches
+    // on, and a close landing mid-gesture — a fling is exactly that — leaves it
+    // on "drag" or "pinch" with a stale origin. The next photo then starts its
+    // first touch already believing it is halfway through the last one's.
+    g.current.mode = "none"
+    pts.current.clear()
+    pendingDrag.current = null
     /**
      * THE LATCH THAT MADE THE SECOND PHOTO UNCLOSEABLE.
      *
