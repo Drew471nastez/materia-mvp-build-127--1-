@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { writeProfile } from "@/lib/profile/write"
 import { sniffImage, extensionForImage } from "@/lib/profile/image-bytes"
 
 /**
@@ -62,12 +63,30 @@ export async function POST(req: NextRequest) {
     data: { publicUrl },
   } = admin.storage.from("avatars").getPublicUrl(path)
 
-  // Service role, scoped to the session's own id — see the note in
-  // app/api/profile/route.ts. `avatar_url` has been on this table since the
-  // beginning, so there is no missing-column case to answer here.
-  const { error: saveError } = await admin.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id)
-  if (saveError) {
-    console.error("[profile/avatar] save failed:", saveError.message)
+  // Written here rather than left to a second request from the client: an
+  // uploaded object with nothing pointing at it is a file nobody can see and
+  // nobody will ever clean up, and the gap between two calls is exactly where a
+  // closed tab leaves one behind.
+  //
+  // Through lib/profile/write.ts, which CHECKS. This used to be a bare
+  // `update().eq("id", …)`, and against an account with no `profiles` row that
+  // matches nothing and reports success — so this route returned the public URL
+  // it had just stored, the picture appeared from the response, and it was gone
+  // on the next load because nothing had been written. The row is created if it
+  // is missing.
+  const written = await writeProfile({
+    admin,
+    userId: user.id,
+    patch: { avatar_url: publicUrl },
+    fallbackUsername: user.email?.split("@")[0] ?? null,
+  })
+  if (!written.ok) {
+    if (written.reason === "no-columns") {
+      return NextResponse.json(
+        { error: "Profilul extins nu este activat încă pe acest cont.", missingColumns: true },
+        { status: 409 },
+      )
+    }
     return NextResponse.json({ error: "Could not save" }, { status: 500 })
   }
 

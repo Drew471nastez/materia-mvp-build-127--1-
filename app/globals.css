@@ -2838,6 +2838,26 @@ html[data-keyboard="open"] .thread-composer {
   .cover-tick { transition: none; }
 }
 
+/* The photo viewer's strip.
+ *
+ * A scrollbar across the bottom of a full-screen photograph is the one piece of
+ * browser furniture that gives away that this is a web page. Hidden in every
+ * engine's own way, because there is no standard for it — and hidden rather
+ * than styled, since the counter above already says which of how many you are
+ * on.
+ *
+ * Momentum is asked for explicitly: an iOS scroller without it does not glide,
+ * and a photo strip that stops dead where your finger stopped is the difference
+ * between paging through pictures and dragging them. */
+.viewer-rail {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.viewer-rail::-webkit-scrollbar {
+  display: none;
+}
+
 /* The notice panel on /profile/edit — whatever the outcome was.
  *
  * A fade and a spring in, and nothing on the way out: on a success it is on

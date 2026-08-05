@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { writeProfile } from "@/lib/profile/write"
 
 /**
  * POST /api/profile/cover  (multipart: file)  → { url }
@@ -98,26 +99,31 @@ export async function POST(req: NextRequest) {
 
   // Written here rather than left to a second request from the client: an
   // uploaded object with nothing pointing at it is a file nobody can see and
-  // nobody will ever clean up, and the gap between the two calls is exactly
-  // where a closed tab leaves one behind.
-  // Service role, scoped to the session's own id — see the note in
-  // app/api/profile/route.ts. A write that depends on a row-owner policy the
-  // project may not have is a write that silently changes nothing.
-  const { error: saveError } = await admin.from("profiles").update({ cover_url: publicUrl }).eq("id", user.id)
-  if (saveError) {
-    if ((saveError as { code?: string }).code === "42703") {
+  // nobody will ever clean up, and the gap between two calls is exactly where a
+  // closed tab leaves one behind.
+  //
+  // Through lib/profile/write.ts, which CHECKS. This used to be a bare
+  // `update().eq("id", …)`, and against an account with no `profiles` row that
+  // matches nothing and reports success — so this route returned the public URL
+  // it had just stored, the picture appeared from the response, and it was gone
+  // on the next load because nothing had been written. The row is created if it
+  // is missing.
+  const written = await writeProfile({
+    admin,
+    userId: user.id,
+    patch: { cover_url: publicUrl },
+    fallbackUsername: user.email?.split("@")[0] ?? null,
+  })
+  if (!written.ok) {
+    if (written.reason === "no-columns") {
       return NextResponse.json(
         { error: "Profilul extins nu este activat încă pe acest cont.", missingColumns: true },
         { status: 409 },
       )
     }
-    console.error("[profile/cover] save failed:", saveError.message)
     return NextResponse.json({ error: "Could not save" }, { status: 500 })
   }
 
-  // Whatever was there before is now unreachable. Removed rather than left to
-  // accumulate: a person who tries five covers should not cost five objects
-  // forever, and the only one anybody can reach is the one just written.
   void admin.storage
     .from("avatars")
     .list(`covers/${user.id}`, { limit: 50 })
