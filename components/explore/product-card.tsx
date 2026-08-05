@@ -290,7 +290,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
       {/* 3:4 — Vinted's portrait ratio, and about 5% taller than the 4:5 this
           used to be. Clothing photographs tall: a wider frame either crops the
           garment or leaves dead space either side of it. */}
-      <div className="press-dim no-touch-callout relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100">
+      <div className="no-touch-callout relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100">
         <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url} className="absolute inset-0 block">
           {product.thumbnail_url ? (
             <Image

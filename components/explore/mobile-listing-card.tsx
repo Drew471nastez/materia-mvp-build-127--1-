@@ -173,7 +173,6 @@ export const MobileListingCard = memo(function MobileListingCard({
             key={i}
             href={productUrl}
             blend
-            press={false}
             // A reel is a photo you look at, not a file you take. Long-press
             // save/copy, drag-out and text selection are all off — the same
             // treatment the grid tiles already get — so the photo behaves like
@@ -285,7 +284,7 @@ export const MobileListingCard = memo(function MobileListingCard({
       </div>
 
       {/* Bottom info overlay */}
-      <SmartLink href={productUrl} blend className="press-dim absolute inset-x-0 bottom-0 block p-4 pb-14 pr-20 text-white">
+      <SmartLink href={productUrl} blend className="absolute inset-x-0 bottom-0 block p-4 pb-14 pr-20 text-white">
         <h3 className="text-[19px] font-semibold leading-tight">{product.title}</h3>
         <div className="mt-1.5 flex items-baseline gap-2">
           <span className="text-[22px] font-bold">{product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}</span>
