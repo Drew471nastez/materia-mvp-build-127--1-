@@ -365,6 +365,43 @@ export function MobileFeed({
     return () => clearTimeout(timer)
   }, [fadedIn, fadeFrom])
 
+  /**
+   * A STUCK CROSS-FADE IS A DEAD FEED. This is "sometimes the scroll blocks".
+   *
+   * While `fadeFrom` is set, `layerStyle` gives the OUTGOING layer
+   * `pointerEvents: "none"` with `opacity: fadedIn ? 0 : 1`, and the incoming
+   * one `opacity: fadedIn ? 1 : 0`. Every one of those is right during the
+   * half-second it takes to swap — and if `fadedIn` never arrives, they combine
+   * into the worst screen in the app: the outgoing feed at FULL opacity, so
+   * everything looks completely normal, and inert, because the layer you are
+   * touching does not take pointer events and the one that does is invisible.
+   * Nothing scrolls, nothing taps, and there is no sign of why.
+   *
+   * `fadedIn` is not guaranteed. The effect above it returns early and
+   * indefinitely while `screen === "reels" && reelsHeight <= 0`, and it drives
+   * the flag from a two-frame requestAnimationFrame chain, which does not run at
+   * all while the WebView is not painting. Neither is a bug on its own; both are
+   * ways for a flag to not arrive, and the cost of it not arriving is the whole
+   * screen.
+   *
+   * So the swap gives up on its own, the way lib/tab-leave.ts does for the same
+   * reason: a state that can only be left by something going right will
+   * eventually not be left. Past this point the animation is over regardless of
+   * what it managed to play, and the feed is a feed again.
+   *
+   * Comfortably longer than the real thing: the fade is XFADE_MS once it starts,
+   * and the longest legitimate wait before it starts is the 400ms cap on the
+   * reels photo, so ~920ms is the worst honest case.
+   */
+  useEffect(() => {
+    if (fadeFrom === null) return
+    const bail = window.setTimeout(() => {
+      setFadeFrom(null)
+      setFadedIn(false)
+    }, XFADE_MS + 900)
+    return () => window.clearTimeout(bail)
+  }, [fadeFrom])
+
   const layerStyle = useCallback(
     (which: Screen): React.CSSProperties | undefined => {
       if (fadeFrom === null) return undefined

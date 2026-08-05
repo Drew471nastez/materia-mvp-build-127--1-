@@ -298,13 +298,32 @@ html.capacitor a.no-tap-fade:active {
  * listing (see the "OPENING A LISTING" note near the top). The profile's one
  * fixed child, its "Link copiat" toast, is portalled to the body for exactly
  * this reason. */
+/* ---------------------------------------------------------------------------
+ * AND THE TRANSLATE IS GONE TOO — no travel of any kind on this trip
+ * ---------------------------------------------------------------------------
+ * The 10px rise fixed the bump (it has no origin term, so it was the same on
+ * every profile) and it was still a movement nobody asked for: a page that
+ * slides up on arrival is a page announcing itself, and on the one screen you
+ * come back to dozens of times a session that reads as the app doing something
+ * rather than as you having gone back.
+ *
+ * What is left is opacity, which is what BOTH directions of this trip now use —
+ * the tab-leaving dip on the way in, this on the way out. One property, no
+ * geometry, nothing that can be displaced by anything. It cannot bump because
+ * there is nothing in it that moves.
+ *
+ * It also drops the transform entirely, which means this is no longer a
+ * containing block for `position: fixed` children at all. The profile's toast
+ * stays portalled anyway — that is correct on its own merits, and the next
+ * person to add a transform here should not discover this the way the buy bar
+ * did. */
 @keyframes screen-return {
-  from { transform: translate3d(0, 10px, 0); opacity: 0.86; }
-  to   { transform: translate3d(0, 0, 0);    opacity: 1; }
+  from { opacity: 0.86; }
+  to   { opacity: 1; }
 }
 .screen-return {
-  animation: screen-return 340ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
-  will-change: transform, opacity;
+  animation: screen-return 300ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+  will-change: opacity;
 }
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a

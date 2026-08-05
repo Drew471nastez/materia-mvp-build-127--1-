@@ -242,6 +242,45 @@ export function ProductDetail({ product }: { product: any }) {
     setIndex((p) => (p === i ? p : i))
   }, [])
 
+  /**
+   * SWIPING THE GALLERY WAS OPENING THE PHOTO.
+   *
+   * Every slide is a full-bleed <button> that opens the viewer, and there was
+   * nothing between "a finger moved across this button" and "this button was
+   * pressed". WebKit still delivers a click after a short drag — the same
+   * behaviour SmartLink documents and guards against for exactly this reason —
+   * so a quick flick to the next photo scrolled a little AND opened the
+   * full-screen viewer on top of it. Every swipe was a coin toss between paging
+   * and a modal, which is the whole of "the carousel is glitchy and doesn't
+   * work": it was working, and then something else happened over it.
+   *
+   * The grid solved this a long time ago (see ProductCard's `didScroll`); the
+   * gallery is the one horizontal scroller in the app that never got it.
+   *
+   * Ten pixels, on both axes. Horizontal is the page change; vertical matters
+   * just as much, because the photograph is the top half of the screen and
+   * scrolling down the listing starts with a finger on it.
+   */
+  const swipe = useRef({ x: 0, y: 0, moved: false })
+
+  const onGalleryPointerDown = useCallback((e: React.PointerEvent) => {
+    swipe.current = { x: e.clientX, y: e.clientY, moved: false }
+  }, [])
+
+  const onGalleryPointerMove = useCallback((e: React.PointerEvent) => {
+    const s = swipe.current
+    if (s.moved) return
+    if (Math.abs(e.clientX - s.x) > 10 || Math.abs(e.clientY - s.y) > 10) s.moved = true
+  }, [])
+
+  // Capture, so it stops the click before the slide's own handler sees it.
+  const onGalleryClickCapture = useCallback((e: React.MouseEvent) => {
+    if (!swipe.current.moved) return
+    e.preventDefault()
+    e.stopPropagation()
+    swipe.current.moved = false
+  }, [])
+
   const onLike = useCallback(() => {
     setNonce((n) => n + 1)
     window.dispatchEvent(new CustomEvent("wishlist-toast", { detail: { saved: !wishlisted } }))
@@ -306,8 +345,19 @@ export function ProductDetail({ product }: { product: any }) {
           <div
             ref={galleryRef}
             onScroll={onGalleryScroll}
-            className="flex snap-x snap-mandatory overflow-x-auto scrollbar-hide md:rounded-2xl"
-            style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+            onPointerDown={onGalleryPointerDown}
+            onPointerMove={onGalleryPointerMove}
+            onClickCapture={onGalleryClickCapture}
+            className="no-touch-callout flex snap-x snap-mandatory overflow-x-auto scrollbar-hide md:rounded-2xl"
+            style={{
+              scrollbarWidth: "none",
+              WebkitOverflowScrolling: "touch",
+              // Swiping past the last photo used to chain outwards — into the
+              // page's own scroll, and on iOS into the edge-swipe that leaves
+              // the listing. The rail keeps its own overscroll; the page keeps
+              // vertical, which is why only the X axis is named.
+              overscrollBehaviorX: "contain",
+            }}
           >
             {(images.length ? images : [null]).map((src, i) => (
               <div key={i} className="relative aspect-[3/4] w-full shrink-0 snap-center bg-neutral-100">
@@ -377,7 +427,13 @@ export function ProductDetail({ product }: { product: any }) {
                       fill
                       sizes="(min-width: 768px) 50vw, 100vw"
                       quality={68}
-                      className="object-cover"
+                      // `select-none` and draggable={false} for the same reason
+                      // the grid tiles carry them: an <img> is draggable by
+                      // default, so a slow swipe across the photo starts a
+                      // native image drag or a long-press callout instead of
+                      // moving the carousel, and the gesture is lost.
+                      className="object-cover select-none"
+                      draggable={false}
                       placeholder="blur"
                       blurDataURL={BLUR}
                       priority={i === 0}

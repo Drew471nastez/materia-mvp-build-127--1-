@@ -196,6 +196,36 @@ export function useFeedPullRefresh({
         layer(true)
       }
 
+      /**
+       * THE FINGER CAME BACK UP. Give the gesture back.
+       *
+       * Everything above only runs while `!g.pulling`, so once the pull had
+       * engaged there was no way out of it: every remaining move in that drag
+       * called preventDefault() and clamped the distance at zero. Pull down a
+       * centimetre, change your mind, flick up — and the feed does not move for
+       * the rest of that swipe. It reads as the scroll randomly not working,
+       * and it is random, because it turns on whether the first few pixels of
+       * your thumb happened to go down before they went up.
+       *
+       * Three pixels is all it takes to arm, which at the top of a feed is
+       * ordinary thumb jitter rather than an intention.
+       *
+       * So: back at or above where the pull began, this is a scroll. Spring the
+       * content home, unarm for the rest of the drag, and stop preventing —
+       * whether WebKit can still resume the native scroll within this same
+       * sequence or not, the screen is no longer held down and the NEXT swipe
+       * is guaranteed clean, which is the part that was failing.
+       */
+      if (t.clientY - g.y0 <= 0) {
+        g.pulling = false
+        g.armed = false
+        g.dist = 0
+        tween(true)
+        paint(0, false)
+        layer(false)
+        return
+      }
+
       e.preventDefault() // owns the gesture from the first real move onward
       g.dist = resist(Math.max(0, t.clientY - g.y0))
       paint(g.dist, false)
