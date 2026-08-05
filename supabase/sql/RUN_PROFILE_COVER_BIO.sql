@@ -74,4 +74,18 @@ end $$;
 --    values ('avatars', 'avatars', true)
 --    on conflict (id) do nothing;
 
+-- ── Tell PostgREST the table changed ──────────────────────────────────────
+--  This line is not optional, and leaving it out is a very confusing five
+--  minutes. PostgREST answers the API from its OWN cached picture of the
+--  schema, and it validates every request against that cache before Postgres is
+--  asked anything. A column added by the statements above therefore does not
+--  exist as far as the API is concerned until the cache reloads — so a save
+--  comes back with
+--
+--    Could not find the 'bio' column of 'profiles' in the schema cache
+--
+--  over a column that is demonstrably there in the SQL editor. The cache
+--  refreshes on its own eventually; this asks it to do so now.
+notify pgrst, 'reload schema';
+
 select 'profiles.bio and profiles.cover_url are ready' as result;

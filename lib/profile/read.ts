@@ -1,5 +1,7 @@
 import "server-only"
 
+import { missingColumnFrom } from "@/lib/profile/missing-column"
+
 /**
  * Reading a profile row without knowing which migrations this database has had.
  *
@@ -19,9 +21,9 @@ import "server-only"
  * shipped, and nothing would say why.
  *
  * So the missing column is READ OUT OF THE ERROR and dropped by name, and the
- * query is retried without it. Postgres names it exactly ("column
- * profiles.cover_url does not exist"), PostgREST passes that through, and every
- * column that IS there survives. At most one extra round trip per absent
+ * query is retried without it. Both engines that can refuse one name it, though
+ * they word it entirely differently — see lib/profile/missing-column.ts, which
+ * exists because only one of the two was being matched. At most one extra round trip per absent
  * column, only on a database that is behind, and never in a correct
  * deployment.
  *
@@ -64,7 +66,7 @@ export async function readProfileRow(
     const { data, error } = await run(cols.join(", "))
     if (!error) return { row: (data as ProfileRow | null) ?? null, present: new Set(cols) }
 
-    const missing = /column\s+[\w".]*?\b(\w+)\s+does not exist/i.exec(error.message ?? "")?.[1]
+    const missing = missingColumnFrom(error.message)
     // An error that is not a missing optional column — a network fault, a
     // permission problem — is not something dropping columns will fix, and
     // retrying three more times would only make it slower.

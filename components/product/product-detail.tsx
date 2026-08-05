@@ -147,6 +147,9 @@ export function ProductDetail({ product }: { product: any }) {
   const images = photos(product.thumbnail_url, product.gallery_urls)
   /** Which photo the full-size viewer is on, or null when it is closed. */
   const [viewerAt, setViewerAt] = useState<number | null>(null)
+  /** The already-decoded version of that photo, so the viewer has something to
+   *  draw in its first frame. See the tap handler below. */
+  const [poster, setPoster] = useState<string | null>(null)
   const seller = product.creator?.profile
   const sellerName = seller?.display_name || seller?.username || "Storelib"
   const storeUrl = seller?.username ? getStoreUrl(seller.username) : "#"
@@ -318,8 +321,25 @@ export function ProductDetail({ product }: { product: any }) {
                   <button
                     type="button"
                     aria-label={`Deschide fotografia ${i + 1}`}
-                    onClick={() => {
+                    onClick={(e) => {
                       void triggerHaptic("light")
+                      // THE PICTURE THAT IS ALREADY ON SCREEN, handed over as a
+                      // poster.
+                      //
+                      // The viewer opened on the raw storage URL while this
+                      // gallery renders through next/image — a DIFFERENT
+                      // resource, at a different URL, none of it in cache. So
+                      // opening a photo meant a black screen for as long as a
+                      // full-resolution original took to arrive, on a tap whose
+                      // whole purpose is to look at something you can already
+                      // see.
+                      //
+                      // `currentSrc` is the exact file the browser chose and
+                      // has already decoded for this <img>. Drawing it costs
+                      // nothing and is instant, and the full-size one fades in
+                      // over it when it lands.
+                      const shown = (e.currentTarget as HTMLElement).querySelector("img")
+                      setPoster(shown?.currentSrc || shown?.src || null)
                       setViewerAt(i)
                     }}
                     // `no-tap-fade`: in the app every button dims to 0.65 on
@@ -594,6 +614,7 @@ export function ProductDetail({ product }: { product: any }) {
         <ImageViewer
           images={images}
           index={viewerAt}
+          poster={poster}
           alt={product.title}
           onClose={() => setViewerAt(null)}
         />

@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { createAdminClient } from "@/lib/supabase/admin"
+import { missingColumnFrom } from "@/lib/profile/missing-column"
 
 /**
  * Writing to somebody's own profile row — including when there isn't one.
@@ -58,10 +59,9 @@ export type ProfileWriteResult =
   | { ok: true; row: Record<string, unknown>; skipped: string[]; created: boolean }
   | { ok: false; reason: "no-columns" | "failed"; skipped: string[]; message: string }
 
-/** Postgres says which column is missing; take it at its word. */
-function missingColumn(message: string | undefined): string | null {
-  return /column\s+[\w".]*?\b(\w+)\s+does not exist/i.exec(message ?? "")?.[1] ?? null
-}
+/** Both engines that can refuse a column, and they word it differently — see
+ *  lib/profile/missing-column.ts for why that mattered. */
+const missingColumn = missingColumnFrom
 
 export async function writeProfile({
   admin,

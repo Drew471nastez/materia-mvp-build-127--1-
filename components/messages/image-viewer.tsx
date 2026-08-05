@@ -76,6 +76,7 @@ export function ImageViewer({
   src,
   images,
   index = 0,
+  poster,
   alt,
   onClose,
 }: {
@@ -85,6 +86,19 @@ export function ImageViewer({
   images?: string[] | null
   /** Which of `images` to open on. */
   index?: number
+  /**
+   * The already-decoded version of the photo being opened, if the caller has
+   * one — typically `currentSrc` of the <img> that was tapped.
+   *
+   * A viewer that opens on a raw storage URL while the page behind it rendered
+   * the same photograph through an image optimiser is opening a DIFFERENT
+   * resource, at a different URL, none of it in cache. So the first thing you
+   * see is black, for as long as a full-resolution original takes to arrive, on
+   * a tap whose entire purpose is to look more closely at something already on
+   * screen. Drawing the version the browser has already decoded costs nothing
+   * and is instant; the full-size one fades in over it when it lands.
+   */
+  poster?: string | null
   alt?: string
   onClose: () => void
 }) {
@@ -107,6 +121,9 @@ export function ImageViewer({
   const iRef = useRef(index)
   iRef.current = i
   const [zoomed, setZoomed] = useState(false)
+  /** Cleared the moment the full-size photograph is decoded, which is what
+   *  takes the poster away. Keyed on the index so paging re-arms it. */
+  const [full, setFull] = useState<number | null>(null)
 
   /**
    * Where the current picture is, written straight to the node.
@@ -624,7 +641,7 @@ export function ImageViewer({
             {list.map((url, n) => (
               <div
                 key={`${url}-${n}`}
-                className="flex h-full w-full shrink-0 snap-center items-center justify-center"
+                className="relative flex h-full w-full shrink-0 snap-center items-center justify-center"
                 // The browser takes the horizontal axis and leaves us the
                 // vertical one — until the picture is zoomed, when it takes
                 // neither and every finger is ours.
@@ -641,10 +658,24 @@ export function ImageViewer({
                   if (e.target === e.currentTarget) close()
                 }}
               >
+                {/* Underneath, and only until the real one is decoded. */}
+                {n === i && poster && full !== n && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={poster}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+                  />
+                )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   ref={(el) => {
                     imgRefs.current[n] = el
+                  }}
+                  onLoad={() => {
+                    if (n === i) setFull(n)
                   }}
                   src={url}
                   alt={n === i ? alt || "Fotografie" : ""}
@@ -652,7 +683,7 @@ export function ImageViewer({
                   decoding={n === i ? "sync" : "async"}
                   loading={Math.abs(n - i) <= 1 ? "eager" : "lazy"}
                   className={cn(
-                    "max-h-full max-w-full select-none object-contain",
+                    "relative max-h-full max-w-full select-none object-contain",
                     n === i && "will-change-transform",
                     n === i ? (zoomed ? "cursor-zoom-out" : "cursor-zoom-in") : "cursor-default",
                   )}
