@@ -211,7 +211,26 @@ export function DesktopConversationList({
           move the other — that is the whole of what a split view is for: the
           list stays where you left it while you read down a conversation. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {visible.length === 0 ? (
+        {/* NULL IS NOT EMPTY, and this column had been treating it as both.
+            `visible` starts from `rows ?? []`, so an inbox that has not answered
+            yet — or one whose read failed, which the server now reports as a
+            failure rather than as an empty list (see lib/messages/list.ts) —
+            rendered "Nicio conversație încă" with complete confidence. The
+            phone inbox has always drawn a skeleton for this case; the desktop
+            column was written later and did not. */}
+        {rows === null ? (
+          <ul className="animate-pulse">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <li key={i} className="flex items-center gap-3 px-4 py-3">
+                <span className="h-10 w-10 shrink-0 rounded-full bg-neutral-100" />
+                <span className="min-w-0 flex-1 space-y-2">
+                  <span className="block h-3 w-28 rounded bg-neutral-100" />
+                  <span className="block h-2.5 w-40 rounded bg-neutral-100" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : visible.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-16 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
               <MessageSquare className="h-5 w-5" />

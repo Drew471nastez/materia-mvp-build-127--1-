@@ -252,7 +252,40 @@ export function MessagesInbox({
     let lastLoadedAt = servedFromServer && !fromCache ? Date.now() : 0
     const MIN_INTERVAL_MS = 30_000
 
-    const load = () => {
+    /**
+     * A failed load used to be silent, and silence here is a skeleton forever.
+     *
+     * `load` swallowed everything and the only things that could ask again were
+     * a focus, a visibility change, a bfcache restore or the live channel. So an
+     * inbox whose first read failed — which is now a real outcome rather than a
+     * theoretical one, because lib/messages/list.ts raises the case where the
+     * caller's read comes back unauthorised-but-empty instead of rendering it as
+     * "no messages" — sat on its skeleton until the person backgrounded the app
+     * and came back.
+     *
+     * Three tries over about six seconds, which is sized for what actually
+     * fails: a session token refreshing underneath a request in flight. Reset on
+     * any success, so a later failure gets the full ladder again rather than
+     * inheriting an exhausted one. A 401 is deliberately NOT retried — it is an
+     * answer, not a failure, and the screen it produces is correct.
+     */
+    const RETRY_MS = [600, 1500, 4000]
+    let failures = 0
+    let retryTimer = 0
+
+    const scheduleRetry = () => {
+      if (!alive || failures >= RETRY_MS.length) return
+      const wait = RETRY_MS[failures]
+      failures++
+      window.clearTimeout(retryTimer)
+      retryTimer = window.setTimeout(() => {
+        // Past the freshness window: this is a repair, not a poll.
+        lastLoadedAt = 0
+        void load()
+      }, wait)
+    }
+
+    const load = (): Promise<void> => {
       lastLoadedAt = Date.now()
       return fetch("/api/messages", { credentials: "include" })
         .then((r) => {
@@ -261,14 +294,20 @@ export function MessagesInbox({
           // would tell a signed-in person they had been logged out.
           if (r.status === 401) {
             if (alive) setSignedOut(true)
-            return null
+            return "signed-out" as const
           }
           return r.ok ? r.json() : null
         })
         .then((data) => {
-          if (alive && data) setRows(data.conversations ?? [])
+          if (data === "signed-out") return
+          if (data) {
+            failures = 0
+            if (alive) setRows(data.conversations ?? [])
+            return
+          }
+          scheduleRetry()
         })
-        .catch(() => {})
+        .catch(() => scheduleRetry())
     }
 
     const maybeLoad = () => {
@@ -326,6 +365,7 @@ export function MessagesInbox({
 
     return () => {
       alive = false
+      window.clearTimeout(retryTimer)
       window.removeEventListener("focus", maybeLoad)
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("pageshow", maybeLoad)

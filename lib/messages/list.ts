@@ -167,7 +167,59 @@ export async function listConversations({
   }
   if (error) throw new InboxReadError(error.message)
 
-  const convos: ConvoRow[] = ((page as unknown as ConvoRow[]) ?? []).filter(
+  const raw = (page as unknown as ConvoRow[]) ?? []
+
+  /**
+   * ZERO ROWS AND NO ERROR IS NOT PROOF OF AN EMPTY INBOX.
+   *
+   * This is the "sometimes it says I have no messages when I do". Everything
+   * above is written around the rule that a broken inbox and an empty one must
+   * not look the same — but the rule was only enforced for reads that THROW,
+   * and the failure that actually happens does not throw.
+   *
+   * `asCaller` is the caller's session client and row-level security is the
+   * access check. An RLS predicate that does not match does not raise anything:
+   * PostgREST answers 200 with `[]`. So any moment where the request reaches the
+   * database carrying something other than this person's identity — a token that
+   * refreshed while the request was in flight, a session cookie that did not
+   * make it onto the request, `auth.uid()` coming back null — is indistinguishable,
+   * here, from an account that has never messaged anybody. It gets rendered as
+   * "Niciun mesaj încă", which is a confident, wrong answer, and the next load
+   * usually gets it right, which is why it looks random.
+   *
+   * The service role can settle it, and it is the only thing that can: ask
+   * whether this account is a party to a single conversation, using the SAME
+   * predicate the caller just used. If the answer is yes while the caller's own
+   * read said no, the two disagree about a question that has one answer, and the
+   * caller's read is the one that is wrong. That is a read failure and it is
+   * raised as one — both callers already know how to show a failure, and both
+   * of them retry.
+   *
+   * On the RAW result, before the per-person delete filter below. Filtering to
+   * nothing is a legitimate way to have an empty inbox — you deleted everything
+   * and nobody has written since — and cross-checking the filtered list would
+   * turn that into a permanent skeleton.
+   *
+   * One indexed `limit(1)` on the one path where the answer would otherwise be
+   * unverifiable. An account that genuinely has no conversations pays it too,
+   * once, and it returns nothing.
+   */
+  if (!raw.length && asAdmin) {
+    const { data: anyAtAll, error: checkError } = await asAdmin
+      .from("conversations")
+      .select("id")
+      .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+      .limit(1)
+    // The check failing is not evidence either way — say nothing and let the
+    // empty answer stand rather than inventing a failure out of a second one.
+    if (!checkError && anyAtAll && anyAtAll.length > 0) {
+      throw new InboxReadError(
+        "conversations read returned no rows for an account that has at least one — the caller's read was not authorised",
+      )
+    }
+  }
+
+  const convos: ConvoRow[] = raw.filter(
     // Deleting is per person: the row survives for the other party, and comes
     // back for this one if they are written to again — `last_message_at` moving
     // past the delete is exactly that.
