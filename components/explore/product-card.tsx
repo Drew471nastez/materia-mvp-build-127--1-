@@ -185,13 +185,38 @@ interface ProductCardProps {
   srcParam?: string
   /** Set to true for above-the-fold images for faster LCP */
   priority?: boolean
-  /** Use router.push() on native instead of window.location.href to avoid white flash */
+  /**
+   * ON BY DEFAULT, and it must stay that way. This defaulted to FALSE.
+   *
+   * `false` does not mean "no special handling", it means `useClientNav={false}`
+   * on the SmartLink below — which that component reads as an explicit demand
+   * for a hard navigation. In the app the tap became `window.location.href`; on
+   * the web it fell past the blended branch to a bare `<a href>`. Both are a
+   * full document load: the React tree torn down, every query run again from
+   * cold, and — because `warm()` returns early for a hard nav — no prefetch of
+   * the route and no warming of the photo either.
+   *
+   * The home feed passed `clientNav` explicitly and was fast. The profile grid,
+   * the recommendations, the popular rail and the category pages did not, and
+   * every listing opened from them reloaded the whole site. That is the entire
+   * difference between opening a listing from the feed and opening the same
+   * listing from a profile, and no amount of transition work could reach it:
+   * the animation was on the far side of a document teardown, along with the
+   * client router cache that makes coming BACK instant.
+   *
+   * A product card's href is always /products/<slug>, which is always inside the
+   * marketing layout. There is no product card anywhere that wants a document
+   * load, so the safe answer is the default rather than something five call
+   * sites have to remember. SmartLink still forces a hard navigation for the
+   * genuinely cross-layout routes (/app, /store-builder, /library) on its own,
+   * and a listing URL can never be one of those.
+   */
   clientNav?: boolean
   /** Hide the seller row in dense carousels */
   showSeller?: boolean
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = false, showSeller = true, origin = "feed" }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = true, showSeller = true, origin = "feed" }: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const touchStartY = useRef(0)
