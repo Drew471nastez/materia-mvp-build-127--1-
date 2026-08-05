@@ -12,8 +12,25 @@ import { SurfaceClaim } from "@/components/surface-claim"
 
 export default function MarketingLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode
+  /**
+   * The parallel slot intercepted routes render into — today, the sell sheet.
+   *
+   * It is a SIBLING of <main>, deliberately, and not a child. Two reasons, both
+   * of which have already cost this app a bug: <main> carries the tab dip, so a
+   * sheet inside it would fade with the screen it is supposed to be covering;
+   * and anything that ever puts a transform on <main> would become the
+   * containing block for the sheet's `position: fixed` root.
+   *
+   * Rendered last, after the tab bar, so its z-95 sits over the bar's z-80
+   * without either of them having to know about the other's stacking context.
+   *
+   * @modal/default.tsx returns null, so on every route that is not intercepted
+   * this is nothing at all.
+   */
+  modal?: React.ReactNode
 }) {
   return (
     // The minimum height is in CSS, not here: it has to subtract the bottom
@@ -65,6 +82,8 @@ export default function MarketingLayout({
       <Suspense fallback={null}>
         <GlobalMobileNav />
       </Suspense>
+
+      {modal}
     </div>
   )
 }

@@ -29,6 +29,11 @@ export function ShellScrollReset() {
   const searchParams = useSearchParams()
 
   useLayoutEffect(() => {
+    // An intercepted route does not replace the page, it covers it. The screen
+    // underneath is still mounted and still where you left it, and scrolling it
+    // to the top would mean closing the sell sheet dropped you at the top of a
+    // profile you had scrolled halfway down — a navigation you never made.
+    if (pathname?.startsWith("/products/new")) return
     const el = document.querySelector<HTMLElement>(".marketing-flex-wrapper")
     if (el && el.scrollTop !== 0) el.scrollTop = 0
   }, [pathname, searchParams])
