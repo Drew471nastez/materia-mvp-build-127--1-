@@ -244,7 +244,10 @@ export function MemberProfile({
   useLayoutEffect(() => {
     if (consumeNavHint() !== "back") return
     setReturning(true)
-    const t = window.setTimeout(() => setReturning(false), 480)
+    // 340ms is `.screen-return`'s duration in app/globals.css, plus a frame or
+    // two of margin. Holding it longer only keeps the compositor layer that
+    // `will-change` asks for alive after there is nothing left to animate.
+    const t = window.setTimeout(() => setReturning(false), 400)
     return () => window.clearTimeout(t)
   }, [])
 

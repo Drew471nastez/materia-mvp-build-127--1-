@@ -255,26 +255,56 @@ html.capacitor a.no-tap-fade:active {
 /* Coming back to anything that is NOT the feed.
  *
  * The return was only ever built for one destination. `.feed-return` is applied
- * by mobile-feed.tsx and by nothing else, so closing a listing you had opened
- * from a profile — your own or a seller's — was a hard cut: the listing
- * unmounts, the profile is simply there, and the trip back is the one half of
- * the journey with no motion in it at all. Going in had an animation and coming
- * out had none, which is what reads as the back being broken rather than plain.
+ * by mobile-feed.tsx and by nothing else, so closing a listing opened from a
+ * profile was a hard cut — the one half of the journey with no motion in it.
  *
- * Same keyframes, same curve, same duration as the feed's, because it is the
- * same event and two different returns in one app is worse than either. What it
- * does NOT take is the feed's black dim plate: that exists because the feed can
- * be a full-bleed reel on black, and a veil lifting off a white profile is a
- * grey flash over a page that was never dark.
+ * ---------------------------------------------------------------------------
+ * IT IS NOT THE FEED'S SCALE, AND BORROWING IT IS WHAT MADE THE BACK BUMPY
+ * ---------------------------------------------------------------------------
+ * `.feed-return` is `scale(0.94) -> scale(1)` with no transform-origin, so the
+ * origin is the default: the centre OF THE ELEMENT. Scaling about a point
+ * H/2 down means everything visible is displaced by H/2 x (1 - 0.94) — three
+ * percent of the whole element's height — and then slides back. On the feed
+ * that element is `fixed inset-0`, exactly one viewport, and the displacement is
+ * a couple of dozen pixels of depth, which is what it was tuned for. A profile
+ * is a tall scrolling document, and three percent of it is not a depth cue.
  *
- * Nothing `position: fixed` may live under this. The scale makes it the
- * containing block for anything that does — the same rule that took the buy bar
- * off the listing; see the "OPENING A LISTING" note near the top. The profile's
- * one fixed child, its "Link copiat" toast, is portalled to the body for exactly
+ * Measured in Chromium, displacement of the visible content on the first frame:
+ *
+ *   the feed, fixed, 794px      25px    <- the intended effect
+ *   a profile 1600px tall       47px
+ *   a profile 3000px tall       89px
+ *   a profile 5000px tall      148px
+ *
+ * Exactly H x 0.03 in every case, and a profile gets TALLER the more listings
+ * you have — so the person with the most to show gets the worst lurch. The
+ * whole page drops a hundred-odd pixels and climbs back. That is the bump.
+ *
+ * ---------------------------------------------------------------------------
+ * A translate cannot do that
+ * ---------------------------------------------------------------------------
+ * `translateY` has no origin term at all: 10px is 10px whether the page is one
+ * screen or ten. So the motion is stated directly instead of falling out of the
+ * element's height, and it is the same on every profile in the app. Paired with
+ * the same opacity rise the rest of the app uses, so coming back reads as one
+ * gesture with going in rather than as a different effect.
+ *
+ * Composited, and cheaper than the scale it replaces for a second reason: a
+ * translate never re-rasterises the layer, where a scale re-samples every
+ * photograph in the grid for the length of the animation.
+ *
+ * Nothing `position: fixed` may live under this — a transform of ANY kind makes
+ * it the containing block, which is the rule that took the buy bar off the
+ * listing (see the "OPENING A LISTING" note near the top). The profile's one
+ * fixed child, its "Link copiat" toast, is portalled to the body for exactly
  * this reason. */
+@keyframes screen-return {
+  from { transform: translate3d(0, 10px, 0); opacity: 0.86; }
+  to   { transform: translate3d(0, 0, 0);    opacity: 1; }
+}
 .screen-return {
-  animation: feed-return 420ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
-  will-change: transform;
+  animation: screen-return 340ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+  will-change: transform, opacity;
 }
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
