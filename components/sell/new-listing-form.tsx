@@ -425,7 +425,13 @@ export function NewListingForm() {
             void submit(false)
           }}
           disabled={saving !== null}
-          className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+          // And no purple halo under the button either. A coloured glow around
+          // a solid fill is the same mistake as the bar's shadow at a smaller
+          // size: the button is already the only saturated thing on a white
+          // strip, so the glow adds no separation and reads as a smudge under
+          // it — which on a bar sitting at the very bottom edge of the screen
+          // is the most conspicuous place to have one.
+          className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
         >
           {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Publică anunțul
@@ -732,8 +738,16 @@ export function NewListingForm() {
           soft lift separate it from the form perfectly well.
 
           It also cannot be scrolled away from or drawn over: it is the last
-          flex row of the sheet, so it is exactly as sticky as the sheet is. */}
-      <div className="shrink-0 border-t border-neutral-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 shadow-[0_-6px_20px_-12px_rgba(0,0,0,0.18)] md:hidden">
+          flex row of the sheet, so it is exactly as sticky as the sheet is.
+
+          NO DROP SHADOW. I added one to "lift" the bar off the form and it was
+          the wrong instinct twice over: it is a blur recomputed against
+          whatever card happens to be under it as you scroll, and it made the
+          bottom of the screen look smudged rather than layered. The bar is
+          already unmistakably a separate surface — opaque white against a grey
+          form, with a hairline along the top. A shadow on top of that is a
+          third statement of something already said twice. */}
+      <div className="shrink-0 border-t border-neutral-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 md:hidden">
        <div className="mx-auto w-full max-w-2xl space-y-2.5">{actionControls}</div>
       </div>
 
