@@ -1,7 +1,8 @@
 "use client"
 
 import { SurfaceClaim } from "@/components/surface-claim"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
 import { Bookmark, Pencil, Settings, Share2, Star } from "lucide-react"
@@ -13,6 +14,7 @@ import { ImageViewer } from "@/components/messages/image-viewer"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
+import { consumeNavHint } from "@/lib/screen-transition"
 import { coverImageUrl, defaultCoverFor, resolveCover } from "@/lib/profile/covers"
 import { cn } from "@/lib/utils"
 
@@ -221,6 +223,31 @@ export function MemberProfile({
   reviews?: ReviewsSummary | null
 }) {
   const { t, language } = useLocale()
+
+  /**
+   * Arriving back here from a listing.
+   *
+   * The same read the feed does, from the hint the navigation left on <html>,
+   * and it is TAKEN rather than read so a tab change or a fresh visit that
+   * happens to mount this component next does not inherit somebody else's
+   * arrival. A layout effect, so the class is on the element before the browser
+   * paints it and the animation starts at its true beginning instead of one
+   * frame in — in a passive effect the finished page is shown at rest for a
+   * frame and then jumps back to 0.94 to animate, which is a flinch.
+   *
+   * Dropped on a timer rather than on animationend: the animation is `none` on
+   * desktop and under reduced motion, and an animation that never runs never
+   * ends, so the `will-change: transform` layer would be held for the rest of
+   * the session on precisely the machines that opted out of it.
+   */
+  const [returning, setReturning] = useState(false)
+  useLayoutEffect(() => {
+    if (consumeNavHint() !== "back") return
+    setReturning(true)
+    const t = window.setTimeout(() => setReturning(false), 480)
+    return () => window.clearTimeout(t)
+  }, [])
+
   const fetchedReviews = useSellerReviews(reviewsFromServer === undefined ? member.id : null)
   const reviews = reviewsFromServer === undefined ? fetchedReviews : reviewsFromServer
 
@@ -297,7 +324,12 @@ export function MemberProfile({
     // track while the avatar sits marooned at the far left. The narrower measure
     // is what makes this read as a page rather than as a phone layout that has
     // been stretched.
-    <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 md:px-8 md:pt-8 lg:pt-10">
+    <div
+      className={cn(
+        "profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 md:px-8 md:pt-8 lg:pt-10",
+        returning && "screen-return",
+      )}
+    >
       {/* WHITE, and the COVER paints its own strip.
           
           This claim only exists to take down the opaque shield the app draws
@@ -702,13 +734,20 @@ export function MemberProfile({
       {/* One line, on the one action with no other way of confirming itself.
           A share sheet closes over the app and that IS the confirmation; a
           clipboard write looks exactly like nothing happening. */}
-      {shared && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[110] flex justify-center px-6">
-          <span className="rounded-full bg-neutral-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
-            Link copiat
-          </span>
-        </div>
-      )}
+      {/* Portalled to the body, like the image viewer and the offer sheet, and
+          for the same reason: it is `position: fixed`, and the return animation
+          above puts a transform on this element — which would make THIS the box
+          the toast is fixed to instead of the screen, and drop it somewhere down
+          the page. Everything fixed on a surface that animates has to leave it. */}
+      {shared && typeof document !== "undefined" &&
+        createPortal(
+          <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[110] flex justify-center px-6">
+            <span className="rounded-full bg-neutral-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+              Link copiat
+            </span>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

@@ -3,8 +3,8 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Heart, Menu, MessageCircle, ShoppingBag } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Heart, Menu, MessageCircle, Search, ShoppingBag } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { SearchTrigger } from "@/components/marketplace/search-row"
@@ -55,9 +55,39 @@ function categoryHref(id: string): string {
   return id === "all" ? "/" : `/?category=${id}`
 }
 
+/**
+ * Routes that are not a place you browse, so the search row collapses to an
+ * icon on them.
+ *
+ * A field reading "Caută articole" is furniture from another room over your
+ * messages, your account or your orders — and on a conversation it is not just
+ * out of place, it is expensive. That screen sizes itself to the visible
+ * viewport and starts below this header, so every pixel the header spends is a
+ * pixel the messages do not get; with a keyboard open the row was costing about
+ * half of what was left.
+ *
+ * The header itself stays. On a phone browser there is no tab bar, so it is the
+ * only way off the page — which is exactly why the native app can drop this
+ * chrome entirely on the same routes (see global-mobile-topbar.tsx, which calls
+ * this same set "pages with no chrome of their own") and the web cannot. The
+ * search does not disappear either; it moves into the row above as an icon,
+ * opening the same overlay.
+ */
+function isCompactHeader(pathname: string): boolean {
+  return (
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/purchases") ||
+    pathname.startsWith("/sales")
+  )
+}
+
 export function MobileWebHeader() {
   const router = useRouter()
+  const pathname = usePathname()
   const { t } = useLocale()
+  const compact = isCompactHeader(pathname ?? "")
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -257,6 +287,18 @@ export function MobileWebHeader() {
             </Link>
 
             <div className="ml-auto flex shrink-0 items-center gap-0.5">
+              {/* Search, where the row below would have been. Same overlay, same
+                  handler — only the affordance changes. */}
+              {compact && (
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Caută"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+                >
+                  <Search className="h-[22px] w-[22px]" strokeWidth={2.1} />
+                </button>
+              )}
               {auth.signedIn ? (
                 <>
                   <Link
@@ -312,10 +354,18 @@ export function MobileWebHeader() {
           {/* Search only. The category pill rail is deliberately not here — it is
               the app's answer to having no address bar and no header, and under a
               header that already carries a menu of categories it is the same list
-              twice. */}
-          <div className="flex px-3 pb-3">
-            <SearchTrigger onOpen={() => setSearchOpen(true)} />
-          </div>
+              twice.
+
+              Dropped entirely on the routes isCompactHeader names, where it has
+              moved into the row above as an icon. The ResizeObserver on the
+              header republishes --web-header-h when this goes, so the
+              conversation below it re-pins itself to the new height rather than
+              leaving a gap where the row used to be. */}
+          {!compact && (
+            <div className="flex px-3 pb-3">
+              <SearchTrigger onOpen={() => setSearchOpen(true)} />
+            </div>
+          )}
         </div>
       </header>
 

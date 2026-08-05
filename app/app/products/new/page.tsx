@@ -2512,7 +2512,46 @@ export default function NewProductPage() {
     }
   }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants, whatsIncluded, faqs, selectedCategory])
 
-  // Process image to fit 1280x720 canvas (for non-widescreen images)
+  /**
+   * Get a photo down to a sensible size WITHOUT changing its shape.
+   *
+   * ---------------------------------------------------------------------------
+   * This used to letterbox every photo onto a 1280x720 canvas
+   * ---------------------------------------------------------------------------
+   * Anything that was not already between 1.5:1 and 2:1 was drawn, centred, onto
+   * a 16:9 canvas filled with a #f8f8f8 -> #e8e8e8 gradient, and THAT is what was
+   * uploaded. A square photo came back as a square photo with two grey slabs
+   * either side of it, permanently, in the stored file.
+   *
+   * Read back off the live listing "Jordan Men's Black Trainers", all four
+   * photos:
+   *
+   *   1785495051826_P0_processed.jpg        1280x720   ratio 1.778   178KB
+   *   1785495071560_P0__1__processed.jpg    1280x720   ratio 1.778   157KB
+   *   1785495073912_P0__2__processed.jpg    1280x720   ratio 1.778   193KB
+   *   1785495082795_P0__3__processed.jpg    1280x720   ratio 1.778   143KB
+   *
+   * The grid hides it — the card crops to 3:4 with object-cover, so the bars are
+   * outside the crop. The full-screen viewer cannot hide it, because its whole
+   * job is to show the file whole: a square photograph arrives as a 520px band
+   * across the middle of an 844px screen with grey either side of it. That is
+   * what "the image player displays the images wide" is. The viewer was right;
+   * the file was wrong.
+   *
+   * The behaviour made sense where it came from — a digital-product cover, which
+   * is a banner and wants a banner's shape. It does not survive the move to
+   * clothing. People photograph a jumper on a hanger with a phone, in portrait or
+   * square, and the shape of that photograph is information: it is how tall the
+   * thing is. Padding it to 16:9 throws that away and hands back grey.
+   *
+   * So: no canvas unless the picture is genuinely too big to upload, and even
+   * then only a proportional downscale. The longest edge is capped at 1600px,
+   * which is more than any phone screen will ever show it at, and the aspect
+   * ratio is carried through untouched. A photo already under the cap is passed
+   * through as the exact bytes the camera produced.
+   */
+  const LONGEST_EDGE = 1600
+
   const processImageToWidescreen = async (file: File): Promise<{ processedFile: File; wasProcessed: boolean; originalRatio: string }> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image()
@@ -2523,32 +2562,30 @@ export default function NewProductPage() {
       }
 
       img.onload = () => {
-        const targetWidth = 1280
-        const targetHeight = 720
-        const targetRatio = targetWidth / targetHeight // ~1.78 (16:9)
         const imageRatio = img.width / img.height
 
-        // Determine original ratio description
+        // Kept for the caller, which reports back what was done. Nothing is
+        // rejected or corrected on the strength of it any more — a portrait
+        // photo of a coat is not a mistake to be warned about.
         let originalRatio = "landscape"
-        if (imageRatio < 0.95) {
-          originalRatio = "portrait"
-        } else if (imageRatio >= 0.95 && imageRatio <= 1.05) {
-          originalRatio = "square"
-        }
+        if (imageRatio < 0.95) originalRatio = "portrait"
+        else if (imageRatio <= 1.05) originalRatio = "square"
 
-        // Check if image is already close to widescreen ratio (within 10% tolerance)
-        const isWidescreen = imageRatio >= 1.5 && imageRatio <= 2.0
-
-        if (isWidescreen) {
-          // Image is already widescreen, no processing needed
+        const longest = Math.max(img.width, img.height)
+        if (longest <= LONGEST_EDGE) {
+          // Already small enough. Upload what the camera gave us, byte for byte
+          // — re-encoding a photo that needs no resizing only loses detail.
           resolve({ processedFile: file, wasProcessed: false, originalRatio })
           return
         }
 
-        // Create canvas with target dimensions
+        const scale = LONGEST_EDGE / longest
+        const width = Math.round(img.width * scale)
+        const height = Math.round(img.height * scale)
+
         const canvas = document.createElement("canvas")
-        canvas.width = targetWidth
-        canvas.height = targetHeight
+        canvas.width = width
+        canvas.height = height
         const ctx = canvas.getContext("2d")
 
         if (!ctx) {
@@ -2556,36 +2593,13 @@ export default function NewProductPage() {
           return
         }
 
-        // Fill with light gray gradient background (smooth white to very light gray)
-        const gradient = ctx.createLinearGradient(0, 0, targetWidth, targetHeight)
-        gradient.addColorStop(0, "#f8f8f8")
-        gradient.addColorStop(0.5, "#f0f0f0")
-        gradient.addColorStop(1, "#e8e8e8")
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, 0, targetWidth, targetHeight)
+        // No fill. The canvas is exactly the size of the picture, so there is no
+        // area left over for a background to show through — which is the whole
+        // difference between this and what it replaced.
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = "high"
+        ctx.drawImage(img, 0, 0, width, height)
 
-        // Calculate dimensions to fit image within the canvas while maintaining aspect ratio
-        let drawWidth: number
-        let drawHeight: number
-
-        if (imageRatio > targetRatio) {
-          // Image is wider than target - fit by width
-          drawWidth = targetWidth
-          drawHeight = targetWidth / imageRatio
-        } else {
-          // Image is taller than target - fit by height
-          drawHeight = targetHeight
-          drawWidth = targetHeight * imageRatio
-        }
-
-        // Center the image
-        const x = (targetWidth - drawWidth) / 2
-        const y = (targetHeight - drawHeight) / 2
-
-        // Draw the image centered on the canvas
-        ctx.drawImage(img, x, y, drawWidth, drawHeight)
-
-        // Convert canvas to blob
         canvas.toBlob(
           (blob) => {
             if (!blob) {
@@ -2593,17 +2607,16 @@ export default function NewProductPage() {
               return
             }
 
-            // Create new file with same name but as PNG for lossless quality
             const processedFile = new File(
               [blob],
-              file.name.replace(/\.[^/.]+$/, "") + "_processed.jpg",
+              file.name.replace(/\.[^/.]+$/, "") + "_resized.jpg",
               { type: "image/jpeg" }
             )
 
             resolve({ processedFile, wasProcessed: true, originalRatio })
           },
           "image/jpeg",
-          0.92 // High quality JPEG
+          0.92,
         )
       }
 
@@ -2713,12 +2726,11 @@ export default function NewProductPage() {
 
           if (result.wasProcessed) {
             processedCount++
-            // Show ratio warning
-            if (result.originalRatio === "square") {
-              setRatioWarning(`Image "${file.name}" was square and has been fitted to 1280x720.`)
-            } else if (result.originalRatio === "portrait") {
-              setRatioWarning(`Image "${file.name}" was portrait and has been fitted to 1280x720.`)
-            }
+            // A resize, not a reshape — so this says what happened rather than
+            // apologising for a shape. Square and portrait photos are the normal
+            // case for clothing and there is nothing to warn about; the old copy
+            // ("was square and has been fitted to 1280x720") described the bug.
+            setRatioWarning(`"${file.name}" was scaled down for upload. Its shape is unchanged.`)
           }
         } catch (err) {
           console.error("Image processing error:", err)

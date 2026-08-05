@@ -275,15 +275,41 @@ html.capacitor a.no-tap-fade:active {
     will-change: transform;
   }
 }
+/* Coming back to anything that is NOT the feed.
+ *
+ * The return was only ever built for one destination. `.feed-return` is applied
+ * by mobile-feed.tsx and by nothing else, so closing a listing you had opened
+ * from a profile — your own or a seller's — was a hard cut: the listing
+ * unmounts, the profile is simply there, and the trip back is the one half of
+ * the journey with no motion in it at all. Going in had an animation and coming
+ * out had none, which is what reads as the back being broken rather than plain.
+ *
+ * Same keyframes, same curve, same duration as the feed's, because it is the
+ * same event and two different returns in one app is worse than either. What it
+ * does NOT take is the feed's black dim plate: that exists because the feed can
+ * be a full-bleed reel on black, and a veil lifting off a white profile is a
+ * grey flash over a page that was never dark.
+ *
+ * Nothing `position: fixed` may live under this. The scale makes it the
+ * containing block for anything that does — the same rule that took the buy bar
+ * off the listing; see the note above @keyframes listing-enter. The profile's
+ * one fixed child, its "Link copiat" toast, is portalled to the body for exactly
+ * this reason. */
+.screen-return {
+  animation: feed-return 420ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+  will-change: transform;
+}
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
      website doing tricks, and the page is already instant there. */
   .listing-enter,
-  .feed-return { animation: none; }
+  .feed-return,
+  .screen-return { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .listing-enter,
-  .feed-return { animation: none; }
+  .feed-return,
+  .screen-return { animation: none; }
 }
 
 /* A listing card acknowledging the finger before anything else happens. */
@@ -2183,6 +2209,42 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
   }
   html:not(.capacitor) .thread-shell {
     --thread-top: var(--web-header-h, 0px);
+  }
+
+  /* THE BLANK BAND ABOVE THE CONVERSATION WHEN THE KEYBOARD OPENS.
+   *
+   * `--thread-top` reserves room for the site header, which is correct while
+   * that header is where it says it is. The moment a keyboard opens in a mobile
+   * browser it is not. The header is `sticky top-0`, so it sticks to the top of
+   * the LAYOUT viewport; the keyboard shrinks and pans the VISUAL one. The shell
+   * follows the visual viewport (that is what `--vv-top` and `--vv-h` are for)
+   * and the header does not follow it at all — it is left above the visible
+   * area, and the space this reserved for it is left behind as a white band with
+   * nothing in it.
+   *
+   * Measured off the reported screenshot: the band is 275px in a 920px-wide
+   * capture of a 390px-wide screen, i.e. 275 / (920/390) = 117 CSS px. The web
+   * header is a 56px row plus a ~48px search row plus its padding — the same
+   * number. It is not a scroll offset or a rounding error; it is exactly this
+   * reservation, paid for a header that has gone.
+   *
+   * It cost the messages twice over, because the same term is subtracted from
+   * the height: `--vv-h - 117` on a viewport already cut in half by the keys is
+   * what squeezed the list down to the one visible "08:58 · Trimis".
+   *
+   * So while there is a keyboard up, the conversation takes the whole visible
+   * viewport. That is also what every messaging app on a phone browser does —
+   * the header is not reachable behind a keyboard, so reserving space for it
+   * buys nothing and costs a screenful.
+   *
+   * The z-index goes above the header's z-55 for the engines that keep the
+   * layout viewport in step with the visual one (Chrome on Android resizes
+   * differently from Safari): there the header IS still at the top of the
+   * visible area, and without this it would draw over the conversation's own
+   * header instead of the other way round. */
+  html[data-keyboard="open"] .thread-shell {
+    --thread-top: 0px;
+    z-index: 60;
   }
 }
 @media (min-width: 768px) {
