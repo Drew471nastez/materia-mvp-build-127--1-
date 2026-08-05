@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { BadgeCheck, Bell } from "lucide-react"
@@ -18,8 +18,9 @@ import {
 } from "@/lib/messages/hidden-conversations"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
-import { consumeNavHint } from "@/lib/screen-transition"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { beginTabLeave } from "@/lib/tab-leave"
+import { useWideViewport } from "@/lib/use-wide-viewport"
 import { cn } from "@/lib/utils"
 
 export type Row = {
@@ -113,8 +114,19 @@ export function MessagesInbox({
   initialConversations = null,
   renderKey,
   viewerId,
+  dormantWhenWide = false,
 }: {
   initialConversations?: Row[] | null
+  /**
+   * True when a wider screen draws the split view instead of this one.
+   *
+   * Both are in the DOM on /messages and CSS picks which is visible — see
+   * components/messages/split-shell.tsx. A hidden component still runs its
+   * effects, so without this the desktop inbox would have TWO lists polling the
+   * same endpoint and two subscriptions to the same channel, one of them for a
+   * screen nobody can see. Rendering costs nothing; asking the server does.
+   */
+  dormantWhenWide?: boolean
   /**
    * Proof of whether the server produced these rows for THIS navigation.
    *
@@ -215,7 +227,12 @@ export function MessagesInbox({
   }
   const fromCache = fromCacheRef.current
 
+  // Whether this instance is the one on screen. See `dormantWhenWide` above.
+  const wide = useWideViewport()
+  const dormant = dormantWhenWide && wide
+
   useEffect(() => {
+    if (dormant) return
     let alive = true
     // Coming back to the tab is the moment new replies are most likely waiting,
     // but focus fires far more often than replies arrive — every alt-tab, every
@@ -360,20 +377,6 @@ export function MessagesInbox({
       alive = false
     }
   }, [tab, notifs])
-
-  // Arriving back from a conversation, the inbox comes forward rather than
-  // simply being there. Read once, from the hint the back button left on <html>,
-  // so opening the tab fresh does not animate — only an actual return does. The
-  // class is dropped on a timer rather than on animationend, because
-  // `will-change: transform` asks the compositor to hold a layer and there is no
-  // reason to hold one for the rest of the session.
-  const [returning, setReturning] = useState(false)
-  useLayoutEffect(() => {
-    if (consumeNavHint() !== "back") return
-    setReturning(true)
-    const t = window.setTimeout(() => setReturning(false), 480)
-    return () => window.clearTimeout(t)
-  }, [])
 
   // Pull down to see what has arrived.
   //
@@ -573,8 +576,18 @@ export function MessagesInbox({
         // scroll container needs a definite height to scroll INSIDE rather than
         // pushing the page taller. Both at once is a contradiction the browser
         // resolves in whichever direction the layout happens to fall.
-        "mx-auto flex h-full max-w-2xl flex-col px-2 md:px-0 md:py-8",
-        returning && "screen-return",
+        // `flex-1` with `min-h-0`, not `h-full`.
+        //
+        // A percentage height resolves against the parent's height PROPERTY,
+        // and every ancestor up to the shell is either `flex-1` or carries a
+        // minimum — none of them states a height — so `h-full` resolved to auto
+        // and this column shrank to the height of its own header. Which is the
+        // bug where the conversations did not load: the list underneath was
+        // handed zero pixels to scroll inside. Flex gives a real, measurable
+        // height at every step, and `min-h-0` is what lets this be SHORTER than
+        // its content instead of being pushed open by it. See
+        // `.marketing-flex-wrapper:has([data-app-screen])` in app/globals.css.
+        "mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-2 md:px-0 md:py-8",
       )}
     >
       <h1 className="shrink-0 px-2 pb-1 pt-4 text-[21px] font-bold text-neutral-900">
@@ -794,7 +807,20 @@ function MessagesList({
               // -shaped screen immediately instead of leaving you on the inbox
               // while the payload travels.
               prefetch
-              onClick={() => void triggerHaptic("light")}
+              // The screen starts leaving with the finger, and the conversation
+              // carries on from where it left it.
+              //
+              // Opening a thread used to be a fade that began at half strength
+              // the moment the new route committed, with nothing at all
+              // happening in the wait before it. A screen that appears at 0.5
+              // and climbs is not a transition, it is an arrival with a number
+              // attached — and the number is the part you see. What makes a
+              // push read as a push is that the thing you were looking at
+              // started to go first. See lib/tab-leave.ts.
+              onClick={() => {
+                void triggerHaptic("light")
+                beginTabLeave()
+              }}
               className={cn(
                 ROW_INNER,
                 // An unread thread is a different kind of row, so it is a

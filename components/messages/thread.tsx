@@ -18,6 +18,7 @@ import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
+import { beginTabLeave } from "@/lib/tab-leave"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -1791,21 +1792,6 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // The push, on the arrivals that never got one.
-        //
-        // It lives on loading.tsx, which Next only shows when it has nothing
-        // cached — so opening a conversation you had opened in the last three
-        // minutes skipped the skeleton and therefore skipped the animation
-        // entirely, and the thread hard-cut into place. Half the taps eased in
-        // and half did not, decided by something invisible; that is the same
-        // inconsistency the tab bar had, in the one screen you open most.
-        //
-        // `fromCache` IS that case, exactly: a payload the router had already
-        // means no skeleton rendered, which means nothing has played this yet.
-        // A payload rendered for this navigation means the skeleton did show
-        // and did play it — and adding it here too would be the same motion
-        // twice for one tap.
-        fromCache && "screen-push",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1827,6 +1813,15 @@ export function MessageThread({
             // gesture as coming back from a listing, because it is one.
             onClick={() => {
               void triggerHaptic("light")
+              // The conversation begins to go before the inbox is asked for, so
+              // the two are one movement rather than a cut followed by a fade.
+              // The inbox used to arrive at 0.55 opacity and climb, which only
+              // started once the route had committed — so the whole of the wait
+              // was a stationary conversation, and then a list appeared at just
+              // over half strength. Dipping first means there is no frame where
+              // anything is assigned a value it was not already heading
+              // towards. See lib/tab-leave.ts.
+              beginTabLeave()
               navigateBlended("back", () =>
                 window.history.length > 1 ? router.back() : router.push("/messages"),
               )
@@ -1891,18 +1886,66 @@ export function MessageThread({
         {/* Storelib's thread has no item behind it, so the strip that would
             normally say "about this listing" has nothing to say and is gone. */}
         {thread?.listing && !thread.official && (
-          <Link
-            href={`/products/${encodeURIComponent(thread.listing.slug)}?origin=messages`}
-            className="flex items-center gap-3 border-t border-neutral-100 px-4 py-2.5 transition-colors active:bg-neutral-50"
-          >
-            {thread.listing.thumbnail_url ? (
-              <Image src={thread.listing.thumbnail_url} alt="" width={40} height={40} className="h-10 w-10 rounded-lg object-cover" />
-            ) : (
-              <span className="h-10 w-10 rounded-lg bg-neutral-100" />
-            )}
-            <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-neutral-700">{thread.listing.title}</span>
+          <div className="flex items-center gap-3 border-t border-neutral-100 px-4 py-2.5">
+            <Link
+              href={`/products/${encodeURIComponent(thread.listing.slug)}?origin=messages`}
+              className="-my-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl py-1 transition-colors active:bg-neutral-50 md:hover:bg-neutral-50"
+            >
+              {thread.listing.thumbnail_url ? (
+                <Image src={thread.listing.thumbnail_url} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+              ) : (
+                <span className="h-10 w-10 shrink-0 rounded-lg bg-neutral-100" />
+              )}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13.5px] font-medium leading-tight text-neutral-700">
+                  {thread.listing.title}
+                </span>
+                {/* THE ID, and only where there is room for it.
+                    
+                    A marketplace listing needs a short handle somebody can
+                    quote — in a report, in a dispute, on the phone to support —
+                    and a uuid is not one: thirty-six characters nobody can read
+                    back. The leading eight are unique enough to identify one
+                    listing among millions and short enough to say out loud,
+                    which is the same trade a git short hash makes.
+                    
+                    Hidden on a phone, where the header has three lines of
+                    chrome above the conversation already and this is the least
+                    of them. It is a desktop affordance because a desktop has
+                    the width for it. */}
+                <span className="hidden truncate text-[11px] leading-tight tracking-[0.02em] text-neutral-400 tabular-nums md:block">
+                  #{thread.listing.id.replace(/-/g, "").slice(0, 8).toUpperCase()}
+                </span>
+              </span>
+            </Link>
             <span className="shrink-0 text-[14px] font-bold text-neutral-900">{formatPrice(thread.listing.price_cents)}</span>
-          </Link>
+            {/* Buy the thing you are talking about, from where you are talking
+                about it.
+                
+                Half of every negotiation on a marketplace ends with somebody
+                agreeing and then having to go and FIND the listing again — back
+                out of the conversation, into the inbox, into the item, down to
+                the button. The item is pinned at the top of this thread the
+                whole time; the action that finishes the conversation belongs
+                next to it.
+                
+                Only for the buyer, and only while the listing can still be
+                bought. A seller does not buy their own item, and an offer to
+                purchase something already sold is a dead end dressed up as a
+                call to action. Desktop only for the same reason the id is: on a
+                phone this row is a strip you glance at, and a button in it
+                would be the fourth tappable thing in a header that is 44px
+                tall. */}
+            {thread.youAre === "buyer" && thread.listing.status === "published" && thread.listing.price_cents > 0 && (
+              <Link
+                href={`/checkout?productId=${encodeURIComponent(thread.listing.id)}`}
+                onClick={() => void triggerHaptic("light")}
+                className="hidden h-9 shrink-0 items-center justify-center rounded-full bg-[#7c3aed] px-4 text-[13px] font-semibold text-white shadow-[0_3px_12px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 hover:bg-[#6d2fd6] active:scale-[0.97] md:inline-flex"
+              >
+                Cumpără acum
+              </Link>
+            )}
+          </div>
         )}
       </div>
 

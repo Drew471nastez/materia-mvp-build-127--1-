@@ -2,6 +2,11 @@ import type { Metadata } from "next"
 
 import { MessagesInbox } from "@/components/messages/inbox"
 import { MessagesEmptyState } from "@/components/messages/empty-state"
+import { MessagesSplit } from "@/components/messages/split-shell"
+import {
+  DesktopConversationList,
+  NoConversationSelected,
+} from "@/components/messages/desktop-conversation-list"
 import { listConversations, optionalAdminClient, type InboxConversation } from "@/lib/messages/list"
 import { createClient } from "@/lib/supabase/server"
 
@@ -79,11 +84,32 @@ export default async function MessagesPage() {
   // out of the router cache, and on a phone whose clock runs behind the server
   // that comparison says "fresh" about rows that are minutes old. Which is
   // exactly the conversation that is missing from the list until you reload.
+  // BOTH SHAPES, and CSS picks. On a phone the inbox is the screen; from 768px
+  // up it is the left column of a split, with a conversation open beside it.
+  // Rendering both and letting the media query decide is what stops the desktop
+  // view from appearing a frame after the phone one — and only the visible one
+  // makes requests. See components/messages/split-shell.tsx.
+  const renderKey = crypto.randomUUID()
   return (
-    <MessagesInbox
-      initialConversations={initialConversations}
-      renderKey={crypto.randomUUID()}
-      viewerId={user.id}
-    />
+    <MessagesSplit
+      primary="list"
+      list={
+        <>
+          <div className="flex min-h-0 flex-1 flex-col md:hidden">
+            <MessagesInbox
+              initialConversations={initialConversations}
+              renderKey={renderKey}
+              viewerId={user.id}
+              dormantWhenWide
+            />
+          </div>
+          <div className="hidden min-h-0 flex-1 flex-col md:flex">
+            <DesktopConversationList initialConversations={initialConversations} viewerId={user.id} />
+          </div>
+        </>
+      }
+    >
+      <NoConversationSelected />
+    </MessagesSplit>
   )
 }

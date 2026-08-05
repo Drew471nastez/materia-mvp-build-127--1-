@@ -35,10 +35,27 @@
 
 type Props = { active: boolean; className?: string }
 
+/**
+ * Heavier, and round everywhere it can be.
+ *
+ * 1.9 was a UI weight — right for a settings row, thin for the one control that
+ * is on screen on every page and is looked at more than anything else in the
+ * app. At 25px a 1.9 stroke is under 8% of the glyph's height, which is why the
+ * bar read as delicate rather than as furniture. 2.15 is the weight the rest of
+ * the bar's typography is set in.
+ *
+ * Round caps and round joins were already here; what changed is that the
+ * drawings now have curves for them to act on. Every corner below is an arc
+ * with a stated radius rather than a mitre softened after the fact — a 3.6-unit
+ * radius on the bubble, a semicircle for the shoulders, an arc across the roof
+ * apex. A round join can only take the edge off a corner; it cannot make a
+ * shape round, and the difference between the two is the whole of what a bar of
+ * icons reads as.
+ */
 const OUT = {
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.9,
+  strokeWidth: 2.15,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
 }
@@ -73,11 +90,22 @@ export function HomeIcon({ active, className }: Props) {
     <Glyph
       active={active}
       className={className}
-      outline={<path {...OUT} d="M3.6 10.2 12 3.3l8.4 6.9V20a1 1 0 0 1-1 1h-4.6v-5.1a1.9 1.9 0 0 0-1.9-1.9h-1.8a1.9 1.9 0 0 0-1.9 1.9V21H4.6a1 1 0 0 1-1-1Z" />}
+      // The roof APEX is an arc, not a mitre. A 24-unit house whose ridge is a
+      // point has one sharp feature in a bar of otherwise soft shapes, and it
+      // is the first thing the eye lands on — a round linejoin only shaves it,
+      // because the two roof lines meet at a shallow angle and a join can only
+      // fit a radius as large as the corner allows. Stating the arc puts the
+      // radius where the drawing wants it.
+      outline={
+        <path
+          {...OUT}
+          d="M13 3.5 20.4 9.6a2.1 2.1 0 0 1 .7 1.6V18.6A2.5 2.5 0 0 1 18.6 21.1H16.1V16.4A2.4 2.4 0 0 0 13.7 14H10.3A2.4 2.4 0 0 0 7.9 16.4V21.1H5.4A2.5 2.5 0 0 1 2.9 18.6V11.2a2.1 2.1 0 0 1 .7-1.6L11 3.5a1.6 1.6 0 0 1 2 0Z"
+        />
+      }
       solid={
         <path
           fill="currentColor"
-          d="M11.3 2.6a1.1 1.1 0 0 1 1.4 0l8 6.6c.3.2.4.5.4.9V20a1.5 1.5 0 0 1-1.5 1.5h-4.3a.7.7 0 0 1-.7-.7v-4.6a1.4 1.4 0 0 0-1.4-1.4h-2.4a1.4 1.4 0 0 0-1.4 1.4v4.6a.7.7 0 0 1-.7.7H4.4A1.5 1.5 0 0 1 2.9 20v-9.9c0-.4.1-.7.4-.9Z"
+          d="M13.1 2.9 20.8 9.2a2.4 2.4 0 0 1 .9 1.8V18.7A2.8 2.8 0 0 1 18.9 21.5H16.2a.9.9 0 0 1-.9-.9V16.3A2.1 2.1 0 0 0 13.2 14.2H10.8a2.1 2.1 0 0 0-2.1 2.1V20.6a.9.9 0 0 1-.9.9H5.1A2.8 2.8 0 0 1 2.3 18.7V11a2.4 2.4 0 0 1 .9-1.8L10.9 2.9a1.7 1.7 0 0 1 2.2 0Z"
         />
       }
     />
@@ -91,8 +119,8 @@ export function SearchIcon({ active, className }: Props) {
       className={className}
       outline={
         <g {...OUT}>
-          <circle cx="11" cy="11" r="7.2" />
-          <path d="m20.2 20.2-4.1-4.1" />
+          <circle cx="10.9" cy="10.9" r="7.3" />
+          <path d="m20.4 20.4-4.3-4.3" />
         </g>
       }
       solid={
@@ -103,7 +131,7 @@ export function SearchIcon({ active, className }: Props) {
           fillRule="evenodd"
           clipRule="evenodd"
           fill="currentColor"
-          d="M11 2.6a8.4 8.4 0 1 0 5.1 15.1l3.6 3.6a1.2 1.2 0 0 0 1.7-1.7l-3.6-3.6A8.4 8.4 0 0 0 11 2.6Zm0 2.6a5.8 5.8 0 1 1 0 11.6 5.8 5.8 0 0 1 0-11.6Z"
+          d="M10.9 2.3a8.6 8.6 0 1 0 5.3 15.4l3.6 3.6a1.35 1.35 0 0 0 1.9-1.9l-3.6-3.6A8.6 8.6 0 0 0 10.9 2.3Zm0 3a5.6 5.6 0 1 1 0 11.2 5.6 5.6 0 0 1 0-11.2Z"
         />
       }
     />
@@ -115,11 +143,20 @@ export function InboxIcon({ active, className }: Props) {
     <Glyph
       active={active}
       className={className}
-      outline={<path {...OUT} d="M4.6 3.9h14.8a1.7 1.7 0 0 1 1.7 1.7v9.2a1.7 1.7 0 0 1-1.7 1.7H9.4l-4.5 3.8a.3.3 0 0 1-.5-.2V5.6a1.7 1.7 0 0 1 1.7-1.7Z" />}
+      // A 3.6-unit corner instead of 1.7, which is the difference between a
+      // rectangle with the edges taken off and a bubble. The tail is rounded at
+      // its tip for the same reason the roof is: it is the one point on the
+      // shape, and a point is what makes a soft icon look accidental.
+      outline={
+        <path
+          {...OUT}
+          d="M7.2 4.2H16.8A3.6 3.6 0 0 1 20.4 7.8V13A3.6 3.6 0 0 1 16.8 16.6H9.4L4.9 20.4a.85.85 0 0 1-1.3-.65V7.8A3.6 3.6 0 0 1 7.2 4.2Z"
+        />
+      }
       solid={
         <path
           fill="currentColor"
-          d="M4.6 3.4h14.8A2.2 2.2 0 0 1 21.6 5.6v9.2a2.2 2.2 0 0 1-2.2 2.2H9.2l-4 3.4a.8.8 0 0 1-1.3-.6V5.6a2.2 2.2 0 0 1 2.2-2.2Z"
+          d="M7 3.9H17A3.8 3.8 0 0 1 20.8 7.7V13.1A3.8 3.8 0 0 1 17 16.9H9.5L4.7 20.9a.9.9 0 0 1-1.5-.7V7.7A3.8 3.8 0 0 1 7 3.9Z"
         />
       }
     />
@@ -132,15 +169,20 @@ export function ProfileIcon({ active, className }: Props) {
       active={active}
       className={className}
       outline={
+        // The shoulders are a true SEMICIRCLE — one arc whose width is exactly
+        // twice its radius — rather than a shallow curve fitted between two
+        // straight ends. The old shape rose slowly from the corners and read as
+        // a bucket under a head; a half-round reads as a person, and it is the
+        // roundest the silhouette can be while still being one.
         <g {...OUT}>
-          <circle cx="12" cy="7.6" r="3.9" />
-          <path d="M4.4 20.5c0-3.6 3.4-5.9 7.6-5.9s7.6 2.3 7.6 5.9a1 1 0 0 1-1 1H5.4a1 1 0 0 1-1-1Z" />
+          <circle cx="12" cy="7.7" r="3.85" />
+          <path d="M4.6 19.9a7.4 7.4 0 0 1 14.8 0 1.35 1.35 0 0 1-1.35 1.35H5.95A1.35 1.35 0 0 1 4.6 19.9Z" />
         </g>
       }
       solid={
         <g fill="currentColor">
-          <circle cx="12" cy="7.6" r="4.3" />
-          <path d="M3.9 20.1c0-3.8 3.6-6.3 8.1-6.3s8.1 2.5 8.1 6.3a1.4 1.4 0 0 1-1.4 1.4H5.3a1.4 1.4 0 0 1-1.4-1.4Z" />
+          <circle cx="12" cy="7.6" r="4.25" />
+          <path d="M4.2 19.75a7.8 7.8 0 0 1 15.6 0 1.5 1.5 0 0 1-1.5 1.5H5.7a1.5 1.5 0 0 1-1.5-1.5Z" />
         </g>
       }
     />

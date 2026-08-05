@@ -23,7 +23,7 @@ import { IosSpinner } from "@/components/explore/ios-spinner"
  */
 export default function ThreadLoading() {
   return (
-    <div className="thread-shell screen-push mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
+    <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
       <div
         className="shrink-0 border-b border-neutral-100 bg-white/95"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}

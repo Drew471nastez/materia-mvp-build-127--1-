@@ -1986,6 +1986,55 @@ html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
 }
 
 /* ---------------------------------------------------------------------------
+ * A screen that scrolls INSIDE itself needs the shell to have a real height
+ * ---------------------------------------------------------------------------
+ * This is the bug where the conversations did not load on a desktop, and it was
+ * never a loading problem: the rows were fetched, rendered and handed to a
+ * scroll container that had computed to ZERO PIXELS TALL, so there was nothing
+ * to see. Measured in Chromium at 1440×900 against the exact nesting /messages
+ * produces: <main> resolved to 840px and the inbox column inside it to 96 — the
+ * header and the segmented control — with the list at 0.
+ *
+ * The chain is short and every link is correct on its own. The wrapper above
+ * carries a MIN-height, because a long page has to be able to grow past the
+ * viewport. <main> is `flex-1`, so flex layout gives it the leftover space. And
+ * the inbox asks for `height: 100%` so its list can scroll inside it rather
+ * than pushing the page taller. But a percentage height resolves against the
+ * parent's height PROPERTY, and <main>'s is `auto` — flex distributing free
+ * space is not the same thing as a stated height, and there is no free space to
+ * distribute when the container was only ever given a minimum. So the 100%
+ * resolved to auto, the column shrank to its own content, and the list got
+ * nothing.
+ *
+ * It worked on a phone in the app for a reason that had nothing to do with any
+ * of this: html.capacitor clips the document and pins this wrapper to the
+ * viewport, which gives it a definite height by accident of a different fix.
+ * Every other surface — desktop web, mobile web — had the collapse.
+ *
+ * So a screen that owns its own scrolling says so, and gets a shell it can
+ * measure against. Opt-in rather than global: this height is exactly wrong for
+ * an ordinary page, which must be free to be taller than the window.
+ *
+ * `:has()` rather than a class on the wrapper because the wrapper is rendered
+ * by the layout, above the route — the page cannot reach it, and threading a
+ * flag up through the layout would mean the layout knowing which routes are
+ * app-shaped. The attribute travels with the screen that needs it. */
+.marketing-flex-wrapper:has([data-app-screen]) {
+  height: calc(100svh - env(safe-area-inset-bottom, 0px));
+}
+.marketing-flex-wrapper:has([data-app-screen]) > main {
+  /* A flex column with `min-height: 0`, so the screen below can take `flex-1`
+     and be measurable — and so it can also be SHORTER than its content instead
+     of being forced open by it, which is the other half of "scrolls inside
+     itself". Without `min-height: 0` a flex item refuses to shrink below its
+     content, and the scroll container grows to fit everything it was supposed
+     to be scrolling. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------------------
  * Why a page with nothing to scroll could still be dragged.
  * ---------------------------------------------------------------------------
  * `overscroll-behavior: none`, which this file has set on html.capacitor for a
@@ -2072,60 +2121,50 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
 }
 @media (min-width: 768px) {
   .thread-shell { height: calc(100vh - 160px); }
+
+  /* …unless it is a PANE, in which case it fills one.
+   *
+   * `100vh - 160px` is a guess at how much chrome sits above a centred card,
+   * and it is the right kind of guess for a card floating in a page. It is the
+   * wrong one entirely for the right-hand half of a split view, where the
+   * height is not something to estimate — it is exactly what the shell has
+   * already worked out and handed down. A guess here shows up as a composer
+   * that ends short of the bottom edge with a strip of page under it, or as one
+   * pushed past it.
+   *
+   * The card's own border and radius go with it. A rounded rectangle inside a
+   * pane draws a second frame around content that is already framed by the
+   * divider, which is the "phone layout stretched onto a monitor" look. */
+  .msg-pane .thread-shell {
+    height: 100%;
+    max-width: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
 }
 
 /* Opening a conversation, and coming back out of one.
  *
- * The same two motions as the feed and a listing, in the same direction, for the
- * same reason: forward pushes IN (settling down from slightly larger), back
- * comes FORWARD (rising from slightly behind). Applied to the loading shell on
- * the way in and to the arriving inbox on the way out, so neither plays twice.
+ * Nothing here any more, and that is the fix rather than a deletion.
  *
- * `.screen-return` is the generic name for what `.feed-return` does — one
- * vocabulary, so returning from a listing and returning from a conversation are
- * recognisably the same gesture rather than two effects that happen to live in
- * the same app. */
-/* OPACITY, NOT SCALE, and for the same reason the send stopped translating.
-   
-   Both of these were a "zoom settle": the whole screen arriving 2% too big and
-   shrinking into place, or 2.8% too small and growing. On a surface that is
-   almost entirely TEXT that is not depth, it is every glyph being resampled for
-   four hundred milliseconds — and on the way in it ran while the loading cover
-   was fading out and the scroller was being written to the bottom, three
-   simultaneous changes to the same pixels. That is the little bump on entry.
-   
-   A fade has nothing to interfere with. It does not move the text, it does not
-   resample it, and it composites as one layer — so the cover lifting, the
-   scroll landing and the screen arriving cannot produce a composite curve
-   between them, because only one of them is a curve. */
-@keyframes screen-push {
-  from { opacity: 0.5; }
-  to   { opacity: 1; }
-}
-@keyframes screen-return {
-  from { opacity: 0.55; }
-  to   { opacity: 1; }
-}
-@media (width < 48rem) {
-  /* Short, because neither is carrying any distance any more — a fade only has
-     to be long enough to read as deliberate. Eased out hard so almost all of it
-     is spent at full strength, which is what keeps a fade from reading as the
-     screen being slow to load. */
-  .screen-push {
-    animation: screen-push 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .screen-return {
-    animation: screen-return 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-}
-@media (min-width: 768px) {
-  .screen-push,
-  .screen-return { animation: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .screen-push,
-  .screen-return { animation: none; }
-}
+ * There used to be two keyframes: `.screen-push` (0.5 → 1) on the arriving
+ * conversation and `.screen-return` (0.55 → 1) on the arriving inbox. Both
+ * began the instant the new route committed, which means the whole of the wait
+ * before that — the part you actually spend looking at the old screen — was a
+ * stationary page, and then the new one appeared at half strength and climbed.
+ * A screen that arrives at 0.5 is not fading in; it is being assigned a number,
+ * and the number is the part anybody notices. It reads as a flash on a fast
+ * route and as a slow load on a cold one.
+ *
+ * Both directions now use the same continuous pair the tab bar does: the screen
+ * you are leaving eases down when the finger lands, the route changes in the
+ * middle of it, and the arrival releases the dip so the same element carries on
+ * back up. One movement, started by the finger, and it reverses in place if you
+ * change your mind. See lib/tab-leave.ts and the "Changing tab" block above —
+ * one vocabulary, so opening a conversation and switching tab are recognisably
+ * the same gesture rather than two effects that happen to live in the same app.
+ */
 
 /* The home indicator is real when the phone is idle and is pure dead space the
    moment a keyboard is covering the part of the screen it lives in — which is
