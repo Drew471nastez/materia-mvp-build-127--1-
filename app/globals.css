@@ -121,66 +121,56 @@ html.capacitor a.no-tap-fade:active {
    photo actually moves. Browsers without it fall back to that transition, which
    the component still sets inline; a running animation outranks inline styles in
    the cascade, so where this applies it simply takes over. */
-/* A listing slides in from the right as it mounts, the way a pushed screen does
-   natively — so opening a product reads as going deeper rather than as the page
-   being replaced. Driven by the page's own mount rather than by the navigation,
-   so it can't play against a screen that hasn't rendered yet, and it's a single
-   composited transform so it holds frame rate on any device.
-
-   The exit is the mirror of this, set inline by the component before it pops
-   history — see product-detail.tsx. */
-/* Opening a listing.
+/* OPENING A LISTING HAS NO ANIMATION OF ITS OWN, and that is the fix.
+ *
+ * There is nothing here to read as `.listing-enter` any more. Two versions of it
+ * have been deleted, and both failed for the same underlying reason, which is
+ * worth keeping written down.
  *
  * ---------------------------------------------------------------------------
- * THIS USED TO BE A SCALE, AND THE SCALE UNPINNED THE BUY BAR
+ * The first: a scale, which unpinned the buy bar
  * ---------------------------------------------------------------------------
- * The entrance was `scale(1.075) -> scale(1)` on the listing's ROOT element,
- * with `will-change: transform` alongside it. A transformed element — and an
- * element merely PROMISING a transform via will-change — becomes the containing
- * block for every `position: fixed` descendant it has. The listing has exactly
- * one: the buy bar carrying "Fă o ofertă" and "Cumpără acum".
- *
- * So the bar was never fixed to the viewport on a phone. It was fixed to the
- * bottom of the whole scrollable page, and `animation-fill-mode: both` plus
- * will-change kept it that way permanently, not just for the 340ms.
+ * `scale(1.075) -> scale(1)` on the listing's root, with `will-change:
+ * transform` alongside it. A transformed element — and an element merely
+ * PROMISING a transform via will-change — becomes the containing block for every
+ * `position: fixed` descendant it has. The listing has exactly one: the buy bar
+ * carrying "Fă o ofertă" and "Cumpără acum".
  *
  * Measured in Chromium at 390x844 against a 2032px listing:
  *
  *   plain root       bar top 768  bottom 844   on screen, at every scroll offset
  *   .listing-enter   bar top 1556 bottom 1632  off screen, at every scroll offset
  *
- * The page reserves `pb-28` for that bar. With the bar parked 700px below the
- * fold, that reserved strip is simply empty white — which is what "the product
- * page shifts and glitches" is: the skeleton draws a properly pinned bar, the
- * real page arrives and the bar leaves the screen.
- *
- * The same reasoning is already written down in tab-transition.tsx, for the same
- * hazard, about the home feed: opacity creates a stacking context but NEVER a
- * containing block. That rule was applied there and missed here.
+ * The page reserves `pb-28` for that bar; with the bar parked 700px below the
+ * fold, the reserved strip is empty white. Opacity creates a stacking context
+ * but never a containing block, which is the rule tab-transition.tsx already
+ * states for the home feed and this had missed.
  *
  * ---------------------------------------------------------------------------
- * What replaces it
+ * The second: a fade, which was still only half a transition
  * ---------------------------------------------------------------------------
- * A fade, and nothing else. The old comment argued against opacity on the
- * grounds that there is nothing behind the listing, so a translucent frame shows
- * bare page background — true when it was written, and no longer true twice
- * over: `surface-bg` paints the root white before the first frame, and the
- * listing route now has a skeleton (loading.tsx) that is pixel-matched to the
- * finished page. Fading up over white, on a page that is white, is invisible
- * everywhere except the photograph, where it reads as the picture resolving.
+ * Opacity fixed the bar and did not fix the feel, because the arrival was never
+ * the part that was wrong. Whatever the arriving page does, the screen you are
+ * LEAVING is frozen from the moment your finger lands until the route commits —
+ * and on a cold open that gap is most of what you spend looking at it. An
+ * animation that begins after the wait cannot cover the wait. Two moments with a
+ * stationary hole between them is exactly what reads as direct and glitchy.
  *
- * It is also on the route's template rather than on the component, so it plays
- * ONCE across the skeleton and the page it hands over to, instead of the
- * skeleton hard-cutting in and the finished page animating separately a beat
- * later. See app/(marketing)/products/[slug]/template.tsx.
+ * ---------------------------------------------------------------------------
+ * What actually does it
+ * ---------------------------------------------------------------------------
+ * The dip-and-release pair below, the same one the tab bar uses. A card marks
+ * the document on pointerdown (see the note in components/smart-link.tsx), the
+ * outgoing screen eases down, and the arrival takes the mark off so the SAME
+ * element carries on back up. One continuous movement, started by the finger,
+ * covering the whole load however long it takes, and reversing in place if the
+ * gesture turns out to be a scroll.
  *
- * 240ms and the same curve the tabs use, so opening a listing and changing tab
- * are recognisably one app rather than two effects.
+ * It also sits on <main>, above the route's Suspense boundary, so a skeleton
+ * being replaced by the finished page happens inside one movement rather than
+ * being a second one. That is why the shallow 0.88 matters: it is small enough
+ * that the swap landing mid-flight is invisible.
  */
-@keyframes listing-enter {
-  from { opacity: 0.55; }
-  to   { opacity: 1; }
-}
 /* Coming back to the feed.
 
    The arriving side does all of it — the listing is unmounted the instant the
@@ -241,19 +231,6 @@ html.capacitor a.no-tap-fade:active {
 }
 
 @media (max-width: 767px) {
-  .listing-enter {
-    /* will-change: OPACITY, deliberately named. `will-change: transform` here
-       is what unpinned the buy bar even on the frames where no transform was
-       running — see the note above the keyframes. Opacity promises nothing
-       about layout, so the fixed bar underneath stays fixed to the viewport.
-
-       Starting at 0.55 rather than 0: from zero the first frames are a white
-       screen, which is the blink the original comment was right to avoid. From
-       just over half, the page is legible in frame one and the fade is the last
-       of it settling. */
-    animation: listing-enter 240ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
-    will-change: opacity;
-  }
   .feed-return {
     /* Six percent, eased in and out, over four hundred and twenty milliseconds.
 
@@ -292,7 +269,7 @@ html.capacitor a.no-tap-fade:active {
  *
  * Nothing `position: fixed` may live under this. The scale makes it the
  * containing block for anything that does — the same rule that took the buy bar
- * off the listing; see the note above @keyframes listing-enter. The profile's
+ * off the listing; see the "OPENING A LISTING" note near the top. The profile's
  * one fixed child, its "Link copiat" toast, is portalled to the body for exactly
  * this reason. */
 .screen-return {
@@ -302,12 +279,10 @@ html.capacitor a.no-tap-fade:active {
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
      website doing tricks, and the page is already instant there. */
-  .listing-enter,
   .feed-return,
   .screen-return { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .listing-enter,
   .feed-return,
   .screen-return { animation: none; }
 }

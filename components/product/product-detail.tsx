@@ -189,19 +189,19 @@ export function ProductDetail({ product }: { product: any }) {
   //
   // THE ENTRANCE IS NOT HERE ANY MORE, and it must not come back.
   //
-  // It was `.listing-enter` on the root below, applied from a layout effect. Two
-  // things were wrong with that, and the second one was serious.
+  // It was `.listing-enter` on the root below, applied from a layout effect, and
+  // it was wrong in two separate ways.
   //
-  // Doubled: with a skeleton on this route, the skeleton arrives first with no
-  // animation and this component animates separately when the data lands. One
-  // tap, two entrances. It belongs on the element that spans both — the route's
-  // template. See app/(marketing)/products/[slug]/template.tsx.
+  // The animation was a scale on an ancestor of the fixed buy bar, which stopped
+  // that bar being fixed to the viewport at all: measured at 390x844, bar top
+  // 768 without the class and 1556 with it. The whole reason this page reserves
+  // `pb-28` walked off the bottom of the document.
   //
-  // And the animation was a scale, on an ancestor of the fixed buy bar, which
-  // stopped that bar being fixed to the viewport at all. Measured: bar top 768
-  // without the class, 1556 with it, on an 844px-tall screen. The whole reason
-  // this page reserves `pb-28` walked off the bottom of the document. The note
-  // above `@keyframes listing-enter` in app/globals.css has the full reading.
+  // And an entrance driven by this component's mount can only ever animate half
+  // the journey — the screen you left is frozen from the tap until the route
+  // commits, and a skeleton mounting first splits it again. Opening a listing is
+  // now the same dip-and-release the tab bar uses, on <main>, which is above
+  // both the skeleton and this. See app/globals.css and components/smart-link.tsx.
 
   // Report the page as arrived, which is what completes the progress bar.
   //
