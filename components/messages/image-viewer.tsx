@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -92,8 +92,9 @@ export function ImageViewer({
   const stageRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
+  /** The close button, the counter and the arrows. See `settle`. */
+  const chromeRef = useRef<HTMLDivElement>(null)
   const imgRefs = useRef<(HTMLImageElement | null)[]>([])
-  const [shown, setShown] = useState(false)
   const [i, setI] = useState(index)
   const iRef = useRef(index)
   iRef.current = i
@@ -197,9 +198,21 @@ export function ImageViewer({
     (to: "open" | "gone") => {
       const stage = stageRef.current
       const scrim = scrimRef.current
+      const chrome = chromeRef.current
       if (!stage || !scrim) return
       stage.style.transition = SPRING
       scrim.style.transition = SPRING
+      // The chrome arrives WITH the photograph and leaves with it.
+      //
+      // It used to be outside the animation entirely, so a close button and a
+      // counter snapped to full opacity over a picture that was still sliding
+      // in, and stayed solid over one that was already leaving. Two things
+      // moving to different rules in the same 300ms is what reads as the layout
+      // shifting around the X.
+      if (chrome) {
+        chrome.style.transition = SPRING
+        chrome.style.opacity = to === "open" ? "1" : "0"
+      }
       if (to === "open") {
         drop.current = { x: 0, y: 0, scale: 1 }
         stage.style.transform = "translate3d(0, 0, 0) scale(1)"
@@ -232,20 +245,63 @@ export function ImageViewer({
     window.setTimeout(onClose, 260)
   }, [onClose, settle])
 
-  useEffect(() => {
+  /**
+   * OPEN, DETERMINISTICALLY.
+   *
+   * This used to set a `shown` flag, wait for the next animation frame, and
+   * only then write the opening transform — which is a race against React's
+   * commit. The portal is mounted by that same state change, so the frame
+   * callback could run before the refs it needs exist; `settle` found them null
+   * and returned, and the viewer stayed at the closed values it was born with:
+   * a full-screen layer at opacity 0, invisible and swallowing taps. That is
+   * "sometimes it opens and does not open".
+   *
+   * A LAYOUT effect cannot lose that race. It runs after React has attached the
+   * refs and before the browser paints, so the element is guaranteed to be
+   * there. The reflow between the two writes is what makes the transition
+   * start: it commits the closed values as the computed ones, so changing them
+   * on the next line is a change the browser animates rather than a value it
+   * folds together with the initial paint.
+   */
+  useLayoutEffect(() => {
     if (!open) return
-    setShown(true)
     view.current = { ...IDENTITY }
     setZoomed(false)
     iRef.current = index
     setI(index)
-    const raf = requestAnimationFrame(() => {
-      placeTrack(railFor(index), false)
-      settle("open")
-    })
-    return () => cancelAnimationFrame(raf)
+    placeTrack(railFor(index), false)
+    // Commit the closed state, then leave it — see above.
+    void stageRef.current?.offsetWidth
+    settle("open")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, list[0]])
+
+  /**
+   * Nothing behind it moves while it is up.
+   *
+   * The viewer is a fixed layer over a page that could still scroll, and on a
+   * phone that is not a cosmetic problem: scrolling the document collapses and
+   * expands the browser's own chrome, the visual viewport changes height, and
+   * every fixed thing in here — the close button most visibly, because it is
+   * pinned to the top corner — moves while you are looking at a photograph.
+   * That is the shifting layout with the X in it.
+   *
+   * Both scrollers are locked, because there are two: the document on the web,
+   * and the app shell in Capacitor, where the document is clipped and
+   * `.marketing-flex-wrapper` is the thing that actually scrolls.
+   */
+  useEffect(() => {
+    if (!open) return
+    const shell = document.querySelector<HTMLElement>(".marketing-flex-wrapper")
+    const bodyPrev = document.body.style.overflow
+    const shellPrev = shell?.style.overflow ?? ""
+    document.body.style.overflow = "hidden"
+    if (shell) shell.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = bodyPrev
+      if (shell) shell.style.overflow = shellPrev
+    }
+  }, [open])
 
   // A rotation or a resized window moves every rail by a different amount, and
   // the track is positioned in pixels — so without this the strip ends up
@@ -558,30 +614,48 @@ export function ImageViewer({
     [currentImg, setView],
   )
 
-  if (!open || !shown || typeof document === "undefined") return null
+  if (!open || typeof document === "undefined") return null
 
   return createPortal(
     <div className="fixed inset-0 z-[110] overflow-hidden" role="dialog" aria-modal="true">
       <div ref={scrimRef} className="absolute inset-0 bg-black" style={{ opacity: 0 }} onClick={close} />
 
-      <button
-        type="button"
-        aria-label="Închide"
-        onClick={close}
-        className="absolute right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-transform active:scale-90"
-        style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
-      >
-        <X className="h-5 w-5" />
-      </button>
-
-      {list.length > 1 && (
-        <div
-          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 text-[12.5px] font-semibold text-white tabular-nums backdrop-blur-sm"
-          style={{ top: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
+      {/* `absolute inset-0` so it is the same box as the root and every offset
+          below resolves exactly as it did — and so it can carry a z-index at
+          all. An unpositioned wrapper with an opacity of its own creates a
+          stacking context but cannot be ordered, so the stage that follows it
+          in the DOM would paint on top and the close button would stop being
+          clickable. Transparent to the pointer, with only the controls
+          themselves taking it back, so none of this is in the way of a drag. */}
+      <div ref={chromeRef} className="pointer-events-none absolute inset-0 z-30" style={{ opacity: 0 }}>
+        <button
+          type="button"
+          aria-label="Închide"
+          onClick={close}
+          className="pointer-events-auto absolute right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-transform active:scale-90"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
         >
-          {i + 1} / {list.length}
-        </div>
-      )}
+          <X className="h-5 w-5" />
+        </button>
+
+        {list.length > 1 && (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 text-[12.5px] font-semibold text-white tabular-nums backdrop-blur-sm"
+            style={{ top: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
+          >
+            {i + 1} / {list.length}
+          </div>
+        )}
+
+        {/* Arrows on a pointer device only. On a phone they would sit under the
+            thumb that is already swiping. */}
+        {list.length > 1 && (
+          <>
+            <Arrow side="left" disabled={i === 0} onClick={() => goTo(i - 1)} />
+            <Arrow side="right" disabled={i === list.length - 1} onClick={() => goTo(i + 1)} />
+          </>
+        )}
+      </div>
 
       {/* The stage carries the dismiss; the track inside it carries the paging.
           Two transforms on two elements rather than one composed by hand: they
@@ -642,14 +716,6 @@ export function ImageViewer({
         </div>
       </div>
 
-      {/* Arrows on a pointer device only. On a phone they would sit under the
-          thumb that is already swiping. */}
-      {list.length > 1 && (
-        <>
-          <Arrow side="left" disabled={i === 0} onClick={() => goTo(i - 1)} />
-          <Arrow side="right" disabled={i === list.length - 1} onClick={() => goTo(i + 1)} />
-        </>
-      )}
     </div>,
     document.body,
   )
@@ -671,7 +737,7 @@ function Arrow({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "absolute top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-all md:flex",
+        "pointer-events-auto absolute top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-all md:flex",
         "hover:bg-white/20 active:scale-90 disabled:pointer-events-none disabled:opacity-0",
         side === "left" ? "left-4" : "right-4",
       )}

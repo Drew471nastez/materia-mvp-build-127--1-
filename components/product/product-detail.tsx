@@ -322,7 +322,13 @@ export function ProductDetail({ product }: { product: any }) {
                       void triggerHaptic("light")
                       setViewerAt(i)
                     }}
-                    className="absolute inset-0 h-full w-full cursor-zoom-in"
+                    // `no-tap-fade`: in the app every button dims to 0.65 on
+                    // press, which is right for a control and wrong for a
+                    // photograph. Tapping the picture faded the whole picture
+                    // out and then opened it — a cheap-looking dissolve in
+                    // front of the real transition, on the one element you are
+                    // pressing precisely because you want to see it better.
+                    className="no-tap-fade absolute inset-0 h-full w-full cursor-zoom-in"
                   >
                     <Image
                       src={src}

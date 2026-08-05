@@ -454,7 +454,11 @@ export function MemberProfile({
                 void triggerHaptic("light")
                 setAvatarOpen(true)
               }}
-              className="block h-[88px] w-[88px] cursor-zoom-in overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white transition-transform active:scale-[0.96] md:h-28 md:w-28 lg:h-32 lg:w-32"
+              // `no-tap-fade` for the same reason the listing photo has it: in
+              // the app a button dims to 0.65 on press, and dimming a
+              // photograph before enlarging it is a dissolve in front of the
+              // real transition.
+              className="no-tap-fade block h-[88px] w-[88px] cursor-zoom-in overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white transition-transform active:scale-[0.96] md:h-28 md:w-28 lg:h-32 lg:w-32"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" />
