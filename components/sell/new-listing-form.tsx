@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Camera, Check, ChevronRight, Info, Loader2, Plus, Search, X } from "lucide-react"
 import {
@@ -159,6 +159,43 @@ export function NewListingForm() {
     })
     dragIndex.current = i
   }
+
+  /**
+   * The slide up, and the way back out.
+   *
+   * `entering` is set in a LAYOUT effect rather than at first render so the
+   * server and the client agree on the markup — and layout effects run before
+   * paint, so the class is on the element for its first frame and the sheet
+   * starts from off-screen instead of one frame in.
+   *
+   * It is taken off again on a timer. The animation ends at `transform: none`
+   * so nothing is left behind either way, but `will-change: transform` would
+   * otherwise keep a full-screen compositor layer alive for as long as the form
+   * is open, which is exactly the screen where you least want one: every keypress
+   * in a textarea would repaint against it.
+   */
+  const [entering, setEntering] = useState(false)
+  useLayoutEffect(() => {
+    setEntering(true)
+    const t = window.setTimeout(() => setEntering(false), 460)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  /**
+   * Closing. Back if there is anywhere to go back to, the feed otherwise.
+   *
+   * A sheet opened from the + in the tab bar always has history behind it, so
+   * `router.back()` returns you to whatever you were looking at rather than
+   * dropping you on the feed — which is the difference between a sheet closing
+   * and a navigation happening. A cold arrival (a shared link to /products/new,
+   * an app launched straight into it) has nothing to pop, and `router.back()`
+   * on an empty stack does nothing at all, which would leave the only way out
+   * of a full-screen form dead.
+   */
+  const close = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back()
+    else router.push("/")
+  }, [router])
 
   // ---- brand search ----
   useEffect(() => {
@@ -322,9 +359,67 @@ export function NewListingForm() {
   )
 
   return (
-    <div className="bg-[#f6f6f7] pb-[calc(env(safe-area-inset-bottom,0px)+150px)] md:pb-20">
-      <div className="mx-auto w-full max-w-2xl px-4 pt-5 sm:pt-9 md:max-w-5xl">
-      <header className="mb-5">
+    /**
+     * A SHEET ON A PHONE, A PAGE ON A MONITOR.
+     *
+     * `fixed inset-0` and a flex column: header, one scroller, footer. Three
+     * things follow from that and all three were problems before.
+     *
+     * It is genuinely full screen. It used to be a page inside the app shell,
+     * under the search-and-categories strip and above the tab bar, so the form
+     * you were filling in had about two thirds of the screen and two rows of
+     * chrome belonging to other parts of the app.
+     *
+     * Nothing inside it is `position: fixed` any more. The Publish bar was
+     * `fixed bottom-[62px] z-90`, a number chosen to clear a tab bar that is no
+     * longer there — and a fixed child cannot survive the slide, because a
+     * transformed ancestor becomes its containing block. As a flex row at the
+     * bottom of the column it is simply always at the bottom, with no magic
+     * numbers and nothing to re-anchor.
+     *
+     * And the scroll belongs to the middle. `min-h-0` is what makes that work:
+     * a flex child will not shrink below its content without it, so the
+     * scroller grows instead of scrolling and the footer is pushed off the
+     * bottom of the screen.
+     *
+     * From `md` up every one of those reverts and it is the ordinary two-column
+     * page it was.
+     */
+    <div
+      className={cn(
+        "fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
+        entering && "sell-sheet-enter",
+      )}
+    >
+      {/* The header. An X and a title, like every sheet on a phone — and it
+          pays the status-bar inset itself, because the strip that used to do
+          that for this route is gone. */}
+      <header
+        className="shrink-0 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md md:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
+        <div className="relative flex h-14 items-center justify-center px-2">
+          <button
+            type="button"
+            onClick={() => {
+              void triggerHaptic("light")
+              close()
+            }}
+            aria-label="Închide"
+            className="absolute left-1 flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+          >
+            <X className="h-[23px] w-[23px]" strokeWidth={2.2} />
+          </button>
+          <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">
+            Vinde un articol
+          </h1>
+        </div>
+      </header>
+
+      {/* The one scroller. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain md:overflow-visible">
+      <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl">
+      <header className="mb-5 hidden md:block">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
           Listează un articol
         </h1>
@@ -355,7 +450,32 @@ export function NewListingForm() {
           Prima fotografie este coperta. Trage de ele ca să le rearanjezi.
         </p>
 
-        <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5">
+        {/* NOTHING YET: one target the size of the job.
+            A 4-column grid of empty squares asks you to aim at a thumbnail
+            before a single photo exists, and the first one is the whole reason
+            anybody opens this screen. Once there IS a photo the grid below is
+            right — it is showing you what you have — so this stands in only
+            while there is nothing to show. */}
+        {photos.length === 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              void triggerHaptic("light")
+              fileRef.current?.click()
+            }}
+            className="mt-3 flex w-full flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-9 transition-colors active:border-[#7c3aed] active:bg-violet-50/50"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+              <Camera className="h-[21px] w-[21px]" />
+            </span>
+            <span className="text-[15px] font-semibold text-neutral-900">Încarcă fotografii</span>
+            <span className="text-[12.5px] text-neutral-500">
+              Minimum {MIN_PHOTOS}. Lumină bună, fundal simplu.
+            </span>
+          </button>
+        )}
+
+        <div className={cn("grid grid-cols-4 gap-2 sm:grid-cols-5", photos.length > 0 && "mt-3")}>
           {photos.map((p, i) => (
             <div
               key={p.id}
@@ -515,18 +635,16 @@ export function NewListingForm() {
       </div>
       </div>
       </div>
+      </div>{/* /the one scroller */}
 
       {/* ---- Actions (phone) ---- */}
-      {/* Sits ABOVE the tab bar, not under it. The global bottom navigation is
-          fixed at z-80, and this bar was z-40 pinned to bottom-0 — so on a phone
-          the tab bar was drawn straight over the Publish button. The checkbox
-          above it stayed visible, which is why the form looked like it simply
-          had no way to submit. Offset by the tab bar's height, and stacked over
-          it. From `md` up the sticky card in the right column takes over, so
-          this bar is phone-only. */}
-      <div
-        className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+62px)] z-[90] border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden"
-      >
+      {/* A flex row at the bottom of the sheet, not a fixed bar.
+          It used to be `fixed bottom-[calc(inset + 62px)] z-90`, where 62 was
+          the height of a tab bar that this screen no longer shows — a magic
+          number tracking another component's geometry. As the last child of the
+          column it is simply always at the bottom, it cannot be drawn over, and
+          it survives the sheet's slide, which a fixed child could not. */}
+      <div className="shrink-0 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden">
        <div className="mx-auto w-full max-w-2xl space-y-2.5">{actionControls}</div>
       </div>
 

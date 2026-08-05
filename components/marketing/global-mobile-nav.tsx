@@ -79,7 +79,14 @@ function isListing(pathname: string): boolean {
  * last thing you were filling in.
  */
 function isFullScreenForm(pathname: string): boolean {
-  return pathname.startsWith("/profile/edit")
+  return (
+    pathname.startsWith("/profile/edit") ||
+    // Selling something is a task you finish and leave, not a place you browse
+    // between. It comes up as a full-screen sheet from the + in the middle of
+    // this bar, and a bar inside the sheet it came out of is the app arguing
+    // with itself about where you are.
+    pathname.startsWith("/products/new")
+  )
 }
 
 /** Routes where a bottom bar would be in the way. */

@@ -336,6 +336,43 @@ html.capacitor a.no-tap-fade:active {
   .screen-return { animation: none; }
 }
 
+/* THE SELL SHEET COMING UP FROM THE BOTTOM.
+ *
+ * A real sheet: it starts off the bottom of the screen and travels the whole
+ * height of it. That is the one place a large translate is right, because the
+ * element is `position: fixed` at exactly the viewport's size — nothing around
+ * it moves, nothing is uncovered, and the surface it slides over is whatever
+ * screen you were on.
+ *
+ * NOT draggable. There is no handle, no pill, and nothing tracking a finger.
+ * A drag-to-dismiss on a long form you are halfway through filling in is a way
+ * to lose the form, and it fights every scroll inside it. The X in the header
+ * is the way out, and it is the only one.
+ *
+ * `transform: none` at the end, not `translateY(0)`. `both` fill would keep a
+ * transform on the element for the rest of its life, and a transformed ancestor
+ * is the containing block for `position: fixed` descendants — the pickers
+ * inside this sheet are fixed, and so was the buy bar that taught this lesson
+ * the hard way. `none` leaves nothing behind. The class is removed on a timer
+ * as well, so `will-change` does not hold a full-screen layer for the session.
+ *
+ * The curve is iOS's sheet curve: almost all of the travel in the first third,
+ * then a long settle. Anything symmetrical reads as a slide rather than as
+ * something being presented. */
+@keyframes sell-sheet-enter {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+.sell-sheet-enter {
+  animation: sell-sheet-enter 420ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  will-change: transform;
+}
+@media (min-width: 768px), (prefers-reduced-motion: reduce) {
+  /* On a monitor it is a page, not a sheet, and a full-viewport slide there
+     reads as a website doing tricks. */
+  .sell-sheet-enter { animation: none; will-change: auto; }
+}
+
 /* A listing card acknowledging the finger before anything else happens. */
 /* `.press-dim` IS GONE, and this is the note explaining why it must not return.
  *
