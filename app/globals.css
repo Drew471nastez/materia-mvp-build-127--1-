@@ -359,18 +359,41 @@ html.capacitor a.no-tap-fade:active {
  * The curve is iOS's sheet curve: almost all of the travel in the first third,
  * then a long settle. Anything symmetrical reads as a slide rather than as
  * something being presented. */
+/* translate3d, not translateY, in BOTH directions.
+ *
+ * A 2D translate is composited on any engine worth the name, but the 3D form is
+ * what guarantees the element is given its own layer up front rather than
+ * promoted partway through — and this element is the whole screen with a long
+ * form in it. Promoted late, the first frames are rasterised on the main thread
+ * while React is still mounting the form behind them, which is the difference
+ * between a sheet that arrives and one that hitches on the way up.
+ *
+ * `backface-visibility: hidden` is the other half of the same request, and it is
+ * the one WebKit actually listens to on a large subtree. */
 @keyframes sell-sheet-enter {
-  from { transform: translateY(100%); }
+  from { transform: translate3d(0, 100%, 0); }
   to   { transform: none; }
 }
-.sell-sheet-enter {
-  animation: sell-sheet-enter 420ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  will-change: transform;
+/* Going back down. Faster than the way up, and on the mirrored curve — almost
+ * all of the travel late rather than early. Something being dismissed should
+ * leave decisively; something being presented should settle. Symmetrical
+ * timings are what make a close feel like it is dawdling. */
+@keyframes sell-sheet-leave {
+  from { transform: none; }
+  to   { transform: translate3d(0, 100%, 0); }
 }
+.sell-sheet-enter,
+.sell-sheet-leave {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.sell-sheet-enter { animation: sell-sheet-enter 420ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.sell-sheet-leave { animation: sell-sheet-leave 300ms cubic-bezier(0.55, 0, 1, 0.45) both; }
 @media (min-width: 768px), (prefers-reduced-motion: reduce) {
   /* On a monitor it is a page, not a sheet, and a full-viewport slide there
      reads as a website doing tricks. */
-  .sell-sheet-enter { animation: none; will-change: auto; }
+  .sell-sheet-enter,
+  .sell-sheet-leave { animation: none; will-change: auto; }
 }
 
 /* A listing card acknowledging the finger before anything else happens. */

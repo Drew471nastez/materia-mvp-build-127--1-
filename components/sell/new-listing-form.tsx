@@ -182,20 +182,37 @@ export function NewListingForm() {
   }, [])
 
   /**
-   * Closing. Back if there is anywhere to go back to, the feed otherwise.
+   * Closing: down first, THEN the navigation.
    *
+   * It used to be the navigation on its own, so the sheet that slid up simply
+   * ceased to exist — a hard cut in the one direction where a sheet most
+   * obviously ought to go back the way it came.
+   *
+   * The route change is held until the slide has finished rather than fired
+   * alongside it, because Next unmounts this component the instant the route
+   * commits and there is no way to animate something that is no longer in the
+   * document. 300ms is the animation; the navigation goes on the same tick it
+   * ends.
+   *
+   * Guarded against a second press: the X is a large target on a screen that is
+   * already moving, and two overlapping `router.back()` calls pop two entries.
+   *
+   * Where it goes: back if there is anywhere to go back to, the feed otherwise.
    * A sheet opened from the + in the tab bar always has history behind it, so
-   * `router.back()` returns you to whatever you were looking at rather than
-   * dropping you on the feed — which is the difference between a sheet closing
-   * and a navigation happening. A cold arrival (a shared link to /products/new,
-   * an app launched straight into it) has nothing to pop, and `router.back()`
-   * on an empty stack does nothing at all, which would leave the only way out
-   * of a full-screen form dead.
+   * back returns you to whatever you were looking at — the difference between a
+   * sheet closing and a navigation happening. A cold arrival has nothing to pop,
+   * and `router.back()` on an empty stack does nothing at all, which would leave
+   * the only way out of a full-screen form dead.
    */
+  const [leaving, setLeaving] = useState(false)
   const close = useCallback(() => {
-    if (typeof window !== "undefined" && window.history.length > 1) router.back()
-    else router.push("/")
-  }, [router])
+    if (leaving) return
+    setLeaving(true)
+    window.setTimeout(() => {
+      if (typeof window !== "undefined" && window.history.length > 1) router.back()
+      else router.push("/")
+    }, 300)
+  }, [leaving, router])
 
   // ---- brand search ----
   useEffect(() => {
@@ -388,7 +405,9 @@ export function NewListingForm() {
     <div
       className={cn(
         "fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
-        entering && "sell-sheet-enter",
+        // Leaving wins: pressing X mid-entrance must go down from wherever the
+        // sheet has got to, not finish arriving first.
+        leaving ? "sell-sheet-leave" : entering && "sell-sheet-enter",
       )}
     >
       {/* The header. An X and a title, like every sheet on a phone — and it
@@ -417,7 +436,7 @@ export function NewListingForm() {
       </header>
 
       {/* The one scroller. */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain md:overflow-visible">
+      <div className="min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain md:overflow-visible">
       <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl">
       <header className="mb-5 hidden md:block">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
@@ -600,7 +619,7 @@ export function NewListingForm() {
               Preț comparativ
               <span className="group relative inline-flex">
                 <Info className="h-3.5 w-3.5 text-neutral-400" />
-                <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 w-56 -translate-x-1/2 rounded-lg bg-neutral-800 px-2.5 py-2 text-[11.5px] leading-snug text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                <span className="pointer-events-none absolute bottom-full right-0 z-10 mb-1.5 hidden w-56 rounded-lg bg-neutral-800 px-2.5 py-2 text-[11.5px] leading-snug text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 md:block">
                   Prețul de dinainte de reducere. Trebuie să fie mai mare decât prețul cerut — apare tăiat, cu o etichetă de reducere pe anunț.
                 </span>
               </span>
@@ -644,7 +663,17 @@ export function NewListingForm() {
           number tracking another component's geometry. As the last child of the
           column it is simply always at the bottom, it cannot be drawn over, and
           it survives the sheet's slide, which a fixed child could not. */}
-      <div className="shrink-0 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden">
+      {/* Opaque white, not white/95 with a blur.
+          A translucent bar over a scrolling form is a strip of moving text
+          behind the two controls you are about to press, and `backdrop-filter`
+          on a bar pinned above a scroller is a filter recomputed against fresh
+          content on every frame of that scroll — the most expensive thing on
+          the screen, in service of an effect nobody asked for. A hairline and a
+          soft lift separate it from the form perfectly well.
+
+          It also cannot be scrolled away from or drawn over: it is the last
+          flex row of the sheet, so it is exactly as sticky as the sheet is. */}
+      <div className="shrink-0 border-t border-neutral-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 shadow-[0_-6px_20px_-12px_rgba(0,0,0,0.18)] md:hidden">
        <div className="mx-auto w-full max-w-2xl space-y-2.5">{actionControls}</div>
       </div>
 
