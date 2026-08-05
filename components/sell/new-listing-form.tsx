@@ -711,9 +711,10 @@ export function NewListingForm() {
           {actionControls}
         </div>
       </div>
-      </div>
-      </div>
-      </div>{/* /the one scroller */}
+      </div>{/* /right column */}
+      </div>{/* /md:grid */}
+      </div>{/* /mx-auto max-w-2xl */}
+      </div>{/* /THE ONE SCROLLER — and the footer below is its SIBLING */}
 
       {/* ---- Actions (phone) ---- */}
       {/* A flex row at the bottom of the sheet, not a fixed bar.
@@ -912,9 +913,8 @@ export function NewListingForm() {
       </DragSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
-          moment of its own before the redirect. */}
-      </div>
-
+          moment of its own before the redirect. It is `fixed`, so it covers the
+          screen from wherever it sits in the tree. */}
       {posted && (
         <div
           className="fixed inset-0 z-[130] flex items-center justify-center bg-white/85 backdrop-blur-sm"
