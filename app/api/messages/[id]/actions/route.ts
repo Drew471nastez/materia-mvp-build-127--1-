@@ -109,10 +109,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     case "delete": {
       // Per person. A thread is shared, so pressing delete must not reach into
       // the other party's inbox and remove a conversation they are still having.
-      const { error } = await supabase
+      //
+      // `.select("id")` makes this a RETURNING update, which is the difference
+      // between "the statement ran" and "a row changed". Without it an update
+      // that matched nothing — a policy that does not permit it, an id that is
+      // not there — comes back with no error and no rows, and this route
+      // reported success over a conversation still sitting in the table. That
+      // is the delete that survives a refresh, and it could not be told apart
+      // from a working one by anything on either side of the wire.
+      const { data: touched, error } = await supabase
         .from("conversations")
         .update(iAmBuyer ? { buyer_deleted_at: new Date().toISOString() } : { seller_deleted_at: new Date().toISOString() })
         .eq("id", id)
+        .select("id")
+      if (!error && (!touched || touched.length === 0)) {
+        console.error("[messages/actions] delete matched no rows for", id)
+        return NextResponse.json({ ok: true, deleted: true, persisted: false })
+      }
       if (error) {
         // The column does not exist yet, so the server cannot remember this.
         // Saying so lets the client remember it instead — see

@@ -153,7 +153,18 @@ export function MessagesInbox({
   const [rows, setRows] = useState<Row[] | null>(initialConversations)
   // Read once. A set rebuilt on every render would make the memo below useless
   // and, worse, would let a row flicker back in between a delete and its write.
-  const [hidden] = useState(() => hiddenConversations(viewerId))
+  /**
+   * STATE, not a value read once at mount — and this is the delete bug.
+   *
+   * `hideConversation` writes to localStorage, and this Map was read from it
+   * exactly once, in the initialiser. So for the rest of the session the Map did
+   * not know about anything you had deleted: the row vanished only because
+   * `setRows` filtered it, and the moment `rows` was replaced by a fresh read —
+   * a poll, a focus, and now the live inbox channel, which fires far more often
+   * than either — the conversation came straight back. The local record was
+   * correct on disk and ignored in memory.
+   */
+  const [hidden, setHidden] = useState(() => hiddenConversations(viewerId))
   /** The row a swipe has proposed deleting, held until it is confirmed. */
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null)
   /**
@@ -176,9 +187,13 @@ export function MessagesInbox({
     ? rows.filter((r) => {
         const hiddenAt = hidden.get(r.id)
         if (hiddenAt === undefined) return true
+        // `Date.parse`, not a string comparison. Postgres hands back
+        // `2026-08-05T21:15:00.123456+00:00` while the delete was written as
+        // `…123Z`, and comparing those as text compares "4" against "Z" at the
+        // fourth decimal — an answer that depends on the shape of the string
+        // rather than on the times it represents. Two numbers cannot disagree.
         const spokeSince = Date.parse(r.lastMessageAt) > hiddenAt
         if (!spokeSince) return false
-        hidden.delete(r.id)
         unhideConversation(viewerId, r.id)
         return true
       })
@@ -379,14 +394,44 @@ export function MessagesInbox({
   // Optimistic, and deliberately so: the row is already off the side of the
   // screen by the time this runs, and putting it back for the length of a round
   // trip would be the one animation nobody wants to see reversed.
+  /** Rows on their way out, collapsing. Removed from `rows` when they finish. */
+  const [leaving, setLeaving] = useState<Set<string>>(new Set())
+
   const removeConversation = useCallback(
     async (conversationId: string) => {
-      setRows((prev) => (prev ? prev.filter((r) => r.id !== conversationId) : prev))
+      // IT COLLAPSES, it does not vanish.
+      //
+      // The row was removed from the array on the frame the button was pressed,
+      // so everything below it jumped up by its full height in one step —
+      // which, on a list where you have just confirmed something in a sheet
+      // that is itself sliding away, reads as the screen glitching rather than
+      // as a row being deleted. It folds now: height to zero, contents fading,
+      // over 260ms, and only then does it leave the array.
+      //
+      // The server call goes out IMMEDIATELY rather than after the animation.
+      // The two are unrelated, and making the request wait on a transition
+      // would be a quarter of a second added to the thing that actually
+      // matters for no reason at all.
+      setLeaving((prev) => new Set(prev).add(conversationId))
+      window.setTimeout(() => {
+        setRows((prev) => (prev ? prev.filter((r) => r.id !== conversationId) : prev))
+        setLeaving((prev) => {
+          const next = new Set(prev)
+          next.delete(conversationId)
+          return next
+        })
+      }, 280)
       // Recorded locally FIRST, and unconditionally. Whether the server can
       // remember this is a question about someone else's database; whether the
       // row comes back on this screen is a promise already made to the person
       // who pressed the button.
       hideConversation(viewerId, conversationId)
+      // …and in memory, or the next refresh of `rows` puts it straight back.
+      setHidden((prev) => {
+        const next = new Map(prev)
+        next.set(conversationId, Date.now())
+        return next
+      })
       try {
         await fetch(`/api/messages/${conversationId}/actions`, {
           method: "POST",
@@ -622,7 +667,12 @@ export function MessagesInbox({
                   pieces — every row visibly moving into place before you can use
                   it. The list is simply there. */}
               {tab === "messages" ? (
-                <MessagesList rows={visibleRows} formatPrice={formatPrice} onDelete={(id) => setPendingDelete(rows?.find((r) => r.id === id) ?? null)} />
+                <MessagesList
+                  rows={visibleRows}
+                  leaving={leaving}
+                  formatPrice={formatPrice}
+                  onDelete={(id) => setPendingDelete(rows?.find((r) => r.id === id) ?? null)}
+                />
               ) : (
                 <NotificationsList items={notifs} onRead={readNotif} onReadAll={readAllNotifs} />
               )}
@@ -678,10 +728,13 @@ export function MessagesInbox({
 
 function MessagesList({
   rows,
+  leaving,
   formatPrice,
   onDelete,
 }: {
   rows: Row[] | null
+  /** Ids mid-collapse. They stay in the list until the fold finishes. */
+  leaving: Set<string>
   formatPrice: (cents: number) => string
   onDelete: (id: string) => void
 }) {
@@ -723,7 +776,16 @@ function MessagesList({
               }`
             : r.lastMessage?.body || ""
         return (
-          <li key={r.id} className={cn(ROW_DIVIDER, "group/row")}>
+          <li
+            key={r.id}
+            // `grid-template-rows: 1fr → 0fr` is what makes a row of UNKNOWN
+            // height animate to nothing. Height cannot be transitioned from
+            // `auto`, and measuring each row to set a pixel height would mean a
+            // layout read per delete on a list that is already scrolling. The
+            // grid track can be transitioned, and the child clips to it.
+            className={cn(ROW_DIVIDER, "group/row row-leave", leaving.has(r.id) && "is-leaving")}
+          >
+            <div className="row-leave-inner">
             <ConversationRow onDelete={() => onDelete(r.id)}>
             <Link
               href={`/messages/${r.id}`}
@@ -813,6 +875,7 @@ function MessagesList({
               )}
             </Link>
             </ConversationRow>
+            </div>
           </li>
         )
       })}

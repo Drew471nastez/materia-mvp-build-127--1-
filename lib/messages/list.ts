@@ -82,6 +82,26 @@ function deletedForMe(c: ConvoRow, userId: string): boolean {
 }
 
 /**
+ * Did anything get said after this person left the thread?
+ *
+ * Compared as NUMBERS. These two timestamps come from different places and are
+ * formatted differently: Postgres returns `2026-08-05T21:15:00.123456+00:00`
+ * while the delete was written as `new Date().toISOString()` —
+ * `2026-08-05T21:15:00.123Z`. Comparing those as text compares "4" against "Z"
+ * at the fourth decimal place, so the answer depends on the shape of the string
+ * rather than on the moments it stands for, and a conversation could come back
+ * from the dead over a formatting difference. Parsed, they are two numbers and
+ * cannot disagree about which is later.
+ */
+function spokeAfterDelete(c: ConvoRow, userId: string): boolean {
+  const left = Date.parse(deletedAtFor(c, userId) ?? "")
+  const said = Date.parse(c.last_message_at ?? "")
+  if (Number.isNaN(left)) return true
+  if (Number.isNaN(said)) return false
+  return said > left
+}
+
+/**
  * The admin client, treated as optional on purpose.
  *
  * An environment with no service role key should still show its conversations,
@@ -152,8 +172,7 @@ export async function listConversations({
     // back for this one if they are written to again — `last_message_at` moving
     // past the delete is exactly that.
     (c) =>
-      !deletedForMe(c, userId) ||
-      (c.last_message_at ?? "") > (deletedAtFor(c, userId) ?? ""),
+      !deletedForMe(c, userId) || spokeAfterDelete(c, userId),
   )
   // Sixty active threads can push a quiet Storelib conversation off the page,
   // and a pin that disappears when you get popular is not a pin. Fetch it back

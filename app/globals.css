@@ -2249,23 +2249,28 @@ html[data-keyboard="open"] .thread-composer {
    transition reverses from wherever it actually is. The icon can no longer be
    somewhere the finger never put it.
 
-   The overshoot lives in the curve, and the number in it was measured rather
-   than chosen. How far a spring bezier actually overshoots depends on how far
-   the property is TRAVELLING — the curve's excursion past 1 is multiplied by
-   the distance — so the same 1.55 that gives a lively bounce over a long
-   distance gave a peak of only 1.045 over the 0.48 this scale covers, which is
-   not a bounce, it is a wobble. Sampled in Chromium across four candidates:
-   1.55 → 1.045, 1.9 → 1.102, 2.2 → 1.157, 2.6 → 1.234. 2.2 is the one that
-   lands where the old hand-placed keyframe did.
+   SOFTENED, and the numbers were measured rather than felt. The previous
+   version sprang from 0.52 with a peak of 1.157 and reached full size in
+   FIFTY-THREE MILLISECONDS — three frames. That is not a fill, it is a
+   substitution with a bounce on the end, and it is what "too direct" describes:
+   the icon is simply already there before the eye has followed the finger to it.
 
-   Snappy off the mark, bold at the top, and the last two thirds spent coming to
-   rest — which a single curve can carry now that there is no under/over
-   sequence to hand-place.
+   Four candidates sampled in Chromium, on time-to-full-size rather than on
+   peak, because that is the number that reads as abruptness:
 
-   The two properties are deliberately out of step. Opacity finishes in 150ms
-   while the scale is still travelling: a glyph that fades over the whole
-   movement reads as soft, one that is fully there while it is still moving
-   reads as solid — which is the entire point of a filled state. */
+     from 0.52, 420ms, spring 2.2  → peak 1.157, full at 53ms
+     from 0.70, 480ms, spring 1.45 → peak 1.020, full at 190ms
+     from 0.74, 520ms, spring 1.3  → peak 1.008, full at 257ms   ← this one
+     from 0.78, 560ms, no spring   → peak 1.000, full at 456ms
+
+   The third. Starting at 0.74 rather than 0.52 means there is less distance to
+   cover, so the movement can be unhurried without being slow; a peak of 1.008
+   is a whisper of overshoot rather than a bounce, present enough to feel
+   sprung and small enough that nothing appears to wobble.
+
+   Opacity now crosses halfway at 124ms rather than 69, which is the other half
+   of it: the outline DISSOLVES into the solid over a quarter of a second
+   instead of being swapped for it. A fill should look like a shape filling. */
 /* The dip under a finger, on the GLYPH and nothing else.
  *
  * RESTORED. This was deleted by accident when the fill animation was rewritten
@@ -2296,7 +2301,46 @@ html[data-keyboard="open"] .thread-composer {
   .group:active .tab-press { transform: none; }
 }
 
-/* The unread dot on the inbox tab.
+/* A conversation folding away when you delete it.
+ *
+ * The row used to be removed from the array on the frame the button was
+ * pressed, so everything below it jumped up by its full height in one step —
+ * on a list where you have just confirmed something in a sheet that is itself
+ * sliding away, that reads as the screen glitching rather than as a row being
+ * deleted.
+ *
+ * `grid-template-rows: 1fr → 0fr` is the mechanism, and it is the only one that
+ * works here: height cannot be transitioned from `auto`, and measuring every
+ * row to set a pixel height would mean a layout read per delete on a list that
+ * is already scrolling. A grid track CAN be transitioned, and the child clips
+ * to whatever the track currently is — so a row of unknown height folds to
+ * nothing without anybody having to know how tall it was.
+ *
+ * The contents fade faster than the fold, so the row is empty before it is
+ * gone. Folding a row with legible text still in it looks like a rendering
+ * fault; folding an empty one looks like a row leaving. */
+.row-leave {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.row-leave-inner {
+  overflow: hidden;
+  min-height: 0;
+  transition: opacity 160ms ease-out;
+}
+.row-leave.is-leaving {
+  grid-template-rows: 0fr;
+}
+.row-leave.is-leaving .row-leave-inner {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-leave,
+  .row-leave-inner { transition: none; }
+}
+
+/* The unread dot on the inbox tab./* The unread dot on the inbox tab.
  *
  * Transitioned rather than mounted, for the same reason the glyphs below are:
  * it appears the moment a message lands on a screen somebody is looking at, and
@@ -2337,19 +2381,22 @@ html[data-keyboard="open"] .thread-composer {
 .tab-glyph-out {
   opacity: 1;
   transform: scale(1);
-  transition: opacity 150ms ease-out, transform 420ms cubic-bezier(0.16, 2.2, 0.4, 1);
+  transition: opacity 300ms ease-out, transform 520ms cubic-bezier(0.34, 1.3, 0.5, 1);
 }
 .tab-glyph-in {
   opacity: 0;
-  transform: scale(0.52);
-  transition: opacity 150ms ease-out, transform 420ms cubic-bezier(0.16, 2.2, 0.4, 1);
+  transform: scale(0.74);
+  transition: opacity 300ms ease-out, transform 520ms cubic-bezier(0.34, 1.3, 0.5, 1);
 }
 /* Active: the outline is absorbed — it grows very slightly as it goes, so it
    reads as being filled from within rather than as being covered up — and the
    solid springs out to full size. */
 .tab-glyph[data-active] .tab-glyph-out {
   opacity: 0;
-  transform: scale(1.14);
+  /* Grows a little as it goes, so it reads as being filled from within rather
+     than covered up. Trimmed with the rest — 1.14 was proportionate to a spring
+     that no longer exists. */
+  transform: scale(1.08);
 }
 .tab-glyph[data-active] .tab-glyph-in {
   opacity: 1;
