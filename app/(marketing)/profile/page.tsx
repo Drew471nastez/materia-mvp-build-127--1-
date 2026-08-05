@@ -5,6 +5,7 @@ import { UserRound } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readProfileRow } from "@/lib/profile/read"
+import { readSellerListings } from "@/lib/profile/listings"
 import { MemberProfile, type MemberListing, type ReviewsSummary } from "@/components/member/member-profile"
 
 /**
@@ -54,44 +55,16 @@ export default async function ProfilePage() {
   //
   // A creators row is what listings hang off. Its absence is the normal state
   // of a buyer, not a failure — it just means the shelf below is empty.
-  const [{ row: profile }, { data: creator }] = await Promise.all([
+  const [{ row: profile }, shelf] = await Promise.all([
     readProfileRow((cols) => admin.from("profiles").select(cols).eq("id", user.id).maybeSingle()),
-    admin.from("creators").select("id").eq("user_id", user.id).maybeSingle(),
+    // Every published listing this account holds, however it was created and
+    // whichever creator row it hangs off. Both of those used to be assumptions
+    // this page made silently, and one of them was why a listing that had been
+    // posted did not appear here at all — see lib/profile/listings.ts.
+    readSellerListings({ admin, userId: user.id, limit: MAX_LISTINGS }),
   ])
-
-  const BASE_COLS =
-    "id, title, slug, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, created_at"
-
-  let rows: any[] = []
-  let listingsCount = 0
-  if (creator) {
-    // Resale attributes only exist after 20260730_marketplace_physical_attributes;
-    // fall back so the grid still renders (without size/brand badges) if that
-    // migration hasn't run — the same retry /member/[username] performs.
-    const withAttrs = await admin
-      .from("products")
-      .select(`${BASE_COLS}, size, size_system, brand, condition`, { count: "exact" })
-      .eq("creator_id", creator.id)
-      .eq("type", "physical")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(MAX_LISTINGS)
-    if (withAttrs.error) {
-      const base = await admin
-        .from("products")
-        .select(BASE_COLS, { count: "exact" })
-        .eq("creator_id", creator.id)
-        .eq("type", "physical")
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(MAX_LISTINGS)
-      rows = base.data || []
-      listingsCount = base.count ?? rows.length
-    } else {
-      rows = withAttrs.data || []
-      listingsCount = withAttrs.count ?? rows.length
-    }
-  }
+  const rows = shelf.rows
+  const listingsCount = shelf.count
 
   // Total saves per listing in one pass — there is no saves_count column, the
   // number is counted from wishlist rows exactly like the feeds do.
@@ -140,7 +113,7 @@ export default async function ProfilePage() {
     // on screen — the one thing on this page that arrived after the page did.
     // Counted here it is simply part of the first paint, and MemberProfile
     // makes no request at all.
-    loadReviewsSummary(admin, creator?.id ?? null),
+    loadReviewsSummary(admin, user.id),
   ])
 
   // A brand-new account can reach this page before its profiles row is written,
@@ -184,19 +157,24 @@ export default async function ProfilePage() {
 /**
  * Average stars and how many, or null when there is nothing to say yet.
  *
- * Reviews hang off the creators row, not off the auth user, so a buyer who has
- * never listed anything has no creator id and therefore no reviews — that is
- * the normal case here, and it costs no query at all. Everything else is
- * best-effort: the strip is decoration, and a profile must never fail to render
- * because a ratings table did.
+ * Reviews hang off a CREATORS row rather than off the auth user, and an account
+ * can hold more than one of those — see lib/profile/listings.ts for why, and
+ * for the bug that came of assuming otherwise. So this takes the auth id and
+ * counts across every creator row it owns; a buyer who has never listed
+ * anything has none, which costs one cheap query and returns null.
+ *
+ * Everything else here is best-effort: the strip is decoration, and a profile
+ * must never fail to render because a ratings table did.
  */
 async function loadReviewsSummary(
   admin: ReturnType<typeof createAdminClient>,
-  creatorId: string | null,
+  userId: string,
 ): Promise<ReviewsSummary | null> {
-  if (!creatorId) return null
   try {
-    const { data, error } = await admin.from("reviews").select("rating").eq("creator_id", creatorId).limit(2000)
+    const { data: creators } = await admin.from("creators").select("id").eq("user_id", userId)
+    const ids = (creators ?? []).map((c: any) => c.id).filter(Boolean)
+    if (ids.length === 0) return null
+    const { data, error } = await admin.from("reviews").select("rating").in("creator_id", ids).limit(2000)
     if (error || !data?.length) return null
     const ratings = data.map((r: any) => Number(r?.rating)).filter((n) => Number.isFinite(n) && n > 0)
     if (!ratings.length) return null

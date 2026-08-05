@@ -6,6 +6,8 @@ import { ArrowLeft, Camera, Check, ImagePlus, Loader2 } from "lucide-react"
 
 import {
   COVER_PRESETS,
+  coverImageUrl,
+  defaultCoverFor,
   MAX_BIO_CHARS,
   MAX_NAME_CHARS,
   normaliseBio,
@@ -70,11 +72,15 @@ export function ProfileEditForm({
   const [avatar, setAvatar] = useState<string | null>(initial.avatar)
   const [busy, setBusy] = useState<null | "cover" | "avatar" | "save">(null)
   const [error, setError] = useState<string | null>(null)
-  const [savedNote, setSavedNote] = useState(false)
+  const [saved, setSaved] = useState(false)
   const coverFile = useRef<HTMLInputElement>(null)
   const avatarFile = useRef<HTMLInputElement>(null)
 
   const preview = resolveCover(cover, userId)
+  /** The colour under the band and the photograph over it — the same pair the
+   *  profile uses, so this preview cannot look different from the real thing. */
+  const previewTint = (preview.kind === "preset" ? preview.preset : defaultCoverFor(userId)).tint
+  const previewPhoto = preview.kind === "image" ? preview.url : coverImageUrl(preview.preset, 900)
   const name = displayName.trim() || username
 
   const back = useCallback(() => {
@@ -139,18 +145,26 @@ export function ProfileEditForm({
             ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru a activa coperta și biografia."
             : (data?.error ?? "Salvarea a eșuat."),
         )
+        setBusy(null)
         return
       }
-      void triggerHaptic("light")
-      setSavedNote(true)
+      void triggerHaptic("medium")
+      setBusy(null)
+      // SAID, then left.
+      //
+      // It used to set a tick on the save button and navigate 380ms later, and
+      // a tick that appears inside the control you pressed, on a screen that is
+      // already leaving, is a confirmation nobody has time to read — which is
+      // the whole complaint about pressing Salvează and not knowing whether
+      // anything happened. The panel is a separate thing that arrives, holds
+      // long enough to be read, and only then does the screen go. It is also
+      // the last thing on screen before the profile appears, so the two are
+      // read as one action rather than as a save and an unrelated navigation.
+      setSaved(true)
       router.refresh()
-      // Straight back to the profile: the reason anybody opened this screen was
-      // to change how that one looks, and leaving them on a form with a green
-      // tick makes them press back to find out whether it worked.
-      window.setTimeout(back, 380)
+      window.setTimeout(back, 900)
     } catch {
       setError("Salvarea a eșuat.")
-    } finally {
       setBusy(null)
     }
   }, [displayName, bio, cover, back, router])
@@ -184,13 +198,7 @@ export function ProfileEditForm({
           disabled={busy !== null}
           className="mr-1 flex h-9 min-w-[84px] items-center justify-center rounded-full bg-[#7c3aed] px-4 text-[13.5px] font-semibold text-white transition-transform active:scale-[0.96] disabled:opacity-60"
         >
-          {busy === "save" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : savedNote ? (
-            <Check className="h-4 w-4" strokeWidth={3} />
-          ) : (
-            "Salvează"
-          )}
+          {busy === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvează"}
         </button>
       </div>
 
@@ -199,16 +207,22 @@ export function ProfileEditForm({
           profile look", which is the question anybody is actually asking. */}
       <div className="px-4 pt-4">
         <div
-          className="relative h-[148px] w-full overflow-hidden rounded-2xl"
-          style={{ background: preview.kind === "preset" ? preview.preset.css : undefined }}
+          className="relative h-[168px] w-full overflow-hidden rounded-2xl"
+          style={{ backgroundColor: previewTint }}
         >
-          {preview.kind === "image" && (
+          {previewPhoto && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              key={previewPhoto}
+              src={previewPhoto}
+              alt=""
+              className="profile-cover-photo absolute inset-0 h-full w-full object-cover"
+              onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
+            />
           )}
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/20 to-transparent"
+            className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent"
           />
           <button
             type="button"
@@ -217,7 +231,7 @@ export function ProfileEditForm({
             className="absolute bottom-2.5 right-2.5 inline-flex h-9 items-center gap-1.5 rounded-full bg-black/35 px-3 text-[12.5px] font-semibold text-white ring-1 ring-white/25 backdrop-blur-md transition-transform active:scale-[0.96] disabled:opacity-60"
           >
             {busy === "cover" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-            Schimbă coperta
+            Încarcă
           </button>
         </div>
 
@@ -229,7 +243,13 @@ export function ProfileEditForm({
             <span className="block h-[88px] w-[88px] overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white">
               {avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatar} alt="" className="h-full w-full object-cover" />
+                <img
+                  key={avatar}
+                  src={avatar}
+                  alt=""
+                  className="profile-cover-photo h-full w-full object-cover"
+                  onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
+                />
               ) : (
                 <span className="flex h-full w-full items-center justify-center text-[32px] font-semibold text-neutral-400">
                   {name.charAt(0).toUpperCase()}
@@ -304,10 +324,15 @@ export function ProfileEditForm({
       </Section>
 
       <Section title="Coperta">
-        <div className="grid grid-cols-4 gap-2">
+        {/* Two across, not four. These are PHOTOGRAPHS now, and a photograph at
+            a quarter of a phone's width is a smudge — you cannot tell a rail of
+            coats from a knitted jumper, which makes the picker a row of grey
+            rectangles to guess between. At half width each one is legible, and
+            the aspect ratio matches the band they will become. */}
+        <div className="grid grid-cols-2 gap-2.5">
           {COVER_PRESETS.map((p) => {
             const active =
-              cover === `preset:${p.id}` ||
+              cover === `lib:${p.id}` ||
               (cover === null && preview.kind === "preset" && preview.preset.id === p.id)
             return (
               <button
@@ -315,25 +340,45 @@ export function ProfileEditForm({
                 type="button"
                 onClick={() => {
                   void triggerHaptic("light")
-                  setCover(`preset:${p.id}`)
+                  setCover(`lib:${p.id}`)
                 }}
                 aria-label={p.label}
                 aria-pressed={active}
                 className={cn(
-                  "relative h-[52px] overflow-hidden rounded-xl transition-transform active:scale-[0.95]",
-                  active ? "ring-2 ring-[#7c3aed] ring-offset-2 ring-offset-white" : "ring-1 ring-black/5",
+                  "relative aspect-[16/7] overflow-hidden rounded-xl transition-transform active:scale-[0.97]",
+                  active ? "ring-2 ring-[#7c3aed] ring-offset-2 ring-offset-white" : "ring-1 ring-black/10",
                 )}
-                style={{ background: p.css }}
+                style={{ backgroundColor: p.tint }}
               >
+                {/* Small and lazy: twelve covers at full width would be twelve
+                    full-size photographs fetched to draw thumbnails. 320 is
+                    wider than the box on any phone. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={coverImageUrl(p, 320)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="profile-cover-photo absolute inset-0 h-full w-full object-cover"
+                  onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
+                />
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/50 to-transparent"
+                />
+                <span className="absolute bottom-1 left-2 text-[11px] font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  {p.label}
+                </span>
                 {active && (
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    <Check className="h-4 w-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]" strokeWidth={3} />
+                  <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#7c3aed] text-white">
+                    <Check className="h-3 w-3" strokeWidth={3.5} />
                   </span>
                 )}
               </button>
             )
           })}
         </div>
+
         {/* Only offered once there is something to go back FROM. On an account
             that has never chosen, this button would undo nothing. */}
         {cover !== null && (
@@ -354,6 +399,22 @@ export function ProfileEditForm({
         <p className="mx-4 mt-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-red-700">
           {error}
         </p>
+      )}
+
+      {/* The confirmation. Centred rather than a corner toast, because it is
+          not a notification about something that happened elsewhere — it is the
+          result of the button you just pressed, and it is the last thing on
+          this screen. It springs in on a transform and an opacity, so it costs
+          the compositor one layer and nothing else on the page moves. */}
+      {saved && (
+        <div className="pointer-events-none fixed inset-0 z-[130] flex items-center justify-center">
+          <div className="saved-pop flex flex-col items-center gap-3 rounded-3xl bg-neutral-900/90 px-8 py-6 text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7c3aed]">
+              <Check className="h-6 w-6" strokeWidth={3} />
+            </span>
+            <span className="text-[15px] font-semibold">Profil salvat</span>
+          </div>
+        </div>
       )}
     </div>
   )

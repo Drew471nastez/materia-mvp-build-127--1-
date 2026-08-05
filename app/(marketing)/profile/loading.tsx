@@ -43,7 +43,7 @@ export default function ProfileLoading() {
           draws the eye to the top of the screen, and the snap happens there
           while it is looking. A calm neutral that the real cover dissolves into
           is the whole handover — see the fade on `.profile-cover-live`. */}
-      <div aria-hidden className="profile-cover relative -mx-4 overflow-hidden bg-neutral-100 md:-mx-8 md:rounded-3xl" />
+      <div aria-hidden className="profile-cover relative -mx-4 overflow-hidden bg-neutral-200 md:-mx-8 md:rounded-3xl" />
 
       {/* The avatar straddles the cover's bottom edge, so its negative margin
           has to match the real one exactly or everything under it steps. */}

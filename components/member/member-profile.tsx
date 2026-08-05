@@ -12,7 +12,7 @@ import { EmptyShelf } from "@/components/member/empty-shelf"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
-import { defaultCoverFor, resolveCover } from "@/lib/profile/covers"
+import { coverImageUrl, defaultCoverFor, resolveCover } from "@/lib/profile/covers"
 import { cn } from "@/lib/utils"
 
 /**
@@ -236,6 +236,9 @@ export function MemberProfile({
    *  while it loads. `resolveCover` already falls back to this, so reading it
    *  again here cannot disagree with what is drawn. */
   const fallbackPreset = cover.kind === "preset" ? cover.preset : defaultCoverFor(member.id)
+  /** The colour under the band, and the photograph that goes over it. */
+  const coverTint = fallbackPreset.tint
+  const coverPhoto = cover.kind === "image" ? cover.url : coverImageUrl(cover.preset)
   const bio = member.bio ?? null
 
   const name = member.displayName || member.username || "Storelib"
@@ -339,53 +342,68 @@ export function MemberProfile({
         // cover is a preset or an uploaded photograph, and that is not what the
         // rule is about.
         className="profile-cover profile-cover-live relative -mx-4 overflow-hidden md:-mx-8 md:rounded-3xl"
-        // THE PRESET IS ALWAYS PAINTED, even under an uploaded photograph.
+        // THE TINT IS ALWAYS PAINTED, under whatever the cover turns out to be.
         //
         // The box used to be `bg-neutral-100` while a cover image loaded, so an
         // account with a photograph showed a grey hole at the top of the screen
-        // and then the picture appeared in it. That is the "empty space, then
-        // the image loads badly": a placeholder of the wrong colour is worse
-        // than none, because it announces that something is missing.
+        // and then the picture appeared in it. A placeholder of the wrong
+        // colour is worse than none, because it announces that something is
+        // missing.
         //
-        // The account's own preset costs nothing to draw — it is a gradient,
-        // there is nothing to fetch or decode — so the band is the right colour
-        // from the first frame whatever happens next, and a photograph that is
-        // slow, or never arrives at all, degrades to the cover the account
-        // would have had anyway.
-        style={{ background: fallbackPreset.css }}
+        // Every library entry carries its own image's mean colour, measured
+        // from the file (see lib/profile/covers.ts), and an upload falls back
+        // to the account's default entry. Either way the band is the right
+        // colour from the first frame at no cost, and a photograph that is
+        // slow — or never arrives — degrades to a plausible version of itself.
+        style={{ backgroundColor: coverTint }}
       >
-        {cover.kind === "image" && (
-          // next/image rather than a bare tag: it serves an AVIF or WebP sized
-          // for this viewport instead of the full-resolution original somebody
-          // photographed on a phone, which on a cover — the largest image on
-          // the page and the first one requested — is the difference between a
-          // band that is there and one that arrives.
+        {coverPhoto && (
+          // next/image, so what is fetched is an AVIF or WebP sized for this
+          // viewport rather than the full-resolution original. This is the
+          // largest image on the page and the first one requested; on a cover
+          // that is the difference between a band that is there and one that
+          // arrives.
           <Image
-            src={cover.url}
+            key={coverPhoto}
+            src={coverPhoto}
             alt=""
             fill
             priority
             sizes="(min-width: 1100px) 1100px, 100vw"
-            className="object-cover"
+            className="profile-cover-photo object-cover"
+            onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
           />
         )}
-        {/* A floor under the buttons. A white glyph on a photograph is legible
-            over a dark sky and invisible over a pale one, and there is no way
-            to know which anybody uploads — so the corner it lives in is given a
-            gradient of its own rather than the whole cover being dimmed. */}
+
+        {/* A floor under the controls AND under the clock.
+            
+            A white glyph on a photograph is legible over a dark sky and
+            invisible over a pale one, and there is no way to know which anybody
+            uploads. The system draws the time, the battery and the signal bars
+            in white over whatever is behind them and does not adapt either — so
+            a cover that runs up under the status bar has to carry its own
+            floor. Deeper and taller than a decorative scrim, because it is not
+            decoration: it is what makes the top of the phone readable. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/25 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/45 via-black/15 to-transparent"
         />
 
-        {/* The controls, in the cover rather than in a row above it.
+        {/* The controls, in the cover rather than in a row above it, and pushed
+            clear of the clock.
             
             The gear used to sit on its own line over the header, which cost a
             full row of vertical space on a phone to hold one 22px icon. Up here
-            they are on a surface that was otherwise doing nothing, they are
-            where every profile in every app has trained people to look, and the
-            row that held them is gone. */}
-        <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5" style={{ marginTop: "var(--cover-inset, 0px)" }}>
+            they are on a surface that was otherwise doing nothing, and they are
+            where every profile in every app has trained people to look.
+            
+            `--cover-inset` is the safe-area inset on a phone and zero
+            everywhere else, so on the web this is simply `top-2.5`. See
+            `.profile-cover` in app/globals.css. */}
+        <div
+          className="absolute right-2.5 top-2.5 flex items-center gap-1.5"
+          style={{ marginTop: "var(--cover-inset, 0px)" }}
+        >
           <CoverButton label="Distribuie" onClick={share}>
             <Share2 className="h-[17px] w-[17px]" />
           </CoverButton>
@@ -691,7 +709,20 @@ function CoverButton({
     "flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-md ring-1 ring-white/25 transition-transform active:scale-[0.92] md:hover:bg-black/35"
   if (href) {
     return (
-      <Link href={href} prefetch aria-label={label} className={cls} onClick={() => void triggerHaptic("light")}>
+      <Link
+        href={href}
+        prefetch
+        aria-label={label}
+        className={cls}
+        // The screen starts leaving with the finger, the same way the tab bar
+        // and a conversation do — otherwise the profile sits perfectly still
+        // until the route commits, and the transition begins after the wait
+        // rather than covering it. See lib/tab-leave.ts.
+        onClick={() => {
+          void triggerHaptic("light")
+          beginTabLeave()
+        }}
+      >
         {children}
       </Link>
     )

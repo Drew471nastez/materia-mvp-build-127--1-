@@ -2634,48 +2634,44 @@ html[data-keyboard="open"] .thread-composer {
  * still clear the clock. On the web the inset is zero and every term here
  * vanishes, which is correct: there is a header above it there, and a cover
  * that ran under a header would be a cover with a header sitting on it. */
-/* IT STOPS BELOW THE CLOCK.
+/* IT RUNS TO THE TOP OF THE SCREEN.
  *
- * It used to be pulled up by the safe-area inset so the colour began at the
- * physical top of the display, on the reasoning that a band which stops at the
- * bottom edge of the status bar leaves a seam. In practice it put a photograph
- * — anybody's photograph — directly behind the time, the battery and the
- * signal bars, which are white glyphs the system draws and does not adapt.
- * Over a pale cover they disappear; over a busy one they are unreadable; and
- * the strip is exactly where the eye lands first. A cover is content, and
- * content does not go under the system's own chrome.
+ * Anchored to the top of its column instead, the band began at the bottom edge
+ * of the status bar and left a strip of white above it — a page that starts
+ * with an empty band, in the one place where empty reads as broken rather than
+ * as spacing. So it is pulled up by the safe-area inset and paid the same
+ * amount back in height, which puts its first pixel where the DISPLAY starts.
  *
- * There is no seam left to avoid, either: the strip above is the transparent
- * spacer GlobalMobileTopBar reserves on this route, over the white the surface
- * claim declares. White above a coloured band is a boundary; white above a
- * band that is trying to be behind it is a mistake you can see.
+ * The strip is not left to fend for itself. `--cover-inset` pushes the controls
+ * inside it down past the clock, and a scrim across the top keeps the system's
+ * own white glyphs — the time, the battery, the signal — legible over any
+ * photograph, which is the reason a cover cannot simply be laid under them
+ * untreated.
  *
- * Which also removes the shift. The negative margin was in the layout while
- * the spacer above it was in the flow, so the two had to agree exactly on a
- * value that is zero on the web, non-zero in the app, and different on every
- * device — and any disagreement is a jump at the top of the page on arrival. */
+ * Every term is zero without an inset, so on the web this is exactly a 168px
+ * band starting under the header, and nothing about the rule applies. */
 .profile-cover {
-  height: 148px;
+  height: calc(168px + env(safe-area-inset-top, 0px));
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  --cover-inset: env(safe-area-inset-top, 0px);
+}
+@media (min-width: 768px) {
+  .profile-cover { height: 220px; margin-top: 0; --cover-inset: 0px; }
 }
 
 /* The handover from the loading shell.
  *
  * /profile has a loading boundary, so landing on it is always TWO screens: a
  * pale placeholder cover, then the real one. Between them the top of the page
- * went from a flat neutral to a saturated gradient in a single frame — a hard
- * cut on the largest, most colourful element on the screen, in the first place
- * anybody looks. That is a swap being visible, which is the definition of the
- * glitch.
+ * went from a flat neutral to a photograph in a single frame — a hard cut on
+ * the largest element on the screen, in the first place anybody looks.
  *
- * A short dissolve is the whole fix. It is on the COVER rather than on the page
- * because the page did not change — the header, the name and the grid are the
- * same in both, and fading all of it would replace one visible handover with a
- * bigger one.
- *
- * It plays on every mount rather than only the first, and that is wanted: after
- * changing your cover in the editor the page re-renders, and the new colour
- * arriving by dissolve is exactly right there too. 240ms, eased out, so it is
- * over before anybody has finished reading the name underneath it. */
+ * A short dissolve is the whole fix, and it is on the COVER rather than on the
+ * page because the page did not change: the header, the name and the grid are
+ * the same in both, and fading all of it would replace one visible handover
+ * with a bigger one. It plays on every mount, which is also wanted — after
+ * changing your cover the page re-renders, and the new one arriving by dissolve
+ * is exactly right there too. */
 @keyframes profile-cover-in {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -2683,8 +2679,30 @@ html[data-keyboard="open"] .thread-composer {
 .profile-cover-live {
   animation: profile-cover-in 240ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
 }
+
+/* …and the photograph has its own, over the tint underneath it.
+ *
+ * The band is painted its own mean colour immediately, so there is never a
+ * grey hole — but the photograph still ARRIVES, whenever the network manages
+ * it, and appearing in one frame over a colour that is nearly right is the
+ * jarring part of a cover loading. Starting invisible and dissolving in over
+ * its own placeholder means the band simply resolves: the colour was already
+ * correct, and the detail fills in.
+ *
+ * Driven by `is-loaded` from the image's own load event rather than by an
+ * animation on mount, because a cached image is already decoded when it mounts
+ * and would otherwise fade in from nothing for no reason. */
+.profile-cover-photo {
+  opacity: 0;
+  transition: opacity 320ms cubic-bezier(0.16, 0.84, 0.44, 1);
+}
+.profile-cover-photo.is-loaded {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .profile-cover-live { animation: none; }
+  .profile-cover-photo { transition: none; }
 }
 @media (min-width: 768px) {
   .profile-cover { height: 210px; }
@@ -2767,6 +2785,25 @@ html[data-keyboard="open"] .thread-composer {
   .empty-shelf-spark { animation: none; }
   .empty-shelf-ring { opacity: 0; }
   .empty-shelf-spark { opacity: 1; transform: scale(1); }
+}
+
+/* The confirmation panel on /profile/edit.
+ *
+ * A spring in and nothing on the way out — it is on screen for 900ms and then
+ * the route changes underneath it, so an exit animation would be an animation
+ * competing with a navigation. Transform and opacity only, so it composites on
+ * its own layer and the form behind it is not repainted for it. */
+@keyframes saved-pop {
+  0%   { transform: scale(0.86); opacity: 0; }
+  55%  { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.saved-pop {
+  animation: saved-pop 340ms cubic-bezier(0.22, 1.1, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .saved-pop { animation: none; }
 }
 
 /* Prevent the white body flash during page transitions in Capacitor.

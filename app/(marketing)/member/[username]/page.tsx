@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MemberProfile, type MemberListing } from "@/components/member/member-profile"
 import { readProfileRow } from "@/lib/profile/read"
+import { readSellerListings } from "@/lib/profile/listings"
 
 /**
  * /member/[username] — the marketplace seller profile a buyer lands on.
@@ -72,48 +73,15 @@ export default async function MemberPage({ params }: MemberPageProps) {
 
   if (!profile) notFound()
 
-  // A follow points at a person; listings hang off their creator row. A member
-  // without one simply has nothing for sale yet — that renders, not 404s.
-  const { data: creator } = await admin
-    .from("creators")
-    .select("id")
-    .eq("user_id", profile.id)
-    .maybeSingle()
-
-  const BASE_COLS =
-    "id, title, slug, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, created_at"
-
-  let rows: any[] = []
-  let listingsCount = 0
-  if (creator) {
-    // Resale attributes only exist after 20260730_marketplace_physical_attributes;
-    // fall back so the grid still renders (without size/brand badges) if that
-    // migration hasn't run. `count: "exact"` rides along on the same request so
-    // the header total is right even when the grid itself is capped.
-    const withAttrs = await admin
-      .from("products")
-      .select(`${BASE_COLS}, size, size_system, brand, condition`, { count: "exact" })
-      .eq("creator_id", creator.id)
-      .eq("type", "physical")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(MAX_LISTINGS)
-    if (withAttrs.error) {
-      const base = await admin
-        .from("products")
-        .select(BASE_COLS, { count: "exact" })
-        .eq("creator_id", creator.id)
-        .eq("type", "physical")
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(MAX_LISTINGS)
-      rows = base.data || []
-      listingsCount = base.count ?? rows.length
-    } else {
-      rows = withAttrs.data || []
-      listingsCount = withAttrs.count ?? rows.length
-    }
-  }
+  // Every published listing this member holds, however it was created and
+  // whichever creator row it hangs off. Both were assumptions this page made
+  // silently, and one of them could hide a shelf entirely — see
+  // lib/profile/listings.ts.
+  const { rows, count: listingsCount } = await readSellerListings({
+    admin,
+    userId: profile.id,
+    limit: MAX_LISTINGS,
+  })
 
   // Total saves per listing in one pass — there is no saves_count column, the
   // number is counted from wishlist rows exactly like the feeds do.

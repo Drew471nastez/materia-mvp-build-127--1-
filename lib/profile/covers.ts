@@ -1,154 +1,102 @@
 /**
- * The band of colour behind every profile.
+ * The band behind every profile.
  *
  * ---------------------------------------------------------------------------
  * Why every account starts with one
  * ---------------------------------------------------------------------------
- * A profile with an empty cover is a profile that looks unfinished, and the
- * person it belongs to did nothing wrong — they simply have not uploaded a
- * photograph of a bridge. Worse, an empty band is a hole the eye reads as a
- * failed image load, so a brand-new account's first impression of the app is a
- * screen that appears to be broken. Every serious profile surface solves this
- * the same way: give it something by default, and let anyone who cares replace
- * it.
+ * A profile with an empty cover looks unfinished, and the person it belongs to
+ * did nothing wrong — they simply have not uploaded a photograph of a bridge.
+ * Worse, an empty band is a hole the eye reads as a failed image load, so a new
+ * account's first impression of the app is a screen that appears broken.
  *
  * ---------------------------------------------------------------------------
- * Why gradients rather than stock photographs
+ * PHOTOGRAPHS, replacing the gradients that were here
  * ---------------------------------------------------------------------------
- * Photographs would mean shipping image files, downloading them on a phone
- * before the profile can paint, and every account without a cover looking like
- * the same eight accounts. These are drawn by the browser: zero bytes over the
- * network, correct at any size and any pixel density, no decode, and nothing to
- * fail. They also cannot be wrong — a stock photo of a beach on the profile of
- * somebody selling winter coats is a small, constant mismatch that a colour
- * field never has.
+ * The first library was twelve gradients, and the case for them was real: zero
+ * bytes over the network, correct at any density, nothing to decode, nothing to
+ * fail. It was also the wrong answer for this product. A gradient says nothing
+ * about a second-hand fashion marketplace, and a person picking a cover for
+ * their shop is not choosing a colour — they are choosing an image of the thing
+ * they sell. Twelve colour fields are twelve ways of having no cover.
  *
- * Each is one soft radial highlight over a two-stop base, which is what gives
- * them depth rather than the flat ramp that reads as a placeholder. They are
- * chosen to sit under a white avatar ring and white glass controls without
- * either fighting: mid-to-deep, never pastel and never black.
+ * These are from Unsplash, whose licence permits commercial use without
+ * permission or attribution, and whose CDN is already a configured image host
+ * for this project. They are chosen on three rules:
+ *
+ *   NO FACES. A stranger's portrait on your own profile is somebody else's
+ *   picture pretending to be yours, and the default cover — the one an account
+ *   gets before it has chosen anything — must never be a photograph of a person
+ *   who is not them.
+ *
+ *   Clothing, fabric and shops only, so a cover is always about what this
+ *   marketplace is for.
+ *
+ *   A quiet upper band. The avatar, the name and the four glass controls all
+ *   sit against the top of this image, so anything busy up there is a cover
+ *   that fights the page it belongs to.
+ *
+ * ---------------------------------------------------------------------------
+ * The tint, and why every entry carries one
+ * ---------------------------------------------------------------------------
+ * A photograph has to be fetched and decoded, and until it is the band would be
+ * a grey box that then fills in — which is exactly the "empty space, then the
+ * image loads badly" a cover is supposed to avoid. So each entry also carries
+ * the image's own mean colour, darkened a fifth. That is painted immediately,
+ * costs nothing, and the photograph dissolves into it: the band is the right
+ * colour from the first frame, and an image that is slow — or never arrives —
+ * degrades to a plausible version of itself rather than to a hole.
+ *
+ * Measured from the files rather than picked by eye, so a swapped photograph
+ * cannot quietly keep the previous one's colour.
  *
  * ---------------------------------------------------------------------------
  * How a cover is stored
  * ---------------------------------------------------------------------------
  * One nullable `profiles.cover_url` column, holding one of three things:
  *
- *   null              → the preset picked for this account by `defaultCoverFor`
- *   "preset:<id>"     → a preset the person chose deliberately
- *   "https://…"       → an image they uploaded
+ *   null          → the library entry this account id resolves to
+ *   "lib:<id>"    → an entry chosen deliberately
+ *   "https://…"   → an image they uploaded
  *
- * Null and "preset:x" are deliberately different states even when they render
- * identically. Null means "never decided", so improving the default set later
- * moves everybody who never cared; an explicit preset is a choice, and a choice
- * must not be silently changed underneath somebody.
+ * Null and "lib:x" stay different states even when they render identically.
+ * Null means "never decided", so improving the library later moves everybody
+ * who never cared; an explicit choice must not be changed underneath somebody.
+ *
+ * Values written by the gradient version ("preset:iris" and the rest) resolve
+ * to the account default rather than to nothing — an unrecognised string must
+ * never cost a profile its cover.
  */
 
 export type CoverPreset = {
   id: string
   /** Shown in the picker. */
   label: string
-  /** A complete `background` value — layers and base colour in one. */
-  css: string
+  /** Unsplash photo id, without the CDN prefix. */
+  photo: string
+  /** The image's own mean colour, darkened — painted under it while it loads. */
+  tint: string
+}
+
+/** Sized for the band it fills, and served in whatever format the browser
+ *  prefers. Composed in one place so a change of width or quality cannot apply
+ *  to the picker and not to the profile. */
+export function coverImageUrl(preset: CoverPreset, width = 1200): string {
+  return `https://images.unsplash.com/photo-${preset.photo}?w=${width}&q=72&auto=format&fit=crop`
 }
 
 export const COVER_PRESETS: CoverPreset[] = [
-  // Twelve, and quieter than the eight they replace.
-  //
-  // The first set was built to be obviously colourful, and on a profile that is
-  // the wrong target: a cover is a BACKDROP for a photograph of a person, a
-  // name, and a row of controls, and the more it does the less any of those
-  // read. Three fully saturated stops fighting each other is a banner competing
-  // with the thing it is behind.
-  //
-  // So each of these is one soft highlight over a two-stop base, in a narrower
-  // band of lightness — deep enough that the white avatar ring and the glass
-  // buttons stay legible, far enough from black that it never looks like a
-  // placeholder that failed to load. Named after the thing they look like
-  // rather than after a colour, which is how anybody actually picks one.
-  {
-    id: "iris",
-    label: "Iris",
-    css:
-      "radial-gradient(115% 120% at 12% 0%, rgba(196,181,253,0.55) 0%, rgba(196,181,253,0) 58%)," +
-      "linear-gradient(145deg, #7c5cd6 0%, #4c3a94 100%)",
-  },
-  {
-    id: "zori",
-    label: "Zori",
-    css:
-      "radial-gradient(120% 120% at 85% 5%, rgba(253,186,164,0.55) 0%, rgba(253,186,164,0) 58%)," +
-      "linear-gradient(150deg, #c4677e 0%, #6d3557 100%)",
-  },
-  {
-    id: "golf",
-    label: "Golf",
-    css:
-      "radial-gradient(115% 125% at 18% 8%, rgba(125,211,252,0.5) 0%, rgba(125,211,252,0) 58%)," +
-      "linear-gradient(150deg, #2b7a9b 0%, #1b3a5c 100%)",
-  },
-  {
-    id: "cedru",
-    label: "Cedru",
-    css:
-      "radial-gradient(118% 120% at 15% 0%, rgba(190,225,175,0.45) 0%, rgba(190,225,175,0) 56%)," +
-      "linear-gradient(150deg, #4a7f5c 0%, #24402f 100%)",
-  },
-  {
-    id: "chihlimbar",
-    label: "Chihlimbar",
-    css:
-      "radial-gradient(120% 120% at 20% 0%, rgba(253,224,171,0.6) 0%, rgba(253,224,171,0) 55%)," +
-      "linear-gradient(150deg, #c07a3e 0%, #6b3d24 100%)",
-  },
-  {
-    id: "grafit",
-    label: "Grafit",
-    css:
-      "radial-gradient(120% 120% at 14% 4%, rgba(203,213,225,0.35) 0%, rgba(203,213,225,0) 58%)," +
-      "linear-gradient(150deg, #4b5563 0%, #232a35 100%)",
-  },
-  {
-    id: "piatra",
-    label: "Piatră",
-    css:
-      "radial-gradient(120% 120% at 82% 6%, rgba(231,215,196,0.5) 0%, rgba(231,215,196,0) 58%)," +
-      "linear-gradient(150deg, #8a7461 0%, #453930 100%)",
-  },
-  {
-    id: "ceata",
-    label: "Ceață",
-    css:
-      "radial-gradient(120% 125% at 16% 0%, rgba(214,228,240,0.5) 0%, rgba(214,228,240,0) 58%)," +
-      "linear-gradient(150deg, #64748b 0%, #33414f 100%)",
-  },
-  {
-    id: "pruna",
-    label: "Prună",
-    css:
-      "radial-gradient(115% 120% at 88% 8%, rgba(232,164,200,0.5) 0%, rgba(232,164,200,0) 56%)," +
-      "linear-gradient(150deg, #8e3f74 0%, #45204a 100%)",
-  },
-  {
-    id: "cobalt",
-    label: "Cobalt",
-    css:
-      "radial-gradient(118% 120% at 14% 2%, rgba(165,180,252,0.5) 0%, rgba(165,180,252,0) 58%)," +
-      "linear-gradient(150deg, #3d5bbd 0%, #1e2a63 100%)",
-  },
-  {
-    id: "menta",
-    label: "Mentă",
-    css:
-      "radial-gradient(120% 120% at 84% 4%, rgba(167,232,214,0.5) 0%, rgba(167,232,214,0) 58%)," +
-      "linear-gradient(150deg, #2f8878 0%, #17403c 100%)",
-  },
-  {
-    id: "carbune",
-    label: "Cărbune",
-    css:
-      "radial-gradient(120% 120% at 50% 0%, rgba(148,163,184,0.28) 0%, rgba(148,163,184,0) 60%)," +
-      "linear-gradient(150deg, #33373d 0%, #17191c 100%)",
-  },
+  { id: "umerase", label: "Umerașe", photo: "1490481651871-ab68de25d43d", tint: "#9d948e" },
+  { id: "tinuta", label: "Ținută", photo: "1479064555552-3ef4979f8908", tint: "#aca6a4" },
+  { id: "tricotaj", label: "Tricotaj", photo: "1434389677669-e08b4cac3105", tint: "#a59e96" },
+  { id: "denim", label: "Denim", photo: "1525507119028-ed4c629a60a3", tint: "#6f6867" },
+  { id: "dantela", label: "Dantelă", photo: "1509319117193-57bab727e09d", tint: "#7f7872" },
+  { id: "neutre", label: "Neutre", photo: "1558769132-cb1aea458c5e", tint: "#88776d" },
+  { id: "bumbac", label: "Bumbac", photo: "1523381210434-271e8be1f52b", tint: "#535b56" },
+  { id: "culori", label: "Culori", photo: "1489987707025-afc232f7ea0f", tint: "#6e564c" },
+  { id: "boutique", label: "Boutique", photo: "1445205170230-053b83016050", tint: "#5e5138" },
+  { id: "atelier", label: "Atelier", photo: "1441986300917-64674bd600d8", tint: "#3b3333" },
+  { id: "dressing", label: "Dressing", photo: "1567401893414-76b7b1e5a7a5", tint: "#403932" },
+  { id: "galben", label: "Galben", photo: "1515886657613-9f3515b0c78f", tint: "#908d62" },
 ]
 
 const BY_ID = new Map(COVER_PRESETS.map((p) => [p.id, p]))
@@ -171,7 +119,11 @@ export function defaultCoverFor(userId: string): CoverPreset {
   return COVER_PRESETS[h % COVER_PRESETS.length]
 }
 
-export type Cover = { kind: "image"; url: string } | { kind: "preset"; preset: CoverPreset }
+export type Cover =
+  /** An upload of their own. */
+  | { kind: "image"; url: string }
+  /** One of the library photographs, with the colour to paint under it. */
+  | { kind: "preset"; preset: CoverPreset }
 
 /**
  * What to actually draw, from whatever is in the column.
@@ -184,8 +136,11 @@ export type Cover = { kind: "image"; url: string } | { kind: "preset"; preset: C
 export function resolveCover(coverUrl: string | null | undefined, userId: string): Cover {
   const raw = typeof coverUrl === "string" ? coverUrl.trim() : ""
   if (raw.startsWith("http://") || raw.startsWith("https://")) return { kind: "image", url: raw }
-  if (raw.startsWith("preset:")) {
-    const found = BY_ID.get(raw.slice("preset:".length))
+  // `lib:` is the current form. `preset:` was the gradient library's, and the
+  // ids do not carry over — anything it names is gone, so those accounts fall
+  // through to their default, which is the same thing "never chose one" gets.
+  if (raw.startsWith("lib:")) {
+    const found = BY_ID.get(raw.slice("lib:".length))
     if (found) return { kind: "preset", preset: found }
   }
   return { kind: "preset", preset: defaultCoverFor(userId) }

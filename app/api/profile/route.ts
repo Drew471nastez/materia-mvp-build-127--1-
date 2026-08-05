@@ -26,14 +26,14 @@ import { COVER_PRESETS, MAX_BIO_CHARS, MAX_NAME_CHARS, normaliseBio, normaliseNa
  * replaces, written where it can be read.
  *
  * `cover` accepts three things, matching the column exactly (see
- * lib/profile/covers.ts): a `preset:<id>` from the shipped set, an https URL
+ * lib/profile/covers.ts): a `lib:<id>` from the shipped library, an https URL
  * that this account uploaded through /api/profile/cover, or null to go back to
  * the default. An arbitrary URL is refused — a cover is drawn full-bleed on a
  * public page, so accepting one would let anybody point our profile at their
  * server and watch who loads it.
  */
 
-const PRESET_IDS = new Set(COVER_PRESETS.map((p) => `preset:${p.id}`))
+const LIBRARY_IDS = new Set(COVER_PRESETS.map((p) => `lib:${p.id}`))
 
 /** Where an uploaded cover legitimately lives. Anything else is somebody
  *  else's host wearing our page. */
@@ -84,7 +84,7 @@ export async function PATCH(req: NextRequest) {
     const cover = payload.cover
     if (cover === null) {
       patch.cover_url = null
-    } else if (typeof cover === "string" && PRESET_IDS.has(cover)) {
+    } else if (typeof cover === "string" && LIBRARY_IDS.has(cover)) {
       patch.cover_url = cover
     } else if (typeof cover === "string" && isOwnUpload(cover)) {
       patch.cover_url = cover
