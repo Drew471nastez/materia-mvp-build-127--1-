@@ -1,13 +1,16 @@
 "use client"
 
 import { SurfaceClaim } from "@/components/surface-claim"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Settings, Shirt, Star } from "lucide-react"
+import { Bookmark, Pencil, Settings, Share2, Shirt, Star } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
+import { ProfileEditor } from "@/components/member/profile-editor"
 import { useLocale } from "@/components/locale-provider"
+import { triggerHaptic } from "@/lib/native-bridge"
+import { resolveCover } from "@/lib/profile/covers"
 import { cn } from "@/lib/utils"
 
 /**
@@ -57,6 +60,12 @@ export type MemberSummary = {
    *  presence column isn't deployed yet, so no dot renders at all rather than
    *  a grey one falsely claiming everyone is offline. */
   online: boolean | null
+  /** The line under the name. Undefined when the column is not in this
+   *  database yet, which renders exactly as empty rather than as an error. */
+  bio?: string | null
+  /** null means "never chose one" — the account gets the preset its id
+   *  resolves to. See lib/profile/covers.ts. */
+  coverUrl?: string | null
 }
 
 /** "Membru din martie 2025" — month precision is all this is worth. */
@@ -212,8 +221,58 @@ export function MemberProfile({
   const fetchedReviews = useSellerReviews(reviewsFromServer === undefined ? member.id : null)
   const reviews = reviewsFromServer === undefined ? fetchedReviews : reviewsFromServer
 
+  /**
+   * The cover and the bio, held here so an edit shows on the screen behind the
+   * editor rather than after it closes. The server is still the truth — the
+   * editor calls `router.refresh()` — but a colour you are choosing has to be
+   * visible against your own avatar while you choose it, and a round trip is
+   * far too long to be the thing that shows it to you.
+   */
+  const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState<{ bio: string | null; cover: string | null }>({
+    bio: member.bio ?? null,
+    cover: member.coverUrl ?? null,
+  })
+  // The server re-rendered underneath us — a refresh, a navigation back to this
+  // page — so what it says wins again. Without this, an edit made in one
+  // session would keep overriding a later, truer value for the life of the
+  // mount.
+  useEffect(() => {
+    setLocal({ bio: member.bio ?? null, cover: member.coverUrl ?? null })
+  }, [member.bio, member.coverUrl])
+
+  const cover = resolveCover(local.cover, member.id)
+  const bio = local.bio
+
   const name = member.displayName || member.username || "Storelib"
   const joined = joinedLabel(member.joinedAt, language)
+
+  /**
+   * Send somebody here.
+   *
+   * The native share sheet when the device has one, which on a phone is what
+   * anybody expects and puts the link straight into whichever app they were
+   * going to paste it into anyway. On a desktop there is no sheet, so the URL
+   * goes to the clipboard — the same outcome by the only means available.
+   * `share` rejects when the person cancels the sheet, which is not an error
+   * and must not be reported as one.
+   */
+  const [shared, setShared] = useState(false)
+  const share = useCallback(async () => {
+    void triggerHaptic("light")
+    const url = `${window.location.origin}/member/${encodeURIComponent(member.username)}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: name, url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setShared(true)
+      window.setTimeout(() => setShared(false), 1600)
+    } catch {
+      /* cancelled, or no clipboard permission — neither is worth a message */
+    }
+  }, [member.username, name])
   // Only the join date. The listing count used to ride along here and it was
   // the half of the line that got cut off at 375px — while the stats row one
   // line below already states it exactly, in a bigger type. Saying it twice
@@ -226,83 +285,103 @@ export function MemberProfile({
     // already reserves its own strip below <main>: paying for it twice is what
     // left a profile with nothing on it scrolling through empty space.
     //
-    // `isolate` is what makes the wash below safe: it gives the negative layer
-    // a stacking context of its own, so it can sit behind everything in this
-    // column without ever slipping behind the page itself.
+    // NO TOP PADDING ON A PHONE. The cover is the first thing in this column
+    // and it is meant to run to the top of the screen and up under the clock;
+    // a gutter above it would be a white band between the status bar and the
+    // colour, which is the exact seam the cover exists to remove. On a desktop
+    // the cover is a rounded card rather than a full-bleed strip, so there it
+    // gets air above it like any other card.
+    //
     // 1100px, not 1400. A profile is a header and a grid of squares, and at
     // 1400 on a wide monitor the header's text runs to a line length nobody can
     // track while the avatar sits marooned at the far left. The narrower measure
     // is what makes this read as a page rather than as a phone layout that has
     // been stretched.
-    <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
-      {/* WHITE, and the wash paints the strip itself.
+    <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 md:px-8 md:pt-8 lg:pt-10">
+      {/* The strip behind the clock is the COVER now, not white.
           
-          `.profile-wash` is already pulled up into the status-bar strip by the
-          safe-area inset — it starts at the physical top of the screen, not at
-          the top of this column. The claim exists only to take down the opaque
-          bar the app draws over that strip (html.capacitor::before) so the wash
-          can be seen through it.
+          In the app the page begins under a bar the shell paints over the
+          status area, and the cover runs up into it — so the claim has to be
+          the cover's own colour or there is a flat white band across the top of
+          a photograph. A preset's first colour is a good enough answer for a
+          gradient; an uploaded image has no single colour, so its strip is the
+          neutral the shell uses everywhere else rather than a guess that could
+          be badly wrong. */}
+      <SurfaceClaim colour={cover.kind === "preset" ? coverTopColour(cover.preset.css) : "#3f3f46"} />
+      {/* THE COVER, and everything that sits on it.
           
-          Claiming the TINT instead was a mistake with a very visible result:
-          the strip got the flat colour and then the wash's top on top of it,
-          while the content below y=0 got the wash alone over white. Two
-          different recipes for what is supposed to be one gradient, meeting at
-          a hard line under the clock — a darker, flat band across the top of
-          the screen. White underneath everywhere means one recipe, and the
-          gradient runs unbroken from the first pixel of the display. */}
-      <SurfaceClaim colour="#ffffff" />
-      {/* The one piece of colour on the screen, and it is barely there.
-          A profile is a person, and a header floating on plain white had
-          nothing to say that this was the top of anything — the avatar simply
-          began. A few percent of the brand purple, fading out by the time it
-          reaches the stats, gives the top of the page a boundary without
-          turning it into a banner. `inset-x-0` resolves against this column's
-          padding box, so it runs edge to edge on a phone rather than stopping
-          at the 16px gutter and reading as a stray rectangle. */}
-      {/*  …and it runs UNDER the status bar rather than stopping at it.
-          In the app the page begins below a spacer the height of the status
-          bar, so a wash anchored to the top of this column started at the
-          bottom edge of the clock: a hard line across the screen with a white
-          band above it, which is the one place on the page where a boundary
-          reads as damage rather than design. Extending it up by the same inset
-          means the colour starts where the screen does and there is no edge.
-          Zero everywhere without a notch, so this is a no-op on desktop. */}
+          A profile without one is a name floating on white, which is the state
+          the screen was in: nothing said this was the top of anything, so the
+          avatar simply began. The faint purple wash that used to stand in for
+          this was doing the same job with a hundredth of the means, and it
+          could not be personal — which is most of what a cover is for.
+          
+          Full-bleed on a phone and it runs UP under the status bar in the app:
+          `-mx-4` cancels this column's gutter, and the negative top margin plus
+          the matching padding pull it into the inset so the colour starts where
+          the SCREEN does. On the web there is a header above it and the inset
+          is zero, so it simply starts under that — which is the difference
+          between the two the app has always had. */}
       <div
-        aria-hidden
-        className="profile-wash pointer-events-none absolute inset-x-0 -z-10 bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent"
-      />
+        className="profile-cover relative -mx-4 overflow-hidden md:-mx-8 md:rounded-3xl"
+        style={cover.kind === "preset" ? { background: cover.preset.css } : undefined}
+      >
+        {cover.kind === "image" && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        )}
+        {/* A floor under the buttons. A white glyph on a photograph is legible
+            over a dark sky and invisible over a pale one, and there is no way
+            to know which anybody uploads — so the corner it lives in is given a
+            gradient of its own rather than the whole cover being dimmed. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/25 to-transparent"
+        />
 
-      {/* Settings is a subpage of your own profile now, and the gear is the only
-          door to it — the bottom tab that used to open it directly is what this
-          screen replaced. It sits on its own row above the avatar rather than
-          inside the header, because the header's right edge already belongs to
-          the edit button and 375px has no room to share. */}
-      {isOwner && (
-        <div className="-mt-1 mb-1 flex justify-end">
-          <Link
-            href="/settings"
-            prefetch
-            aria-label="Setări"
-            className="-mr-2.5 flex h-11 w-11 items-center justify-center rounded-full text-neutral-700 transition-transform active:scale-95"
-          >
-            <Settings className="h-[22px] w-[22px]" />
-          </Link>
+        {/* The controls, in the cover rather than in a row above it.
+            
+            The gear used to sit on its own line over the header, which cost a
+            full row of vertical space on a phone to hold one 22px icon. Up here
+            they are on a surface that was otherwise doing nothing, they are
+            where every profile in every app has trained people to look, and the
+            row that held them is gone. */}
+        <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5" style={{ marginTop: "var(--cover-inset, 0px)" }}>
+          <CoverButton label="Distribuie" onClick={share}>
+            <Share2 className="h-[17px] w-[17px]" />
+          </CoverButton>
+          {isOwner && (
+            <>
+              <CoverButton label="Salvate" href="/wishlist">
+                <Bookmark className="h-[17px] w-[17px]" />
+              </CoverButton>
+              <CoverButton label="Editează profilul" onClick={() => setEditing(true)}>
+                <Pencil className="h-[17px] w-[17px]" />
+              </CoverButton>
+              <CoverButton label="Setări" href="/settings">
+                <Settings className="h-[17px] w-[17px]" />
+              </CoverButton>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
-      <header className="flex items-start gap-4 md:items-center md:gap-6">
-        {/* Large avatar with the same initial fallback and ringed presence dot
-            the Following list uses, so a seller looks the same everywhere. */}
-        <div className="relative shrink-0">
+      {/* The avatar STRADDLES the boundary, which is what ties the two halves
+          together — sitting wholly below it the cover reads as a banner that
+          happens to be above a profile rather than as part of one. The negative
+          margin is half the avatar, so the cover's height does not have to
+          change to make room. */}
+      <header className="relative flex items-start gap-4 md:gap-6">
+        <div className="relative -mt-11 shrink-0 md:-mt-14">
           {/* The white ring and the short shadow are what let the avatar sit ON
-              the wash rather than in it. Both are drawn outside the box, so the
-              80px the layout is built around is unchanged. */}
-          <span className="block h-20 w-20 overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-28 md:w-28 lg:h-32 lg:w-32">
+              the cover rather than in it. Both are drawn outside the box, so the
+              88px the layout is built around is unchanged. */}
+          <span className="block h-[88px] w-[88px] overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-28 md:w-28 lg:h-32 lg:w-32">
             {member.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <span className="flex h-full w-full items-center justify-center text-[28px] font-semibold text-neutral-400 md:text-[38px] lg:text-[44px]">
+              <span className="flex h-full w-full items-center justify-center text-[32px] font-semibold text-neutral-400 md:text-[38px] lg:text-[44px]">
                 {name.charAt(0).toUpperCase()}
               </span>
             )}
@@ -312,7 +391,7 @@ export function MemberProfile({
           {member.online !== null && (
             <span
               className={cn(
-                "absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full ring-2 ring-white md:h-[18px] md:w-[18px]",
+                "absolute bottom-1 right-1 h-4 w-4 rounded-full ring-[3px] ring-white md:h-[18px] md:w-[18px]",
                 member.online ? "bg-emerald-500" : "bg-neutral-300",
               )}
               aria-label={member.online ? t("mfeed.online") : t("mfeed.offline")}
@@ -320,60 +399,76 @@ export function MemberProfile({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-semibold tracking-[-0.01em] text-neutral-900 md:text-[28px] lg:text-[32px]">
-            {name}
-          </h1>
-          <p className="truncate text-[13.5px] text-neutral-500 md:text-[15px]">@{member.username}</p>
-
-          {/* Reviews strip — appears only once the seller has at least one
-              review, so a new seller isn't introduced by an empty zero. */}
-          {reviews && (
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <Stars value={reviews.average} />
-              <span className="text-[12.5px] font-semibold text-neutral-700 tabular-nums">
-                {reviews.average.toLocaleString(language === "ro" ? "ro-RO" : "en-GB", {
-                  minimumFractionDigits: 1,
-                  maximumFractionDigits: 1,
-                })}
-              </span>
-              <span className="truncate text-[12.5px] text-neutral-400">
-                ({reviewsLabel(reviews.count, language)})
-              </span>
-            </div>
+        {/* Beside the avatar and BELOW the cover's edge, so the name is on
+            white whatever anybody uploads. Text over a photograph is the one
+            part of the reference layout that cannot survive being handed to
+            users: it is legible over the picture the designer chose and over
+            nothing else. */}
+        <div className="min-w-0 flex-1 pt-3">
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => {
+                void triggerHaptic("light")
+                setEditing(true)
+              }}
+              className={cn(
+                "no-tap-fade relative inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800",
+                "after:absolute after:-inset-x-3 after:-inset-y-2.5 after:content-['']",
+                "transition-transform active:scale-[0.94]",
+              )}
+            >
+              Editează profilul
+            </button>
+          ) : (
+            <FollowButton userId={member.id} variant="quiet" />
           )}
         </div>
-
-        {/* Same slot, same proportions as the follow pill it stands in for — a
-            full-height CTA here would break the header row at 375px. The tap
-            target is grown past the visible pill with a transparent
-            pseudo-element, exactly as FollowButton does it. */}
-        {isOwner ? (
-          <Link
-            href="/settings"
-            prefetch
-            className={cn(
-              "no-tap-fade relative mt-1 inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800 md:mt-0",
-              "after:absolute after:-inset-x-3 after:-inset-y-2.5 after:content-['']",
-              "transition-transform active:scale-[0.94]",
-            )}
-          >
-            Editează profilul
-          </Link>
-        ) : (
-          <FollowButton userId={member.id} variant="quiet" className="mt-1 md:mt-0" />
-        )}
       </header>
 
-      {/* Below the header rather than inside it, on the full width of the
-          screen. In the header it shared a row with the edit button and lost:
-          at 375px there is roughly a hundred pixels left after the avatar and
-          the pill, which is where "Membr…" came from. Down here it has the
-          whole measure and needs no truncation at all. */}
+      {/* Name, handle and the rest on the full measure rather than in the
+          column left over beside the avatar. At 375px that column is about a
+          hundred pixels once the avatar and the button have taken theirs, which
+          is where "Membr…" and every other truncated line came from. */}
+      <h1 className="mt-3 truncate text-[22px] font-bold tracking-[-0.015em] text-neutral-900 md:text-[28px] lg:text-[32px]">
+        {name}
+      </h1>
+      <p className="truncate text-[13.5px] text-neutral-500 md:text-[15px]">@{member.username}</p>
+
+      {/* Reviews strip — appears only once the seller has at least one
+          review, so a new seller isn't introduced by an empty zero. */}
+      {reviews && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <Stars value={reviews.average} />
+          <span className="text-[12.5px] font-semibold text-neutral-700 tabular-nums">
+            {reviews.average.toLocaleString(language === "ro" ? "ro-RO" : "en-GB", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}
+          </span>
+          <span className="truncate text-[12.5px] text-neutral-400">({reviewsLabel(reviews.count, language)})</span>
+        </div>
+      )}
+
+      {/* WHO THIS PERSON IS, in their own words.
+          
+          The one thing a marketplace profile could not say. A buyer deciding
+          whether to send a stranger sixty euros is answering a question no
+          number on this page addresses, and two sentences about what somebody
+          sells and how fast they post answers more of it than the follower
+          count ever will.
+          
+          `whitespace-pre-line` so paragraph breaks survive; the API already
+          collapses runs of three or more, so a bio cannot push the header open
+          by holding down return. */}
+      {bio && (
+        <p className="mt-3 max-w-[620px] whitespace-pre-line text-[14.5px] leading-relaxed text-neutral-700">{bio}</p>
+      )}
+
       {/* The line box is stated rather than inherited: /profile/loading.tsx
           reserves exactly this much room a beat earlier, and a line height that
           depends on whatever the document sets would let the two disagree. */}
-      {meta && <p className="mt-3.5 text-[12.5px] leading-[18px] text-neutral-400">{meta}</p>}
+      {meta && <p className="mt-3 text-[12.5px] leading-[18px] text-neutral-400">{meta}</p>}
 
       {/* The social shape of the profile in one glance — the row every
           marketplace profile teaches people to look for. Counts are compact
@@ -475,6 +570,80 @@ export function MemberProfile({
           </div>
         )}
       </section>
+
+      {editing && (
+        <ProfileEditor
+          userId={member.id}
+          initialBio={bio}
+          initialCover={local.cover}
+          onClose={() => setEditing(false)}
+          onApplied={setLocal}
+        />
+      )}
+
+      {/* One line, on the one action with no other way of confirming itself.
+          A share sheet closes over the app and that IS the confirmation; a
+          clipboard write looks exactly like nothing happening. */}
+      {shared && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[110] flex justify-center px-6">
+          <span className="rounded-full bg-neutral-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+            Link copiat
+          </span>
+        </div>
+      )}
     </div>
   )
+}
+
+/**
+ * One of the round controls on the cover.
+ *
+ * A link when it goes somewhere and a button when it does something, rather
+ * than one element pretending to be both — the difference is what a screen
+ * reader announces and whether a long-press offers "open in new tab".
+ *
+ * Glass rather than a solid disc: the cover behind it is the personal part of
+ * the page and four opaque circles punched into it is four holes. The blur and
+ * the hairline are what keep a white glyph legible over a pale photograph
+ * without hiding what it is sitting on.
+ */
+function CoverButton({
+  label,
+  href,
+  onClick,
+  children,
+}: {
+  label: string
+  href?: string
+  onClick?: () => void
+  children: React.ReactNode
+}) {
+  const cls =
+    "flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-md ring-1 ring-white/25 transition-transform active:scale-[0.92] md:hover:bg-black/35"
+  if (href) {
+    return (
+      <Link href={href} prefetch aria-label={label} className={cls} onClick={() => void triggerHaptic("light")}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <button type="button" aria-label={label} className={cls} onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+
+/**
+ * The colour at the very top of a preset, for the status-bar strip.
+ *
+ * Every preset ends with a `linear-gradient(<angle>, <from> …)` and its FROM
+ * colour is what the top edge is closest to — the radial layers above it are
+ * transparent at their own edges, so none of them owns the corner. Reading it
+ * out of the string keeps one definition of each preset instead of a second
+ * table of colours that has to be kept in step with the first.
+ */
+function coverTopColour(css: string): string {
+  const m = /linear-gradient\([^,]+,\s*(#[0-9a-fA-F]{3,8})/.exec(css)
+  return m ? m[1] : "#3f3f46"
 }

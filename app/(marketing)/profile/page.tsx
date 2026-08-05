@@ -4,6 +4,7 @@ import { UserRound } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { readProfileRow } from "@/lib/profile/read"
 import { MemberProfile, type MemberListing, type ReviewsSummary } from "@/components/member/member-profile"
 
 /**
@@ -53,8 +54,8 @@ export default async function ProfilePage() {
   //
   // A creators row is what listings hang off. Its absence is the normal state
   // of a buyer, not a failure — it just means the shelf below is empty.
-  const [{ data: profile }, { data: creator }] = await Promise.all([
-    admin.from("profiles").select("id, username, display_name, avatar_url, created_at").eq("id", user.id).maybeSingle(),
+  const [{ row: profile }, { data: creator }] = await Promise.all([
+    readProfileRow((cols) => admin.from("profiles").select(cols).eq("id", user.id).maybeSingle()),
     admin.from("creators").select("id").eq("user_id", user.id).maybeSingle(),
   ])
 
@@ -165,6 +166,8 @@ export default async function ProfilePage() {
         displayName: profile?.display_name || user.user_metadata?.display_name || null,
         avatarUrl: profile?.avatar_url || user.user_metadata?.avatar_url || null,
         joinedAt: profile?.created_at || user.created_at || null,
+        bio: profile?.bio ?? null,
+        coverUrl: profile?.cover_url ?? null,
         // null draws no presence dot at all. Telling you that you are online is
         // the one thing the dot can never be useful for.
         online: null,

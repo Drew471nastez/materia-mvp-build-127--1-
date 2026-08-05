@@ -1,4 +1,3 @@
-import { Settings } from "lucide-react"
 import { SurfaceClaim } from "@/components/surface-claim"
 
 /**
@@ -27,37 +26,32 @@ import { SurfaceClaim } from "@/components/surface-claim"
  */
 export default function ProfileLoading() {
   return (
-    <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 pt-6 md:px-8 md:pt-12 lg:pt-14">
-      {/* The same claim the real screen makes, from the first frame: white, so
-          the wash — which reaches up into the status-bar strip on its own — is
-          the only thing colouring it. See member-profile.tsx. */}
-      <SurfaceClaim colour="#ffffff" />
-      {/* `.profile-wash` carries the geometry, including the pull up into the
-          status bar — the same class the real screen uses, so the colour does
-          not shift by an inset at the swap. */}
-      <div
-        aria-hidden
-        className="profile-wash pointer-events-none absolute inset-x-0 -z-10 bg-gradient-to-b from-[#7c3aed]/[0.09] via-[#7c3aed]/[0.03] to-transparent"
-      />
+    <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 md:px-8 md:pt-8 lg:pt-10">
+      {/* The strip behind the clock, in the neutral the shell uses when it
+          cannot know what colour is coming. The real screen claims the cover's
+          own top colour a beat later; a grey that darkens into the right one is
+          a far smaller handover than white flashing to a photograph. */}
+      <SurfaceClaim colour="#3f3f46" />
 
-      {/* The gear's own row, at its real height — the 44px this shell used to
-          leave out. */}
-      <div className="-mt-1 mb-1 flex justify-end">
-        <span className="-mr-2.5 flex h-11 w-11 items-center justify-center rounded-full text-neutral-700">
-          <Settings className="h-[22px] w-[22px]" />
-        </span>
-      </div>
+      {/* `.profile-cover` carries the geometry, including the pull up into the
+          status bar — the same class the real screen uses, so the band does not
+          change height or position by an inset at the swap. */}
+      <div aria-hidden className="profile-cover relative -mx-4 animate-pulse overflow-hidden bg-neutral-200 md:-mx-8 md:rounded-3xl" />
 
-      <div className="flex items-start gap-4 md:items-center md:gap-6">
-        <div className="h-20 w-20 shrink-0 animate-pulse rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-24 md:w-24" />
-        <div className="min-w-0 flex-1 space-y-2.5">
-          <div className="h-5 w-40 animate-pulse rounded bg-neutral-100" />
-          <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100" />
+      {/* The avatar straddles the cover's bottom edge, so its negative margin
+          has to match the real one exactly or everything under it steps. */}
+      <div className="relative flex items-start gap-4 md:gap-6">
+        <div className="-mt-11 h-[88px] w-[88px] shrink-0 animate-pulse rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:-mt-14 md:h-28 md:w-28 lg:h-32 lg:w-32" />
+        <div className="min-w-0 flex-1 pt-3">
+          <span className="inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800">
+            Editează profilul
+          </span>
         </div>
-        <span className="mt-1 inline-flex h-8 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800 md:mt-0">
-          Editează profilul
-        </span>
       </div>
+
+      {/* Name and handle, on the full measure below the header row. */}
+      <div className="mt-3 h-[27px] w-44 animate-pulse rounded bg-neutral-100 md:h-[34px]" />
+      <div className="mt-1.5 h-3.5 w-28 animate-pulse rounded bg-neutral-100" />
 
       {/* "Membru din …", on its own full-width row exactly as the real screen
           places it — the header above has no room to hold it at 375px. The

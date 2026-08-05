@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MemberProfile, type MemberListing } from "@/components/member/member-profile"
+import { readProfileRow } from "@/lib/profile/read"
 
 /**
  * /member/[username] — the marketplace seller profile a buyer lands on.
@@ -58,35 +59,16 @@ export default async function MemberPage({ params }: MemberPageProps) {
   // profiles.last_seen_at ships with 20260731_presence.sql — retry without it
   // so the page still renders (minus the dot) on a database that hasn't been
   // migrated yet, the same fallback /api/follows/people performs.
-  let profile: {
-    id: string
-    username: string | null
-    display_name: string | null
-    avatar_url: string | null
-    created_at: string | null
-    last_seen_at?: string | null
-  } | null = null
-  let presenceKnown = true
-  {
+  // `profiles` has three optional columns added by three different migrations,
+  // and a select naming an absent one fails the whole query. readProfileRow
+  // drops exactly the missing one and keeps the rest — see lib/profile/read.ts
+  // for why that is not the same as falling back to the base columns.
+  const { row: profile, present } = await readProfileRow(
     // ilike, matching /u/[username]: usernames are stored lowercase but links
     // arrive in whatever case someone typed them.
-    const withPresence = await admin
-      .from("profiles")
-      .select("id, username, display_name, avatar_url, created_at, last_seen_at")
-      .ilike("username", username)
-      .maybeSingle()
-    if (withPresence.error) {
-      presenceKnown = false
-      const base = await admin
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, created_at")
-        .ilike("username", username)
-        .maybeSingle()
-      profile = base.data
-    } else {
-      profile = withPresence.data
-    }
-  }
+    (cols) => admin.from("profiles").select(cols).ilike("username", username).maybeSingle(),
+  )
+  const presenceKnown = present.has("last_seen_at")
 
   if (!profile) notFound()
 
@@ -195,6 +177,8 @@ export default async function MemberPage({ params }: MemberPageProps) {
         avatarUrl: profile.avatar_url || null,
         joinedAt: profile.created_at || null,
         online,
+        bio: profile.bio ?? null,
+        coverUrl: profile.cover_url ?? null,
       }}
       listingsCount={listingsCount}
       followersCount={followersRes.count ?? 0}
