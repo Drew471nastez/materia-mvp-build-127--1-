@@ -213,6 +213,30 @@ export function ImageViewer({
     setI(index)
     view.current = { ...IDENTITY }
     setZoomed(false)
+    /**
+     * THE LATCH THAT MADE THE SECOND PHOTO UNCLOSEABLE.
+     *
+     * `closing` guards against running the close twice, and it was set to true
+     * and never set back. That is harmless where the viewer is mounted
+     * conditionally and torn down with the ref inside it — a listing and a
+     * profile both do that — and it is fatal in a conversation, which renders
+     * `<ImageViewer src={viewing} />` permanently and merely passes null when
+     * nothing is open. The component instance survives, so the ref survives:
+     *
+     *   open a photo, close it        closing := true, onClose fires, fine
+     *   open a second photo           the same instance, closing still true
+     *   try to close it               close() returns at the guard, every time
+     *
+     * The X does nothing, tapping the black does nothing, the back gesture
+     * fires popstate which calls close() and also does nothing. A full-screen
+     * layer over the app with no way out of it. That is "it doesn't close, it
+     * stays blocked", and it is reproducible on the second photo you open in
+     * any conversation.
+     *
+     * Opening is the moment the previous close is definitively over, so this is
+     * where the latch is released.
+     */
+    closing.current = false
     // Positioned before paint, so the viewer is never seen on the wrong photo.
     if (rail) rail.scrollLeft = index * rail.clientWidth
     void rootRef.current?.offsetWidth
@@ -426,6 +450,55 @@ export function ImageViewer({
     // COMMIT: the zoom toggling, the dismiss letting go. A vibration on every
     // frame of a scroll is a vibration that stops meaning anything.
   }, [list.length, resetView])
+
+  /**
+   * ROTATING THE PHONE LEFT THE RAIL BETWEEN TWO PHOTOGRAPHS.
+   *
+   * The rail is a scroll-snap track of full-width slides, and which photo you
+   * are on is a scrollLeft in PIXELS. Rotate, and every slide is a different
+   * number of pixels wide while scrollLeft is still the old one — so an offset
+   * that was exactly photo 2 becomes somewhere in the middle of photo 1, and
+   * the viewer sits showing the right-hand edge of one picture beside the
+   * left-hand edge of the next.
+   *
+   * The comment on the rail claims the browser holds position through a
+   * rotation. It holds the OFFSET; it cannot know that the offset meant "the
+   * third photograph" — nothing told it that. So we re-derive it from the index
+   * we already keep, on both the resize and the orientation change, because iOS
+   * fires them at different moments and whichever lands second is the one that
+   * has the final geometry.
+   *
+   * `behavior: instant` deliberately: a rotation is not a page change, and a
+   * smooth scroll here would animate a photograph sideways for no reason as the
+   * device settles.
+   *
+   * The zoom is reset too. A picture magnified to a corner of a portrait screen
+   * is magnified to somewhere else entirely on a landscape one, and the pan
+   * limits `setView` computes were measured against a box that no longer exists.
+   */
+  useEffect(() => {
+    if (!open) return
+    let raf = 0
+    const reanchor = () => {
+      cancelAnimationFrame(raf)
+      // One frame later: on the resize event itself the new width is not
+      // always committed yet, and anchoring to a stale clientWidth is the very
+      // thing this exists to prevent.
+      raf = requestAnimationFrame(() => {
+        const rail = railRef.current
+        if (!rail || rail.clientWidth === 0) return
+        resetView()
+        rail.scrollTo({ left: iRef.current * rail.clientWidth, behavior: "instant" as ScrollBehavior })
+      })
+    }
+    window.addEventListener("resize", reanchor)
+    window.addEventListener("orientationchange", reanchor)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener("resize", reanchor)
+      window.removeEventListener("orientationchange", reanchor)
+    }
+  }, [open, resetView])
 
   const goTo = useCallback(
     (n: number) => {
