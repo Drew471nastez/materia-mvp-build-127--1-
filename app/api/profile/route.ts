@@ -108,6 +108,7 @@ export async function PATCH(req: NextRequest) {
     userId: user.id,
     patch,
     fallbackUsername: user.email?.split("@")[0] ?? null,
+    email: user.email ?? null,
   })
 
   if (!written.ok) {
@@ -121,7 +122,16 @@ export async function PATCH(req: NextRequest) {
         { status: 409 },
       )
     }
-    return NextResponse.json({ error: "Could not save" }, { status: 500 })
+    // THE REASON, not a shrug.
+    //
+    // "Could not save" is what this said for every failure, and it is exactly
+    // as useful to the person reading it as it was to the person who wrote it:
+    // the profile row could be missing, a column could be absent, a constraint
+    // could be refusing the write, and all three produced the same four words.
+    // The message is the database's own, about the caller's own row, on a
+    // screen only they can see — there is nothing in it to withhold, and
+    // without it the next report is another screenshot of the same four words.
+    return NextResponse.json({ error: "Nu am putut salva profilul.", detail: written.message }, { status: 500 })
   }
 
   const row = written.row as { display_name?: string | null; bio?: string | null; cover_url?: string | null }

@@ -108,7 +108,7 @@ export function ProfileEditForm({
             title: "Încărcarea a eșuat",
             detail: data?.missingColumns
               ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru copertă."
-              : (data?.error ?? "Încearcă o altă imagine."),
+              : (data?.detail ?? data?.error ?? "Încearcă o altă imagine."),
           })
           return
         }
@@ -158,7 +158,11 @@ export function ProfileEditForm({
           title: data?.missingColumns ? "Nu se poate salva" : "Salvarea a eșuat",
           detail: data?.missingColumns
             ? "Rulează supabase/sql/RUN_PROFILE_COVER_BIO.sql pentru biografie și copertă."
-            : (data?.error ?? "Încearcă din nou."),
+            // The server's own reason when there is one. A failure you can read
+            // is a failure somebody can act on; "încearcă din nou" over a
+            // constraint violation is an instruction to repeat the same thing
+            // and get the same result.
+            : (data?.detail ?? data?.error ?? "Încearcă din nou."),
         })
         return
       }
@@ -439,7 +443,7 @@ export function ProfileEditForm({
           <div
             role="status"
             aria-live="polite"
-            className="saved-pop flex max-w-[300px] flex-col items-center gap-2.5 rounded-3xl bg-neutral-900/92 px-7 py-6 text-center text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md"
+            className="saved-pop pointer-events-auto flex max-w-[320px] flex-col items-center gap-2.5 rounded-3xl bg-neutral-900/92 px-7 py-6 text-center text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md"
           >
             <span
               className={cn(
@@ -454,7 +458,13 @@ export function ProfileEditForm({
               )}
             </span>
             <span className="text-[15px] font-semibold">{notice.title}</span>
-            {notice.detail && <span className="text-[12.5px] leading-relaxed text-white/70">{notice.detail}</span>}
+            {notice.detail && (
+              // Selectable, and allowed to wrap: when this is a database
+              // message it is the one thing on the screen worth copying.
+              <span className="max-h-[40vh] select-text overflow-y-auto break-words text-[12.5px] leading-relaxed text-white/70">
+                {notice.detail}
+              </span>
+            )}
             {notice.tone === "bad" && (
               <button
                 type="button"
