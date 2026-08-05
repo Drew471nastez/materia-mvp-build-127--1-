@@ -152,6 +152,108 @@ export const LISTING_CATEGORIES: CategoryGroup[] = [
       { id: "hats", label: "Șepci și pălării" },
       { id: "scarves", label: "Eșarfe și fulare" },
       { id: "sunglasses", label: "Ochelari de soare" },
+      { id: "gloves", label: "Mănuși" },
+      { id: "wallets", label: "Portofele" },
+      { id: "hair", label: "Accesorii de păr" },
+      { id: "ties", label: "Cravate și papioane" },
+      OTHER,
+    ],
+  },
+  // ── Everything below here was missing, and every one of them is a listing
+  //    somebody could not file.
+  //
+  //    The list stopped at accessories, so a whole second-hand wardrobe had
+  //    nowhere to go: knitwear (which is not a t-shirt and not a coat),
+  //    activewear, swimwear, underwear and nightwear, bags as their own
+  //    category rather than an accessory, and anything for a child. A seller
+  //    who cannot find their category either files it wrongly — where nobody
+  //    browsing for it will look — or gives up on the listing.
+  //
+  //    New ids only. Nothing existing is renamed or renumbered, because a
+  //    category id is stored on every listing already published under it.
+  {
+    id: "women-knitwear",
+    label: "Damă · Tricotaje",
+    items: [
+      { id: "jumpers", label: "Pulovere" },
+      { id: "cardigans", label: "Cardigane" },
+      { id: "hoodies", label: "Hanorace" },
+      { id: "sweatshirts", label: "Bluze de trening" },
+      { id: "vests", label: "Veste tricotate" },
+      OTHER,
+    ],
+  },
+  {
+    id: "men-knitwear",
+    label: "Bărbați · Tricotaje",
+    items: [
+      { id: "jumpers", label: "Pulovere" },
+      { id: "cardigans", label: "Cardigane" },
+      { id: "hoodies", label: "Hanorace" },
+      { id: "sweatshirts", label: "Bluze de trening" },
+      { id: "vests", label: "Veste tricotate" },
+      OTHER,
+    ],
+  },
+  {
+    id: "activewear",
+    label: "Sport",
+    items: [
+      { id: "tops", label: "Tricouri și topuri sport" },
+      { id: "leggings", label: "Colanți" },
+      { id: "shorts", label: "Pantaloni scurți sport" },
+      { id: "tracksuits", label: "Treninguri" },
+      { id: "jackets", label: "Jachete sport" },
+      { id: "trainers", label: "Adidași" },
+      OTHER,
+    ],
+  },
+  {
+    id: "swimwear",
+    label: "Costume de baie",
+    items: [
+      { id: "bikinis", label: "Bikini" },
+      { id: "one-piece", label: "Întregi" },
+      { id: "swim-shorts", label: "Șorturi de baie" },
+      { id: "cover-ups", label: "Pareo și cover-up" },
+      OTHER,
+    ],
+  },
+  {
+    id: "underwear",
+    label: "Lenjerie și pijamale",
+    items: [
+      { id: "bras", label: "Sutiene" },
+      { id: "briefs", label: "Chiloți și boxeri" },
+      { id: "socks", label: "Șosete și ciorapi" },
+      { id: "pyjamas", label: "Pijamale" },
+      { id: "loungewear", label: "Haine de casă" },
+      OTHER,
+    ],
+  },
+  {
+    id: "bags",
+    label: "Genți",
+    items: [
+      { id: "shoulder", label: "Genți de umăr" },
+      { id: "tote", label: "Genți tote" },
+      { id: "crossbody", label: "Genți crossbody" },
+      { id: "backpacks", label: "Rucsacuri" },
+      { id: "clutch", label: "Plicuri și clutch" },
+      { id: "luggage", label: "Bagaje" },
+      OTHER,
+    ],
+  },
+  {
+    id: "kids",
+    label: "Copii",
+    items: [
+      { id: "tops", label: "Tricouri și bluze" },
+      { id: "bottoms", label: "Pantaloni și fuste" },
+      { id: "outerwear", label: "Geci și paltoane" },
+      { id: "dresses", label: "Rochii" },
+      { id: "shoes", label: "Încălțăminte" },
+      { id: "baby", label: "Bebeluși (0–2 ani)" },
       OTHER,
     ],
   },

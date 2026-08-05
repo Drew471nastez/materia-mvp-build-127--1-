@@ -156,7 +156,7 @@ export function DragSheet({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        className="absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col rounded-t-[20px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-2xl md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-2xl md:pb-0"
+        className="absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col overflow-hidden rounded-t-[26px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-2xl md:pb-0"
         style={panelStyle}
       >
         {/* Only this zone arms the drag. The content below scrolls, and a
@@ -169,11 +169,17 @@ export function DragSheet({
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
         >
-          <div className="flex justify-center pt-2.5 md:hidden">
-            <div className="h-1 w-10 rounded-full bg-neutral-300" />
-          </div>
-          <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3 md:py-3.5">
-            <h2 className="text-[16px] font-semibold text-neutral-900">{title}</h2>
+          {/* No grab handle. The pill was the only thing on these sheets that
+              looked like it belonged to an older app, and it advertised a
+              gesture that is a liability on a picker: fling a long brand list
+              upward and a drag-to-dismiss reads it as a dismissal. The header
+              still arms the drag for anyone who reaches for it; the X is the
+              stated way out, and it is a real 44pt target now rather than a
+              20px icon with 6px of padding. */}
+          <div className="flex items-center justify-between gap-2 border-b border-neutral-100 py-2 pl-4 pr-2 md:py-2.5">
+            <h2 className="min-w-0 truncate text-[16.5px] font-semibold tracking-[-0.01em] text-neutral-900">
+              {title}
+            </h2>
             <button
               type="button"
               onClick={() => {
@@ -181,9 +187,9 @@ export function DragSheet({
                 onClose()
               }}
               aria-label="Închide"
-              className="rounded-full p-1.5 text-neutral-400 hover:bg-neutral-100"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-[background-color,transform] duration-150 active:scale-[0.94] active:bg-neutral-100"
             >
-              <X className="h-5 w-5" />
+              <X className="h-[21px] w-[21px]" strokeWidth={2.2} />
             </button>
           </div>
         </div>

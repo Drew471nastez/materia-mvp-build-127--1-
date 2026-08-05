@@ -59,7 +59,40 @@ function Field({
   )
 }
 
-function Chip({ option, selected, onClick }: { option: Option; selected: boolean; onClick: () => void }) {
+/**
+ * One choice in a picker.
+ *
+ * Every sheet was writing its own: a rounded box with a hover tint, 14.5px
+ * text, a check floated to the right, and 2px of padding round the list so the
+ * rows sat in from the edges. Six copies of it, none quite the same, and the
+ * result read like a web menu dropped into a phone rather than like the
+ * platform's own list — which is what "the option selector styles" is.
+ *
+ * So: one row, full-bleed to the sheet's edges, 54px tall — comfortably past
+ * the 44pt minimum, and past the point where a list of them is a wall of text.
+ * Hairlines between rows rather than a gap, so the list reads as one surface.
+ * The selected one is stated twice, in tint and in a check, because on a phone
+ * in daylight a colour alone is not a state.
+ *
+ * `active:` rather than `hover:`. A phone has no hover, and the hover styles
+ * these rows carried were dead weight that also produced a stuck highlight
+ * after a tap on iOS.
+ */
+function OptionRow({
+  label,
+  selected,
+  onClick,
+  swatch,
+  multi,
+}: {
+  label: string
+  selected: boolean
+  onClick: () => void
+  /** A colour chip, for the palette. */
+  swatch?: string
+  /** Ticks stay put and the sheet stays open — the caller closes it. */
+  multi?: boolean
+}) {
   return (
     <button
       type="button"
@@ -68,11 +101,34 @@ function Chip({ option, selected, onClick }: { option: Option; selected: boolean
         onClick()
       }}
       className={cn(
-        "rounded-full px-3.5 py-2 text-[13.5px] font-medium transition-colors duration-200",
-        selected ? "bg-[#7c3aed] text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+        "flex w-full items-center gap-3 border-b border-neutral-100 px-4 text-left transition-colors duration-150 last:border-b-0 active:bg-neutral-100",
+        selected && "bg-violet-50/70",
       )}
+      style={{ minHeight: 54 }}
     >
-      {option.label}
+      {swatch && (
+        <span
+          aria-hidden
+          className="h-6 w-6 shrink-0 rounded-full border border-black/10"
+          style={{ background: swatch }}
+        />
+      )}
+      <span className={cn("min-w-0 flex-1 truncate text-[15.5px]", selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900")}>
+        {label}
+      </span>
+      {multi ? (
+        <span
+          aria-hidden
+          className={cn(
+            "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150",
+            selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300",
+          )}
+        >
+          {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+        </span>
+      ) : (
+        selected && <Check className="h-[18px] w-[18px] shrink-0 text-[#7c3aed]" strokeWidth={2.6} />
+      )}
     </button>
   )
 }
@@ -337,14 +393,17 @@ export function NewListingForm() {
   // apart in copy, state, or behaviour.
   const actionControls = (
     <>
-      <label className="flex items-center gap-2.5 text-[13.5px] text-neutral-600">
+      {/* A row, not a floating label. It shares the buttons' left edge exactly
+          because it is in the same padded column, and it is 40px tall so it is
+          a target rather than a 16px box you have to aim at. */}
+      <label className="-mx-1 flex min-h-[40px] cursor-pointer items-center gap-2.5 rounded-xl px-1 text-[13.5px] text-neutral-600 active:bg-neutral-50">
         <input
           type="checkbox"
           checked={postAnother}
           onChange={(e) => setPostAnother(e.target.checked)}
-          className="h-4 w-4 accent-[#7c3aed]"
+          className="h-[18px] w-[18px] shrink-0 accent-[#7c3aed]"
         />
-        Publică și adaugă încă un articol
+        <span className="min-w-0">Publică și adaugă încă un articol</span>
       </label>
 
       <div className="flex gap-2.5">
@@ -404,7 +463,7 @@ export function NewListingForm() {
      */
     <div
       className={cn(
-        "fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
+        "sell-sheet fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
         // Leaving wins: pressing X mid-entrance must go down from wherever the
         // sheet has got to, not finish arriving first.
         leaving ? "sell-sheet-leave" : entering && "sell-sheet-enter",
@@ -784,68 +843,72 @@ export function NewListingForm() {
       </DragSheet>
 
       <DragSheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>
-        <div className="p-2">
-          {CONDITIONS.map((c) => (
-            <button key={c.id} type="button" onClick={() => { setCondition(c.id); setSheet(null) }}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-[14.5px] text-neutral-900 hover:bg-neutral-50">
-              {c.label}
-              {condition === c.id && <Check className="h-4 w-4 text-[#7c3aed]" />}
-            </button>
-          ))}
-        </div>
+        {CONDITIONS.map((c) => (
+          <OptionRow
+            key={c.id}
+            label={c.label}
+            selected={condition === c.id}
+            onClick={() => { setCondition(c.id); setSheet(null) }}
+          />
+        ))}
       </DragSheet>
 
       <DragSheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>
-        <div className="p-2">
-          {SIZES.map((c) => (
-            <button key={c.id} type="button" onClick={() => { setSize(c.id); setSheet(null) }}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-[14.5px] text-neutral-900 hover:bg-neutral-50">
-              {c.label}
-              {size === c.id && <Check className="h-4 w-4 text-[#7c3aed]" />}
-            </button>
-          ))}
-        </div>
+        {SIZES.map((c) => (
+          <OptionRow
+            key={c.id}
+            label={c.label}
+            selected={size === c.id}
+            onClick={() => { setSize(c.id); setSheet(null) }}
+          />
+        ))}
       </DragSheet>
 
       <DragSheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>
-        <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
-          {COLOURS.map((c) => (
-            <button key={c.id} type="button" onClick={() => { setColour(c.id); setSheet(null) }}
-              className={cn("flex flex-col items-center gap-1.5 rounded-xl border p-2.5 transition-colors",
-                colour === c.id ? "border-[#7c3aed] bg-violet-50" : "border-neutral-200 hover:bg-neutral-50")}>
-              <span className="h-7 w-7 rounded-full border border-black/10" style={{ background: c.hex }} />
-              <span className="text-[12.5px] text-neutral-700">{c.label}</span>
-            </button>
-          ))}
-        </div>
+        {COLOURS.map((c) => (
+          <OptionRow
+            key={c.id}
+            label={c.label}
+            swatch={c.hex}
+            selected={colour === c.id}
+            onClick={() => { setColour(c.id); setSheet(null) }}
+          />
+        ))}
       </DragSheet>
 
-      <DragSheet open={sheet === "source"} title="Tip (maximum 2)" onClose={() => setSheet(null)}>
-        <div className="flex flex-wrap gap-2 p-3">
-          {SOURCES.map((s) => (
-            <Chip key={s.id} option={s} selected={sources.includes(s.id)} onClick={() => setSources((l) => toggleIn(l, s.id, 2))} />
-          ))}
-        </div>
+      <DragSheet open={sheet === "source"} title="Tip · alege până la 2" onClose={() => setSheet(null)}>
+        {SOURCES.map((o) => (
+          <OptionRow
+            key={o.id}
+            label={o.label}
+            multi
+            selected={sources.includes(o.id)}
+            onClick={() => setSources((l) => toggleIn(l, o.id, 2))}
+          />
+        ))}
       </DragSheet>
 
       <DragSheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>
-        <div className="p-2">
-          {ERAS.map((c) => (
-            <button key={c.id} type="button" onClick={() => { setEra(c.id); setSheet(null) }}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-[14.5px] text-neutral-900 hover:bg-neutral-50">
-              {c.label}
-              {era === c.id && <Check className="h-4 w-4 text-[#7c3aed]" />}
-            </button>
-          ))}
-        </div>
+        {ERAS.map((c) => (
+          <OptionRow
+            key={c.id}
+            label={c.label}
+            selected={era === c.id}
+            onClick={() => { setEra(c.id); setSheet(null) }}
+          />
+        ))}
       </DragSheet>
 
-      <DragSheet open={sheet === "style"} title="Stil (maximum 3)" onClose={() => setSheet(null)}>
-        <div className="flex flex-wrap gap-2 p-3">
-          {STYLES.map((s) => (
-            <Chip key={s.id} option={s} selected={styles.includes(s.id)} onClick={() => setStyles((l) => toggleIn(l, s.id, 3))} />
-          ))}
-        </div>
+      <DragSheet open={sheet === "style"} title="Stil · alege până la 3" onClose={() => setSheet(null)}>
+        {STYLES.map((o) => (
+          <OptionRow
+            key={o.id}
+            label={o.label}
+            multi
+            selected={styles.includes(o.id)}
+            onClick={() => setStyles((l) => toggleIn(l, o.id, 3))}
+          />
+        ))}
       </DragSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a

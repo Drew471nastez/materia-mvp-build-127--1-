@@ -396,6 +396,35 @@ html.capacitor a.no-tap-fade:active {
   .sell-sheet-leave { animation: none; will-change: auto; }
 }
 
+/* THE SHEET IS THE SIZE OF WHAT YOU CAN SEE, not of the layout viewport.
+ *
+ * `fixed inset-0` measures the LAYOUT viewport, which a software keyboard does
+ * not shrink. So the sheet kept its full height with the bottom third of it
+ * behind the keys — and the bottom of a sheet is where its two buttons are.
+ * Publish was under the keyboard the moment you typed a title, which is exactly
+ * "the bar with the buttons is not sticky": it was pinned, faithfully, to a
+ * bottom edge you could no longer see.
+ *
+ * `--vv-h` and `--vv-top` are the VISIBLE viewport, published on <html> from
+ * visualViewport by components/viewport-vars.tsx. A conversation has sized
+ * itself from them since the day the composer had the same problem (see
+ * `.thread-shell` below); the sell form is the other long form in this app and
+ * it never got the same treatment.
+ *
+ * `bottom: auto` is not optional: `inset-0` has already set bottom to 0, and a
+ * box with both a top, a bottom AND a height has one constraint too many —
+ * the height is the one the browser drops.
+ *
+ * Phone only. On a desktop the form is an ordinary page and there is no
+ * keyboard taking half the window. */
+@media (width < 48rem) {
+  .sell-sheet {
+    top: var(--vv-top, 0px);
+    bottom: auto;
+    height: var(--vv-h, 100dvh);
+  }
+}
+
 /* A listing card acknowledging the finger before anything else happens. */
 /* `.press-dim` IS GONE, and this is the note explaining why it must not return.
  *
