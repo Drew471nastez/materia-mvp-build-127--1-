@@ -342,6 +342,18 @@ export function ProductDetail({ product }: { product: any }) {
                       // picture the moment you swipe.
                       const shown = galleryRef.current?.querySelectorAll("img") ?? []
                       setPosters(images.map((_, n) => shown[n]?.currentSrc || shown[n]?.src || null))
+                      // The full-size file starts arriving NOW, not when the
+                      // viewer has mounted and React has committed a portal.
+                      // Setting `src` on a detached element is enough to begin
+                      // the fetch, and the <img> inside the viewer then finds it
+                      // in the cache — a couple of hundred milliseconds that
+                      // otherwise sit between the tap and the sharp version.
+                      // The neighbours are warmed too, because the first thing
+                      // anybody does in a gallery is swipe.
+                      for (const n of [i, i + 1, i - 1]) {
+                        const url = images[n]
+                        if (url) document.createElement("img").src = url
+                      }
                       setViewerAt(i)
                     }}
                     // `no-tap-fade`: in the app every button dims to 0.65 on

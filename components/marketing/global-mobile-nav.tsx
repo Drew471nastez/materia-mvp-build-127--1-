@@ -49,10 +49,45 @@ function isConversation(pathname: string): boolean {
   return pathname.startsWith("/messages/") && pathname.length > "/messages/".length
 }
 
+/**
+ * A listing is a screen with its own bottom bar.
+ *
+ * product-detail.tsx pins Fă o ofertă and Cumpără acum across the bottom at
+ * z-40 on a phone — the two things the entire page exists to offer. The tab bar
+ * is z-[80] and was drawn straight over them. So the primary action on the most
+ * important screen in the marketplace was underneath a row of navigation, and
+ * the page was ALSO paying for the tab bar's spacer on top of the padding it
+ * already reserves for its own, which is a step in the layout on the way in.
+ *
+ * The way out of a listing is the back arrow in the photograph, which is where
+ * every marketplace puts it.
+ */
+function isListing(pathname: string): boolean {
+  return (
+    pathname.startsWith("/products/") &&
+    !pathname.startsWith("/products/new") &&
+    !pathname.startsWith("/products/drafts")
+  )
+}
+
+/**
+ * A form is a screen too.
+ *
+ * /profile/edit has its own sticky header with the way back and the way to
+ * finish in it, and nothing below it is navigation — it is fields. A tab bar
+ * under a form is an invitation to leave halfway through, sitting on top of the
+ * last thing you were filling in.
+ */
+function isFullScreenForm(pathname: string): boolean {
+  return pathname.startsWith("/profile/edit")
+}
+
 /** Routes where a bottom bar would be in the way. */
 function suppressed(pathname: string): boolean {
   return (
     isConversation(pathname) ||
+    isListing(pathname) ||
+    isFullScreenForm(pathname) ||
     pathname.startsWith("/explore") ||
     pathname.startsWith("/checkout") ||
     pathname.startsWith("/login") ||
@@ -98,7 +133,13 @@ export function GlobalMobileNav() {
       // own navigation, so a white marketplace tab bar sat across the bottom of
       // it — a second, contradictory way to navigate, in the wrong colour, on
       // the one surface that is not the marketplace.
-      pathname.startsWith("/explore") || pathname.startsWith("/app") || isConversation(pathname)
+      pathname.startsWith("/explore") ||
+        pathname.startsWith("/app") ||
+        isConversation(pathname) ||
+        // Both of these carry their own bottom bar or their own header, and in
+        // the app the tab bar was drawn over it. See above.
+        isListing(pathname) ||
+        isFullScreenForm(pathname)
     : suppressed(pathname)
   if (hideBar) return null
 
