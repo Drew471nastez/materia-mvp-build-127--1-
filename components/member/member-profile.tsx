@@ -3,10 +3,11 @@
 import { SurfaceClaim } from "@/components/surface-claim"
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Bookmark, Pencil, Settings, Share2, Shirt, Star } from "lucide-react"
+import { Bookmark, Pencil, Settings, Share2, Star } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
+import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ProfileEditor } from "@/components/member/profile-editor"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -531,9 +532,11 @@ export function MemberProfile({
           // floor only matters in the layouts where a percentage height cannot
           // resolve, and it stays under one screen on purpose.
           <div className="flex min-h-[38svh] flex-1 flex-col items-center justify-center px-6 pb-10 pt-6 text-center">
-            <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
-              <Shirt className="h-7 w-7" />
-            </span>
+            {/* Moving, and drawn rather than played from a file — see
+                components/member/empty-shelf.tsx. An empty state is the one
+                screen with nothing on it to hold anybody's attention, which is
+                exactly why the single mark on it should be alive. */}
+            <EmptyShelf className="mb-5" />
             <p className="text-[17px] font-semibold text-neutral-900">
               {isOwner ? "Niciun articol listat" : "Niciun articol încă"}
             </p>

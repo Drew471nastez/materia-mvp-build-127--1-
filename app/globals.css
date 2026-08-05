@@ -414,6 +414,13 @@ html.capacitor a.no-tap-fade:active {
    and the arrival takes the mark off and lets it come back up. One continuous
    movement with the route change in the middle of it.
 
+   SHORT. 120ms down, 240ms back. The pair used to be 200 and 420, which is a
+   sheet's timing on a control you press dozens of times a session — soft, and
+   just long enough that the tail was something to sit through. Both curves put
+   almost all of their travel at the front, so shortening them removes waiting
+   rather than smoothness: the movement is the same shape, there is simply less
+   of it left once you have seen it.
+
    TRANSITIONS RATHER THAN AN ANIMATION, for three separate reasons:
 
      • An animation always restarts from its first keyframe. Tap Messages, then
@@ -440,7 +447,7 @@ html.capacitor a.no-tap-fade:active {
 
    Never near zero: fading up from nothing makes the first frames of every tab a
    blank white rectangle — the page announcing itself rather than being there.
-   0.86 is a shallower dip than the 0.72 it replaces, and shallower ON PURPOSE
+   0.88 is a shallower dip than the 0.72 it replaces, and shallower ON PURPOSE
    now that it is a movement rather than an entrance: a step you can see is only
    a problem if something steps, and nothing does any more. It is also small
    enough that a swap landing mid-flight (a skeleton replaced by the real page)
@@ -461,7 +468,7 @@ html.capacitor a.no-tap-fade:active {
      Direct children of the shell, not any descendant. `main` is not unique on
      this site — the feed and the explore pages each render one of their own
      inside the layout's — and a bare `main` selector would fade a page twice
-     over, at 0.86 of 0.86, which is a visibly darker first frame. */
+     over, at 0.88 of 0.88, which is a visibly darker first frame. */
   .marketing-flex-wrapper > main,
   .marketing-flex-wrapper > .native-only-topbar {
     /* THE RISE, and the resting state. Long and almost all tail: the fast part
@@ -470,7 +477,19 @@ html.capacitor a.no-tap-fade:active {
        one the feed return uses, so switching tabs and coming back from a
        listing are recognisably the same gesture rather than two effects that
        happen to live in the same app. */
-    transition: opacity 420ms cubic-bezier(0.16, 0.84, 0.44, 1);
+    /* 240ms, down from 420.
+     *
+     * The shape was right and the duration was a screen change borrowing a
+     * sheet's timing. A tab is not somewhere you arrive; it is somewhere you
+     * already were, and 420ms of settle on a control pressed dozens of times a
+     * session turns "quick and soft" into "quick and then waiting". The curve
+     * keeps almost all of its travel in the first third, so what is cut is the
+     * tail nobody was reading anyway — the difference between a fade you notice
+     * ending and one you only notice having happened.
+     *
+     * A harder ease-out than before for the same reason: at this length the
+     * front of the curve is the whole of it. */
+    transition: opacity 240ms cubic-bezier(0.12, 0.86, 0.32, 1);
   }
 
   /* THE DIP. Added by the bar on pointerdown — with the finger, not after it.
@@ -486,9 +505,17 @@ html.capacitor a.no-tap-fade:active {
      have been a tap; see dropGesture in components/explore/mobile-bottom-nav.tsx. */
   html.tab-leaving .marketing-flex-wrapper > main,
   html.tab-leaving .marketing-flex-wrapper > .native-only-topbar {
-    opacity: 0.86;
-    transition-duration: 200ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.55, 1);
+    /* Shallower AND faster. 0.88 over 120ms, from 0.86 over 200.
+     *
+     * The dip is not the animation, it is the running start — its whole job is
+     * that the screen is already moving when the route lands. At 200ms a warm
+     * route (30ms to commit) never got out of the first sixth of it, so the dip
+     * cost latency it was supposed to be hiding. At 120 the same tap is a
+     * third of the way down before the page arrives, which is enough to read as
+     * a handover and short enough that nothing is waiting on it. */
+    opacity: 0.88;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.32, 0, 0.6, 1);
   }
 
   /* The same dip, for the navigations no finger on the bar started — a
@@ -499,7 +526,7 @@ html.capacitor a.no-tap-fade:active {
      something to start FROM. */
   html.tab-arriving .marketing-flex-wrapper > main,
   html.tab-arriving .marketing-flex-wrapper > .native-only-topbar {
-    opacity: 0.86;
+    opacity: 0.88;
     transition-duration: 0ms;
   }
 }
@@ -2471,15 +2498,37 @@ html[data-keyboard="open"] .thread-composer {
      change and they are the only thing on screen the eye is following. */
   will-change: transform, opacity;
 }
+/* 340ms, down from 520 — and the overshoot raised to keep the spring.
+ *
+ * These two numbers move together, and shortening one without the other is what
+ * makes a spring feel merely fast. A bezier's overshoot is multiplied by the
+ * DISTANCE it travels, and 0.74 → 1 is a travel of 0.26 — so the peak is a
+ * fraction of a fraction, and it has to be raised as the duration comes down or
+ * there is nothing left to see.
+ *
+ * Measured in Chromium rather than reasoned about, because the arithmetic on a
+ * bezier's overshoot is easy to get wrong by an order of magnitude:
+ *
+ *   520ms at 1.30  →  peak 1.0078 at 294ms, settled by 494ms
+ *   340ms at 1.42  →  peak 1.0150 at 198ms, settled by 347ms
+ *
+ * Twice the overshoot in seventy percent of the time. The spring is more
+ * visible, not less, and it is finished sooner.
+ *
+ * Which is the point: the fill has to stay smooth — it is the one thing on the
+ * bar you are looking directly at — while the SWITCH stops waiting for it. At
+ * 520ms the icon was still settling a quarter of a second after the page had
+ * arrived (240ms), so the tab bar was the slowest thing in a navigation it is
+ * supposed to be leading. At 340 the two land together. */
 .tab-glyph-out {
   opacity: 1;
   transform: scale(1);
-  transition: opacity 300ms ease-out, transform 520ms cubic-bezier(0.34, 1.3, 0.5, 1);
+  transition: opacity 190ms ease-out, transform 340ms cubic-bezier(0.34, 1.42, 0.5, 1);
 }
 .tab-glyph-in {
   opacity: 0;
   transform: scale(0.74);
-  transition: opacity 300ms ease-out, transform 520ms cubic-bezier(0.34, 1.3, 0.5, 1);
+  transition: opacity 190ms ease-out, transform 340ms cubic-bezier(0.34, 1.42, 0.5, 1);
 }
 /* Active: the outline is absorbed — it grows very slightly as it goes, so it
    reads as being filled from within rather than as being covered up — and the
@@ -2609,6 +2658,73 @@ html[data-keyboard="open"] .thread-composer {
   background-color: #ffffff;
 }
 
+
+/* ---------------------------------------------------------------------------
+   The empty shelf
+   ---------------------------------------------------------------------------
+   The loop above "Niciun articol listat" — see components/member/empty-shelf.tsx
+   for why it is drawn rather than played from a Lottie file.
+
+   Every declaration below is `transform` or `opacity` and nothing else, which
+   is what lets the compositor run all three of these on its own thread: no
+   layout, no paint, no main-thread work per frame, and therefore no dropped
+   frames when the page underneath is fetching a grid of listings. That is also
+   the whole of "high frame rate" — an animation that never touches layout runs
+   at the display's refresh, whatever that happens to be, while a baked file
+   runs at the frame rate it was exported at and no faster.
+
+   THREE CYCLES THAT DO NOT DIVIDE INTO EACH OTHER: 3.6s, 4.4s and 5.2s. A loop
+   whose parts share a period develops a beat — everything lines up every few
+   seconds and the eye starts predicting it, which is when a background
+   animation turns into something you are watching instead of something you are
+   near. Co-prime-ish periods mean the combination takes minutes to repeat. */
+@keyframes empty-shelf-swing {
+  /* A pendulum, so its end IS its beginning and it can loop forever without a
+     seam. Eased at the extremes and quickest through the middle, because that
+     is what gravity does to a hanging object — a linear swing is the one that
+     looks wound up. */
+  0%, 100% { transform: rotate(-7deg); }
+  50%      { transform: rotate(7deg); }
+}
+@keyframes empty-shelf-breathe {
+  0%       { transform: scale(0.82); opacity: 0; }
+  35%      { opacity: 0.5; }
+  100%     { transform: scale(1.22); opacity: 0; }
+}
+@keyframes empty-shelf-spark {
+  /* Mostly absent. It appears for about a fifth of its cycle and is gone again,
+     which is what makes it read as a glint rather than as a dot that pulses. */
+  0%, 62%, 100% { transform: scale(0); opacity: 0; }
+  74%           { transform: scale(1); opacity: 1; }
+  88%           { transform: scale(0.55); opacity: 0; }
+}
+.empty-shelf-swing {
+  animation: empty-shelf-swing 3.6s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  will-change: transform;
+}
+.empty-shelf-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(124, 58, 237, 0.35);
+  animation: empty-shelf-breathe 4.4s cubic-bezier(0.33, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+}
+.empty-shelf-spark {
+  transform-origin: 37px 16px;
+  animation: empty-shelf-spark 5.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+/* Still, and still correct. The glyph says what it says without moving; an
+   animation somebody has asked their operating system to stop is not one worth
+   keeping for the sake of the effect. */
+@media (prefers-reduced-motion: reduce) {
+  .empty-shelf-swing,
+  .empty-shelf-ring,
+  .empty-shelf-spark { animation: none; }
+  .empty-shelf-ring { opacity: 0; }
+  .empty-shelf-spark { opacity: 1; transform: scale(1); }
+}
 
 /* Prevent the white body flash during page transitions in Capacitor.
    When Next.js swaps routes the bare <body> is briefly visible; #f5f5f5

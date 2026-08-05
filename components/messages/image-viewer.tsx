@@ -1,47 +1,102 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { X } from "lucide-react"
+import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 /**
- * A photo, full size.
+ * A photo, full size — in a conversation and on a listing.
  *
- * Tapping a picture in a conversation and having nothing happen is the single
- * most obvious thing missing from a chat: half the photos people send are a
- * label, a stain or a serial number, and a 240px bubble is not enough to answer
- * the question they were sent to answer.
+ * Tapping a picture and having nothing happen is the single most obvious thing
+ * missing from either. In a chat, half the photos people send are a label, a
+ * stain or a serial number, and a 240px bubble is not enough to answer the
+ * question they were sent to answer. On a listing it is worse: the whole
+ * decision to spend money on a second-hand coat is made by looking closely at
+ * photographs of it, and the gallery would not let you.
  *
- * Dismissed by dragging it down, the way every photo viewer on a phone is. The
- * image follows the finger, the black behind it thins as it goes, and letting go
- * past a threshold — or with any real speed — throws it away. Same decision rule
- * as the sheets elsewhere in the app, because a gesture that behaves differently
- * in two places is two gestures to learn.
+ * ---------------------------------------------------------------------------
+ * The three gestures, and why one pointer means two different things
+ * ---------------------------------------------------------------------------
+ * At 1x a drag is either "put this away" (down) or "show me the next one"
+ * (sideways), decided once, on the first ten pixels, and then held for the rest
+ * of that touch. Zoomed in, the same drag is "look over there" — there is
+ * nothing to dismiss and nothing to page to, because you are inside one
+ * picture. Two pointers are always a pinch. Double tap toggles between the two
+ * worlds.
  *
- * None of the drag goes through React: the transform and the backdrop's opacity
- * are written straight to the two nodes. Sixty state updates a second holding a
+ * None of it goes through React: the transforms and the backdrop's opacity are
+ * written straight to the nodes. Sixty state updates a second holding a
  * full-screen photograph is exactly the shape of a viewer that stutters.
  *
- * It also puts a real history entry behind itself, so the phone's back gesture
- * closes the picture rather than leaving the conversation. Opening a photo and
- * pressing back to find yourself in the inbox is the kind of thing that makes
- * people stop opening photos.
+ * ---------------------------------------------------------------------------
+ * Why the double tap is measured from pointer events
+ * ---------------------------------------------------------------------------
+ * It used to be counted in `onClick`, and that is a dependency on an event the
+ * browser synthesises at its own discretion. A click is only dispatched if the
+ * engine decides the gesture was a tap — a few pixels of thumb drift, a
+ * cancelled touch, or the second tap of a double being swallowed as a
+ * dblclick candidate each mean no click at all. So the gesture people try
+ * FIRST worked most of the time and, unpredictably, did not. Pointer events are
+ * dispatched whatever the gesture turns out to be, so the tap is counted from
+ * what the finger actually did: down and up within 250ms, having moved less
+ * than 12px, twice inside 300ms and within 44px of each other.
  */
 
 const SPRING = "transform 320ms cubic-bezier(0.32, 0.72, 0, 1), opacity 320ms ease"
+/** Paging is shorter and firmer than the dismiss: it is a change of subject, not
+ *  a release, and it must land before the eye goes looking for the next photo. */
+const PAGE_SPRING = "transform 300ms cubic-bezier(0.22, 0.9, 0.28, 1)"
 const DISMISS_AT = 110
 const DISMISS_VELOCITY = 0.6
 const MAX_SCALE = 4
+/** Past this the axis of a drag is settled, and it does not change again. */
+const AXIS_LOCK = 10
+/** A tap: brief, and it did not go anywhere. */
+const TAP_MS = 250
+const TAP_SLOP = 12
+/** Two taps: close together in time, and in the same place. */
+const DOUBLE_MS = 300
+const DOUBLE_SLOP = 44
 
 type View = { scale: number; x: number; y: number }
 const IDENTITY: View = { scale: 1, x: 0, y: 0 }
 
-export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: string; onClose: () => void }) {
-  const imgRef = useRef<HTMLImageElement>(null)
+export function ImageViewer({
+  src,
+  images,
+  index = 0,
+  alt,
+  onClose,
+}: {
+  /** One picture — what a conversation opens. */
+  src?: string | null
+  /** Several — what a listing's gallery opens. Takes precedence over `src`. */
+  images?: string[] | null
+  /** Which of `images` to open on. */
+  index?: number
+  alt?: string
+  onClose: () => void
+}) {
+  // One code path, whatever the caller had. A viewer that only knows how to
+  // page when it was given an array is two viewers with one name; given a list
+  // of length one, paging is simply impossible rather than special-cased.
+  const list = useMemo(() => {
+    const many = (images ?? []).filter((u): u is string => typeof u === "string" && u.length > 0)
+    if (many.length > 0) return many
+    return src ? [src] : []
+  }, [images, src])
+  const open = list.length > 0
+
+  const stageRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
+  const imgRefs = useRef<(HTMLImageElement | null)[]>([])
   const [shown, setShown] = useState(false)
+  const [i, setI] = useState(index)
+  const iRef = useRef(index)
+  iRef.current = i
 
   /**
    * Where the picture is, in one object, written straight to the node.
@@ -55,20 +110,25 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
   const view = useRef<View>({ ...IDENTITY })
   const [zoomed, setZoomed] = useState(false)
 
-  const paint = useCallback((animate: boolean) => {
-    const img = imgRef.current
-    if (!img) return
-    const v = view.current
-    img.style.transition = animate ? SPRING : "none"
-    img.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.scale})`
-  }, [])
+  const currentImg = useCallback(() => imgRefs.current[iRef.current] ?? null, [])
+
+  const paint = useCallback(
+    (animate: boolean) => {
+      const img = currentImg()
+      if (!img) return
+      const v = view.current
+      img.style.transition = animate ? SPRING : "none"
+      img.style.transform = `translate3d(${v.x}px, ${v.y}px, 0) scale(${v.scale})`
+    },
+    [currentImg],
+  )
 
   const setView = useCallback(
     (next: View, animate: boolean) => {
       // Clamped here rather than at every call site, so no gesture can leave the
       // picture smaller than the frame or dragged off the edge of it.
       const scale = Math.min(MAX_SCALE, Math.max(1, next.scale))
-      const img = imgRef.current
+      const img = currentImg()
       let { x, y } = next
       if (scale <= 1.001) {
         x = 0
@@ -85,7 +145,42 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       paint(animate)
       setZoomed(scale > 1.001)
     },
-    [paint],
+    [currentImg, paint],
+  )
+
+  /** Where the track sits for a given index, in pixels. */
+  const railFor = useCallback((n: number) => -n * (stageRef.current?.clientWidth ?? 0), [])
+
+  const placeTrack = useCallback(
+    (px: number, animate: boolean) => {
+      const track = trackRef.current
+      if (!track) return
+      track.style.transition = animate ? PAGE_SPRING : "none"
+      track.style.transform = `translate3d(${px}px, 0, 0)`
+    },
+    [],
+  )
+
+  /**
+   * Move to another photo.
+   *
+   * The zoom is reset on the way, and it has to be: arriving at a new picture
+   * already magnified 2.5× and panned to somebody else's corner is a viewer
+   * that has lost track of what you are looking at. Reset BEFORE the index
+   * changes, so it lands on the image being left rather than on the one
+   * arriving — the arriving one is at identity already and would only be
+   * animated away from it.
+   */
+  const goTo = useCallback(
+    (n: number, animate = true) => {
+      const clamped = Math.max(0, Math.min(list.length - 1, n))
+      if (view.current.scale > 1.001) setView({ ...IDENTITY }, false)
+      if (clamped !== iRef.current) void triggerHaptic("light")
+      iRef.current = clamped
+      setI(clamped)
+      placeTrack(railFor(clamped), animate)
+    },
+    [list.length, placeTrack, railFor, setView],
   )
 
   /**
@@ -100,16 +195,15 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
 
   const settle = useCallback(
     (to: "open" | "gone") => {
-      const img = imgRef.current
+      const stage = stageRef.current
       const scrim = scrimRef.current
-      if (!img || !scrim) return
-      img.style.transition = SPRING
+      if (!stage || !scrim) return
+      stage.style.transition = SPRING
       scrim.style.transition = SPRING
       if (to === "open") {
-        view.current = { ...IDENTITY }
         drop.current = { x: 0, y: 0, scale: 1 }
-        img.style.transform = "translate3d(0, 0, 0) scale(1)"
-        img.style.opacity = "1"
+        stage.style.transform = "translate3d(0, 0, 0) scale(1)"
+        stage.style.opacity = "1"
         scrim.style.opacity = "1"
       } else {
         // FROM WHERE THE FINGER LEFT IT, not from a canonical position.
@@ -125,8 +219,8 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
         // already travelling, is what makes the release read as letting go of
         // something rather than as an animation starting.
         const from = drop.current
-        img.style.transform = `translate3d(${from.x}px, ${from.y + 140}px, 0) scale(${Math.max(0.7, from.scale - 0.08)})`
-        img.style.opacity = "0"
+        stage.style.transform = `translate3d(${from.x}px, ${from.y + 140}px, 0) scale(${Math.max(0.7, from.scale - 0.08)})`
+        stage.style.opacity = "0"
         scrim.style.opacity = "0"
       }
     },
@@ -139,17 +233,37 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
   }, [onClose, settle])
 
   useEffect(() => {
-    if (!src) return
+    if (!open) return
     setShown(true)
     view.current = { ...IDENTITY }
     setZoomed(false)
-    const raf = requestAnimationFrame(() => settle("open"))
+    iRef.current = index
+    setI(index)
+    const raf = requestAnimationFrame(() => {
+      placeTrack(railFor(index), false)
+      settle("open")
+    })
     return () => cancelAnimationFrame(raf)
-  }, [src, settle])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, list[0]])
+
+  // A rotation or a resized window moves every rail by a different amount, and
+  // the track is positioned in pixels — so without this the strip ends up
+  // showing two half photos side by side.
+  useEffect(() => {
+    if (!open) return
+    const onResize = () => placeTrack(railFor(iRef.current), false)
+    window.addEventListener("resize", onResize)
+    window.addEventListener("orientationchange", onResize)
+    return () => {
+      window.removeEventListener("resize", onResize)
+      window.removeEventListener("orientationchange", onResize)
+    }
+  }, [open, placeTrack, railFor])
 
   // The phone's back gesture closes the picture, not the conversation.
   useEffect(() => {
-    if (!src) return
+    if (!open) return
     window.history.pushState({ viewer: true }, "")
     const onPop = () => close()
     window.addEventListener("popstate", onPop)
@@ -158,49 +272,87 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       if (window.history.state?.viewer) window.history.back()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src])
+  }, [open])
+
+  // Arrow keys and Escape, because on a desktop a gallery without them is a
+  // gallery you have to use a mouse for.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close()
+      else if (e.key === "ArrowRight") goTo(iRef.current + 1)
+      else if (e.key === "ArrowLeft") goTo(iRef.current - 1)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, close, goTo])
 
   // ---- gestures -------------------------------------------------------------
-  //
-  // One pointer does two different jobs depending on whether the picture is
-  // zoomed, and that is the whole design: at 1x a drag is "put this away",
-  // zoomed in it is "look over there". Two pointers are always a pinch.
   const pts = useRef(new Map<number, { x: number; y: number }>())
   const gesture = useRef({
-    mode: "none" as "none" | "drag" | "pinch",
+    mode: "none" as "none" | "undecided" | "dismiss" | "page" | "pan" | "pinch",
     startDist: 0,
     startScale: 1,
     startX: 0,
     startY: 0,
     originX: 0,
     originY: 0,
+    rail: 0,
     lastY: 0,
+    lastX: 0,
     lastT: 0,
     v: 0,
+    vx: 0,
     dy: 0,
+    dx: 0,
+    downAt: 0,
+    downX: 0,
+    downY: 0,
   })
+  /** The previous tap, for working out whether this one is the second of a pair. */
+  const lastTap = useRef({ t: 0, x: 0, y: 0 })
 
   const centreOf = () => {
-    const list = [...pts.current.values()]
-    if (!list.length) return { x: 0, y: 0 }
-    return {
-      x: list.reduce((a, p) => a + p.x, 0) / list.length,
-      y: list.reduce((a, p) => a + p.y, 0) / list.length,
-    }
+    const l = [...pts.current.values()]
+    if (!l.length) return { x: 0, y: 0 }
+    return { x: l.reduce((a, p) => a + p.x, 0) / l.length, y: l.reduce((a, p) => a + p.y, 0) / l.length }
   }
   const spreadOf = () => {
-    const list = [...pts.current.values()]
-    if (list.length < 2) return 0
-    return Math.hypot(list[0].x - list[1].x, list[0].y - list[1].y)
+    const l = [...pts.current.values()]
+    if (l.length < 2) return 0
+    return Math.hypot(l[0].x - l[1].x, l[0].y - l[1].y)
   }
+
+  /** Double tap, and double click: the one gesture everybody tries first. */
+  const toggleZoom = useCallback(
+    (clientX: number, clientY: number) => {
+      const img = currentImg()
+      if (!img) return
+      void triggerHaptic("light")
+      if (view.current.scale > 1.001) {
+        setView({ ...IDENTITY }, true)
+        return
+      }
+      const rect = img.getBoundingClientRect()
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+      const target = 2.5
+      // Zoom towards what was tapped, not towards the middle.
+      setView({ scale: target, x: (cx - clientX) * (target - 1), y: (cy - clientY) * (target - 1) }, true)
+    },
+    [currentImg, setView],
+  )
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     const g = gesture.current
-    const img = imgRef.current
-    if (img) img.style.transition = "none"
+    const stage = stageRef.current
+    if (stage) stage.style.transition = "none"
+    if (trackRef.current) trackRef.current.style.transition = "none"
     if (scrimRef.current) scrimRef.current.style.transition = "none"
+    const img = imgRefs.current[iRef.current]
+    if (img) img.style.transition = "none"
 
     if (pts.current.size === 2) {
       g.mode = "pinch"
@@ -213,15 +365,23 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       g.startY = view.current.y
       return
     }
-    g.mode = "drag"
+    // Zoomed in there is nothing to decide: one finger pans.
+    g.mode = view.current.scale > 1.001 ? "pan" : "undecided"
     g.startX = e.clientX
     g.startY = e.clientY
     g.originX = view.current.x
     g.originY = view.current.y
+    g.rail = -iRef.current * (stageRef.current?.clientWidth ?? 0)
     g.lastY = e.clientY
+    g.lastX = e.clientX
     g.lastT = performance.now()
     g.v = 0
+    g.vx = 0
     g.dy = 0
+    g.dx = 0
+    g.downAt = performance.now()
+    g.downX = e.clientX
+    g.downY = e.clientY
   }, [])
 
   const onPointerMove = useCallback(
@@ -229,9 +389,9 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       if (!pts.current.has(e.pointerId)) return
       pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
       const g = gesture.current
-      const img = imgRef.current
+      const stage = stageRef.current
       const scrim = scrimRef.current
-      if (!img || !scrim) return
+      if (!stage || !scrim) return
 
       if (g.mode === "pinch" && pts.current.size >= 2) {
         const dist = spreadOf() || 1
@@ -240,39 +400,52 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
         // The point under the fingers stays under the fingers: without
         // anchoring, a pinch zooms towards the middle of the image and whatever
         // you were actually looking at slides away from you.
-        setView(
-          {
-            scale,
-            x: g.startX + (c.x - g.originX),
-            y: g.startY + (c.y - g.originY),
-          },
-          false,
-        )
+        setView({ scale, x: g.startX + (c.x - g.originX), y: g.startY + (c.y - g.originY) }, false)
         return
       }
 
-      if (g.mode !== "drag") return
       const dx = e.clientX - g.startX
       const dy = e.clientY - g.startY
+      g.dx = dx
+      g.dy = dy
 
-      if (view.current.scale > 1.001) {
-        // Zoomed: this is a pan, and there is nothing to dismiss.
+      const now = performance.now()
+      const dt = now - g.lastT
+      if (dt > 0) {
+        g.v = (e.clientY - g.lastY) / dt
+        g.vx = (e.clientX - g.lastX) / dt
+      }
+      g.lastY = e.clientY
+      g.lastX = e.clientX
+      g.lastT = now
+
+      if (g.mode === "pan") {
         setView({ scale: view.current.scale, x: g.originX + dx, y: g.originY + dy }, false)
         return
       }
 
-      const now = performance.now()
-      const dt = now - g.lastT
-      if (dt > 0) g.v = (e.clientY - g.lastY) / dt
-      g.lastY = e.clientY
-      g.lastT = now
-      g.dy = dy
+      // ONE DECISION, ONCE. A drag that re-picks its axis mid-gesture is a
+      // photo that starts sliding sideways, changes its mind and falls
+      // downwards — which is what an inbox row does when its swipe is fighting
+      // the scroller, and the reason that rule exists there too.
+      if (g.mode === "undecided") {
+        if (Math.hypot(dx, dy) < AXIS_LOCK) return
+        g.mode = Math.abs(dx) > Math.abs(dy) && list.length > 1 ? "page" : "dismiss"
+      }
+
+      if (g.mode === "page") {
+        // Resisted at the two ends rather than stopped. A strip that will not
+        // move says "there is nothing there" far more clearly than one that
+        // simply ignores you.
+        const atEnd = (iRef.current === 0 && dx > 0) || (iRef.current === list.length - 1 && dx < 0)
+        placeTrack(g.rail + (atEnd ? dx * 0.32 : dx), false)
+        return
+      }
 
       // BOTH AXES. A dismiss drag that only moves vertically is a picture stuck
       // on a rail: your finger goes one way and the photo goes another, which
       // is the single clearest tell that a gesture is being interpreted rather
-      // than followed. Every photo viewer worth the comparison lets it track
-      // sideways too — it is the same picture, in your hand.
+      // than followed.
       //
       // Upward travel is damped to a third because there is nothing up there to
       // dismiss to; sideways is damped a little as well, so the drag still
@@ -281,20 +454,21 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       const slide = dx * 0.6
       const scale = Math.max(0.72, 1 - Math.abs(travel) / 1200)
       drop.current = { x: slide, y: travel, scale }
-      img.style.transform = `translate3d(${slide}px, ${travel}px, 0) scale(${scale})`
+      stage.style.transform = `translate3d(${slide}px, ${travel}px, 0) scale(${scale})`
       scrim.style.opacity = String(Math.max(0, 1 - Math.abs(travel) / 420))
     },
-    [setView],
+    [list.length, placeTrack, setView],
   )
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
       pts.current.delete(e.pointerId)
       const g = gesture.current
+
       if (pts.current.size === 1 && g.mode === "pinch") {
         // One finger lifted mid-pinch — carry on as a pan from where it is.
         const remaining = [...pts.current.values()][0]
-        g.mode = "drag"
+        g.mode = "pan"
         g.startX = remaining.x
         g.startY = remaining.y
         g.originX = view.current.x
@@ -309,45 +483,61 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
         g.mode = "none"
         return
       }
-      if (g.mode === "drag" && view.current.scale <= 1.001) {
+
+      // A TAP — measured from the pointer, not from a click the browser may
+      // never dispatch. See the note at the top of this file.
+      const brief = performance.now() - g.downAt < TAP_MS
+      const still = Math.hypot(e.clientX - g.downX, e.clientY - g.downY) < TAP_SLOP
+      if ((g.mode === "undecided" || g.mode === "pan") && brief && still) {
+        const prev = lastTap.current
+        const now = performance.now()
+        if (now - prev.t < DOUBLE_MS && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DOUBLE_SLOP) {
+          lastTap.current = { t: 0, x: 0, y: 0 }
+          toggleZoom(e.clientX, e.clientY)
+        } else {
+          lastTap.current = { t: now, x: e.clientX, y: e.clientY }
+        }
+        // Whatever the drag had started to do, undo it: a tap moved the picture
+        // by a few pixels at most and it must end up exactly where it began.
+        if (g.mode === "undecided") settle("open")
+        g.mode = "none"
+        return
+      }
+
+      if (g.mode === "page") {
+        const w = stageRef.current?.clientWidth ?? 1
+        // A third of the width, or any real flick. The velocity term is what
+        // makes a quick short swipe work — insisting on distance alone means
+        // paging only responds to slow, deliberate drags, which is the opposite
+        // of how anybody flicks through photographs.
+        const far = Math.abs(g.dx) > w / 3
+        const fast = Math.abs(g.vx) > 0.45
+        const dir = g.dx < 0 ? 1 : -1
+        goTo(far || fast ? iRef.current + dir : iRef.current)
+        g.mode = "none"
+        return
+      }
+
+      if (g.mode === "dismiss") {
         if (g.dy > DISMISS_AT || g.v > DISMISS_VELOCITY) {
           void triggerHaptic("light")
           close()
         } else {
           settle("open")
         }
+      } else if (g.mode === "pan") {
+        setView(view.current, true)
       }
       g.mode = "none"
     },
-    [close, settle, setView],
-  )
-
-  /** Double tap, and double click: the one gesture everybody tries first. */
-  const lastTap = useRef(0)
-  const toggleZoom = useCallback(
-    (clientX: number, clientY: number) => {
-      const img = imgRef.current
-      if (!img) return
-      if (view.current.scale > 1.001) {
-        setView({ ...IDENTITY }, true)
-        return
-      }
-      const rect = img.getBoundingClientRect()
-      const cx = rect.left + rect.width / 2
-      const cy = rect.top + rect.height / 2
-      const target = 2.5
-      // Zoom towards what was tapped, not towards the middle.
-      setView({ scale: target, x: (cx - clientX) * (target - 1), y: (cy - clientY) * (target - 1) }, true)
-      void triggerHaptic("light")
-    },
-    [setView],
+    [close, goTo, settle, setView, toggleZoom],
   )
 
   /** Desktop: the wheel zooms, anchored under the cursor. */
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault()
-      const img = imgRef.current
+      const img = currentImg()
       if (!img) return
       const rect = img.getBoundingClientRect()
       const cx = rect.left + rect.width / 2
@@ -355,56 +545,138 @@ export function ImageViewer({ src, alt, onClose }: { src: string | null; alt?: s
       const v = view.current
       const next = Math.min(MAX_SCALE, Math.max(1, v.scale * (1 - e.deltaY / 400)))
       const k = next / v.scale
-      setView({ scale: next, x: cx - (cx - v.x - cx) * k - cx + (v.x + (cx - e.clientX) * (k - 1)), y: v.y + (cy - e.clientY) * (k - 1) }, false)
+      // Both axes by the same rule. The x term used to be an unreadable
+      // expression with `cx` added and subtracted from itself twice over, and
+      // it did not compute the same thing as the y one — so zooming with a
+      // wheel drifted sideways while holding its vertical anchor, which reads
+      // as the picture sliding out from under the cursor.
+      setView(
+        { scale: next, x: v.x + (cx - e.clientX) * (k - 1), y: v.y + (cy - e.clientY) * (k - 1) },
+        false,
+      )
     },
-    [setView],
+    [currentImg, setView],
   )
 
-  if (!src || !shown || typeof document === "undefined") return null
+  if (!open || !shown || typeof document === "undefined") return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[110] overflow-hidden" role="dialog" aria-modal="true">
       <div ref={scrimRef} className="absolute inset-0 bg-black" style={{ opacity: 0 }} onClick={close} />
 
       <button
         type="button"
         aria-label="Închide"
         onClick={close}
-        className="absolute right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-transform active:scale-90"
+        className="absolute right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-transform active:scale-90"
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
       >
         <X className="h-5 w-5" />
       </button>
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        ref={imgRef}
-        src={src}
-        alt={alt || "Fotografie"}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onWheel={onWheel}
-        onDoubleClick={(e) => toggleZoom(e.clientX, e.clientY)}
-        onClick={(e) => {
-          // Touch has no dblclick, so it is measured here.
-          const now = Date.now()
-          if (now - lastTap.current < 280) {
-            lastTap.current = 0
-            toggleZoom(e.clientX, e.clientY)
-          } else {
-            lastTap.current = now
-          }
-        }}
-        draggable={false}
-        className={cn(
-          "relative max-h-[88vh] max-w-[94vw] select-none rounded-lg object-contain will-change-transform",
-          zoomed ? "cursor-zoom-out" : "cursor-zoom-in",
-        )}
-        style={{ transform: "translate3d(0, 60px, 0) scale(0.92)", opacity: 0, touchAction: "none" }}
-      />
+      {list.length > 1 && (
+        <div
+          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 text-[12.5px] font-semibold text-white tabular-nums backdrop-blur-sm"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
+        >
+          {i + 1} / {list.length}
+        </div>
+      )}
+
+      {/* The stage carries the dismiss; the track inside it carries the paging.
+          Two transforms on two elements rather than one composed by hand: they
+          are driven by different gestures at different moments, and composing
+          them would mean every drag having to know what the other one had
+          already done to the matrix. */}
+      <div
+        ref={stageRef}
+        className="absolute inset-0"
+        style={{ transform: "translate3d(0, 60px, 0) scale(0.92)", opacity: 0, willChange: "transform, opacity" }}
+      >
+        <div ref={trackRef} className="flex h-full w-full will-change-transform">
+          {list.map((url, n) => (
+            <div
+              key={`${url}-${n}`}
+              // Tapping the black closes it. The stage now covers the whole
+              // viewport — it has to, because the strip slides across it — so
+              // the scrim underneath can no longer be reached, and without this
+              // the one gesture everybody uses to dismiss a full-screen photo
+              // stopped working the moment paging was added. `e.target === e.currentTarget`
+              // is what keeps it to the empty space: a click that came from the
+              // photograph itself is a tap on the photograph.
+              onClick={(e) => {
+                if (e.target === e.currentTarget) close()
+              }}
+              className="flex h-full w-full shrink-0 items-center justify-center"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={(el) => {
+                  imgRefs.current[n] = el
+                }}
+                src={url}
+                alt={n === i ? alt || "Fotografie" : ""}
+                // Only the photo you are on answers the finger. Without this a
+                // drag begun on the sliver of the next picture showing at the
+                // edge mid-swipe would pan a photo that is not on screen.
+                onPointerDown={n === i ? onPointerDown : undefined}
+                onPointerMove={n === i ? onPointerMove : undefined}
+                onPointerUp={n === i ? onPointerUp : undefined}
+                onPointerCancel={n === i ? onPointerUp : undefined}
+                onWheel={n === i ? onWheel : undefined}
+                onDoubleClick={n === i ? (e) => toggleZoom(e.clientX, e.clientY) : undefined}
+                draggable={false}
+                // `decoding="sync"` on the one being looked at: an async decode
+                // is what makes a paged photo appear a beat after it arrives.
+                decoding={n === i ? "sync" : "async"}
+                loading={Math.abs(n - i) <= 1 ? "eager" : "lazy"}
+                className={cn(
+                  "max-h-[88vh] max-w-[94vw] select-none rounded-lg object-contain",
+                  n === i && "will-change-transform",
+                  n === i ? (zoomed ? "cursor-zoom-out" : "cursor-zoom-in") : "cursor-default",
+                )}
+                style={{ touchAction: "none" }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Arrows on a pointer device only. On a phone they would sit under the
+          thumb that is already swiping. */}
+      {list.length > 1 && (
+        <>
+          <Arrow side="left" disabled={i === 0} onClick={() => goTo(i - 1)} />
+          <Arrow side="right" disabled={i === list.length - 1} onClick={() => goTo(i + 1)} />
+        </>
+      )}
     </div>,
     document.body,
+  )
+}
+
+function Arrow({
+  side,
+  disabled,
+  onClick,
+}: {
+  side: "left" | "right"
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={side === "left" ? "Fotografia anterioară" : "Fotografia următoare"}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "absolute top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur-sm transition-all md:flex",
+        "hover:bg-white/20 active:scale-90 disabled:pointer-events-none disabled:opacity-0",
+        side === "left" ? "left-4" : "right-4",
+      )}
+    >
+      {side === "left" ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+    </button>
   )
 }

@@ -23,6 +23,7 @@ import {
   STYLES,
   categoryLabelFor,
 } from "@/lib/marketplace/listing-taxonomy"
+import { ImageViewer } from "@/components/messages/image-viewer"
 import { cn } from "@/lib/utils"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
@@ -144,6 +145,8 @@ export function ProductDetail({ product }: { product: any }) {
   const galleryRef = useRef<HTMLDivElement>(null)
 
   const images = photos(product.thumbnail_url, product.gallery_urls)
+  /** Which photo the full-size viewer is on, or null when it is closed. */
+  const [viewerAt, setViewerAt] = useState<number | null>(null)
   const seller = product.creator?.profile
   const sellerName = seller?.display_name || seller?.username || "Storelib"
   const storeUrl = seller?.username ? getStoreUrl(seller.username) : "#"
@@ -298,17 +301,41 @@ export function ProductDetail({ product }: { product: any }) {
             {(images.length ? images : [null]).map((src, i) => (
               <div key={i} className="relative aspect-[3/4] w-full shrink-0 snap-center bg-neutral-100">
                 {src ? (
-                  <Image
-                    src={src}
-                    alt={product.title}
-                    fill
-                    sizes="(min-width: 768px) 50vw, 100vw"
-                    quality={68}
-                    className="object-cover"
-                    placeholder="blur"
-                    blurDataURL={BLUR}
-                    priority={i === 0}
-                  />
+                  // TAPPING THE PHOTOGRAPH OPENS IT.
+                  //
+                  // Buying a second-hand coat is a decision made by looking
+                  // closely at pictures of it — at the cuffs, at the label, at
+                  // the mark the seller mentioned — and the gallery would not
+                  // let you. It scrolled sideways at one fixed size, cropped to
+                  // 3:4, and that was all it did. Everybody tries the tap; it
+                  // did nothing.
+                  //
+                  // The same viewer the conversation uses, given the whole
+                  // gallery and the index you were on, so pinch, double tap and
+                  // swipe-between behave identically wherever a photo is opened
+                  // in this app. `object-cover` up here means what you see is a
+                  // crop; the viewer is where the picture is whole.
+                  <button
+                    type="button"
+                    aria-label={`Deschide fotografia ${i + 1}`}
+                    onClick={() => {
+                      void triggerHaptic("light")
+                      setViewerAt(i)
+                    }}
+                    className="absolute inset-0 h-full w-full cursor-zoom-in"
+                  >
+                    <Image
+                      src={src}
+                      alt={product.title}
+                      fill
+                      sizes="(min-width: 768px) 50vw, 100vw"
+                      quality={68}
+                      className="object-cover"
+                      placeholder="blur"
+                      blurDataURL={BLUR}
+                      priority={i === 0}
+                    />
+                  </button>
                 ) : (
                   <div className="flex h-full items-center justify-center text-5xl">👕</div>
                 )}
@@ -554,6 +581,17 @@ export function ProductDetail({ product }: { product: any }) {
       )}
 
       <OfferSheet open={offerOpen} onClose={() => setOfferOpen(false)} listingId={product.id} priceCents={product.price_cents} />
+
+      {/* The gallery, full size. Mounted only while it is open, so a listing
+          page carries none of its gesture state until somebody asks for it. */}
+      {viewerAt !== null && images.length > 0 && (
+        <ImageViewer
+          images={images}
+          index={viewerAt}
+          alt={product.title}
+          onClose={() => setViewerAt(null)}
+        />
+      )}
     </div>
   )
 }
