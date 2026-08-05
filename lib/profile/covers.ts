@@ -23,10 +23,10 @@
  * somebody selling winter coats is a small, constant mismatch that a colour
  * field never has.
  *
- * Each is built from overlapping radial gradients over a base, which is what
- * gives them depth rather than the flat two-stop ramp that reads as a
- * placeholder. They are chosen to sit under WHITE text and a white avatar ring
- * without either fighting: mid-to-deep, never pastel and never black.
+ * Each is one soft radial highlight over a two-stop base, which is what gives
+ * them depth rather than the flat ramp that reads as a placeholder. They are
+ * chosen to sit under a white avatar ring and white glass controls without
+ * either fighting: mid-to-deep, never pastel and never black.
  *
  * ---------------------------------------------------------------------------
  * How a cover is stored
@@ -52,69 +52,102 @@ export type CoverPreset = {
 }
 
 export const COVER_PRESETS: CoverPreset[] = [
+  // Twelve, and quieter than the eight they replace.
+  //
+  // The first set was built to be obviously colourful, and on a profile that is
+  // the wrong target: a cover is a BACKDROP for a photograph of a person, a
+  // name, and a row of controls, and the more it does the less any of those
+  // read. Three fully saturated stops fighting each other is a banner competing
+  // with the thing it is behind.
+  //
+  // So each of these is one soft highlight over a two-stop base, in a narrower
+  // band of lightness — deep enough that the white avatar ring and the glass
+  // buttons stay legible, far enough from black that it never looks like a
+  // placeholder that failed to load. Named after the thing they look like
+  // rather than after a colour, which is how anybody actually picks one.
   {
     id: "iris",
     label: "Iris",
     css:
-      "radial-gradient(120% 120% at 8% 0%, rgba(167,139,250,0.95) 0%, rgba(167,139,250,0) 55%)," +
-      "radial-gradient(100% 130% at 92% 15%, rgba(236,72,153,0.55) 0%, rgba(236,72,153,0) 60%)," +
-      "linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%)",
+      "radial-gradient(115% 120% at 12% 0%, rgba(196,181,253,0.55) 0%, rgba(196,181,253,0) 58%)," +
+      "linear-gradient(145deg, #7c5cd6 0%, #4c3a94 100%)",
   },
   {
-    id: "dusk",
-    label: "Amurg",
+    id: "zori",
+    label: "Zori",
     css:
-      "radial-gradient(110% 130% at 85% 0%, rgba(251,146,60,0.85) 0%, rgba(251,146,60,0) 58%)," +
-      "radial-gradient(120% 120% at 5% 100%, rgba(124,58,237,0.75) 0%, rgba(124,58,237,0) 62%)," +
-      "linear-gradient(160deg, #db2777 0%, #7c2d92 100%)",
+      "radial-gradient(120% 120% at 85% 5%, rgba(253,186,164,0.55) 0%, rgba(253,186,164,0) 58%)," +
+      "linear-gradient(150deg, #c4677e 0%, #6d3557 100%)",
   },
   {
-    id: "atlantic",
-    label: "Atlantic",
+    id: "golf",
+    label: "Golf",
     css:
-      "radial-gradient(120% 120% at 15% 10%, rgba(56,189,248,0.85) 0%, rgba(56,189,248,0) 55%)," +
-      "radial-gradient(110% 120% at 95% 90%, rgba(45,212,191,0.6) 0%, rgba(45,212,191,0) 60%)," +
-      "linear-gradient(140deg, #0369a1 0%, #0f2f57 100%)",
+      "radial-gradient(115% 125% at 18% 8%, rgba(125,211,252,0.5) 0%, rgba(125,211,252,0) 58%)," +
+      "linear-gradient(150deg, #2b7a9b 0%, #1b3a5c 100%)",
   },
   {
-    id: "moss",
-    label: "Mușchi",
+    id: "cedru",
+    label: "Cedru",
     css:
-      "radial-gradient(120% 130% at 10% 0%, rgba(163,230,53,0.7) 0%, rgba(163,230,53,0) 55%)," +
-      "radial-gradient(110% 120% at 90% 100%, rgba(20,184,166,0.55) 0%, rgba(20,184,166,0) 58%)," +
-      "linear-gradient(150deg, #15803d 0%, #14312a 100%)",
+      "radial-gradient(118% 120% at 15% 0%, rgba(190,225,175,0.45) 0%, rgba(190,225,175,0) 56%)," +
+      "linear-gradient(150deg, #4a7f5c 0%, #24402f 100%)",
   },
   {
-    id: "ember",
-    label: "Jar",
+    id: "chihlimbar",
+    label: "Chihlimbar",
     css:
-      "radial-gradient(120% 120% at 20% 0%, rgba(251,191,36,0.85) 0%, rgba(251,191,36,0) 52%)," +
-      "radial-gradient(120% 130% at 88% 95%, rgba(220,38,38,0.7) 0%, rgba(220,38,38,0) 60%)," +
-      "linear-gradient(145deg, #c2410c 0%, #5b1a12 100%)",
+      "radial-gradient(120% 120% at 20% 0%, rgba(253,224,171,0.6) 0%, rgba(253,224,171,0) 55%)," +
+      "linear-gradient(150deg, #c07a3e 0%, #6b3d24 100%)",
   },
   {
-    id: "slate",
-    label: "Ardezie",
+    id: "grafit",
+    label: "Grafit",
     css:
-      "radial-gradient(120% 120% at 12% 5%, rgba(148,163,184,0.6) 0%, rgba(148,163,184,0) 55%)," +
-      "radial-gradient(110% 120% at 92% 95%, rgba(99,102,241,0.5) 0%, rgba(99,102,241,0) 58%)," +
-      "linear-gradient(150deg, #334155 0%, #16202e 100%)",
+      "radial-gradient(120% 120% at 14% 4%, rgba(203,213,225,0.35) 0%, rgba(203,213,225,0) 58%)," +
+      "linear-gradient(150deg, #4b5563 0%, #232a35 100%)",
   },
   {
-    id: "bloom",
-    label: "Petale",
+    id: "piatra",
+    label: "Piatră",
     css:
-      "radial-gradient(115% 125% at 88% 5%, rgba(244,114,182,0.85) 0%, rgba(244,114,182,0) 55%)," +
-      "radial-gradient(120% 120% at 8% 92%, rgba(129,140,248,0.65) 0%, rgba(129,140,248,0) 58%)," +
-      "linear-gradient(140deg, #9d174d 0%, #4a1d5e 100%)",
+      "radial-gradient(120% 120% at 82% 6%, rgba(231,215,196,0.5) 0%, rgba(231,215,196,0) 58%)," +
+      "linear-gradient(150deg, #8a7461 0%, #453930 100%)",
   },
   {
-    id: "sand",
-    label: "Nisip",
+    id: "ceata",
+    label: "Ceață",
     css:
-      "radial-gradient(120% 120% at 15% 0%, rgba(253,224,71,0.7) 0%, rgba(253,224,71,0) 52%)," +
-      "radial-gradient(110% 130% at 95% 100%, rgba(217,119,6,0.6) 0%, rgba(217,119,6,0) 60%)," +
-      "linear-gradient(150deg, #a16207 0%, #4a2c10 100%)",
+      "radial-gradient(120% 125% at 16% 0%, rgba(214,228,240,0.5) 0%, rgba(214,228,240,0) 58%)," +
+      "linear-gradient(150deg, #64748b 0%, #33414f 100%)",
+  },
+  {
+    id: "pruna",
+    label: "Prună",
+    css:
+      "radial-gradient(115% 120% at 88% 8%, rgba(232,164,200,0.5) 0%, rgba(232,164,200,0) 56%)," +
+      "linear-gradient(150deg, #8e3f74 0%, #45204a 100%)",
+  },
+  {
+    id: "cobalt",
+    label: "Cobalt",
+    css:
+      "radial-gradient(118% 120% at 14% 2%, rgba(165,180,252,0.5) 0%, rgba(165,180,252,0) 58%)," +
+      "linear-gradient(150deg, #3d5bbd 0%, #1e2a63 100%)",
+  },
+  {
+    id: "menta",
+    label: "Mentă",
+    css:
+      "radial-gradient(120% 120% at 84% 4%, rgba(167,232,214,0.5) 0%, rgba(167,232,214,0) 58%)," +
+      "linear-gradient(150deg, #2f8878 0%, #17403c 100%)",
+  },
+  {
+    id: "carbune",
+    label: "Cărbune",
+    css:
+      "radial-gradient(120% 120% at 50% 0%, rgba(148,163,184,0.28) 0%, rgba(148,163,184,0) 60%)," +
+      "linear-gradient(150deg, #33373d 0%, #17191c 100%)",
   },
 ]
 
@@ -161,6 +194,17 @@ export function resolveCover(coverUrl: string | null | undefined, userId: string
 /** The longest a bio may be. Long enough for three sentences, short enough that
  *  the header stays a header rather than becoming a page of its own. */
 export const MAX_BIO_CHARS = 240
+
+/** A display name is one line. Long enough for a full name or a shop name,
+ *  short enough that the header cannot be pushed onto three lines. */
+export const MAX_NAME_CHARS = 40
+
+/** One line, always — newlines pasted in from anywhere become spaces rather
+ *  than turning a heading into a paragraph. */
+export function normaliseName(input: unknown): string {
+  if (typeof input !== "string") return ""
+  return input.replace(/\s+/g, " ").trim().slice(0, MAX_NAME_CHARS)
+}
 
 /** Normalised the same way on the server and in the editor's counter, so the
  *  count somebody is typing against is the count that will be enforced. */

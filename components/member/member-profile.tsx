@@ -3,15 +3,16 @@
 import { SurfaceClaim } from "@/components/surface-claim"
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Bookmark, Pencil, Settings, Share2, Star } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
-import { ProfileEditor } from "@/components/member/profile-editor"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
-import { resolveCover } from "@/lib/profile/covers"
+import { beginTabLeave } from "@/lib/tab-leave"
+import { defaultCoverFor, resolveCover } from "@/lib/profile/covers"
 import { cn } from "@/lib/utils"
 
 /**
@@ -222,28 +223,20 @@ export function MemberProfile({
   const fetchedReviews = useSellerReviews(reviewsFromServer === undefined ? member.id : null)
   const reviews = reviewsFromServer === undefined ? fetchedReviews : reviewsFromServer
 
-  /**
-   * The cover and the bio, held here so an edit shows on the screen behind the
-   * editor rather than after it closes. The server is still the truth — the
-   * editor calls `router.refresh()` — but a colour you are choosing has to be
-   * visible against your own avatar while you choose it, and a round trip is
-   * far too long to be the thing that shows it to you.
-   */
-  const [editing, setEditing] = useState(false)
-  const [local, setLocal] = useState<{ bio: string | null; cover: string | null }>({
-    bio: member.bio ?? null,
-    cover: member.coverUrl ?? null,
-  })
-  // The server re-rendered underneath us — a refresh, a navigation back to this
-  // page — so what it says wins again. Without this, an edit made in one
-  // session would keep overriding a later, truer value for the life of the
-  // mount.
-  useEffect(() => {
-    setLocal({ bio: member.bio ?? null, cover: member.coverUrl ?? null })
-  }, [member.bio, member.coverUrl])
-
-  const cover = resolveCover(local.cover, member.id)
-  const bio = local.bio
+  // Straight from the server, with nothing mirrored in local state.
+  //
+  // These used to be held in a `useState` seeded from the props, so the editor
+  // that opened over this screen could show a choice before it had been saved.
+  // The editor is a page of its own now (/profile/edit), and what came back was
+  // a copy of the truth that had to be kept in step with it by an effect — the
+  // exact shape of the bug where a value is correct on the server and stale in
+  // memory. There is no second copy to disagree any more.
+  const cover = resolveCover(member.coverUrl, member.id)
+  /** What the band is when there is no photograph, and what sits behind one
+   *  while it loads. `resolveCover` already falls back to this, so reading it
+   *  again here cannot disagree with what is drawn. */
+  const fallbackPreset = cover.kind === "preset" ? cover.preset : defaultCoverFor(member.id)
+  const bio = member.bio ?? null
 
   const name = member.displayName || member.username || "Storelib"
   const joined = joinedLabel(member.joinedAt, language)
@@ -345,12 +338,36 @@ export function MemberProfile({
         // this element happens to have an inline `style` depends on whether the
         // cover is a preset or an uploaded photograph, and that is not what the
         // rule is about.
-        className="profile-cover profile-cover-live relative -mx-4 overflow-hidden bg-neutral-100 md:-mx-8 md:rounded-3xl"
-        style={cover.kind === "preset" ? { background: cover.preset.css } : undefined}
+        className="profile-cover profile-cover-live relative -mx-4 overflow-hidden md:-mx-8 md:rounded-3xl"
+        // THE PRESET IS ALWAYS PAINTED, even under an uploaded photograph.
+        //
+        // The box used to be `bg-neutral-100` while a cover image loaded, so an
+        // account with a photograph showed a grey hole at the top of the screen
+        // and then the picture appeared in it. That is the "empty space, then
+        // the image loads badly": a placeholder of the wrong colour is worse
+        // than none, because it announces that something is missing.
+        //
+        // The account's own preset costs nothing to draw — it is a gradient,
+        // there is nothing to fetch or decode — so the band is the right colour
+        // from the first frame whatever happens next, and a photograph that is
+        // slow, or never arrives at all, degrades to the cover the account
+        // would have had anyway.
+        style={{ background: fallbackPreset.css }}
       >
         {cover.kind === "image" && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          // next/image rather than a bare tag: it serves an AVIF or WebP sized
+          // for this viewport instead of the full-resolution original somebody
+          // photographed on a phone, which on a cover — the largest image on
+          // the page and the first one requested — is the difference between a
+          // band that is there and one that arrives.
+          <Image
+            src={cover.url}
+            alt=""
+            fill
+            priority
+            sizes="(min-width: 1100px) 1100px, 100vw"
+            className="object-cover"
+          />
         )}
         {/* A floor under the buttons. A white glyph on a photograph is legible
             over a dark sky and invisible over a pale one, and there is no way
@@ -377,7 +394,7 @@ export function MemberProfile({
               <CoverButton label="Salvate" href="/wishlist">
                 <Bookmark className="h-[17px] w-[17px]" />
               </CoverButton>
-              <CoverButton label="Editează profilul" onClick={() => setEditing(true)}>
+              <CoverButton label="Editează profilul" href="/profile/edit">
                 <Pencil className="h-[17px] w-[17px]" />
               </CoverButton>
               <CoverButton label="Setări" href="/settings">
@@ -426,13 +443,24 @@ export function MemberProfile({
             part of the reference layout that cannot survive being handed to
             users: it is legible over the picture the designer chose and over
             nothing else. */}
-        <div className="min-w-0 flex-1 pt-3">
+        {/* Pushed to the right edge, which is where the one control on this row
+            belongs. Left-aligned it sat in the middle of the header, beside an
+            avatar and in front of nothing — a button with a column of empty
+            space after it reads as unfinished, and on a wide screen it was
+            marooned a long way from anything. Every profile surface puts this
+            control in the top-right corner of the header row. */}
+        <div className="flex min-w-0 flex-1 justify-end pt-3">
           {isOwner ? (
-            <button
-              type="button"
+            <Link
+              href="/profile/edit"
+              prefetch
+              // Leaves the same way a conversation does: the screen behind eases
+              // down with the finger and the subpage carries on from there,
+              // rather than the profile sitting still until the route commits.
+              // See lib/tab-leave.ts.
               onClick={() => {
                 void triggerHaptic("light")
-                setEditing(true)
+                beginTabLeave()
               }}
               className={cn(
                 "no-tap-fade relative inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800",
@@ -441,7 +469,7 @@ export function MemberProfile({
               )}
             >
               Editează profilul
-            </button>
+            </Link>
           ) : (
             <FollowButton userId={member.id} variant="quiet" />
           )}
@@ -452,10 +480,19 @@ export function MemberProfile({
           column left over beside the avatar. At 375px that column is about a
           hundred pixels once the avatar and the button have taken theirs, which
           is where "Membr…" and every other truncated line came from. */}
-      <h1 className="mt-3 truncate text-[22px] font-bold tracking-[-0.015em] text-neutral-900 md:text-[28px] lg:text-[32px]">
+      {/* The line height is STATED, not inherited.
+          
+          /profile/loading.tsx reserves a box for each of these a beat earlier,
+          and a line box that depends on whatever the document happens to set
+          means the two can disagree — which is a few pixels of vertical shift
+          on every arrival, in the part of the page the eye is fixed on. Every
+          measurement below has a counterpart in that file. */}
+      <h1 className="mt-3 truncate text-[22px] font-bold leading-[28px] tracking-[-0.015em] text-neutral-900 md:text-[28px] md:leading-[34px] lg:text-[32px] lg:leading-[38px]">
         {name}
       </h1>
-      <p className="truncate text-[13.5px] text-neutral-500 md:text-[15px]">@{member.username}</p>
+      <p className="truncate text-[13.5px] leading-[18px] text-neutral-500 md:text-[15px] md:leading-[20px]">
+        @{member.username}
+      </p>
 
       {/* Reviews strip — appears only once the seller has at least one
           review, so a new seller isn't introduced by an empty zero. */}
@@ -552,7 +589,24 @@ export function MemberProfile({
           // height here is what made a page with nothing on it scroll. The svh
           // floor only matters in the layouts where a percentage height cannot
           // resolve, and it stays under one screen on purpose.
-          <div className="flex min-h-[38svh] flex-1 flex-col items-center justify-center px-6 pb-10 pt-6 text-center">
+          // CENTRED, AND ACTUALLY CENTRED.
+          //
+          // It was `pt-6 pb-10`, so the block was pushed four pixels of padding
+          // shy of a quarter of an inch above where "centred" would put it, and
+          // then the whole page ended with ten more below the button — a strip
+          // of empty white under the last thing on the screen that nothing
+          // stood in for. Symmetrical padding means the space above the hanger
+          // and the space below the button are the same, which is the only
+          // arrangement that reads as deliberate when there is nothing else on
+          // the screen to compare it against.
+          //
+          // The `min-h-[38svh]` floor is gone too. `flex-1` already takes
+          // everything left between the heading and the bottom of the column,
+          // and a viewport-relative minimum on top of that is a second, louder
+          // opinion about the same height — on a short screen it forced the
+          // page taller than the window and gave a profile with nothing on it
+          // something to scroll.
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
             {/* Moving, and drawn rather than played from a file — see
                 components/member/empty-shelf.tsx. An empty state is the one
                 screen with nothing on it to hold anybody's attention, which is
@@ -595,15 +649,6 @@ export function MemberProfile({
         )}
       </section>
 
-      {editing && (
-        <ProfileEditor
-          userId={member.id}
-          initialBio={bio}
-          initialCover={local.cover}
-          onClose={() => setEditing(false)}
-          onApplied={setLocal}
-        />
-      )}
 
       {/* One line, on the one action with no other way of confirming itself.
           A share sheet closes over the app and that IS the confirmation; a

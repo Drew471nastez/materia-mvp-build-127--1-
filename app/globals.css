@@ -2634,9 +2634,28 @@ html[data-keyboard="open"] .thread-composer {
  * still clear the clock. On the web the inset is zero and every term here
  * vanishes, which is correct: there is a header above it there, and a cover
  * that ran under a header would be a cover with a header sitting on it. */
+/* IT STOPS BELOW THE CLOCK.
+ *
+ * It used to be pulled up by the safe-area inset so the colour began at the
+ * physical top of the display, on the reasoning that a band which stops at the
+ * bottom edge of the status bar leaves a seam. In practice it put a photograph
+ * — anybody's photograph — directly behind the time, the battery and the
+ * signal bars, which are white glyphs the system draws and does not adapt.
+ * Over a pale cover they disappear; over a busy one they are unreadable; and
+ * the strip is exactly where the eye lands first. A cover is content, and
+ * content does not go under the system's own chrome.
+ *
+ * There is no seam left to avoid, either: the strip above is the transparent
+ * spacer GlobalMobileTopBar reserves on this route, over the white the surface
+ * claim declares. White above a coloured band is a boundary; white above a
+ * band that is trying to be behind it is a mistake you can see.
+ *
+ * Which also removes the shift. The negative margin was in the layout while
+ * the spacer above it was in the flow, so the two had to agree exactly on a
+ * value that is zero on the web, non-zero in the app, and different on every
+ * device — and any disagreement is a jump at the top of the page on arrival. */
 .profile-cover {
-  height: calc(148px + env(safe-area-inset-top, 0px));
-  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  height: 148px;
 }
 
 /* The handover from the loading shell.
@@ -2667,13 +2686,8 @@ html[data-keyboard="open"] .thread-composer {
 @media (prefers-reduced-motion: reduce) {
   .profile-cover-live { animation: none; }
 }
-/* The controls sit below the clock rather than behind it. Read as a variable so
-   the markup states the intent and this file owns the number. */
-.profile-cover {
-  --cover-inset: env(safe-area-inset-top, 0px);
-}
 @media (min-width: 768px) {
-  .profile-cover { height: 210px; margin-top: 0; --cover-inset: 0px; }
+  .profile-cover { height: 210px; }
 }
 
 /* The profile paints its own white, because the canvas behind it is no longer

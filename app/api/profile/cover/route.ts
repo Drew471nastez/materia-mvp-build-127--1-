@@ -100,7 +100,10 @@ export async function POST(req: NextRequest) {
   // uploaded object with nothing pointing at it is a file nobody can see and
   // nobody will ever clean up, and the gap between the two calls is exactly
   // where a closed tab leaves one behind.
-  const { error: saveError } = await supabase.from("profiles").update({ cover_url: publicUrl }).eq("id", user.id)
+  // Service role, scoped to the session's own id — see the note in
+  // app/api/profile/route.ts. A write that depends on a row-owner policy the
+  // project may not have is a write that silently changes nothing.
+  const { error: saveError } = await admin.from("profiles").update({ cover_url: publicUrl }).eq("id", user.id)
   if (saveError) {
     if ((saveError as { code?: string }).code === "42703") {
       return NextResponse.json(

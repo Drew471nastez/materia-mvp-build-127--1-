@@ -35,36 +35,42 @@ export default function ProfileLoading() {
           stepped through both. See member-profile.tsx. */}
       <SurfaceClaim colour="#ffffff" />
 
-      {/* `.profile-cover` carries the geometry, including the pull up into the
-          status bar — the same class the real screen uses, so the band does not
-          change height or position by an inset at the swap. */}
-      {/* Still, and pale. A pulsing grey band that then snaps to a saturated
+      {/* `.profile-cover` carries the geometry — the same class the real screen
+          uses, so the band cannot change height or position at the swap.
+          
+          Still, and pale. A pulsing grey band that then snaps to a saturated
           gradient is two jarring things where there should be none: the pulse
           draws the eye to the top of the screen, and the snap happens there
           while it is looking. A calm neutral that the real cover dissolves into
-          is the whole handover — see the fade on `.profile-cover`. */}
+          is the whole handover — see the fade on `.profile-cover-live`. */}
       <div aria-hidden className="profile-cover relative -mx-4 overflow-hidden bg-neutral-100 md:-mx-8 md:rounded-3xl" />
 
       {/* The avatar straddles the cover's bottom edge, so its negative margin
           has to match the real one exactly or everything under it steps. */}
       <div className="relative flex items-start gap-4 md:gap-6">
         <div className="-mt-11 h-[88px] w-[88px] shrink-0 animate-pulse rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:-mt-14 md:h-28 md:w-28 lg:h-32 lg:w-32" />
-        <div className="min-w-0 flex-1 pt-3">
+        <div className="flex min-w-0 flex-1 justify-end pt-3">
           <span className="inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800">
             Editează profilul
           </span>
         </div>
       </div>
 
-      {/* Name and handle, on the full measure below the header row. */}
-      <div className="mt-3 h-[27px] w-44 animate-pulse rounded bg-neutral-100 md:h-[34px]" />
-      <div className="mt-1.5 h-3.5 w-28 animate-pulse rounded bg-neutral-100" />
+      {/* Name and handle, on the full measure below the header row. Every box
+          here is the line height its counterpart in member-profile.tsx states
+          explicitly, so nothing steps when the real screen replaces this one. */}
+      <div className="mt-3 flex h-[28px] items-center md:h-[34px] lg:h-[38px]">
+        <div className="h-5 w-44 animate-pulse rounded bg-neutral-100 md:h-6" />
+      </div>
+      <div className="flex h-[18px] items-center md:h-[20px]">
+        <div className="h-3 w-28 animate-pulse rounded bg-neutral-100" />
+      </div>
 
-      {/* "Membru din …", on its own full-width row exactly as the real screen
-          places it — the header above has no room to hold it at 375px. The
-          fixed height is the real line box, so the stats card below it starts
-          at the same y in both. */}
-      <div className="mt-3.5 flex h-[18px] items-center">
+      {/* "Membru din …" — the same margin the real line carries. Bio and
+          reviews are deliberately not reserved: both are conditional, most
+          profiles have neither, and holding room for something that usually is
+          not there is a gap on every arrival instead of a step on some. */}
+      <div className="mt-3 flex h-[18px] items-center">
         <div className="h-3 w-44 animate-pulse rounded bg-neutral-100" />
       </div>
 
