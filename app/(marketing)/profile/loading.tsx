@@ -27,16 +27,23 @@ import { SurfaceClaim } from "@/components/surface-claim"
 export default function ProfileLoading() {
   return (
     <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 md:px-8 md:pt-8 lg:pt-10">
-      {/* The strip behind the clock, in the neutral the shell uses when it
-          cannot know what colour is coming. The real screen claims the cover's
-          own top colour a beat later; a grey that darkens into the right one is
-          a far smaller handover than white flashing to a photograph. */}
-      <SurfaceClaim colour="#3f3f46" />
+      {/* THE SAME CLAIM THE REAL SCREEN MAKES. If this shell declares one
+          colour and what replaces it declares another, the strip at the very
+          top changes colour at the swap — which is a flash in the one place on
+          a phone where a flash is impossible to miss. It briefly said #3f3f46
+          here and the cover's own colour there, and landing on the profile
+          stepped through both. See member-profile.tsx. */}
+      <SurfaceClaim colour="#ffffff" />
 
       {/* `.profile-cover` carries the geometry, including the pull up into the
           status bar — the same class the real screen uses, so the band does not
           change height or position by an inset at the swap. */}
-      <div aria-hidden className="profile-cover relative -mx-4 animate-pulse overflow-hidden bg-neutral-200 md:-mx-8 md:rounded-3xl" />
+      {/* Still, and pale. A pulsing grey band that then snaps to a saturated
+          gradient is two jarring things where there should be none: the pulse
+          draws the eye to the top of the screen, and the snap happens there
+          while it is looking. A calm neutral that the real cover dissolves into
+          is the whole handover — see the fade on `.profile-cover`. */}
+      <div aria-hidden className="profile-cover relative -mx-4 overflow-hidden bg-neutral-100 md:-mx-8 md:rounded-3xl" />
 
       {/* The avatar straddles the cover's bottom edge, so its negative margin
           has to match the real one exactly or everything under it steps. */}

@@ -299,16 +299,30 @@ export function MemberProfile({
     // is what makes this read as a page rather than as a phone layout that has
     // been stretched.
     <div className="profile-surface relative isolate mx-auto flex min-h-full w-full max-w-[1100px] flex-col px-4 md:px-8 md:pt-8 lg:pt-10">
-      {/* The strip behind the clock is the COVER now, not white.
+      {/* WHITE, and the COVER paints its own strip.
           
-          In the app the page begins under a bar the shell paints over the
-          status area, and the cover runs up into it — so the claim has to be
-          the cover's own colour or there is a flat white band across the top of
-          a photograph. A preset's first colour is a good enough answer for a
-          gradient; an uploaded image has no single colour, so its strip is the
-          neutral the shell uses everywhere else rather than a guess that could
-          be badly wrong. */}
-      <SurfaceClaim colour={cover.kind === "preset" ? coverTopColour(cover.preset.css) : "#3f3f46"} />
+          This claim only exists to take down the opaque shield the app draws
+          over the status area (html.capacitor::before) so the page can reach
+          past it. The colour it declares is what shows where the page does NOT
+          paint — and the cover already extends up by the safe-area inset
+          precisely so that it covers that strip itself.
+          
+          It briefly claimed the cover's own top colour instead, and that was
+          the glitch on landing. `claimSurface` writes the colour to
+          <html>, and `html.capacitor.native-feed-bg body` inherits it — so
+          declaring a saturated purple painted the entire body behind the page,
+          not a strip. The arriving tab is at 0.88 opacity for its first frames
+          (see `.tab-leaving` in app/globals.css), which is exactly enough for
+          that purple to come through the white profile as a wash over the whole
+          screen; and the loading shell had claimed #3f3f46 a moment earlier, so
+          landing on your own profile went white, dark grey, purple, white in
+          under half a second. Every one of those steps was legible, and the top
+          of the screen — where the cover, the header and the status strip all
+          meet — is where they were most legible.
+          
+          A backdrop must be the colour of the page, not the colour of the thing
+          drawn on it. */}
+      <SurfaceClaim colour="#ffffff" />
       {/* THE COVER, and everything that sits on it.
           
           A profile without one is a name floating on white, which is the state
@@ -324,7 +338,14 @@ export function MemberProfile({
           is zero, so it simply starts under that — which is the difference
           between the two the app has always had. */}
       <div
-        className="profile-cover relative -mx-4 overflow-hidden md:-mx-8 md:rounded-3xl"
+        // `profile-cover-live` is what separates the real cover from the pale
+        // one the loading shell draws in the same place: it carries the short
+        // dissolve that turns the swap between them into a handover instead of
+        // a cut. A class rather than an attribute selector, because whether
+        // this element happens to have an inline `style` depends on whether the
+        // cover is a preset or an uploaded photograph, and that is not what the
+        // rule is about.
+        className="profile-cover profile-cover-live relative -mx-4 overflow-hidden bg-neutral-100 md:-mx-8 md:rounded-3xl"
         style={cover.kind === "preset" ? { background: cover.preset.css } : undefined}
       >
         {cover.kind === "image" && (
@@ -637,16 +658,3 @@ function CoverButton({
   )
 }
 
-/**
- * The colour at the very top of a preset, for the status-bar strip.
- *
- * Every preset ends with a `linear-gradient(<angle>, <from> …)` and its FROM
- * colour is what the top edge is closest to — the radial layers above it are
- * transparent at their own edges, so none of them owns the corner. Reading it
- * out of the string keeps one definition of each preset instead of a second
- * table of colours that has to be kept in step with the first.
- */
-function coverTopColour(css: string): string {
-  const m = /linear-gradient\([^,]+,\s*(#[0-9a-fA-F]{3,8})/.exec(css)
-  return m ? m[1] : "#3f3f46"
-}

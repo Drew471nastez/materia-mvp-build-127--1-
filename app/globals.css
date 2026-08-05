@@ -2638,6 +2638,35 @@ html[data-keyboard="open"] .thread-composer {
   height: calc(148px + env(safe-area-inset-top, 0px));
   margin-top: calc(-1 * env(safe-area-inset-top, 0px));
 }
+
+/* The handover from the loading shell.
+ *
+ * /profile has a loading boundary, so landing on it is always TWO screens: a
+ * pale placeholder cover, then the real one. Between them the top of the page
+ * went from a flat neutral to a saturated gradient in a single frame — a hard
+ * cut on the largest, most colourful element on the screen, in the first place
+ * anybody looks. That is a swap being visible, which is the definition of the
+ * glitch.
+ *
+ * A short dissolve is the whole fix. It is on the COVER rather than on the page
+ * because the page did not change — the header, the name and the grid are the
+ * same in both, and fading all of it would replace one visible handover with a
+ * bigger one.
+ *
+ * It plays on every mount rather than only the first, and that is wanted: after
+ * changing your cover in the editor the page re-renders, and the new colour
+ * arriving by dissolve is exactly right there too. 240ms, eased out, so it is
+ * over before anybody has finished reading the name underneath it. */
+@keyframes profile-cover-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.profile-cover-live {
+  animation: profile-cover-in 240ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-cover-live { animation: none; }
+}
 /* The controls sit below the clock rather than behind it. Read as a variable so
    the markup states the intent and this file owns the number. */
 .profile-cover {
