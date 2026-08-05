@@ -187,11 +187,21 @@ export function ProductDetail({ product }: { product: any }) {
   // wrong. One opaque element scaling into place, which is the version of this
   // that cannot flash, cannot double, and cannot silently fail to run.
   //
-  // Applied in a layout effect rather than at first render so the server and the
-  // client agree on the markup. Layout effects run before paint, so the class is
-  // in place for the first frame and the animation plays from its true start.
-  const [selfAnimate, setSelfAnimate] = useState(false)
-  useLayoutEffect(() => setSelfAnimate(true), [])
+  // THE ENTRANCE IS NOT HERE ANY MORE, and it must not come back.
+  //
+  // It was `.listing-enter` on the root below, applied from a layout effect. Two
+  // things were wrong with that, and the second one was serious.
+  //
+  // Doubled: with a skeleton on this route, the skeleton arrives first with no
+  // animation and this component animates separately when the data lands. One
+  // tap, two entrances. It belongs on the element that spans both — the route's
+  // template. See app/(marketing)/products/[slug]/template.tsx.
+  //
+  // And the animation was a scale, on an ancestor of the fixed buy bar, which
+  // stopped that bar being fixed to the viewport at all. Measured: bar top 768
+  // without the class, 1556 with it, on an 844px-tall screen. The whole reason
+  // this page reserves `pb-28` walked off the bottom of the document. The note
+  // above `@keyframes listing-enter` in app/globals.css has the full reading.
 
   // Report the page as arrived, which is what completes the progress bar.
   //
@@ -289,10 +299,7 @@ export function ProductDetail({ product }: { product: any }) {
   const summary = [product.size?.toUpperCase(), cond].filter(Boolean).join(" · ")
 
   return (
-    <div
-      ref={rootRef}
-      className={cn("min-h-screen bg-white pb-28 md:pb-0", selfAnimate && "listing-enter")}
-    >
+    <div ref={rootRef} className="min-h-screen bg-white pb-28 md:pb-0">
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">

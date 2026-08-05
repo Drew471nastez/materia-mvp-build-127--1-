@@ -131,20 +131,55 @@ html.capacitor a.no-tap-fade:active {
    history — see product-detail.tsx. */
 /* Opening a listing.
  *
- * NO opacity, and no travel that moves an edge past the frame. Both of those
- * were the white: Next unmounts the feed the moment it navigates, so there is
- * nothing behind the listing — anything translucent, and anything sliding in
- * from off-screen, exposes the bare page background for those frames. That is
- * the blink, and it is why fading it "more smoothly" only made the white last
- * longer.
+ * ---------------------------------------------------------------------------
+ * THIS USED TO BE A SCALE, AND THE SCALE UNPINNED THE BUY BAR
+ * ---------------------------------------------------------------------------
+ * The entrance was `scale(1.075) -> scale(1)` on the listing's ROOT element,
+ * with `will-change: transform` alongside it. A transformed element — and an
+ * element merely PROMISING a transform via will-change — becomes the containing
+ * block for every `position: fixed` descendant it has. The listing has exactly
+ * one: the buy bar carrying "Fă o ofertă" and "Cumpără acum".
  *
- * So it settles out of a slight zoom instead, fully opaque from the first frame,
- * scaling DOWN to 1 so its edges always cover the frame. There is motion to
- * follow and there is never a pixel of anything else on screen.
+ * So the bar was never fixed to the viewport on a phone. It was fixed to the
+ * bottom of the whole scrollable page, and `animation-fill-mode: both` plus
+ * will-change kept it that way permanently, not just for the 340ms.
+ *
+ * Measured in Chromium at 390x844 against a 2032px listing:
+ *
+ *   plain root       bar top 768  bottom 844   on screen, at every scroll offset
+ *   .listing-enter   bar top 1556 bottom 1632  off screen, at every scroll offset
+ *
+ * The page reserves `pb-28` for that bar. With the bar parked 700px below the
+ * fold, that reserved strip is simply empty white — which is what "the product
+ * page shifts and glitches" is: the skeleton draws a properly pinned bar, the
+ * real page arrives and the bar leaves the screen.
+ *
+ * The same reasoning is already written down in tab-transition.tsx, for the same
+ * hazard, about the home feed: opacity creates a stacking context but NEVER a
+ * containing block. That rule was applied there and missed here.
+ *
+ * ---------------------------------------------------------------------------
+ * What replaces it
+ * ---------------------------------------------------------------------------
+ * A fade, and nothing else. The old comment argued against opacity on the
+ * grounds that there is nothing behind the listing, so a translucent frame shows
+ * bare page background — true when it was written, and no longer true twice
+ * over: `surface-bg` paints the root white before the first frame, and the
+ * listing route now has a skeleton (loading.tsx) that is pixel-matched to the
+ * finished page. Fading up over white, on a page that is white, is invisible
+ * everywhere except the photograph, where it reads as the picture resolving.
+ *
+ * It is also on the route's template rather than on the component, so it plays
+ * ONCE across the skeleton and the page it hands over to, instead of the
+ * skeleton hard-cutting in and the finished page animating separately a beat
+ * later. See app/(marketing)/products/[slug]/template.tsx.
+ *
+ * 240ms and the same curve the tabs use, so opening a listing and changing tab
+ * are recognisably one app rather than two effects.
  */
 @keyframes listing-enter {
-  from { transform: scale(1.075); }
-  to   { transform: scale(1); }
+  from { opacity: 0.55; }
+  to   { opacity: 1; }
 }
 /* Coming back to the feed.
 
@@ -207,13 +242,17 @@ html.capacitor a.no-tap-fade:active {
 
 @media (max-width: 767px) {
   .listing-enter {
-    /* Enough zoom to actually see. The old value was a thirtieth of a scale,
-       which is real motion in the code and invisible on a phone; this is more
-       than twice that, over slightly longer, on a curve that spends most of its
-       time near the end. Opaque throughout, so nothing behind can show. */
-    animation: listing-enter 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    will-change: transform;
-    transform-origin: 50% 42%;
+    /* will-change: OPACITY, deliberately named. `will-change: transform` here
+       is what unpinned the buy bar even on the frames where no transform was
+       running — see the note above the keyframes. Opacity promises nothing
+       about layout, so the fixed bar underneath stays fixed to the viewport.
+
+       Starting at 0.55 rather than 0: from zero the first frames are a white
+       screen, which is the blink the original comment was right to avoid. From
+       just over half, the page is legible in frame one and the fade is the last
+       of it settling. */
+    animation: listing-enter 240ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+    will-change: opacity;
   }
   .feed-return {
     /* Six percent, eased in and out, over four hundred and twenty milliseconds.
