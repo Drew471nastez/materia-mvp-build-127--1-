@@ -177,6 +177,7 @@ export function useFeedPullRefresh({
       const dy = t.clientY - g.y0
       const dx = t.clientX - g.x0
 
+      let justEngaged = false
       if (!g.pulling) {
         // Horizontal intent (category rail, card gallery) — never our gesture.
         if (Math.abs(dx) > Math.abs(dy)) {
@@ -192,6 +193,7 @@ export function useFeedPullRefresh({
         if (dy < 3) return // jitter, but still ours
         g.pulling = true
         g.y0 = t.clientY // start travel from here → no jump on engage
+        justEngaged = true
         tween(false)
         layer(true)
       }
@@ -216,7 +218,11 @@ export function useFeedPullRefresh({
        * sequence or not, the screen is no longer held down and the NEXT swipe
        * is guaranteed clean, which is the part that was failing.
        */
-      if (t.clientY - g.y0 <= 0) {
+      // `justEngaged` is not a nicety. `g.y0` is reset to the current position
+      // on the move that engages, so `t.clientY - g.y0` is exactly 0 on that
+      // same event — without this the pull released itself on the frame it
+      // started, every single time, and pull-to-refresh never ran at all.
+      if (!justEngaged && t.clientY - g.y0 <= 0) {
         g.pulling = false
         g.armed = false
         g.dist = 0

@@ -6,7 +6,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal, triggerHaptic } from "@/lib/native-bridge"
 import { navigateBlended } from "@/lib/nav-blend"
 import { warmListingImage } from "@/lib/warm-image"
-import { beginTabLeave, endTabLeave } from "@/lib/tab-leave"
+import { beginTabLeave } from "@/lib/tab-leave"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -91,27 +91,27 @@ const TAP_TIME = 700
  * a buzz on every scroll is worse than no buzz at all.
  *
  * ---------------------------------------------------------------------------
- * The screen you are LEAVING starts moving here too
+ * The screen you are leaving starts moving on the CLICK, not on the finger
  * ---------------------------------------------------------------------------
- * Opening a listing used to animate one half of the journey. The card dimmed,
- * the route loaded with the old screen frozen behind it, and then the new page
- * arrived and faded up on its own. Two separate moments with a stationary gap
- * between them — which is exactly what "it's too direct and glitchy" is, and no
- * amount of tuning the arrival can fix it, because the arrival was never the
- * part that was wrong.
+ * Opening a listing animates both halves of the journey now: the outgoing screen
+ * eases down, the route changes in the middle of it, and the arrival takes the
+ * mark off so the same element carries on back up. See lib/tab-leave.ts.
  *
- * The tab bar solved this already: mark the document on pointerdown, the
- * outgoing screen eases DOWN, and the arrival simply takes the mark off so the
- * same element carries on back UP. One continuous move, started by the finger,
- * and it reverses in place if you change your mind. See lib/tab-leave.ts.
+ * The tab bar arms that on POINTERDOWN, for the running start, and a card must
+ * not. `tab-leaving` puts an opacity transition on <main>, which on the home
+ * feed is a full-screen grid of photographs — so arming it on pointerdown meant
+ * every scroll gesture began by compositing the entire screen into one layer,
+ * and every scroll gesture then reversed it 10px later when the finger proved to
+ * be scrolling. Two full-screen opacity transitions per flick, on the longest
+ * scroller in the app. That is not a transition cost, it is a scrolling cost,
+ * and it made the feed feel broken.
  *
- * A card gets the same treatment, with one difference that matters: a tab is a
- * button, a card is in a scrolling grid, and every scroll begins with a
- * pointerdown on a card. So the leave is withdrawn on the same signals the
- * highlight is — travel past the slop, or the browser claiming the gesture. It
- * is deliberately NOT withdrawn on pointerup, because on a real tap the click
- * that navigates comes after it; the release belongs to the arrival, and the
- * give-up timer in tab-leave.ts covers a tap that never becomes one.
+ * A tab is a button you cannot scroll from, so pointerdown is free there. A card
+ * is in a grid, and every scroll starts with a pointerdown on one. So the leave
+ * begins in the click handler, where the gesture has already been proven to be a
+ * tap. What is lost is the few milliseconds between the finger landing and
+ * lifting; what is kept is everything from there to the route committing, which
+ * on a cold open is nearly all of it.
  */
 function useTap(enabled: boolean, showHighlight: boolean) {
   const [pressed, setPressed] = useState(false)
@@ -123,9 +123,6 @@ function useTap(enabled: boolean, showHighlight: boolean) {
       start.current = { x: e.clientX, y: e.clientY, t: e.timeStamp }
       dragged.current = false
       if (showHighlight) setPressed(true)
-      // The running start. Everything from here to the route committing is time
-      // the outgoing screen spends already moving instead of frozen.
-      beginTabLeave()
     },
     [showHighlight],
   )
@@ -136,10 +133,6 @@ function useTap(enabled: boolean, showHighlight: boolean) {
     if (Math.abs(e.clientX - from.x) > TAP_SLOP || Math.abs(e.clientY - from.y) > TAP_SLOP) {
       dragged.current = true
       setPressed(false)
-      // A scroll, not a tap. The dip reverses from wherever it had got to, which
-      // is why this is a transition and not an animation — flicking through a
-      // grid must not leave the app pulsing.
-      endTabLeave()
     }
   }, [])
 
@@ -148,12 +141,8 @@ function useTap(enabled: boolean, showHighlight: boolean) {
   const cancel = useCallback(() => {
     dragged.current = true
     setPressed(false)
-    endTabLeave()
   }, [])
 
-  // Not endTabLeave() — see the note above. On a real tap the click that
-  // navigates has not fired yet, and releasing here would put the screen back
-  // at rest for the frame before it changes.
   const up = useCallback(() => setPressed(false), [])
 
   /**
@@ -309,6 +298,9 @@ export function SmartLink({
               // Only for a real tap. A click alone is not proof of one —
               // WebKit delivers them after short drags and after long presses.
               if (wasTap(e)) void triggerHaptic("light")
+              // The dip starts here, not on pointerdown — see the note on
+              // useTap. By this point the gesture is definitely a tap.
+              beginTabLeave()
               navigateBlended("enter", () => router.push(resolvedHref))
             } else {
               router.push(resolvedHref)
@@ -373,6 +365,7 @@ export function SmartLink({
           e.preventDefault()
           if (typeof onClick === "function") onClick(e)
           if (wasTap(e)) void triggerHaptic("light")
+          beginTabLeave()
           navigateBlended("enter", () => router.push(resolvedHref))
         }}
         style={{ ...TOUCH_STYLES, ...(rest.style as React.CSSProperties) }}
