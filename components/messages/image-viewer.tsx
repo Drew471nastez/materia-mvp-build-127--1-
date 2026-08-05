@@ -76,7 +76,7 @@ export function ImageViewer({
   src,
   images,
   index = 0,
-  poster,
+  posters,
   alt,
   onClose,
 }: {
@@ -96,9 +96,15 @@ export function ImageViewer({
    * see is black, for as long as a full-resolution original takes to arrive, on
    * a tap whose entire purpose is to look more closely at something already on
    * screen. Drawing the version the browser has already decoded costs nothing
-   * and is instant; the full-size one fades in over it when it lands.
+   * and is instant; the full-size one replaces it when it lands.
+   *
+   * ONE PER PHOTO, positionally, and that matters: a single poster shown on
+   * whichever slide you happen to be on is the picture you TAPPED drawn over a
+   * different picture the moment you swipe. Every entry is optional, so a
+   * caller that only has the one it opened on passes the rest as null and those
+   * slides simply behave as they did.
    */
-  poster?: string | null
+  posters?: (string | null)[] | null
   alt?: string
   onClose: () => void
 }) {
@@ -121,9 +127,12 @@ export function ImageViewer({
   const iRef = useRef(index)
   iRef.current = i
   const [zoomed, setZoomed] = useState(false)
-  /** Cleared the moment the full-size photograph is decoded, which is what
-   *  takes the poster away. Keyed on the index so paging re-arms it. */
-  const [full, setFull] = useState<number | null>(null)
+  /** Which full-size photographs have decoded — a poster is removed when its
+   *  own one has, never when a different slide's did. */
+  const [full, setFull] = useState<Set<number>>(() => new Set())
+  const markFull = useCallback((n: number) => {
+    setFull((prev) => (prev.has(n) ? prev : new Set(prev).add(n)))
+  }, [])
 
   /**
    * Where the current picture is, written straight to the node.
@@ -411,7 +420,11 @@ export function ImageViewer({
     resetView()
     iRef.current = next
     setI(next)
-    void triggerHaptic("light")
+    // NO HAPTIC HERE. Paging is a continuous gesture, not a decision — you
+    // swipe through six photographs in three seconds and every one of them
+    // buzzing turns the viewer into a rattle. Haptics are for the things that
+    // COMMIT: the zoom toggling, the dismiss letting go. A vibration on every
+    // frame of a scroll is a vibration that stops meaning anything.
   }, [list.length, resetView])
 
   const goTo = useCallback(
@@ -658,11 +671,11 @@ export function ImageViewer({
                   if (e.target === e.currentTarget) close()
                 }}
               >
-                {/* Underneath, and only until the real one is decoded. */}
-                {n === i && poster && full !== n && (
+                {/* Underneath, and only until THIS photograph has decoded. */}
+                {posters?.[n] && !full.has(n) && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={poster}
+                    src={posters[n] as string}
                     alt=""
                     aria-hidden
                     draggable={false}
@@ -673,10 +686,18 @@ export function ImageViewer({
                 <img
                   ref={(el) => {
                     imgRefs.current[n] = el
+                    // Belt and braces for a cached image. Measured in Chromium,
+                    // `onLoad` does still fire for one — it is not complete at
+                    // the moment this callback runs — so that is what carries
+                    // it there. This exists for the engines where a cached
+                    // decode can land before the listener is attached, because
+                    // the failure is silent and permanent: a low-res poster
+                    // left sitting on top of a full-size photograph that is
+                    // ready and hidden. `complete` is the STATE rather than the
+                    // notification, so reading it cannot miss anything.
+                    if (el?.complete && el.naturalWidth > 0) markFull(n)
                   }}
-                  onLoad={() => {
-                    if (n === i) setFull(n)
-                  }}
+                  onLoad={() => markFull(n)}
                   src={url}
                   alt={n === i ? alt || "Fotografie" : ""}
                   draggable={false}
