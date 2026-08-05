@@ -52,7 +52,11 @@ import { cn } from "@/lib/utils"
  */
 
 const OPEN_MS = 260
-const CLOSE_MS = 220
+const CLOSE_MS = 240
+/** How far a flick is projected past where the finger let go, per unit of
+ *  velocity. Tuned so a lazy push and a hard flick both leave the screen at a
+ *  speed that looks like the one you gave it. */
+const FLICK_PROJECTION = 180
 const MAX_SCALE = 4
 const ZOOM_TO = 2.5
 /** A dismiss: far enough, or fast enough. */
@@ -186,16 +190,149 @@ export function ImageViewer({
     // Positioned before paint, so the viewer is never seen on the wrong photo.
     if (rail) rail.scrollLeft = index * rail.clientWidth
     void rootRef.current?.offsetWidth
-    setPhase("open")
+    openNow()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, list[0]])
 
-  const [phase, setPhase] = useState<"closed" | "open" | "gone">("closed")
+  /**
+   * THE VIEWER'S OWN TRANSFORM IS NOT REACT'S TO WRITE.
+   *
+   * It used to be an inline style driven by a `phase` state, and that is what
+   * made the dismiss jump: letting go fired `setPhase("gone")`, React
+   * re-rendered, and the style attribute it wrote replaced the position the
+   * finger had dragged the picture to. The photo teleported back to the centre
+   * and only then faded — a snap in the middle of the one gesture that is
+   * supposed to be continuous.
+   *
+   * So React renders the structure and nothing else about the movement. Every
+   * frame of the open, the drag and the close is written to the node here,
+   * which also means there is no render in the path of a gesture at all.
+   */
+  const closing = useRef(false)
 
-  const close = useCallback(() => {
-    setPhase("gone")
-    window.setTimeout(onClose, CLOSE_MS)
-  }, [onClose])
+  const paintFrame = useCallback((dx: number, dy: number, animate: number | null) => {
+    const root = rootRef.current
+    const scrim = scrimRef.current
+    const chrome = chromeRef.current
+    if (!root || !scrim) return
+    // Up is damped to a third: there is nothing above to dismiss to, but a
+    // picture that refuses to move at all reads as a dead gesture rather than
+    // as a boundary.
+    const travel = dy < 0 ? dy * 0.34 : dy
+    const k = Math.min(1, Math.abs(travel) / 460)
+    const ease = animate === null ? "none" : `transform ${animate}ms cubic-bezier(0.22, 0.9, 0.24, 1), opacity ${animate}ms ease-out`
+    root.style.transition = ease
+    scrim.style.transition = animate === null ? "none" : `opacity ${animate}ms ease-out`
+    if (chrome) chrome.style.transition = scrim.style.transition
+    root.style.transform = `translate3d(${dx * 0.55}px, ${travel}px, 0) scale(${1 - k * 0.16})`
+    // The BACKDROP carries almost all of the fade and the picture almost none.
+    // Fading the photograph itself as it leaves is what makes a dismiss feel
+    // like a dialog closing rather than like a thing being thrown away — you
+    // are moving an object, and objects do not become transparent when you push
+    // them.
+    scrim.style.opacity = String(Math.max(0, 1 - k * 0.9))
+    if (chrome) chrome.style.opacity = String(Math.max(0, 1 - k * 1.6))
+  }, [])
+
+  /**
+   * ONE STYLE WRITE PER FRAME, whatever the pointer does.
+   *
+   * `pointermove` is not capped at the refresh rate — a 120Hz phone delivers
+   * moves faster than it paints, and coalesced events can arrive several at a
+   * time. Writing the transform inside the handler therefore meant several
+   * style recalculations per frame, all but the last of which were thrown away
+   * before anything was drawn. That is invisible work that competes with the
+   * frame you actually wanted.
+   *
+   * The latest position is kept and painted once, inside a frame callback, so
+   * the write happens exactly when the compositor is about to use it and at
+   * exactly the display's rate — 60 on a 60Hz screen, 120 on a 120Hz one.
+   */
+  const pendingDrag = useRef<{ dx: number; dy: number } | null>(null)
+  const dragRaf = useRef(0)
+  const flushDrag = useCallback(() => {
+    dragRaf.current = 0
+    const at = pendingDrag.current
+    if (!at) return
+    pendingDrag.current = null
+    paintFrame(at.dx, at.dy, null)
+  }, [paintFrame])
+
+  const scheduleDrag = useCallback(
+    (dx: number, dy: number) => {
+      pendingDrag.current = { dx, dy }
+      if (!dragRaf.current) dragRaf.current = requestAnimationFrame(flushDrag)
+    },
+    [flushDrag],
+  )
+
+  useEffect(() => () => cancelAnimationFrame(dragRaf.current), [])
+
+  /** Promoted for the length of the gesture and no longer. A compositor layer
+   *  held for the life of the screen is memory nobody asked for. */
+  const promote = useCallback((on: boolean) => {
+    const root = rootRef.current
+    if (root) root.style.willChange = on ? "transform, opacity" : ""
+  }, [])
+
+  const openNow = useCallback(() => {
+    const root = rootRef.current
+    const scrim = scrimRef.current
+    const chrome = chromeRef.current
+    if (!root || !scrim) return
+    root.style.transition = `transform ${OPEN_MS}ms cubic-bezier(0.22, 0.9, 0.24, 1), opacity ${OPEN_MS}ms ease-out`
+    scrim.style.transition = `opacity ${OPEN_MS}ms ease-out`
+    if (chrome) chrome.style.transition = scrim.style.transition
+    root.style.transform = "translate3d(0, 0, 0) scale(1)"
+    root.style.opacity = "1"
+    scrim.style.opacity = "1"
+    if (chrome) chrome.style.opacity = "1"
+  }, [])
+
+  /**
+   * Close, optionally CARRYING ON from where the finger let go.
+   *
+   * A flick is thrown: the exit continues along the direction and at the speed
+   * it was given, projected past the edge, over a duration that gets shorter
+   * the harder you threw it. Anything else — the X, Escape, a tap on the black
+   * — has no motion behind it, so it scales down in place, which is what a
+   * dialog does.
+   */
+  const close = useCallback(
+    (fling?: { dx: number; dy: number; v: number }) => {
+      if (closing.current) return
+      closing.current = true
+      const root = rootRef.current
+      const scrim = scrimRef.current
+      const chrome = chromeRef.current
+      if (fling && root && scrim) {
+        const speed = Math.abs(fling.v)
+        // Between a third of a second at rest and a tenth for a hard flick.
+        const ms = Math.max(150, Math.min(320, 320 - speed * 90))
+        const to = fling.dy + Math.sign(fling.dy || 1) * Math.max(200, speed * FLICK_PROJECTION)
+        root.style.transition = `transform ${ms}ms cubic-bezier(0.2, 0.6, 0.2, 1), opacity ${ms}ms ease-out`
+        scrim.style.transition = `opacity ${ms}ms ease-out`
+        if (chrome) chrome.style.transition = scrim.style.transition
+        root.style.transform = `translate3d(${fling.dx * 0.55}px, ${to}px, 0) scale(0.86)`
+        root.style.opacity = "0"
+        scrim.style.opacity = "0"
+        if (chrome) chrome.style.opacity = "0"
+        window.setTimeout(onClose, ms)
+        return
+      }
+      if (root && scrim) {
+        root.style.transition = `transform ${CLOSE_MS}ms cubic-bezier(0.3, 0, 0.6, 1), opacity ${CLOSE_MS}ms ease-in`
+        scrim.style.transition = `opacity ${CLOSE_MS}ms ease-in`
+        if (chrome) chrome.style.transition = scrim.style.transition
+        root.style.transform = "translate3d(0, 0, 0) scale(0.94)"
+        root.style.opacity = "0"
+        scrim.style.opacity = "0"
+        if (chrome) chrome.style.opacity = "0"
+      }
+      window.setTimeout(onClose, CLOSE_MS)
+    },
+    [onClose],
+  )
 
   /**
    * Nothing behind it moves while it is up.
@@ -296,28 +433,16 @@ export function ImageViewer({
     return l.length < 2 ? 0 : Math.hypot(l[0].x - l[1].x, l[0].y - l[1].y)
   }
 
-  /** Only the dismiss moves the whole viewer; paging never does. */
-  const paintDrag = useCallback((dx: number, dy: number) => {
-    const root = rootRef.current
-    const scrim = scrimRef.current
-    if (!root || !scrim) return
-    const travel = dy < 0 ? dy * 0.3 : dy
-    const scale = Math.max(0.82, 1 - Math.abs(travel) / 1400)
-    root.style.transition = "none"
-    scrim.style.transition = "none"
-    root.style.transform = `translate3d(${dx * 0.5}px, ${travel}px, 0) scale(${scale})`
-    scrim.style.opacity = String(Math.max(0, 1 - Math.abs(travel) / 420))
-  }, [])
-
+  /** Back to rest from wherever the finger left it — a spring, not a cut. */
   const releaseDrag = useCallback(() => {
+    cancelAnimationFrame(dragRaf.current)
+    dragRaf.current = 0
+    pendingDrag.current = null
+    paintFrame(0, 0, 340)
     const root = rootRef.current
-    const scrim = scrimRef.current
-    if (!root || !scrim) return
-    root.style.transition = "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)"
-    scrim.style.transition = "opacity 300ms ease"
-    root.style.transform = "translate3d(0, 0, 0) scale(1)"
-    scrim.style.opacity = "1"
-  }, [])
+    if (root) root.style.opacity = "1"
+    window.setTimeout(() => promote(false), 360)
+  }, [paintFrame, promote])
 
   const toggleZoom = useCallback(
     (cx: number, cy: number) => {
@@ -388,8 +513,11 @@ export function ImageViewer({
     // handler as a drag — the browser has already taken it for the scroller. So
     // anything that gets here and is moving vertically is a dismiss, and there
     // is no axis to arbitrate.
-    if (s.mode === "watch" && Math.abs(dy) > 8) s.mode = "drag"
-    if (s.mode === "drag") paintDrag(dx, dy)
+    if (s.mode === "watch" && Math.abs(dy) > 8) {
+      s.mode = "drag"
+      promote(true)
+    }
+    if (s.mode === "drag") scheduleDrag(dx, dy)
   }
 
   const onUp = (e: React.PointerEvent) => {
@@ -429,9 +557,20 @@ export function ImageViewer({
     }
 
     if (s.mode === "drag") {
-      if (s.dy > DISMISS_AT || s.v > DISMISS_V) {
+      cancelAnimationFrame(dragRaf.current)
+      dragRaf.current = 0
+      // Painted once more from the exact last sample, so the exit starts where
+      // the finger actually was rather than one frame behind it.
+      if (pendingDrag.current) {
+        paintFrame(pendingDrag.current.dx, pendingDrag.current.dy, null)
+        pendingDrag.current = null
+      }
+      // BOTH DIRECTIONS. Up is a dismiss too — it is the same gesture with the
+      // same intent, and a viewer that only answers downwards is one you have
+      // to learn rather than one you already know.
+      if (Math.abs(s.dy) > DISMISS_AT || Math.abs(s.v) > DISMISS_V) {
         void triggerHaptic("light")
-        close()
+        close({ dx: s.dx, dy: s.dy < 0 ? s.dy * 0.34 : s.dy, v: s.v })
       } else {
         releaseDrag()
       }
@@ -461,21 +600,16 @@ export function ImageViewer({
     <div className="fixed inset-0 z-[110]" role="dialog" aria-modal="true">
       <div
         ref={scrimRef}
-        className="absolute inset-0 bg-black transition-opacity"
-        style={{ opacity: phase === "open" ? 1 : 0, transitionDuration: `${phase === "open" ? OPEN_MS : CLOSE_MS}ms` }}
+        className="absolute inset-0 bg-black"
+        // Closed values only. Everything after this frame is written by
+        // `openNow`, `paintFrame` and `close` — see the note on `closing`.
+        style={{ opacity: 0 }}
       />
 
       <div
         ref={rootRef}
         className="absolute inset-0"
-        style={{
-          transform: phase === "open" ? "translate3d(0,0,0) scale(1)" : "translate3d(0,0,0) scale(0.94)",
-          opacity: phase === "open" ? 1 : 0,
-          transition: `transform ${phase === "open" ? OPEN_MS : CLOSE_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${
-            phase === "open" ? OPEN_MS : CLOSE_MS
-          }ms ease`,
-          willChange: "transform, opacity",
-        }}
+        style={{ transform: "translate3d(0, 0, 0) scale(0.94)", opacity: 0 }}
       >
         {/* THE SCROLLER. Everything about moving between photographs is here,
             and all of it belongs to the browser: momentum, the snap, the rubber
@@ -543,15 +677,14 @@ export function ImageViewer({
       <div
         ref={chromeRef}
         className="pointer-events-none absolute inset-0 z-30"
-        style={{
-          opacity: phase === "open" ? 1 : 0,
-          transition: `opacity ${phase === "open" ? OPEN_MS : CLOSE_MS}ms ease`,
-        }}
+        style={{ opacity: 0 }}
       >
         <button
           type="button"
           aria-label="Închide"
-          onClick={close}
+          // Wrapped: `close` takes an optional fling, and handing it a mouse
+          // event would be read as one.
+          onClick={() => close()}
           className="no-tap-fade pointer-events-auto absolute right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-transform active:scale-90"
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
         >
