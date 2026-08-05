@@ -52,7 +52,7 @@ function isConversation(pathname: string): boolean {
 /**
  * A listing is a screen with its own bottom bar.
  *
- * product-detail.tsx pins Fă o ofertă and Cumpără acum across the bottom at
+ * product-detail.tsx pins Fă o ofertă and Cumpără across the bottom at
  * z-40 on a phone — the two things the entire page exists to offer. The tab bar
  * is z-[80] and was drawn straight over them. So the primary action on the most
  * important screen in the marketplace was underneath a row of navigation, and

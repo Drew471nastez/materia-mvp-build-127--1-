@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Flag, Heart, MessageCircle, Share2 } from "lucide-react"
@@ -76,7 +77,7 @@ export function ProductDetail({ product }: { product: any }) {
   })
 
   // Buying and offering. Checkout already handles any published `products` row
-  // end to end (Stripe, native-app card entry, receipts), so "Cumpără acum" is
+  // end to end (Stripe, native-app card entry, receipts), so "Cumpără" is
   // a link into it rather than a second payment stack. The offer goes through
   // messages — that is where the negotiation lives.
   const [offerOpen, setOfferOpen] = useState(false)
@@ -94,15 +95,42 @@ export function ProductDetail({ product }: { product: any }) {
   // to the seller either, who does not need their own shopfront lecturing them.
   // Settings carries that, in the one place it is actionable.
 
+  /**
+   * The bar is on EVERY listing now, for everyone.
+   *
+   * It used to be gated on `!isOwn && price_cents > 0`, so your own listings and
+   * anything priced at zero simply had no bar — the page reserved `pb-28` for it
+   * and then showed a strip of empty white. A listing that looks different
+   * depending on who is reading it is also how the buy bar being unpinned went
+   * unnoticed for so long: the person most likely to be testing was the one
+   * person guaranteed not to see it.
+   *
+   * Buying from yourself is the one thing that cannot work, and checkout would
+   * refuse it — so it is answered here, in a line, instead of sending you into a
+   * flow that dead-ends. The button is present, which is what consistency means;
+   * it just tells you the truth when you press it.
+   */
+  const [ownNote, setOwnNote] = useState(false)
+  const noteTimer = useRef(0)
+  const sayOwn = useCallback(() => {
+    void triggerHaptic("light")
+    setOwnNote(true)
+    window.clearTimeout(noteTimer.current)
+    noteTimer.current = window.setTimeout(() => setOwnNote(false), 2200)
+  }, [])
+  useEffect(() => () => window.clearTimeout(noteTimer.current), [])
+
   const onBuy = useCallback(() => {
+    if (isOwn) return sayOwn()
     void triggerHaptic("light")
     router.push(`/checkout?productId=${product.id}`)
-  }, [router, product.id])
+  }, [router, product.id, isOwn, sayOwn])
 
   const onOffer = useCallback(() => {
+    if (isOwn) return sayOwn()
     void triggerHaptic("light")
     setOfferOpen(true)
-  }, [])
+  }, [isOwn, sayOwn])
 
   // "Ask the seller", which on a marketplace is not a nicety — it is how half of
   // everything gets sold. Is it still available, does it run small, can you send
@@ -549,24 +577,22 @@ export function ProductDetail({ product }: { product: any }) {
           {/* Desktop buy row — the mobile bar is fixed to the viewport bottom
               and hidden at md, so without this the desktop page had no way to
               actually buy the thing it was showing. */}
-          {!isOwn && product.price_cents > 0 && (
-            <div className="mt-5 hidden gap-2.5 md:flex">
-              <button
-                type="button"
-                onClick={onOffer}
-                className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98] hover:bg-[#7c3aed]/5"
-              >
-                Fă o ofertă
-              </button>
-              <button
-                type="button"
-                onClick={onBuy}
-                className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] hover:bg-[#6d2fd6]"
-              >
-                Cumpără acum
-              </button>
-            </div>
-          )}
+          <div className="mt-5 hidden gap-2.5 md:flex">
+            <button
+              type="button"
+              onClick={onOffer}
+              className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98] hover:bg-[#7c3aed]/5"
+            >
+              Fă o ofertă
+            </button>
+            <button
+              type="button"
+              onClick={onBuy}
+              className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] hover:bg-[#6d2fd6]"
+            >
+              Cumpără
+            </button>
+          </div>
 
           {/* Seller */}
           <div className="mt-6 flex items-center gap-3 rounded-2xl border border-neutral-200/70 p-3">
@@ -656,7 +682,6 @@ export function ProductDetail({ product }: { product: any }) {
 
       {/* Sticky buy bar — on a phone this is the whole point of the page, so it
           never scrolls away. */}
-      {!isOwn && product.price_cents > 0 && (
       <div
         className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-md md:hidden"
         style={{
@@ -677,11 +702,23 @@ export function ProductDetail({ product }: { product: any }) {
               onClick={onBuy}
               className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98]"
             >
-              Cumpără acum
+              Cumpără
             </button>
           </div>
       </div>
-      )}
+
+      {/* Pressing either control on your own listing. Portalled to the body, so
+          it is fixed to the SCREEN whatever this page's ancestors are doing —
+          the lesson the buy bar above taught the hard way. */}
+      {ownNote && typeof document !== "undefined" &&
+        createPortal(
+          <div className="pointer-events-none fixed inset-x-0 bottom-28 z-[120] flex justify-center px-6 md:bottom-10">
+            <span className="rounded-full bg-neutral-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg">
+              Acesta este anunțul tău
+            </span>
+          </div>,
+          document.body,
+        )}
 
       <OfferSheet open={offerOpen} onClose={() => setOfferOpen(false)} listingId={product.id} priceCents={product.price_cents} />
 

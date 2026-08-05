@@ -1942,7 +1942,7 @@ export function MessageThread({
                 onClick={() => void triggerHaptic("light")}
                 className="hidden h-9 shrink-0 items-center justify-center rounded-full bg-[#7c3aed] px-4 text-[13px] font-semibold text-white shadow-[0_3px_12px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 hover:bg-[#6d2fd6] active:scale-[0.97] md:inline-flex"
               >
-                Cumpără acum
+                Cumpără
               </Link>
             )}
           </div>

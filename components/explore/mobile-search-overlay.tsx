@@ -197,8 +197,28 @@ export function MobileSearchOverlay({
   useEffect(() => {
     if (open) {
       setMounted(true)
-      const r = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
-      return () => cancelAnimationFrame(r)
+      // BOTH frames, and a floor under them.
+      //
+      // Only the outer handle was kept, so a cleanup landing between the two
+      // frames cancelled nothing that mattered — the inner one still fired and
+      // set `shown` on a panel that had already been told to close.
+      //
+      // And requestAnimationFrame does not run at all while the WebView is not
+      // painting, which is the same way the feed's cross-fade could hang. Here
+      // it would leave search mounted, invisible and inert while the screen that
+      // opened it believes it is open: you press Search and nothing happens. The
+      // timeout is longer than two frames on any device and shorter than anyone
+      // waits, so in the normal case it is cancelled having done nothing.
+      let inner = 0
+      const outer = requestAnimationFrame(() => {
+        inner = requestAnimationFrame(() => setShown(true))
+      })
+      const floor = window.setTimeout(() => setShown(true), 250)
+      return () => {
+        cancelAnimationFrame(outer)
+        if (inner) cancelAnimationFrame(inner)
+        window.clearTimeout(floor)
+      }
     }
     setShown(false)
     // Just past the slowest of the two transitions above (320ms). Unmounting
