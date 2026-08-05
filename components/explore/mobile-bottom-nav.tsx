@@ -7,6 +7,8 @@ import { Plus } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { HomeIcon, InboxIcon, ProfileIcon, SearchIcon } from "./tab-icons"
 import { triggerHaptic, warmHaptics } from "@/lib/native-bridge"
+import { beginTabLeave, endTabLeave } from "@/lib/tab-leave"
+import { createTapRescue, type TapRescue } from "@/lib/tap-rescue"
 import { cn } from "@/lib/utils"
 
 // Module-scoped so sixty page navigations do not mean sixty counts: every
@@ -80,12 +82,23 @@ export function MobileBottomNav({
       setPressed(null)
       return
     }
-    const give = window.setTimeout(() => setPressed(null), 1400)
+    // Long enough to cover a cold route on a bad connection. It used to be
+    // 1.4s, which is under the time a first visit to the sell form takes on 3G
+    // — so the tab you were waiting on gave up and un-filled while its page was
+    // still on the way, which looks exactly like the tap having been ignored.
+    // The two cases that used to need this timer to be short are both handled
+    // properly now: a tap that turns into a drag takes its own fill back
+    // immediately (see lib/tap-rescue.ts), and a swallowed click is retried at
+    // 220ms rather than waited out.
+    const give = window.setTimeout(() => setPressed(null), 2400)
     return () => window.clearTimeout(give)
   }, [pressed, active, profileActive])
 
+  /** The tab the app is actually ON, whatever the bar may currently be showing. */
+  const here = profileActive ? "profile" : active
+
   /** What the bar SHOWS: the tap if there is one, the route otherwise. */
-  const shown = pressed ?? (profileActive ? "profile" : active)
+  const shown = pressed ?? here
 
   const [unread, setUnread] = useState(unreadCache.count)
   useEffect(() => {
@@ -125,7 +138,7 @@ export function MobileBottomNav({
   const onSell = useCallback(() => {
     if (launching) return
     // The buzz already fired on pointerdown, with the finger rather than after
-    // it — see `tap` below.
+    // it — see the gesture machine below.
     setLaunching(true)
     router.push("/products/new")
   }, [launching, router])
@@ -168,25 +181,94 @@ export function MobileBottomNav({
   const TAB =
     "group flex min-h-[54px] flex-1 flex-col items-center justify-center [-webkit-tap-highlight-color:transparent] touch-manipulation select-none"
 
-  // Tapping a tab is a deliberate act with a result, so it gets the same
-  // acknowledgement opening a listing does. A nav item is not a scroll surface,
-  // so there is no gesture to disambiguate first.
-  //
-  // On POINTERDOWN, not click. A haptic is meant to be the bar answering your
-  // finger, and click fires on release — so the buzz was arriving after the
-  // press had already finished, which reads as confirmation of something you
-  // had noticed rather than as feedback. Down is when the finger lands, which
-  // is when a physical button would have clicked.
-  const tap = (going?: "home" | "search" | "sell" | "inbox" | "profile") => {
-    void triggerHaptic("light")
-    if (going) setPressed(going)
+  /**
+   * ONE TAP, FROM THE FINGER LANDING TO THE PAGE BEING THERE.
+   *
+   * The bug this exists to kill: sometimes you press a tab, the icon fills —
+   * and the app stays exactly where it was, then un-fills a second later as if
+   * nothing had been pressed at all.
+   *
+   * The whole of the diagnosis and the fix is in lib/tap-rescue.ts, which is
+   * where it lives rather than here because a gesture machine written inside a
+   * component can only be tested by driving a browser at a real bottom bar. In
+   * short: the fill was driven by `pointerdown` and the navigation by `click`,
+   * and a browser only synthesises that click when it decides the gesture was a
+   * tap — a few pixels of thumb drift, a page still carrying scroll momentum,
+   * or a notification landing mid-press are each enough for it not to. All
+   * three fire pointerdown and no click, which is exactly "it fills and goes
+   * nowhere", and exactly why it is intermittent.
+   */
+  type TabKey = "home" | "search" | "sell" | "inbox" | "profile"
+  type Intent = { key: TabKey; href?: string; run?: () => void }
+
+  /**
+   * Read by the gesture machine, which is created once and therefore cannot
+   * close over this render's `here`, `router` or `onSearch`. A ref reassigned
+   * every render is the cheapest correct way to give a long-lived object a
+   * fresh view of a component that re-renders under it.
+   */
+  const nav = useRef({ here, router, endTabLeave, beginTabLeave })
+  nav.current = { here, router, endTabLeave, beginTabLeave }
+
+  const rescue = useRef<TapRescue<Intent> | null>(null)
+  if (!rescue.current) {
+    rescue.current = createTapRescue<Intent>({
+      // On POINTERDOWN, not click. A haptic is meant to be the bar answering
+      // your finger, and click fires on release — so the buzz was arriving
+      // after the press had already finished, which reads as confirmation of
+      // something you had noticed rather than as feedback. Down is when the
+      // finger lands, which is when a physical button would have clicked.
+      onPress: (intent) => {
+        void triggerHaptic("light")
+        setPressed(intent.key)
+        // The screen starts leaving NOW, not when the route is ready. See
+        // lib/tab-leave.ts — this is the first half of the switch, and the
+        // reason a tab change no longer begins with a stationary screen.
+        if (intent.href && intent.key !== nav.current.here) nav.current.beginTabLeave()
+      },
+      // The press turned out not to be a tap. Take the fill back at once
+      // rather than leaving the wrong icon lit until a timeout notices, and
+      // let the screen come back up.
+      onAbandon: () => {
+        setPressed(null)
+        nav.current.endTabLeave()
+      },
+      // The click was swallowed. Do what it would have done.
+      onRescue: (intent) => {
+        if (intent.run) {
+          intent.run()
+          return
+        }
+        if (!intent.href) return
+        // It may have been swallowed, or it may have worked and simply not
+        // finished yet. `location` is updated by the router the moment a
+        // navigation commits, so this is the one check that tells "nothing
+        // happened" from "it happened" without guessing at timing.
+        if (window.location.pathname === intent.href) return
+        nav.current.router.push(intent.href)
+      },
+    })
   }
 
-  // The haptics chunk, fetched while the bar mounts rather than while a finger
-  // is waiting on it. See warmHaptics in lib/native-bridge.ts.
   useEffect(() => {
-    warmHaptics()
+    const r = rescue.current
+    return () => r?.dispose()
   }, [])
+
+  const handlers = (intent: Intent) => ({
+    onPointerDown: (e: React.PointerEvent) => rescue.current?.down(intent, e.clientX, e.clientY),
+    onPointerMove: (e: React.PointerEvent) => rescue.current?.move(e.clientX, e.clientY),
+    onPointerUp: () => rescue.current?.up(),
+    onPointerCancel: () => rescue.current?.cancel(),
+    // A <Link> navigates on its own and carries no `run`. The two tabs that do
+    // something instead of going somewhere — search opens an overlay, sell
+    // starts the spin — put that work in the intent, so the click path and the
+    // rescue path run exactly the same thing rather than two copies of it.
+    onClick: () => {
+      rescue.current?.click()
+      intent.run?.()
+    },
+  })
 
   return (
     <nav
@@ -194,14 +276,13 @@ export function MobileBottomNav({
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-stretch px-1 pt-1 pb-1">
-        <Link href="/" prefetch onPointerDown={() => tap("home")} aria-label={t("mfeed.home")} className={TAB}>
+        <Link href="/" prefetch {...handlers({ key: "home", href: "/" })} aria-label={t("mfeed.home")} className={TAB}>
           {item("mfeed.home", <HomeIcon active={shown === "home"} className="tab-press h-[25px] w-[25px]" />, shown === "home")}
         </Link>
 
         <button
           type="button"
-          onPointerDown={() => tap("search")}
-          onClick={() => onSearch?.()}
+          {...handlers({ key: "search", run: () => onSearch?.() })}
           aria-label={t("mfeed.search")}
           className={TAB}
         >
@@ -210,8 +291,7 @@ export function MobileBottomNav({
 
         <button
           type="button"
-          onPointerDown={() => tap("sell")}
-          onClick={onSell}
+          {...handlers({ key: "sell", href: "/products/new", run: onSell })}
           aria-label={t("mfeed.sell")}
           className="group flex min-h-[54px] flex-1 flex-col items-center justify-center"
         >
@@ -229,7 +309,13 @@ export function MobileBottomNav({
           </span>
         </button>
 
-        <Link href="/messages" prefetch onPointerDown={() => tap("inbox")} aria-label={t("mfeed.inbox")} className={cn(TAB, "relative")}>
+        <Link
+          href="/messages"
+          prefetch
+          {...handlers({ key: "inbox", href: "/messages" })}
+          aria-label={t("mfeed.inbox")}
+          className={cn(TAB, "relative")}
+        >
           {item(
             "mfeed.inbox",
             <span className="relative">
@@ -264,7 +350,13 @@ export function MobileBottomNav({
             /settings, which redirected anyone without a creators row into
             onboarding — so for every buyer the Profile tab simply did not
             work. Settings is still one tap away, behind the gear up there. */}
-        <Link href="/profile" prefetch onPointerDown={() => tap("profile")} aria-label={t("mfeed.profile")} className={TAB}>
+        <Link
+          href="/profile"
+          prefetch
+          {...handlers({ key: "profile", href: "/profile" })}
+          aria-label={t("mfeed.profile")}
+          className={TAB}
+        >
           {item("mfeed.profile", <ProfileIcon active={shown === "profile"} className="tab-press h-[25px] w-[25px]" />, shown === "profile")}
         </Link>
       </div>

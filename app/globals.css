@@ -388,15 +388,45 @@ html.capacitor a.no-tap-fade:active {
 }
 
 /* ---------------------------------------------------------------------------
-   Arriving at a tab
+   Changing tab
    ---------------------------------------------------------------------------
-   Applied by components/marketing/tab-transition.tsx to the <main> element in
-   the marketing layout — which is ABOVE the route, so it survives the swap. That
-   placement is the whole point, and it replaces the previous `.tab-enter`, which
-   sat on the three loading skeletons and therefore only ever played when Next
-   had nothing cached. Half the taps animated and half hard-cut, depending on
-   whether you had been to that tab in the last three minutes. Unpredictable is
-   worse than either, and it is what the switching felt like.
+   Driven by components/marketing/tab-transition.tsx and the bottom bar, on the
+   <main> element in the marketing layout — which is ABOVE the route, so it
+   survives the swap. That placement is the whole point, and it replaces the
+   previous `.tab-enter`, which sat on the three loading skeletons and therefore
+   only ever played when Next had nothing cached. Half the taps animated and half
+   hard-cut, depending on whether you had been to that tab in the last three
+   minutes. Unpredictable is worse than either, and it is what the switching felt
+   like.
+
+   TWO HALVES, NOT ONE ARRIVAL.
+
+   This used to be a single keyframe animation fired when the route committed:
+   the new screen appeared at 0.72 and climbed to 1. Correct as far as it went,
+   and it left the actual switch untouched, because a switch is not a thing that
+   starts when the route is ready — it starts when your finger lands. Everything
+   between those two moments, which on a cold route is most of what you are
+   looking at, was dead time with the old screen sitting still in it. Then the
+   new one arrived and faded up from a number it had been assigned. Nobody sees
+   a fade there; they see the assignment.
+
+   So the bar marks the document on pointerdown, the outgoing screen eases DOWN,
+   and the arrival takes the mark off and lets it come back up. One continuous
+   movement with the route change in the middle of it.
+
+   TRANSITIONS RATHER THAN AN ANIMATION, for three separate reasons:
+
+     • An animation always restarts from its first keyframe. Tap Messages, then
+       Profile 200ms later, and the screen was thrown back to 0.72 to begin
+       again — a flash, on exactly the impatient tapping that is most common. A
+       transition reverses from wherever it currently is, for nothing.
+     • The dip's DEPTH ends up proportional to the wait. A warm route commits in
+       30ms and barely dips before it is rising again; a cold one dips fully and
+       holds there until its page exists. Same code, and a slow tab reads as
+       slow rather than as broken.
+     • There is no fixed duration to keep in sync with a JavaScript timer, so
+       there is no stuck class to clean up after — see the `both` fill the old
+       animation needed and the timeout that had to undo it.
 
    OPACITY AND NOTHING ELSE — deliberately, and not for restraint.
 
@@ -408,14 +438,14 @@ html.capacitor a.no-tap-fade:active {
    trade. Opacity creates a stacking context but never a containing block, and it
    is composited, so it is the one property that is safe on all five tabs.
 
-   Never from zero: fading up from nothing makes the first frames of every tab a
+   Never near zero: fading up from nothing makes the first frames of every tab a
    blank white rectangle — the page announcing itself rather than being there.
-   From 0.72 the whole distance is small enough that a swap landing mid-flight
-   (the skeleton being replaced by the real page) is a step nobody can see. */
-@keyframes tab-arrive {
-  from { opacity: 0.72; }
-  to   { opacity: 1; }
-}
+   0.86 is a shallower dip than the 0.72 it replaces, and shallower ON PURPOSE
+   now that it is a movement rather than an entrance: a step you can see is only
+   a problem if something steps, and nothing does any more. It is also small
+   enough that a swap landing mid-flight (a skeleton replaced by the real page)
+   is invisible, and small enough that whatever sits behind <main> — white on the
+   web, the claimed surface colour in the app — cannot tint it on the way. */
 @media (max-width: 767px) {
   /* BOTH the content and the strip above it. A tab is not only its <main>: in
      the app the search-and-categories row on the sell form, and the bare
@@ -426,39 +456,63 @@ html.capacitor a.no-tap-fade:active {
 
      The bottom bar is deliberately not in this list, on any tab. It is the thing
      under your finger; it must not move, dim or blink while the screen it opened
-     arrives. */
+     arrives.
+
+     Direct children of the shell, not any descendant. `main` is not unique on
+     this site — the feed and the explore pages each render one of their own
+     inside the layout's — and a bare `main` selector would fade a page twice
+     over, at 0.86 of 0.86, which is a visibly darker first frame. */
+  .marketing-flex-wrapper > main,
+  .marketing-flex-wrapper > .native-only-topbar {
+    /* THE RISE, and the resting state. Long and almost all tail: the fast part
+       is over in the first fifth and the rest is the screen settling, which is
+       what stops a 400ms fade from reading as a 400ms wait. The curve is the
+       one the feed return uses, so switching tabs and coming back from a
+       listing are recognisably the same gesture rather than two effects that
+       happen to live in the same app. */
+    transition: opacity 420ms cubic-bezier(0.16, 0.84, 0.44, 1);
+  }
+
+  /* THE DIP. Added by the bar on pointerdown — with the finger, not after it.
+
+     Slower on the way down than a press effect would be, because it is not one:
+     it is the first half of a screen change, and a screen that snaps out is the
+     hard cut this whole file is about, merely moved earlier. Eased in as well
+     as out because it starts from rest.
+
+     Held rather than timed. Press and hold a tab and the screen stays at 0.86,
+     which is the right thing to show — the tab has been pressed and the app is
+     going there. It comes back up on release if the gesture turns out not to
+     have been a tap; see dropGesture in components/explore/mobile-bottom-nav.tsx. */
+  html.tab-leaving .marketing-flex-wrapper > main,
+  html.tab-leaving .marketing-flex-wrapper > .native-only-topbar {
+    opacity: 0.86;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.55, 1);
+  }
+
+  /* The same dip, for the navigations no finger on the bar started — a
+     redirect, a back gesture, a push from somewhere else. Zero duration on
+     purpose: tab-transition.tsx adds this, flushes style, and removes it again
+     in one synchronous block before the browser has painted, so this rule is
+     never a frame anybody sees. It exists only to give the transition above
+     something to start FROM. */
   html.tab-arriving .marketing-flex-wrapper > main,
   html.tab-arriving .marketing-flex-wrapper > .native-only-topbar {
-    /* Direct children of the shell, not any descendant. `main` is not unique
-       on this site — the feed and the explore pages each render one of their
-       own inside the layout's — and a bare `main` selector would fade a page
-       twice over, at 0.72 of 0.72, which is a visibly darker first frame.
-
-       The curve the feed return uses, so switching tabs and coming back from a
-       listing are recognisably the same gesture rather than two effects that
-       happen to live in the same app. Eased in as well as out: this is fired by
-       a finger on a tab, not carried over from one, so it starts from rest.
-
-       260ms rather than 300: with no transform left to carry, a pure fade needs
-       less time to read as deliberate, and a tab is somewhere you go dozens of
-       times a session — repetition is what makes an animation tiresome.
-
-       Never from zero: fading up from nothing makes the first frames of every
-       tab a blank rectangle — the page announcing itself rather than being
-       there. From 0.72 the whole distance is small enough that a swap landing
-       mid-flight (a skeleton replaced by the real page) is a step nobody can
-       see, and small enough that whatever sits behind <main> — white on the
-       web, the claimed surface colour in the app — cannot tint it on the way. */
-    animation: tab-arrive 260ms cubic-bezier(0.32, 0.06, 0.16, 1) both;
+    opacity: 0.86;
+    transition-duration: 0ms;
   }
 }
-@media (min-width: 768px) {
-  html.tab-arriving .marketing-flex-wrapper > main,
-  html.tab-arriving .marketing-flex-wrapper > .native-only-topbar { animation: none; }
-}
 @media (prefers-reduced-motion: reduce) {
+  .marketing-flex-wrapper > main,
+  .marketing-flex-wrapper > .native-only-topbar,
+  html.tab-leaving .marketing-flex-wrapper > main,
+  html.tab-leaving .marketing-flex-wrapper > .native-only-topbar,
   html.tab-arriving .marketing-flex-wrapper > main,
-  html.tab-arriving .marketing-flex-wrapper > .native-only-topbar { animation: none; }
+  html.tab-arriving .marketing-flex-wrapper > .native-only-topbar {
+    opacity: 1;
+    transition: none;
+  }
 }
 
 /* Momentum and a hard stop at the ends, on the surfaces that scroll their own

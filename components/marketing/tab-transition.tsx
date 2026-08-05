@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { markNavigated } from "@/lib/session-nav"
+import { endTabLeave, isTabLeaving } from "@/lib/tab-leave"
 
 /**
  * One arrival, played the same way every time you change tab.
@@ -57,8 +58,6 @@ import { markNavigated } from "@/lib/session-nav"
  * you get the doubled entrance this file exists to remove.
  */
 
-const ARRIVE_MS = 260
-
 /**
  * Which of the five tabs a path belongs to, or null for everything else.
  *
@@ -86,7 +85,6 @@ export function TabTransition({
   const pathname = usePathname()
   /** undefined until the first commit — see below. */
   const previous = useRef<string | null | undefined>(undefined)
-  const clear = useRef<number | undefined>(undefined)
 
   // A layout effect, not an effect. This runs after React has committed the new
   // route but BEFORE the browser paints it, so the first painted frame of the
@@ -97,6 +95,23 @@ export function TabTransition({
     const tab = tabOf(pathname)
     const from = previous.current
     previous.current = tab
+
+    // THE FIRST THING, ahead of every guard below.
+    //
+    // The bar marks the document on pointerdown and this is the only thing that
+    // takes the mark off. A commit means the leave is over, whatever it landed
+    // on — and "whatever" includes every case the guards below decline to
+    // animate. Leaving it to them meant that tapping Profile from a listing (a
+    // `from === null` return, two screens down) armed the dip and then returned
+    // without releasing it, so the whole app sat at 86% until the give-up timer
+    // in lib/tab-leave.ts noticed a second and a half later.
+    //
+    // Releasing here is also what makes the arrival free: the screen is already
+    // partway down and already moving, so the transition simply carries on in
+    // the other direction. Nothing is set, nothing snaps, and an arrival that
+    // interrupts a previous one reverses from wherever it had got to.
+    const wasLeaving = isTabLeaving()
+    endTabLeave()
 
     // Nothing was replaced on the very first commit of the session: this is a
     // page load, not a tab change, and animating it would put a fade over an
@@ -117,33 +132,38 @@ export function TabTransition({
     // that moving the entrance up here was meant to end.
     if (from === null) return
 
-    const root = document.documentElement
-    // Removed, reflowed, re-added. A CSS animation does not restart just
-    // because the class is already there, so tapping Messages → Profile →
-    // Messages quickly would play it once and then never again. Reading
-    // offsetWidth between the two forces the style flush that makes the browser
-    // treat it as a new animation.
-    root.classList.remove("tab-arriving")
-    void root.offsetWidth
-    root.classList.add("tab-arriving")
+    // The bar already started this one and the release above is the whole of
+    // the arrival: the screen is mid-dip and now heading back up. Touching it
+    // again here would be the snap this rewrite exists to remove.
+    if (wasLeaving) return
 
-    // Taken off again rather than left on. An animation with `both` holds its
-    // final frame forever, so a stuck class would leave every element it
-    // matches pinned to a computed opacity for the rest of the session — and
-    // any later style recalculation on them would be resolving against a rule
-    // that has nothing left to say. A timer rather than `animationend`, because
-    // an animation that is cancelled mid-flight (by the next tab change) never
-    // fires that event.
-    window.clearTimeout(clear.current)
-    clear.current = window.setTimeout(() => {
-      root.classList.remove("tab-arriving")
-    }, ARRIVE_MS + 60)
+    // Nothing started it — a redirect, a back gesture, a router.push from
+    // somewhere that is not the tab bar. There is no dip in progress to
+    // continue, so one is created and immediately released.
+    //
+    // Add, FLUSH, remove, in one synchronous block, and the flush is the entire
+    // trick. `.tab-arriving` carries a zero duration, so the first recalculation
+    // puts the screen at the dip with no transition at all; taking the class off
+    // after it starts the real one from there. Both happen inside this layout
+    // effect, which runs after React has committed the new route and before the
+    // browser paints it — so the first frame anybody sees is already the first
+    // frame of the arrival, and the finished page at full opacity is never
+    // shown for the frame before it drops back down.
+    //
+    // Reading offsetWidth is what forces that recalculation. Without it the
+    // browser coalesces add-then-remove into no change whatsoever and there is
+    // no transition, which is the same reason the previous animation-based
+    // version needed the same line.
+    const root = document.documentElement
+    root.classList.add("tab-arriving")
+    void root.offsetWidth
+    root.classList.remove("tab-arriving")
   }, [pathname])
 
   // Never leave the mark behind on a screen this component no longer owns.
   useEffect(
     () => () => {
-      window.clearTimeout(clear.current)
+      endTabLeave()
       document.documentElement.classList.remove("tab-arriving")
     },
     [],
