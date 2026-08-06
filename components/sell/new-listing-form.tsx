@@ -137,6 +137,8 @@ function OptionRow({
 export function NewListingForm() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  /** The sheet's one scroller — sent back to the top when a second listing starts. */
+  const scrollerRef = useRef<HTMLDivElement>(null)
 
   const [photos, setPhotos] = useState<Photo[]>([])
   const [title, setTitle] = useState("")
@@ -594,15 +596,63 @@ export function NewListingForm() {
           return
         }
         setPosted(true)
-        // Straight to the listing you just made — the only proof it's actually
-        // live, and the page you'd navigate to yourself anyway. Home told you
-        // nothing and left you hunting for it in the feed.
-        setTimeout(() => {
-          if (draft) router.push("/products/drafts")
-          else if (postAnother) window.location.assign("/products/new")
-          else if (data?.slug) router.push(`/products/${data.slug}`)
-          else router.push("/")
-        }, 1250)
+
+        /**
+         * WHAT HAPPENS AFTER "Publică anunțul".
+         *
+         * ── Another one ───────────────────────────────────────────────────
+         * `window.location.assign("/products/new")` — a full document load, to
+         * arrive at the screen you were already on. It threw away the React
+         * tree, the router cache and the sheet itself, took a second or more,
+         * and on the way it turned the intercepted overlay back into a plain
+         * page, so the next listing you wrote had no screen behind it and no
+         * slide to close with.
+         *
+         * Nothing needs to navigate. "Another one" is an empty form, and this
+         * component can simply be empty: the fields are cleared in place, the
+         * scroller goes back to the top, and the confirmation stays up while
+         * that happens. No load, no route change, nothing to go wrong.
+         *
+         * ── The listing you just made ─────────────────────────────────────
+         * That IS a navigation, and the sheet should leave the way it arrived
+         * rather than being deleted out from under you — pushing straight to
+         * the listing empties the modal slot, so the sheet vanished in a frame.
+         * It slides down first and the route change goes on the end of it.
+         *
+         * `replace`, not `push`: /products/new must not be left in the history
+         * behind the listing, or the back gesture out of a listing you have
+         * just published reopens the form you published it from.
+         */
+        window.setTimeout(() => {
+          if (postAnother && !draft) {
+            setPhotos([])
+            setTitle("")
+            setDescription("")
+            setGroup(null)
+            setItem(null)
+            setBrand(null)
+            setCondition(null)
+            setColour(null)
+            setSize(null)
+            setEra(null)
+            setSources([])
+            setStyles([])
+            setPrice("")
+            setCompareAt("")
+            setError(null)
+            setSaving(null)
+            setPosted(false)
+            scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+            void triggerHaptic("light")
+            return
+          }
+          setLeaving(true)
+          window.setTimeout(() => {
+            if (draft) router.replace("/products/drafts")
+            else if (data?.slug) router.replace(`/products/${data.slug}`)
+            else router.replace("/")
+          }, 300)
+        }, 1100)
       } catch {
         setError("Ceva n-a mers. Verifică conexiunea și încearcă din nou.")
         setSaving(null)
@@ -724,7 +774,10 @@ export function NewListingForm() {
       </header>
 
       {/* The one scroller. */}
-      <div className="min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain md:overflow-visible">
+      <div
+        ref={scrollerRef}
+        className="min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain md:overflow-visible"
+      >
       <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl">
       <header className="mb-5 hidden md:block">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">

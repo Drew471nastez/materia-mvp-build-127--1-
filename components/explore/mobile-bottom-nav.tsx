@@ -49,9 +49,23 @@ export function MobileBottomNav({
   const { t } = useLocale()
   const router = useRouter()
   const pathname = usePathname()
-  const [launching, setLaunching] = useState(false)
-  /** The sheet is up — the + shows as an ×. Read from the route, so it is true
-   *  however you got there and false the moment you leave. */
+  /**
+   * The sheet is up. DERIVED FROM THE ROUTE, never stored.
+   *
+   * There used to be a `launching` boolean set when + was pressed and cleared
+   * when the route changed, and it is the reason + sometimes did nothing: any
+   * moment where the flag says "already launching" and the route disagrees is a
+   * press that returns at the guard and opens nothing. Closing the sheet and
+   * pressing + again inside the same frame did it; so did a push that the
+   * router deduped. Both are rare, both are silent, and the second left + dead
+   * until the app was restarted.
+   *
+   * A boolean that mirrors the route can drift from the route. This one IS the
+   * route, so there is no state to get stuck: it is true exactly while
+   * /products/new is open and false exactly when it is not. Same fix as the
+   * image viewer's close latch and the sheet's own launch flag, and the same
+   * lesson — if the truth is already somewhere, do not keep a copy of it.
+   */
   const sheetOpen = pathname?.startsWith("/products/new") ?? false
 
   // The Profile tab points at /profile now, but the callers that compute
@@ -138,30 +152,14 @@ export function MobileBottomNav({
   // a deliberate sixth of a second before anything happened — which is exactly
   // what reads as the app being slow. The spin now runs alongside the
   // navigation instead of in front of it.
-  /**
-   * `launching` USED TO BE RESET BY THE BAR DISAPPEARING.
-   *
-   * It is set on the way to /products/new and there is nothing in this
-   * component that clears it. That was survivable only because the bar hid
-   * itself on that route, unmounting and taking the state with it. It does not
-   * hide any more — hiding it moved the page underneath the sell sheet, which
-   * is the bump this commit is about — so without this the second press of +
-   * would return at the guard below and open nothing at all.
-   *
-   * Cleared by LEAVING the route rather than by a timer, so the icon stays
-   * turned for exactly as long as the sheet is up.
-   */
-  useEffect(() => {
-    if (!pathname?.startsWith("/products/new")) setLaunching(false)
-  }, [pathname])
-
   const onSell = useCallback(() => {
-    if (launching) return
+    // Already open — the only case worth declining, and it is asked of the
+    // route rather than of a flag that remembers having asked.
+    if (sheetOpen) return
     // The buzz already fired on pointerdown, with the finger rather than after
     // it — see the gesture machine below.
-    setLaunching(true)
     router.push("/products/new")
-  }, [launching, router])
+  }, [sheetOpen, router])
 
   // Every tab answers the finger before the route does.
   //
@@ -318,7 +316,7 @@ export function MobileBottomNav({
           <span
             className={cn(
               "flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform duration-200",
-              !launching && "group-active:scale-95",
+              !sheetOpen && "group-active:scale-95",
             )}
             style={{
               background: "linear-gradient(150deg, #8b5cf6 0%, #7c3aed 100%)",
