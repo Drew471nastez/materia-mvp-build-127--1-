@@ -105,6 +105,44 @@ if (deepFrom) {
   )
 }
 
+// ── The two halves must be on one clock, not merely one duration ────────────
+//
+// Equal durations are not enough, and assuming they were is a bug this file was
+// written after and still failed to catch. The copy starts moving on the click;
+// the screen underneath cannot start until it MOUNTS, a frame later on a warm
+// route and up to a hundred milliseconds on a cold one. Both then run their
+// full length from their own start, so the one underneath is still travelling
+// after the copy has gone — and for that overhang its right edge is offset with
+// nothing covering it. A strip of bare background, at the end of every pop.
+//
+// The fix is a negative delay: the arriving screen joins an animation already
+// in progress instead of starting a second one.
+check(
+  "pop-shot.ts records when the slide began",
+  /slideStart\s*=\s*performance\.now\(\)/.test(shot),
+)
+check(
+  "pop-shot.ts exposes how far in the slide already is",
+  /export function popShotElapsed/.test(shot),
+)
+check(
+  "the elapsed reading is null once the slide is over",
+  /elapsed\s*>=\s*SLIDE_MS\s*\?\s*null/.test(shot),
+  "        Past the end there is nothing to join, and a screen that started a\n" +
+    "        25% parallax with no copy over it exposes a quarter of the viewport.",
+)
+check(
+  "globals.css honours a delay rather than always starting from zero",
+  /animation-delay:\s*var\(--pop-delay/.test(css),
+  "        Without this the deep parallax always plays from its first frame,\n" +
+    "        which is the desync above no matter how well the durations match.",
+)
+check(
+  "the delay is cleared when the slide ends",
+  /removeProperty\("--pop-delay"\)/.test(shot),
+  "        Left set, the next arrival joins an animation that finished long ago.",
+)
+
 // ── The class the two sides agree on ────────────────────────────────────────
 check(
   "pop-shot.ts sets the class the deep parallax is keyed on",

@@ -825,6 +825,22 @@ html.capacitor a.no-tap-fade:active {
    * written in pop-shot.ts too, and neither may be changed alone. */
   html.pop-return.pop-covered .marketing-flex-wrapper > main > * {
     animation: pop-return-deep 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    /* NEGATIVE, AND SET BY THE COPY RATHER THAN CHOSEN HERE.
+     *
+     * The two halves do not start together and cannot be made to. The copy
+     * begins moving on the click; this screen cannot begin until it MOUNTS,
+     * which is a frame later on a warm route and can be a hundred milliseconds
+     * on a cold one. Both running their full length from their own start means
+     * this one is still travelling after the copy has gone — and for exactly
+     * that overhang its right edge is offset with nothing over it, which is a
+     * strip of bare background at the end of every pop. The first version of
+     * this shipped that.
+     *
+     * A negative delay is how CSS is told an animation is already partway
+     * through, so this joins the slide instead of starting a second one and
+     * the two land on the same frame however late the mount was.
+     * lib/messages/pop-shot.ts measures the gap and writes it here. */
+    animation-delay: var(--pop-delay, 0ms);
     will-change: transform, opacity;
   }
   @keyframes pop-return-deep {

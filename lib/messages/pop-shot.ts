@@ -78,6 +78,40 @@ const ABANDON_MS = 900
 let shot: HTMLElement | null = null
 let abandon: number | undefined
 
+/** When the slide began, so the screen underneath can join it already in
+ *  progress rather than starting its own. See `popShotElapsed`. */
+let slideStart = 0
+
+/**
+ * How long the copy has been sliding, or null if none is.
+ *
+ * THE TWO HALVES OF THIS TRANSITION DO NOT START AT THE SAME MOMENT, and
+ * pretending they do was a bug shipped in the first version of this file.
+ *
+ * The copy starts moving on the click. The inbox underneath cannot start until
+ * it MOUNTS, which is one frame later on a warm route and can be a hundred
+ * milliseconds on a cold one. Both then ran for their full duration, so the
+ * inbox finished travelling that much AFTER the copy had gone — and for exactly
+ * that overhang the screen was still offset to the left with nothing covering
+ * its right edge. A strip of bare background, on the right, at the end of every
+ * pop. Which is the artefact this whole approach exists to avoid, reintroduced
+ * by assuming two clocks were one.
+ *
+ * So the inbox does not start its animation, it JOINS one — with a negative
+ * `animation-delay` of however long it missed, which is the CSS way of saying
+ * "you are already this far in". The two then end on the same frame no matter
+ * how late the mount was, and the containment that lets the parallax be a
+ * quarter of the screen holds for the whole of it.
+ */
+export function popShotElapsed(): number | null {
+  if (!shot && !slideStart) return null
+  if (!slideStart) return null
+  const elapsed = performance.now() - slideStart
+  // Past the end there is nothing to join. The caller falls back to the small
+  // uncovered offset, which is safe on its own.
+  return elapsed >= SLIDE_MS ? null : elapsed
+}
+
 function clear(): void {
   window.clearTimeout(abandon)
   abandon = undefined
@@ -191,6 +225,14 @@ export function dropPopShot(): void {
   clear()
   shot?.remove()
   shot = null
+  // Only if no slide is running. `dropPopShot` is also called on a timer after
+  // pointerup, which lands AFTER a successful click has already handed the copy
+  // to `releasePopShot` — clearing the clock there would strand the inbox
+  // mid-parallax with nothing left to synchronise to.
+  if (!document.querySelector(".pop-shot")) {
+    slideStart = 0
+    document.documentElement.style.removeProperty("--pop-delay")
+  }
 }
 
 /**
@@ -238,9 +280,15 @@ export function releasePopShot(): void {
 
   const root = document.documentElement
   root.classList.add("pop-covered")
+  slideStart = performance.now()
 
   const done = () => {
     root.classList.remove("pop-covered")
+    // The offset the inbox joined at goes with it. Left behind, the next
+    // arrival on this screen would start its animation partway through one
+    // that ended long ago.
+    root.style.removeProperty("--pop-delay")
+    slideStart = 0
     el.remove()
   }
 
