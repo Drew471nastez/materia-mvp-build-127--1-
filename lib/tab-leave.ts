@@ -35,17 +35,38 @@
 
 const LEAVING = "tab-leaving"
 
+/**
+ * The same dip, taken in one frame instead of eased into over 120ms.
+ *
+ * For a navigation that has no finger to wait for — pressing Back, where the
+ * gesture is already over by the time anything can respond to it. The gradual
+ * dip needs the 80-150ms between a finger landing and a tap resolving to get
+ * anywhere; a back press has none of that, so by the time the destination
+ * commits the screen has moved about 3% and the whole handover is invisible.
+ * That is what "too direct" was.
+ *
+ * Snapping to the dip costs nothing visually — the screen was at 1 for the
+ * frame before, and one frame at 0.88 is not something anybody can see land —
+ * and it means the arrival has the FULL 240ms rise to play with, which is the
+ * part you do see. The transition back up is the transition, and it now starts
+ * from the bottom of the dip rather than 3% into it.
+ */
+const NOW = "tab-leaving-now"
+
 /** Longer than any tab change worth animating; shorter than "the user notices". */
 const GIVE_UP_MS = 1600
 
 let release: number | undefined
 
-export function beginTabLeave(): void {
+export function beginTabLeave(options?: { instant?: boolean }): void {
   if (typeof document === "undefined") return
-  document.documentElement.classList.add(LEAVING)
+  const root = document.documentElement
+  root.classList.add(LEAVING)
+  if (options?.instant) root.classList.add(NOW)
   window.clearTimeout(release)
   release = window.setTimeout(() => {
-    document.documentElement.classList.remove(LEAVING)
+    root.classList.remove(LEAVING)
+    root.classList.remove(NOW)
   }, GIVE_UP_MS)
 }
 
@@ -55,6 +76,10 @@ export function endTabLeave(): void {
   window.clearTimeout(release)
   release = undefined
   document.documentElement.classList.remove(LEAVING)
+  // Taken off with it, and it must be: this is what holds the duration at zero.
+  // Left behind, the rise back to 1 would also happen in one frame, which is a
+  // snap rather than an arrival.
+  document.documentElement.classList.remove(NOW)
 }
 
 export function isTabLeaving(): boolean {

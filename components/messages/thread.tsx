@@ -1123,81 +1123,44 @@ export function MessageThread({
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
   /**
-   * CLOSING — the conversation recedes, and THEN the route changes.
+   * CLOSING — instantly, which is the whole of the fix.
    *
-   * Everything here is exactly what the back button did before, with one thing
-   * added in front of it: the screen now visibly leaves. `beginTabLeave()` and
-   * `navigateBlended("back", …)` are unchanged and still do their jobs — the
-   * dip on <main> and the pop — because they were never the problem. What was
-   * missing is that the conversation itself never moved.
+   * What was here: the conversation scaled down and faded to zero over 190ms
+   * and the navigation was fired 160ms into it. It showed a second of empty
+   * white on the way back, and it was two mistakes compounding.
    *
-   * 160ms against a 190ms animation. The navigation goes INSIDE the tail, not
-   * on its last frame: firing exactly on the end puts the route commit on the
-   * same tick the animation finishes, and on a slow frame the two resolve in
-   * the wrong order — the conversation is unmounted with travel left, so the
-   * last thing you see is it vanishing rather than leaving.
+   * The animation ended at `opacity: 0` under a `both` fill, which HOLDS the
+   * last frame after the animation ends — so from 190ms until /messages
+   * actually committed, the conversation was fully transparent and what showed
+   * through it was the bare layout background. A screen may not stop covering
+   * what is behind it until there is something behind it, and there is not: the
+   * inbox does not exist until Next commits it.
    *
-   * Going early also keeps the total wait short. `router.back()` reads the
-   * client router cache, so the inbox is usually there in a frame or two —
-   * meaning the list lands while the conversation is still fading rather than
-   * after it has gone, and nothing is uncovered in between.
+   * And the 160ms bought time for that animation by spending it on the one
+   * control in the app that has to feel immediate.
    *
-   * Guarded against a second press: the arrow is a large target on a screen
-   * that is already moving, and two overlapping `router.back()` calls pop two
-   * history entries and land you two screens away.
+   * So the conversation does not animate at all now, and the navigation goes on
+   * the same tick as the press. The transition is the dip on <main>, which was
+   * always there and never uncovers anything because it never goes below 0.88 —
+   * it just had no time to happen. `instant: true` takes it in one frame
+   * instead of easing down over 120ms it does not have (a back press is over
+   * before anything can react; a tab press has a finger resting on it for
+   * 80-150ms first). The arrival then rises the full 240ms from the bottom of
+   * the dip, and THAT is the part anybody sees. See lib/tab-leave.ts.
+   *
+   * Guarded against a second press: two overlapping `router.back()` calls pop
+   * two history entries and land you two screens away.
    */
-  const [dismissing, setDismissing] = useState(false)
+  const closing = useRef(false)
   const closeThread = useCallback(() => {
-    if (dismissing) return
-    setDismissing(true)
-    beginTabLeave()
-    window.setTimeout(() => {
-      navigateBlended("back", () =>
-        window.history.length > 1 ? router.back() : router.push("/messages"),
-      )
-    }, 160)
-  }, [dismissing, router])
+    if (closing.current) return
+    closing.current = true
+    beginTabLeave({ instant: true })
+    navigateBlended("back", () =>
+      window.history.length > 1 ? router.back() : router.push("/messages"),
+    )
+  }, [router])
 
-  /**
-   * ARMING — the layer is raised while the finger is still down.
-   *
-   * `will-change` declared on the animating class is a promise made too late.
-   * The browser first sees it on the frame the class is added, which is the
-   * frame the animation is already meant to be playing, so it has to rasterise
-   * a full-screen subtree — an entire conversation, its avatars, its images —
-   * while the first frames are due. That is one long frame at the start
-   * followed by a smooth remainder, and a long first frame is exactly what
-   * reads as "not smooth" no matter how good the rest is.
-   *
-   * `pointerdown` fires 80-150ms before the tap resolves — human reaction time,
-   * free and always there. Arming in it gives the compositor that whole window
-   * to promote the shell and paint it into a texture once. By the time
-   * `thread-dismiss` starts there is nothing left to rasterise and every frame
-   * is a matrix multiply, which is what holds 8.3ms on a 120Hz panel.
-   *
-   * Disarmed again if the press does not become a tap, because a permanent
-   * `will-change` is a permanent extra layer in memory — on a long conversation
-   * that is a real texture, not a hint. `pointercancel` is the scroll/drag-away
-   * case. The timer is for the ordinary lift-off that never becomes a click
-   * (finger moved off the arrow); it is well past the click, and it checks
-   * `dismissing` through a ref so it cannot disarm a screen that is leaving —
-   * during which `.thread-dismiss` carries its own `will-change` anyway.
-   */
-  const [armed, setArmed] = useState(false)
-  const dismissingRef = useRef(false)
-  dismissingRef.current = dismissing
-  const disarmTimer = useRef<number | undefined>(undefined)
-  const arm = useCallback(() => {
-    window.clearTimeout(disarmTimer.current)
-    setArmed(true)
-  }, [])
-  const disarmSoon = useCallback((delay: number) => {
-    window.clearTimeout(disarmTimer.current)
-    disarmTimer.current = window.setTimeout(() => {
-      if (!dismissingRef.current) setArmed(false)
-    }, delay)
-  }, [])
-  useEffect(() => () => window.clearTimeout(disarmTimer.current), [])
 
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
@@ -1901,11 +1864,10 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // Promoted at pointerdown, so the animation below has nothing left to
-        // rasterise when it starts. See `arm`.
-        armed && "thread-armed",
-        // Receding away, played before the route changes. See closeThread.
-        dismissing && "thread-dismiss",
+        // Settling in, once. Not a loading state and not an arrival number —
+        // the difference between the conversation appearing and the
+        // conversation being cut to. See `.thread-enter` in app/globals.css.
+        "thread-enter",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1921,17 +1883,6 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Înapoi"
-            // The layer goes up here, not on the click. See `arm` — this is the
-            // whole of the 120fps fix, and it costs nothing: the browser is
-            // idle between the finger landing and the tap resolving, and that
-            // is precisely the time promoting a full-screen layer takes.
-            onPointerDown={arm}
-            // The press that never became a tap: dragged away, or the OS took
-            // the gesture. Nothing is going to animate, so the layer goes back.
-            onPointerCancel={() => disarmSoon(0)}
-            // Past the click that a lift-off would have produced. If one did,
-            // `dismissing` is set and this leaves the layer alone.
-            onPointerUp={() => disarmSoon(500)}
             // A pop, announced as one: the hint on <html> is what tells the
             // inbox it is being returned to rather than opened, so it comes
             // forward under a lifting veil instead of simply being there. Same

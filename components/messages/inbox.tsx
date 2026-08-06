@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { BadgeCheck, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { ConversationRow } from "@/components/messages/conversation-row"
@@ -836,14 +836,34 @@ function MessagesList({
    * this only acts when the click provably never came.
    */
   const router = useRouter()
+  /**
+   * Which row is under a finger, so the wash can be faded rather than switched.
+   *
+   * Tailwind's `active:` was doing this, and doing it in one frame each way —
+   * a rectangle the size of a conversation row blinking on and off. The state
+   * lives here instead so the press, the haptic and the screen dip all begin on
+   * the same event; `.msg-row` in app/globals.css carries the timing.
+   *
+   * Not cleared when the tap succeeds, on purpose: the row stays lit while the
+   * conversation loads, which is the honest thing to show and what the tab bar
+   * has always done. The pathname effect below is what takes it off, so coming
+   * back to the inbox never finds a row still holding a press from last time.
+   */
+  const [pressed, setPressed] = useState<string | null>(null)
+  const pathname = usePathname()
+  useEffect(() => setPressed(null), [pathname])
   const rescue = useRef<TapRescue<string> | null>(null)
   if (!rescue.current) {
     rescue.current = createTapRescue<string>({
-      onPress: () => {
+      onPress: (id) => {
         void triggerHaptic("light")
+        setPressed(id)
         beginTabLeave()
       },
-      onAbandon: () => endTabLeave(),
+      onAbandon: () => {
+        setPressed(null)
+        endTabLeave()
+      },
       onRescue: (id) => {
         const href = `/messages/${id}`
         // It may have been swallowed, or it may have worked and simply not
@@ -959,8 +979,16 @@ function MessagesList({
               // row is as likely to be the start of a flick as a tap, and the
               // dip must come straight back off when it turns out to be one.
               {...rowGesture(r.id)}
+              // Read by `.msg-row` rather than by a conditional class, so the
+              // browser is transitioning between two states of one rule instead
+              // of being handed a different rule. `active:` could not do this
+              // at all: it has no off-ramp to animate along, it simply stops
+              // applying.
+              data-pressed={pressed === r.id ? "true" : undefined}
+              data-unread={r.unread > 0 ? "true" : undefined}
               className={cn(
                 ROW_INNER,
+                "msg-row",
                 // An unread thread is a different kind of row, so it is a
                 // different surface. The wash is faint on purpose — it has to
                 // survive being seen next to six read rows without turning the
@@ -968,7 +996,10 @@ function MessagesList({
                 // hour and the count were previously being asked to do alone,
                 // all of them inside the text column where the eye is already
                 // busy reading.
-                r.unread > 0 ? "bg-[#7c3aed]/[0.05] active:bg-[#7c3aed]/[0.1]" : "active:bg-neutral-50",
+                // The resting wash only. The pressed one moved to `.msg-row`
+                // with `data-pressed` — `active:` is a class the browser adds
+                // and removes, so it could only ever blink.
+                r.unread > 0 && "bg-[#7c3aed]/[0.05]",
               )}
             >
               <Avatar name={name} url={r.other?.avatar_url ?? null} seed={r.other?.id} />

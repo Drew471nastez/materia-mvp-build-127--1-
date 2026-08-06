@@ -737,6 +737,18 @@ html.capacitor a.no-tap-fade:active {
     transition-timing-function: cubic-bezier(0.32, 0, 0.6, 1);
   }
 
+  /* THE DIP, TAKEN IN ONE FRAME. See lib/tab-leave.ts.
+     For a press that is already over before anything can react to it — Back,
+     which has no 80-150ms of finger-down to ease through. The rule above needs
+     that time to get anywhere; without it the screen moves about 3% before the
+     destination commits and the handover is invisible. Only the duration
+     changes; the 0.88 above is still what it lands on, and the rise back up is
+     still the full 240ms, which is the half anybody actually watches. */
+  html.tab-leaving-now .marketing-flex-wrapper > main,
+  html.tab-leaving-now .marketing-flex-wrapper > .native-only-topbar {
+    transition-duration: 0ms;
+  }
+
   /* The same dip, for the navigations no finger on the bar started — a
      redirect, a back gesture, a push from somewhere else. Zero duration on
      purpose: tab-transition.tsx adds this, flushes style, and removes it again
@@ -2428,85 +2440,115 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
 
 /* CLOSING A CONVERSATION — the way back to the inbox.
  *
- * This was a route change and nothing else: `beginTabLeave()` dipped the app to
- * 0.88 and the conversation was then simply unmounted. The dip is on <main>, so
- * it belongs to the whole screen and says nothing about the conversation — the
- * conversation itself never moved. That is what "too direct" is: the thing you
- * pressed back on does not visibly go anywhere, it stops existing.
+ * ── WHAT WAS HERE, AND WHY IT IS GONE ──
+ * A recede: the conversation scaled to 0.97 and faded to zero over 190ms, and
+ * the navigation was fired 160ms in. It produced a second of empty white on the
+ * way back, and the reason is the fill mode. `both` holds an animation's LAST
+ * frame after it ends, and the last frame was `opacity: 0` — so from 190ms
+ * until whenever /messages actually committed, the conversation was fully
+ * transparent and what showed through it was the bare layout background. On a
+ * warm route that is a flicker; on a cold one it is a blank screen you sit and
+ * look at.
  *
- * ── WHY THIS DOES NOT SLIDE OFF TO THE RIGHT ──
- * A push-style slide is the obvious answer, and it is wrong HERE for a reason
- * specific to this route. Next has not committed /messages when the animation
- * starts, so the space the conversation vacates as it travels is not the inbox
- * — it is the bare layout background. The screen appears to slide away to
- * reveal NOTHING, and the list materialises into that hole afterwards.
+ * Which is this file's own rule, arrived at from the other direction. It says:
+ * no travel that moves an edge past the frame, because anything leaving the
+ * frame exposes what is not behind it. Fading a screen to nothing exposes the
+ * same nothing without moving at all — transparency is travel past the frame in
+ * the third dimension. A screen may not stop covering what is behind it until
+ * there is something behind it.
  *
- * This file already states the rule, for listings: no travel that moves an edge
- * past the frame, because anything leaving the frame exposes what is not behind
- * it. A full-screen pop is nothing but travel past the frame.
+ * The 160ms delay was the other half. It bought time for an animation nobody
+ * wanted and spent it on the one control in the app that has to feel instant.
  *
- * ── WHAT IT DOES INSTEAD ──
- * It recedes — a small scale-down with a fade, so the conversation reads as
- * going away from you rather than moving sideways past you. Every edge stays
- * inside the frame, so nothing is ever uncovered on the way out.
+ * ── WHAT REPLACES IT ──
+ * Nothing on the conversation, and the whole of the transition on <main>.
  *
- * The two compose rather than compete. The dip is on <main>; this is on the
- * shell INSIDE it, so the opacities multiply — the conversation fades from the
- * 0.88 the dip already put it at, with no frame where anything brightens back
- * up before leaving.
+ * The dip already there — 1 → 0.88 on the way out, 0.88 → 1 over 240ms on
+ * arrival — is a complete, seamless handover, and it never uncovers anything
+ * because it never goes below 0.88. Its problem on this route was timing, not
+ * shape. It eases down over 120ms, which works for a tab because a finger is
+ * resting on the bar for 80-150ms before the tap resolves. Back has none of
+ * that: the press is over before anything can respond, so the destination
+ * commits with the screen 3% down and there is nothing to watch. That is what
+ * "too direct" was — not a missing animation, an animation that never got to
+ * start.
  *
- * A scale on a `position: fixed` element sized to the viewport is safe, and
- * this is the one place in the app it is: scaling about the default origin
- * displaces by H × (1 − s) / 2, which is a few pixels on a viewport-sized box
- * and catastrophic on a tall document. `.thread-shell` is the former.
- *
- * 0.97 and 190ms. Small enough that nothing reads as zooming, short enough that
- * pressing back still feels immediate — a long exit on a control you use
- * constantly is worse than no exit at all.
+ * So the dip is taken in ONE FRAME on a pop (`tab-leaving-now`, above), and the
+ * arrival gets the full 240ms rise from the bottom of it. One frame at 0.88 is
+ * not something anybody can see land; 240ms coming back up is the entire thing
+ * you see. Instant, and smooth, which were never in conflict — the delay was.
  */
-@keyframes thread-dismiss {
-  from { transform: none;        opacity: 1; }
-  to   { transform: scale(0.97); opacity: 0; }
-}
-/* THE LAYER IS RAISED BEFORE THE ANIMATION, NOT BY IT.
+
+/* ARRIVING AT A CONVERSATION — the handover, not an entrance.
  *
- * `will-change` on the animating class is too late. The browser only sees it on
- * the frame the class is added, which is the frame the animation must already
- * be running — so it rasterises a full-screen subtree containing an entire
- * conversation while the first frames are supposed to be playing. That is the
- * stutter: one long frame at the start, then smooth.
+ * There are two ways into this screen and both used to end in a cut. A warm
+ * route replaces the inbox with the conversation between one frame and the
+ * next; a cold one shows the loading shell's spinner and then swaps the whole
+ * screen for the real one. Either way the last step is instantaneous, and an
+ * instantaneous step is what "it loads and then it's just there" describes.
  *
- * This class goes on at POINTERDOWN, a human reaction time before the tap
- * completes — 80-150ms in which the compositor can promote the shell, paint it
- * once into a texture, and have it ready. By the time the animation starts
- * there is nothing left to rasterise and every frame is a matrix multiply on
- * the GPU.
+ * 0.94, not 0.5. This is the distinction that matters and the one the earlier
+ * attempts here got wrong: a screen that arrives at half strength and climbs is
+ * not fading in, it is being assigned a number, and the number is the part you
+ * notice — it reads as a flash on a fast route and as a second load on a slow
+ * one. At 0.94 there is no frame you could point at and call dim; there is only
+ * the absence of a hard edge on the swap.
  *
- * `contain: paint` is the other half: it tells the browser this subtree cannot
- * draw outside its own box, so promoting it does not force an ancestor to
- * re-evaluate what overlaps it. On a long thread that is the difference between
- * a cheap layer and an expensive one. */
-.thread-armed {
-  will-change: transform, opacity;
-  contain: paint;
+ * Opacity alone. No scale: `.thread-shell` is `position: fixed` at viewport
+ * size, so a transform on it makes it the containing block for every fixed
+ * descendant inside — and even ignoring that, scaling from below 1 shows the
+ * layout background around every edge for the length of the animation, which is
+ * the exact white-frame bug the block above this one exists to record.
+ *
+ * 200ms, and it starts on mount rather than on any event, so a route that was
+ * already prefetched plays it too. That is deliberate: the two paths in should
+ * not feel like two different screens.
+ */
+@keyframes thread-enter {
+  from { opacity: 0.94; }
+  to   { opacity: 1; }
 }
-.thread-dismiss {
-  /* transform and opacity ONLY. Both are compositor properties: they never
-     touch layout or paint, so each frame is handed to the GPU as a transform
-     matrix and an alpha value. Nothing here can produce a layout pass, which is
-     what a 120Hz display leaves no room for — 8.3ms per frame, and a single
-     re-layout of a conversation costs more than that on its own. */
-  animation: thread-dismiss 190ms cubic-bezier(0.32, 0.08, 0.24, 1) both;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  /* Nothing may be pressed on a screen that is on its way out. */
-  pointer-events: none;
+@media (max-width: 767px) {
+  .thread-enter {
+    animation: thread-enter 200ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+  }
 }
-@media (min-width: 768px), (prefers-reduced-motion: reduce) {
-  /* On a monitor the conversation is a PANE beside the list, not a screen over
-     it — it is not going anywhere and never covered anything. */
-  .thread-armed { will-change: auto; contain: none; }
-  .thread-dismiss { animation: none; will-change: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .thread-enter { animation: none; }
+}
+
+/* PRESSING A CONVERSATION — a fade, not a switch.
+ *
+ * Tailwind's `active:` variant is a class that is either applied or not, so the
+ * wash under your finger appeared in one frame and vanished in one frame. On a
+ * row the size of a conversation that is a large rectangle blinking, which is
+ * what "the click touch fade should be smooth not direct" is about: the
+ * feedback was correct and instant, and instant is what made it feel cheap.
+ *
+ * Driven by the same gesture tracking that starts the navigation
+ * (components/messages/inbox.tsx), so the press state and the screen dip begin
+ * on the same event and end on the same event — rather than `active:` following
+ * the browser's own idea of pressed while everything else follows the pointer.
+ *
+ * Asymmetric on purpose. 110ms in, because feedback that lags a finger is not
+ * feedback; 340ms out, because the release is the part with no information in
+ * it and a slow fade there is what reads as a surface settling rather than a
+ * state being cleared. The out-duration is on the base rule and the in-duration
+ * on the pressed one, which is how a single transition gets two speeds: the
+ * duration that applies is always the one belonging to the state being entered.
+ */
+.msg-row {
+  transition: background-color 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.msg-row[data-pressed="true"] {
+  transition-duration: 110ms;
+  background-color: rgb(245 245 245);
+}
+.msg-row[data-pressed="true"][data-unread="true"] {
+  background-color: rgb(124 58 237 / 0.1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg-row { transition: none; }
 }
 
 /* An indicator that only appears if there is genuinely something to wait for.
