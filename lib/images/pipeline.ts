@@ -12,7 +12,7 @@ import {
   type Focal,
   type Size,
 } from "@/lib/images/geometry"
-import { contentBox, isTrimmed, type TrimRect } from "@/lib/images/letterbox"
+import { contentBox, isTrimmed, toSourceBox, type TrimRect } from "@/lib/images/letterbox"
 
 /**
  * ===========================================================================
@@ -308,13 +308,7 @@ function contentBoxOf(source: CanvasImageSource, w: number, h: number): TrimRect
 
     const box = contentBox(data, pw, ph)
     if (!isTrimmed(box, pw, ph)) return whole
-
-    const pad = Math.ceil(1 / scale)
-    const sx = box.sx === 0 ? 0 : Math.min(w - 1, Math.round(box.sx / scale) + pad)
-    const sy = box.sy === 0 ? 0 : Math.min(h - 1, Math.round(box.sy / scale) + pad)
-    const right = box.sx + box.sw >= pw ? w : Math.max(sx + 1, Math.round((box.sx + box.sw) / scale) - pad)
-    const bottom = box.sy + box.sh >= ph ? h : Math.max(sy + 1, Math.round((box.sy + box.sh) / scale) - pad)
-    return { sx, sy, sw: right - sx, sh: bottom - sy }
+    return toSourceBox(box, pw, ph, w, h)
   } catch {
     return whole
   }

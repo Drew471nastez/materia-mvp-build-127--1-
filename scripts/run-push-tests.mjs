@@ -16,7 +16,7 @@
  * under test import cleanly here.
  */
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync } from "node:fs"
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, basename, dirname, relative } from "node:path"
 
@@ -30,6 +30,7 @@ const SUITES = [
   "tests/thread-loading-shell.test.ts",
   "tests/image-fit.test.ts",
   "tests/letterbox.test.ts",
+  "tests/reprocess.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
@@ -88,6 +89,24 @@ try {
     writeFileSync(file, src)
   }
   writeFileSync(join(out, "package.json"), '{"type":"module"}\n')
+
+  // Real packages, for suites that use one.
+  //
+  // The `@/…` rewrite above only handles this project's own modules. A BARE
+  // specifier — `sharp` in tests/reprocess.test.ts — is resolved by Node
+  // walking up from the importing file looking for node_modules, and the
+  // importing file is in a temp directory that has none. So it fails with
+  // ERR_MODULE_NOT_FOUND on a package that is plainly installed.
+  //
+  // A symlink rather than a copy: node_modules is hundreds of megabytes and
+  // this runs on every push. Failing softly, because a symlink can be refused
+  // (Windows without developer mode, an exotic filesystem) and every suite that
+  // does not import a package still runs perfectly without it.
+  try {
+    symlinkSync(join(process.cwd(), "node_modules"), join(out, "node_modules"), "junction")
+  } catch {
+    /* suites importing real packages will say so themselves */
+  }
 
   const compiled = walk(out)
   for (const suite of SUITES) {

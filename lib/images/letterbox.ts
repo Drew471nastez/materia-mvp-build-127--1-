@@ -169,3 +169,58 @@ function plausible(a: number, b: number, total: number): boolean {
 export function isTrimmed(box: TrimRect, w: number, h: number): boolean {
   return box.sx !== 0 || box.sy !== 0 || box.sw !== w || box.sh !== h
 }
+
+/**
+ * One JPEG block. The reason the trim always overshoots slightly.
+ *
+ * A bar meets the photograph at a hard edge, and a hard edge is the worst thing
+ * you can give a DCT: the coefficients needed to reproduce it ring outwards,
+ * so the last few rows of what was a perfectly flat bar come back with a few
+ * units of noise in them. The scan stops there — correctly, those rows are no
+ * longer the bar's colour — and the result is a sliver of grey left along the
+ * edge of every card. Which looks like a rendering fault rather than like a
+ * photograph, and is worse than the bar it was meant to remove.
+ *
+ * Ringing is bounded by the block it came from, so eight source pixels covers
+ * it. Losing eight pixels off a photograph that genuinely had none is
+ * invisible; leaving three of somebody's grey canvas is not.
+ */
+export const EDGE_MARGIN = 8
+
+/**
+ * A box found on a downscaled probe, expressed in the full image's pixels.
+ *
+ * Shared because there are two pipelines — canvas in the browser, sharp on the
+ * server — and they must agree to the pixel or the same photograph is trimmed
+ * differently depending on whether it arrived by upload or by backfill.
+ *
+ * Only edges that were actually trimmed move inward. An edge the scan never cut
+ * stays exactly at the frame, so a pillarboxed image does not quietly lose
+ * eight rows off its top as well.
+ */
+export function toSourceBox(box: TrimRect, pw: number, ph: number, w: number, h: number): TrimRect {
+  if (!isTrimmed(box, pw, ph)) return { sx: 0, sy: 0, sw: w, sh: h }
+
+  const sx = pw > 0 ? w / pw : 1
+  const sy = ph > 0 ? h / ph : 1
+  // The probe's own pixel is worth this much of the source, and the boundary it
+  // reports is only accurate to one of them.
+  const padX = Math.ceil(sx) + EDGE_MARGIN
+  const padY = Math.ceil(sy) + EDGE_MARGIN
+
+  const left = box.sx === 0 ? 0 : Math.round(box.sx * sx) + padX
+  const top = box.sy === 0 ? 0 : Math.round(box.sy * sy) + padY
+  const right = box.sx + box.sw >= pw ? w : Math.round((box.sx + box.sw) * sx) - padX
+  const bottom = box.sy + box.sh >= ph ? h : Math.round((box.sy + box.sh) * sy) - padY
+
+  // A margin bigger than the content it was protecting would invert the box.
+  // Nothing sensible is left to trim at that point, so nothing is.
+  if (right - left < 8 || bottom - top < 8) return { sx: 0, sy: 0, sw: w, sh: h }
+
+  return {
+    sx: Math.max(0, left),
+    sy: Math.max(0, top),
+    sw: Math.min(w, right) - Math.max(0, left),
+    sh: Math.min(h, bottom) - Math.max(0, top),
+  }
+}
