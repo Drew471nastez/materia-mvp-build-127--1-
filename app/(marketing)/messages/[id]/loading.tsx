@@ -67,7 +67,12 @@ export default function ThreadLoading() {
   const name = preview?.name || ""
 
   return (
-    <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
+    // `thread-enter` — the push in from the right. ONLY here, never on the real
+    // thread: they are two different elements rendering the same class, so an
+    // entrance on both would restart the slide when the conversation replaces
+    // this and it would come in twice. This plays it; the real thread takes
+    // over in place at identical geometry. See app/globals.css.
+    <div className="thread-shell thread-enter mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
       <div
         className="shrink-0 border-b border-neutral-100 bg-white/95 backdrop-blur-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}

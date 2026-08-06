@@ -17,7 +17,6 @@ import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
-import { navigateBlended } from "@/lib/nav-blend"
 import { beginTabLeave } from "@/lib/tab-leave"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -1168,6 +1167,45 @@ export function MessageThread({
 
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
+  /**
+   * CLOSING THE CONVERSATION — out first, then the route.
+   *
+   * The conversation is a screen that came in over the inbox, so it has to go
+   * back out the way it arrived. Firing the navigation on its own means it
+   * simply ceases to exist, which is the hard cut that made coming back read as
+   * "direct and cheap": nothing moves, the list is just suddenly there.
+   *
+   * The route change is HELD until the slide has finished rather than fired
+   * alongside it, because Next unmounts this component the instant the route
+   * commits and there is no animating something that is no longer in the
+   * document. 240ms is the animation; the navigation goes 20ms inside its tail,
+   * so the commit is already in flight as the shell clears the edge of the
+   * screen and the list is never revealed underneath a conversation still on
+   * its way out.
+   *
+   * Guarded against a second press: the back arrow is a large target on a
+   * screen that is already moving, and two overlapping `router.back()` calls
+   * pop two entries and land you two screens away.
+   *
+   * Where it goes: back if there is anywhere to go back to, the inbox
+   * otherwise. A conversation opened from the list always has history behind
+   * it, so back returns to it with its scroll position intact — the difference
+   * between a screen closing and a navigation happening. A cold arrival from a
+   * push notification has nothing to pop, and `router.back()` on an empty stack
+   * does nothing at all, which would leave the only way out of a full-screen
+   * conversation dead.
+   */
+  const [goingBack, setGoingBack] = useState(false)
+  const closeThread = useCallback(() => {
+    if (goingBack) return
+    void triggerHaptic("light")
+    setGoingBack(true)
+    window.setTimeout(() => {
+      if (typeof window !== "undefined" && window.history.length > 1) router.back()
+      else router.push("/messages")
+    }, 220)
+  }, [goingBack, router])
+
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1897,6 +1935,10 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
+        // The push back out to the right, played before the route changes. No
+        // ENTRANCE here — loading.tsx owns that, and an entrance on both would
+        // restart the slide when this replaces it. See app/globals.css.
+        goingBack && "thread-leave",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1912,35 +1954,9 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Înapoi"
-            // A pop, announced as one: the hint on <html> is what tells the
-            // inbox it is being returned to rather than opened, so it comes
-            // forward under a lifting veil instead of simply being there. Same
-            // gesture as coming back from a listing, because it is one.
-            onClick={() => {
-              void triggerHaptic("light")
-              /**
-               * NO DIP ON THE WAY BACK — reverted, and here is why.
-               *
-               * `beginTabLeave()` used to fire on this tap, dipping the whole
-               * app to 0.86 opacity while the router waited for /messages to
-               * render. The theory was that a screen already moving reads as a
-               * smoother handover than one that snaps.
-               *
-               * In practice, /messages is `dynamic = "force-dynamic"` and the
-               * server round trip is where the dip is BEING PAID — 200 to
-               * 500ms of the whole app at 86% brightness while a black safe
-               * area shows above it. That is what a Capacitor WebView reads as
-               * "frozen dark for a second". The dip cost more than the pop
-               * would ever cost.
-               *
-               * A plain router.back is fast enough. The tab-leaving mechanism
-               * is unchanged and still runs for tab-to-tab navigations, which
-               * is what it was designed for.
-               */
-              navigateBlended("back", () =>
-                window.history.length > 1 ? router.back() : router.push("/messages"),
-              )
-            }}
+            // The conversation slides back out to the right and THEN the route
+            // changes — see closeThread.
+            onClick={closeThread}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
