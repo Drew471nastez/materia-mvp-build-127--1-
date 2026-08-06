@@ -347,20 +347,21 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               // second layer at all, and one whose second photo hasn't decoded
               // yet simply keeps showing the first instead of blanking to the
               // empty well underneath.
-              /* CONTAIN, not cover — the whole photograph, never cropped.
+/* COVER. The card fills its frame.
                *
-               * For a listing uploaded since the image pipeline shipped these
-               * are the SAME THING: the thumbnail is generated at 3:4 and the
-               * card is 3:4, so the picture fills the box exactly and there is
-               * nothing to letterbox. `contain` only differs on the older
-               * photos the card falls back to, and there the difference is the
-               * point — a wide flat-lay is shown whole against the neutral
-               * well instead of having its sides cut off.
+               * This was briefly `contain` and it was wrong. A grid is a grid
+               * because every tile is the same shape and every tile is FULL —
+               * letterboxed photos put grey bars down the sides of half the
+               * cards and the feed stops reading as one surface.
                *
-               * Cropping in a grid is the conventional choice because it makes
-               * every tile identical. It is also how a marketplace ends up
-               * showing half a shoe. */
-              className="absolute inset-0 h-full w-full object-contain select-none"
+               * It costs nothing for a listing uploaded since the image
+               * pipeline shipped: the thumbnail is generated at 3:4 and the
+               * card is 3:4, so there is nothing to crop. The crop only applies
+               * to older photos of another shape, and filling the frame is the
+               * right answer for those too — the whole photograph is one tap
+               * away on the detail page, which is `contain` precisely so
+               * nothing is cut off where it matters. */
+              className="absolute inset-0 h-full w-full object-cover select-none"
               decoding="async"
               draggable={false}
               priority={priority}
@@ -391,7 +392,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               quality={70}
               // 240ms, not 550. Long crossfades read as the page struggling; at
               // this length it feels immediate but still lands softly.
-              className="absolute inset-0 hidden h-full w-full object-contain opacity-0 transition-opacity duration-[240ms] ease-out md:block md:group-hover:opacity-100"
+              className="absolute inset-0 hidden h-full w-full object-cover opacity-0 transition-opacity duration-[240ms] ease-out md:block md:group-hover:opacity-100"
               draggable={false}
               loading="lazy"
               decoding="async"

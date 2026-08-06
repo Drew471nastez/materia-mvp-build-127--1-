@@ -542,10 +542,24 @@ export function NewListingForm() {
   const close = useCallback(() => {
     if (leaving) return
     setLeaving(true)
+    /**
+     * 280, not 300 — one frame INSIDE the animation rather than on its last.
+     *
+     * The leave runs 300ms. Firing the navigation at exactly 300 puts the route
+     * commit on the same tick the sheet reaches the bottom of the screen, and
+     * on a slow frame the two land in the wrong order: the sheet is unmounted
+     * while it still has a pixel or two of travel left, so the last thing you
+     * see is it disappearing rather than leaving. Twenty milliseconds early
+     * means the commit is already in flight when the animation finishes, and
+     * the sheet is off-screen before anything can replace it.
+     *
+     * It cannot go much earlier than this without the opposite problem — the
+     * screen behind appearing while the sheet is still visibly over it.
+     */
     window.setTimeout(() => {
       if (typeof window !== "undefined" && window.history.length > 1) router.back()
       else router.push("/")
-    }, 300)
+    }, 280)
   }, [leaving, router])
 
   // ---- brand search ----

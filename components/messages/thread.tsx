@@ -2258,11 +2258,12 @@ export function MessageThread({
                               if (!m.pending && m.image_url) setViewing(m.image_url)
                             }}
                             className={cn(
-                              // contain, not cover: a photo sent in a chat is
-                              // usually the detail somebody was asked for, and
-                              // cropping it to a tidy rectangle is how the mark
-                              // on the sleeve ends up outside the frame.
-                              "block max-h-[260px] w-full cursor-zoom-in object-contain transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
+                              // Cover, so the bubble is a filled rectangle
+                              // rather than a photo floating in grey. Tapping
+                              // it opens the full-size viewer, which shows the
+                              // whole frame — that is where nothing may be cut
+                              // off, not here.
+                              "block max-h-[260px] w-full cursor-zoom-in object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
                               // While it is going up it is softened, and it
                               // resolves to the real thing the moment the server
                               // answers. The photo is never replaced, only
