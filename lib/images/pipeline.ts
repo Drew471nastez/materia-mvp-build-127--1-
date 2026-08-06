@@ -12,6 +12,7 @@ import {
   type Focal,
   type Size,
 } from "@/lib/images/geometry"
+import { contentBox, isTrimmed, type TrimRect } from "@/lib/images/letterbox"
 
 /**
  * ===========================================================================
@@ -272,6 +273,53 @@ function canEncodeWebp(): boolean {
  * Sampled on a small downscale rather than the full image: a 12-megapixel
  * getImageData is 48 MB of array and a visible pause, to answer a yes/no.
  */
+/**
+ * The photograph inside whatever canvas it was pasted onto.
+ *
+ * Probed at reduced size rather than full resolution: `getImageData` on a 12MP
+ * photograph is a 48MB allocation and a long synchronous read on a phone, to
+ * answer a question about flat areas that survives being scaled down. 1024 is
+ * far more resolution than a bar boundary needs.
+ *
+ * The inset afterwards is the price of that. A boundary found at probe scale
+ * maps back to within a pixel or two of the real one, and being one pixel SHORT
+ * leaves a grey hairline along the edge of every card — which is worse than the
+ * bar it was trying to remove, because it looks like a rendering fault rather
+ * than a photograph. So each trimmed edge is pulled in by one probe pixel's
+ * worth of source. Losing two pixels of a photograph is invisible; leaving one
+ * pixel of padding is not.
+ *
+ * Any failure — a tainted canvas, no 2d context — returns the whole frame,
+ * which is exactly the behaviour before this existed.
+ */
+function contentBoxOf(source: CanvasImageSource, w: number, h: number): TrimRect {
+  const whole: TrimRect = { sx: 0, sy: 0, sw: w, sh: h }
+  try {
+    const scale = Math.min(1, 1024 / Math.max(w, h))
+    const pw = Math.max(1, Math.round(w * scale))
+    const ph = Math.max(1, Math.round(h * scale))
+    const probe = document.createElement("canvas")
+    probe.width = pw
+    probe.height = ph
+    const ctx = probe.getContext("2d", { willReadFrequently: true })
+    if (!ctx) return whole
+    ctx.drawImage(source, 0, 0, pw, ph)
+    const { data } = ctx.getImageData(0, 0, pw, ph)
+
+    const box = contentBox(data, pw, ph)
+    if (!isTrimmed(box, pw, ph)) return whole
+
+    const pad = Math.ceil(1 / scale)
+    const sx = box.sx === 0 ? 0 : Math.min(w - 1, Math.round(box.sx / scale) + pad)
+    const sy = box.sy === 0 ? 0 : Math.min(h - 1, Math.round(box.sy / scale) + pad)
+    const right = box.sx + box.sw >= pw ? w : Math.max(sx + 1, Math.round((box.sx + box.sw) / scale) - pad)
+    const bottom = box.sy + box.sh >= ph ? h : Math.max(sy + 1, Math.round((box.sy + box.sh) / scale) - pad)
+    return { sx, sy, sw: right - sx, sh: bottom - sy }
+  } catch {
+    return whole
+  }
+}
+
 function hasTransparency(source: CanvasImageSource, w: number, h: number): boolean {
   try {
     const probe = document.createElement("canvas")
@@ -376,6 +424,30 @@ export async function processListingImage(file: File, focal: Focal = CENTER): Pr
     const { source, width: sw, height: sh } = decoded
     if (!sw || !sh) return passthrough()
 
+    /**
+     * BARS THAT ARE PAINTED INTO THE PHOTOGRAPH COME OFF FIRST.
+     *
+     * A listing was reported over and over as "not cover, it does not fill the
+     * whole thing". Every surface in the app was already `object-cover` and the
+     * CSS was changed several times to no effect, because the CSS was never
+     * wrong: the stored file was 1280×720 with 120 rows of uniform grey above
+     * the artwork and 120 below it. `object-cover` filled the frame perfectly —
+     * with an image that had bars in it. Predicted 268/1071/268 on screen,
+     * measured 268/1071/268.
+     *
+     * Nothing downstream can recover from that. The crop below would centre on
+     * a focal point computed against a frame that is one-third padding, and the
+     * card would show the padding at whatever size it worked out to.
+     *
+     * So the photograph inside the padding is found first, and every stage
+     * after this — the large variant, the 3:4 crop, the focal point — works on
+     * that rectangle instead of the file's own. See lib/images/letterbox.ts for
+     * why it will not touch a garment shot on a white sweep.
+     */
+    const box = contentBoxOf(source, sw, sh)
+    const bw = box.sw
+    const bh = box.sh
+
     const transparent = hasTransparency(source, sw, sh)
     const webp = canEncodeWebp()
     // WebP keeps alpha, so transparency only forces PNG on a browser too old to
@@ -383,12 +455,19 @@ export async function processListingImage(file: File, focal: Focal = CENTER): Pr
     const mime = webp ? "image/webp" : transparent ? "image/png" : "image/jpeg"
     const matte = mime === "image/jpeg"
 
-    // ── Large: the photo's own shape, bounded. No crop.
-    const largeSize = fitWithin(sw, sh, LARGE_MAX)
-    const largeCanvas = drawTo(source, { sx: 0, sy: 0, sw, sh }, largeSize, matte)
+    // ── Large: the photo's own shape, bounded. No crop beyond the trim.
+    const largeSize = fitWithin(bw, bh, LARGE_MAX)
+    const largeCanvas = drawTo(source, box, largeSize, matte)
     // ── Thumb: 3:4, cropped around the focal point.
-    const thumbSize = thumbSizeFor(sw, sh)
-    const thumbCrop = coverCrop(sw, sh, THUMB, focal)
+    //
+    // Measured against the TRIMMED rectangle, and offset back into the file's
+    // own coordinates to read from. The focal point is a fraction of the
+    // photograph, not of the canvas somebody happened to paste it onto — on the
+    // 1280×720 example above, treating it as a fraction of the whole frame puts
+    // "the middle" 120 rows into the grey.
+    const thumbSize = thumbSizeFor(bw, bh)
+    const inner = coverCrop(bw, bh, THUMB, focal)
+    const thumbCrop = { ...inner, sx: inner.sx + box.sx, sy: inner.sy + box.sy }
     const thumbCanvas = drawTo(source, thumbCrop, thumbSize, matte)
     if (!largeCanvas || !thumbCanvas) return passthrough()
 
@@ -401,8 +480,15 @@ export async function processListingImage(file: File, focal: Focal = CENTER): Pr
     // Re-encoding an already-small, already-optimised file can make it bigger.
     // Keeping the original in that case only applies to the LARGE variant — the
     // thumb is a different shape and a different job, so it is always kept.
+    //
+    // NOT WHEN THE FRAME WAS TRIMMED. The original file is the one WITH the
+    // bars in it, so falling back to it on a size comparison would put them
+    // straight back — and silently, on exactly the images that are cheapest to
+    // encode, which is to say the flat ones that are most likely to be padded
+    // in the first place. A few kilobytes is not worth shipping the bug back.
+    const trimmed = isTrimmed(box, sw, sh)
     const largeFile =
-      largeBlob.size < file.size
+      largeBlob.size < file.size || trimmed
         ? new File([largeBlob], renameTo(file.name, "large", mime), { type: mime, lastModified: Date.now() })
         : file
 
