@@ -17,6 +17,7 @@ import {
   hideConversation,
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
+import { popIsViewTransitioning, signalPopArrived } from "@/lib/messages/pop-transition"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
@@ -198,7 +199,32 @@ export function MessagesInbox({
    * it means the fade covers the page and not just the list inside it.
    */
   useLayoutEffect(() => {
+    /**
+     * FIRST, BEFORE ANY GUARD BELOW CAN RETURN.
+     *
+     * A view transition holds rendering until it is told the DOM is the new
+     * screen, and this is the moment that becomes true. Every line after this
+     * one is a reason not to animate; none of them is a reason to leave the
+     * page frozen. Behind a `consumeNavHint` check — which is very nearly
+     * always "back" here but does not have to be — a hint that did not arrive
+     * would have cost 400ms of held frame before the timeout rescued it.
+     *
+     * A no-op when nothing is waiting.
+     */
+    signalPopArrived()
+
     if (consumeNavHint() !== "back") return
+
+    /**
+     * The browser is drawing this pop, so this screen must not also draw it.
+     *
+     * `::view-transition-new(root)` is a LIVE view of the new DOM — an
+     * animation inside it plays INSIDE the transition, so the parallax would
+     * run twice, over itself, at two different offsets. Two entrances for one
+     * navigation is the doubled animation this app has removed twice already.
+     */
+    if (popIsViewTransitioning()) return
+
     const root = document.documentElement
     root.classList.add("pop-return")
     // Longer than the animation. Taken off early it would cut the fade short,
