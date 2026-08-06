@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
+import { cookieDomainFor, cookieSecureFor, isNativeUserAgent } from "@/lib/supabase/cookie-domain"
 
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -406,8 +407,53 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Determine if we're on localhost for cookie domain settings
-  const isLocalhost = MAIN_DOMAIN.includes("localhost")
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   *  NATIVE OWNS ITS OWN SESSION — do not refresh it here
+   * ─────────────────────────────────────────────────────────────────────────
+   * This is one half of the random-logout fix, and it needs the mechanism
+   * spelled out because the symptom looks like anything but this.
+   *
+   * Supabase ROTATES refresh tokens: every successful refresh issues a new one
+   * and invalidates the one that was used. So exactly one thing in the system
+   * may hold and refresh a given session.
+   *
+   * On native there were two. The Capacitor client keeps the session in
+   * Preferences (it has to — that is what survives the Chrome Custom Tab round
+   * trip and holds the PKCE verifier), and /auth/sync-session copies it into
+   * cookies ONCE at sign-in so server code can see who is calling. From then on
+   * both copies refreshed independently against the same project, and whichever
+   * went second was using a token the other had already invalidated. supabase-js
+   * treats "Invalid Refresh Token: Already Used" as terminal — SIGNED_OUT,
+   * session wiped. No bad network needed, no expiry: only time. That is
+   * "randomly it just logs me out of the iOS app".
+   *
+   * capacitor.config.ts appends "Capacitor" to the native User-Agent, so this
+   * is a check rather than a guess. The cookie copy is now a MIRROR, rewritten
+   * by the client after every refresh through POST /api/auth/session-sync — so
+   * it stays fresh without anything here ever touching it.
+   *
+   * The route guards below then have no locally-read user, which is handled the
+   * way an unreadable session already was: let the request through and let the
+   * layout decide. That is not a hole — app/app/layout.tsx and
+   * app/dashboard/layout.tsx both re-verify with getUser() before rendering
+   * anything, and the comments below are explicit that the check here is a
+   * cheap first pass and never the authority.
+   */
+  const isNative = isNativeUserAgent(request.headers.get("user-agent"))
+
+  // The cookie domain, from the one shared rule — see lib/supabase/cookie-domain.ts.
+  //
+  // This used to be `.${MAIN_DOMAIN}` for every non-localhost request, which is
+  // wrong on any host that is not storelib.com: a browser silently DISCARDS a
+  // Set-Cookie naming a domain it is not on. On a seller's custom domain that
+  // meant a refresh rotated the token at Supabase and the replacement was
+  // thrown away by the browser — leaving the old, now-dead refresh token in
+  // place, to fail at some unpredictable point later. Host-aware, it matches
+  // what the browser and server clients write, so there is one cookie on one
+  // domain rather than two that take turns being stale.
+  const cookieDomain = cookieDomainFor(host)
+  const cookieSecure = cookieSecureFor(host)
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -446,10 +492,11 @@ export async function proxy(request: NextRequest) {
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, {
             ...options,
-            // Set domain to root domain for subdomain sharing (e.g., .storelib.com)
-            domain: isLocalhost ? undefined : `.${MAIN_DOMAIN}`,
-            // Ensure secure in production
-            secure: !isLocalhost,
+            // `.storelib.com` on storelib hosts so subdomains share the session,
+            // and UNDEFINED anywhere else so the browser accepts the cookie at
+            // all. See the note above cookieDomain.
+            domain: cookieDomain,
+            secure: cookieSecure,
             // Allow cookies to be sent with same-site requests
             sameSite: "lax",
           })
@@ -466,7 +513,13 @@ export async function proxy(request: NextRequest) {
   // near expiry, which is the refresh this middleware exists to perform. The
   // refresh — and therefore the Set-Cookie it produces — still happens exactly
   // as before, it just stops happening on requests that never needed one.
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  //
+  // On native this call is SKIPPED entirely — see the block above. getSession()
+  // is what performs the refresh, so calling it here is what invalidated the
+  // Capacitor client's token.
+  const { data: sessionData, error: sessionError } = isNative
+    ? { data: { session: null }, error: null as any }
+    : await supabase.auth.getSession()
   const user = sessionData.session?.user ?? null
 
   // An error here means the session could not be read — a refresh that hit a
@@ -475,7 +528,11 @@ export async function proxy(request: NextRequest) {
   // session the moment Supabase started returning 429s. Let the request through
   // and let the layout below decide: /app and /dashboard both re-verify with
   // getUser() server-side, so nothing is actually reachable on a bad session.
-  const sessionUnreadable = !!sessionError
+  //
+  // Native counts as unreadable BY DESIGN, not by failure: we deliberately did
+  // not read it, so we must not conclude anything from the absence. Both guards
+  // below then fall through to the layouts, which re-verify properly.
+  const sessionUnreadable = !!sessionError || isNative
 
   // Protect creator dashboard routes. The check is a cheap first pass over the
   // cookie, not the authority — app/app/layout.tsx re-verifies against the auth

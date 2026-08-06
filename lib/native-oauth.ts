@@ -35,6 +35,54 @@ import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
 import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 const TAG = "[NativeOAuth]"
+
+/**
+ * Keep the cookie copy of the session in step with the Capacitor one.
+ *
+ * ---------------------------------------------------------------------------
+ * This is the native half of the random-logout fix
+ * ---------------------------------------------------------------------------
+ * On native the session exists TWICE: in Capacitor Preferences, where this
+ * module and supabase-js keep it, and in cookies, written once by
+ * /auth/sync-session so Next.js server code can see who is calling.
+ *
+ * Supabase rotates refresh tokens on every refresh. So an hour after sign-in
+ * the Preferences copy held a valid token and the cookie copy held one that had
+ * already been invalidated by that rotation — and whichever of the two tried to
+ * use its token second got "Invalid Refresh Token: Already Used", which
+ * supabase-js treats as terminal: SIGNED_OUT, session wiped. That is the
+ * "it randomly logs me out of the iOS app" report, and it needed no bad network
+ * and no expiry, only time.
+ *
+ * The fix is to stop having two refreshers. Preferences is the authority — it
+ * is what survives the Chrome Custom Tab round trip and what holds the PKCE
+ * verifier — so the cookie copy becomes a MIRROR, rewritten from the authority
+ * every time the authority refreshes. middleware.ts is the other half: it
+ * refuses to refresh a request from the native user agent, so nothing but this
+ * ever writes those cookies.
+ *
+ * Fire-and-forget, and failure is survivable: the cookies keep the previous
+ * values, the next TOKEN_REFRESHED tries again, and in the meantime server
+ * routes see a slightly older but still-valid access token.
+ */
+async function mirrorSessionToCookies(session: { access_token?: string; refresh_token?: string } | null) {
+  if (!session?.access_token || !session?.refresh_token) return
+  try {
+    const res = await fetch("/api/auth/session-sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+    })
+    // Status only. The tokens are never logged, here or on the server.
+    console.log(`${TAG}   cookie mirror → HTTP ${res.status}`)
+  } catch (e) {
+    console.warn(`${TAG}   cookie mirror failed (will retry on next refresh):`, e)
+  }
+}
 const DEBUG =
   typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_OAUTH_DEBUG === "true"
@@ -597,6 +645,13 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
         }
 
         if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+          // BEFORE anything else, and regardless of what the navigation logic
+          // below decides: the tokens just changed, so the cookie copy is now
+          // stale and every server request from here until the next refresh
+          // would be carrying an invalidated refresh token. See
+          // mirrorSessionToCookies — this is the random logout.
+          void mirrorSessionToCookies(session)
+
           // CRITICAL: if handleOAuthCallback is in progress, do NOT navigate.
           // The callback handler owns the full flow (exchange → sync-session
           // → /app).  Navigating here would race it, skip cookie sync, and

@@ -31,7 +31,7 @@ export function useAuthGate() {
   // earlier in this web view's life no longer blocks this page at all.
   const [nativeAuthInProgress, setNativeAuthInProgress] = useState(() => isAuthInProgress())
 
-  // Safety timeout + poll: if nativeAuthInProgress is stuck, clear after 15 s.
+  // Safety timeout + poll: if nativeAuthInProgress is stuck, clear it.
   // Also poll every 300 ms for removal (native-oauth.ts clears it in finally).
   useEffect(() => {
     if (!nativeAuthInProgress) return
@@ -44,21 +44,39 @@ export function useAuthGate() {
         setNativeAuthInProgress(false)
       }
     }, 300)
-    // Shortened from thirty seconds, and it is now a backstop rather than the
-    // mechanism. The flag expires on its own after twenty (see
-    // lib/auth/auth-in-progress.ts), so the poll above already clears it — this
-    // only covers a web view where sessionStorage throws and the poll can never
-    // observe the change. Thirty seconds of a spinner was indistinguishable
-    // from broken.
+    // A backstop, not the mechanism. The flag expires on its own after eight
+    // seconds (see lib/auth/auth-in-progress.ts), so the poll above clears it
+    // first; this only covers a web view where sessionStorage throws and the
+    // poll can therefore never observe the change.
     const safety = window.setTimeout(() => {
       setAuthInProgress(false)
       setNativeAuthInProgress(false)
-    }, 22_000)
+    }, 9_000)
     return () => {
       window.clearInterval(poll)
       window.clearTimeout(safety)
     }
   }, [nativeAuthInProgress])
+
+  /**
+   * The floor under the whole gate — ABSOLUTE, from mount.
+   *
+   * This used to live inside the boot effect below, which does not run at all
+   * while `nativeAuthInProgress` is set. So the two waits STACKED: the flag's
+   * timeout had to expire before the boot timeout even started, and the worst
+   * case was the sum of them — around thirty seconds of a spinner on /login
+   * with no way for the person to do anything about it.
+   *
+   * Started once, at mount, it is a ceiling on the whole sequence rather than
+   * on one step of it. Twelve seconds is deliberately longer than the flag's
+   * nine, so in the pathological case the flag clears first, the boot below
+   * gets its chance to resolve normally, and this never fires — which is what
+   * keeps the login form from flashing up a moment before the redirect.
+   */
+  useEffect(() => {
+    const floor = window.setTimeout(() => setBooting(false), 12_000)
+    return () => window.clearTimeout(floor)
+  }, [])
 
   // Boot: resolve getSession() once after native callback finishes (or immediately)
   useEffect(() => {
@@ -80,14 +98,8 @@ export function useAuthGate() {
         if (!cancelled) setBooting(false)
       })
 
-    // Safety: don't stall the UI forever (8s for slow devices/networks)
-    const safety = window.setTimeout(() => {
-      if (!cancelled) setBooting(false)
-    }, 8_000)
-
     return () => {
       cancelled = true
-      window.clearTimeout(safety)
     }
   }, [nativeAuthInProgress])
 

@@ -48,12 +48,17 @@ const KEY = "nativeAuthInProgress"
 /**
  * How long a sign-in may plausibly be "in progress".
  *
- * A PKCE exchange is one request. Twenty seconds is far past any of them and
- * far short of the thirty the old safety timeout made you wait — and it is only
- * ever paid by somebody who genuinely is mid-flow, because everybody else's
- * flag is stale and answers instantly.
+ * A PKCE exchange is ONE HTTP request. Eight seconds is roughly forty times a
+ * typical one and still the longest anybody waits, because it is only ever paid
+ * by somebody genuinely mid-flow — everybody else's flag is stale and answers
+ * instantly.
+ *
+ * It was twenty, which stacked with useAuthGate's own boot timeout to make a
+ * worst case near thirty seconds of spinner on /login. The waits no longer
+ * stack (the gate's safety is now absolute from mount rather than starting
+ * after this clears), and this is the shorter of the two.
  */
-const MAX_AGE_MS = 20_000
+const MAX_AGE_MS = 8_000
 
 export function setAuthInProgress(value: boolean): void {
   try {
