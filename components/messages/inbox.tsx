@@ -16,6 +16,7 @@ import {
   hideConversation,
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
+import { stashThreadPreview } from "@/lib/messages/thread-preview"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -890,6 +891,35 @@ function MessagesList({
               onClick={() => {
                 void triggerHaptic("light")
                 beginTabLeave()
+                /**
+                 * Carry what this row knows into the loading screen.
+                 *
+                 * The conversation route is force-dynamic, so the tap always
+                 * costs a server round trip before the real screen exists — and
+                 * the screen covering that wait used to know nothing, so a
+                 * deliberate tap resolved into a blank page with a spinner on
+                 * it before resolving into the conversation.
+                 *
+                 * Everything the header needs is already on screen, under the
+                 * finger, right now. Handing it across means the tap lands on
+                 * the right person's name and face immediately and the messages
+                 * fill in behind them. See lib/messages/thread-preview.ts.
+                 */
+                stashThreadPreview({
+                  id: r.id,
+                  name,
+                  avatarUrl: r.other?.avatar_url ?? null,
+                  seed: r.other?.id ?? null,
+                  official: !!r.official,
+                  listingTitle: r.listing?.title ?? null,
+                  listingThumb: r.listing?.thumbnail_url ?? null,
+                  // Which side the newest bubble sits on, so the placeholder
+                  // lands where the real one will. Null when the thread is
+                  // empty — there is nothing to place.
+                  lastFromMe: r.lastMessage
+                    ? viewerId != null && r.lastMessage.sender_id === viewerId
+                    : null,
+                })
                 /**
                  * Zero the badge NOW, on the row you just opened.
                  *
