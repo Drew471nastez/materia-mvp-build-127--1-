@@ -881,6 +881,28 @@ export function MessageThread({
     el.style.height = `${Math.min(el.scrollHeight, 112)}px`
   }, [draft])
 
+  // THE FIRST LANDING, BEFORE PAINT.
+  //
+  // A layout effect, run once, that puts the scroller at the bottom
+  // synchronously on mount. This is what makes it safe to remove the cover for
+  // fresh server data: the cover used to hide the frame where the scroller sat
+  // at the top and then jumped to the newest message a tick later. Positioning
+  // it before the browser paints means that frame never exists — the
+  // conversation is at the bottom from the very first pixel, with no jump to
+  // hide and therefore no cover needed to hide it.
+  //
+  // Only for `stickBottom`, which is true on a fresh open. If an effect below
+  // has already animated a landing (`landed`), this does nothing, so a remount
+  // mid-scroll is not yanked to the end.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current
+    if (!el || landed.current || !stickBottom.current) return
+    el.scrollTop = el.scrollHeight
+    landed.current = true
+    // Mount only. The passive effect below owns every landing after this one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (!scrollerRef.current || !stickBottom.current) return
     // The first landing is instant: there is no "movement" from a screen that
@@ -988,8 +1010,32 @@ export function MessageThread({
   // then loaded in afterwards, one at a time, over a conversation that had
   // already been revealed. Waiting for the data first and only then for its
   // pictures means what is uncovered is finished.
+  // ── FRESH SERVER DATA IS NOT COVERED. This is the empty-then-loader fix. ──
+  //
+  // The route already has a loading boundary — app/(marketing)/messages/[id]/
+  // loading.tsx — which paints a spinner for the length of the server round
+  // trip. By the time THIS component mounts, page.tsx has run readThread on the
+  // server and handed the whole conversation down as `initial`. The messages
+  // are here. There is nothing left to wait for.
+  //
+  // But `pixelsReady` started `false` unconditionally, so `covered` started
+  // `true` even then — and the component dropped a SECOND cover (its own
+  // spinner, delayed 260ms, over an empty surface) on top of a conversation it
+  // already held. That is the reported sequence exactly: the loading boundary's
+  // spinner, then a blank surface, then finally the messages. Two loaders for
+  // one tap, the second one hiding data that was ready before it appeared.
+  //
+  // So the cover now only arms when there is genuinely something to wait for:
+  //   · fromCache — Next served a three-minute-old payload and we are
+  //     refetching; the stale thread must be held until the fresh one lands.
+  //   · initial === null — the server read failed or the id was malformed and
+  //     the client is about to fetch from scratch.
+  // A fresh, non-cached `initial` skips it and the messages are on screen in
+  // the first painted frame. Images still fade in one by one through their own
+  // per-image opacity transition, so nothing pops even uncovered.
+  const freshServerData = !fromCache && initial !== null
   const [dataReady, setDataReady] = useState(!fromCache)
-  const [pixelsReady, setPixelsReady] = useState(false)
+  const [pixelsReady, setPixelsReady] = useState(freshServerData)
   const covered = !dataReady || !pixelsReady
   coveredRef.current = covered
 
@@ -2260,6 +2306,15 @@ export function MessageThread({
                             alt={m.body || "Fotografie"}
                             onLoad={(e) => {
                               e.currentTarget.style.opacity = "1"
+                              // A server photo carries no reserved height, so
+                              // the bubble was a sliver until this fired and
+                              // then grew to full size. On a fresh open — now
+                              // uncovered, so the growth is visible — that would
+                              // push the newest message up off the bottom. While
+                              // the view is pinned to the end, follow the growth
+                              // and stay there. Instant, not glided: this is the
+                              // photo settling into place, not a scroll.
+                              if (stickBottom.current && !coveredRef.current) scrollToEnd()
                             }}
                             onClick={() => {
                               // A pending photo is a local blob mid-upload;
