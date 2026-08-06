@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { BadgeCheck, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { ConversationRow } from "@/components/messages/conversation-row"
@@ -19,7 +20,8 @@ import {
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
 import { triggerHaptic } from "@/lib/native-bridge"
-import { beginTabLeave } from "@/lib/tab-leave"
+import { beginTabLeave, endTabLeave } from "@/lib/tab-leave"
+import { createTapRescue, type TapRescue } from "@/lib/tap-rescue"
 import { useWideViewport } from "@/lib/use-wide-viewport"
 import { cn } from "@/lib/utils"
 
@@ -805,6 +807,76 @@ function MessagesList({
   formatPrice: (cents: number) => string
   onDelete: (id: string) => void
 }) {
+  /**
+   * OPENING A CONVERSATION, AS A GESTURE RATHER THAN A CLICK.
+   *
+   * Declared above every early return below, because hooks are.
+   *
+   * Two things come out of this that the plain `onClick` could not do.
+   *
+   * The dip starts with the finger. `beginTabLeave` used to be on the click,
+   * and a click is the lift-off — 80-150ms after the finger lands, which on a
+   * prefetched conversation is most of the way to the route being ready. The
+   * screen had barely begun to move when the new one arrived, so the handover
+   * the dip exists to create was not there and the arrival read as a cut.
+   *
+   * And it comes back off when the press turns out not to be a tap, which on
+   * THIS control is not an edge case: the list scrolls, so a finger landing on
+   * a row is as likely to start a flick as a tap, and the row also carries a
+   * horizontal swipe to delete. `onAbandon` covers the drag (past 12px of
+   * slop) and the `pointercancel` the browser sends when it takes the gesture
+   * over for a scroll. Without it a flick would dim the whole app to 88% and
+   * leave it there until the give-up timer in lib/tab-leave.ts noticed, a
+   * second and a half later.
+   *
+   * The rescue is the same one the tab bar gets for free by using this: a tap
+   * that lands while the list still has momentum is swallowed by the WebView —
+   * pointerdown, no click — and this list is scrolled more than anything else
+   * in the app. `<Link>` still does the navigating in every ordinary case;
+   * this only acts when the click provably never came.
+   */
+  const router = useRouter()
+  const rescue = useRef<TapRescue<string> | null>(null)
+  if (!rescue.current) {
+    rescue.current = createTapRescue<string>({
+      onPress: () => {
+        void triggerHaptic("light")
+        beginTabLeave()
+      },
+      onAbandon: () => endTabLeave(),
+      onRescue: (id) => {
+        const href = `/messages/${id}`
+        // It may have been swallowed, or it may have worked and simply not
+        // finished yet. The router updates `location` the moment a navigation
+        // commits, so this tells the two apart without guessing at timing.
+        if (window.location.pathname === href) return
+        router.push(href)
+      },
+    })
+  }
+  // Dispose only — deliberately NOT `endTabLeave`. This list unmounts BECAUSE
+  // a navigation is happening, and the dip is the first half of that
+  // navigation: releasing it here would take it off at the exact moment it is
+  // meant to be held. Whoever the destination is releases it on commit
+  // (components/marketing/tab-transition.tsx), and if no destination ever
+  // arrives the give-up timer in lib/tab-leave.ts does. Worse still, tapping a
+  // different tab while a row press is live unmounts this list from under the
+  // bar's own `beginTabLeave`, and a release here would cancel that too.
+  useEffect(() => {
+    const r = rescue.current
+    return () => r?.dispose()
+  }, [])
+  const rowGesture = (id: string) => ({
+    onPointerDown: (e: React.PointerEvent) => rescue.current?.down(id, e.clientX, e.clientY),
+    onPointerMove: (e: React.PointerEvent) => rescue.current?.move(e.clientX, e.clientY),
+    onPointerUp: () => rescue.current?.up(),
+    onPointerCancel: () => rescue.current?.cancel(),
+    // The click arrived, so `<Link>` has it from here and the rescue stands
+    // down. Nothing else belongs in here: the haptic and the dip both moved to
+    // the press, which is the entire point.
+    onClick: () => rescue.current?.click(),
+  })
+
   if (rows === null) return <ListSkeleton />
   // Rare now: everyone gets the Storelib thread on their first visit here, so
   // this only shows where the official account isn't configured at all. The
@@ -871,10 +943,22 @@ function MessagesList({
               // attached — and the number is the part you see. What makes a
               // push read as a push is that the thing you were looking at
               // started to go first. See lib/tab-leave.ts.
-              onClick={() => {
-                void triggerHaptic("light")
-                beginTabLeave()
-              }}
+              // WITH THE FINGER, WHICH IS WHAT THE PARAGRAPH ABOVE SAYS AND
+              // WHAT THIS DID NOT DO. `beginTabLeave` was on the click, and a
+              // click is the LIFT-OFF — so the dip started 80-150ms after the
+              // finger landed, which on a prefetched conversation is most of
+              // the way to the route being ready. The screen had barely begun
+              // to move when the new one arrived, so the handover it exists to
+              // create was not there and the arrival read as a cut.
+              //
+              // Pointerdown is where the tab bar has always begun its own dip,
+              // and this is the same gesture on a different control — so it
+              // uses the same primitive (lib/tap-rescue.ts) rather than a
+              // second hand-rolled copy of the rules. That matters here more
+              // than on the bar: this list SCROLLS, so a finger landing on a
+              // row is as likely to be the start of a flick as a tap, and the
+              // dip must come straight back off when it turns out to be one.
+              {...rowGesture(r.id)}
               className={cn(
                 ROW_INNER,
                 // An unread thread is a different kind of row, so it is a

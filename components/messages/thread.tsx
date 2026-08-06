@@ -881,6 +881,38 @@ export function MessageThread({
     el.style.height = `${Math.min(el.scrollHeight, 112)}px`
   }, [draft])
 
+  /**
+   * THE BOTTOM, BEFORE THE FIRST PAINT.
+   *
+   * The effect below already ends at the bottom, and it was still wrong on
+   * arrival, because a passive effect runs AFTER the browser has painted. So
+   * entering a conversation drew it at scrollTop 0 — the oldest message in the
+   * thread, the top of a screen nobody asked for — and only then jumped to the
+   * end. One frame, but it is the first frame of the screen and the jump after
+   * it is the whole of "it loads and then moves". On a long conversation the
+   * distance travelled is the entire scroll height.
+   *
+   * A layout effect runs before paint, so the very first frame of the
+   * conversation is already at the end of it and nothing moves afterwards.
+   *
+   * Once, and only on the render where there are finally messages to be at the
+   * bottom of — `scrollHeight` is meaningless before that, and re-pinning later
+   * would be this fighting the glide, the keyboard and the read-position
+   * restore for control of a scroller they own after arrival.
+   *
+   * Photographs still decode after this and grow the list underneath it; the
+   * rAF and the 480ms correction in `scrollToEnd` are what handle that, and
+   * they are unchanged. This only removes the frame at the wrong position.
+   */
+  const pinnedOnce = useRef(false)
+  useLayoutEffect(() => {
+    if (pinnedOnce.current) return
+    const el = scrollerRef.current
+    if (!el || !thread?.messages.length || !stickBottom.current) return
+    pinnedOnce.current = true
+    el.scrollTop = el.scrollHeight
+  }, [thread?.messages.length])
+
   useEffect(() => {
     if (!scrollerRef.current || !stickBottom.current) return
     // The first landing is instant: there is no "movement" from a screen that

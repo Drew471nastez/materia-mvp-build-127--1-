@@ -56,7 +56,22 @@ export default function ThreadLoading() {
           the honest thing — this is loading — and has nothing to be replaced BY.
           Centred, because that is where the eye already is. */}
       <div className="thread-surface flex min-h-0 flex-1 items-center justify-center">
-        <IosSpinner size={26} />
+        {/* THE SPINNER WAITS BEFORE IT SAYS ANYTHING.
+            A prefetched conversation commits in well under a tenth of a second,
+            and drawing a spinner for it is what made one tap look like two
+            loads: an indicator appears, and is gone before it has finished a
+            revolution, and then the messages arrive. Two events for one
+            navigation, and the first of them was a lie — nothing was being
+            waited for.
+            `thread-wait` holds it at zero opacity for 160ms and fades it up
+            over the next 200. A warm route is finished inside the hold and the
+            spinner is never seen at all; a cold one fades it in rather than
+            cutting to it. Opacity only, so the hold costs the compositor
+            nothing while the payload is what the main thread should be busy
+            with. */}
+        <span className="thread-wait">
+          <IosSpinner size={26} />
+        </span>
       </div>
 
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
