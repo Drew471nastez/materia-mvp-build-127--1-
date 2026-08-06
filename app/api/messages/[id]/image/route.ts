@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { notifyNewMessage } from "@/lib/push/notifications"
 import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { encodeImageBody } from "@/lib/messages/image-fallback"
@@ -240,6 +241,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       conversationId: id,
     }),
   ])
+
+  // The push, after the response — same reasoning as the note in
+  // app/api/messages/[id]/route.ts. Never inside the Promise.all above, so a
+  // profile read and an FCM round trip cannot sit between pressing send and the
+  // bubble appearing; never a bare fire-and-forget either, or it races the
+  // serverless function being frozen.
+  after(() => {
+    void notifyNewMessage(recipient, {
+      senderId: user.id,
+      conversationId: id,
+      kind: "image",
+    }).catch((e) => console.error("[push] new photo notify failed:", e))
+  })
 
   // Signed for the sender straight away, so the bubble it replaces can show the
   // real photo rather than waiting for the next poll to hand it a link.

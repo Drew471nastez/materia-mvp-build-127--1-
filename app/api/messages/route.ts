@@ -1,9 +1,10 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { listConversations, optionalAdminClient } from "@/lib/messages/list"
+import { notifyNewMessage } from "@/lib/push/notifications"
 
 /**
  * The inbox, and the way into it.
@@ -154,6 +155,26 @@ export async function POST(req: NextRequest) {
       conversationId,
     }),
   ])
+
+  /**
+   * The push, after the response — see app/api/messages/[id]/route.ts.
+   *
+   * Below the `openOnly` return above, deliberately. "Message this seller"
+   * creates the thread and says nothing, and a notification for a conversation
+   * somebody opened and thought better of is a ping for an event that did not
+   * happen. This is the only one of the three creation paths that can insert no
+   * message at all, and it returns before reaching here when it does — which is
+   * also why there is no duplicate: exactly one row, exactly one push.
+   */
+  after(() => {
+    void notifyNewMessage(sellerId, {
+      senderId: user.id,
+      conversationId: conversationId as string,
+      kind: offerCents !== null ? "offer" : "text",
+      body,
+      offerCents,
+    }).catch((e) => console.error("[push] first message notify failed:", e))
+  })
 
   return NextResponse.json({ conversationId })
 }

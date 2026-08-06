@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { notifyNewMessage } from "@/lib/push/notifications"
 import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
 import { readThread } from "@/lib/messages/thread"
@@ -208,6 +209,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       conversationId: id,
     }),
   ])
+
+  /**
+   * The push, AFTER the response.
+   *
+   * `after()` runs this once the response has been sent, which is the only
+   * placement that satisfies both halves of what a chat needs. Inside the
+   * `Promise.all` above it would add a profile read and an FCM round trip to
+   * the time between pressing send and the bubble appearing. Fired and
+   * forgotten without `after()` it would race the function being frozen, which
+   * on a serverless platform means the push sometimes simply never goes.
+   *
+   * `.catch()` on top of that: sendPushToUser already swallows its own errors,
+   * and this is the belt to those braces. Nothing in this block may ever reject
+   * — the message is committed and the reply is already on its way, so a
+   * failure here has nothing left to fail.
+   */
+  after(() => {
+    void notifyNewMessage(recipient, {
+      senderId: user.id,
+      conversationId: id,
+      kind: offerCents !== null ? "offer" : "text",
+      body,
+      offerCents,
+    }).catch((e) => console.error("[push] new message notify failed:", e))
+  })
 
   return NextResponse.json({ message: inserted })
 }
