@@ -17,6 +17,8 @@ import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
+import { navigateBlended } from "@/lib/nav-blend"
+import { beginTabLeave } from "@/lib/tab-leave"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -879,30 +881,6 @@ export function MessageThread({
     el.style.height = `${Math.min(el.scrollHeight, 112)}px`
   }, [draft])
 
-  /**
-   * THE FIRST LANDING, BEFORE PAINT.
-   *
-   * A layout effect, run once, that puts the scroller at the bottom
-   * synchronously on mount. This is what makes it safe to skip the cover for
-   * fresh server data: the cover used to hide the frame where the list sat at
-   * the top and jumped to the newest message a tick later. Positioning it
-   * before the browser paints means that frame never exists — the conversation
-   * is at its end from the very first pixel, so there is no jump left to hide
-   * and no reason to hide it.
-   *
-   * Only while `stickBottom`, which is true on a fresh open, and only if no
-   * landing has happened yet — so a remount mid-scroll is not yanked to the
-   * end.
-   */
-  useLayoutEffect(() => {
-    const el = scrollerRef.current
-    if (!el || landed.current || !stickBottom.current) return
-    el.scrollTop = el.scrollHeight
-    landed.current = true
-    // Mount only; the passive effect below owns every landing after this one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   useEffect(() => {
     if (!scrollerRef.current || !stickBottom.current) return
     // The first landing is instant: there is no "movement" from a screen that
@@ -1010,31 +988,8 @@ export function MessageThread({
   // then loaded in afterwards, one at a time, over a conversation that had
   // already been revealed. Waiting for the data first and only then for its
   // pictures means what is uncovered is finished.
-  // ── ONE LOADING STATE, NOT TWO ────────────────────────────────────────────
-  //
-  // The route already has a loading boundary — app/(marketing)/messages/[id]/
-  // loading.tsx — which paints the conversation-shaped shell for the length of
-  // the server round trip. By the time THIS component mounts, page.tsx has
-  // already run readThread on the server and handed the whole conversation down
-  // as `initial`. The messages are here. There is nothing left to wait for.
-  //
-  // But `pixelsReady` started `false` unconditionally, so `covered` started
-  // `true` even then — and the component dropped a SECOND loading state over a
-  // conversation it already held: a blank surface, then a spinner 260ms later,
-  // then a lift. Two loaders for one tap, the second one hiding data that was
-  // ready before it appeared. That is "it should be only one loading, not two".
-  //
-  // The cover now arms only when there is genuinely something to wait for:
-  //   · fromCache — Next served a three-minute-old payload and we are
-  //     refetching; the stale thread must be held until the fresh one lands, or
-  //     you read yesterday's conversation while today's drops in behind it.
-  //   · initial === null — the server read failed, or the id was malformed, and
-  //     the client is about to fetch from scratch.
-  // A fresh, non-cached `initial` skips it: the shell hands straight over to
-  // the finished conversation.
-  const freshServerData = !fromCache && initial !== null
   const [dataReady, setDataReady] = useState(!fromCache)
-  const [pixelsReady, setPixelsReady] = useState(freshServerData)
+  const [pixelsReady, setPixelsReady] = useState(false)
   const covered = !dataReady || !pixelsReady
   coveredRef.current = covered
 
@@ -1150,6 +1105,10 @@ export function MessageThread({
    * `keepalive` on the way out — a plain fetch issued while the page is being
    * torn down is cancelled, and that is precisely the moment the inbox is about
    * to re-read the unread counts.
+   *
+   * NOTHING VISUAL. This changes no layout, no timing and no animation: it is
+   * a POST and a state update in a list that is not on screen. The transitions
+   * are exactly as they were.
    */
   const markSeen = useCallback(
     (leaving = false) => {
@@ -1168,51 +1127,6 @@ export function MessageThread({
 
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
-  /**
-   * CLOSING — out first, then the route.
-   *
-   * The conversation is a screen that came in over the inbox, so it has to go
-   * back out the way it arrived. Firing the navigation on its own means it
-   * simply ceases to exist, which is the hard cut that reads as "extremely
-   * direct": nothing moves, and the list is abruptly there.
-   *
-   * The route change is HELD until the slide has finished rather than fired
-   * alongside it, because Next unmounts this component the instant the route
-   * commits and there is no animating something that is no longer in the
-   * document.
-   *
-   * 240ms against a 260ms animation — the navigation goes twenty milliseconds
-   * inside the tail, so the commit is already in flight as the shell clears the
-   * edge of the screen. Firing it exactly on the end puts the commit on the
-   * same tick the animation finishes, and on a slow frame the two resolve in
-   * the wrong order: the conversation is unmounted with a pixel of travel left,
-   * so the last thing you see is it vanishing rather than leaving.
-   *
-   * `beginTabLeave()` is deliberately NOT called any more. It dipped the whole
-   * app to 0.86 opacity for the length of the server round trip — /messages is
-   * force-dynamic, so 200-500ms of a darkened screen — which cost far more than
-   * the cut it was buffering. The slide replaces it and needs no dip.
-   *
-   * Guarded against a second press: the arrow is a large target on a screen
-   * that is already moving, and two overlapping `router.back()` calls pop two
-   * entries and land you two screens away.
-   *
-   * Where it goes: back when there is history, the inbox otherwise. A cold
-   * arrival from a push notification has nothing to pop, and `router.back()` on
-   * an empty stack does nothing at all — which would leave the only way out of
-   * a full-screen conversation dead.
-   */
-  const [goingBack, setGoingBack] = useState(false)
-  const closeThread = useCallback(() => {
-    if (goingBack) return
-    void triggerHaptic("light")
-    setGoingBack(true)
-    window.setTimeout(() => {
-      if (typeof window !== "undefined" && window.history.length > 1) router.back()
-      else router.push("/messages")
-    }, 240)
-  }, [goingBack, router])
-
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1421,10 +1335,8 @@ export function MessageThread({
      * Coming BACK to the thread, and leaving it.
      *
      * Between them these cover the two cases the socket cannot: messages that
-     * landed while the app was backgrounded (the socket may have been asleep,
-     * and the reconnect refetch does not always run before you look), and the
-     * moment of navigating away — which is exactly when the inbox is about to
-     * re-read the unread counts.
+     * landed while the app was backgrounded, and the moment of navigating away
+     * — which is exactly when the inbox is about to re-read the unread counts.
      */
     const onVisible = () => {
       if (document.visibilityState === "visible") markSeen()
@@ -1939,8 +1851,6 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // The pop back out to the right, played before the route changes.
-        goingBack && "thread-leave",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1960,9 +1870,21 @@ export function MessageThread({
             // inbox it is being returned to rather than opened, so it comes
             // forward under a lifting veil instead of simply being there. Same
             // gesture as coming back from a listing, because it is one.
-            // The conversation slides back out to the right and THEN the route
-            // changes — see closeThread.
-            onClick={closeThread}
+            onClick={() => {
+              void triggerHaptic("light")
+              // The conversation begins to go before the inbox is asked for, so
+              // the two are one movement rather than a cut followed by a fade.
+              // The inbox used to arrive at 0.55 opacity and climb, which only
+              // started once the route had committed — so the whole of the wait
+              // was a stationary conversation, and then a list appeared at just
+              // over half strength. Dipping first means there is no frame where
+              // anything is assigned a value it was not already heading
+              // towards. See lib/tab-leave.ts.
+              beginTabLeave()
+              navigateBlended("back", () =>
+                window.history.length > 1 ? router.back() : router.push("/messages"),
+              )
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
@@ -2328,15 +2250,6 @@ export function MessageThread({
                             alt={m.body || "Fotografie"}
                             onLoad={(e) => {
                               e.currentTarget.style.opacity = "1"
-                              // A server photo carries no reserved height, so
-                              // the bubble is a sliver until this fires and
-                              // then grows to full size. Uncovered, that growth
-                              // is visible and would push the newest message up
-                              // off the bottom. While the view is pinned to the
-                              // end, follow it and stay there. Instant, not
-                              // glided: this is a photo settling into place,
-                              // not a scroll.
-                              if (stickBottom.current && !coveredRef.current) scrollToEnd()
                             }}
                             onClick={() => {
                               // A pending photo is a local blob mid-upload;
