@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, ChevronRight, Info, Loader2, Plus, Search, X } from "lucide-react"
+import { Camera, Check, ChevronRight, GripVertical, Info, Loader2, Plus, Search, X } from "lucide-react"
 import {
   CATEGORY_INDEX,
   COLOURS,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { DragSheet } from "@/components/ui/drag-sheet"
+import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
 import { cn } from "@/lib/utils"
 
 type Photo = { id: string; url: string | null; uploading: boolean; localUrl: string }
@@ -198,30 +199,245 @@ export function NewListingForm() {
   }, [])
 
   /**
-   * Promote a photo to the cover.
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  DRAG TO REORDER — one implementation, three platforms
+   * ═══════════════════════════════════════════════════════════════════════════
    *
-   * This replaces drag-to-reorder, which was HTML5 drag-and-drop — `draggable`,
-   * `onDragStart`, `onDragOver`. A finger does not produce those events, so on
-   * the device this form is overwhelmingly used on, the tiles could not be
-   * reordered at all. The card said "trage de ele ca să le rearanjezi"
-   * underneath a set of pictures that did not move.
+   * It was HTML5 drag-and-drop: `draggable`, `onDragStart`, `onDragOver`. That
+   * is a desktop-mouse API. A finger does not produce those events at all, so
+   * on iOS, on Android and in every mobile browser the tiles simply could not be
+   * moved — under a caption that told you to drag them.
    *
-   * And reordering was never really the want. There is one position that
-   * matters — the cover, which is the photograph the entire marketplace sees —
-   * and everything else is just "the rest". So the operation is stated directly
-   * and does the whole job in one tap, which is also the only interaction a
-   * finger can perform reliably on a tile that small.
+   * Pointer events are the one input model all three share. A mouse, a finger
+   * and a stylus all arrive as pointerdown / pointermove / pointerup with the
+   * same coordinates, so there is one code path here and no branch on platform
+   * anywhere in it.
+   *
+   * ── Why a handle, and not the tile ────────────────────────────────────────
+   * A drag that starts anywhere on the tile has to be told apart from a page
+   * scroll that starts on the tile, and every way of doing that is a
+   * compromise: `touch-action: none` makes the form unscrollable wherever a
+   * photo is, and a long-press adds a delay to every drag and still misfires.
+   * A handle has no ambiguity — the browser is told `touch-action: none` on
+   * 28 pixels, the rest of the tile and the whole form scroll exactly as they
+   * did, and the same handle is what a mouse grabs. It is also what Reminders
+   * and Files use, for the same reason.
+   *
+   * ── Why pointer capture ───────────────────────────────────────────────────
+   * Once the drag starts the handle owns the pointer, so moves keep arriving
+   * even when the finger is over a different tile — which it is, immediately,
+   * because that is what dragging is. Without it the events go to whatever is
+   * under the pointer and the drag dies on the first tile boundary.
+   *
+   * ── Why the list reorders during the drag, not at the end ─────────────────
+   * So you can see where it will land. The tiles that move are animated with
+   * FLIP (measure, invert, play) because a grid re-flows by LAYOUT — the tiles
+   * do not translate, they are simply somewhere else on the next frame, and
+   * without this they teleport.
+   */
+  const tileEls = useRef(new Map<string, HTMLElement>())
+  const setTileEl = useCallback((id: string, el: HTMLElement | null) => {
+    if (el) tileEls.current.set(id, el)
+    else tileEls.current.delete(id)
+  }, [])
+
+  /** Rects captured immediately BEFORE a reorder, replayed after it. */
+  const flipFrom = useRef<Map<string, DOMRect> | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const drag = useRef<{ id: string; grabX: number; grabY: number } | null>(null)
+
+  const measureTiles = useCallback(() => {
+    const m = new Map<string, DOMRect>()
+    tileEls.current.forEach((el, id) => m.set(id, el.getBoundingClientRect()))
+    return m
+  }, [])
+
+  /** Where the dragged tile should sit for the pointer's current position. */
+  const paintDragged = useCallback((x: number, y: number) => {
+    const d = drag.current
+    if (!d) return
+    const el = tileEls.current.get(d.id)
+    if (!el) return
+    el.style.transition = "none"
+    el.style.transform = `translate3d(${x - d.grabX}px, ${y - d.grabY}px, 0) scale(1.06)`
+  }, [])
+
+  /**
+   * FLIP, after the array has changed.
+   *
+   * A layout effect, so it runs after React has moved the tiles and before the
+   * browser paints them there: each one is put back where it was with no
+   * transition, and released a frame later. In a passive effect the browser
+   * paints the new positions first, which is the teleport this exists to
+   * prevent.
+   */
+  useLayoutEffect(() => {
+    const before = flipFrom.current
+    flipFrom.current = null
+    if (!before) return
+    const dragging = drag.current?.id
+    tileEls.current.forEach((el, id) => {
+      if (id === dragging) return // that one is following the finger
+      const from = before.get(id)
+      if (!from) return
+      const to = el.getBoundingClientRect()
+      const dx = from.left - to.left
+      const dy = from.top - to.top
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return
+      el.style.transition = "none"
+      el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`
+      requestAnimationFrame(() => {
+        el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+        el.style.transform = ""
+      })
+    })
+  })
+
+  /**
+   * POINTER CAPTURE DOES NOT SURVIVE THE REORDER, so the drag does not use it.
+   *
+   * The obvious build was `setPointerCapture` on the grip. It fails, and it
+   * fails on the very first swap: reordering a keyed list makes React MOVE the
+   * existing DOM nodes (insertBefore), moving a node detaches and re-attaches
+   * it, and an element that leaves the document loses its capture. So the grip
+   * stopped receiving pointermove the moment the first reorder happened.
+   *
+   * Caught by driving it with real pointer events: exactly two moves reached
+   * the grip, the second of them after the drag had already ended, and the
+   * order came out 123546 instead of 412356 — one swap, then nothing.
+   *
+   * The listeners go on `window` for the length of the drag instead. Window
+   * cannot be reordered out from under them, and the events arrive by bubbling
+   * from whatever is under the finger, which is exactly what a drag is.
+   *
+   * The gesture is still ours on touch without capture, because `touch-action:
+   * none` on the grip is evaluated at touch-start against the element the
+   * gesture BEGAN on. The browser therefore never claims it for a scroll,
+   * however far the finger travels afterwards.
+   */
+  const photosRef = useRef(photos)
+  photosRef.current = photos
+
+  /**
+   * THE SLOTS, measured once when the drag starts.
+   *
+   * Hit-testing against the tiles' LIVE rects oscillates, and the trace of a
+   * single upward drag shows it plainly — 3→4, 4→3, 3→0, 0→3, 3→0, 0→3 — the
+   * list flipping back and forth under a finger moving steadily in one
+   * direction. The cause is that reordering moves the tiles, so the geometry
+   * you are testing against is changed by the answer you just gave: the item
+   * arrives at slot 0, everything shifts, and now a different tile is nearest.
+   *
+   * A grid's SLOTS do not move. The number of items does not change during a
+   * drag, so the cells stay exactly where they were — only their contents
+   * change. Measured once at pointerdown and tested against for the whole
+   * gesture, the answer depends only on where the finger is, which is the one
+   * thing that should decide it.
+   */
+  const slots = useRef<Box[]>([])
+
+  const onGripDown = useCallback(
+    (id: string) => (e: React.PointerEvent) => {
+      // Never let the browser turn this into a scroll, a text selection or a
+      // native image drag.
+      e.preventDefault()
+      e.stopPropagation()
+      const el = tileEls.current.get(id)
+      if (!el) return
+      drag.current = { id, grabX: e.clientX, grabY: e.clientY }
+      slots.current = photosRef.current.map((ph) => {
+        const t = tileEls.current.get(ph.id)
+        const r = t?.getBoundingClientRect()
+        return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : { left: -1e6, top: -1e6, right: -1e6, bottom: -1e6 }
+      })
+      setDragId(id)
+      el.style.zIndex = "20"
+      el.style.willChange = "transform"
+      void triggerHaptic("light")
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (!dragId) return
+
+    const move = (e: PointerEvent) => {
+      const d = drag.current
+      if (!d) return
+      // Non-passive, so this actually suppresses whatever the platform would
+      // otherwise do with a finger travelling across the page.
+      e.preventDefault()
+      paintDragged(e.clientX, e.clientY)
+
+      const from = photosRef.current.findIndex((p) => p.id === d.id)
+      if (from < 0) return
+      // Against the slots, which are where the finger is aiming — not against
+      // the tiles, which are what the answer moves.
+      const to = indexAtPoint(slots.current, e.clientX, e.clientY)
+      if (to < 0 || to === from) return
+
+      flipFrom.current = measureTiles()
+      setPhotos((p) => moveItem(p, from, to))
+
+      // The dragged tile's own slot has moved, so re-anchor it to the finger:
+      // clear the transform, then treat the pointer's current position as the
+      // new grab point. Without this the picture jumps by one slot on every
+      // swap. A frame later, so React has committed the new positions first.
+      const el = tileEls.current.get(d.id)
+      if (el) {
+        requestAnimationFrame(() => {
+          const cur = drag.current
+          if (!cur || cur.id !== d.id) return
+          el.style.transition = "none"
+          el.style.transform = "none"
+          void el.offsetWidth
+          cur.grabX = e.clientX
+          cur.grabY = e.clientY
+          paintDragged(e.clientX, e.clientY)
+        })
+      }
+    }
+
+    const end = () => {
+      const d = drag.current
+      if (!d) return
+      drag.current = null
+      setDragId(null)
+      const el = tileEls.current.get(d.id)
+      if (el) {
+        // Settles into the slot it now occupies rather than snapping to it.
+        el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+        el.style.transform = ""
+        window.setTimeout(() => {
+          el.style.zIndex = ""
+          el.style.willChange = ""
+          el.style.transition = ""
+        }, 240)
+      }
+      void triggerHaptic("light")
+    }
+
+    window.addEventListener("pointermove", move, { passive: false })
+    window.addEventListener("pointerup", end)
+    window.addEventListener("pointercancel", end)
+    return () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", end)
+      window.removeEventListener("pointercancel", end)
+    }
+  }, [dragId, measureTiles, paintDragged])
+
+  /**
+   * The same operation without a drag: promote a photo to the cover.
+   *
+   * Kept alongside the drag, not replaced by it. Dragging is the general tool;
+   * this is the one move anybody actually makes, it is a single tap, and it is
+   * the only one of the two that a keyboard or an assistive device can perform.
    */
   const makeCover = useCallback((id: string) => {
-    setPhotos((p) => {
-      const i = p.findIndex((ph) => ph.id === id)
-      if (i <= 0) return p
-      const next = [...p]
-      const [moved] = next.splice(i, 1)
-      next.unshift(moved)
-      return next
-    })
-  }, [])
+    flipFrom.current = measureTiles()
+    setPhotos((p) => moveItem(p, p.findIndex((ph) => ph.id === id), 0))
+  }, [measureTiles])
 
   /**
    * The slide up, and the way back out.
@@ -561,7 +777,7 @@ export function NewListingForm() {
         <p className="mt-1 text-[13px] text-neutral-500">
           {photos.length === 0
             ? `Adaugă minimum ${MIN_PHOTOS}. Prima este coperta anunțului.`
-            : "Prima este coperta. Apasă „Copertă” pe alta ca s-o muți în față."}
+            : "Prima este coperta. Trage de mâner ca să le rearanjezi."}
         </p>
 
         {/* Nothing yet: one target the size of the job. Aiming at a thumbnail
@@ -583,94 +799,104 @@ export function NewListingForm() {
             <span className="text-[12.5px] text-neutral-500">Lumină bună, fundal simplu</span>
           </button>
         ) : (
-          <>
-            {/* THE COVER, at a size you can judge. */}
-            <div className="relative mt-3 aspect-[3/4] w-full overflow-hidden rounded-2xl bg-neutral-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photos[0].url || photos[0].localUrl}
-                alt=""
-                draggable={false}
-                className="h-full w-full select-none object-cover"
-              />
-              {photos[0].uploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-                  <Loader2 className="h-6 w-6 animate-spin text-white" />
-                </div>
-              )}
-              <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11.5px] font-semibold text-white backdrop-blur-sm">
-                Copertă
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  void triggerHaptic("light")
-                  removePhoto(photos[0].id)
-                }}
-                aria-label="Șterge coperta"
-                className="absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform active:scale-90"
+          /* ONE GRID, every tile the same and every tile draggable.
+             The previous version gave the cover its own full-width panel and
+             put the rest in a strip underneath. That reads well and reorders
+             badly: there is no coherent way to drag a small tile into a big
+             slot, and "first" stops being a position you can drag to. With one
+             grid, position 1 is a place like any other and dragging anything
+             into it makes it the cover — which is the whole of what reordering
+             is for here. Three across is ~105px a tile on a phone, against the
+             78px of the four-across it replaces. */
+          <div className="mt-3 grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+            {photos.map((p, i) => (
+              <div
+                key={p.id}
+                ref={(el) => setTileEl(p.id, el)}
+                className={cn(
+                  "relative aspect-[3/4] overflow-hidden rounded-xl bg-neutral-100",
+                  dragId === p.id && "shadow-[0_10px_28px_-6px_rgba(0,0,0,0.35)] ring-2 ring-[#7c3aed]",
+                )}
               >
-                <X className="h-[18px] w-[18px]" strokeWidth={2.4} />
-              </button>
-            </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.url || p.localUrl}
+                  alt=""
+                  draggable={false}
+                  className="pointer-events-none h-full w-full select-none object-cover"
+                />
 
-            {/* The rest, plus the way to add more. */}
-            <div className="mt-2.5 grid grid-cols-3 gap-2.5">
-              {photos.slice(1).map((p) => (
-                <div key={p.id} className="relative aspect-[3/4] overflow-hidden rounded-xl bg-neutral-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={p.url || p.localUrl}
-                    alt=""
-                    draggable={false}
-                    className="h-full w-full select-none object-cover"
-                  />
-                  {p.uploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/35">
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void triggerHaptic("light")
-                      removePhoto(p.id)
-                    }}
-                    aria-label="Șterge fotografia"
-                    className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform active:scale-90"
-                  >
-                    <X className="h-[15px] w-[15px]" strokeWidth={2.6} />
-                  </button>
-                  {!p.uploading && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void triggerHaptic("light")
-                        makeCover(p.id)
-                      }}
-                      className="absolute inset-x-1.5 bottom-1.5 rounded-lg bg-black/55 py-1.5 text-[11.5px] font-semibold text-white backdrop-blur-sm transition-transform active:scale-95"
-                    >
-                      Copertă
-                    </button>
-                  )}
-                </div>
-              ))}
+                {p.uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                )}
 
-              {photos.length < MAX_PHOTOS && (
+                {i === 0 && !p.uploading && (
+                  <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[10.5px] font-semibold text-white backdrop-blur-sm">
+                    Copertă
+                  </span>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
                     void triggerHaptic("light")
-                    fileRef.current?.click()
+                    removePhoto(p.id)
                   }}
-                  className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/60 text-neutral-400 transition-colors active:border-[#7c3aed] active:bg-violet-50/50 active:text-[#7c3aed]"
+                  aria-label="Șterge fotografia"
+                  className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform active:scale-90"
                 >
-                  <Plus className="h-6 w-6" strokeWidth={2.2} />
-                  <span className="text-[11.5px] font-medium">Adaugă</span>
+                  <X className="h-[15px] w-[15px]" strokeWidth={2.6} />
                 </button>
-              )}
-            </div>
-          </>
+
+                {/* THE HANDLE. `touch-action: none` lives here and nowhere else,
+                    so the form scrolls normally everywhere except these 28
+                    pixels. Same element for a mouse and a finger. */}
+                {!p.uploading && photos.length > 1 && (
+                  <button
+                    type="button"
+                    aria-label="Mută fotografia"
+                    onPointerDown={onGripDown(p.id)}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ touchAction: "none" }}
+                    className="absolute bottom-1.5 left-1.5 flex h-8 w-8 cursor-grab items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm active:cursor-grabbing"
+                  >
+                    <GripVertical className="h-[15px] w-[15px]" strokeWidth={2.4} />
+                  </button>
+                )}
+
+                {/* One tap to the front, for the move everybody actually makes —
+                    and the only one of the two a keyboard can perform. */}
+                {i !== 0 && !p.uploading && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void triggerHaptic("light")
+                      makeCover(p.id)
+                    }}
+                    className="absolute bottom-1.5 right-1.5 rounded-full bg-black/55 px-2 py-1.5 text-[10.5px] font-semibold leading-none text-white backdrop-blur-sm transition-transform active:scale-90"
+                  >
+                    Copertă
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {photos.length < MAX_PHOTOS && (
+              <button
+                type="button"
+                onClick={() => {
+                  void triggerHaptic("light")
+                  fileRef.current?.click()
+                }}
+                className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/60 text-neutral-400 transition-colors active:border-[#7c3aed] active:bg-violet-50/50 active:text-[#7c3aed]"
+              >
+                <Plus className="h-6 w-6" strokeWidth={2.2} />
+                <span className="text-[11.5px] font-medium">Adaugă</span>
+              </button>
+            )}
+          </div>
         )}
 
         {/* `capture` is deliberately absent: without it iOS offers the full
