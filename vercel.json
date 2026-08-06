@@ -13,6 +13,10 @@
     {
       "path": "/api/cron/rollup-daily",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/activity-digest",
+      "schedule": "*/15 * * * *"
     }
   ],
   "rewrites": [

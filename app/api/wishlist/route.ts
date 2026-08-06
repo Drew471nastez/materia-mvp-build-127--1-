@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
+import { recordListingLike } from "@/lib/push/activity-db"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60
@@ -219,6 +220,25 @@ export async function POST(request: NextRequest) {
         .from("wishlist_items")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
+
+      /**
+       * The heart on a product card IS the wishlist, so this is the "someone
+       * liked your listing" event and there is no second one.
+       *
+       * Only on the branch that actually INSERTED — the `alreadyExists` return
+       * above never reaches here, so re-saving something you already saved is
+       * silent. And only for signed-in savers: a guest has no identity to
+       * deduplicate against, which would make the guest path the one way to
+       * generate unlimited events. Guests still save; they just do not notify.
+       *
+       * Queued rather than sent, and on `after()` so the heart animates at the
+       * speed of the tap. See lib/push/activity-notification.ts.
+       */
+      after(() => {
+        void recordListingLike(productId, userId!).catch((e) =>
+          console.error("[push:activity] like enqueue failed:", e?.message ?? e),
+        )
+      })
 
       return NextResponse.json({ success: true, count: count || 0 })
     }

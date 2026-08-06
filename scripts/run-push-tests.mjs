@@ -1,11 +1,16 @@
 /**
- * Runs tests/push-notifications.test.ts.
+ * Runs every suite under tests/.
  *
  * tsc into a scratch directory, then node. There is no test runner in this
  * project and this does not add one: a runner is a dependency, a config file
- * and a watch mode, for a suite that is one file. If the suite grows past a
- * few files this should become vitest — that is the point at which the
+ * and a watch mode, for a suite that is two files. If this grows past a
+ * handful this should become vitest — that is the point at which the
  * dependency pays for itself, and not before.
+ *
+ * Both suites are compiled TOGETHER and run in separate processes. Together,
+ * because they share modules and one tsc invocation is faster than two;
+ * separately, because each suite calls process.exit(1) on failure and a shared
+ * process would let the first failure hide the second suite entirely.
  *
  * `server-only` resolves to an empty module outside a bundler, so the modules
  * under test import cleanly here.
@@ -13,15 +18,21 @@
 import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, relative } from "node:path"
+import { join, basename } from "node:path"
+
+const SUITES = [
+  "tests/push-notifications.test.ts",
+  "tests/activity-notifications.test.ts",
+]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
+let anyFailed = false
 try {
   execFileSync(
     "npx",
     [
       "tsc",
-      "tests/push-notifications.test.ts",
+      ...SUITES,
       "--outDir", out,
       "--target", "es2022",
       "--module", "esnext",
@@ -48,9 +59,26 @@ try {
   }
   writeFileSync(join(out, "package.json"), '{"type":"module"}\n')
 
-  const entry = walk(out).find((f) => f.endsWith("push-notifications.test.js"))
-  if (!entry) throw new Error("compiled test not found")
-  execFileSync(process.execPath, [entry], { stdio: "inherit" })
+  const compiled = walk(out)
+  for (const suite of SUITES) {
+    const wanted = basename(suite).replace(/\.ts$/, ".js")
+    const entry = compiled.find((f) => f.endsWith(wanted))
+    if (!entry) throw new Error(`compiled test not found for ${suite}`)
+    console.log(`\n──────── ${suite} ────────`)
+    try {
+      execFileSync(process.execPath, [entry], { stdio: "inherit" })
+    } catch {
+      // The suite already printed which assertions failed. Recorded and
+      // carried on, so a failure in the first suite does not hide the second.
+      anyFailed = true
+    }
+  }
 } finally {
   rmSync(out, { recursive: true, force: true })
 }
+
+if (anyFailed) {
+  console.log("\nsome suites failed")
+  process.exit(1)
+}
+console.log("\nall suites passed")

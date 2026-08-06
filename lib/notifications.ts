@@ -17,7 +17,24 @@ import type { SupabaseClient } from "@supabase/supabase-js"
  * policy, so trusted server code is the only writer.
  */
 
-export type NotificationKind = "follow" | "offer_received" | "offer_accepted" | "offer_declined" | "message"
+/**
+ * `like` and `trending` were added with social activity push. They are feed
+ * rows only — the PUSH for them is batched hours later by
+ * lib/push/activity-db.ts, and these are what the notifications tab shows when
+ * the digest is tapped. A feed row per like is fine; a banner per like is not.
+ *
+ * The database has a CHECK constraint listing these, so adding a kind here
+ * without adding it in supabase/sql/RUN_ACTIVITY_PUSH.sql produces an insert
+ * that fails at runtime and is swallowed below. Both, or neither.
+ */
+export type NotificationKind =
+  | "follow"
+  | "offer_received"
+  | "offer_accepted"
+  | "offer_declined"
+  | "message"
+  | "like"
+  | "trending"
 
 export async function createNotification(
   admin: SupabaseClient,

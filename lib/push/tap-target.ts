@@ -28,6 +28,15 @@ export function tapTargetFor(data: Record<string, unknown> | undefined | null): 
   const type = data?.type
   if (type === "sale") return "/app/sales"
   if (type === "payout_available") return "/app/payouts"
+  // A social digest is a summary of several things, so it opens the list of
+  // them rather than picking one to be about. Every row there links onward to
+  // the listing or the person. A constant — nothing from the payload is used,
+  // because nothing in the payload would improve the answer.
+  if (type === "activity") return "/messages?tab=notificari"
+  // A test push from the admin tool. It carries no subject, so it opens the app
+  // at home rather than nowhere: a notification you tapped that does nothing at
+  // all reads as broken, which is the opposite of what a test is for.
+  if (type === "test") return "/"
   if (type !== "message") return null
   const id = data?.conversationId
   // The inbox rather than nothing: the tap was deliberate, and the list of

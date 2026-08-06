@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
+import { recordActivity } from "@/lib/push/activity-db"
 
 /**
  * The follow graph.
@@ -80,6 +81,17 @@ export async function POST(request: NextRequest) {
     // Tell the followed user; the helper swallows its own failures, so the
     // follow itself never breaks over a notification.
     await createNotification(createAdminClient(), { userId: target, kind: "follow", actorId: userId })
+
+    // Queued, not sent. A follow becomes part of a digest hours later — see the
+    // long note at the top of lib/push/activity-notification.ts. On `after()`
+    // so the button does not wait for it, and the dedupe key means following,
+    // unfollowing and following again queues nothing the second time.
+    after(() => {
+      void recordActivity({ kind: "follow", recipientId: target, actorId: userId }).catch((e) =>
+        console.error("[push:activity] follow enqueue failed:", e?.message ?? e),
+      )
+    })
+
     return NextResponse.json({ following: true })
   } catch (e: any) {
     console.error("[follows] follow failed:", e?.message || e)

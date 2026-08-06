@@ -39,7 +39,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 }
 
-export default async function MessagesPage() {
+export default async function MessagesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
+  // `?tab=notificari` is where a tapped social-activity push lands — see
+  // lib/push/tap-target.ts. Resolved here rather than in the client so the
+  // right tab is in the first paint; anything other than that one value is the
+  // conversations list, which is the default and the safe answer for a URL
+  // somebody typed.
+  const params = (await searchParams) ?? {}
+  const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab
+  const initialTab = rawTab === "notificari" || rawTab === "notifications" ? "notifications" : "messages"
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -100,6 +113,7 @@ export default async function MessagesPage() {
               initialConversations={initialConversations}
               renderKey={renderKey}
               viewerId={user.id}
+              initialTab={initialTab}
               dormantWhenWide
             />
           </div>

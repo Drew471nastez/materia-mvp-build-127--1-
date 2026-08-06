@@ -44,7 +44,7 @@ export type Row = {
 
 type Notif = {
   id: string
-  kind: "follow" | "offer_received" | "offer_accepted" | "offer_declined" | "message"
+  kind: "follow" | "offer_received" | "offer_accepted" | "offer_declined" | "message" | "like" | "trending"
   createdAt: string
   readAt: string | null
   conversationId: string | null
@@ -115,8 +115,22 @@ export function MessagesInbox({
   renderKey,
   viewerId,
   dormantWhenWide = false,
+  initialTab = "messages",
 }: {
   initialConversations?: Row[] | null
+  /**
+   * Which side of the switcher opens first.
+   *
+   * Exists for one caller: a tapped social-activity push, which lands on
+   * /messages?tab=notificari (see lib/push/tap-target.ts). A digest that says
+   * "8 aprecieri" and then opens the conversation list has not answered the
+   * thing the person tapped it to find out.
+   *
+   * Read on the SERVER and passed down rather than read from the URL here, so
+   * the correct tab is in the first paint instead of snapping over after
+   * hydration.
+   */
+  initialTab?: "messages" | "notifications"
   /**
    * True when a wider screen draws the split view instead of this one.
    *
@@ -152,7 +166,7 @@ export function MessagesInbox({
   viewerId?: string | null
 }) {
   const { formatPrice } = useLocale()
-  const [tab, setTab] = useState<"messages" | "notifications">("messages")
+  const [tab, setTab] = useState<"messages" | "notifications">(initialTab)
   // No entrance on the lists behind this switcher, in either direction.
   //
   // There used to be a 180ms fade on the incoming one. The intent was to soften
@@ -965,6 +979,13 @@ function notifText(kind: Notif["kind"]): { verb: string; accent?: string } {
       return { verb: "ți-a refuzat oferta" }
     case "message":
       return { verb: "ți-a trimis un mesaj" }
+    case "like":
+      return { verb: "ți-a apreciat anunțul", accent: "text-[#7c3aed]" }
+    // The only row with no actor — nobody DID it, it is a fact about the
+    // listing. The name slot renders "Storelib" through the same fallback the
+    // other kinds use for a deleted account, which reads correctly here.
+    case "trending":
+      return { verb: "anunțul tău este în tendințe", accent: "text-[#7c3aed]" }
   }
 }
 
