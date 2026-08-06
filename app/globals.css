@@ -326,43 +326,22 @@ html.capacitor a.no-tap-fade:active {
   will-change: opacity;
 }
 
-/* COMING BACK TO A LIST FROM A DETAIL SCREEN — the pop, with a direction.
+/* `.list-return` WAS HERE and is gone.
  *
- * `.screen-return` above is opacity only, and on the inbox that was the whole
- * problem: the conversation dipped to 0.88 and the list simply CUT in at 0.86
- * and brightened. Nothing moved, so nothing said which way you had gone. A pop
- * with no direction is indistinguishable from a page replacing another page,
- * which is exactly the "too direct and cheap" it was reported as.
+ * It slid the inbox in from 14px left on the way back from a conversation, to
+ * give the pop a direction. The very next report was that coming back had got
+ * WORSE — a frozen frame, then the list arriving badly.
  *
- * The list now also arrives from slightly LEFT of where it belongs — where it
- * conceptually was, behind and to the left of the conversation that covered it.
- * 14px, which is enough to read as movement at this duration and far too small
- * to look like a slide.
+ * The likely mechanism: an entry animation on an arriving route competes with
+ * the router committing that route. When the commit is quick the animation is
+ * the only thing you see and it reads well; when it is slow the two overlap and
+ * the result reads as a stall, because the screen is holding at 0.82 opacity
+ * waiting for content that has not arrived. The inbox is server-rendered and
+ * dynamic, so its commit time is exactly the variable one.
  *
- * ── The transform hazard, stated so it is not rediscovered ──
- * A transformed element becomes the containing block for every `position:
- * fixed` DESCENDANT — that is how the buy bar on the product page ended up
- * pinned to a document instead of the viewport. So this class must only ever go
- * on a container with NO fixed children. On /messages that is the list card,
- * not the page wrapper: the bottom navigation is fixed and lives outside it.
- * `translate3d` rather than `translateX` so it is a compositor transform with
- * no layout involvement at all. */
-@keyframes list-return {
-  from { opacity: 0.82; transform: translate3d(-14px, 0, 0); }
-  to   { opacity: 1;    transform: translate3d(0, 0, 0); }
-}
-.list-return {
-  animation: list-return 280ms cubic-bezier(0.16, 0.84, 0.28, 1) both;
-  will-change: opacity, transform;
-}
-@media (min-width: 768px) {
-  /* Desktop is a split view — the list never left, so it has nothing to return
-     from, and animating it would be motion for its own sake. */
-  .list-return { animation: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .list-return { animation: none; }
-}
+ * Removed rather than tuned. A transition whose quality depends on how fast the
+ * server answered is not a transition, and picking a new duration from here
+ * would be guessing at a device I cannot measure. */
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
      website doing tricks, and the page is already instant there. */
