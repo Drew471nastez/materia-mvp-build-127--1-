@@ -1126,6 +1126,47 @@ export function MessageThread({
     }, 160)
   }, [dismissing, router])
 
+  /**
+   * ARMING — the layer is raised while the finger is still down.
+   *
+   * `will-change` declared on the animating class is a promise made too late.
+   * The browser first sees it on the frame the class is added, which is the
+   * frame the animation is already meant to be playing, so it has to rasterise
+   * a full-screen subtree — an entire conversation, its avatars, its images —
+   * while the first frames are due. That is one long frame at the start
+   * followed by a smooth remainder, and a long first frame is exactly what
+   * reads as "not smooth" no matter how good the rest is.
+   *
+   * `pointerdown` fires 80-150ms before the tap resolves — human reaction time,
+   * free and always there. Arming in it gives the compositor that whole window
+   * to promote the shell and paint it into a texture once. By the time
+   * `thread-dismiss` starts there is nothing left to rasterise and every frame
+   * is a matrix multiply, which is what holds 8.3ms on a 120Hz panel.
+   *
+   * Disarmed again if the press does not become a tap, because a permanent
+   * `will-change` is a permanent extra layer in memory — on a long conversation
+   * that is a real texture, not a hint. `pointercancel` is the scroll/drag-away
+   * case. The timer is for the ordinary lift-off that never becomes a click
+   * (finger moved off the arrow); it is well past the click, and it checks
+   * `dismissing` through a ref so it cannot disarm a screen that is leaving —
+   * during which `.thread-dismiss` carries its own `will-change` anyway.
+   */
+  const [armed, setArmed] = useState(false)
+  const dismissingRef = useRef(false)
+  dismissingRef.current = dismissing
+  const disarmTimer = useRef<number | undefined>(undefined)
+  const arm = useCallback(() => {
+    window.clearTimeout(disarmTimer.current)
+    setArmed(true)
+  }, [])
+  const disarmSoon = useCallback((delay: number) => {
+    window.clearTimeout(disarmTimer.current)
+    disarmTimer.current = window.setTimeout(() => {
+      if (!dismissingRef.current) setArmed(false)
+    }, delay)
+  }, [])
+  useEffect(() => () => window.clearTimeout(disarmTimer.current), [])
+
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1828,6 +1869,9 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
+        // Promoted at pointerdown, so the animation below has nothing left to
+        // rasterise when it starts. See `arm`.
+        armed && "thread-armed",
         // Receding away, played before the route changes. See closeThread.
         dismissing && "thread-dismiss",
       )}
@@ -1845,6 +1889,17 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Înapoi"
+            // The layer goes up here, not on the click. See `arm` — this is the
+            // whole of the 120fps fix, and it costs nothing: the browser is
+            // idle between the finger landing and the tap resolving, and that
+            // is precisely the time promoting a full-screen layer takes.
+            onPointerDown={arm}
+            // The press that never became a tap: dragged away, or the OS took
+            // the gesture. Nothing is going to animate, so the layer goes back.
+            onPointerCancel={() => disarmSoon(0)}
+            // Past the click that a lift-off would have produced. If one did,
+            // `dismissing` is set and this leaves the layer alone.
+            onPointerUp={() => disarmSoon(500)}
             // A pop, announced as one: the hint on <html> is what tells the
             // inbox it is being returned to rather than opened, so it comes
             // forward under a lifting veil instead of simply being there. Same
