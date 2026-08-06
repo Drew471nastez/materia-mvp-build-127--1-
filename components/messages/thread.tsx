@@ -18,6 +18,7 @@ import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
+import { dropPopShot, releasePopShot, takePopShot } from "@/lib/messages/pop-shot"
 
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -1158,10 +1159,20 @@ export function MessageThread({
   const closeThread = useCallback(() => {
     if (closing.current) return
     closing.current = true
+    // The copy starts travelling on the same frame the route is asked for, so
+    // the inbox mounts and paints BEHIND it and is uncovered rather than cut
+    // to. Before the navigation, not after: a slide that begins once the route
+    // has committed is a second event, which is the thing this replaces.
+    releasePopShot()
     navigateBlended("back", () =>
       window.history.length > 1 ? router.back() : router.push("/messages"),
     )
   }, [router])
+
+  // A conversation that unmounts for any other reason — a push notification
+  // opening a different one, the split view taking over on a rotate — must not
+  // leave a picture of itself over whatever replaced it.
+  useEffect(() => () => dropPopShot(), [])
 
   /**
    * Keep the inbox warm for the whole time you are in here.
@@ -1908,19 +1919,38 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Înapoi"
-            // The disc fades under the finger instead of blinking on and off.
-            // `active:` could only ever do the latter — it is a class the
-            // browser applies and drops, with nothing in between to animate
-            // along — and on the control this entire transition hangs off, an
+            // Two things happen while the finger is down.
+            //
+            // The disc fades in rather than blinking on: `active:` is a class
+            // the browser applies and drops, with nothing in between to animate
+            // along, and on the control this whole transition hangs off an
             // instant grey circle is the first thing you see of it.
-            // `.tap-fade` in app/globals.css carries the timing.
-            onPointerDown={() => setBackPressed(true)}
-            onPointerUp={() => setBackPressed(false)}
-            onPointerCancel={() => setBackPressed(false)}
+            //
+            // And the copy of the conversation is taken — the one that lets it
+            // still be on screen after the route has changed, which is what
+            // makes this a pop rather than a swap. It is done here because
+            // painting a full extra screen has to happen on SOME frame, and the
+            // 80-150ms between a finger landing and a tap resolving is the only
+            // one going spare. See lib/messages/pop-shot.ts.
+            onPointerDown={() => {
+              setBackPressed(true)
+              takePopShot()
+            }}
+            // A press is not a promise of a tap. If no click follows this, the
+            // copy is covering a live screen — dropped after a beat rather than
+            // immediately, because the click comes a frame or two after the
+            // lift and dropping first would take the picture down in front of
+            // the navigation it belongs to.
+            onPointerUp={() => {
+              setBackPressed(false)
+              window.setTimeout(dropPopShot, 260)
+            }}
+            // The system took the gesture. No click is coming at all.
+            onPointerCancel={() => {
+              setBackPressed(false)
+              dropPopShot()
+            }}
             data-pressed={backPressed ? "true" : undefined}
-            // A pop, announced as one: the hint on <html> is what tells the
-            // inbox it is being returned to rather than opened, so it arrives
-            // travelling back from the left instead of simply being there.
             onClick={() => {
               void triggerHaptic("light")
               closeThread()
