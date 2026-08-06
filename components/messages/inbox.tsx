@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { BadgeCheck, Bell } from "lucide-react"
@@ -17,6 +17,7 @@ import {
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
 import { wasServedFromCache } from "@/lib/render-key"
+import { consumeNavHint } from "@/lib/screen-transition"
 import { createClient } from "@/lib/supabase/client"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
@@ -167,6 +168,28 @@ export function MessagesInbox({
 }) {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">(initialTab)
+
+  /**
+   * Arriving here by pressing BACK out of a conversation, rather than by
+   * tapping the tab.
+   *
+   * Consumed — not read — so the hint applies to exactly this arrival. Left on
+   * <html> it would still be there for whatever mounts next and that screen
+   * would animate in as though you had pressed back, which is a transition
+   * appearing out of nowhere. See lib/screen-transition.ts.
+   *
+   * Dropped on a timer rather than on animationend: the animation is `none` on
+   * desktop and under reduced motion, and an animation that never runs never
+   * ends — so the compositor layer `will-change` asks for would be held for the
+   * rest of the session on precisely the machines that opted out of it.
+   */
+  const [returning, setReturning] = useState(false)
+  useLayoutEffect(() => {
+    if (consumeNavHint() !== "back") return
+    setReturning(true)
+    const t = window.setTimeout(() => setReturning(false), 340)
+    return () => window.clearTimeout(t)
+  }, [])
   // No entrance on the lists behind this switcher, in either direction.
   //
   // There used to be a 180ms fade on the incoming one. The intent was to soften
@@ -727,7 +750,13 @@ export function MessagesInbox({
               writes the transform straight to this node, so a drag never goes
               through React. */}
           <div ref={listRef} className="min-h-full" style={{ transform: "translate3d(0, 0, 0)" }}>
-            <div key={tab} className="flex min-h-full flex-col">
+            {/* `returning` is the back-from-a-conversation pop — see the note
+                on `list-return` in app/globals.css. Applied HERE and not on the
+                page wrapper because a transformed element becomes the
+                containing block for fixed descendants, and the bottom
+                navigation is fixed. It lives outside this node; the list does
+                not. */}
+            <div key={tab} className={cn("flex min-h-full flex-col", returning && "list-return")}>
               {/* No entrance on the rows.
                   A staggered rise looked considered in isolation and reads, on a
                   screen you open twenty times a day, as the inbox arriving in

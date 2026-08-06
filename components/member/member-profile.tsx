@@ -266,10 +266,15 @@ export function MemberProfile({
   /** What the band is when there is no photograph, and what sits behind one
    *  while it loads. `resolveCover` already falls back to this, so reading it
    *  again here cannot disagree with what is drawn. */
-  const fallbackPreset = cover.kind === "preset" ? cover.preset : defaultCoverFor(member.id)
-  /** The colour under the band, and the photograph that goes over it. */
-  const coverTint = fallbackPreset.tint
-  const coverPhoto = cover.kind === "image" ? cover.url : coverImageUrl(cover.preset)
+  /** The colour under the band, and the photograph over it — if there is one.
+   *
+   *  `none` is now the default (see lib/profile/covers.ts): no photograph at
+   *  all, just the tinted band. `coverPhoto` being null is the normal case, not
+   *  an error state, so nothing here may render a placeholder for it. */
+  const coverTint =
+    cover.kind === "preset" ? cover.preset.tint : cover.kind === "none" ? cover.tint : defaultCoverFor(member.id).tint
+  const coverPhoto =
+    cover.kind === "image" ? cover.url : cover.kind === "preset" ? coverImageUrl(cover.preset) : null
   const bio = member.bio ?? null
 
   const name = member.displayName || member.username || "Storelib"

@@ -2733,6 +2733,19 @@ function OfferBubble({
   formatPrice: (cents: number) => string
 }) {
   const status = msg.offer_status
+  /**
+   * How far under the asking price this offer sits, as a whole percent.
+   *
+   * Null — not zero — when there is nothing worth saying: no listing, no price
+   * to compare against, or an offer at or above the asking price. A card that
+   * renders "−0%" on a full-price offer is stating a fact nobody asked for, and
+   * a negative discount reads as a bug.
+   */
+  const listed = listing?.price_cents ?? 0
+  const offered = msg.offer_cents ?? 0
+  const discountPct =
+    listed > 0 && offered > 0 && offered < listed ? Math.round(((listed - offered) / listed) * 100) : null
+
   return (
     <div
       className={cn(
@@ -2741,8 +2754,62 @@ function OfferBubble({
         status === "accepted" ? "border-emerald-200 bg-emerald-50" : status === "declined" ? "border-neutral-200 bg-neutral-50" : "border-[#7c3aed]/30 bg-[#7c3aed]/[0.06]",
       )}
     >
+      {/* THE ITEM THE OFFER IS ABOUT.
+          
+          This card used to show a number and nothing else. In a conversation
+          that has scrolled — and an offer is usually made after some back and
+          forth — "180 lei" on its own is a figure with no subject: you have to
+          scroll up to remember which jacket, and a seller with several
+          conversations open has to remember which listing this thread is even
+          for. The thread header carries the item, but the header is off screen
+          by the time the offer is.
+          
+          So the offer states its own subject. Thumbnail, title, and what the
+          item is actually listed at — which is the number the offer only means
+          anything relative to. */}
+      {listing && (
+        <div className="mb-2.5 flex items-center gap-2.5 rounded-xl bg-white/70 p-2 ring-1 ring-black/[0.05]">
+          {listing.thumbnail_url ? (
+            <Image
+              src={listing.thumbnail_url}
+              alt=""
+              width={40}
+              height={53}
+              // 3:4, the same shape as everywhere else the item appears.
+              className="h-[53px] w-10 shrink-0 rounded-lg object-cover"
+              draggable={false}
+              decoding="async"
+            />
+          ) : (
+            <span className="flex h-[53px] w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-[15px]">
+              👜
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13.5px] font-semibold text-neutral-900">{listing.title}</span>
+            <span className="mt-0.5 block text-[12.5px] text-neutral-500">
+              Preț listat {formatPrice(listing.price_cents)}
+            </span>
+          </span>
+        </div>
+      )}
+
       <p className="text-[12.5px] font-medium text-neutral-500">{mine ? "Oferta ta" : "Ofertă primită"}</p>
-      <p className="mt-0.5 text-[22px] font-bold leading-tight text-neutral-900">{formatPrice(msg.offer_cents ?? 0)}</p>
+      <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-tight">
+        <span className="text-[22px] font-bold text-neutral-900">{formatPrice(msg.offer_cents ?? 0)}</span>
+        {/* The saving, stated once, only when there is one.
+            
+            A percentage is what both sides are actually negotiating over, and
+            working it out in your head from two numbers is the small friction
+            that makes people ignore an offer rather than answer it. Hidden when
+            the offer is at or above the asking price, because "-0%" and a
+            negative discount are both noise. */}
+        {discountPct !== null && (
+          <span className="text-[13px] font-semibold text-[#7c3aed]">
+            −{discountPct}% față de {formatPrice(listing!.price_cents)}
+          </span>
+        )}
+      </p>
       {msg.body && <p className="mt-1 text-[14px] text-neutral-700">{msg.body}</p>}
 
       {status === "pending" && !mine && (

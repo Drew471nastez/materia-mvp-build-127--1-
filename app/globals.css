@@ -325,6 +325,44 @@ html.capacitor a.no-tap-fade:active {
   animation: screen-return 300ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
   will-change: opacity;
 }
+
+/* COMING BACK TO A LIST FROM A DETAIL SCREEN — the pop, with a direction.
+ *
+ * `.screen-return` above is opacity only, and on the inbox that was the whole
+ * problem: the conversation dipped to 0.88 and the list simply CUT in at 0.86
+ * and brightened. Nothing moved, so nothing said which way you had gone. A pop
+ * with no direction is indistinguishable from a page replacing another page,
+ * which is exactly the "too direct and cheap" it was reported as.
+ *
+ * The list now also arrives from slightly LEFT of where it belongs — where it
+ * conceptually was, behind and to the left of the conversation that covered it.
+ * 14px, which is enough to read as movement at this duration and far too small
+ * to look like a slide.
+ *
+ * ── The transform hazard, stated so it is not rediscovered ──
+ * A transformed element becomes the containing block for every `position:
+ * fixed` DESCENDANT — that is how the buy bar on the product page ended up
+ * pinned to a document instead of the viewport. So this class must only ever go
+ * on a container with NO fixed children. On /messages that is the list card,
+ * not the page wrapper: the bottom navigation is fixed and lives outside it.
+ * `translate3d` rather than `translateX` so it is a compositor transform with
+ * no layout involvement at all. */
+@keyframes list-return {
+  from { opacity: 0.82; transform: translate3d(-14px, 0, 0); }
+  to   { opacity: 1;    transform: translate3d(0, 0, 0); }
+}
+.list-return {
+  animation: list-return 280ms cubic-bezier(0.16, 0.84, 0.28, 1) both;
+  will-change: opacity, transform;
+}
+@media (min-width: 768px) {
+  /* Desktop is a split view — the list never left, so it has nothing to return
+     from, and animating it would be motion for its own sake. */
+  .list-return { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-return { animation: none; }
+}
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
      website doing tricks, and the page is already instant there. */
@@ -3119,17 +3157,45 @@ html[data-keyboard="open"] .thread-composer {
  * exit animation would be an animation competing with a navigation. Transform
  * and opacity only, so it composites on its own layer and the form behind it is
  * not repainted for it. */
+/* "Profil salvat" — arriving, not bouncing.
+ *
+ * This overshot to 1.03 and settled back, which is the bounce that reads as
+ * clunky. An overshoot is a physical metaphor: it says the thing had momentum
+ * and had to be caught. A confirmation has no momentum — it is a statement of
+ * fact, it is correct the instant it appears, and making it wobble on arrival
+ * suggests the app is still deciding.
+ *
+ * What is left is the smallest move that still reads as "this arrived":
+ * a 3% rise with no overshoot, on a decelerating curve, over 260ms. It reaches
+ * its final size and stops. Transform and opacity only, so it composites on its
+ * own layer and nothing behind it repaints — which is what keeps it smooth on
+ * the frame where the router is also starting the transition back. */
 @keyframes saved-pop {
-  0%   { transform: scale(0.86); opacity: 0; }
-  55%  { transform: scale(1.03); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  from { transform: scale(0.97); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
 }
 .saved-pop {
-  animation: saved-pop 340ms cubic-bezier(0.22, 1.1, 0.36, 1) both;
+  animation: saved-pop 260ms cubic-bezier(0.22, 0.8, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+/* And LEAVING, which it never did.
+ *
+ * The confirmation used to be torn out of the DOM by the navigation — it was
+ * simply gone mid-frame, at the same moment the page underneath began to move.
+ * Two things changing abruptly at once is most of why the return "felt buggy".
+ * Fading it out first means the screen is already quiet when the transition
+ * starts. */
+@keyframes saved-pop-out {
+  from { transform: scale(1);    opacity: 1; }
+  to   { transform: scale(0.98); opacity: 0; }
+}
+.saved-pop-out {
+  animation: saved-pop-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
   will-change: transform, opacity;
 }
 @media (prefers-reduced-motion: reduce) {
-  .saved-pop { animation: none; }
+  .saved-pop,
+  .saved-pop-out { animation: none; }
 }
 
 /* Prevent the white body flash during page transitions in Capacitor.

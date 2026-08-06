@@ -148,8 +148,11 @@ export function defaultCoverFor(userId: string): CoverPreset {
 export type Cover =
   /** An upload of their own. */
   | { kind: "image"; url: string }
-  /** One of the library photographs, with the colour to paint under it. */
+  /** One of the library photographs — legacy only; still resolved for accounts
+   *  that chose one before the picker was removed, never newly assigned. */
   | { kind: "preset"; preset: CoverPreset }
+  /** No cover. A plain band in this colour, which is the DEFAULT now. */
+  | { kind: "none"; tint: string }
 
 /**
  * What to actually draw, from whatever is in the column.
@@ -169,7 +172,25 @@ export function resolveCover(coverUrl: string | null | undefined, userId: string
     const found = BY_ID.get(raw.slice("lib:".length))
     if (found) return { kind: "preset", preset: found }
   }
-  return { kind: "preset", preset: defaultCoverFor(userId) }
+  /**
+   * NO COVER IS NOW GENUINELY NO COVER.
+   *
+   * This used to fall through to `defaultCoverFor(userId)` — a stock photograph
+   * picked deterministically from the account id. With twelve presets and a
+   * growing marketplace that meant one seller in twelve shared their "personal"
+   * cover with every twelfth other seller, and nobody had chosen any of it. A
+   * cover is supposed to say something about the shop; a stock photo assigned
+   * by a hash says the opposite, and says it louder the more accounts exist.
+   *
+   * `none` is a plain tinted band with an upload button on it. The tint is
+   * still derived from the id, because a band has to be SOME colour and a
+   * stable one per account is better than one grey for everybody.
+   *
+   * Existing `lib:` values still resolve above, so nobody who deliberately
+   * chose a preset loses it — it simply cannot be chosen again, and the picker
+   * is gone from the editor.
+   */
+  return { kind: "none", tint: defaultCoverFor(userId).tint }
 }
 
 /** The longest a bio may be. Long enough for three sentences, short enough that

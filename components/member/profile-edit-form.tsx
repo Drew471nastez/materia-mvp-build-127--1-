@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, Loader2 } from "lucide-react"
 
 import {
-  COVER_PRESETS,
   coverImageUrl,
   defaultCoverFor,
   MAX_BIO_CHARS,
@@ -76,14 +75,22 @@ export function ProfileEditForm({
   const [notice, setNotice] = useState<{ tone: "good" | "part" | "bad"; title: string; detail: string | null } | null>(
     null,
   )
+  /** The confirmation is on its way out — see the note in `save`. */
+  const [leaving, setLeaving] = useState(false)
   const coverFile = useRef<HTMLInputElement>(null)
   const avatarFile = useRef<HTMLInputElement>(null)
 
   const preview = resolveCover(cover, userId)
   /** The colour under the band and the photograph over it — the same pair the
    *  profile uses, so this preview cannot look different from the real thing. */
-  const previewTint = (preview.kind === "preset" ? preview.preset : defaultCoverFor(userId)).tint
-  const previewPhoto = preview.kind === "image" ? preview.url : coverImageUrl(preview.preset, 900)
+  const previewTint =
+    preview.kind === "preset"
+      ? preview.preset.tint
+      : preview.kind === "none"
+        ? preview.tint
+        : defaultCoverFor(userId).tint
+  const previewPhoto =
+    preview.kind === "image" ? preview.url : preview.kind === "preset" ? coverImageUrl(preview.preset, 900) : null
   const name = displayName.trim() || username
 
   const back = useCallback(() => {
@@ -145,6 +152,7 @@ export function ProfileEditForm({
     if (busy) return
     setBusy("save")
     setNotice(null)
+    setLeaving(false)
     try {
       const res = await fetch("/api/profile", {
         method: "PATCH",
@@ -196,10 +204,25 @@ export function ProfileEditForm({
           : { tone: "good", title: "Profil salvat", detail: null },
       )
       router.refresh()
-      // Long enough to read, and only then the screen goes — so the save and
-      // the return are one action rather than two. A failure does NOT navigate:
-      // you are still in the form, with what you typed, able to try again.
-      window.setTimeout(back, skipped.length > 0 ? 1500 : 950)
+      /**
+       * Read it, then let it go, THEN leave.
+       *
+       * This used to navigate straight out from under the confirmation, so the
+       * badge was torn out of the DOM in the same frame the page began to move.
+       * Two abrupt changes at once is most of why the return felt buggy rather
+       * than finished.
+       *
+       * Now the confirmation fades itself out first (180ms) and the navigation
+       * starts as it lands, so only one thing is moving at any moment. The
+       * timings are the same total wait — the difference is entirely in what
+       * happens during it.
+       *
+       * A failure does NOT navigate: you are still in the form, with what you
+       * typed, able to try again.
+       */
+      const dwell = skipped.length > 0 ? 1500 : 950
+      window.setTimeout(() => setLeaving(true), Math.max(0, dwell - 180))
+      window.setTimeout(back, dwell)
     } catch {
       setBusy(null)
       setNotice({ tone: "bad", title: "Salvarea a eșuat", detail: "Verifică conexiunea și încearcă din nou." })
@@ -248,7 +271,19 @@ export function ProfileEditForm({
           type="button"
           onClick={save}
           disabled={busy !== null}
-          className="mr-1 flex h-9 min-w-[84px] items-center justify-center rounded-full bg-[#7c3aed] px-4 text-[13.5px] font-semibold text-white transition-transform active:scale-[0.96] disabled:opacity-60"
+          /* No scale on press.
+             *
+             * A button that shrinks when you touch it is the "bump" — it reads
+             * as cheap because it is a physical metaphor applied to something
+             * that is not physical, and at 4% it is small enough to look like a
+             * rendering glitch rather than a deliberate response.
+             *
+             * What replaces it is what every native control actually does:
+             * the surface darkens under the finger and returns. One colour
+             * transition, no transform, nothing that moves the button's
+             * geometry — so it cannot nudge the header around it, and it
+             * cannot fight the page transition that starts on the same tap. */
+            className="mr-1 flex h-9 min-w-[84px] items-center justify-center rounded-full bg-[#7c3aed] px-4 text-[13.5px] font-semibold text-white transition-colors duration-150 hover:bg-[#6d28d9] active:bg-[#5b21b6] disabled:opacity-60"
         >
           {busy === "save" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvează"}
         </button>
@@ -280,7 +315,7 @@ export function ProfileEditForm({
             type="button"
             onClick={() => coverFile.current?.click()}
             disabled={busy !== null}
-            className="absolute bottom-2.5 right-2.5 inline-flex h-9 items-center gap-1.5 rounded-full bg-black/35 px-3 text-[12.5px] font-semibold text-white ring-1 ring-white/25 backdrop-blur-md transition-transform active:scale-[0.96] disabled:opacity-60"
+            className="absolute bottom-2.5 right-2.5 inline-flex h-9 items-center gap-1.5 rounded-full bg-black/35 px-3 text-[12.5px] font-semibold text-white ring-1 ring-white/25 backdrop-blur-md transition-colors duration-150 active:bg-black/55 disabled:opacity-60"
           >
             {busy === "cover" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
             Încarcă
@@ -313,7 +348,7 @@ export function ProfileEditForm({
               onClick={() => avatarFile.current?.click()}
               disabled={busy !== null}
               aria-label="Schimbă poza de profil"
-              className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#7c3aed] text-white shadow-[0_2px_8px_-1px_rgba(124,58,237,0.6)] ring-[3px] ring-white transition-transform active:scale-90 disabled:opacity-60"
+              className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#7c3aed] text-white shadow-[0_2px_8px_-1px_rgba(124,58,237,0.6)] ring-[3px] ring-white transition-colors duration-150 active:bg-[#5b21b6] disabled:opacity-60"
             >
               {busy === "avatar" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             </button>
@@ -375,73 +410,22 @@ export function ProfileEditForm({
         <Hint left="Apare sub numele tău." right={`${MAX_BIO_CHARS - bio.length}`} warn={MAX_BIO_CHARS - bio.length <= 20} />
       </Section>
 
-      <Section title="Coperta">
-        {/* Two across, not four. These are PHOTOGRAPHS now, and a photograph at
-            a quarter of a phone's width is a smudge — you cannot tell a rail of
-            coats from a knitted jumper, which makes the picker a row of grey
-            rectangles to guess between. At half width each one is legible, and
-            the aspect ratio matches the band they will become. */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {COVER_PRESETS.map((p) => {
-            const active =
-              cover === `lib:${p.id}` ||
-              (cover === null && preview.kind === "preset" && preview.preset.id === p.id)
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  void triggerHaptic("light")
-                  setCover(`lib:${p.id}`)
-                }}
-                aria-label={p.label}
-                aria-pressed={active}
-                data-on={active ? "1" : undefined}
-                className="cover-tile relative aspect-[16/7] overflow-hidden rounded-xl"
-                style={{ backgroundColor: p.tint }}
-              >
-                {/* Small and lazy: twelve covers at full width would be twelve
-                    full-size photographs fetched to draw thumbnails. 320 is
-                    wider than the box on any phone. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={coverImageUrl(p, 320)}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="profile-cover-photo absolute inset-0 h-full w-full object-cover"
-                  onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
-                />
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/50 to-transparent"
-                />
-                <span className="absolute bottom-1 left-2 text-[11px] font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                  {p.label}
-                </span>
-                <span className="cover-tick absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#7c3aed] text-white">
-                  <Check className="h-3 w-3" strokeWidth={3.5} />
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Only offered once there is something to go back FROM. On an account
-            that has never chosen, this button would undo nothing. */}
-        {cover !== null && (
-          <button
-            type="button"
-            onClick={() => {
-              void triggerHaptic("light")
-              setCover(null)
-            }}
-            className="mt-3 text-[13px] font-semibold text-[#7c3aed] transition-opacity active:opacity-60"
-          >
-            Revino la coperta implicită
-          </button>
-        )}
-      </Section>
+      {/* THE COVER LIBRARY IS GONE.
+          
+          This was a grid of stock photographs a person picked their cover
+          from, and every profile that had not chosen one was ALSO assigned a
+          preset from its account id — so the default state of the app was a
+          marketplace where a random third of the sellers had the same picture
+          of a rail of coats behind their name. A cover is meant to say
+          something about the seller; a shared stock photo says the opposite,
+          and says it more loudly the more accounts there are.
+          
+          No cover is now genuinely no cover: a plain tinted band, and an
+          upload button on it. See lib/profile/covers.ts.
+          
+          Nothing was deleted from storage and no stored value changed —
+          `lib:<id>` still resolves for any profile that already chose one, it
+          simply cannot be chosen again. */}
 
       {/* THE ONE THING THIS SCREEN SAYS BACK.
           
@@ -456,7 +440,10 @@ export function ProfileEditForm({
           <div
             role="status"
             aria-live="polite"
-            className="saved-pop pointer-events-auto flex max-w-[320px] flex-col items-center gap-2.5 rounded-3xl bg-neutral-900/92 px-7 py-6 text-center text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md"
+            className={cn(
+              "pointer-events-auto flex max-w-[320px] flex-col items-center gap-2.5 rounded-3xl bg-neutral-900/92 px-7 py-6 text-center text-white shadow-[0_20px_50px_-16px_rgba(15,15,15,0.6)] backdrop-blur-md",
+              leaving ? "saved-pop-out" : "saved-pop",
+            )}
           >
             <span
               className={cn(
