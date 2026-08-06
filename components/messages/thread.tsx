@@ -1090,6 +1090,42 @@ export function MessageThread({
 
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
+  /**
+   * CLOSING — the conversation recedes, and THEN the route changes.
+   *
+   * Everything here is exactly what the back button did before, with one thing
+   * added in front of it: the screen now visibly leaves. `beginTabLeave()` and
+   * `navigateBlended("back", …)` are unchanged and still do their jobs — the
+   * dip on <main> and the pop — because they were never the problem. What was
+   * missing is that the conversation itself never moved.
+   *
+   * 160ms against a 190ms animation. The navigation goes INSIDE the tail, not
+   * on its last frame: firing exactly on the end puts the route commit on the
+   * same tick the animation finishes, and on a slow frame the two resolve in
+   * the wrong order — the conversation is unmounted with travel left, so the
+   * last thing you see is it vanishing rather than leaving.
+   *
+   * Going early also keeps the total wait short. `router.back()` reads the
+   * client router cache, so the inbox is usually there in a frame or two —
+   * meaning the list lands while the conversation is still fading rather than
+   * after it has gone, and nothing is uncovered in between.
+   *
+   * Guarded against a second press: the arrow is a large target on a screen
+   * that is already moving, and two overlapping `router.back()` calls pop two
+   * history entries and land you two screens away.
+   */
+  const [dismissing, setDismissing] = useState(false)
+  const closeThread = useCallback(() => {
+    if (dismissing) return
+    setDismissing(true)
+    beginTabLeave()
+    window.setTimeout(() => {
+      navigateBlended("back", () =>
+        window.history.length > 1 ? router.back() : router.push("/messages"),
+      )
+    }, 160)
+  }, [dismissing, router])
+
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1792,6 +1828,8 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
+        // Receding away, played before the route changes. See closeThread.
+        dismissing && "thread-dismiss",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1821,10 +1859,7 @@ export function MessageThread({
               // over half strength. Dipping first means there is no frame where
               // anything is assigned a value it was not already heading
               // towards. See lib/tab-leave.ts.
-              beginTabLeave()
-              navigateBlended("back", () =>
-                window.history.length > 1 ? router.back() : router.push("/messages"),
-              )
+              closeThread()
             }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >

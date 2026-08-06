@@ -2426,6 +2426,61 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
   }
 }
 
+/* CLOSING A CONVERSATION — the way back to the inbox.
+ *
+ * This was a route change and nothing else: `beginTabLeave()` dipped the app to
+ * 0.88 and the conversation was then simply unmounted. The dip is on <main>, so
+ * it belongs to the whole screen and says nothing about the conversation — the
+ * conversation itself never moved. That is what "too direct" is: the thing you
+ * pressed back on does not visibly go anywhere, it stops existing.
+ *
+ * ── WHY THIS DOES NOT SLIDE OFF TO THE RIGHT ──
+ * A push-style slide is the obvious answer, and it is wrong HERE for a reason
+ * specific to this route. Next has not committed /messages when the animation
+ * starts, so the space the conversation vacates as it travels is not the inbox
+ * — it is the bare layout background. The screen appears to slide away to
+ * reveal NOTHING, and the list materialises into that hole afterwards.
+ *
+ * This file already states the rule, for listings: no travel that moves an edge
+ * past the frame, because anything leaving the frame exposes what is not behind
+ * it. A full-screen pop is nothing but travel past the frame.
+ *
+ * ── WHAT IT DOES INSTEAD ──
+ * It recedes — a small scale-down with a fade, so the conversation reads as
+ * going away from you rather than moving sideways past you. Every edge stays
+ * inside the frame, so nothing is ever uncovered on the way out.
+ *
+ * The two compose rather than compete. The dip is on <main>; this is on the
+ * shell INSIDE it, so the opacities multiply — the conversation fades from the
+ * 0.88 the dip already put it at, with no frame where anything brightens back
+ * up before leaving.
+ *
+ * A scale on a `position: fixed` element sized to the viewport is safe, and
+ * this is the one place in the app it is: scaling about the default origin
+ * displaces by H × (1 − s) / 2, which is a few pixels on a viewport-sized box
+ * and catastrophic on a tall document. `.thread-shell` is the former.
+ *
+ * 0.97 and 190ms. Small enough that nothing reads as zooming, short enough that
+ * pressing back still feels immediate — a long exit on a control you use
+ * constantly is worse than no exit at all.
+ */
+@keyframes thread-dismiss {
+  from { transform: none;        opacity: 1; }
+  to   { transform: scale(0.97); opacity: 0; }
+}
+.thread-dismiss {
+  animation: thread-dismiss 190ms cubic-bezier(0.4, 0, 0.9, 0.55) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  /* Nothing may be pressed on a screen that is on its way out. */
+  pointer-events: none;
+}
+@media (min-width: 768px), (prefers-reduced-motion: reduce) {
+  /* On a monitor the conversation is a PANE beside the list, not a screen over
+     it — it is not going anywhere and never covered anything. */
+  .thread-dismiss { animation: none; will-change: auto; }
+}
+
 /* Opening a conversation, and coming back out of one.
  *
  * Nothing here any more, and that is the fix rather than a deletion.
