@@ -576,14 +576,33 @@ html.capacitor a.no-tap-fade:active {
    across the whole of the opening, with a touch of overshoot at the end so it
    settles rather than stopping dead. Transform only — one small composited
    element, so its frame rate is independent of everything the route is doing. */
-@keyframes plus-launch {
-  0%   { transform: rotate(0deg) scale(1); }
-  70%  { transform: rotate(142deg) scale(1.12); }
-  100% { transform: rotate(135deg) scale(1.08); }
-}
-.plus-launch {
-  animation: plus-launch 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* The + turning into an ×.
+ *
+ * A transition rather than the keyframe animation this replaces. That one was
+ * `forwards`: it played once, ended at 135°, and stayed — so closing the sheet
+ * was a class being removed, which snapped the × back to a + in a single frame.
+ * And an animation always restarts from its first keyframe, so pressing + again
+ * mid-turn jumped to 0° before setting off.
+ *
+ * A transition has neither problem. It runs both directions from one
+ * declaration and reverses from wherever it currently is, so open-then-close is
+ * one continuous movement rather than two events.
+ *
+ * The curve carries slightly past its target and settles back — 1.5 on the
+ * third control point. That overshoot is the whole difference between a thing
+ * being turned and a value being assigned, and on a 24px icon it costs nothing:
+ * a rotate is composited, so this is one layer moving on the GPU, at whatever
+ * rate the display runs. */
+.plus-turn {
+  transition: transform 440ms cubic-bezier(0.34, 1.5, 0.64, 1);
+  transform: rotate(0deg);
   will-change: transform;
+}
+.plus-turn[data-open="true"] {
+  transform: rotate(135deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .plus-turn { transition: none; }
 }
 
 /* ---------------------------------------------------------------------------

@@ -50,6 +50,9 @@ export function MobileBottomNav({
   const router = useRouter()
   const pathname = usePathname()
   const [launching, setLaunching] = useState(false)
+  /** The sheet is up — the + shows as an ×. Read from the route, so it is true
+   *  however you got there and false the moment you leave. */
+  const sheetOpen = pathname?.startsWith("/products/new") ?? false
 
   // The Profile tab points at /profile now, but the callers that compute
   // `active` still only know about /settings, so the tab would sit unlit on the
@@ -135,6 +138,23 @@ export function MobileBottomNav({
   // a deliberate sixth of a second before anything happened — which is exactly
   // what reads as the app being slow. The spin now runs alongside the
   // navigation instead of in front of it.
+  /**
+   * `launching` USED TO BE RESET BY THE BAR DISAPPEARING.
+   *
+   * It is set on the way to /products/new and there is nothing in this
+   * component that clears it. That was survivable only because the bar hid
+   * itself on that route, unmounting and taking the state with it. It does not
+   * hide any more — hiding it moved the page underneath the sell sheet, which
+   * is the bump this commit is about — so without this the second press of +
+   * would return at the guard below and open nothing at all.
+   *
+   * Cleared by LEAVING the route rather than by a timer, so the icon stays
+   * turned for exactly as long as the sheet is up.
+   */
+  useEffect(() => {
+    if (!pathname?.startsWith("/products/new")) setLaunching(false)
+  }, [pathname])
+
   const onSell = useCallback(() => {
     if (launching) return
     // The buzz already fired on pointerdown, with the finger rather than after
@@ -305,7 +325,23 @@ export function MobileBottomNav({
               boxShadow: "0 6px 18px -4px rgba(124, 58, 237, 0.55), 0 2px 6px -1px rgba(124, 58, 237, 0.35)",
             }}
           >
-            <Plus className={cn("h-6 w-6", launching && "plus-launch")} strokeWidth={2.6} />
+            {/* A TRANSITION, not a keyframe animation.
+                `plus-launch` was `animation: … forwards` — it played once, to
+                135°, and stayed there. Coming back was a class being removed,
+                which is not an animation at all: the icon snapped from an × to
+                a + in one frame. And an animation always restarts from its
+                first keyframe, so tapping + again mid-turn jumped back to 0
+                before setting off.
+                A transition has neither problem. It runs both ways for free and
+                reverses from wherever it has got to, so a tap and an immediate
+                close is one continuous movement. The curve overshoots slightly
+                past 135° and settles back, which is the part that makes it feel
+                like a thing being turned rather than a value being set. */}
+            <Plus
+              className="plus-turn h-6 w-6"
+              strokeWidth={2.6}
+              data-open={sheetOpen ? "true" : "false"}
+            />
           </span>
         </button>
 

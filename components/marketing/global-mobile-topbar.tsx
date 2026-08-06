@@ -68,7 +68,11 @@ export function GlobalMobileTopBar() {
     // by that inset twice.
     pathname === "/messages" ||
     pathname.startsWith("/purchases") ||
-    pathname.startsWith("/sales")
+    pathname.startsWith("/sales") ||
+    // The sell sheet. It must reserve exactly what the screen it opened OVER
+    // reserved, and every screen you can press + from — profile, inbox,
+    // settings, orders — is on this list. See the note beside it in `hidden`.
+    pathname.startsWith("/products/new")
 
   const hidden =
     pathname === "/" || // the feed renders its own, with tabs
@@ -90,10 +94,30 @@ export function GlobalMobileTopBar() {
     pathname.startsWith("/messages") ||
     pathname.startsWith("/purchases") ||
     pathname.startsWith("/sales") ||
-    // /products/new is deliberately absent — see the note in
-    // global-mobile-nav.tsx. The sell sheet covers this strip rather than
-    // needing it gone, and taking it away reflowed the page underneath, which
-    // is the jump you saw in the first frames of the slide.
+    /**
+     * THE SELL SHEET RESERVES THE SAME STRIP AS THE SCREEN UNDER IT. Both of
+     * these lines matter and I have now had this wrong in both directions.
+     *
+     * It is an intercepted route: the screen you pressed + from is still
+     * mounted and still visible for the whole 420ms the sheet takes to rise
+     * over it. So whatever this component renders for /products/new is
+     * rendered INTO that screen, and the shell is a flex column — any change
+     * of height here moves the page you are still looking at.
+     *
+     * Absent from `hidden`, it drew the full search-and-categories strip:
+     * ~59px of spacer on a profile became ~150px of chrome, so the profile
+     * dropped ninety-odd pixels the instant you tapped +. That is the bump.
+     * Present in `hidden` but absent from `ownsNoChrome`, it drew nothing at
+     * all: 59px became 0 and the profile jumped the other way, which is the
+     * version before it.
+     *
+     * In BOTH lists it draws the bare safe-area spacer — which is exactly what
+     * /profile, /messages, /settings, /purchases and /sales draw, and those are
+     * every screen the + is reachable from. Same height in, same height out,
+     * nothing moves. From the feed the question does not arise: that screen is
+     * `fixed inset-0` and this strip cannot move it either way.
+     */
+    pathname.startsWith("/products/new") ||
     isListingPage
 
   if (hidden) {
