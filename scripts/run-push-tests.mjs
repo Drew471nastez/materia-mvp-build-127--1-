@@ -27,7 +27,6 @@ const SUITES = [
   "tests/auth-guards.test.ts",
   "tests/no-image-transforms.test.ts",
   "tests/image-pipeline.test.ts",
-  "tests/pop-transition.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

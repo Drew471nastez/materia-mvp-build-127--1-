@@ -800,56 +800,6 @@ html.capacitor a.no-tap-fade:active {
     animation: pop-return 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
   }
-
-  /* THE REAL PARALLAX, for when the conversation is still on top of it.
-   *
-   * `pop-covered` is set by lib/messages/pop-shot.ts for exactly as long as a
-   * copy of the conversation is sliding off over this screen. That copy is what
-   * makes the bigger travel possible: 22px above is not a design choice, it is
-   * the largest offset that does not expose bare background along the right
-   * edge when nothing is covering it. With something covering it, the limit
-   * stops applying —
-   *
-   *   at progress p the copy still covers  [W·p, W]
-   *   the gap under this screen is         [W − X(1−p), W]
-   *
-   * and the second sits inside the first for every X ≤ W at every p, so 25% is
-   * as safe as 22px was. It is a quarter of the screen instead of a nudge,
-   * which is the difference between a hint of movement and a pop.
-   *
-   * THE DURATION AND THE EASING MUST MATCH THE SLIDE. The containment above
-   * holds only while both run on one clock; give them different curves and the
-   * gap outruns the cover somewhere in the middle, which puts a strip of
-   * background on screen for a few frames — the exact artefact three earlier
-   * attempts at this shipped. 340ms and cubic-bezier(0.32, 0.72, 0, 1) are
-   * written in pop-shot.ts too, and neither may be changed alone. */
-  html.pop-return.pop-covered .marketing-flex-wrapper > main > * {
-    animation: pop-return-deep 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
-    /* NEGATIVE, AND SET BY THE COPY RATHER THAN CHOSEN HERE.
-     *
-     * The two halves do not start together and cannot be made to. The copy
-     * begins moving on the click; this screen cannot begin until it MOUNTS,
-     * which is a frame later on a warm route and can be a hundred milliseconds
-     * on a cold one. Both running their full length from their own start means
-     * this one is still travelling after the copy has gone — and for exactly
-     * that overhang its right edge is offset with nothing over it, which is a
-     * strip of bare background at the end of every pop. The first version of
-     * this shipped that.
-     *
-     * A negative delay is how CSS is told an animation is already partway
-     * through, so this joins the slide instead of starting a second one and
-     * the two land on the same frame however late the mount was.
-     * lib/messages/pop-shot.ts measures the gap and writes it here. */
-    animation-delay: var(--pop-delay, 0ms);
-    will-change: transform, opacity;
-  }
-  @keyframes pop-return-deep {
-    /* Dimmed rather than transparent, and it stays dim until it is nearly
-       uncovered — the screen underneath a screen is in shadow, which is the
-       cue that says these are two layers and not one picture changing. */
-    from { opacity: 0.82; transform: translate3d(-25%, 0, 0); }
-    to   { opacity: 1;    transform: translate3d(0, 0, 0); }
-  }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
     /* Chrome fades with the page but does not travel with it. */
     animation: pop-return-chrome 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -870,31 +820,8 @@ html.capacitor a.no-tap-fade:active {
     opacity: 0.88;
     transition-duration: 0ms;
   }
-  /* The copy of the conversation, while it is on its way out.
-   *
-   * A shadow off its left edge, and it is not decoration: without one the two
-   * screens are flat against each other and the movement reads as the page
-   * tearing in half rather than as one surface sliding over another. It is the
-   * only thing in the whole transition that says which of the two is on top.
-   *
-   * Cast leftwards only — the edge that is doing the uncovering. `box-shadow`
-   * on a compositor layer costs a blur once, at promotion, and nothing per
-   * frame; the layer is promoted before the slide starts (pop-shot.ts sets
-   * will-change on it while your finger is still down), so this is paid for in
-   * the same idle window as the clone itself. */
-  .pop-shot {
-    box-shadow: -14px 0 34px -8px rgb(15 15 15 / 0.18);
-    /* A picture of a screen has nothing to do with the document's scrolling,
-       and a stray inherited scrollbar or bounce inside it would move content
-       that is supposed to be frozen. No `contain: paint` with it: paint
-       containment clips a subtree to its own box, and the shadow above is cast
-       outside that box. */
-    overflow: hidden;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     html.pop-return .marketing-flex-wrapper > main > *,
-    html.pop-return.pop-covered .marketing-flex-wrapper > main > *,
     html.pop-return .marketing-flex-wrapper > .native-only-topbar {
       animation: none;
       will-change: auto;

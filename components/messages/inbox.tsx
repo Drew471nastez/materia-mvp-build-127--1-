@@ -17,7 +17,6 @@ import {
   hideConversation,
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
-import { popShotElapsed } from "@/lib/messages/pop-shot"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
@@ -201,23 +200,6 @@ export function MessagesInbox({
   useLayoutEffect(() => {
     if (consumeNavHint() !== "back") return
     const root = document.documentElement
-    /**
-     * JOIN THE SLIDE, DO NOT START A SECOND ANIMATION.
-     *
-     * The copy of the conversation began moving on the click; this screen
-     * cannot begin until it mounts, which is a frame later on a warm route and
-     * can be a hundred milliseconds on a cold one. Both running their full
-     * length from their own start means this one is still travelling after the
-     * copy has gone — and for exactly that overhang its right edge is offset
-     * with nothing covering it, which is a strip of bare background at the end
-     * of every pop.
-     *
-     * A negative delay is how CSS is told an animation is already partway
-     * through. Set before the class, so the first frame that paints is the
-     * correct frame of the animation rather than its first one.
-     */
-    const elapsed = popShotElapsed()
-    if (elapsed !== null) root.style.setProperty("--pop-delay", `-${Math.round(elapsed)}ms`)
     root.classList.add("pop-return")
     // Longer than the animation. Taken off early it would cut the fade short,
     // and the animation carries `both`, so until it is removed <main> is held
