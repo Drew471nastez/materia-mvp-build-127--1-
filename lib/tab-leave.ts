@@ -54,12 +54,34 @@ const GIVE_UP_MS = 1600
 
 let release: number | undefined
 
-export function beginTabLeave(): void {
+/**
+ * A deeper dip, for opening a conversation.
+ *
+ * The 0.88 above is tuned for a TAB — somewhere you already were, pressed
+ * dozens of times a session, where a big fade would read as a page load. Going
+ * into a conversation is not that: it is a screen you are entering, once, and
+ * at 0.88 the handover is so slight that it reads as the app cutting rather
+ * than moving. Ten rounds of "make it less direct" on this pair of navigations
+ * is what that shallowness looks like from the outside.
+ *
+ * Opacity only, and on <main>, which is why this is the safe half of the pair:
+ * no transform, so nothing becomes a containing block for the conversation's
+ * `position: fixed` shell, and nothing can uncover the layout background the
+ * way a slide would. The dip is also self-limiting — it eases over 120ms, so a
+ * route that commits in 30ms never gets near the bottom of it and there is no
+ * flash on a warm tap.
+ */
+const DEEP = "tab-leaving-deep"
+
+export function beginTabLeave(options?: { deep?: boolean }): void {
   if (typeof document === "undefined") return
-  document.documentElement.classList.add(LEAVING)
+  const root = document.documentElement
+  root.classList.add(LEAVING)
+  if (options?.deep) root.classList.add(DEEP)
   window.clearTimeout(release)
   release = window.setTimeout(() => {
-    document.documentElement.classList.remove(LEAVING)
+    root.classList.remove(LEAVING)
+    root.classList.remove(DEEP)
   }, GIVE_UP_MS)
 }
 
@@ -68,7 +90,13 @@ export function endTabLeave(): void {
   if (typeof document === "undefined") return
   window.clearTimeout(release)
   release = undefined
-  document.documentElement.classList.remove(LEAVING)
+  const root = document.documentElement
+  root.classList.remove(LEAVING)
+  // Taken off WITH it, always. Left behind on its own it does nothing — the
+  // depth only applies while `tab-leaving` is also present — but a stale marker
+  // that silently deepens the next navigation is the kind of thing that gets
+  // blamed on the animation rather than on the bookkeeping.
+  root.classList.remove(DEEP)
 }
 
 export function isTabLeaving(): boolean {

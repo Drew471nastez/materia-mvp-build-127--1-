@@ -902,7 +902,10 @@ function MessagesList({
       onPress: (id) => {
         void triggerHaptic("light")
         setPressed(id)
-        beginTabLeave()
+        // Deeper than a tab change. A conversation is a screen you enter, not
+        // one of five you cycle between, and at the tab bar's 0.88 the handover
+        // is slight enough to read as a cut. See lib/tab-leave.ts.
+        beginTabLeave({ deep: true })
       },
       onAbandon: () => {
         setPressed(null)
