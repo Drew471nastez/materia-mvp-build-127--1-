@@ -1088,84 +1088,8 @@ export function MessageThread({
   const meRef = useRef<string | null>(initial?.me ?? null)
   meRef.current = thread?.me ?? meRef.current
 
-  /**
-   * TELL THE SERVER THIS HAS BEEN SEEN.
-   *
-   * `readThread` only marks the messages that existed when the thread was
-   * FETCHED. A message arriving over the socket into a thread you already have
-   * open is displayed, read by a person, and never marked — so the inbox row
-   * still says unread when you go back, which is "it shows me I have not seen
-   * a message I have seen".
-   *
-   * Idempotent and one indexed statement, which is what lets it be called
-   * liberally: on arrival, on returning to the tab, on leaving. No
-   * coordination, and no debounce that could swallow the one call that
-   * mattered.
-   *
-   * `keepalive` on the way out — a plain fetch issued while the page is being
-   * torn down is cancelled, and that is precisely the moment the inbox is about
-   * to re-read the unread counts.
-   *
-   * NOTHING VISUAL. This changes no layout, no timing and no animation: it is
-   * a POST and a state update in a list that is not on screen. The transitions
-   * are exactly as they were.
-   */
-  const markSeen = useCallback(
-    (leaving = false) => {
-      try {
-        void fetch(`/api/messages/${id}/read`, {
-          method: "POST",
-          credentials: "include",
-          keepalive: leaving,
-        }).catch(() => {})
-      } catch {
-        /* a read receipt must never be able to break the thread */
-      }
-    },
-    [id],
-  )
-
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
-  /**
-   * CLOSING — the conversation recedes, then the route changes.
-   *
-   * The dismiss runs 200ms and the navigation goes at 170: twenty-something
-   * milliseconds INSIDE the tail rather than on its last frame. Firing exactly
-   * on the end puts the route commit on the same tick the animation finishes,
-   * and on a slow frame the two resolve in the wrong order — the conversation
-   * is unmounted with a little travel left, so the last thing you see is it
-   * vanishing rather than leaving. Going early means the commit is already in
-   * flight while the screen is still fading, and the inbox lands underneath a
-   * conversation that has almost finished going.
-   *
-   * `beginTabLeave()` is kept. It dips the app the moment the finger lands and
-   * releases on the commit, so the inbox is already partway through its own
-   * arrival when it appears — the dismiss above plays over the top of that
-   * rather than instead of it. The two were designed to compose; what was
-   * missing was any movement on the conversation itself.
-   *
-   * Guarded against a second press: the arrow is a large target on a screen
-   * that is already moving, and two overlapping `router.back()` calls pop two
-   * history entries and land you two screens away.
-   *
-   * Where it goes is unchanged: back when there is history, /messages
-   * otherwise. A cold arrival from a push notification has nothing to pop, and
-   * `router.back()` on an empty stack does nothing at all — which would leave
-   * the only way out of a full-screen conversation dead.
-   */
-  const [dismissing, setDismissing] = useState(false)
-  const closeThread = useCallback(() => {
-    if (dismissing) return
-    setDismissing(true)
-    beginTabLeave()
-    window.setTimeout(() => {
-      navigateBlended("back", () =>
-        window.history.length > 1 ? router.back() : router.push("/messages"),
-      )
-    }, 170)
-  }, [dismissing, router])
-
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1274,17 +1198,11 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body)) {
-        markSeen()
-        return refetch()
-      }
+      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
       })
-      // It is on screen and this thread is open, so it has been seen. Without
-      // this the row goes on saying "unread" in the inbox for ever.
-      markSeen()
     }
 
     const onUpdate = (row: any) => {
@@ -1370,29 +1288,13 @@ export function MessageThread({
         setLive(status === "SUBSCRIBED")
       })
 
-    /**
-     * Coming BACK to the thread, and leaving it.
-     *
-     * Between them these cover the two cases the socket cannot: messages that
-     * landed while the app was backgrounded, and the moment of navigating away
-     * — which is exactly when the inbox is about to re-read the unread counts.
-     */
-    const onVisible = () => {
-      if (document.visibilityState === "visible") markSeen()
-    }
-    document.addEventListener("visibilitychange", onVisible)
-
     return () => {
       window.clearTimeout(timer)
       window.clearTimeout(typingOff.current)
       channelRef.current = null
-      document.removeEventListener("visibilitychange", onVisible)
-      // With keepalive: a plain fetch issued during teardown is cancelled, and
-      // this is the call the inbox is about to depend on.
-      markSeen(true)
       void supabase.removeChannel(channel)
     }
-  }, [id, load, markSeen])
+  }, [id, load])
 
   /**
    * Sends go out ONE AT A TIME, in the order you wrote them.
@@ -1890,8 +1792,6 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // Receding away, played before the route changes. See closeThread.
-        dismissing && "thread-dismiss",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1921,7 +1821,10 @@ export function MessageThread({
               // over half strength. Dipping first means there is no frame where
               // anything is assigned a value it was not already heading
               // towards. See lib/tab-leave.ts.
-              closeThread()
+              beginTabLeave()
+              navigateBlended("back", () =>
+                window.history.length > 1 ? router.back() : router.push("/messages"),
+              )
             }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >

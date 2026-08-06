@@ -2426,60 +2426,6 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
   }
 }
 
-/* CLOSING A CONVERSATION — a dismiss, not a slide.
- *
- * Coming back used to be a route change and nothing else: the conversation
- * ceased to exist and the list was abruptly there. That is what "extremely
- * direct" describes — no movement, so nothing says the two screens are
- * arranged in any relationship and the eye has nothing to follow.
- *
- * ── WHY THIS DOES NOT SLIDE OFF TO THE RIGHT ──
- * A push-style slide is the obvious answer and it was tried, and it is wrong
- * HERE for a specific reason: there is nothing underneath. Next has not
- * committed /messages yet when the animation starts, so the space the
- * conversation vacates as it travels is not the inbox — it is the bare layout
- * background. The screen appears to slide away to reveal NOTHING, and the list
- * then materialises into the emptiness afterwards. Two events again, and the
- * middle one is a hole.
- *
- * That is the same rule this file already states for a listing: no travel that
- * moves an edge past the frame, because anything leaving the frame exposes
- * what is not behind it.
- *
- * ── WHAT IT DOES INSTEAD ──
- * It recedes. A small scale-down with a fade, so the conversation reads as
- * going away from you rather than moving sideways past you — and because every
- * edge stays inside the frame, nothing is ever uncovered. The list arriving
- * underneath is then a fade-up into a space that was never blank.
- *
- * A scale on a `position: fixed` element sized to the viewport is safe, and is
- * the one place in this app it is: scaling about the default origin displaces
- * by H × (1 − s) / 2, which is a few pixels on a viewport-sized box and
- * catastrophic on a tall document. `.thread-shell` is the former.
- *
- * 0.965 and 200ms. Small enough that nothing reads as zooming, short enough
- * that it never delays the navigation it precedes.
- */
-@keyframes thread-dismiss {
-  from { transform: none;         opacity: 1; }
-  to   { transform: scale(0.965); opacity: 0; }
-}
-.thread-dismiss {
-  animation: thread-dismiss 200ms cubic-bezier(0.4, 0.0, 0.9, 0.6) both;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  /* Above the inbox appearing beneath it, so the fade is over the list rather
-     than over the layout background. */
-  z-index: 46;
-  /* Nothing may be pressed on a screen that is leaving. */
-  pointer-events: none;
-}
-@media (min-width: 768px), (prefers-reduced-motion: reduce) {
-  /* On a monitor the conversation is a PANE beside the list, not a screen over
-     it — it is not going anywhere and never covered anything. */
-  .thread-dismiss { animation: none; will-change: auto; }
-}
-
 /* Opening a conversation, and coming back out of one.
  *
  * Nothing here any more, and that is the fix rather than a deletion.
