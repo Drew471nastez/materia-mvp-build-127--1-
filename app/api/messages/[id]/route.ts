@@ -1,7 +1,7 @@
 import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { notifyNewMessage } from "@/lib/push/notifications"
+import { runMessagePush } from "@/lib/push/message-db"
 import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
 import { readThread } from "@/lib/messages/thread"
@@ -226,13 +226,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
    * failure here has nothing left to fail.
    */
   after(() => {
-    void notifyNewMessage(recipient, {
-      senderId: user.id,
+    void runMessagePush({
+      messageId: inserted.id as string,
       conversationId: id,
+      senderId: user.id,
+      recipientId: recipient,
       kind: offerCents !== null ? "offer" : "text",
       body,
       offerCents,
-    }).catch((e) => console.error("[push] new message notify failed:", e))
+    }).catch((e) => console.error("[push:message] failed:", e?.message ?? e))
   })
 
   return NextResponse.json({ message: inserted })

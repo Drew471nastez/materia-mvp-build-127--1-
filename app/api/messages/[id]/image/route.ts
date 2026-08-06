@@ -1,7 +1,7 @@
 import { after, type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { notifyNewMessage } from "@/lib/push/notifications"
+import { runMessagePush } from "@/lib/push/message-db"
 import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { encodeImageBody } from "@/lib/messages/image-fallback"
@@ -248,11 +248,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // bubble appearing; never a bare fire-and-forget either, or it races the
   // serverless function being frozen.
   after(() => {
-    void notifyNewMessage(recipient, {
-      senderId: user.id,
+    void runMessagePush({
+      messageId: (inserted as { id: string }).id,
       conversationId: id,
+      senderId: user.id,
+      recipientId: recipient,
       kind: "image",
-    }).catch((e) => console.error("[push] new photo notify failed:", e))
+    }).catch((e) => console.error("[push:message] failed:", e?.message ?? e))
   })
 
   // Signed for the sender straight away, so the bubble it replaces can show the

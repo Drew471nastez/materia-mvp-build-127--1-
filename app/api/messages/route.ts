@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { listConversations, optionalAdminClient } from "@/lib/messages/list"
-import { notifyNewMessage } from "@/lib/push/notifications"
+import { runMessagePush } from "@/lib/push/message-db"
 
 /**
  * The inbox, and the way into it.
@@ -122,19 +122,28 @@ export async function POST(req: NextRequest) {
 
   if (openOnly) return NextResponse.json({ conversationId })
 
-  const { error: msgErr } = await supabase.from("messages").insert(
-    offerCents !== null
-      ? {
-          conversation_id: conversationId,
-          sender_id: user.id,
-          kind: "offer",
-          offer_cents: offerCents,
-          offer_status: "pending",
-          body: body || null,
-        }
-      : { conversation_id: conversationId, sender_id: user.id, kind: "text", body },
-  )
-  if (msgErr) return NextResponse.json({ error: "Could not send" }, { status: 500 })
+  // `.select("id").single()` turns this into a RETURNING insert. The id is the
+  // idempotency key for the push — without it this path could not be
+  // deduplicated at all, and it is the one path that can run twice for the same
+  // intent (a retried "message this seller" finds the existing conversation and
+  // inserts a second message).
+  const { data: insertedFirst, error: msgErr } = await supabase
+    .from("messages")
+    .insert(
+      offerCents !== null
+        ? {
+            conversation_id: conversationId,
+            sender_id: user.id,
+            kind: "offer",
+            offer_cents: offerCents,
+            offer_status: "pending",
+            body: body || null,
+          }
+        : { conversation_id: conversationId, sender_id: user.id, kind: "text", body },
+    )
+    .select("id")
+    .single()
+  if (msgErr || !insertedFirst) return NextResponse.json({ error: "Could not send" }, { status: 500 })
 
   await Promise.all([
     supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversationId),
@@ -167,13 +176,15 @@ export async function POST(req: NextRequest) {
    * also why there is no duplicate: exactly one row, exactly one push.
    */
   after(() => {
-    void notifyNewMessage(sellerId, {
-      senderId: user.id,
+    void runMessagePush({
+      messageId: insertedFirst.id as string,
       conversationId: conversationId as string,
+      senderId: user.id,
+      recipientId: sellerId,
       kind: offerCents !== null ? "offer" : "text",
       body,
       offerCents,
-    }).catch((e) => console.error("[push] first message notify failed:", e))
+    }).catch((e) => console.error("[push:message] failed:", e?.message ?? e))
   })
 
   return NextResponse.json({ conversationId })
