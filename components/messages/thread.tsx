@@ -1872,15 +1872,25 @@ export function MessageThread({
             // gesture as coming back from a listing, because it is one.
             onClick={() => {
               void triggerHaptic("light")
-              // The conversation begins to go before the inbox is asked for, so
-              // the two are one movement rather than a cut followed by a fade.
-              // The inbox used to arrive at 0.55 opacity and climb, which only
-              // started once the route had committed — so the whole of the wait
-              // was a stationary conversation, and then a list appeared at just
-              // over half strength. Dipping first means there is no frame where
-              // anything is assigned a value it was not already heading
-              // towards. See lib/tab-leave.ts.
-              beginTabLeave()
+              /**
+               * NO DIP ON THE WAY BACK — reverted, and here is why.
+               *
+               * `beginTabLeave()` used to fire on this tap, dipping the whole
+               * app to 0.86 opacity while the router waited for /messages to
+               * render. The theory was that a screen already moving reads as a
+               * smoother handover than one that snaps.
+               *
+               * In practice, /messages is `dynamic = "force-dynamic"` and the
+               * server round trip is where the dip is BEING PAID — 200 to
+               * 500ms of the whole app at 86% brightness while a black safe
+               * area shows above it. That is what a Capacitor WebView reads as
+               * "frozen dark for a second". The dip cost more than the pop
+               * would ever cost.
+               *
+               * A plain router.back is fast enough. The tab-leaving mechanism
+               * is unchanged and still runs for tab-to-tab navigations, which
+               * is what it was designed for.
+               */
               navigateBlended("back", () =>
                 window.history.length > 1 ? router.back() : router.push("/messages"),
               )

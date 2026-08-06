@@ -495,22 +495,30 @@ export function NewListingForm() {
   }, [measureTiles])
 
   /**
-   * The slide up, and the way back out.
+   * THE SLIDE UP.
    *
-   * `entering` is set in a LAYOUT effect rather than at first render so the
-   * server and the client agree on the markup — and layout effects run before
-   * paint, so the class is on the element for its first frame and the sheet
-   * starts from off-screen instead of one frame in.
+   * `useState(true)` — not false-then-true. The old approach set entering in a
+   * LAYOUT EFFECT, which runs before paint but AFTER the initial commit. On the
+   * intercepted route the SSR HTML lands with `entering=false` and no
+   * `sell-sheet-enter` class, so the sheet is technically drawn at its
+   * destination position — translate(0) — for the frame between HTML delivery
+   * and React hydration. On a fast device the layout effect fires first and
+   * nobody notices; on a slow one the sheet snaps into place and then plays
+   * its slide from off-screen over the top, which is the "flash" — a frame of
+   * the sheet in position, followed by a frame of it below the screen,
+   * followed by the animation.
    *
-   * It is taken off again on a timer. The animation ends at `transform: none`
-   * so nothing is left behind either way, but `will-change: transform` would
-   * otherwise keep a full-screen compositor layer alive for as long as the form
-   * is open, which is exactly the screen where you least want one: every keypress
-   * in a textarea would repaint against it.
+   * Starting at `true` means both the SSR HTML and the first client paint
+   * carry the class, so the sheet is off-screen from the very first pixel.
+   *
+   * Taken off on a timer. The animation ends at `transform: none` so nothing
+   * is left behind, but `will-change: transform` would keep a full-screen
+   * compositor layer alive for as long as the form is open — the screen where
+   * you least want one, because every keypress in a textarea repaints against
+   * it.
    */
-  const [entering, setEntering] = useState(false)
+  const [entering, setEntering] = useState(true)
   useLayoutEffect(() => {
-    setEntering(true)
     const t = window.setTimeout(() => setEntering(false), 460)
     return () => window.clearTimeout(t)
   }, [])

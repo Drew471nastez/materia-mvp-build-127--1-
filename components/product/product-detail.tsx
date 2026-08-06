@@ -481,14 +481,21 @@ export function ProductDetail({ product }: { product: any }) {
                       // default, so a slow swipe across the photo starts a
                       // native image drag or a long-press callout instead of
                       // moving the carousel, and the gesture is lost.
-                      // CONTAIN, not cover — the whole photograph, letterboxed
-                      // into the frame rather than cropped to fill it. This is
-                      // the difference between a gallery you can judge a
-                      // garment from and one that cuts the shoes off. The
-                      // neutral well behind it is what the letterboxing shows,
-                      // and it is the same colour as the card's, so a wide
-                      // flat-lay reads as deliberate rather than broken.
-                      className="object-contain select-none"
+                      // COVER, at the seller's explicit request.
+                      //
+                      // This was `contain` for one round because the spec said
+                      // "do not cut off clothing" — and it is the safe answer
+                      // if you cannot control the source photograph. But cover
+                      // is what Vinted and Depop use, and against a
+                      // pipeline that has already cropped to 3:4 at upload
+                      // time (with a focal point the seller picked) the two
+                      // behave the same on new listings. On old ones it fills
+                      // the frame instead of letterboxing, which is what a
+                      // marketplace grid — and its detail page — is expected to
+                      // look like. The image viewer is still `contain` for the
+                      // fullscreen tap, so the whole frame IS one tap away
+                      // whenever a crop matters.
+                      className="object-cover select-none"
                       draggable={false}
                       placeholder="blur"
                       blurDataURL={BLUR}
