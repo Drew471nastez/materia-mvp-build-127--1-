@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Session } from "@supabase/supabase-js"
+import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 /**
  * Shared auth boot guard hook.
@@ -26,13 +27,9 @@ import type { Session } from "@supabase/supabase-js"
 export function useAuthGate() {
   const [booting, setBooting] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
-  const [nativeAuthInProgress, setNativeAuthInProgress] = useState(() => {
-    try {
-      return sessionStorage.getItem("nativeAuthInProgress") === "1"
-    } catch {
-      return false
-    }
-  })
+  // A stale flag answers false and deletes itself, so an abandoned sign-in from
+  // earlier in this web view's life no longer blocks this page at all.
+  const [nativeAuthInProgress, setNativeAuthInProgress] = useState(() => isAuthInProgress())
 
   // Safety timeout + poll: if nativeAuthInProgress is stuck, clear after 15 s.
   // Also poll every 300 ms for removal (native-oauth.ts clears it in finally).
@@ -40,19 +37,23 @@ export function useAuthGate() {
     if (!nativeAuthInProgress) return
     const poll = window.setInterval(() => {
       try {
-        if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
+        if (!isAuthInProgress()) {
           setNativeAuthInProgress(false)
         }
       } catch {
         setNativeAuthInProgress(false)
       }
     }, 300)
+    // Shortened from thirty seconds, and it is now a backstop rather than the
+    // mechanism. The flag expires on its own after twenty (see
+    // lib/auth/auth-in-progress.ts), so the poll above already clears it — this
+    // only covers a web view where sessionStorage throws and the poll can never
+    // observe the change. Thirty seconds of a spinner was indistinguishable
+    // from broken.
     const safety = window.setTimeout(() => {
-      try {
-        sessionStorage.removeItem("nativeAuthInProgress")
-      } catch {}
+      setAuthInProgress(false)
       setNativeAuthInProgress(false)
-    }, 30_000)
+    }, 22_000)
     return () => {
       window.clearInterval(poll)
       window.clearTimeout(safety)

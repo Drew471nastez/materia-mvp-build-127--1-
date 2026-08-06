@@ -32,6 +32,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { cacheNativeHome } from "@/lib/native-bridge"
 import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
+import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 const TAG = "[NativeOAuth]"
 const DEBUG =
@@ -129,7 +130,7 @@ async function handleBridgeCodeResetLink(rawUrl: string): Promise<void> {
   showToast(`Bridge reset link\n${rawUrl.slice(0, 80)}`, "info")
 
   notifyNativeAuthStart()
-  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+  setAuthInProgress(true)
 
   try {
     const u = new URL(rawUrl)
@@ -235,7 +236,7 @@ async function handleRecoveryCallback(rawUrl: string): Promise<void> {
   isHandling = true // Prevent onAuthStateChange from racing with this handler
   notifyNativeAuthStart()
 
-  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+  setAuthInProgress(true)
   try { sessionStorage.setItem("nativeRecoveryUrl", rawUrl) } catch {}
 
   // Navigate to /reset-password — the page reads tokens from sessionStorage
@@ -261,7 +262,7 @@ async function handleHttpsResetPasswordLink(rawUrl: string): Promise<void> {
   showToast(`HTTPS reset link received`, "info")
 
   notifyNativeAuthStart()
-  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+  setAuthInProgress(true)
 
   // Extract tokens from hash fragment (#access_token=...&refresh_token=...&type=recovery)
   const hashIndex = rawUrl.indexOf("#")
@@ -325,7 +326,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     return
   }
   isHandling = true
-  try { sessionStorage.setItem('nativeAuthInProgress', '1') } catch {}
+  setAuthInProgress(true)
 
   try {
     // ── LOG 2: close browser ─────────────────────────────────────────────────
@@ -496,7 +497,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
     isHandling = false
-    try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
+    setAuthInProgress(false)
     // Always dismiss native loading overlay — covers success, catch,
     // AND all early-return error paths inside try (OAuth error, no code,
     // exchange failure, session not persisted).
@@ -602,7 +603,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
           // cause "Auth session missing!" on the server side.
           // Check both module-level flag and sessionStorage (belt-and-suspenders).
           let nativeAuthFlag = false
-          try { nativeAuthFlag = sessionStorage.getItem("nativeAuthInProgress") === "1" } catch {}
+          try { nativeAuthFlag = isAuthInProgress() } catch {}
           if (isHandling || nativeAuthFlag) {
             console.log(`${TAG}   OAuth callback in progress (isHandling=${isHandling}, flag=${nativeAuthFlag}) — skipping authStateChange navigation.`)
             return

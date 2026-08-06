@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { useLocale } from "@/components/locale-provider"
+import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 /**
  * Detect if running in a mobile browser (NOT inside Capacitor WebView).
@@ -110,7 +111,7 @@ async function exchangeBridgeCode(code: string): Promise<{
  */
 function dismissNativeOverlay() {
   notifyNativeAuthDone()
-  try { sessionStorage.removeItem("nativeAuthInProgress") } catch {}
+  setAuthInProgress(false)
 }
 
 type Phase = "initializing" | "handoff" | "form" | "success" | "expired"

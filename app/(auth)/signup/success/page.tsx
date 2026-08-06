@@ -10,6 +10,7 @@ import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useLocale } from "@/components/locale-provider"
 import Image from "next/image"
 import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
+import { isAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 // Iconiță pentru vânzător — hainele pe care le pui la vânzare
 const SellerIcon = () => <Shirt className="w-7 h-7" strokeWidth={2} />
@@ -43,7 +44,7 @@ function SuccessContent() {
     // Guard: if native-oauth.ts is handling a deep-link callback, don't
     // run any auth checks or redirects — the handler owns navigation.
     try {
-      if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
+      if (isAuthInProgress()) return
     } catch {}
 
     const supabase = createClient()
@@ -153,7 +154,7 @@ function SuccessContent() {
     // Listen for auth state changes (handles delayed session after OAuth).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       try {
-        if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
+        if (isAuthInProgress()) return
       } catch {}
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         checkOnboardingStatus()

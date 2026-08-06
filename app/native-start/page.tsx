@@ -16,6 +16,7 @@
  */
 
 import { useEffect } from "react"
+import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 export default function NativeStartPage() {
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function NativeStartPage() {
             lu.includes("type=recovery") &&
             lu.includes("access_token=")
           if (isBridgeReset || isRecovery) {
-            try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch { /* ignore */ }
+            setAuthInProgress(true)
             if (isBridgeReset) {
               try {
                 const code = new URL(lu).searchParams.get("code")

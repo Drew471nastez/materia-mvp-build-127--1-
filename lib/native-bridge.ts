@@ -13,6 +13,7 @@
  */
 
 import { POST_LOGIN_HOME } from "@/lib/auth/post-login"
+import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 // ── Bridge accessor ──────────────────────────────────────────────────────────
 function bridge(): Record<string, unknown> | null {
@@ -40,7 +41,7 @@ export function nativeAuthStart(): void {
  */
 export function nativeAppReady(): void {
   try {
-    if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
+    if (isAuthInProgress()) return
     ;(bridge() as any)?.appReady?.()
   } catch { /* sessionStorage unavailable (SSR) or bridge absent (web) */ }
 }
@@ -59,16 +60,16 @@ export function nativeAppReadyForce(): void {
 // Read by nativeAppReady() and useAuthGate() to suppress premature overlay
 // dismissal or redirect logic.
 
+// Both delegate to lib/auth/auth-in-progress.ts, which is where the flag's
+// expiry lives. See the note there: an abandoned OAuth round trip used to leave
+// this set for the life of the web view, and every later visit to /login sat on
+// a spinner for thirty seconds.
 export function setNativeAuthInProgress(value: boolean): void {
-  try {
-    if (value) sessionStorage.setItem("nativeAuthInProgress", "1")
-    else sessionStorage.removeItem("nativeAuthInProgress")
-  } catch { /* ignore */ }
+  setAuthInProgress(value)
 }
 
 export function isNativeAuthInProgress(): boolean {
-  try { return sessionStorage.getItem("nativeAuthInProgress") === "1" }
-  catch { return false }
+  return isAuthInProgress()
 }
 
 // ── Platform detection ───────────────────────────────────────────────────────

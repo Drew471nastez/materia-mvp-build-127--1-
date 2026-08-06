@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
+import { isAuthInProgress } from "@/lib/auth/auth-in-progress"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -100,7 +101,7 @@ export function NativeAuthGate({
   useEffect(() => {
     if (requireAuth) return
     try {
-      if (sessionStorage.getItem("nativeAuthInProgress") === "1") {
+      if (isAuthInProgress()) {
         setBlocked(true)
       }
     } catch {}
@@ -123,7 +124,7 @@ export function NativeAuthGate({
     if (requireAuth || !blocked) return
     const poll = window.setInterval(() => {
       try {
-        if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
+        if (!isAuthInProgress()) {
           setBlocked(false)
         }
       } catch {
