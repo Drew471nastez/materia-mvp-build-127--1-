@@ -1889,10 +1889,23 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // Settling in, once. Not a loading state and not an arrival number —
-        // the difference between the conversation appearing and the
-        // conversation being cut to. See `.thread-enter` in app/globals.css.
-        "thread-enter",
+        // NO ENTRANCE HERE. `.thread-enter` used to be on this line — 0.94 to 1
+        // over 200ms — and it was making the one moment that should be
+        // invisible into the most noticeable thing on the screen.
+        //
+        // The loading shell that precedes this is fully opaque. So on every
+        // conversation that showed one, the sequence was: shell at 1, then the
+        // real screen mounting at 0.94, then climbing back. A dip, landing
+        // exactly ON the handover — the frame where the skeleton becomes the
+        // conversation, which is the one frame that has to pass unnoticed. It
+        // announced the swap rather than covering it.
+        //
+        // The arrival was never missing. `beginTabLeave` on the inbox row takes
+        // <main> down to 0.88 with the finger, and the commit releases it, so
+        // the whole screen rises 0.88 → 1 over 240ms — across the shell AND the
+        // conversation, as one continuous movement that does not care which of
+        // them is currently drawn. Adding a second one inside it could only ever
+        // interrupt it. See components/marketing/tab-transition.tsx.
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,

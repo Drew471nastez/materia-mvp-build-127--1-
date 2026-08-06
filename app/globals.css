@@ -2546,43 +2546,27 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
  * you see. Instant, and smooth, which were never in conflict — the delay was.
  */
 
-/* ARRIVING AT A CONVERSATION — the handover, not an entrance.
+/* ARRIVING AT A CONVERSATION — there is deliberately nothing here.
  *
- * There are two ways into this screen and both used to end in a cut. A warm
- * route replaces the inbox with the conversation between one frame and the
- * next; a cold one shows the loading shell's spinner and then swaps the whole
- * screen for the real one. Either way the last step is instantaneous, and an
- * instantaneous step is what "it loads and then it's just there" describes.
+ * `.thread-enter` lived at this spot: the conversation faded 0.94 → 1 over
+ * 200ms as it mounted. It has been removed rather than tuned, because the
+ * problem was never its numbers, it was its position in the sequence.
  *
- * 0.94, not 0.5. This is the distinction that matters and the one the earlier
- * attempts here got wrong: a screen that arrives at half strength and climbs is
- * not fading in, it is being assigned a number, and the number is the part you
- * notice — it reads as a flash on a fast route and as a second load on a slow
- * one. At 0.94 there is no frame you could point at and call dim; there is only
- * the absence of a hard edge on the swap.
+ * The loading shell that precedes a conversation is fully opaque. So on every
+ * cold tap the screen went: shell at 1, real conversation mounting at 0.94,
+ * climbing back to 1 — a dip landing exactly ON the handover. That frame, where
+ * the skeleton becomes the conversation, is the single frame that has to pass
+ * unnoticed, and this drew a line under it. It announced the swap instead of
+ * covering it, which is why the entry read as two arrivals however well the two
+ * boxes lined up.
  *
- * Opacity alone. No scale: `.thread-shell` is `position: fixed` at viewport
- * size, so a transform on it makes it the containing block for every fixed
- * descendant inside — and even ignoring that, scaling from below 1 shows the
- * layout background around every edge for the length of the animation, which is
- * the exact white-frame bug the block above this one exists to record.
- *
- * 200ms, and it starts on mount rather than on any event, so a route that was
- * already prefetched plays it too. That is deliberate: the two paths in should
- * not feel like two different screens.
- */
-@keyframes thread-enter {
-  from { opacity: 0.94; }
-  to   { opacity: 1; }
-}
-@media (max-width: 767px) {
-  .thread-enter {
-    animation: thread-enter 200ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .thread-enter { animation: none; }
-}
+ * The arrival it was trying to provide already exists and is better placed.
+ * `beginTabLeave` on an inbox row takes <main> down to 0.88 with the finger,
+ * and the route commit releases it, so the whole screen rises 0.88 → 1 over
+ * 240ms — across the shell AND the conversation, one continuous movement that
+ * does not care which of the two is currently drawn, and which is already under
+ * way before the tap has finished resolving. A second animation nested inside
+ * it can only interrupt it. See components/marketing/tab-transition.tsx. */
 
 /* PRESSING A CONVERSATION — a fade, not a switch.
  *

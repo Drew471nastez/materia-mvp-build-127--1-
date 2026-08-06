@@ -25,7 +25,7 @@ export default function ThreadLoading() {
   return (
     <div className="thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
       <div
-        className="shrink-0 border-b border-neutral-100 bg-white/95"
+        className="shrink-0 border-b border-neutral-100 bg-white/95 backdrop-blur-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div className="flex items-center gap-2 px-2 py-2">
@@ -46,6 +46,46 @@ export default function ThreadLoading() {
             <span className="h-[15px] w-32 animate-pulse rounded bg-neutral-100" />
             <span className="h-[10px] w-16 animate-pulse rounded bg-neutral-100" />
           </span>
+          {/* The details button. Drawn rather than skeletonised, like the back
+              arrow, and present for the same reason as everything else here:
+              without it the name column is 40px wider in the shell than in the
+              real header, so the name and the presence line under it both shift
+              left at the swap. */}
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-300">
+            <svg viewBox="0 0 24 24" fill="none" className="h-[21px] w-[21px]" aria-hidden>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+              <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </span>
+        </div>
+
+        {/* THE LISTING STRIP, WHICH THIS FILE WAS MISSING.
+
+            It is the largest single thing in the header — a 40px thumbnail with
+            10px of padding above and below it and a hairline on top, sixty-one
+            pixels — and the real conversation draws it for every thread that is
+            about an item, which is nearly all of them. Without it here, the
+            header GREW by a row at the handover and the entire conversation
+            stepped down. That is exactly the jump the note at the top of this
+            file says must never happen, and it was happening on every tap.
+
+            The one thread with no listing is the official Storelib one, where
+            this reserves a row the real screen does not draw and the header
+            shrinks instead. That is one conversation per account against every
+            other conversation there is, and it is the right way round: a header
+            that settles into place on a system message is a smaller wrong than
+            one that lurches on every conversation with a person.
+
+            The thumbnail and the title pulse; the price does not, because a
+            grey pill where a number goes reads as a price that failed to load.
+            The Cumpără button is not here at all — it is `hidden md:inline-flex`
+            on the real strip, so on a phone there is nothing to reserve. */}
+        <div className="flex items-center gap-3 border-t border-neutral-100 px-4 py-2.5">
+          <span className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-neutral-100" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="h-[13px] w-40 animate-pulse rounded bg-neutral-100" />
+          </span>
+          <span className="h-[14px] w-14 shrink-0 animate-pulse rounded bg-neutral-100" />
         </div>
       </div>
 
