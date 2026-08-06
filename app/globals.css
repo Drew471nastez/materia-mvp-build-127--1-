@@ -788,38 +788,17 @@ html.capacitor a.no-tap-fade:active {
    * flat subtree arriving on a frame the browser is already building from
    * scratch. There is no cheaper moment to promote a layer than the one where
    * everything is being painted anyway. */
-  /* 30% OF THE WIDTH, NOT 22px — THE CAUTION WAS MISPLACED.
-   *
-   * The offset was held to 22px because translating this element exposes a
-   * strip of whatever is behind it along the right edge, and a strip of "bare
-   * layout background" is what an earlier version of this shipped as a white
-   * flash. That reasoning was right about the mechanism and wrong about the
-   * colour: `--background` is `oklch(1 0 0)`, the body is white, and the inbox
-   * is a white card with a hairline sitting on white with 8px gutters. The
-   * strip is the page's own background against the page's own background.
-   * There was never anything to see.
-   *
-   * So the fallback is a real slide, the same 30% and the same curve as the
-   * view-transition pop above it — one movement described twice, for the
-   * browsers that can draw both screens and the browsers that can only draw
-   * one. Getting the same gesture either way matters more than the fact that
-   * one of them has a conversation travelling over it.
-   *
-   * Everything above the card travels with it: the "Mesaje" title, the
-   * switcher, the list. What trails behind is white, and what arrives is the
-   * whole screen, together. */
   @keyframes pop-return {
-    from { opacity: 0.86; transform: translate3d(-30%, 0, 0); }
+    from { opacity: 0.86; transform: translate3d(-22px, 0, 0); }
     to   { opacity: 1;    transform: translate3d(0, 0, 0); }
   }
   html.pop-return .marketing-flex-wrapper > main > * {
-    animation: pop-return 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    /* A hard decelerate: almost all of the travel is spent in the first third,
+       so the movement registers immediately and the tail is the part that
+       settles. An even curve over the same distance reads as sliding, which is
+       slower than it is. */
+    animation: pop-return 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
-    /* The strip on the right is only invisible while it is the same white as
-       everything around it. Stated here rather than inherited, so a page that
-       later gives itself a different background cannot turn this into the
-       flash the comment above says it is not. */
-    background-color: var(--background, #fff);
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
     /* Chrome fades with the page but does not travel with it. */
@@ -841,125 +820,13 @@ html.capacitor a.no-tap-fade:active {
     opacity: 0.88;
     transition-duration: 0ms;
   }
-  /* REDUCED MOTION MEANS LESS MOVEMENT, NOT A HARD CUT.
-   *
-   * This used to be `animation: none`, and combined with the same check in
-   * lib/messages/pop-transition.ts it meant that a phone with Reduce Motion
-   * switched on got NOTHING — no slide, no parallax, no fade — for every one of
-   * the many versions of this transition. Whatever was built, that device saw a
-   * conversation replaced by an inbox between two frames, which is the harshest
-   * possible answer to somebody who asked for calmer animation.
-   *
-   * The preference is about vestibular discomfort: large travel, parallax,
-   * zoom, spin. A short opacity change is not that, and both WCAG and Apple's
-   * own guidance treat a cross-fade as the correct substitute for a slide
-   * rather than something to be removed. So the movement goes and the
-   * transition stays.
-   *
-   * No transform at all, and nothing on the chrome — the tab bar and top bar
-   * simply belong to the arriving screen. */
   @media (prefers-reduced-motion: reduce) {
-    html.pop-return .marketing-flex-wrapper > main > * {
-      animation: pop-return-calm 180ms ease-out both;
-      will-change: auto;
-      background-color: transparent;
-    }
+    html.pop-return .marketing-flex-wrapper > main > *,
     html.pop-return .marketing-flex-wrapper > .native-only-topbar {
-      animation: pop-return-calm 180ms ease-out both;
-    }
-    @keyframes pop-return-calm {
-      from { opacity: 0.7; }
-      to   { opacity: 1; }
+      animation: none;
+      will-change: auto;
     }
   }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   THE POP, WHEN THE BROWSER CAN DRAW BOTH SCREENS AT ONCE
-   ═══════════════════════════════════════════════════════════════════════════
-   Everything above this is the compromise reached because only one screen
-   exists at a time: Next unmounts the conversation on the frame it commits
-   /messages, so the arriving inbox is animated alone and the SWAP underneath it
-   stays as abrupt as it was. That is what six versions of "too direct" were.
-
-   `startViewTransition` removes the premise. The browser captures the old
-   screen as pixels before the DOM changes, holds rendering while it changes,
-   captures the new one, and animates between the two on the compositor. Both
-   screens are genuinely on screen, which is the only thing that makes a pop a
-   pop — and none of it is this stylesheet's or any component's to keep in sync,
-   because a snapshot is a picture of what was actually on the glass. Scroll
-   positions, decoded images, fixed elements: all simply in it.
-
-   Driven from lib/messages/pop-transition.ts, on the back arrow of a
-   conversation and nowhere else. Browsers without the API never match these
-   rules and get the animation above instead.
-
-   NOT nested in the phone media query: the pseudo-elements below are attached
-   to the document root, and `vt-pop` is only ever set on a phone anyway — by a
-   function that checks the same 767px itself. Keeping the guard in one place
-   beats having it in two that can disagree. */
-
-/* The default is a cross-fade, and a cross-fade of two full screens is a
-   dissolve — the least directional thing available and, on a pop, the least
-   informative. These replace it outright, which means also undoing the
-   blending the default relies on: `plus-lighter` over `isolate` is what makes
-   two fading layers sum to exactly 1, and with opaque sliding layers it
-   instead makes the overlap glow. */
-html.vt-pop::view-transition-image-pair(root) {
-  isolation: auto;
-}
-html.vt-pop::view-transition-old(root),
-html.vt-pop::view-transition-new(root) {
-  mix-blend-mode: normal;
-  /* Neither snapshot may be clipped to a box smaller than the screen it is a
-     picture of. */
-  height: 100%;
-  overflow: clip;
-}
-
-/* The conversation, travelling off to the right — the direction it came from.
-   On top, because it is the screen that was on top. */
-html.vt-pop::view-transition-old(root) {
-  animation: vt-pop-out 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  z-index: 2;
-}
-/* The inbox, coming back from the left with the parallax a real pop has. A
-   quarter of the width, which is safe here in a way it never was above: the
-   conversation is a snapshot lying over the right-hand edge for the whole of
-   the travel, so nothing is ever uncovered. Dimmed, because a screen underneath
-   another screen is in shadow — that is the cue that says two layers. */
-html.vt-pop::view-transition-new(root) {
-  animation: vt-pop-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  z-index: 1;
-}
-@keyframes vt-pop-out {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(100%, 0, 0); }
-}
-@keyframes vt-pop-in {
-  from { transform: translate3d(-25%, 0, 0); opacity: 0.82; }
-  to   { transform: translate3d(0, 0, 0);    opacity: 1; }
-}
-
-/* A leading edge. Without it the two snapshots are flat against each other and
-   the movement reads as the page tearing rather than as one screen sliding over
-   another — it is the only thing in the whole transition that says which of the
-   two is on top. On the old snapshot, cast leftwards, over the new one. */
-html.vt-pop::view-transition-old(root) {
-  box-shadow: -14px 0 34px -8px rgb(15 15 15 / 0.22);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* pop-transition.ts already declines under reduced motion, so this only
-     matters if the preference changes mid-transition. Cheap insurance against
-     a full-screen slide somebody has asked not to see. */
-  html.vt-pop::view-transition-old(root),
-  html.vt-pop::view-transition-new(root) {
-    animation: none;
-  }
-}
-
-@media (max-width: 767px) {
 }
 @media (prefers-reduced-motion: reduce) {
   .marketing-flex-wrapper > main,

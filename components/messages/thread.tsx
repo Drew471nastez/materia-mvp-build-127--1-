@@ -18,7 +18,6 @@ import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
-import { popBack } from "@/lib/messages/pop-transition"
 
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -1159,19 +1158,9 @@ export function MessageThread({
   const closeThread = useCallback(() => {
     if (closing.current) return
     closing.current = true
-    navigateBlended("back", () => {
-      const go = () =>
-        window.history.length > 1 ? router.back() : router.push("/messages")
-      // Both screens on screen, if the browser can do it — the conversation
-      // slides off the inbox instead of being replaced by it, which is the
-      // only thing that makes a pop read as a pop. The browser takes the
-      // snapshots, so there is nothing here to keep in sync with the real page.
-      //
-      // `popBack` returns false without having navigated when it declines —
-      // no support, reduced motion, a wide screen — and then this is exactly
-      // the line that shipped before it existed.
-      if (!popBack(go)) go()
-    })
+    navigateBlended("back", () =>
+      window.history.length > 1 ? router.back() : router.push("/messages"),
+    )
   }, [router])
 
   /**
