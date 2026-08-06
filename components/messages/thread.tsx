@@ -1152,6 +1152,8 @@ export function MessageThread({
    * Guarded against a second press: two overlapping `router.back()` calls pop
    * two history entries and land you two screens away.
    */
+  /** Whether a finger is on the back arrow. See `.tap-fade`. */
+  const [backPressed, setBackPressed] = useState(false)
   const closing = useRef(false)
   const closeThread = useCallback(() => {
     if (closing.current) return
@@ -1906,23 +1908,24 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Înapoi"
+            // The disc fades under the finger instead of blinking on and off.
+            // `active:` could only ever do the latter — it is a class the
+            // browser applies and drops, with nothing in between to animate
+            // along — and on the control this entire transition hangs off, an
+            // instant grey circle is the first thing you see of it.
+            // `.tap-fade` in app/globals.css carries the timing.
+            onPointerDown={() => setBackPressed(true)}
+            onPointerUp={() => setBackPressed(false)}
+            onPointerCancel={() => setBackPressed(false)}
+            data-pressed={backPressed ? "true" : undefined}
             // A pop, announced as one: the hint on <html> is what tells the
-            // inbox it is being returned to rather than opened, so it comes
-            // forward under a lifting veil instead of simply being there. Same
-            // gesture as coming back from a listing, because it is one.
+            // inbox it is being returned to rather than opened, so it arrives
+            // travelling back from the left instead of simply being there.
             onClick={() => {
               void triggerHaptic("light")
-              // The conversation begins to go before the inbox is asked for, so
-              // the two are one movement rather than a cut followed by a fade.
-              // The inbox used to arrive at 0.55 opacity and climb, which only
-              // started once the route had committed — so the whole of the wait
-              // was a stationary conversation, and then a list appeared at just
-              // over half strength. Dipping first means there is no frame where
-              // anything is assigned a value it was not already heading
-              // towards. See lib/tab-leave.ts.
               closeThread()
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
+            className="tap-fade flex h-10 w-10 items-center justify-center rounded-full"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
           </button>

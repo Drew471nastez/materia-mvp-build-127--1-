@@ -757,18 +757,56 @@ html.capacitor a.no-tap-fade:active {
    * exactly that reason: it plays from its own first keyframe on mount instead
    * of continuing from a value some earlier event was supposed to have set.
    *
-   * 0.9, opacity only. No transform: <main> is a tall document in normal flow,
-   * where a scale displaces by H × (1 − s) / 2 and a translate exposes a strip
-   * of background along whichever edge it came from. Added and removed by
-   * components/messages/inbox.tsx in a layout effect, so it is on before the
-   * first paint. */
+   * ── WHY IT MOVES, AND NOT JUST FADES ──
+   * The first version of this was opacity alone, 0.9 to 1, and it was still
+   * "too direct" — correctly. Ten percent of opacity cannot disguise a
+   * full-screen change of content; the eye reads the swap, not the ramp. What
+   * makes a pop legible is DIRECTION: the screen you are going back to comes
+   * back from the left, which is where it went when the conversation pushed
+   * over it.
+   *
+   * 22px, not the ~30% of the width iOS uses. iOS can afford that because the
+   * outgoing screen is still on top covering the gap; here there is nothing
+   * over it, so the offset is only ever as large as the strip of background it
+   * exposes on the right. 22px of uniform page background, for 300ms, on a
+   * layout whose content already stops 8px short of that edge — invisible as a
+   * gap, and plenty as a movement.
+   *
+   * ── WHERE IT IS APPLIED ──
+   * `main > *`, not `main`. A transform makes an element the containing block
+   * for every `position: fixed` descendant, so putting it on <main> would drag
+   * anything fixed inside it 22px sideways for the length of the animation.
+   * The bottom nav and the top bar are siblings of <main> rather than children,
+   * so they stay put — which is right: chrome does not travel with the page.
+   *
+   * `[overflow-x:clip]` on <main> (see the marketing layout) is what stops the
+   * offset becoming 22px of horizontal scroll on the way in.
+   *
+   * Compositor-only — transform and opacity, nothing that can touch layout.
+   * `will-change` is declared in the same rule as the animation, which is
+   * usually too late to help; here it is fine, because this element is a single
+   * flat subtree arriving on a frame the browser is already building from
+   * scratch. There is no cheaper moment to promote a layer than the one where
+   * everything is being painted anyway. */
   @keyframes pop-return {
-    from { opacity: 0.9; }
-    to   { opacity: 1; }
+    from { opacity: 0.86; transform: translate3d(-22px, 0, 0); }
+    to   { opacity: 1;    transform: translate3d(0, 0, 0); }
   }
-  html.pop-return .marketing-flex-wrapper > main,
+  html.pop-return .marketing-flex-wrapper > main > * {
+    /* A hard decelerate: almost all of the travel is spent in the first third,
+       so the movement registers immediately and the tail is the part that
+       settles. An even curve over the same distance reads as sliding, which is
+       slower than it is. */
+    animation: pop-return 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: transform, opacity;
+  }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
-    animation: pop-return 260ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+    /* Chrome fades with the page but does not travel with it. */
+    animation: pop-return-chrome 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes pop-return-chrome {
+    from { opacity: 0.86; }
+    to   { opacity: 1; }
   }
 
   /* The same dip, for the navigations no finger on the bar started — a
@@ -783,9 +821,10 @@ html.capacitor a.no-tap-fade:active {
     transition-duration: 0ms;
   }
   @media (prefers-reduced-motion: reduce) {
-    html.pop-return .marketing-flex-wrapper > main,
+    html.pop-return .marketing-flex-wrapper > main > *,
     html.pop-return .marketing-flex-wrapper > .native-only-topbar {
       animation: none;
+      will-change: auto;
     }
   }
 }
@@ -2565,6 +2604,31 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
  * on the pressed one, which is how a single transition gets two speeds: the
  * duration that applies is always the one belonging to the state being entered.
  */
+/* The same fade, for a control rather than a row.
+ *
+ * Tailwind's `active:` is a class the browser adds and removes, so every press
+ * state written with it blinks: full colour in one frame, gone in one frame.
+ * That is what the back arrow was doing, and on the control this whole
+ * transition hangs off, an instant grey disc is the first thing you see and the
+ * least considered.
+ *
+ * Driven from `data-pressed` so the same asymmetry applies as on a row — quick
+ * in, because feedback that lags a finger is not feedback, slow out, because
+ * the release carries no information and a fade there reads as the surface
+ * settling rather than a state being dropped. Slightly quicker than a row in
+ * both directions: it is a 40px target, and the smaller the thing the sooner it
+ * has to answer. */
+.tap-fade {
+  transition: background-color 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.tap-fade[data-pressed="true"] {
+  transition-duration: 90ms;
+  background-color: rgb(245 245 245);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tap-fade { transition: none; }
+}
+
 .msg-row {
   transition: background-color 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
