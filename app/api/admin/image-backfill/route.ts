@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 import { NextResponse, type NextRequest } from "next/server"
 
+import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_SOURCE_BYTES, reprocessImage } from "@/lib/images/reprocess"
 import { clampFocal, CENTER } from "@/lib/images/geometry"
@@ -125,14 +126,29 @@ function focalAt(variants: unknown, i: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const expected = process.env.STORELIB_ADMIN_KEY
-  // An endpoint that does not exist is better than one advertising itself as
-  // merely locked. Same rule as /api/admin/push-test.
-  if (!expected) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  /**
+   * TWO WAYS IN, AND THE SECOND ONE IS WHY THIS GOT RUN AT ALL.
+   *
+   * The shared secret is the right thing for a script. It was also the reason
+   * nothing happened: STORELIB_ADMIN_KEY was never set, so the endpoint 404'd,
+   * so no photograph was ever reprocessed, so the bars were still there. A fix
+   * nobody can trigger is not a fix.
+   *
+   * The signed-in admin session is the same one that already gates /admin, so
+   * this adds a page with a button rather than an environment variable and a
+   * terminal. The header path stays for automation.
+   */
+  const bySession = await isAdminAuthenticated()
+  if (!bySession) {
+    const expected = process.env.STORELIB_ADMIN_KEY
+    // An endpoint that does not exist is better than one advertising itself as
+    // merely locked. Same rule as /api/admin/push-test.
+    if (!expected) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const provided = req.headers.get("x-storelib-admin-key") ?? ""
-  if (!provided || !keyMatches(provided, expected)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const provided = req.headers.get("x-storelib-admin-key") ?? ""
+    if (!provided || !keyMatches(provided, expected)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
   }
 
   let body: Record<string, unknown> = {}
