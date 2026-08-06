@@ -4,6 +4,7 @@ import { useParams } from "next/navigation"
 import { useState } from "react"
 
 import { InitialAvatar } from "@/components/ui/initial-avatar"
+import { threadEnterDelay } from "@/lib/messages/thread-open"
 import { readThreadPreview } from "@/lib/messages/thread-preview"
 import { cn } from "@/lib/utils"
 
@@ -63,16 +64,26 @@ export default function ThreadLoading() {
    * mechanism meant to fix it.
    */
   const [preview] = useState(() => readThreadPreview(params?.id))
+  /** Read during render — an effect runs after paint and the slide would start
+   *  a frame late, from wherever the element already was. */
+  const [enterDelay] = useState(() => threadEnterDelay())
 
   const name = preview?.name || ""
 
   return (
-    // `thread-enter` — the push in from the right. ONLY here, never on the real
-    // thread: they are two different elements rendering the same class, so an
-    // entrance on both would restart the slide when the conversation replaces
-    // this and it would come in twice. This plays it; the real thread takes
-    // over in place at identical geometry. See app/globals.css.
-    <div className="thread-shell thread-enter mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200">
+    <div
+      className={cn(
+        "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
+        enterDelay !== null && "thread-enter",
+      )}
+      // The push in from the right, CONTINUED rather than started.
+      //
+      // A negative animation-delay begins an animation partway through, so this
+      // and the real thread play one continuous slide across the swap instead
+      // of the thread restarting it from off-screen. See
+      // lib/messages/thread-open.ts.
+      style={enterDelay !== null ? { animationDelay: enterDelay } : undefined}
+    >
       <div
         className="shrink-0 border-b border-neutral-100 bg-white/95 backdrop-blur-md"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}

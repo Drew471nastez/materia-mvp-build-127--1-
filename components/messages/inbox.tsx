@@ -16,6 +16,7 @@ import {
   hideConversation,
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
+import { markThreadOpening } from "@/lib/messages/thread-open"
 import { stashThreadPreview } from "@/lib/messages/thread-preview"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
@@ -905,6 +906,10 @@ function MessagesList({
                  * the right person's name and face immediately and the messages
                  * fill in behind them. See lib/messages/thread-preview.ts.
                  */
+                // Start the push animation's clock with the FINGER, not with
+                // whichever element happens to render first. See
+                // lib/messages/thread-open.ts.
+                markThreadOpening()
                 stashThreadPreview({
                   id: r.id,
                   name,

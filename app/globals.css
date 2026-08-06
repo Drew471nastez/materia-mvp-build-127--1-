@@ -2470,13 +2470,22 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
  * an identity matrix is still a transform, and a permanent one would re-anchor
  * the viewer the next time it opened.
  *
- * ── ONLY THE LOADING SHELL PLAYS THE ENTRANCE ──
+ * ── ONE SLIDE ACROSS TWO ELEMENTS ──
  * loading.tsx and thread.tsx render the same `.thread-shell`, but they are two
- * different elements: if both carried the entrance, the real thread mounting
- * would restart the animation from off-screen and the conversation would slide
- * in twice. The loading shell plays it; the real thread replaces it in place,
- * at identical geometry, so the swap is invisible. Where the shell is skipped
- * entirely the route was already instant and had nothing to cover.
+ * different DOM elements, and a CSS animation belongs to an element. Putting
+ * the entrance on both would restart it from off-screen when the real thread
+ * replaced the shell — the conversation sliding in twice. Putting it on the
+ * shell alone means a server fast enough to skip the shell produces no
+ * entrance at all, so the same tap animates or does not depending on how
+ * quickly the server answered.
+ *
+ * Both apply it, and both offset it with a NEGATIVE `animation-delay` computed
+ * from the moment of the tap. `animation-delay: -180ms` starts an animation
+ * 180ms in, so the thread picks the slide up exactly where the shell left it.
+ * Neither restarts, nothing is skipped, and the result does not care which
+ * element is on screen or how many times they swap.
+ *
+ * The delay is inline style, set during render. See lib/messages/thread-open.ts.
  */
 @keyframes thread-enter {
   from { transform: translate3d(100%, 0, 0); }

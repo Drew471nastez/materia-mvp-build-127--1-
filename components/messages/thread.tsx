@@ -11,6 +11,7 @@ import { SafetyNotice } from "@/components/messages/safety-notice"
 import { wasServedFromCache } from "@/lib/render-key"
 import { readDraft, saveDraft } from "@/lib/messages/drafts"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
+import { clearThreadOpening, THREAD_ENTER_MS, threadEnterDelay } from "@/lib/messages/thread-open"
 import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
@@ -1195,6 +1196,28 @@ export function MessageThread({
    * does nothing at all, which would leave the only way out of a full-screen
    * conversation dead.
    */
+  /**
+   * Where the entrance had got to when this element mounted.
+   *
+   * Read during render, not in an effect: an effect runs after paint, so the
+   * first painted frame would be the conversation sitting still and the slide
+   * would begin a frame later from where it already was — a jump, which is the
+   * opposite of what an entrance is for.
+   *
+   * Null means no entrance: a deep link, a push notification, a cold reload or
+   * a back gesture. None of those is a push from the inbox and none should come
+   * in from the right.
+   */
+  const [enterDelay] = useState(() => (typeof document === "undefined" ? null : threadEnterDelay()))
+  // Forget the tap once the slide can no longer be in flight, so a remount
+  // inside the window cannot pick it up again and re-animate a conversation
+  // that is already sitting still.
+  useEffect(() => {
+    if (enterDelay === null) return
+    const t = window.setTimeout(clearThreadOpening, THREAD_ENTER_MS)
+    return () => window.clearTimeout(t)
+  }, [enterDelay])
+
   const [goingBack, setGoingBack] = useState(false)
   const closeThread = useCallback(() => {
     if (goingBack) return
@@ -1935,11 +1958,15 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // The push back out to the right, played before the route changes. No
-        // ENTRANCE here — loading.tsx owns that, and an entrance on both would
-        // restart the slide when this replaces it. See app/globals.css.
+        // The push in from the right, CONTINUED from wherever loading.tsx got
+        // to — or played from the start when the server was fast enough that
+        // there was no loading shell at all. A negative animation-delay is what
+        // makes one slide span two elements. See lib/messages/thread-open.ts.
+        enterDelay !== null && !goingBack && "thread-enter",
+        // And the push back out, played before the route changes.
         goingBack && "thread-leave",
       )}
+      style={enterDelay !== null && !goingBack ? { animationDelay: enterDelay } : undefined}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
