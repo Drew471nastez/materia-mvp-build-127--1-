@@ -326,22 +326,6 @@ html.capacitor a.no-tap-fade:active {
   will-change: opacity;
 }
 
-/* `.list-return` WAS HERE and is gone.
- *
- * It slid the inbox in from 14px left on the way back from a conversation, to
- * give the pop a direction. The very next report was that coming back had got
- * WORSE — a frozen frame, then the list arriving badly.
- *
- * The likely mechanism: an entry animation on an arriving route competes with
- * the router committing that route. When the commit is quick the animation is
- * the only thing you see and it reads well; when it is slow the two overlap and
- * the result reads as a stall, because the screen is holding at 0.82 opacity
- * waiting for content that has not arrived. The inbox is server-rendered and
- * dynamic, so its commit time is exactly the variable one.
- *
- * Removed rather than tuned. A transition whose quality depends on how fast the
- * server answered is not a transition, and picking a new duration from here
- * would be guessing at a device I cannot measure. */
 @media (min-width: 768px) {
   /* Desktop gets none of it — a full-viewport zoom on a large screen reads as a
      website doing tricks, and the page is already instant there. */
@@ -2440,82 +2424,6 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
     border: 0;
     border-radius: 0;
   }
-}
-
-/* OPENING A CONVERSATION, AND COMING BACK OUT OF ONE — a real push.
- *
- * Until now there was no movement in either direction: the list was replaced by
- * the conversation and the conversation by the list, with nothing but an
- * opacity dip that was itself removed for costing more than it bought. A swap
- * with no direction is what "cheap" and "too direct" describe — the screens do
- * not appear to be arranged in any relationship to each other, so there is
- * nothing for the eye to follow and every change reads as a jump.
- *
- * A push is the arrangement: the conversation lives to the RIGHT of the inbox,
- * comes in over it, and goes back out the same way. Every phone does this and
- * it is the reason master-detail feels like one screen with depth rather than
- * two pages taking turns.
- *
- * ── WHY THIS IS SAFE TO TRANSFORM, when almost nothing else here is ──
- * A transformed element becomes the containing block for every `position:
- * fixed` DESCENDANT — the lesson the product page's buy bar taught the hard
- * way, and the reason the tab transition uses opacity only. `.thread-shell` is
- * itself `position: fixed` at the size of the visual viewport on a phone, so it
- * is the whole screen and there is nothing around it to disturb. Its only fixed
- * descendant is the fullscreen image viewer, which cannot be open during a
- * navigation into or out of the thread.
- *
- * Both keyframes end at `transform: none` rather than `translate3d(0,0,0)`, and
- * the classes are dropped on a timer, so no transform survives the animation —
- * an identity matrix is still a transform, and a permanent one would re-anchor
- * the viewer the next time it opened.
- *
- * ── ONE SLIDE ACROSS TWO ELEMENTS ──
- * loading.tsx and thread.tsx render the same `.thread-shell`, but they are two
- * different DOM elements, and a CSS animation belongs to an element. Putting
- * the entrance on both would restart it from off-screen when the real thread
- * replaced the shell — the conversation sliding in twice. Putting it on the
- * shell alone means a server fast enough to skip the shell produces no
- * entrance at all, so the same tap animates or does not depending on how
- * quickly the server answered.
- *
- * Both apply it, and both offset it with a NEGATIVE `animation-delay` computed
- * from the moment of the tap. `animation-delay: -180ms` starts an animation
- * 180ms in, so the thread picks the slide up exactly where the shell left it.
- * Neither restarts, nothing is skipped, and the result does not care which
- * element is on screen or how many times they swap.
- *
- * The delay is inline style, set during render. See lib/messages/thread-open.ts.
- */
-@keyframes thread-enter {
-  from { transform: translate3d(100%, 0, 0); }
-  to   { transform: none; }
-}
-@keyframes thread-leave {
-  from { transform: none; }
-  to   { transform: translate3d(100%, 0, 0); }
-}
-.thread-enter {
-  animation: thread-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  will-change: transform;
-  backface-visibility: hidden;
-}
-/* Faster on the way out, on the mirrored curve. Something being dismissed
-   should leave decisively; something being presented should settle. Symmetrical
-   timings are what make a close feel like it is dawdling. */
-.thread-leave {
-  animation: thread-leave 240ms cubic-bezier(0.4, 0, 1, 1) both;
-  will-change: transform;
-  backface-visibility: hidden;
-  /* Above the list that is about to appear underneath it. */
-  z-index: 46;
-}
-@media (min-width: 768px), (prefers-reduced-motion: reduce) {
-  /* On a monitor the conversation is a PANE, not a screen — it never covered
-     the list and has nowhere to come in from. A full-viewport slide there is a
-     website doing tricks. */
-  .thread-enter,
-  .thread-leave { animation: none; will-change: auto; }
 }
 
 /* Opening a conversation, and coming back out of one.

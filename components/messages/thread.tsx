@@ -11,13 +11,13 @@ import { SafetyNotice } from "@/components/messages/safety-notice"
 import { wasServedFromCache } from "@/lib/render-key"
 import { readDraft, saveDraft } from "@/lib/messages/drafts"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
-import { clearThreadOpening, THREAD_ENTER_MS, threadEnterDelay } from "@/lib/messages/thread-open"
 import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
+import { navigateBlended } from "@/lib/nav-blend"
 import { beginTabLeave } from "@/lib/tab-leave"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -881,28 +881,6 @@ export function MessageThread({
     el.style.height = `${Math.min(el.scrollHeight, 112)}px`
   }, [draft])
 
-  // THE FIRST LANDING, BEFORE PAINT.
-  //
-  // A layout effect, run once, that puts the scroller at the bottom
-  // synchronously on mount. This is what makes it safe to remove the cover for
-  // fresh server data: the cover used to hide the frame where the scroller sat
-  // at the top and then jumped to the newest message a tick later. Positioning
-  // it before the browser paints means that frame never exists — the
-  // conversation is at the bottom from the very first pixel, with no jump to
-  // hide and therefore no cover needed to hide it.
-  //
-  // Only for `stickBottom`, which is true on a fresh open. If an effect below
-  // has already animated a landing (`landed`), this does nothing, so a remount
-  // mid-scroll is not yanked to the end.
-  useLayoutEffect(() => {
-    const el = scrollerRef.current
-    if (!el || landed.current || !stickBottom.current) return
-    el.scrollTop = el.scrollHeight
-    landed.current = true
-    // Mount only. The passive effect below owns every landing after this one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   useEffect(() => {
     if (!scrollerRef.current || !stickBottom.current) return
     // The first landing is instant: there is no "movement" from a screen that
@@ -1010,32 +988,8 @@ export function MessageThread({
   // then loaded in afterwards, one at a time, over a conversation that had
   // already been revealed. Waiting for the data first and only then for its
   // pictures means what is uncovered is finished.
-  // ── FRESH SERVER DATA IS NOT COVERED. This is the empty-then-loader fix. ──
-  //
-  // The route already has a loading boundary — app/(marketing)/messages/[id]/
-  // loading.tsx — which paints a spinner for the length of the server round
-  // trip. By the time THIS component mounts, page.tsx has run readThread on the
-  // server and handed the whole conversation down as `initial`. The messages
-  // are here. There is nothing left to wait for.
-  //
-  // But `pixelsReady` started `false` unconditionally, so `covered` started
-  // `true` even then — and the component dropped a SECOND cover (its own
-  // spinner, delayed 260ms, over an empty surface) on top of a conversation it
-  // already held. That is the reported sequence exactly: the loading boundary's
-  // spinner, then a blank surface, then finally the messages. Two loaders for
-  // one tap, the second one hiding data that was ready before it appeared.
-  //
-  // So the cover now only arms when there is genuinely something to wait for:
-  //   · fromCache — Next served a three-minute-old payload and we are
-  //     refetching; the stale thread must be held until the fresh one lands.
-  //   · initial === null — the server read failed or the id was malformed and
-  //     the client is about to fetch from scratch.
-  // A fresh, non-cached `initial` skips it and the messages are on screen in
-  // the first painted frame. Images still fade in one by one through their own
-  // per-image opacity transition, so nothing pops even uncovered.
-  const freshServerData = !fromCache && initial !== null
   const [dataReady, setDataReady] = useState(!fromCache)
-  const [pixelsReady, setPixelsReady] = useState(freshServerData)
+  const [pixelsReady, setPixelsReady] = useState(false)
   const covered = !dataReady || !pixelsReady
   coveredRef.current = covered
 
@@ -1134,101 +1088,8 @@ export function MessageThread({
   const meRef = useRef<string | null>(initial?.me ?? null)
   meRef.current = thread?.me ?? meRef.current
 
-  /**
-   * TELL THE SERVER THIS HAS BEEN SEEN.
-   *
-   * `readThread` only marks the messages that existed when the thread was
-   * FETCHED. A message arriving over the socket into a thread you already have
-   * open is displayed, read by a person, and never marked — so the inbox row
-   * still says unread when you go back, which is the "it does not clear even
-   * after I read it" report.
-   *
-   * Idempotent and one indexed statement, which is what lets it be called
-   * liberally: on arrival, on returning to the tab, on leaving. No coordination,
-   * no debounce that could drop the one call that mattered.
-   *
-   * `keepalive` matters on the way out — a plain fetch issued while the page is
-   * being torn down is cancelled, and this is precisely the moment the mark is
-   * most needed.
-   */
-  const markSeen = useCallback(
-    (leaving = false) => {
-      try {
-        void fetch(`/api/messages/${id}/read`, {
-          method: "POST",
-          credentials: "include",
-          keepalive: leaving,
-        }).catch(() => {})
-      } catch {
-        /* never let a read receipt break the thread */
-      }
-    },
-    [id],
-  )
-
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
-  /**
-   * CLOSING THE CONVERSATION — out first, then the route.
-   *
-   * The conversation is a screen that came in over the inbox, so it has to go
-   * back out the way it arrived. Firing the navigation on its own means it
-   * simply ceases to exist, which is the hard cut that made coming back read as
-   * "direct and cheap": nothing moves, the list is just suddenly there.
-   *
-   * The route change is HELD until the slide has finished rather than fired
-   * alongside it, because Next unmounts this component the instant the route
-   * commits and there is no animating something that is no longer in the
-   * document. 240ms is the animation; the navigation goes 20ms inside its tail,
-   * so the commit is already in flight as the shell clears the edge of the
-   * screen and the list is never revealed underneath a conversation still on
-   * its way out.
-   *
-   * Guarded against a second press: the back arrow is a large target on a
-   * screen that is already moving, and two overlapping `router.back()` calls
-   * pop two entries and land you two screens away.
-   *
-   * Where it goes: back if there is anywhere to go back to, the inbox
-   * otherwise. A conversation opened from the list always has history behind
-   * it, so back returns to it with its scroll position intact — the difference
-   * between a screen closing and a navigation happening. A cold arrival from a
-   * push notification has nothing to pop, and `router.back()` on an empty stack
-   * does nothing at all, which would leave the only way out of a full-screen
-   * conversation dead.
-   */
-  /**
-   * Where the entrance had got to when this element mounted.
-   *
-   * Read during render, not in an effect: an effect runs after paint, so the
-   * first painted frame would be the conversation sitting still and the slide
-   * would begin a frame later from where it already was — a jump, which is the
-   * opposite of what an entrance is for.
-   *
-   * Null means no entrance: a deep link, a push notification, a cold reload or
-   * a back gesture. None of those is a push from the inbox and none should come
-   * in from the right.
-   */
-  const [enterDelay] = useState(() => (typeof document === "undefined" ? null : threadEnterDelay()))
-  // Forget the tap once the slide can no longer be in flight, so a remount
-  // inside the window cannot pick it up again and re-animate a conversation
-  // that is already sitting still.
-  useEffect(() => {
-    if (enterDelay === null) return
-    const t = window.setTimeout(clearThreadOpening, THREAD_ENTER_MS)
-    return () => window.clearTimeout(t)
-  }, [enterDelay])
-
-  const [goingBack, setGoingBack] = useState(false)
-  const closeThread = useCallback(() => {
-    if (goingBack) return
-    void triggerHaptic("light")
-    setGoingBack(true)
-    window.setTimeout(() => {
-      if (typeof window !== "undefined" && window.history.length > 1) router.back()
-      else router.push("/messages")
-    }, 220)
-  }, [goingBack, router])
-
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1337,20 +1198,11 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body)) {
-        // The refetch runs readThread, which marks read server-side — but only
-        // for what it can see. Marking explicitly keeps the one rule in one
-        // place rather than depending on a side effect of a different endpoint.
-        markSeen()
-        return refetch()
-      }
+      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
       })
-      // It is on screen and this thread is open, so it has been seen. Without
-      // this the row goes on saying "unread" in the inbox for ever.
-      markSeen()
     }
 
     const onUpdate = (row: any) => {
@@ -1436,31 +1288,13 @@ export function MessageThread({
         setLive(status === "SUBSCRIBED")
       })
 
-    /**
-     * Coming BACK to the thread, and leaving it.
-     *
-     * Between them these cover the two cases the socket cannot: messages that
-     * landed while the app was backgrounded (the socket may have been asleep,
-     * and the reconnect refetch does not always run before you look), and the
-     * moment of navigating away, which is exactly when the inbox is about to
-     * re-read the unread counts.
-     */
-    const onVisible = () => {
-      if (document.visibilityState === "visible") markSeen()
-    }
-    document.addEventListener("visibilitychange", onVisible)
-
     return () => {
       window.clearTimeout(timer)
       window.clearTimeout(typingOff.current)
       channelRef.current = null
-      document.removeEventListener("visibilitychange", onVisible)
-      // On the way out, with keepalive — a plain fetch issued during teardown is
-      // cancelled, and this is the call the inbox is about to depend on.
-      markSeen(true)
       void supabase.removeChannel(channel)
     }
-  }, [id, load, markSeen])
+  }, [id, load])
 
   /**
    * Sends go out ONE AT A TIME, in the order you wrote them.
@@ -1958,15 +1792,7 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // The push in from the right, CONTINUED from wherever loading.tsx got
-        // to — or played from the start when the server was fast enough that
-        // there was no loading shell at all. A negative animation-delay is what
-        // makes one slide span two elements. See lib/messages/thread-open.ts.
-        enterDelay !== null && !goingBack && "thread-enter",
-        // And the push back out, played before the route changes.
-        goingBack && "thread-leave",
       )}
-      style={enterDelay !== null && !goingBack ? { animationDelay: enterDelay } : undefined}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
           because "wait, how much was it again" is half of every negotiation. */}
@@ -1981,9 +1807,25 @@ export function MessageThread({
           <button
             type="button"
             aria-label="Înapoi"
-            // The conversation slides back out to the right and THEN the route
-            // changes — see closeThread.
-            onClick={closeThread}
+            // A pop, announced as one: the hint on <html> is what tells the
+            // inbox it is being returned to rather than opened, so it comes
+            // forward under a lifting veil instead of simply being there. Same
+            // gesture as coming back from a listing, because it is one.
+            onClick={() => {
+              void triggerHaptic("light")
+              // The conversation begins to go before the inbox is asked for, so
+              // the two are one movement rather than a cut followed by a fade.
+              // The inbox used to arrive at 0.55 opacity and climb, which only
+              // started once the route had committed — so the whole of the wait
+              // was a stationary conversation, and then a list appeared at just
+              // over half strength. Dipping first means there is no frame where
+              // anything is assigned a value it was not already heading
+              // towards. See lib/tab-leave.ts.
+              beginTabLeave()
+              navigateBlended("back", () =>
+                window.history.length > 1 ? router.back() : router.push("/messages"),
+              )
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
@@ -2349,15 +2191,6 @@ export function MessageThread({
                             alt={m.body || "Fotografie"}
                             onLoad={(e) => {
                               e.currentTarget.style.opacity = "1"
-                              // A server photo carries no reserved height, so
-                              // the bubble was a sliver until this fired and
-                              // then grew to full size. On a fresh open — now
-                              // uncovered, so the growth is visible — that would
-                              // push the newest message up off the bottom. While
-                              // the view is pinned to the end, follow the growth
-                              // and stay there. Instant, not glided: this is the
-                              // photo settling into place, not a scroll.
-                              if (stickBottom.current && !coveredRef.current) scrollToEnd()
                             }}
                             onClick={() => {
                               // A pending photo is a local blob mid-upload;
@@ -2366,11 +2199,6 @@ export function MessageThread({
                               if (!m.pending && m.image_url) setViewing(m.image_url)
                             }}
                             className={cn(
-                              // Cover, so the bubble is a filled rectangle
-                              // rather than a photo floating in grey. Tapping
-                              // it opens the full-size viewer, which shows the
-                              // whole frame — that is where nothing may be cut
-                              // off, not here.
                               "block max-h-[260px] w-full cursor-zoom-in object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
                               // While it is going up it is softened, and it
                               // resolves to the real thing the moment the server
@@ -2846,19 +2674,6 @@ function OfferBubble({
   formatPrice: (cents: number) => string
 }) {
   const status = msg.offer_status
-  /**
-   * How far under the asking price this offer sits, as a whole percent.
-   *
-   * Null — not zero — when there is nothing worth saying: no listing, no price
-   * to compare against, or an offer at or above the asking price. A card that
-   * renders "−0%" on a full-price offer is stating a fact nobody asked for, and
-   * a negative discount reads as a bug.
-   */
-  const listed = listing?.price_cents ?? 0
-  const offered = msg.offer_cents ?? 0
-  const discountPct =
-    listed > 0 && offered > 0 && offered < listed ? Math.round(((listed - offered) / listed) * 100) : null
-
   return (
     <div
       className={cn(
@@ -2867,62 +2682,8 @@ function OfferBubble({
         status === "accepted" ? "border-emerald-200 bg-emerald-50" : status === "declined" ? "border-neutral-200 bg-neutral-50" : "border-[#7c3aed]/30 bg-[#7c3aed]/[0.06]",
       )}
     >
-      {/* THE ITEM THE OFFER IS ABOUT.
-          
-          This card used to show a number and nothing else. In a conversation
-          that has scrolled — and an offer is usually made after some back and
-          forth — "180 lei" on its own is a figure with no subject: you have to
-          scroll up to remember which jacket, and a seller with several
-          conversations open has to remember which listing this thread is even
-          for. The thread header carries the item, but the header is off screen
-          by the time the offer is.
-          
-          So the offer states its own subject. Thumbnail, title, and what the
-          item is actually listed at — which is the number the offer only means
-          anything relative to. */}
-      {listing && (
-        <div className="mb-2.5 flex items-center gap-2.5 rounded-xl bg-white/70 p-2 ring-1 ring-black/[0.05]">
-          {listing.thumbnail_url ? (
-            <Image
-              src={listing.thumbnail_url}
-              alt=""
-              width={40}
-              height={53}
-              // 3:4, the same shape as everywhere else the item appears.
-              className="h-[53px] w-10 shrink-0 rounded-lg object-cover"
-              draggable={false}
-              decoding="async"
-            />
-          ) : (
-            <span className="flex h-[53px] w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-[15px]">
-              👜
-            </span>
-          )}
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-semibold text-neutral-900">{listing.title}</span>
-            <span className="mt-0.5 block text-[12.5px] text-neutral-500">
-              Preț listat {formatPrice(listing.price_cents)}
-            </span>
-          </span>
-        </div>
-      )}
-
       <p className="text-[12.5px] font-medium text-neutral-500">{mine ? "Oferta ta" : "Ofertă primită"}</p>
-      <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-tight">
-        <span className="text-[22px] font-bold text-neutral-900">{formatPrice(msg.offer_cents ?? 0)}</span>
-        {/* The saving, stated once, only when there is one.
-            
-            A percentage is what both sides are actually negotiating over, and
-            working it out in your head from two numbers is the small friction
-            that makes people ignore an offer rather than answer it. Hidden when
-            the offer is at or above the asking price, because "-0%" and a
-            negative discount are both noise. */}
-        {discountPct !== null && (
-          <span className="text-[13px] font-semibold text-[#7c3aed]">
-            −{discountPct}% față de {formatPrice(listing!.price_cents)}
-          </span>
-        )}
-      </p>
+      <p className="mt-0.5 text-[22px] font-bold leading-tight text-neutral-900">{formatPrice(msg.offer_cents ?? 0)}</p>
       {msg.body && <p className="mt-1 text-[14px] text-neutral-700">{msg.body}</p>}
 
       {status === "pending" && !mine && (

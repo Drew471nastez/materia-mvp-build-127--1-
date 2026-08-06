@@ -16,8 +16,6 @@ import {
   hideConversation,
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
-import { markThreadOpening } from "@/lib/messages/thread-open"
-import { stashThreadPreview } from "@/lib/messages/thread-preview"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -169,7 +167,6 @@ export function MessagesInbox({
 }) {
   const { formatPrice } = useLocale()
   const [tab, setTab] = useState<"messages" | "notifications">(initialTab)
-
   // No entrance on the lists behind this switcher, in either direction.
   //
   // There used to be a 180ms fade on the incoming one. The intent was to soften
@@ -730,21 +727,6 @@ export function MessagesInbox({
               writes the transform straight to this node, so a drag never goes
               through React. */}
           <div ref={listRef} className="min-h-full" style={{ transform: "translate3d(0, 0, 0)" }}>
-            {/* NO RETURN ANIMATION HERE — reverted, deliberately.
-                
-                A `list-return` slide was added on the way back from a
-                conversation, and the very next report was that coming back had
-                become worse: a frozen frame, then the list arriving badly.
-                
-                An animation on an arriving route competes with the router
-                committing that route, and on a slow commit the two overlap in a
-                way that reads as a stall rather than a transition. The
-                correctness fix that shipped alongside it (marking messages
-                read) is unaffected and stays.
-                
-                If this is attempted again it needs to be measured on a device,
-                not reasoned about — which is exactly why it is out rather than
-                tuned. */}
             <div key={tab} className="flex min-h-full flex-col">
               {/* No entrance on the rows.
                   A staggered rise looked considered in isolation and reads, on a
@@ -892,58 +874,6 @@ function MessagesList({
               onClick={() => {
                 void triggerHaptic("light")
                 beginTabLeave()
-                /**
-                 * Carry what this row knows into the loading screen.
-                 *
-                 * The conversation route is force-dynamic, so the tap always
-                 * costs a server round trip before the real screen exists — and
-                 * the screen covering that wait used to know nothing, so a
-                 * deliberate tap resolved into a blank page with a spinner on
-                 * it before resolving into the conversation.
-                 *
-                 * Everything the header needs is already on screen, under the
-                 * finger, right now. Handing it across means the tap lands on
-                 * the right person's name and face immediately and the messages
-                 * fill in behind them. See lib/messages/thread-preview.ts.
-                 */
-                // Start the push animation's clock with the FINGER, not with
-                // whichever element happens to render first. See
-                // lib/messages/thread-open.ts.
-                markThreadOpening()
-                stashThreadPreview({
-                  id: r.id,
-                  name,
-                  avatarUrl: r.other?.avatar_url ?? null,
-                  seed: r.other?.id ?? null,
-                  official: !!r.official,
-                  listingTitle: r.listing?.title ?? null,
-                  listingThumb: r.listing?.thumbnail_url ?? null,
-                  // Which side the newest bubble sits on, so the placeholder
-                  // lands where the real one will. Null when the thread is
-                  // empty — there is nothing to place.
-                  lastFromMe: r.lastMessage
-                    ? viewerId != null && r.lastMessage.sender_id === viewerId
-                    : null,
-                })
-                /**
-                 * Zero the badge NOW, on the row you just opened.
-                 *
-                 * The thread marks itself read on the server (see
-                 * /api/messages/<id>/read), but that is a round trip you are
-                 * already walking away from, and the inbox you come back to may
-                 * be served from the router cache before any refetch lands. So
-                 * the row that says "3" while you are reading those three
-                 * messages is stale in the only way anybody notices.
-                 *
-                 * Optimistic and safe in the only direction that matters: you
-                 * did open the conversation, so zero is what the server is
-                 * about to agree with. If the mark somehow fails, the next
-                 * refetch puts the count back — a badge that reappears is
-                 * recoverable; one that never clears is the bug being reported.
-                 */
-                setRows((prev) =>
-                  prev ? prev.map((row) => (row.id === r.id ? { ...row, unread: 0 } : row)) : prev,
-                )
               }}
               className={cn(
                 ROW_INNER,
