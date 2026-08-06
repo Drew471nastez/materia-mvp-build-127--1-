@@ -152,6 +152,39 @@ export function MobileBottomNav({
   // a deliberate sixth of a second before anything happened — which is exactly
   // what reads as the app being slow. The spin now runs alongside the
   // navigation instead of in front of it.
+  /**
+   * A TAP RESCUE FOR THE ROUTE.
+   *
+   * lib/tap-rescue.ts already guarantees the press reaches this function — it
+   * exists because a browser does not always synthesise the click, and it is
+   * driven by pointerdown so the gesture cannot be lost on the way in. What it
+   * cannot promise is that the NAVIGATION arrives, and there are two ways for a
+   * press that definitely happened to leave you looking at the same screen:
+   *
+   *   the push is lost. `router.push` is asynchronous and can be dropped —
+   *   deduped against a URL the router thinks it is already on, or abandoned
+   *   with an in-flight fetch when the app is backgrounded mid-transition. The
+   *   URL never changes and nothing renders.
+   *
+   *   the push lands and the sheet does not. /products/new is an intercepted
+   *   route: it renders into the layout's @modal slot, and if that slot has
+   *   resolved to its `default` — which is nothing — the URL says the sell form
+   *   is open while `children` carries on showing the screen you were already
+   *   on. Silent, and indistinguishable from a dropped tap.
+   *
+   * So the press checks its own work. This is the same idea as the gesture
+   * machine, one layer further out: do the thing, then confirm the thing
+   * happened, and if it did not, do it the way that cannot fail.
+   *
+   * The two failures are told apart by the URL, because they need different
+   * answers — a lost push is worth retrying as a client navigation, while a
+   * navigation that landed on an empty slot will land on an empty slot again,
+   * and only a document load will fix it.
+   *
+   * 700ms: past any warm navigation by a wide margin, short enough that the
+   * fallback is a hesitation rather than a second attempt you have given up on.
+   * In the ordinary case this timer fires, finds the sheet, and returns.
+   */
   const onSell = useCallback(() => {
     // Already open — the only case worth declining, and it is asked of the
     // route rather than of a flag that remembers having asked.
@@ -159,6 +192,34 @@ export function MobileBottomNav({
     // The buzz already fired on pointerdown, with the finger rather than after
     // it — see the gesture machine below.
     router.push("/products/new")
+
+    // The sheet's own root. One class, on the element in
+    // components/sell/new-listing-form.tsx, present on every platform — the
+    // media query that uses it is not what makes it true.
+    const open = () =>
+      window.location.pathname.startsWith("/products/new") && !!document.querySelector(".sell-sheet")
+
+    window.setTimeout(() => {
+      if (typeof document === "undefined" || open()) return
+      if (!window.location.pathname.startsWith("/products/new")) {
+        // The push never took. Ask once more, the cheap way — a client
+        // navigation, so a transient drop costs a beat and nothing else.
+        router.push("/products/new")
+        // AND A FLOOR UNDER THE RETRY. Modelling this against a router that
+        // drops every push showed the retry branch had no terminal case: two
+        // client pushes, both lost, and the sheet never opens. Escalating means
+        // there is exactly one outcome — the form is on screen — however many
+        // ways the client navigation finds to fail.
+        window.setTimeout(() => {
+          if (!open()) window.location.assign("/products/new")
+        }, 700)
+        return
+      }
+      // On the route with nothing rendered into the slot. A second client
+      // navigation cannot fix that; a document load renders the page route,
+      // which always works.
+      window.location.assign("/products/new")
+    }, 700)
   }, [sheetOpen, router])
 
   // Every tab answers the finger before the route does.
