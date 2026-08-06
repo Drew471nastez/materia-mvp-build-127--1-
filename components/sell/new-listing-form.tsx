@@ -197,24 +197,31 @@ export function NewListingForm() {
     setPhotos((p) => p.filter((ph) => ph.id !== id))
   }, [])
 
-  // Drag to reorder. HTML5 drag on desktop, long-press-free reordering on touch
-  // via the same index swap — the first photo is the cover, so ordering matters.
-  const dragIndex = useRef<number | null>(null)
-  const onDragStart = (i: number) => () => {
-    dragIndex.current = i
-  }
-  const onDragOver = (i: number) => (e: React.DragEvent) => {
-    e.preventDefault()
-    const from = dragIndex.current
-    if (from === null || from === i) return
+  /**
+   * Promote a photo to the cover.
+   *
+   * This replaces drag-to-reorder, which was HTML5 drag-and-drop — `draggable`,
+   * `onDragStart`, `onDragOver`. A finger does not produce those events, so on
+   * the device this form is overwhelmingly used on, the tiles could not be
+   * reordered at all. The card said "trage de ele ca să le rearanjezi"
+   * underneath a set of pictures that did not move.
+   *
+   * And reordering was never really the want. There is one position that
+   * matters — the cover, which is the photograph the entire marketplace sees —
+   * and everything else is just "the rest". So the operation is stated directly
+   * and does the whole job in one tap, which is also the only interaction a
+   * finger can perform reliably on a tile that small.
+   */
+  const makeCover = useCallback((id: string) => {
     setPhotos((p) => {
+      const i = p.findIndex((ph) => ph.id === id)
+      if (i <= 0) return p
       const next = [...p]
-      const [moved] = next.splice(from, 1)
-      next.splice(i, 0, moved)
+      const [moved] = next.splice(i, 1)
+      next.unshift(moved)
       return next
     })
-    dragIndex.current = i
-  }
+  }, [])
 
   /**
    * The slide up, and the way back out.
@@ -521,87 +528,151 @@ export function NewListingForm() {
       <div className="md:grid md:grid-cols-2 md:gap-6">
       <div className="min-w-0">
       {/* ---- Photos ---- */}
+      {/**
+        * The photo step, rebuilt.
+        *
+        * It was a row of 3:4 thumbnails at a quarter of the width — about 78px
+        * across on a phone — with a 24px delete target in the corner of each,
+        * and a line of copy underneath promising you could drag them to
+        * reorder. On touch you could not: the reordering is HTML5 drag-and-drop,
+        * which a finger does not produce. So the instruction was wrong, the
+        * pictures were too small to judge, and the only control on them was
+        * easier to hit by accident than on purpose.
+        *
+        * What matters here is which photograph is the COVER — it is the one the
+        * whole marketplace sees — and that was a 10px pill on a 78px tile.
+        *
+        * So the cover is now a photograph you can actually look at, full width
+        * of the card and in the 3:4 the grid crops to, with its role stated on
+        * it. The others sit under it in a three-across strip, each with a
+        * one-tap "Copertă" that promotes it — which is the reordering people
+        * actually want, done in a way that works with a finger, instead of a
+        * drag that only ever worked with a mouse.
+        */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">
             Fotografii<span className="ml-0.5 text-[#7c3aed]">*</span>
           </h2>
-          <span className="text-[13px] text-neutral-400">
+          <span className="text-[13px] tabular-nums text-neutral-400">
             {photos.length}/{MAX_PHOTOS}
           </span>
         </div>
         <p className="mt-1 text-[13px] text-neutral-500">
-          Prima fotografie este coperta. Trage de ele ca să le rearanjezi.
+          {photos.length === 0
+            ? `Adaugă minimum ${MIN_PHOTOS}. Prima este coperta anunțului.`
+            : "Prima este coperta. Apasă „Copertă” pe alta ca s-o muți în față."}
         </p>
 
-        {/* NOTHING YET: one target the size of the job.
-            A 4-column grid of empty squares asks you to aim at a thumbnail
-            before a single photo exists, and the first one is the whole reason
-            anybody opens this screen. Once there IS a photo the grid below is
-            right — it is showing you what you have — so this stands in only
-            while there is nothing to show. */}
-        {photos.length === 0 && (
+        {/* Nothing yet: one target the size of the job. Aiming at a thumbnail
+            before a single photo exists is backwards, and the first photo is
+            the whole reason anybody opens this screen. */}
+        {photos.length === 0 ? (
           <button
             type="button"
             onClick={() => {
               void triggerHaptic("light")
               fileRef.current?.click()
             }}
-            className="mt-3 flex w-full flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-9 transition-colors active:border-[#7c3aed] active:bg-violet-50/50"
+            className="mt-3 flex w-full flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-10 transition-colors active:border-[#7c3aed] active:bg-violet-50/50"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-              <Camera className="h-[21px] w-[21px]" />
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#7c3aed] shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+              <Camera className="h-[22px] w-[22px]" />
             </span>
-            <span className="text-[15px] font-semibold text-neutral-900">Încarcă fotografii</span>
-            <span className="text-[12.5px] text-neutral-500">
-              Minimum {MIN_PHOTOS}. Lumină bună, fundal simplu.
-            </span>
+            <span className="text-[15.5px] font-semibold text-neutral-900">Adaugă fotografii</span>
+            <span className="text-[12.5px] text-neutral-500">Lumină bună, fundal simplu</span>
           </button>
-        )}
-
-        <div className={cn("grid grid-cols-4 gap-2 sm:grid-cols-5", photos.length > 0 && "mt-3")}>
-          {photos.map((p, i) => (
-            <div
-              key={p.id}
-              draggable
-              onDragStart={onDragStart(i)}
-              onDragOver={onDragOver(i)}
-              className="group relative aspect-[3/4] cursor-grab overflow-hidden rounded-xl bg-neutral-100 active:cursor-grabbing"
-            >
+        ) : (
+          <>
+            {/* THE COVER, at a size you can judge. */}
+            <div className="relative mt-3 aspect-[3/4] w-full overflow-hidden rounded-2xl bg-neutral-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url || p.localUrl} alt="" className="h-full w-full object-cover" />
-              {p.uploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+              <img
+                src={photos[0].url || photos[0].localUrl}
+                alt=""
+                draggable={false}
+                className="h-full w-full select-none object-cover"
+              />
+              {photos[0].uploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
                 </div>
               )}
-              {i === 0 && !p.uploading && (
-                <span className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  Copertă
-                </span>
-              )}
+              <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11.5px] font-semibold text-white backdrop-blur-sm">
+                Copertă
+              </span>
               <button
                 type="button"
-                onClick={() => removePhoto(p.id)}
-                aria-label="Șterge fotografia"
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
+                onClick={() => {
+                  void triggerHaptic("light")
+                  removePhoto(photos[0].id)
+                }}
+                aria-label="Șterge coperta"
+                className="absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform active:scale-90"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-[18px] w-[18px]" strokeWidth={2.4} />
               </button>
             </div>
-          ))}
 
-          {photos.length < MAX_PHOTOS && (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-neutral-200 text-neutral-400 transition-colors hover:border-[#7c3aed] hover:text-[#7c3aed]"
-            >
-              <Camera className="h-5 w-5" />
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+            {/* The rest, plus the way to add more. */}
+            <div className="mt-2.5 grid grid-cols-3 gap-2.5">
+              {photos.slice(1).map((p) => (
+                <div key={p.id} className="relative aspect-[3/4] overflow-hidden rounded-xl bg-neutral-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.url || p.localUrl}
+                    alt=""
+                    draggable={false}
+                    className="h-full w-full select-none object-cover"
+                  />
+                  {p.uploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/35">
+                      <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void triggerHaptic("light")
+                      removePhoto(p.id)
+                    }}
+                    aria-label="Șterge fotografia"
+                    className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform active:scale-90"
+                  >
+                    <X className="h-[15px] w-[15px]" strokeWidth={2.6} />
+                  </button>
+                  {!p.uploading && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void triggerHaptic("light")
+                        makeCover(p.id)
+                      }}
+                      className="absolute inset-x-1.5 bottom-1.5 rounded-lg bg-black/55 py-1.5 text-[11.5px] font-semibold text-white backdrop-blur-sm transition-transform active:scale-95"
+                    >
+                      Copertă
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {photos.length < MAX_PHOTOS && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void triggerHaptic("light")
+                    fileRef.current?.click()
+                  }}
+                  className="flex aspect-[3/4] flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/60 text-neutral-400 transition-colors active:border-[#7c3aed] active:bg-violet-50/50 active:text-[#7c3aed]"
+                >
+                  <Plus className="h-6 w-6" strokeWidth={2.2} />
+                  <span className="text-[11.5px] font-medium">Adaugă</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
         {/* `capture` is deliberately absent: without it iOS offers the full
             sheet — camera, photo library, files — which is what people expect. */}
         <input

@@ -79,14 +79,24 @@ function isListing(pathname: string): boolean {
  * last thing you were filling in.
  */
 function isFullScreenForm(pathname: string): boolean {
-  return (
-    pathname.startsWith("/profile/edit") ||
-    // Selling something is a task you finish and leave, not a place you browse
-    // between. It comes up as a full-screen sheet from the + in the middle of
-    // this bar, and a bar inside the sheet it came out of is the app arguing
-    // with itself about where you are.
-    pathname.startsWith("/products/new")
-  )
+  /**
+   * /products/new IS NOT IN THIS LIST, and taking it out is what stopped the
+   * flash when you open the sell sheet.
+   *
+   * The sheet is an intercepted route now: the screen you were on is still
+   * mounted and still on screen underneath it. Hiding this bar for that path
+   * therefore did not hide a bar on a page you had left — it REMOVED a bar from
+   * the page you were still looking at, and the shell is a flex column, so
+   * everything in it reflowed. From a profile that is the whole page jumping by
+   * the height of the bar and its spacer, in the frames before the sheet has
+   * risen far enough to cover it. Closing played the same jump in reverse as
+   * the bar came back.
+   *
+   * Nothing needs hiding. The sheet is `fixed inset-0` at z-95; this bar is
+   * z-80 and is simply behind it. A thing you cannot see does not need to be
+   * removed, and removing it was moving the page underneath.
+   */
+  return pathname.startsWith("/profile/edit")
 }
 
 /** Routes where a bottom bar would be in the way. */

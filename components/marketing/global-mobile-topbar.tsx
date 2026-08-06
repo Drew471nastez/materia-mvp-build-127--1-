@@ -90,11 +90,10 @@ export function GlobalMobileTopBar() {
     pathname.startsWith("/messages") ||
     pathname.startsWith("/purchases") ||
     pathname.startsWith("/sales") ||
-    // The sell form is a full-screen sheet with its own header and its own
-    // close. A field for searching other people's listings above the one you
-    // are writing is furniture from another room, and it was also the thing
-    // stopping this screen from being full-screen at all.
-    pathname.startsWith("/products/new") ||
+    // /products/new is deliberately absent — see the note in
+    // global-mobile-nav.tsx. The sell sheet covers this strip rather than
+    // needing it gone, and taking it away reflowed the page underneath, which
+    // is the jump you saw in the first frames of the slide.
     isListingPage
 
   if (hidden) {
