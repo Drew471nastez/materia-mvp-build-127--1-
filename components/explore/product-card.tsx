@@ -2,6 +2,7 @@
 
 import { memo, useState, useRef, useCallback } from "react"
 import Image from "next/image"
+import { CARD_RATIO, cardDimensions, cardImage, readVariants } from "@/lib/images/variants"
 import { Badge } from "@/components/ui/badge"
 
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
@@ -153,6 +154,10 @@ interface ProductCardProps {
     thumbnail_url?: string | null
     /** jsonb string[] — the second real photo drives the hover swap. May hold YouTube posters. */
     gallery_urls?: string[] | null
+    /** jsonb — the optimised pair per photo, positionally aligned with
+     *  [thumbnail_url, ...gallery_urls]. Absent on every listing created before
+     *  the pipeline shipped, which is why every read of it falls back. */
+    image_variants?: unknown
     type: string
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display
@@ -266,9 +271,30 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const compareAtCents = product.compare_at_cents ?? 0
   const hasDiscount = compareAtCents > product.price_cents
 
+  /**
+   * THE CARD IMAGE — a thumbnail if there is one, the original if not.
+   *
+   * `cardImage` is the fallback rule in one place (lib/images/variants.ts):
+   * thumb → large → thumbnail_url → nothing. Every listing created before the
+   * image pipeline shipped has no variants at all and lands on the third
+   * branch, rendering exactly as it does today. That is what lets this deploy
+   * before the backfill has touched a single old listing.
+   *
+   * The thumbnail is ~80 KB and already 4:5; the fallback is whatever the
+   * seller's phone produced. Both are displayed identically by the CSS below,
+   * so the only difference a visitor can see is how fast the feed scrolls.
+   */
+  const variants = readVariants(product.image_variants)
+  const cardSrc = cardImage(variants, product.thumbnail_url)
+  const cardDims = cardDimensions(variants[0])
+
   // Second real photo, for the hover swap. The helper for this already existed —
   // the swap itself had just been removed at some point.
-  const hoverImage = pickHoverImage(product.gallery_urls, product.thumbnail_url)
+  const hoverImage =
+    // Prefer the second photo's THUMBNAIL: this one is fetched on hover on a
+    // desktop grid, and pulling a 1280px original for an effect is the kind of
+    // thing that makes a feed feel heavy for no visible benefit.
+    (variants[1]?.thumb ?? null) || pickHoverImage(product.gallery_urls, product.thumbnail_url)
 
   const sizeLabel = getSizeLabel(product)
   // Brand and condition sit on one subtle line, Depop-style — both are optional.
@@ -287,16 +313,26 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           Subtle ring + shadow give the flat white grid a bit of depth. The
           no-touch-callout class kills iOS long-press "save/copy image", text
           selection and image dragging so the photo feels like a native tile. */}
-      {/* 3:4 — Vinted's portrait ratio, and about 5% taller than the 4:5 this
-          used to be. Clothing photographs tall: a wider frame either crops the
-          garment or leaves dead space either side of it. */}
-      <div className="no-touch-callout relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-100">
-        <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url} className="absolute inset-0 block">
-          {product.thumbnail_url ? (
+      {/* 4:5 — one ratio for every card in the marketplace, and the same ratio
+          the thumbnail is GENERATED at (lib/images/geometry.ts, 800×1000). That
+          agreement is the point: a 4:5 file in a 4:5 box is displayed whole,
+          while a mismatch means object-fit crops a second time and quietly
+          throws away part of a crop the seller already chose.
+
+          Written as an inline aspect-ratio rather than a Tailwind class so it
+          reads from ONE constant shared with the thumbnail generator — the two
+          cannot drift apart in a refactor. */}
+      <div
+        className="no-touch-callout relative w-full overflow-hidden rounded-xl bg-neutral-100"
+        style={{ aspectRatio: CARD_RATIO }}
+      >
+        <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={cardSrc} className="absolute inset-0 block">
+          {cardSrc ? (
             <Image
-              src={product.thumbnail_url}
+              src={cardSrc}
+              width={cardDims.width}
+              height={cardDims.height}
               alt={product.title || "Product"}
-              fill
               sizes={GRID_IMAGE_SIZES}
               quality={70}
               placeholder="blur"
@@ -307,7 +343,8 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               // second layer at all, and one whose second photo hasn't decoded
               // yet simply keeps showing the first instead of blanking to the
               // empty well underneath.
-              className="object-cover select-none"
+              className="absolute inset-0 h-full w-full object-cover select-none"
+              decoding="async"
               draggable={false}
               priority={priority}
               loading={priority ? undefined : "lazy"}
@@ -331,12 +368,13 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               src={hoverImage}
               alt=""
               aria-hidden
-              fill
+              width={cardDims.width}
+              height={cardDims.height}
               sizes={GRID_IMAGE_SIZES}
               quality={70}
               // 240ms, not 550. Long crossfades read as the page struggling; at
               // this length it feels immediate but still lands softly.
-              className="hidden object-cover opacity-0 transition-opacity duration-[240ms] ease-out md:block md:group-hover:opacity-100"
+              className="absolute inset-0 hidden h-full w-full object-cover opacity-0 transition-opacity duration-[240ms] ease-out md:block md:group-hover:opacity-100"
               draggable={false}
               loading="lazy"
               decoding="async"

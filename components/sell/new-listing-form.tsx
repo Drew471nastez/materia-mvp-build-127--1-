@@ -20,11 +20,22 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { DragSheet } from "@/components/ui/drag-sheet"
-import { compressImage, LISTING_IMAGE } from "@/lib/images/compress"
+import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
+import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
 import { cn } from "@/lib/utils"
 
-type Photo = { id: string; url: string | null; uploading: boolean; localUrl: string }
+type Photo = {
+  id: string
+  /** The LARGE variant's public URL — what thumbnail_url/gallery_urls store. */
+  url: string | null
+  uploading: boolean
+  localUrl: string
+  /** The optimised pair, sent on publish. Null when the phone could not
+   *  re-encode: the listing still works, the card falls back to `url`, and the
+   *  backfill fills it in later. */
+  variant: ImageVariant | null
+}
 
 /** A tappable row that shows what's chosen and opens its picker. */
 function Field({
@@ -177,35 +188,65 @@ export function NewListingForm() {
       // Shown immediately from the local file, so the tile is never an empty
       // box waiting on a network round trip.
       localUrl: URL.createObjectURL(f),
+      variant: null,
     }))
     setPhotos((p) => [...p, ...staged])
 
-    await Promise.all(
-      chosen.map(async (file, i) => {
+    /**
+     * SEQUENTIAL, not Promise.all — and that is the change that matters here.
+     *
+     * Each photo is now decoded, rotated upright, cropped to 4:5 and encoded
+     * twice before it is sent. Eight 12-megapixel photos doing that at once is
+     * where a phone runs out of memory and the tab is killed, which takes the
+     * half-filled form with it. One at a time, with the thread handed back
+     * between them, keeps the form usable while the tiles fill in.
+     */
+    for (let i = 0; i < chosen.length; i++) {
+      const file = chosen[i]
+      const id = staged[i].id
+      try {
+        // Two files out of one: the 4:5 card crop and the full-ratio large
+        // version. Never throws for a photo it cannot process — it passes the
+        // original through — so the only rejections are the deliberate ones
+        // (too big, wrong type). See lib/images/pipeline.ts.
+        const out = await processListingImage(file)
+
         const fd = new FormData()
-        // Resized ONCE, here, instead of being transformed on every view.
-        //
-        // This is the half of the image-transformation removal that keeps the
-        // listing pages fast: without it, dropping /render/image/ would mean
-        // serving whatever a phone camera produced — commonly 4000px and
-        // several megabytes. Longest side 1600px at q0.8 is indistinguishable
-        // on a product page and roughly a tenth of the bytes.
-        //
-        // compressImage never throws and returns the original file on any
-        // failure, so this cannot turn a working upload into a broken one.
-        // See lib/images/compress.ts.
-        fd.append("file", await compressImage(file, LISTING_IMAGE))
-        try {
-          const res = await fetch("/api/listings/photo", { method: "POST", body: fd, credentials: "include" })
-          const data = await res.json()
-          setPhotos((p) =>
-            p.map((ph) => (ph.id === staged[i].id ? { ...ph, url: data?.url ?? null, uploading: false } : ph)),
-          )
-        } catch {
-          setPhotos((p) => p.filter((ph) => ph.id !== staged[i].id))
+        fd.append("file", out.large)
+        if (!out.passthrough) {
+          fd.append("thumb", out.thumb)
+          fd.append("width", String(out.width))
+          fd.append("height", String(out.height))
+          fd.append("thumbWidth", String(out.thumbWidth))
+          fd.append("thumbHeight", String(out.thumbHeight))
+          fd.append("focal", JSON.stringify(out.focal))
         }
-      }),
-    )
+
+        const res = await fetch("/api/listings/photo", { method: "POST", body: fd, credentials: "include" })
+        const data = await res.json()
+        setPhotos((p) =>
+          p.map((ph) =>
+            ph.id === id
+              ? { ...ph, url: data?.url ?? null, variant: data?.variant ?? null, uploading: false }
+              : ph,
+          ),
+        )
+      } catch (e) {
+        // A file the pipeline REFUSED (over 20 MB, not an image) is worth
+        // saying so about — silently dropping a tile reads as the app losing
+        // the photo. Anything else is a network failure and the tile goes.
+        if (e instanceof ImageRejected) {
+          setError(
+            e.reason === "too-large"
+              ? "Una dintre imagini depășește 20 MB."
+              : "Una dintre imagini nu a putut fi citită.",
+          )
+        }
+        setPhotos((p) => p.filter((ph) => ph.id !== id))
+      }
+      // Hand the main thread back between photos.
+      await new Promise((r) => setTimeout(r, 0))
+    }
   }, [photos.length])
 
   const removePhoto = useCallback((id: string) => {
@@ -574,6 +615,11 @@ export function NewListingForm() {
           body: JSON.stringify({
             draft,
             photos: uploaded.map((p) => p.url),
+            // Positionally aligned with `photos`, so index 0 is the cover in
+            // both. A null element is a photo the phone could not re-encode —
+            // the server keeps the alignment and the card falls back to the
+            // url above. See lib/images/variants.ts.
+            image_variants: uploaded.map((p) => p.variant),
             title: title.trim(),
             description: description.trim(),
             price_cents: Number.isFinite(priceCents) ? priceCents : 0,

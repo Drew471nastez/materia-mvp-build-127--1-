@@ -22,6 +22,45 @@ function slugify(input: string): string {
     .slice(0, 60)
 }
 
+/**
+ * Whatever the client sent as `image_variants`, made safe to store.
+ *
+ * It arrives as JSON from a browser, so every field is untrusted and the array
+ * may be any length. Trimmed to the number of photos and padded with nulls, so
+ * the positional alignment with [thumbnail_url, ...gallery_urls] holds no
+ * matter what turned up — that alignment is the whole contract of the column.
+ *
+ * Only the fields lib/images/variants.ts reads are copied through. An entry
+ * with no usable `large` becomes null rather than a half-record that would
+ * render a broken image.
+ */
+function cleanVariants(raw: unknown, count: number): Array<Record<string, any> | null> {
+  const list = Array.isArray(raw) ? raw : []
+  const out: Array<Record<string, any> | null> = []
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : null)
+  const unit = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5)
+  const url = (v: unknown) => (typeof v === "string" && v.startsWith("http") ? v : null)
+
+  for (let i = 0; i < count; i++) {
+    const v: any = list[i]
+    const large = url(v?.large)
+    if (!v || typeof v !== "object" || !large) {
+      out.push(null)
+      continue
+    }
+    out.push({
+      large,
+      thumb: url(v.thumb),
+      width: num(v.width),
+      height: num(v.height),
+      thumbWidth: num(v.thumbWidth),
+      thumbHeight: num(v.thumbHeight),
+      focal: v.focal ? { x: unit(v.focal.x), y: unit(v.focal.y) } : null,
+    })
+  }
+  return out
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -91,6 +130,15 @@ export async function POST(request: NextRequest) {
       compare_at_cents: compareCents,
       thumbnail_url: photos[0] ?? null,
       gallery_urls: photos.slice(1, MAX_PHOTOS),
+      // The optimised pair per photo, POSITIONALLY ALIGNED with
+      // [thumbnail_url, ...gallery_urls] — index 0 is the cover in both. Nulls
+      // are preserved rather than filtered, because dropping one would shift
+      // every variant after it onto the wrong photo, which is worse than the
+      // missing thumbnail it was trying to tidy away.
+      //
+      // Additive: thumbnail_url keeps its exact meaning and stays the fallback,
+      // so a listing renders identically with or without this column.
+      image_variants: cleanVariants(body?.image_variants, photos.length),
       status: draft ? "draft" : "published",
       type: "physical",
       category: body?.category ?? null,
@@ -111,7 +159,7 @@ export async function POST(request: NextRequest) {
     // published" — a schema error surfacing as a validation-shaped message. Retry
     // with just the columns that have always existed, so a listing can still be
     // created; the extra attributes fill in once the migration is applied.
-    const OPTIONAL = ["subcategory", "colour", "era", "source_tags", "style_tags", "draft_saved_at"]
+    const OPTIONAL = ["subcategory", "colour", "era", "source_tags", "style_tags", "draft_saved_at", "image_variants"]
 
     let created: any = null
     const first = await admin.from("products").insert(row).select("id, slug").single()

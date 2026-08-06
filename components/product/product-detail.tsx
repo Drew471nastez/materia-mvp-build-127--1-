@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import Image from "next/image"
+import { CARD_RATIO, detailImage, readVariants } from "@/lib/images/variants"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Flag, Heart, MessageCircle, Share2 } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
@@ -172,7 +173,21 @@ export function ProductDetail({ product }: { product: any }) {
   const [index, setIndex] = useState(0)
   const galleryRef = useRef<HTMLDivElement>(null)
 
-  const images = photos(product.thumbnail_url, product.gallery_urls)
+  /**
+   * The gallery always shows the LARGE variant — never the card thumbnail.
+   *
+   * The thumbnail is cropped to 4:5 for the grid. Showing it here is exactly
+   * the failure the detail page exists to avoid: the toe of the shoe, the strap
+   * of the bag, the hem of the coat, gone — on the one screen somebody opened
+   * specifically to look at the whole thing.
+   *
+   * `detailImage` falls back to the original url per photo, so a listing with
+   * no variants renders precisely as it does today.
+   */
+  const detailVariants = readVariants((product as any).image_variants)
+  const images = photos(product.thumbnail_url, product.gallery_urls).map(
+    (url, i) => detailImage(detailVariants, url, i) ?? url,
+  )
   /** Which photo the full-size viewer is on, or null when it is closed. */
   const [viewerAt, setViewerAt] = useState<number | null>(null)
   /** The already-decoded version of EVERY photo in the gallery, positionally,
@@ -388,7 +403,13 @@ export function ProductDetail({ product }: { product: any }) {
             }}
           >
             {(images.length ? images : [null]).map((src, i) => (
-              <div key={i} className="relative aspect-[3/4] w-full shrink-0 snap-center bg-neutral-100">
+              // 4:5, the same frame the card uses, so opening a listing does
+              // not change the shape of the photograph under your thumb.
+              <div
+                key={i}
+                className="relative w-full shrink-0 snap-center bg-neutral-100"
+                style={{ aspectRatio: CARD_RATIO }}
+              >
                 {src ? (
                   // TAPPING THE PHOTOGRAPH OPENS IT.
                   //
@@ -460,11 +481,25 @@ export function ProductDetail({ product }: { product: any }) {
                       // default, so a slow swipe across the photo starts a
                       // native image drag or a long-press callout instead of
                       // moving the carousel, and the gesture is lost.
-                      className="object-cover select-none"
+                      // CONTAIN, not cover — the whole photograph, letterboxed
+                      // into the frame rather than cropped to fill it. This is
+                      // the difference between a gallery you can judge a
+                      // garment from and one that cuts the shoes off. The
+                      // neutral well behind it is what the letterboxing shows,
+                      // and it is the same colour as the card's, so a wide
+                      // flat-lay reads as deliberate rather than broken.
+                      className="object-contain select-none"
                       draggable={false}
                       placeholder="blur"
                       blurDataURL={BLUR}
+                      // Only the first photo is fetched eagerly. The rest are a
+                      // horizontal rail the visitor may never swipe, and
+                      // downloading eight full-size images for a listing
+                      // somebody bounced off is the most expensive thing this
+                      // page could do.
                       priority={i === 0}
+                      loading={i === 0 ? undefined : "lazy"}
+                      decoding="async"
                     />
                   </button>
                 ) : (

@@ -75,7 +75,17 @@ export async function ExploreFeed({
       "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
     // Resale attributes the cards and filters read. Everything after BASE_COLS
     // arrived in a later migration, so the query falls back if it 400s.
-    const FEED_COLS = `${BASE_COLS}, size, size_system, condition, brand, subcategory, colour, era, source_tags, style_tags`
+    // `image_variants` is the newest of these and arrives with
+    // RUN_LISTING_IMAGE_VARIANTS.sql. It is appended to the SAME optimistic
+    // string the resale attributes already use, so it inherits the existing
+    // fallback: if the migration has not run, this query 400s on the unknown
+    // column, the retry below runs with BASE_COLS, and the feed renders from
+    // thumbnail_url exactly as it does today.
+    //
+    // That is the whole reason the column is additive. A deploy that required
+    // the migration to have been run first would be a blank marketplace for
+    // however long the gap was.
+    const FEED_COLS = `${BASE_COLS}, size, size_system, condition, brand, subcategory, colour, era, source_tags, style_tags, image_variants`
 
     const runProductsQuery = (cols: string) => {
       let q = supabase
