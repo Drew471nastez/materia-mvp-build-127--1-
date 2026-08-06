@@ -16,9 +16,9 @@
  * under test import cleanly here.
  */
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs"
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, basename } from "node:path"
+import { join, basename, dirname, relative } from "node:path"
 
 const SUITES = [
   "tests/push-notifications.test.ts",
@@ -26,25 +26,39 @@ const SUITES = [
   "tests/auth-session.test.ts",
   "tests/auth-guards.test.ts",
   "tests/no-image-transforms.test.ts",
+  "tests/image-pipeline.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
+const tsconfigPath = "tsconfig.tests.generated.json"
 let anyFailed = false
 try {
-  execFileSync(
-    "npx",
-    [
-      "tsc",
-      ...SUITES,
-      "--outDir", out,
-      "--target", "es2022",
-      "--module", "esnext",
-      "--moduleResolution", "bundler",
-      "--skipLibCheck",
-      "--strict", "false",
-    ],
-    { stdio: "inherit" },
+  // A real tsconfig rather than a file list, because the modules under test
+  // import each other through the `@/…` alias. Passing files on the command
+  // line gives tsc no baseUrl and no paths, so the first cross-module alias
+  // import fails to RESOLVE — TS2307, exit 2, before a single assertion runs.
+  // Written into the PROJECT ROOT, not the temp dir. tsc resolves `node_modules`
+  // and `typeRoots` relative to the config file, so a config living in /tmp
+  // cannot see @types/node — "Cannot find type definition file for 'node'",
+  // exit 2, before any assertion runs. Removed in the finally block below.
+  writeFileSync(
+    tsconfigPath,
+    JSON.stringify({
+      compilerOptions: {
+        outDir: out,
+        rootDir: ".",
+        target: "es2022",
+        module: "esnext",
+        moduleResolution: "bundler",
+        skipLibCheck: true,
+        strict: false,
+        baseUrl: ".",
+        paths: { "@/*": ["./*"] },
+      },
+      files: SUITES,
+    }),
   )
+  execFileSync("npx", ["tsc", "-p", tsconfigPath], { stdio: "inherit" })
 
   // Emitted ESM needs real extensions, and `server-only` is not resolvable
   // from a temp directory — it contributes nothing to these modules anyway.
@@ -55,6 +69,16 @@ try {
   for (const file of walk(out)) {
     if (!file.endsWith(".js")) continue
     let src = readFileSync(file, "utf8")
+    // `@/lib/x` → a real relative path. tsc RESOLVES the alias for type
+    // checking but emits the specifier verbatim, so Node then fails with
+    // ERR_MODULE_NOT_FOUND on a package called "@/lib". rootDir is the repo
+    // root, so the output mirrors the repo layout and the target is simply the
+    // same path under `out`.
+    src = src.replace(/from\s+["']@\/([^"']+)["']/g, (m, rest) => {
+      let rel = relative(dirname(file), join(out, rest)).replace(/\\/g, "/")
+      if (!rel.startsWith(".")) rel = `./${rel}`
+      return m.replace(`@/${rest}`, rel.endsWith(".js") ? rel : `${rel}.js`)
+    })
     src = src.replace(/from\s+["'](\.[^"']*?)["']/g, (m, spec) =>
       spec.endsWith(".js") ? m : m.replace(spec, `${spec}.js`))
     src = src.replace(/^\s*import\s+["']server-only["'];?\s*$/gm, "")
@@ -78,6 +102,7 @@ try {
   }
 } finally {
   rmSync(out, { recursive: true, force: true })
+  if (existsSync(tsconfigPath)) unlinkSync(tsconfigPath)
 }
 
 if (anyFailed) {
