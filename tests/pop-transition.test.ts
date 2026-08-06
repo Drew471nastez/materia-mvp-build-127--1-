@@ -190,6 +190,46 @@ check(
     "        leaves the inbox permanently offset or permanently dim.",
 )
 
+// ── The fallback is a transition, not an absence ────────────────────────────
+//
+// Most of the world reaches the CSS below rather than the view transition
+// above: any browser without `startViewTransition`, and any phone with Reduce
+// Motion switched on. For a long time both of those got a hard cut — the
+// fallback was a 22px nudge and the reduced-motion branch was `animation: none`
+// — which means every version of this transition was invisible on those
+// devices no matter what was built. That is the failure mode with no symptom to
+// debug: it looks exactly like nothing having been done.
+const back = keyframes("pop-return")
+check("the no-snapshot fallback is defined", back !== "")
+check(
+  "the fallback actually travels",
+  /from\s*\{[^}]*translate3d\(\s*-\d+%/.test(back),
+  "        A pixel nudge is not a transition. The strip it exposes on the right\n" +
+    "        is the page's own white background, so there is nothing bought by\n" +
+    "        keeping it small.",
+)
+check(
+  "the fallback and the view transition share a curve",
+  /animation:\s*pop-return 340ms cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(css),
+  "        One gesture described twice — for browsers that can draw both screens\n" +
+    "        and browsers that can only draw one. They should not feel different.",
+)
+const calm = keyframes("pop-return-calm")
+check("reduced motion still gets a transition", calm !== "")
+check(
+  "and it is opacity only",
+  calm !== "" && !/transform/.test(calm),
+  "        The preference is about travel, parallax and zoom, not about change\n" +
+    "        itself. A cross-fade is the documented substitute for a slide.",
+)
+check(
+  "reduced motion is not `animation: none` anywhere in the pop",
+  !/html\.pop-return[^{]*\{\s*animation:\s*none/.test(css),
+  "        That is what made every earlier version of this invisible on a phone\n" +
+    "        with Reduce Motion on — the harshest possible answer to somebody who\n" +
+    "        asked for calmer animation.",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

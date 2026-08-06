@@ -788,17 +788,38 @@ html.capacitor a.no-tap-fade:active {
    * flat subtree arriving on a frame the browser is already building from
    * scratch. There is no cheaper moment to promote a layer than the one where
    * everything is being painted anyway. */
+  /* 30% OF THE WIDTH, NOT 22px — THE CAUTION WAS MISPLACED.
+   *
+   * The offset was held to 22px because translating this element exposes a
+   * strip of whatever is behind it along the right edge, and a strip of "bare
+   * layout background" is what an earlier version of this shipped as a white
+   * flash. That reasoning was right about the mechanism and wrong about the
+   * colour: `--background` is `oklch(1 0 0)`, the body is white, and the inbox
+   * is a white card with a hairline sitting on white with 8px gutters. The
+   * strip is the page's own background against the page's own background.
+   * There was never anything to see.
+   *
+   * So the fallback is a real slide, the same 30% and the same curve as the
+   * view-transition pop above it — one movement described twice, for the
+   * browsers that can draw both screens and the browsers that can only draw
+   * one. Getting the same gesture either way matters more than the fact that
+   * one of them has a conversation travelling over it.
+   *
+   * Everything above the card travels with it: the "Mesaje" title, the
+   * switcher, the list. What trails behind is white, and what arrives is the
+   * whole screen, together. */
   @keyframes pop-return {
-    from { opacity: 0.86; transform: translate3d(-22px, 0, 0); }
+    from { opacity: 0.86; transform: translate3d(-30%, 0, 0); }
     to   { opacity: 1;    transform: translate3d(0, 0, 0); }
   }
   html.pop-return .marketing-flex-wrapper > main > * {
-    /* A hard decelerate: almost all of the travel is spent in the first third,
-       so the movement registers immediately and the tail is the part that
-       settles. An even curve over the same distance reads as sliding, which is
-       slower than it is. */
-    animation: pop-return 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: pop-return 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
     will-change: transform, opacity;
+    /* The strip on the right is only invisible while it is the same white as
+       everything around it. Stated here rather than inherited, so a page that
+       later gives itself a different background cannot turn this into the
+       flash the comment above says it is not. */
+    background-color: var(--background, #fff);
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
     /* Chrome fades with the page but does not travel with it. */
@@ -820,11 +841,35 @@ html.capacitor a.no-tap-fade:active {
     opacity: 0.88;
     transition-duration: 0ms;
   }
+  /* REDUCED MOTION MEANS LESS MOVEMENT, NOT A HARD CUT.
+   *
+   * This used to be `animation: none`, and combined with the same check in
+   * lib/messages/pop-transition.ts it meant that a phone with Reduce Motion
+   * switched on got NOTHING — no slide, no parallax, no fade — for every one of
+   * the many versions of this transition. Whatever was built, that device saw a
+   * conversation replaced by an inbox between two frames, which is the harshest
+   * possible answer to somebody who asked for calmer animation.
+   *
+   * The preference is about vestibular discomfort: large travel, parallax,
+   * zoom, spin. A short opacity change is not that, and both WCAG and Apple's
+   * own guidance treat a cross-fade as the correct substitute for a slide
+   * rather than something to be removed. So the movement goes and the
+   * transition stays.
+   *
+   * No transform at all, and nothing on the chrome — the tab bar and top bar
+   * simply belong to the arriving screen. */
   @media (prefers-reduced-motion: reduce) {
-    html.pop-return .marketing-flex-wrapper > main > *,
-    html.pop-return .marketing-flex-wrapper > .native-only-topbar {
-      animation: none;
+    html.pop-return .marketing-flex-wrapper > main > * {
+      animation: pop-return-calm 180ms ease-out both;
       will-change: auto;
+      background-color: transparent;
+    }
+    html.pop-return .marketing-flex-wrapper > .native-only-topbar {
+      animation: pop-return-calm 180ms ease-out both;
+    }
+    @keyframes pop-return-calm {
+      from { opacity: 0.7; }
+      to   { opacity: 1; }
     }
   }
 }
