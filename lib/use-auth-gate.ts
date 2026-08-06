@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Session } from "@supabase/supabase-js"
 import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
+import { readSessionBounded } from "@/lib/auth/session-read"
 
 /**
  * Shared auth boot guard hook.
@@ -86,17 +87,29 @@ export function useAuthGate() {
     let cancelled = false
     const supabase = createClient()
 
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: s } }) => {
-        if (!cancelled) {
-          setSession(s)
-          setBooting(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setBooting(false)
-      })
+    /**
+     * BOUNDED. This is the read /login and /signup put a spinner over, so it is
+     * the read that must never be able to hang.
+     *
+     * It used to be a bare `getSession()`. That call reads storage and, when
+     * the access token has expired, goes to the network to refresh — and on
+     * native it could block behind a lock a suspended web view never released,
+     * in which case it never settles at all and no timeout on the promise
+     * itself would ever run. Four seconds is far past a normal read (tens of
+     * milliseconds) and short enough that a bad one is a pause rather than the
+     * "it just shows the loading thing and never loads" report.
+     *
+     * A timeout resolves to no session, which shows the sign-in form. That is
+     * the right answer HERE and only here: /login is the one screen where
+     * being wrong about a session costs nothing — the form is what somebody
+     * came for. Everywhere else in the app a timed-out read means "keep them
+     * in", which is what lib/auth/session-read.ts is for.
+     */
+    readSessionBounded(supabase, 4_000).then((r) => {
+      if (cancelled) return
+      setSession(r.session)
+      setBooting(false)
+    })
 
     return () => {
       cancelled = true

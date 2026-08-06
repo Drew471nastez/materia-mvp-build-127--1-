@@ -15,6 +15,7 @@ import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
+import { readSessionBounded } from "@/lib/auth/session-read"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { useLocale } from "@/components/locale-provider"
@@ -105,7 +106,11 @@ function SignUpFormContent() {
         }
 
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        // Bounded, like every other session read the UI waits on — see
+        // lib/auth/session-read.ts. A read that does not answer leaves the
+        // signup form on screen, which is what somebody on /signup wanted
+        // anyway; it must not leave a spinner.
+        const { session } = await readSessionBounded(supabase, 4_000)
         const user = session?.user
 
         if (user) {

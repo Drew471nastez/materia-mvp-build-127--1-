@@ -17,6 +17,7 @@
 
 import { useEffect } from "react"
 import { isAuthInProgress, setAuthInProgress } from "@/lib/auth/auth-in-progress"
+import { hasStoredSessionToken } from "@/lib/auth/session-read"
 
 export default function NativeStartPage() {
   useEffect(() => {
@@ -171,7 +172,26 @@ export default function NativeStartPage() {
     const timeout = setTimeout(() => {
       if (didRedirect) return
       console.warn("[native-start] resolve() timed out after 8 s — forcing redirect")
+      /**
+       * A TIMEOUT IS NOT A SIGNED-OUT.
+       *
+       * This checked only `sb-native-home` — a CACHE of where to send you,
+       * which a signed-in person on a fresh install simply does not have yet.
+       * Missing it, this fell through to /welcome: the signed-out screen,
+       * shown to somebody whose session was sitting in storage the whole time.
+       * That is the cold-start half of "randomly it just logs me out", and on
+       * this route it is the first thing that happens when you open the app.
+       *
+       * The stored auth token is the durable evidence, and reading it is
+       * synchronous and cannot hang — which is exactly why it is safe to
+       * consult in a handler that only runs because something else did hang.
+       * /welcome is now reserved for having actually looked and found nothing.
+       */
       try {
+        if (hasStoredSessionToken()) {
+          safeRedirect("/")
+          return
+        }
         const cachedHome = localStorage.getItem("sb-native-home")
         if (cachedHome) {
           safeRedirect("/")

@@ -54,10 +54,42 @@ export function NativeAuthGate({
       try {
         // Dynamic import so this only runs on the client in Capacitor
         const { createClient } = await import("@/lib/supabase/client")
+        const { readSessionBounded, hasStoredSessionToken } = await import("@/lib/auth/session-read")
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const result = await readSessionBounded(supabase, 6_000)
 
         if (cancelled) return
+
+        const { session } = result
+
+        /**
+         * THE RANDOM LOGOUT, as it was actually experienced.
+         *
+         * This used to be a bare `getSession()` with a 10-second
+         * `router.replace("/login")` behind it, and the read is exactly the
+         * one that can hang — it goes to Preferences and then, if the access
+         * token has expired, to the network. So a slow phone, a bad signal or
+         * a suspended web view threw a fully signed-in person onto /login with
+         * their session still sitting in Preferences, untouched.
+         *
+         * Nothing had logged them out. The app gave up asking and assumed the
+         * worst — which is why "it logs me out randomly" and "it doesn't
+         * really log me out, I click Conectează and it takes forever" are the
+         * same sentence about the same bug.
+         *
+         * A read that did not finish is not an answer. When it does not
+         * finish, the stored token is: it is durable, synchronous, and cannot
+         * hang. If it is there, carry on into the app. Only a read that
+         * SUCCEEDED and found nothing means signed out.
+         */
+        if (!session && (result.timedOut || result.failed) && hasStoredSessionToken()) {
+          // Render the app. If the session really has expired, the first
+          // server request says so properly and redirects — which is a correct
+          // answer arrived at honestly, rather than a guess.
+          setBlocked(false)
+          setAuthChecked(true)
+          return
+        }
 
         if (session) {
           // Session found in Preferences, but Next.js server components read
@@ -79,15 +111,42 @@ export function NativeAuthGate({
           router.replace("/login")
         }
       } catch {
-        if (!cancelled) router.replace("/login")
+        // Same rule as above: a thrown read is not a signed-out either.
+        if (cancelled) return
+        const { hasStoredSessionToken } = await import("@/lib/auth/session-read")
+        if (hasStoredSessionToken()) {
+          setBlocked(false)
+          setAuthChecked(true)
+        } else {
+          router.replace("/login")
+        }
       }
     }
 
-    // Give Supabase client up to 10 s to restore from Preferences
-    // (slow devices + cold start + large session can take longer than 4s)
-    const timeout = window.setTimeout(() => {
+    /**
+     * The outer floor. `readSessionBounded` already caps the read at six
+     * seconds, so this only fires if something outside it stalls — a dynamic
+     * import that never resolves, for instance.
+     *
+     * It no longer sends anybody to /login. That was the bug: this timer was
+     * the thing doing the "random logout". It now unblocks the UI, and the
+     * stored token decides whether the app or the login screen is the honest
+     * place to land.
+     */
+    const timeout = window.setTimeout(async () => {
+      if (cancelled) return
+      try {
+        const { hasStoredSessionToken } = await import("@/lib/auth/session-read")
+        if (hasStoredSessionToken()) {
+          setBlocked(false)
+          setAuthChecked(true)
+          return
+        }
+      } catch {
+        /* fall through */
+      }
       if (!cancelled) router.replace("/login")
-    }, 10_000)
+    }, 9_000)
 
     checkNativeSession().then(() => window.clearTimeout(timeout))
 

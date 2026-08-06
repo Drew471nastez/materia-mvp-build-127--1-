@@ -23,6 +23,7 @@ import { join, basename } from "node:path"
 const SUITES = [
   "tests/push-notifications.test.ts",
   "tests/activity-notifications.test.ts",
+  "tests/auth-session.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
