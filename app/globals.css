@@ -737,16 +737,38 @@ html.capacitor a.no-tap-fade:active {
     transition-timing-function: cubic-bezier(0.32, 0, 0.6, 1);
   }
 
-  /* THE DIP, TAKEN IN ONE FRAME. See lib/tab-leave.ts.
-     For a press that is already over before anything can react to it — Back,
-     which has no 80-150ms of finger-down to ease through. The rule above needs
-     that time to get anywhere; without it the screen moves about 3% before the
-     destination commits and the handover is invisible. Only the duration
-     changes; the 0.88 above is still what it lands on, and the rise back up is
-     still the full 240ms, which is the half anybody actually watches. */
-  html.tab-leaving-now .marketing-flex-wrapper > main,
-  html.tab-leaving-now .marketing-flex-wrapper > .native-only-topbar {
-    transition-duration: 0ms;
+  /* COMING BACK OUT OF A CONVERSATION.
+   *
+   * The one navigation in the app where the outgoing screen must not be touched
+   * at all. Everything else here dips what you are leaving, and that works
+   * because there is always another screen behind it and always a finger
+   * resting on a control first. A conversation has neither: it is
+   * `position: fixed` over the whole viewport with the bare layout background
+   * behind it, and Back is over before anything can respond. Fading it out
+   * showed that background — a blank white frame, held until the route
+   * committed, for however long that took. Dimming it in one frame showed a
+   * grey one instead. Dimming it gradually showed nothing, because the 120ms
+   * ease had about 3% of itself to play.
+   *
+   * So this is on the ARRIVING screen, which cannot uncover anything because it
+   * IS what is behind, and whose animation starts on the frame it first paints
+   * — so the transition is the same length whether the pop took one frame or
+   * four hundred milliseconds. An animation rather than a transition for
+   * exactly that reason: it plays from its own first keyframe on mount instead
+   * of continuing from a value some earlier event was supposed to have set.
+   *
+   * 0.9, opacity only. No transform: <main> is a tall document in normal flow,
+   * where a scale displaces by H × (1 − s) / 2 and a translate exposes a strip
+   * of background along whichever edge it came from. Added and removed by
+   * components/messages/inbox.tsx in a layout effect, so it is on before the
+   * first paint. */
+  @keyframes pop-return {
+    from { opacity: 0.9; }
+    to   { opacity: 1; }
+  }
+  html.pop-return .marketing-flex-wrapper > main,
+  html.pop-return .marketing-flex-wrapper > .native-only-topbar {
+    animation: pop-return 260ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
   }
 
   /* The same dip, for the navigations no finger on the bar started — a
@@ -759,6 +781,12 @@ html.capacitor a.no-tap-fade:active {
   html.tab-arriving .marketing-flex-wrapper > .native-only-topbar {
     opacity: 0.88;
     transition-duration: 0ms;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.pop-return .marketing-flex-wrapper > main,
+    html.pop-return .marketing-flex-wrapper > .native-only-topbar {
+      animation: none;
+    }
   }
 }
 @media (prefers-reduced-motion: reduce) {

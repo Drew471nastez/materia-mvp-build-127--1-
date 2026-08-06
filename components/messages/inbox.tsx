@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -17,6 +17,7 @@ import {
   hideConversation,
   unhideConversation,
 } from "@/lib/messages/hidden-conversations"
+import { consumeNavHint } from "@/lib/screen-transition"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -168,6 +169,49 @@ export function MessagesInbox({
   viewerId?: string | null
 }) {
   const { formatPrice } = useLocale()
+
+  /**
+   * COMING BACK FROM A CONVERSATION — the whole of that transition lives here.
+   *
+   * Not on the conversation, which is the screen that is leaving. Everything
+   * tried there was wrong the same way: fading it out left a blank frame,
+   * because there is nothing behind a conversation to reveal; dimming it left a
+   * grey one. Both were held for however long the route took, which nothing on
+   * that side knows in advance. The arriving screen has neither problem — it is
+   * the thing behind, so it can never uncover anything, and its animation
+   * starts on the frame it first paints, so it is the same length every time
+   * regardless of how long the pop took.
+   *
+   * A LAYOUT EFFECT, so the class is on before the browser paints. In a passive
+   * effect the inbox paints once at full opacity and only then drops to 0.9 to
+   * begin — a bright frame immediately before a dim one, which is a flash, and
+   * a worse one than the animation removes.
+   *
+   * `consumeNavHint` rather than `navHint`, and it is deliberately taken: the
+   * hint is left on <html> for 900ms and is for exactly one arrival. Read
+   * without clearing, the next thing to mount inside that window — a tab
+   * change, a re-render for any reason — would animate as though you had
+   * pressed back, which is a transition appearing out of nowhere.
+   *
+   * The class goes on <html> and the rule targets <main> (app/globals.css),
+   * which is how every other screen-level transition in this app is expressed;
+   * it means the fade covers the page and not just the list inside it.
+   */
+  useLayoutEffect(() => {
+    if (consumeNavHint() !== "back") return
+    const root = document.documentElement
+    root.classList.add("pop-return")
+    // Longer than the animation. Taken off early it would cut the fade short,
+    // and the animation carries `both`, so until it is removed <main> is held
+    // at the last keyframe — which is opacity 1, i.e. exactly where it belongs.
+    // Nothing is stuck if this timer never fires.
+    const t = window.setTimeout(() => root.classList.remove("pop-return"), 420)
+    return () => {
+      window.clearTimeout(t)
+      root.classList.remove("pop-return")
+    }
+  }, [])
+
   const [tab, setTab] = useState<"messages" | "notifications">(initialTab)
   // No entrance on the lists behind this switcher, in either direction.
   //

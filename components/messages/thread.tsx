@@ -18,7 +18,7 @@ import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
-import { beginTabLeave } from "@/lib/tab-leave"
+
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -1123,30 +1123,31 @@ export function MessageThread({
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
   /**
-   * CLOSING — instantly, which is the whole of the fix.
+   * CLOSING — and the conversation does nothing at all on the way out.
    *
-   * What was here: the conversation scaled down and faded to zero over 190ms
-   * and the navigation was fired 160ms into it. It showed a second of empty
-   * white on the way back, and it was two mistakes compounding.
+   * Three things have been tried on this screen and all three were wrong in the
+   * same way. Fading it to zero left a blank frame held until the route
+   * committed, because there is nothing behind a conversation to be revealed.
+   * Dipping it to 0.88 in one frame replaced the blank with a grey flash, and
+   * on a cold route you sat looking at a dimmed conversation for the whole
+   * wait. Dipping it gradually did nothing at all: the 120ms ease needs the
+   * 80-150ms a finger spends resting on a control before a tap resolves, and a
+   * back press is over before anything can respond to it, so the screen moved
+   * about 3% and the destination arrived.
    *
-   * The animation ended at `opacity: 0` under a `both` fill, which HOLDS the
-   * last frame after the animation ends — so from 190ms until /messages
-   * actually committed, the conversation was fully transparent and what showed
-   * through it was the bare layout background. A screen may not stop covering
-   * what is behind it until there is something behind it, and there is not: the
-   * inbox does not exist until Next commits it.
+   * What they have in common is that they all animate the screen that is about
+   * to stop existing, during a wait whose length nothing here knows. Any state
+   * it is left in is a state you might sit and look at.
    *
-   * And the 160ms bought time for that animation by spending it on the one
-   * control in the app that has to feel immediate.
+   * So the leaving screen is left alone, and the whole transition is on the
+   * arriving one — the inbox, which fades up from 0.9 over 260ms and cannot
+   * uncover anything because it IS the thing behind. It plays for a fixed
+   * length starting from the frame it first paints, so it is the same
+   * transition whether the pop took one frame or four hundred milliseconds.
+   * See `pop-return` in components/messages/inbox.tsx.
    *
-   * So the conversation does not animate at all now, and the navigation goes on
-   * the same tick as the press. The transition is the dip on <main>, which was
-   * always there and never uncovers anything because it never goes below 0.88 —
-   * it just had no time to happen. `instant: true` takes it in one frame
-   * instead of easing down over 120ms it does not have (a back press is over
-   * before anything can react; a tab press has a finger resting on it for
-   * 80-150ms first). The arrival then rises the full 240ms from the bottom of
-   * the dip, and THAT is the part anybody sees. See lib/tab-leave.ts.
+   * `navigateBlended("back", …)` is what leaves the hint on <html> that the
+   * inbox reads to know it was returned to rather than opened.
    *
    * Guarded against a second press: two overlapping `router.back()` calls pop
    * two history entries and land you two screens away.
@@ -1155,10 +1156,32 @@ export function MessageThread({
   const closeThread = useCallback(() => {
     if (closing.current) return
     closing.current = true
-    beginTabLeave({ instant: true })
     navigateBlended("back", () =>
       window.history.length > 1 ? router.back() : router.push("/messages"),
     )
+  }, [router])
+
+  /**
+   * Keep the inbox warm for the whole time you are in here.
+   *
+   * `staleTimes.dynamic` is 180 seconds. Spend longer than that in a
+   * conversation — which is most conversations worth having — and /messages has
+   * aged out of the client router cache, so pressing back is not a pop at all:
+   * it re-fetches the payload, shows the inbox's loading skeleton, and then
+   * swaps it for the list. That is two arrivals for one press and no entry
+   * animation can cover it, because the skeleton is a whole screen appearing
+   * first.
+   *
+   * Re-prefetched every two minutes, inside the three-minute window, so there
+   * is always a fresh entry there to go back to. One RSC payload for a list you
+   * are guaranteed to return to is a trade worth making; it is the same request
+   * the back press would have made anyway, moved off the critical path.
+   */
+  useEffect(() => {
+    const warm = () => router.prefetch("/messages")
+    warm()
+    const t = window.setInterval(warm, 120_000)
+    return () => window.clearInterval(t)
   }, [router])
 
 
