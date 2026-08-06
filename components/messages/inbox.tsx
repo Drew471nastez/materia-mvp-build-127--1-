@@ -874,6 +874,25 @@ function MessagesList({
               onClick={() => {
                 void triggerHaptic("light")
                 beginTabLeave()
+                /**
+                 * Zero the badge NOW, on the row you just opened.
+                 *
+                 * The thread marks itself read on the server (see
+                 * /api/messages/<id>/read), but that is a round trip you are
+                 * already walking away from, and the inbox you come back to may
+                 * be served from the router cache before any refetch lands. So
+                 * the row that says "3" while you are reading those three
+                 * messages is stale in the only way anybody notices.
+                 *
+                 * Optimistic, and safe in the only direction that matters: you
+                 * DID open the conversation, so zero is what the server is
+                 * about to agree with. If the mark somehow fails, the next
+                 * refetch puts the count back — a badge that reappears is
+                 * recoverable; one that never clears is the bug being reported.
+                 */
+                setRows((prev) =>
+                  prev ? prev.map((row) => (row.id === r.id ? { ...row, unread: 0 } : row)) : prev,
+                )
               }}
               className={cn(
                 ROW_INNER,

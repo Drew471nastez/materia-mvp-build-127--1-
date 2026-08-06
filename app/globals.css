@@ -2426,6 +2426,59 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
   }
 }
 
+/* CLOSING A CONVERSATION — the pop back to the inbox.
+ *
+ * Coming back used to be a route change and nothing else: the conversation
+ * ceased to exist and the list was simply there. That is the "extremely
+ * direct" — no movement, so nothing says the two screens are arranged in any
+ * relationship, and the eye has nothing to follow.
+ *
+ * A conversation is a screen that came in over the inbox, so it goes back out
+ * the way it arrived: to the right, revealing the list underneath. Every phone
+ * does this, and it is what makes master-detail feel like one screen with depth
+ * rather than two pages taking turns.
+ *
+ * Only the CLOSE is animated, deliberately. The way IN is covered by
+ * loading.tsx handing over to the conversation, and an entrance there has to
+ * span two different elements that replace each other — which is where a slide
+ * either restarts halfway or is skipped entirely depending on how fast the
+ * server answered. The way out has one element and one moment, so it is the
+ * half that can be made reliably smooth.
+ *
+ * ── WHY THIS MAY BE TRANSFORMED, when almost nothing else here may ──
+ * A transformed element becomes the containing block for every `position:
+ * fixed` DESCENDANT — the lesson the product page's buy bar taught the hard
+ * way, and the reason the tab transition is opacity-only. `.thread-shell` is
+ * itself `position: fixed` at the size of the visual viewport on a phone: it IS
+ * the screen, there is nothing around it to disturb, and its only fixed
+ * descendant is the fullscreen image viewer, which cannot be open while you are
+ * navigating out of the thread.
+ *
+ * The class is dropped when the route commits, so no transform outlives the
+ * animation — an identity matrix is still a transform, and a permanent one
+ * would re-anchor the viewer the next time it opened.
+ */
+@keyframes thread-leave {
+  from { transform: none; opacity: 1; }
+  to   { transform: translate3d(100%, 0, 0); opacity: 0.92; }
+}
+.thread-leave {
+  /* 260ms on a curve that starts immediately and accelerates away. Something
+     being dismissed should leave decisively; a symmetrical ease makes a close
+     feel like it is dawdling. The slight fade stops the trailing edge reading
+     as a hard rectangle sliding over the list. */
+  animation: thread-leave 260ms cubic-bezier(0.4, 0.02, 1, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  /* Above the inbox that is about to appear underneath it. */
+  z-index: 46;
+}
+@media (min-width: 768px), (prefers-reduced-motion: reduce) {
+  /* On a monitor the conversation is a PANE beside the list, not a screen over
+     it. It never covered anything and has nowhere to go. */
+  .thread-leave { animation: none; will-change: auto; }
+}
+
 /* Opening a conversation, and coming back out of one.
  *
  * Nothing here any more, and that is the fix rather than a deletion.
