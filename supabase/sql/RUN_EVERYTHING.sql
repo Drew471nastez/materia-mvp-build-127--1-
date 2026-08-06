@@ -8,32 +8,24 @@
 --  drift from them.
 --
 --  IDEMPOTENT. Running it a second time changes nothing and raises nothing.
---  Every statement is `if not exists` / `add column if not exists` / guarded by
---  a DO block, so it is safe on a database where some of this has already been
---  applied — which is the normal case here.
---
---  You will get several result rows, one per section. The last one says
---  "backfill" — if you see it, the whole thing ran.
 --
 --  ORDER MATTERS and is already correct:
---    1. messaging       — conversations, messages, notifications, RLS, offers
---                         (this is where conversations.buyer_deleted_at lives:
---                          the reason a deleted conversation came back)
---    2. profile         — profiles.bio and profiles.cover_url
---    3. message push    — chat notification idempotency + preferences
---    4. activity push   — likes / follows / trending queue  (needs 1 and 3)
---    5. backfill        — a profiles row for every account that lacks one
+--    1. messaging        conversations, messages, notifications, RLS, offers
+--                        (conversations.buyer_deleted_at lives here — the
+--                         reason a deleted conversation came back)
+--    2. profile          profiles.bio and profiles.cover_url
+--    3. message push     chat notification idempotency + preferences
+--    4. activity push    likes / follows / trending queue  (needs 1 and 3)
+--    5. image variants   products.image_variants for the 4:5 thumbnail system
+--    6. backfill         a profiles row for every account that lacks one
 --
---  This file is GENERATED. Do not edit it — edit the source file for the
---  section you mean and regenerate, or the two will disagree and the copy
---  people actually paste will be the stale one.
+--  This file is GENERATED. Edit the source file for the section you mean.
 -- ###########################################################################
 
 
 
 -- ###########################################################################
 --  SECTION: RUN_MESSAGING_ALL
---  source: supabase/sql/RUN_MESSAGING_ALL.sql
 -- ###########################################################################
 
 -- ===========================================================================
@@ -902,7 +894,6 @@ select
 
 -- ###########################################################################
 --  SECTION: RUN_PROFILE_COVER_BIO
---  source: supabase/sql/RUN_PROFILE_COVER_BIO.sql
 -- ###########################################################################
 
 -- ===========================================================================
@@ -1000,7 +991,6 @@ select 'profiles.bio and profiles.cover_url are ready' as result;
 
 -- ###########################################################################
 --  SECTION: RUN_MESSAGE_PUSH
---  source: supabase/sql/RUN_MESSAGE_PUSH.sql
 -- ###########################################################################
 
 -- ===========================================================================
@@ -1092,7 +1082,6 @@ select 'message push: log table, preference columns and unread index are ready' 
 
 -- ###########################################################################
 --  SECTION: RUN_ACTIVITY_PUSH
---  source: supabase/sql/RUN_ACTIVITY_PUSH.sql
 -- ###########################################################################
 
 -- ===========================================================================
@@ -1240,8 +1229,80 @@ select 'social activity push: queue, preference columns, feed kinds and indexes 
 
 
 -- ###########################################################################
+--  SECTION: RUN_LISTING_IMAGE_VARIANTS
+-- ###########################################################################
+
+-- ===========================================================================
+--  Storelib — two image variants per listing photo
+-- ===========================================================================
+--  Run once in the Supabase SQL editor. Idempotent.
+--
+--  ADDITIVE ON PURPOSE. `thumbnail_url` and `gallery_urls` keep their exact
+--  meaning and keep pointing at working images — about a dozen places read
+--  them (cards, detail, search, inbox, chat previews, sitemap, OG tags) and
+--  replacing them would mean every one of those reads changing on the same
+--  deploy as the write. Anything missed is a broken image on a live
+--  marketplace.
+--
+--  So this adds a column beside them. Nothing reads it until it is populated,
+--  everything falls back when it is not, and listings created before today
+--  keep working untouched until the backfill reaches them. That is what
+--  "never delete an original until the optimised version is verified"
+--  requires in practice.
+-- ===========================================================================
+
+-- ── The variants ───────────────────────────────────────────────────────────
+--  A jsonb ARRAY, positionally aligned with [thumbnail_url, ...gallery_urls]
+--  so index 0 is always the cover. Each element:
+--
+--    {
+--      "large":       "https://…/object/public/listings/<uid>/<id>-large.webp",
+--      "thumb":       "https://…/object/public/listings/<uid>/<id>-thumb.webp",
+--      "width": 1280, "height": 1600,
+--      "thumbWidth": 800, "thumbHeight": 1000,
+--      "focal": { "x": 0.5, "y": 0.42 }
+--    }
+--
+--  jsonb rather than a child table: this is read on every card render, always
+--  in full, always with its product, and never queried across products. A join
+--  per card to reassemble something that is always used whole is a join that
+--  buys nothing. If image-level querying is ever needed, that is the moment to
+--  promote it to a table — not before.
+--
+--  `thumb` may be null. That is a photo whose browser could not re-encode it;
+--  the card falls back to `large`, and the backfill fills it in later.
+alter table public.products
+  add column if not exists image_variants jsonb not null default '[]'::jsonb;
+
+comment on column public.products.image_variants is
+  'Per-photo optimised pair, positionally aligned with [thumbnail_url, ...gallery_urls]. See lib/images/variants.ts. Additive: thumbnail_url remains the fallback and is never removed.';
+
+-- ── Finding the listings the backfill still has to do ──────────────────────
+--  Partial, because a listing that already has variants is of no interest to
+--  the only query that reads this — "what is left" — and the index should not
+--  carry the whole table to answer it.
+create index if not exists products_needs_image_variants_idx
+  on public.products (created_at)
+  where image_variants = '[]'::jsonb;
+
+-- ── Tell PostgREST the column exists ──────────────────────────────────────
+--  Not optional. PostgREST validates against its own cached schema before
+--  Postgres is asked anything, so until this runs the column does not exist as
+--  far as the API is concerned and every write of it fails with
+--  "Could not find the 'image_variants' column of 'products' in the schema
+--  cache" over a column that is demonstrably there.
+notify pgrst, 'reload schema';
+
+select
+  exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'products' and column_name = 'image_variants'
+  ) as image_variants_ready,
+  (select count(*) from public.products where image_variants = '[]'::jsonb) as listings_awaiting_backfill;
+
+
+-- ###########################################################################
 --  SECTION: RUN_BACKFILL_PROFILES
---  source: supabase/sql/RUN_BACKFILL_PROFILES.sql
 -- ###########################################################################
 
 -- ===========================================================================
@@ -1331,11 +1392,6 @@ where p.id is null;
 -- ###########################################################################
 --  DONE — the check
 -- ###########################################################################
---  If every column below says true, all five sections are applied.
---  PostgREST is told once more here: it answers the API from its own cached
---  copy of the schema and validates against that cache BEFORE Postgres is asked
---  anything, so a column added above does not exist as far as the app is
---  concerned until this runs.
 notify pgrst, 'reload schema';
 
 select
@@ -1356,4 +1412,7 @@ select
              and column_name='push_messages_enabled')     as chat_push_prefs,
   exists (select 1 from information_schema.columns
            where table_schema='public' and table_name='profiles'
-             and column_name='push_activity_enabled')     as activity_push_prefs;
+             and column_name='push_activity_enabled')     as activity_push_prefs,
+  exists (select 1 from information_schema.columns
+           where table_schema='public' and table_name='products'
+             and column_name='image_variants')            as image_variants;
