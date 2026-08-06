@@ -149,7 +149,16 @@ export default function WelcomePage() {
           style={{ paddingTop: "clamp(18px, 4vh, 40px)" }}
         >
           <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/Untitled%20(512%20x%20512%20px).svg?width=70&quality=80"
+            /* The stored object, not a transformation.
+             *
+             * This asked the billed /render/image/ endpoint for a 70px
+             * raster of an SVG — which is the one case where the transform
+             * is not merely unnecessary but actively worse: it throws away
+             * the vector and hands back a fixed-resolution bitmap that goes
+             * soft on any display denser than the size it was asked for.
+             * The original SVG is 11 KB, scales perfectly to the 34px box
+             * below, and costs nothing against the quota. */
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
             width={34}
             height={34}
@@ -208,8 +217,11 @@ export default function WelcomePage() {
 }
 
 // ── Collage Carousel (vanilla DOM animation for 60fps on iOS) ─────────────────
+// The stored objects. `/object/public/` is free and CDN-cached;
+// `/render/image/public/` is the metered transformation endpoint that put this
+// project at 106/100. See lib/storage/image-url.ts.
 const BASE_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
 const IMAGES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",
@@ -231,10 +243,23 @@ function CollageCarousel() {
     let cachedSlots: ReturnType<typeof getSlots> | null = null
     let cVW = 0, cVH = 0
 
-    const dpr  = Math.min(window.devicePixelRatio || 1, 2)
-    const imgW = Math.round(280 * dpr)
-    const imgH = Math.round(386 * dpr)
-    const imgQ = dpr > 1.5 ? 55 : 65
+    /**
+     * The per-device sizing that used to live here is gone, along with the
+     * Supabase image transformation it fed.
+     *
+     * It was the most expensive thing in the codebase against the
+     * transformation quota, and not obviously so. `imgW`/`imgH` were derived
+     * from `window.devicePixelRatio`, and Supabase meters DISTINCT transformed
+     * outputs — so five images did not cost five transformations, they cost
+     * five per pixel ratio the app was ever opened at. A 1x laptop, a 2x
+     * phone and a 3x phone were three separate sets. That is how a five-image
+     * carousel helps push a project to 106/100.
+     *
+     * The card is a fixed-ratio box and the image inside it is
+     * `width:100%;height:100%;object-fit:cover` — set a few lines below, and
+     * unchanged. The browser has always done this resizing, on the device,
+     * for free, at whatever pixel ratio the screen actually has.
+     */
 
     function getSlots() {
       const vw = window.innerWidth
@@ -278,7 +303,7 @@ function CollageCarousel() {
       card.className = "wlc-shimmer"
       card.style.cssText = "position:absolute;top:0;left:0;border-radius:18px;overflow:hidden;"
       const img = document.createElement("img")
-      img.src      = `${BASE_URL}/${IMAGES[i]}?width=${imgW}&height=${imgH}&resize=cover&quality=${imgQ}`
+      img.src      = `${BASE_URL}/${IMAGES[i]}`
       img.alt      = ""
       img.loading  = i >= 1 && i <= 3 ? "eager" : "lazy"
       img.decoding = "async"

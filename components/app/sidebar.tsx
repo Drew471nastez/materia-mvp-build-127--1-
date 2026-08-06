@@ -1,5 +1,6 @@
 "use client"
 
+import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -313,14 +314,25 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/library", label: t("nav.library"), icon: Library },
   ]
 
-  // Optimize Supabase avatar URLs with render/image transform
-  const optimizedAvatar = (size: number) => {
-    if (!avatarUrl) return ""
-    if (avatarUrl.includes("supabase.co/storage/")) {
-      return avatarUrl.replace("/object/public/", "/render/image/public/") + `?width=${size}&height=${size}&resize=cover`
-    }
-    return avatarUrl
-  }
+  /**
+   * The avatar, as the stored object. No transformation.
+   *
+   * This used to rewrite `/object/public/` to `/render/image/public/` and
+   * append `?width=&height=&resize=cover`, which is Supabase's Storage Image
+   * Transformations endpoint — a metered, billed product. Three avatars in
+   * this one component, at three different sizes, meant three transformation
+   * requests, and that is a large part of how the project reached 106/100 on a
+   * plan with a spend cap.
+   *
+   * It bought nothing. Every one of these `<img>` elements is 24–40 CSS pixels
+   * inside a fixed square with `object-fit: cover` — the browser was already
+   * doing the resizing, and doing it for free. The only difference the
+   * transform made was to the bill.
+   *
+   * `toOriginalImageUrl` also normalises a URL that was somehow stored in the
+   * transformed form, so an old row cannot keep billing after this fix.
+   */
+  const avatarSrc = toOriginalImageUrl(avatarUrl)
 
   const storeUrl = username || creatorSlug
   const userDisplayName = displayName || username || creatorSlug || t("dashboard.userFallback")
@@ -584,7 +596,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Image on top when available */}
           {avatarUrl && (
             <img
-              src={optimizedAvatar(80)}
+              src={avatarSrc}
               alt={userDisplayName}
               width={40}
               height={40}
@@ -1055,7 +1067,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 </div>
                 {avatarUrl && (
                   <img
-                    src={optimizedAvatar(56)}
+                    src={avatarSrc}
                     alt={userDisplayName}
                     width={28}
                     height={28}
@@ -1402,7 +1414,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {/* Image on top when available */}
                 {avatarUrl && (
                   <img
-                    src={optimizedAvatar(48)}
+                    src={avatarSrc}
                     alt={userDisplayName}
                     width={24}
                     height={24}

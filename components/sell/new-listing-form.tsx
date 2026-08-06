@@ -20,6 +20,7 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { DragSheet } from "@/components/ui/drag-sheet"
+import { compressImage, LISTING_IMAGE } from "@/lib/images/compress"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
 import { cn } from "@/lib/utils"
 
@@ -182,7 +183,18 @@ export function NewListingForm() {
     await Promise.all(
       chosen.map(async (file, i) => {
         const fd = new FormData()
-        fd.append("file", file)
+        // Resized ONCE, here, instead of being transformed on every view.
+        //
+        // This is the half of the image-transformation removal that keeps the
+        // listing pages fast: without it, dropping /render/image/ would mean
+        // serving whatever a phone camera produced — commonly 4000px and
+        // several megabytes. Longest side 1600px at q0.8 is indistinguishable
+        // on a product page and roughly a tenth of the bytes.
+        //
+        // compressImage never throws and returns the original file on any
+        // failure, so this cannot turn a working upload into a broken one.
+        // See lib/images/compress.ts.
+        fd.append("file", await compressImage(file, LISTING_IMAGE))
         try {
           const res = await fetch("/api/listings/photo", { method: "POST", body: fd, credentials: "include" })
           const data = await res.json()

@@ -25,6 +25,7 @@ const SUITES = [
   "tests/activity-notifications.test.ts",
   "tests/auth-session.test.ts",
   "tests/auth-guards.test.ts",
+  "tests/no-image-transforms.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -14,6 +14,7 @@ import {
   normaliseName,
   resolveCover,
 } from "@/lib/profile/covers"
+import { compressImage, PROFILE_IMAGE } from "@/lib/images/compress"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { navigateBlended } from "@/lib/nav-blend"
 import { beginTabLeave } from "@/lib/tab-leave"
@@ -99,7 +100,19 @@ export function ProfileEditForm({
       setNotice(null)
       try {
         const body = new FormData()
-        body.append("file", file)
+        // Resized once, here, rather than transformed on every view.
+        //
+        // An avatar renders at 24–96 CSS pixels and a cover at a few hundred;
+        // neither has ever needed the 4000px original a phone camera hands
+        // over. With Supabase image transformations removed, this is what keeps
+        // the stored file a sensible size — and unlike a transform it is paid
+        // once, by the device that already has the bytes.
+        //
+        // Both kinds use the same 800px ceiling: a cover is wider than an
+        // avatar but never taller than the strip it sits in, and one preset is
+        // one fewer thing to get wrong. compressImage returns the original on
+        // any failure, so this cannot break an upload.
+        body.append("file", await compressImage(file, PROFILE_IMAGE))
         const res = await fetch(`/api/profile/${kind}`, { method: "POST", body, credentials: "include" })
         const data = await res.json().catch(() => null)
         if (!res.ok) {
