@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Heart, Menu, MessageCircle, Search, ShoppingBag } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -243,7 +243,26 @@ export function MobileWebHeader() {
   // the moment the safe-area inset changes, the search row wraps, or the logo
   // font loads, so it is observed rather than written down twice.
   const headerRef = useRef<HTMLElement>(null)
-  useEffect(() => {
+  /**
+   * A LAYOUT effect, and that is the whole of a layout shift on every
+   * navigation.
+   *
+   * This was a passive `useEffect`, which runs AFTER the browser paints. So the
+   * first painted frame of every route change had no `--web-header-h` published
+   * yet — and `.thread-shell` positions itself with
+   * `top: var(--web-header-h, 0px)`. It therefore painted at the very top of
+   * the screen, covering this header, and then jumped down by the header's full
+   * height the moment this effect finally ran.
+   *
+   * That is the "shifting layout" when opening a conversation and coming back:
+   * not an animation, not a transition — a fixed element positioned from a
+   * variable that did not exist yet, corrected one frame later. On a slow
+   * commit it is a visible drop of ~150px.
+   *
+   * A layout effect runs after the DOM is in place and BEFORE paint, so the
+   * variable is published for the first frame and nothing has to move.
+   */
+  useLayoutEffect(() => {
     const el = headerRef.current
     if (!el || typeof ResizeObserver === "undefined") return
     const publish = () => {
@@ -254,9 +273,19 @@ export function MobileWebHeader() {
     observer.observe(el)
     return () => {
       observer.disconnect()
+      // Zeroed rather than REMOVED, and the difference matters on a remount.
+      //
+      // Removing it makes every reader fall back to its own default, and those
+      // defaults are written as `0px` — so the value is the same either way.
+      // What is not the same is that an explicit `0px` is one style write,
+      // while a removal invalidates the custom-property inheritance for the
+      // whole document and forces a full recalculation on a frame that is
+      // already busy committing a route.
+      //
       // Leaving a stale height behind would inset a feed that no longer has a
-      // header above it — inside the app, that is the whole screen misplaced.
-      document.documentElement.style.removeProperty("--web-header-h")
+      // header above it — inside the app, that is the whole screen misplaced —
+      // so it is set to zero, not left alone.
+      document.documentElement.style.setProperty("--web-header-h", "0px")
     }
   }, [])
 
