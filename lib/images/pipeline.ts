@@ -20,7 +20,7 @@ import {
  * Every listing photo is processed ONCE, on the device that took it, into two
  * files:
  *
- *   -thumb.webp   4:5 portrait, ≤800×1000, q0.81 — feeds, search, favourites,
+ *   -thumb.webp   3:4 portrait, ≤810×1080, q0.81 — feeds, search, favourites,
  *                 profile grids, chat previews. Cropped to the shape the card
  *                 actually is, at the size the card actually needs.
  *   -large.webp   the photo's OWN aspect ratio, bounded by 1280×1600, q0.85 —
@@ -386,7 +386,7 @@ export async function processListingImage(file: File, focal: Focal = CENTER): Pr
     // ── Large: the photo's own shape, bounded. No crop.
     const largeSize = fitWithin(sw, sh, LARGE_MAX)
     const largeCanvas = drawTo(source, { sx: 0, sy: 0, sw, sh }, largeSize, matte)
-    // ── Thumb: 4:5, cropped around the focal point.
+    // ── Thumb: 3:4, cropped around the focal point.
     const thumbSize = thumbSizeFor(sw, sh)
     const thumbCrop = coverCrop(sw, sh, THUMB, focal)
     const thumbCanvas = drawTo(source, thumbCrop, thumbSize, matte)

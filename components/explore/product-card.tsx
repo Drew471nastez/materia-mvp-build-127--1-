@@ -280,7 +280,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
    * branch, rendering exactly as it does today. That is what lets this deploy
    * before the backfill has touched a single old listing.
    *
-   * The thumbnail is ~80 KB and already 4:5; the fallback is whatever the
+   * The thumbnail is ~80 KB and already 3:4; the fallback is whatever the
    * seller's phone produced. Both are displayed identically by the CSS below,
    * so the only difference a visitor can see is how fast the feed scrolls.
    */
@@ -313,11 +313,15 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           Subtle ring + shadow give the flat white grid a bit of depth. The
           no-touch-callout class kills iOS long-press "save/copy image", text
           selection and image dragging so the photo feels like a native tile. */}
-      {/* 4:5 — one ratio for every card in the marketplace, and the same ratio
-          the thumbnail is GENERATED at (lib/images/geometry.ts, 800×1000). That
-          agreement is the point: a 4:5 file in a 4:5 box is displayed whole,
+      {/* 3:4 — one ratio for every card in the marketplace, and the same ratio
+          the thumbnail is GENERATED at (lib/images/geometry.ts, 810×1080). That
+          agreement is the point: a 3:4 file in a 3:4 box is displayed whole,
           while a mismatch means object-fit crops a second time and quietly
           throws away part of a crop the seller already chose.
+
+          It is ~5% taller than 4:5, which is what a full-body clothing shot
+          needs: a wider frame either crops the garment or leaves dead space
+          either side of it.
 
           Written as an inline aspect-ratio rather than a Tailwind class so it
           reads from ONE constant shared with the thumbnail generator — the two

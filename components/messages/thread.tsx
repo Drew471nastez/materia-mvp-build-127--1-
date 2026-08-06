@@ -1088,6 +1088,38 @@ export function MessageThread({
   const meRef = useRef<string | null>(initial?.me ?? null)
   meRef.current = thread?.me ?? meRef.current
 
+  /**
+   * TELL THE SERVER THIS HAS BEEN SEEN.
+   *
+   * `readThread` only marks the messages that existed when the thread was
+   * FETCHED. A message arriving over the socket into a thread you already have
+   * open is displayed, read by a person, and never marked — so the inbox row
+   * still says unread when you go back, which is the "it does not clear even
+   * after I read it" report.
+   *
+   * Idempotent and one indexed statement, which is what lets it be called
+   * liberally: on arrival, on returning to the tab, on leaving. No coordination,
+   * no debounce that could drop the one call that mattered.
+   *
+   * `keepalive` matters on the way out — a plain fetch issued while the page is
+   * being torn down is cancelled, and this is precisely the moment the mark is
+   * most needed.
+   */
+  const markSeen = useCallback(
+    (leaving = false) => {
+      try {
+        void fetch(`/api/messages/${id}/read`, {
+          method: "POST",
+          credentials: "include",
+          keepalive: leaving,
+        }).catch(() => {})
+      } catch {
+        /* never let a read receipt break the thread */
+      }
+    },
+    [id],
+  )
+
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
   const [peerTyping, setPeerTyping] = useState(false)
@@ -1198,11 +1230,20 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
+      if (row.kind === "image" || isEncodedImage(row.body)) {
+        // The refetch runs readThread, which marks read server-side — but only
+        // for what it can see. Marking explicitly keeps the one rule in one
+        // place rather than depending on a side effect of a different endpoint.
+        markSeen()
+        return refetch()
+      }
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
       })
+      // It is on screen and this thread is open, so it has been seen. Without
+      // this the row goes on saying "unread" in the inbox for ever.
+      markSeen()
     }
 
     const onUpdate = (row: any) => {
@@ -1288,13 +1329,31 @@ export function MessageThread({
         setLive(status === "SUBSCRIBED")
       })
 
+    /**
+     * Coming BACK to the thread, and leaving it.
+     *
+     * Between them these cover the two cases the socket cannot: messages that
+     * landed while the app was backgrounded (the socket may have been asleep,
+     * and the reconnect refetch does not always run before you look), and the
+     * moment of navigating away, which is exactly when the inbox is about to
+     * re-read the unread counts.
+     */
+    const onVisible = () => {
+      if (document.visibilityState === "visible") markSeen()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+
     return () => {
       window.clearTimeout(timer)
       window.clearTimeout(typingOff.current)
       channelRef.current = null
+      document.removeEventListener("visibilitychange", onVisible)
+      // On the way out, with keepalive — a plain fetch issued during teardown is
+      // cancelled, and this is the call the inbox is about to depend on.
+      markSeen(true)
       void supabase.removeChannel(channel)
     }
-  }, [id, load])
+  }, [id, load, markSeen])
 
   /**
    * Sends go out ONE AT A TIME, in the order you wrote them.

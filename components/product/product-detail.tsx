@@ -176,7 +176,7 @@ export function ProductDetail({ product }: { product: any }) {
   /**
    * The gallery always shows the LARGE variant — never the card thumbnail.
    *
-   * The thumbnail is cropped to 4:5 for the grid. Showing it here is exactly
+   * The thumbnail is cropped to 3:4 for the grid. Showing it here is exactly
    * the failure the detail page exists to avoid: the toe of the shoe, the strap
    * of the bag, the hem of the coat, gone — on the one screen somebody opened
    * specifically to look at the whole thing.
@@ -403,7 +403,7 @@ export function ProductDetail({ product }: { product: any }) {
             }}
           >
             {(images.length ? images : [null]).map((src, i) => (
-              // 4:5, the same frame the card uses, so opening a listing does
+              // 3:4, the same frame the card uses, so opening a listing does
               // not change the shape of the photograph under your thumb.
               <div
                 key={i}

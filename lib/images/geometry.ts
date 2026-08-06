@@ -34,14 +34,22 @@ export interface Size {
 // ── The house sizes ─────────────────────────────────────────────────────────
 
 /**
- * Feed cards are 4:5 portrait, the Vinted/Depop shape.
+ * Feed cards are 3:4 portrait — about 5% taller than 4:5.
  *
  * Everything in a marketplace grid is clothing photographed vertically, and a
  * consistent tall card is what makes a grid read as one surface rather than a
- * ragged collage. 800×1000 covers a 2x phone at the ~400px a card occupies on
- * the widest phone, with nothing left over.
+ * ragged collage. The extra height is not decoration: a wider frame either
+ * crops the garment or leaves dead space either side of it, and on a full-body
+ * shot it is the difference between seeing the shoes and not.
+ *
+ * 810×1080 is exactly 3:4 — not 800×1066, which is 0.7505 and would leave a
+ * sub-pixel mismatch against the CSS box for the browser to resolve by
+ * cropping. The card and this constant MUST describe the same rectangle: a
+ * thumbnail generated at one ratio and displayed in a box of another gets
+ * cropped a second time by object-fit, silently discarding part of a crop the
+ * seller chose.
  */
-export const THUMB: Size = { w: 800, h: 1000 }
+export const THUMB: Size = { w: 810, h: 1080 }
 export const THUMB_RATIO = THUMB.w / THUMB.h
 
 /**
@@ -122,11 +130,11 @@ export function coverCrop(srcW: number, srcH: number, target: Size, focal: Focal
 }
 
 /**
- * The size to render the 4:5 thumbnail at, given the source.
+ * The size to render the 3:4 thumbnail at, given the source.
  *
  * Capped at THUMB, and never larger than the crop it is drawn from — a 300px
- * photo must not be blown up to 800×1000 just because that is the house size.
- * The card is a fixed 4:5 box in CSS either way, so a smaller file simply
+ * photo must not be blown up to 810×1080 just because that is the house size.
+ * The card is a fixed 3:4 box in CSS either way, so a smaller file simply
  * displays slightly softer instead of being upscaled into a bigger one.
  */
 export function thumbSizeFor(srcW: number, srcH: number): Size {

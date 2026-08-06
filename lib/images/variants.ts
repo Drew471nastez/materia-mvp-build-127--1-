@@ -40,10 +40,16 @@ export interface ImageVariant {
   focal?: Focal | null
 }
 
-/** The 4:5 card shape, as a CSS aspect-ratio and as numbers for `<img>`. */
-export const CARD_RATIO = "4 / 5"
-export const CARD_W = 800
-export const CARD_H = 1000
+/**
+ * The card shape, as a CSS aspect-ratio and as numbers for `<img>`.
+ *
+ * 3:4, and it must stay in step with THUMB in lib/images/geometry.ts — they
+ * describe the same rectangle from two sides. Changing one without the other
+ * makes object-fit crop the thumbnail a second time.
+ */
+export const CARD_RATIO = "3 / 4"
+export const CARD_W = 810
+export const CARD_H = 1080
 
 /**
  * Parse whatever came out of the jsonb column.

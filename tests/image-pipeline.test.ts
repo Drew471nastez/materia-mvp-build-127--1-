@@ -45,24 +45,23 @@ function run() {
     // A wide photo: full height, sides cropped.
     const c = coverCrop(4000, 3000, THUMB, CENTER)
     check("a wide photo keeps its full height", c.sh === 3000)
-    check("and crops the sides to 4:5", near(c.sw, 3000 * 0.8))
-    check("centred horizontally", near(c.sx, (4000 - 3000 * 0.8) / 2))
-    check("the window is 4:5", near(c.sw / c.sh, 0.8, 0.001))
+    check("and crops the sides to 3:4", near(c.sw, 3000 * 0.75))
+    check("centred horizontally", near(c.sx, (4000 - 3000 * 0.75) / 2))
+    check("the window is 3:4", near(c.sw / c.sh, 0.75, 0.001))
   }
   {
     // A tall photo: full width, top/bottom cropped.
     const c = coverCrop(3000, 6000, THUMB, CENTER)
     check("a tall photo keeps its full width", c.sw === 3000)
-    check("and crops vertically to 4:5", near(c.sh, 3000 / 0.8))
-    check("the window is 4:5", near(c.sw / c.sh, 0.8, 0.001))
+    check("and crops vertically to 3:4", near(c.sh, 3000 / 0.75))
+    check("the window is 3:4", near(c.sw / c.sh, 0.75, 0.001))
   }
   {
-    // 4:5 is 0.8 — TALLER than a square, so a square source is the "too wide"
-    // case: full height, sides trimmed. (The first version of this test
-    // asserted the opposite and was simply wrong about which way 4:5 leans.)
+    // 3:4 is 0.75 — TALLER than a square, so a square source is the "too wide"
+    // case: full height, sides trimmed.
     const c = coverCrop(3000, 3000, THUMB, CENTER)
     check("a square photo keeps its full height", c.sh === 3000)
-    check("and is cropped at the sides", near(c.sw, 2400))
+    check("and is cropped at the sides", near(c.sw, 2250))
   }
   {
     // THE CLAMP — the bug that puts a blank band across a card.
@@ -94,12 +93,12 @@ function run() {
   eq("a string is the centre", clampFocal({ x: "0.2" } as any), { x: 0.5, y: 0.5 })
 
   section("thumbSizeFor — capped, and never upscaled")
-  eq("a big photo gets the full 800x1000", thumbSizeFor(4000, 3000), { w: 800, h: 1000 })
-  eq("a big portrait too", thumbSizeFor(3000, 6000), { w: 800, h: 1000 })
+  eq("a big photo gets the full 810x1080", thumbSizeFor(4000, 3000), { w: 810, h: 1080 })
+  eq("a big portrait too", thumbSizeFor(3000, 6000), { w: 810, h: 1080 })
   {
     const s = thumbSizeFor(300, 300)
-    check("a small photo is not blown up", s.w < 800 && s.h < 1000)
-    check("but keeps the 4:5 card shape", near(s.w / s.h, 0.8, 0.02))
+    check("a small photo is not blown up", s.w < 810 && s.h < 1080)
+    check("but keeps the 3:4 card shape", near(s.w / s.h, 0.75, 0.02))
   }
 
   section("variants — reading the jsonb column safely")
@@ -126,11 +125,11 @@ function run() {
   eq("detail falls back to the original url too", detailImage([], "OLD"), "OLD")
 
   section("card dimensions — reserving the box before load")
-  eq("real dimensions are used when known", cardDimensions({ large: "L", thumbWidth: 640, thumbHeight: 800 }), { width: 640, height: 800 })
-  eq("otherwise the house 4:5 size", cardDimensions(null), { width: 800, height: 1000 })
+  eq("real dimensions are used when known", cardDimensions({ large: "L", thumbWidth: 648, thumbHeight: 864 }), { width: 648, height: 864 })
+  eq("otherwise the house 3:4 size", cardDimensions(null), { width: 810, height: 1080 })
   {
     const d = cardDimensions(null)
-    check("and it IS 4:5, so CSS and the attributes agree", near(d.width / d.height, 0.8, 0.001))
+    check("and it IS 3:4, so CSS and the attributes agree", near(d.width / d.height, 0.75, 0.001))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
