@@ -881,28 +881,6 @@ export function MessageThread({
     el.style.height = `${Math.min(el.scrollHeight, 112)}px`
   }, [draft])
 
-  /**
-   * THE FIRST LANDING, BEFORE PAINT.
-   *
-   * A layout effect, run once, that puts the scroller at its end synchronously
-   * on mount. This is what makes it safe to skip the cover above: the cover
-   * used to hide the frame where the list sat at the top and jumped to the
-   * newest message a tick later. Positioning before the browser paints means
-   * that frame never exists — the conversation is at its end from the very
-   * first pixel, so there is no jump left to hide and no reason to hide it.
-   *
-   * Only while `stickBottom` (true on a fresh open) and only if nothing has
-   * landed yet, so a remount mid-scroll is not yanked to the end.
-   */
-  useLayoutEffect(() => {
-    const el = scrollerRef.current
-    if (!el || landed.current || !stickBottom.current) return
-    el.scrollTop = el.scrollHeight
-    landed.current = true
-    // Mount only; the passive effect below owns every landing after this one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   useEffect(() => {
     if (!scrollerRef.current || !stickBottom.current) return
     // The first landing is instant: there is no "movement" from a screen that
@@ -1010,31 +988,8 @@ export function MessageThread({
   // then loaded in afterwards, one at a time, over a conversation that had
   // already been revealed. Waiting for the data first and only then for its
   // pictures means what is uncovered is finished.
-  // ── (3) ONE LOADING STATE, NOT TWO ────────────────────────────────────────
-  //
-  // The route already has a loading boundary — app/(marketing)/messages/[id]/
-  // loading.tsx — which paints the conversation-shaped shell for the length of
-  // the server round trip. By the time THIS component mounts, page.tsx has
-  // already run readThread on the server and handed the whole conversation down
-  // as `initial`. The messages are here. There is nothing left to wait for.
-  //
-  // But `pixelsReady` started `false` unconditionally, so `covered` started
-  // `true` even then — and the component dropped a SECOND loading state over a
-  // conversation it already held: a blank surface, a spinner 260ms later, then
-  // a lift, on top of data that was ready before any of it appeared. Two
-  // loaders for one tap.
-  //
-  // The cover now arms only when something is genuinely pending:
-  //   · fromCache — Next served a three-minute-old payload and we are
-  //     refetching; the stale thread must be held until the fresh one lands, or
-  //     you read yesterday's conversation while today's drops in behind it.
-  //   · initial === null — the server read failed or the id was malformed, and
-  //     the client is about to fetch from scratch.
-  // A fresh, non-cached `initial` skips it: the shell hands straight over to a
-  // finished conversation.
-  const freshServerData = !fromCache && initial !== null
   const [dataReady, setDataReady] = useState(!fromCache)
-  const [pixelsReady, setPixelsReady] = useState(freshServerData)
+  const [pixelsReady, setPixelsReady] = useState(false)
   const covered = !dataReady || !pixelsReady
   coveredRef.current = covered
 
@@ -1133,96 +1088,8 @@ export function MessageThread({
   const meRef = useRef<string | null>(initial?.me ?? null)
   meRef.current = thread?.me ?? meRef.current
 
-  /**
-   * ── (1) SEEN MEANS SEEN ───────────────────────────────────────────────────
-   *
-   * `readThread` only marks the messages that existed when the thread was
-   * FETCHED. A message arriving over the socket into a thread you already have
-   * open is displayed, read by a person, and never marked — so the inbox row
-   * still says unread when you go back.
-   *
-   * Idempotent and one indexed statement, which is what lets it be called
-   * liberally: on arrival, on returning to the tab, on leaving. No
-   * coordination, and no debounce that could swallow the one call that
-   * mattered.
-   *
-   * `keepalive` on the way out — a plain fetch issued while the page is being
-   * torn down is cancelled, and that is precisely the moment the inbox is about
-   * to re-read the unread counts.
-   *
-   * NOTHING VISUAL: a POST, and a state update in a list that is not on screen.
-   */
-  const markSeen = useCallback(
-    (leaving = false) => {
-      try {
-        void fetch(`/api/messages/${id}/read`, {
-          method: "POST",
-          credentials: "include",
-          keepalive: leaving,
-        }).catch(() => {})
-      } catch {
-        /* a read receipt must never be able to break the thread */
-      }
-    },
-    [id],
-  )
-
   /** The live channel, once it is actually carrying this thread. */
   const channelRef = useRef<any>(null)
-  /**
-   * ── (2) CLOSING — the conversation recedes, then the route changes ────────
-   *
-   * The dismiss runs 200ms and the navigation goes at 170 — inside the tail,
-   * not on its last frame. Firing exactly on the end puts the route commit on
-   * the same tick the animation finishes, and on a slow frame the two resolve
-   * in the wrong order: the conversation is unmounted with a little travel
-   * left, so the last thing you see is it vanishing rather than leaving.
-   *
-   * `beginTabLeave()` is KEPT. It dips the app the moment the finger lands and
-   * releases on the commit, so the inbox is already partway through its own
-   * arrival when it appears; the dismiss plays over the top of that rather than
-   * instead of it. The two compose — what was missing was any movement on the
-   * conversation itself.
-   *
-   * Guarded against a second press: the arrow is a large target on a screen
-   * that is already moving, and two overlapping `router.back()` calls pop two
-   * history entries and land you two screens away.
-   *
-   * Where it goes is unchanged: back when there is history, /messages
-   * otherwise. A cold arrival from a push notification has nothing to pop, and
-   * `router.back()` on an empty stack does nothing at all.
-   */
-  /**
-   * The fade that replaces the hard swap from the loading shell.
-   *
-   * Only when the conversation arrived complete (`freshServerData`) — when it
-   * is covered instead, the cover's own lift is already the transition and a
-   * second fade underneath it would be two.
-   *
-   * Cleared on a timer rather than on animationend: the animation is `none`
-   * under reduced motion, and one that never runs never ends, so the
-   * `will-change` layer would be held for the life of the screen on precisely
-   * the devices that opted out of it.
-   */
-  const [revealing, setRevealing] = useState(freshServerData)
-  useEffect(() => {
-    if (!revealing) return
-    const t = window.setTimeout(() => setRevealing(false), 260)
-    return () => window.clearTimeout(t)
-  }, [revealing])
-
-  const [dismissing, setDismissing] = useState(false)
-  const closeThread = useCallback(() => {
-    if (dismissing) return
-    setDismissing(true)
-    beginTabLeave()
-    window.setTimeout(() => {
-      navigateBlended("back", () =>
-        window.history.length > 1 ? router.back() : router.push("/messages"),
-      )
-    }, 170)
-  }, [dismissing, router])
-
   const [peerTyping, setPeerTyping] = useState(false)
   const typingOff = useRef<number | undefined>(undefined)
   const typingSentAt = useRef(0)
@@ -1331,17 +1198,11 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body)) {
-        markSeen()
-        return refetch()
-      }
+      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
       })
-      // On screen, in an open thread: seen. Without this the row goes on saying
-      // "unread" in the inbox for ever.
-      markSeen()
     }
 
     const onUpdate = (row: any) => {
@@ -1427,23 +1288,13 @@ export function MessageThread({
         setLive(status === "SUBSCRIBED")
       })
 
-    // The two cases the socket cannot cover: messages that landed while the app
-    // was backgrounded, and the moment of navigating away — which is exactly
-    // when the inbox is about to re-read the unread counts.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") markSeen()
-    }
-    document.addEventListener("visibilitychange", onVisible)
-
     return () => {
       window.clearTimeout(timer)
       window.clearTimeout(typingOff.current)
       channelRef.current = null
-      document.removeEventListener("visibilitychange", onVisible)
-      markSeen(true)
       void supabase.removeChannel(channel)
     }
-  }, [id, load, markSeen])
+  }, [id, load])
 
   /**
    * Sends go out ONE AT A TIME, in the order you wrote them.
@@ -1941,8 +1792,6 @@ export function MessageThread({
     <div
       className={cn(
         "thread-shell mx-auto flex max-w-2xl flex-col md:rounded-2xl md:border md:border-neutral-200",
-        // Receding away, played before the route changes. See closeThread.
-        dismissing && "thread-dismiss",
       )}
     >
       {/* Header: who, and about what. The listing strip links back to the item,
@@ -1972,7 +1821,10 @@ export function MessageThread({
               // over half strength. Dipping first means there is no frame where
               // anything is assigned a value it was not already heading
               // towards. See lib/tab-leave.ts.
-              closeThread()
+              beginTabLeave()
+              navigateBlended("back", () =>
+                window.history.length > 1 ? router.back() : router.push("/messages"),
+              )
             }}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors active:bg-neutral-100"
           >
@@ -2154,12 +2006,7 @@ export function MessageThread({
         aria-live="polite"
         aria-relevant="additions"
         aria-label="Conversație"
-        className={cn(
-          "thread-surface absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4",
-          // The messages coming up in place of the loading shell's spinner,
-          // instead of appearing between two frames. See app/globals.css.
-          revealing && "thread-reveal",
-        )}
+        className="thread-surface absolute inset-0 overflow-y-auto overscroll-y-contain px-4 py-4"
       >
         {/* Bottom-aligned, and this is the empty space.
             A conversation with four messages in it does not fill the screen, and
@@ -2344,16 +2191,6 @@ export function MessageThread({
                             alt={m.body || "Fotografie"}
                             onLoad={(e) => {
                               e.currentTarget.style.opacity = "1"
-                              // A server photo carries no reserved height, so
-                              // the bubble is a sliver until this fires and
-                              // then grows to full size. Uncovered, that growth
-                              // is visible and would push the newest message up
-                              // off the bottom — the "it reloads once I am in
-                              // the chat" feeling. While the view is pinned to
-                              // the end, follow the growth and stay there.
-                              // Instant, not glided: a photo settling into
-                              // place is not a scroll.
-                              if (stickBottom.current && !coveredRef.current) scrollToEnd()
                             }}
                             onClick={() => {
                               // A pending photo is a local blob mid-upload;
