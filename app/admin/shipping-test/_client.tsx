@@ -18,6 +18,17 @@ import { useCallback, useState } from "react"
 
 type Result = Record<string, unknown> | null
 
+/**
+ * Prefilled with a combination VERIFIED against the live API: Sameday
+ * locker→locker, Bucharest easybox 66725 → Cluj easybox 2210235, which priced
+ * at 19.89 RON. Starting from something known to work means a failure here is
+ * information about what you changed, not about the defaults.
+ *
+ * Note the street fields are present ALONGSIDE the locker id. The provider
+ * requires both: sending only `fixed_location_id` fails validation with
+ * "street_name field is required". The address of the locker itself is the
+ * correct thing to put there.
+ */
 const SELLER = {
   contact: "Andrew Radu",
   phone: "0751048522",
@@ -25,8 +36,9 @@ const SELLER = {
   country_code: "RO",
   county_name: "Bucuresti",
   locality_name: "Bucuresti",
-  street_name: "Bulevardul Theodor Pallady",
-  street_number: "7",
+  street_name: "Str. Sergent Pechiu Ion",
+  street_number: "3-7",
+  fixed_location_id: "66725",
 }
 const BUYER = {
   contact: "John Pop",
@@ -35,8 +47,9 @@ const BUYER = {
   country_code: "RO",
   county_name: "Cluj",
   locality_name: "Cluj-Napoca",
-  street_name: "Strada Memorandumului",
-  street_number: "28",
+  street_name: "Str. Eugen Ionesco",
+  street_number: "73",
+  fixed_location_id: "2210235",
 }
 
 function Field({
@@ -63,9 +76,9 @@ function Field({
 export default function ShippingTestClient() {
   const [from, setFrom] = useState<Record<string, string>>(SELLER)
   const [to, setTo] = useState<Record<string, string>>(BUYER)
-  const [carrierId, setCarrierId] = useState("3")
-  const [serviceId, setServiceId] = useState("1")
-  const [billingAddressId, setBillingAddressId] = useState("")
+  const [carrierId, setCarrierId] = useState("6")
+  const [serviceId, setServiceId] = useState("4")
+  const [billingAddressId, setBillingAddressId] = useState("391214")
   const [weight, setWeight] = useState("1")
   const [contents, setContents] = useState("Vintage Nike Jacket")
   const [reference, setReference] = useState("ST-TEST-1")
@@ -120,8 +133,8 @@ export default function ShippingTestClient() {
       </p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Field label="Carrier ID" value={carrierId} onChange={setCarrierId} />
-        <Field label="Service ID (1 = ușă la ușă)" value={serviceId} onChange={setServiceId} />
+        <Field label="Carrier ID (6 = Sameday)" value={carrierId} onChange={setCarrierId} />
+        <Field label="Service ID (4 = locker→locker)" value={serviceId} onChange={setServiceId} />
         <Field label="Billing address ID" value={billingAddressId} onChange={setBillingAddressId} />
       </div>
 
@@ -135,7 +148,7 @@ export default function ShippingTestClient() {
           <div key={label} className="rounded-xl border border-neutral-200 p-4">
             <p className="mb-3 text-[13px] font-semibold text-neutral-900">{label}</p>
             <div className="grid gap-2">
-              {(["contact", "phone", "email", "county_name", "locality_name", "street_name", "street_number"] as const).map(
+              {(["contact", "phone", "email", "county_name", "locality_name", "street_name", "street_number", "fixed_location_id"] as const).map(
                 (k) => (
                   <Field
                     key={k}

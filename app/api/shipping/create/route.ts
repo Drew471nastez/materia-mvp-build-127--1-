@@ -49,9 +49,19 @@ export const maxDuration = 60
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** Defaults for a Romanian door-to-door parcel. Overridable per request. */
-const DEFAULT_CARRIER_ID = Number(process.env.EAWB_DEFAULT_CARRIER_ID || 3) // FAN Courier
-const DEFAULT_SERVICE_ID = Number(process.env.EAWB_DEFAULT_SERVICE_ID || 1) // door to door
+/**
+ * LOCKERS, NOT DOORS. Storelib ships parcel-machine to parcel-machine.
+ *
+ * Sameday (6) runs the easybox network, and service 4 is locker→locker —
+ * priced live at 19.89 RON Bucharest→Cluj, against 22.26 for door-to-door.
+ * Cheaper, and neither party has to be home, which is the whole reason a
+ * second-hand marketplace uses them.
+ *
+ * Both env-overridable, so a single order can be sent door-to-door without a
+ * deploy if a buyer has no locker near them.
+ */
+const DEFAULT_CARRIER_ID = Number(process.env.EAWB_DEFAULT_CARRIER_ID || 6) // Sameday
+const DEFAULT_SERVICE_ID = Number(process.env.EAWB_DEFAULT_SERVICE_ID || 4) // locker to locker
 const DEFAULT_WEIGHT_KG = Number(process.env.EAWB_DEFAULT_WEIGHT_KG || 1)
 
 /**
@@ -97,6 +107,10 @@ function keyMatches(provided: string, expected: string): boolean {
  *  sellers get their own, this is the function that changes. */
 function senderAddress() {
   return {
+    // The seller's DROP-OFF locker. Required for services 2 and 4, and it does
+    // not replace the street below — the provider validates both, and sending
+    // only the id fails with "street_name field is required".
+    fixed_location_id: Number(process.env.EAWB_SENDER_LOCKER_ID || 0) || undefined,
     contact: process.env.EAWB_SENDER_CONTACT || "Storelib",
     phone: process.env.EAWB_SENDER_PHONE || "",
     email: process.env.EAWB_SENDER_EMAIL || "",

@@ -398,3 +398,57 @@ export async function trackByAwb(awb: string): Promise<unknown> {
 export async function getOrder(orderId: number | string): Promise<unknown> {
   return eawbGetJson<unknown>(`/orders/${encodeURIComponent(String(orderId))}`)
 }
+
+/** A parcel machine as the provider describes it. */
+export interface EawbLocker {
+  id: number
+  fixed_location_type?: string
+  carrier_id: number
+  carrier_name: string
+  locality_id: number
+  locality_name: string
+  county_id?: number
+  county_name: string
+  country_code: string
+  name: string
+  address: string
+  /** False for lockers that only DELIVER — a seller cannot post from one. */
+  allows_drop_off?: boolean
+  is_active?: boolean
+  coordinates?: { lat: number; long: number }
+}
+
+/**
+ * Every locker in a country. Romania returns ~12,000.
+ *
+ * There is no server-side filter on this endpoint, so the whole list comes back
+ * in one response and the caller narrows it. That is why the route in front of
+ * this caches: it is a slow, large, public read that changes about as often as
+ * a supermarket opens.
+ */
+export async function listFixedLocations(countryCode = "RO"): Promise<EawbLocker[]> {
+  const data = await eawbGetJson<unknown>(`/locations/fixedlocations/${encodeURIComponent(countryCode)}`)
+  if (Array.isArray(data)) return data as EawbLocker[]
+  const inner = (data as { data?: unknown; list?: unknown })?.data ?? (data as { list?: unknown })?.list
+  return Array.isArray(inner) ? (inner as EawbLocker[]) : []
+}
+
+/**
+ * LOCKER SHIPPING IS THE HOUSE DEFAULT, and these are the numbers behind it.
+ *
+ * Verified against the live services list: service 1 is door-to-door, 2 is
+ * door→locker, 3 is locker→door, 4 is locker→locker. Storelib ships lockers
+ * only, so a shipment always carries a `fixed_location_id` on at least one
+ * side — and, as the API's own validation insists, the street fields TOO. The
+ * locker id is in addition to an address, never instead of one; sending only
+ * the id fails with "street_name field is required".
+ */
+export const EAWB_SERVICE = {
+  doorToDoor: 1,
+  doorToLocker: 2,
+  lockerToDoor: 3,
+  lockerToLocker: 4,
+} as const
+
+/** Sameday runs the easybox network Romanian marketplaces ship on. */
+export const EAWB_CARRIER = { sameday: 6, dpd: 2, fan: 3, gls: 4, cargus: 1 } as const
