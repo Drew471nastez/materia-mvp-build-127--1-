@@ -100,19 +100,38 @@ check(
     thread.includes('paddingTop: "env(safe-area-inset-top, 0px)"'),
 )
 
-// ── The two things that are allowed to differ ───────────────────────────────
+// ── EXACTLY ONE SPINNER IN THE ARRIVAL, AND IT IS THE COVER'S ──────────────
+//
+// Both files used to draw one. A single tap therefore showed two indicators
+// taking turns: the shell's faded in, was cut off mid-revolution when the shell
+// was replaced, and the conversation's appeared a quarter of a second later at
+// a different size. Reported as "the loading icon appears and disappears and
+// then it loads again", which is exactly what it was.
 check(
-  "only the shell has a spinner",
-  shell.includes("IosSpinner") && !/IosSpinner[\s\S]{0,80}thread-surface/.test(thread),
-  "        The real conversation must never show a loading indicator of its\n" +
-    "        own: page.tsx reads the thread on the server, so it arrives with\n" +
-    "        its messages already in it. Two spinners is two waits.",
+  "the loading shell draws no spinner",
+  !shell.includes("IosSpinner"),
+  "        The conversation that replaces this shell has a cover with its own\n" +
+    "        spinner, held until the data AND the pictures are ready. A second\n" +
+    "        one here is two indicators for one wait.",
 )
 check(
-  "the shell's spinner is held back before it appears",
-  /thread-wait/.test(shell),
-  "        A prefetched conversation commits in under a tenth of a second.\n" +
-    "        Drawing a spinner for it is what made one tap look like two loads.",
+  "the conversation's cover is the one that has it",
+  thread.includes("IosSpinner"),
+  "        Something has to say `waiting` on a genuinely slow open. If this is\n" +
+    "        ever removed, the shell must get one back — not neither.",
+)
+check(
+  "and it is held back before it appears",
+  /animate-\[fade-in_\d+ms_[a-z-]+_(\d+)ms_both\]/.test(thread),
+  "        A spinner that appears and disappears inside 200ms is a blink, which\n" +
+    "        is the flicker the cover exists to prevent.",
+)
+check(
+  "the shell's exchange area is the same surface as the cover",
+  /thread-surface[^"]*"\s*\/>/.test(shell) || /className="thread-surface min-h-0 flex-1"/.test(shell),
+  "        The swap is invisible only while both sides paint the same panel.\n" +
+    "        Give the shell a different background and the handover becomes a\n" +
+    "        change of colour as well as a change of content.",
 )
 
 // ── No entrance on the arriving conversation ────────────────────────────────

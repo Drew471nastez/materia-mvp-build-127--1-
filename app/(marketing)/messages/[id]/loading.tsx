@@ -1,4 +1,3 @@
-import { IosSpinner } from "@/components/explore/ios-spinner"
 /**
  * The shell a conversation paints the instant a row is tapped.
  *
@@ -18,8 +17,11 @@ import { IosSpinner } from "@/components/explore/ios-spinner"
  * move at the handover; if anything does, one navigation reads as two arrivals
  * again no matter how quick it is.
  *
- * The bubbles are the only thing skeletonised, because they are the only thing
- * here that is not the same on every conversation.
+ * Nothing in the exchange area is skeletonised, and nothing spins there. The
+ * conversation that replaces this shell carries its own cover over that exact
+ * region, on the same `.thread-surface`, and owns the only loading indicator in
+ * the arrival — so this draws the chrome, matches its geometry, and gets out of
+ * the way.
  */
 export default function ThreadLoading() {
   return (
@@ -89,30 +91,29 @@ export default function ThreadLoading() {
         </div>
       </div>
 
-      {/* A spinner, not a mock-up of a conversation.
-          Grey bars pretending to be messages are a guess at content nobody can
-          read, and the moment they are replaced by real words the swap is
-          visible no matter how well the boxes line up. One quiet indicator says
-          the honest thing — this is loading — and has nothing to be replaced BY.
-          Centred, because that is where the eye already is. */}
-      <div className="thread-surface flex min-h-0 flex-1 items-center justify-center">
-        {/* THE SPINNER WAITS BEFORE IT SAYS ANYTHING.
-            A prefetched conversation commits in well under a tenth of a second,
-            and drawing a spinner for it is what made one tap look like two
-            loads: an indicator appears, and is gone before it has finished a
-            revolution, and then the messages arrive. Two events for one
-            navigation, and the first of them was a lie — nothing was being
-            waited for.
-            `thread-wait` holds it at zero opacity for 160ms and fades it up
-            over the next 200. A warm route is finished inside the hold and the
-            spinner is never seen at all; a cold one fades it in rather than
-            cutting to it. Opacity only, so the hold costs the compositor
-            nothing while the payload is what the main thread should be busy
-            with. */}
-        <span className="thread-wait">
-          <IosSpinner size={26} />
-        </span>
-      </div>
+      {/* NOTHING IN HERE, AND THAT IS THE FIX.
+
+          There used to be a spinner, and the conversation that replaces this
+          shell has ONE OF ITS OWN — a cover over the exchange, held until the
+          data and the pictures are both ready (see `covered` in
+          components/messages/thread.tsx). So one tap drew two: this one faded
+          in, was cut off mid-revolution when the shell was replaced, and a
+          second appeared a quarter of a second later at a different size. That
+          is the "loading icon appears and disappears and then it loads again"
+          — it was never one indicator behaving badly, it was two of them
+          taking turns.
+
+          Empty, this area is `.thread-surface` — exactly what the cover
+          underneath is, down to the dot pattern, because the cover is deliberately
+          the same surface rather than flat white. So the swap from this shell
+          to the real conversation changes NOTHING on screen: same header, same
+          composer, same textured panel between them. The screen simply stops
+          being a placeholder without any moment that announces it.
+
+          The waiting is still said out loud — the header above pulses, which is
+          what a skeleton is for — and if the wait turns out to be long, the
+          conversation's own cover raises the one spinner there is. */}
+      <div className="thread-surface min-h-0 flex-1" />
 
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
         {/* No send button. It does not exist on the real composer either until

@@ -2725,18 +2725,18 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
 /* An indicator that only appears if there is genuinely something to wait for.
  * See app/(marketing)/messages/[id]/loading.tsx — the hold is what stops a
  * prefetched conversation from flashing a spinner it never needed. */
-@keyframes thread-wait {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-.thread-wait {
-  animation: thread-wait 200ms ease 160ms both;
-}
-@media (prefers-reduced-motion: reduce) {
-  /* No fade, but the hold stays: not showing a spinner nobody needed is not an
-     animation, it is the correct thing to show. */
-  .thread-wait { animation: thread-wait 1ms linear 160ms both; }
-}
+/* `.thread-wait` lived here — the loading shell's spinner fade.
+ *
+ * Gone with the spinner it belonged to. The shell drew one and the conversation
+ * that replaces it drew another, so a single tap showed two indicators taking
+ * turns: the first faded in, was cut off mid-revolution at the swap, and the
+ * second appeared a quarter of a second later at a different size. That is what
+ * "the loading icon appears and disappears and then it loads again" was.
+ *
+ * The shell's exchange area is now bare `.thread-surface`, which is exactly what
+ * the conversation's cover is — same panel, same dot pattern — so the handover
+ * changes nothing on screen at all, and the cover owns the one spinner there is.
+ * See app/(marketing)/messages/[id]/loading.tsx. */
 
 /* Opening a conversation, and coming back out of one.
  *

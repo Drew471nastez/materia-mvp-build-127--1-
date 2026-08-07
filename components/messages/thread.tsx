@@ -2118,16 +2118,25 @@ export function MessageThread({
           // background as well as a reveal — a flat white panel dissolving into
           // a textured one, which is a flicker of exactly the kind this exists
           // to prevent.
-          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-[240ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]"
+          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-[420ms] ease-[cubic-bezier(0.22,0.61,0.24,1)]"
           style={{ opacity: covered ? 1 : 0, visibility: covered ? "visible" : "hidden" }}
         >
-          {/* Held back a quarter of a second. Most covers lift faster than
-              that — a stale payload is one round trip, and photos already in
-              the browser cache decode in a frame — and a spinner that appears
-              and disappears inside 200ms is a blink, which is exactly the kind
-              of flicker the cover exists to prevent. `both` keeps it invisible
+          {/* Held back nearly half a second, and that is now the ONLY spinner
+              in the arrival.
+              The loading shell used to draw one too, so a single tap showed
+              two: the shell's faded in, was cut off mid-revolution when the
+              shell was replaced, and this one appeared a quarter of a second
+              later at a different size. The shell's is gone (its exchange area
+              is bare `.thread-surface`, identical to this cover), so what is
+              left is one indicator that fades in, holds, and fades out.
+              440ms rather than 260 because this is now the only thing that can
+              say "waiting", so it should say it only when the waiting is real.
+              Most covers lift long before that — a stale payload is one round
+              trip and cached photos decode in a frame — and a spinner that
+              appears and disappears inside 200ms is a blink, which is the
+              flicker the cover exists to prevent. `both` keeps it invisible
               during the delay rather than merely un-animated. */}
-          <span className="animate-[fade-in_200ms_ease-out_260ms_both]">
+          <span className="animate-[fade-in_220ms_ease-out_440ms_both]">
             <IosSpinner size={24} />
           </span>
         </div>
