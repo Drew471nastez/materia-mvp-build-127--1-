@@ -18,6 +18,23 @@ import { useCallback, useState } from "react"
 
 type Result = Record<string, unknown> | null
 
+/** One bookable option, as lib/shipping/compare.ts returns it. */
+type CompareOption = {
+  carrierId: number
+  carrier: string
+  serviceId: number
+  serviceName: string
+  amount: number
+  vat: number
+  total: number
+  currency: string
+  estimatedPickup: string | null
+  estimatedDelivery: string | null
+  labelPrintRequired: boolean
+  from: { id: number; name: string; street: string; streetNumber: string; locality: string; county: string }
+  to: { id: number; name: string; street: string; streetNumber: string; locality: string; county: string }
+}
+
 /**
  * Prefilled with a combination VERIFIED against the live API: Sameday
  * locker→locker, Bucharest easybox 66725 → Cluj easybox 2210235, which priced
@@ -87,6 +104,7 @@ export default function ShippingTestClient() {
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<Result>(null)
   const [title, setTitle] = useState("")
+  const [selected, setSelected] = useState<string | null>(null)
 
   const call = useCallback(
     async (mode: string, extra: Record<string, unknown> = {}) => {
@@ -123,6 +141,40 @@ export default function ShippingTestClient() {
   const options = (result?.options as Array<Record<string, unknown>>) ?? null
   const payload = (result?.payload as Record<string, unknown>) ?? null
   const wallet = (result?.wallet as { balance: number; currency: string } | null) ?? null
+  const compare = (result?.options as CompareOption[] | undefined) ?? null
+  const skipped = (result?.skipped as Array<{ carrier: string; reason: string }>) ?? null
+  const isCompare = title === "compare"
+
+  /**
+   * Adopt one quoted option wholesale.
+   *
+   * Carrier, service AND BOTH LOCKERS move together, and that is the whole
+   * point. Each carrier runs its own locker network — FAN's boxes are not
+   * Sameday's — so a price is only valid for the exact pair it was quoted
+   * with. Selecting a carrier without its lockers would produce a booking that
+   * either fails validation or routes the parcel somewhere nobody chose.
+   */
+  const selectOption = (o: CompareOption) => {
+    setCarrierId(String(o.carrierId))
+    setServiceId(String(o.serviceId))
+    setFrom((f) => ({
+      ...f,
+      county_name: o.from.county,
+      locality_name: o.from.locality,
+      street_name: o.from.street,
+      street_number: o.from.streetNumber,
+      fixed_location_id: String(o.from.id),
+    }))
+    setTo((t) => ({
+      ...t,
+      county_name: o.to.county,
+      locality_name: o.to.locality,
+      street_name: o.to.street,
+      street_number: o.to.streetNumber,
+      fixed_location_id: String(o.to.id),
+    }))
+    setSelected(`${o.carrierId}:${o.serviceId}`)
+  }
   const problems = (result?.wouldFailCreate ?? result?.problems) as string[] | undefined
 
   /** The two ids the provider validates for locker services, pulled out of the
@@ -194,10 +246,18 @@ export default function ShippingTestClient() {
         <button
           type="button"
           disabled={busy !== null}
+          onClick={() => call("compare")}
+          className="rounded-full border border-neutral-900 px-4 py-2 text-[14px] font-semibold disabled:opacity-40"
+        >
+          {busy === "compare" ? "…" : "2. Compară toți curierii"}
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
           onClick={() => call("quote")}
           className="rounded-full bg-neutral-900 px-5 py-2 text-[14px] font-semibold text-white disabled:opacity-40"
         >
-          {busy === "quote" ? "…" : "2. Calculează preț (nu creează nimic)"}
+          {busy === "quote" ? "…" : "3. Calculează preț (nu creează nimic)"}
         </button>
       </div>
 
@@ -247,7 +307,10 @@ export default function ShippingTestClient() {
           <p className="text-[13px] font-semibold text-neutral-900">
             {title} — {ok ? "SUCCES" : "EȘUAT"}
           </p>
-          {options && options.length > 0 && (
+          {/* The plain quote list. Compare mode also returns `options`, but in a
+              different shape and with its own renderer above, so this must not
+              also fire for it. */}
+          {!isCompare && options && options.length > 0 && (
             <ul className="mt-3 space-y-2">
               {options.map((o, i) => (
                 <li key={i} className="rounded-xl border border-neutral-200 p-3 text-[13.5px]">
@@ -264,6 +327,98 @@ export default function ShippingTestClient() {
               ))}
             </ul>
           )}
+          {/* Every bookable locker→locker option, cheapest first. Each row was
+              priced with THAT carrier's own lockers, so selecting one adopts
+              its lockers along with its carrier and service. */}
+          {isCompare && compare && (
+            <div className="mt-3">
+              {compare.length === 0 ? (
+                <p className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-[13.5px] text-amber-900">
+                  Niciun curier nu are easybox-uri la ambele capete ale acestei rute.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {compare.map((o, i) => {
+                    const key = `${o.carrierId}:${o.serviceId}`
+                    const isSelected = selected === key
+                    return (
+                      <li
+                        key={key}
+                        className={`rounded-xl border p-3.5 ${
+                          isSelected
+                            ? "border-neutral-900 bg-neutral-50"
+                            : i === 0
+                              ? "border-emerald-300 bg-emerald-50/50"
+                              : "border-neutral-200"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[15px] font-bold text-neutral-900">
+                              {o.carrier}{" "}
+                              {i === 0 && (
+                                <span className="ml-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                                  cel mai ieftin
+                                </span>
+                              )}
+                            </p>
+                            <p className="mt-0.5 text-[12.5px] text-neutral-600">
+                              {o.serviceName} · carrier_id {o.carrierId} · service_id {o.serviceId}
+                            </p>
+                            <p className="mt-1 text-[12px] text-neutral-500">
+                              Predare: {o.from.name} ({o.from.id}) · {o.from.locality}
+                            </p>
+                            <p className="text-[12px] text-neutral-500">
+                              Livrare: {o.to.name} ({o.to.id}) · {o.to.locality}
+                            </p>
+                            <p className="mt-1 text-[12px] text-neutral-500">
+                              Ridicare {o.estimatedPickup ?? "—"} · livrare {o.estimatedDelivery ?? "—"}
+                              {o.labelPrintRequired ? " · necesită etichetă printată" : " · fără printare"}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-[20px] font-bold text-neutral-900">
+                              {o.total.toFixed(2)} {o.currency}
+                            </p>
+                            <p className="text-[11.5px] text-neutral-500">
+                              {o.amount.toFixed(2)} + TVA {o.vat.toFixed(2)}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => selectOption(o)}
+                              className={`mt-2 rounded-full px-4 py-1.5 text-[13px] font-semibold transition-transform active:scale-[0.96] ${
+                                isSelected
+                                  ? "bg-neutral-900 text-white"
+                                  : "border border-neutral-300 text-neutral-800"
+                              }`}
+                            >
+                              {isSelected ? "Selectat" : "Selectează"}
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              {skipped && skipped.length > 0 && (
+                <ul className="mt-3 space-y-0.5 text-[12px] text-neutral-500">
+                  {skipped.map((s, i) => (
+                    <li key={i}>
+                      {s.carrier}: {s.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {selected && (
+                <p className="mt-3 rounded-xl bg-neutral-900 p-3 text-[13px] font-medium text-white">
+                  Opțiune selectată — câmpurile de mai sus (curier, serviciu și ambele easybox-uri) au
+                  fost completate. Poți calcula prețul sau crea AWB-ul cu ele.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* An empty wallet is the most likely reason a create fails, and it
               costs a permanent "failed" order at the provider to find out the
               hard way. Shown as soon as the connection is checked. */}

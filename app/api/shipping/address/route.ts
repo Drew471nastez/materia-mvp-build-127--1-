@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { listFixedLocations } from "@/lib/eawb"
+import { splitStreet } from "@/lib/shipping/compare"
 import { autoAwbEnabled, createAwbForOrder } from "@/lib/shipping/create-awb"
 import { isMissingShippingSchema, resolveOrderParty } from "@/lib/shipping/order-access"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -132,14 +133,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "unknown_locker" }, { status: 400 })
   }
 
-  // The provider gives one "address" string; the API wants a street and a
-  // number. Split on the last run of digits, and when there is none put the
-  // whole thing in street_name — a street with no number still validates, an
-  // empty street does not.
+  // Shared with the carrier comparison rather than re-derived here. This split
+  // had a bug worth not having twice: "Str. Sergent Pechiu Ion 3-7" came back
+  // as street "…Ion 3-" and number "7", and an address with no number at all
+  // produced an EMPTY street_number, which the provider rejects outright.
   const address = String(locker.address ?? "").trim()
-  const m = address.match(/^(.*?)[\s,]*(\d+[A-Za-z\-/]*)\s*$/)
-  const street = (m ? m[1] : address).trim() || locker.name || "Easybox"
-  const streetNo = m ? m[2] : ""
+  const { street, streetNumber: streetNo } = splitStreet(address, (locker.name || "").trim() || "Easybox")
 
   const admin = createAdminClient()
   const { error } = await admin

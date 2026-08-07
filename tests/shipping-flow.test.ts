@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { sanitizedPayload, validateShipment } from "../lib/eawb"
+import { splitStreet } from "../lib/shipping/compare"
 import { extractLatestStatus, isTerminal, mapCarrierStatus, shouldAdvance } from "../lib/shipping/status"
 import { isMissingShippingSchema } from "../lib/shipping/order-access"
 
@@ -580,6 +581,180 @@ check(
     /try \{\s*\n?\s*wallet = await getAccountBalance\(\)\s*\n?\s*\} catch \{/.test(
       read("app/api/admin/shipping-test/route.ts"),
     ),
+  )
+}
+
+/* ── A FAILED BOOKING MUST NOT COST THE BUYER ANYTHING ───────────────────── */
+//
+// The production contract for HTTP 402 / PAYMENT_FAILED: the Storelib order
+// stays PAID, shipping is marked failed, no second customer order is created,
+// the buyer is never charged again, and an admin can retry once the wallet is
+// funded.
+{
+  check(
+    "a failed booking never touches the order's payment status",
+    (() => {
+      // Every update in the failure path, checked for the payment fields. The
+      // order's own `status` must not appear — that is what "stays paid" means.
+      const tail = createAwb.slice(createAwb.indexOf("} catch (err) {"))
+      return !/\bstatus:\s/.test(tail) && !/amount_cents/.test(tail)
+    })(),
+  )
+  check(
+    "the failure path marks shipping_creation_failed",
+    /catch \(err\)[\s\S]{0,400}?shipping_status: "shipping_creation_failed"/.test(createAwb),
+  )
+  check(
+    "the failure is recorded BEFORE the outcome is classified",
+    (() => {
+      const tail = createAwb.slice(createAwb.indexOf("} catch (err) {"))
+      // Otherwise an early return for one error code would skip the write, and
+      // that order would sit in 'creating' forever — unretryable.
+      return tail.indexOf('shipping_status: "shipping_creation_failed"') < tail.indexOf('code === "validation"')
+    })(),
+  )
+  check(
+    "a failed booking releases the claim, so a retry can take it",
+    (() => {
+      // The claim is `shipping_status = 'creating'` and the guard refuses
+      // `.neq("shipping_status", "creating")`. Writing 'shipping_creation_failed'
+      // is what makes the order claimable again.
+      return (
+        /\.neq\("shipping_status", "creating"\)/.test(createAwb) &&
+        /shipping_status: "shipping_creation_failed"/.test(createAwb)
+      )
+    })(),
+  )
+  check(
+    "nothing in the shipping module creates an order row or charges a card",
+    (() => {
+      const s = createAwb + read("app/api/shipping/create/route.ts") + read("app/api/shipping/address/route.ts")
+      return !/from\("orders"\)\s*\.insert/.test(s) && !/stripe/i.test(s)
+    })(),
+    "        A courier failing is not a reason to re-run checkout.",
+  )
+  check(
+    "an insufficient balance leaves the order retryable",
+    /code: "insufficient_funds", message: e\.message, retryable: true/.test(createAwb),
+  )
+}
+
+/* ── COMPARING CARRIERS INSTEAD OF HARDCODING ONE ────────────────────────── */
+//
+// Measured live, Bucharest→Cluj, 1kg: DPD 13.23 · FAN 16.17 · Sameday 19.89 ·
+// GLS 21.18. The hardcoded Sameday choice was the third cheapest of four.
+{
+  const compare = read("lib/shipping/compare.ts")
+
+  check(
+    "each carrier is priced with ITS OWN lockers, not a wildcard",
+    // Comments stripped: the header DESCRIBES the wildcard in order to explain
+    // why it is not used, and an earlier version of this check failed on its
+    // own documentation.
+    !/carrier_id:\s*0/.test(stripComments(compare)) && /carrier_id: carrierId/.test(compare),
+    "        A wildcard quote sent with Sameday locker ids returned a FAN\n" +
+      "        Courier option. The price engine resolves addresses to localities\n" +
+      "        and does not check the locker belongs to the carrier it quotes.",
+  )
+  check(
+    "an option carries the locker pair it was priced with",
+    /from: cFrom,\s*\n?\s*to: cTo,/.test(compare),
+    "        Selecting a carrier without its lockers books a parcel to a locker\n" +
+      "        that carrier does not serve.",
+  )
+  check(
+    "a quote echoing another carrier is discarded, not shown",
+    /options\.find\(\(o: EawbPriceOption\) => Number\(o\.carrier_id\) === carrierId\)/.test(compare),
+  )
+  check(
+    "results are sorted cheapest first",
+    /options\.sort\(\(a, b\) => a\.total - b\.total\)/.test(compare),
+  )
+  check(
+    "one carrier's outage does not take the comparison down",
+    /Promise\.all\(jobs\)/.test(compare) && /skip: \{ carrierId, carrier, reason:/.test(compare),
+  )
+  check(
+    "selecting an option in the UI adopts its lockers too",
+    (() => {
+      const ui = read("app/admin/shipping-test/_client.tsx")
+      const fn = ui.slice(ui.indexOf("const selectOption"))
+      return (
+        /setCarrierId/.test(fn) &&
+        /setServiceId/.test(fn) &&
+        /fixed_location_id: String\(o\.from\.id\)/.test(fn) &&
+        /fixed_location_id: String\(o\.to\.id\)/.test(fn)
+      )
+    })(),
+  )
+  check(
+    "compare mode creates nothing",
+    (() => {
+      const route = read("app/api/admin/shipping-test/route.ts")
+      const block = route.slice(route.indexOf('if (mode === "compare")'), route.indexOf('if (mode === "quote")'))
+      return !/createOrder/.test(block)
+    })(),
+  )
+
+  // splitStreet — the empty street_number that made Sameday 400.
+  check(
+    "a hyphenated house number is not torn in half",
+    (() => {
+      const a = splitStreet("Str. Sergent Pechiu Ion 3-7")
+      const b = splitStreet("Calea Vitan 55-59")
+      const c = splitStreet("str. Eugen Ionesco 73")
+      return (
+        a.street === "Str. Sergent Pechiu Ion" &&
+        a.streetNumber === "3-7" &&
+        b.street === "Calea Vitan" &&
+        b.streetNumber === "55-59" &&
+        c.streetNumber === "73"
+      )
+    })(),
+    "        Without digits in the class after \\d+, '3-7' split as street\n" +
+      "        '…Ion 3-' and number '7' — the number torn in half and its first\n" +
+      "        digits glued onto the street name.",
+  )
+  check(
+    "the buyer's saved address uses the same splitter as the comparison",
+    /splitStreet\(address,/.test(read("app/api/shipping/address/route.ts")),
+    "        The same broken regex was written out twice.",
+  )
+  check(
+    "an address with no number gets FN, never an empty string",
+    (() => {
+      const a = splitStreet("str. Unirii nr.")
+      const b = splitStreet("str. BANAT Nr. FN")
+      return (
+        a.streetNumber === "FN" &&
+        b.streetNumber === "FN" &&
+        a.street === "str. Unirii" &&
+        b.street === "str. BANAT"
+      )
+    })(),
+    "        975 of 12,079 lockers have no trailing number, and the API rejects\n" +
+      "        an empty one: 'The street_number field is required'. FN is the\n" +
+      "        Romanian notation the couriers' own data uses.",
+  )
+  check(
+    "a leading digit stays in the street name",
+    (() => {
+      const r = splitStreet("str. 1 DECEMBRIE")
+      // "1 Decembrie" is a street name; number 1 would be wrong.
+      return r.streetNumber === "FN" && /1 DECEMBRIE/.test(r.street)
+    })(),
+  )
+  check(
+    "the street never comes back empty",
+    splitStreet("", "FANbox X").street === "FANbox X" && splitStreet("nr.", "Easybox 9").street === "Easybox 9",
+  )
+  check(
+    "place matching covers the county, so Bucharest's sectors are found",
+    /county_name \|\| ""\)\.includes\(folded\)/.test(compare),
+    "        Only 47 lockers are filed under locality 'Bucuresti'; ~2,600 are\n" +
+      "        under 'Sector 1'..'Sector 6' with county 'Bucuresti'. Matching\n" +
+      "        locality alone reported DPD, GLS and Cargus as absent from the\n" +
+      "        capital.",
   )
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
+import { compareLockerRoutes } from "@/lib/shipping/compare"
 import {
   createOrder,
   getAccountBalance,
@@ -72,6 +73,8 @@ type Body = {
   contents?: string
   reference?: string
   codAmount?: number
+  /** compare mode: restrict to carriers owning the sender's chosen locker. */
+  pinSenderLocker?: boolean
 }
 
 function num(v: unknown, fallback: number): number {
@@ -184,6 +187,28 @@ export async function POST(req: NextRequest) {
         wallet = null
       }
       return NextResponse.json({ ok: true, mode, result: await verifyConnection(), wallet })
+    }
+
+    if (mode === "compare") {
+      // Prices every carrier that has lockers at both ends, each with ITS OWN
+      // lockers. CREATES NOTHING — /orders/prices has no side effects.
+      const { options, skipped, cheapest } = await compareLockerRoutes({
+        fromLocality: String(body.from?.locality_name ?? "").trim(),
+        toLocality: String(body.to?.locality_name ?? "").trim(),
+        weightKg: num(body.weight, 1),
+        width: num(body.width, 25),
+        height: num(body.height, 10),
+        length: num(body.length, 35),
+        contents: body.contents,
+        billingAddressId: num(body.billingAddressId, 0),
+        contact: body.from?.contact,
+        phone: body.from?.phone,
+        email: body.from?.email,
+        // Only honour a pinned sender locker when explicitly asked, so the
+        // default comparison is free to find each carrier's own drop-off point.
+        fromLockerId: body.pinSenderLocker ? Number(body.from?.fixed_location_id) || undefined : undefined,
+      })
+      return NextResponse.json({ ok: true, mode, options, skipped, cheapest })
     }
 
     if (mode === "quote") {
