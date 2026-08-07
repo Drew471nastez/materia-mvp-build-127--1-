@@ -110,6 +110,8 @@ export type CreateAwbResult =
         | "db_unavailable"
         | "schema_missing"
         | "save_failed"
+        /** OUR OWN check refused the payload. Nothing was sent to the courier. */
+        | "invalid_shipment"
         | "provider_error"
       message: string
       /** Present on save_failed: the courier IS booked and this must not be lost. */
@@ -317,6 +319,15 @@ export async function createAwbForOrder(
       })
       .eq("id", orderId)
       .is("awb_number", null)
+
+    // Our own pre-flight refusal is NOT a provider failure, and must not be
+    // reported as one. "The courier rejected this" sends someone to look at the
+    // courier; the truth is usually that EAWB_SENDER_LOCKER_ID is unset, which
+    // is a configuration fix on our side. Nothing was sent, so nothing is
+    // pending — but retrying unchanged cannot help either.
+    if (e?.code === "validation") {
+      return { ok: false, code: "invalid_shipment", message: e.message, retryable: false }
+    }
 
     return {
       ok: false,

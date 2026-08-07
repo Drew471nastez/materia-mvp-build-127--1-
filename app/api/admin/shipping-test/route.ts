@@ -5,8 +5,11 @@ import {
   createOrder,
   getLabelLink,
   getPrices,
+  sanitizedPayload,
   trackByAwb,
+  validateShipment,
   verifyConnection,
+  type EawbAddress,
   type EawbShipmentInput,
 } from "@/lib/eawb"
 
@@ -75,10 +78,22 @@ function num(v: unknown, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
-/** Only the address fields the API knows, and only when non-empty — an empty
- *  string is not the same as an absent field to a validator. */
-function address(src: Record<string, string> | undefined) {
-  const out: Record<string, string> = {}
+/**
+ * Only the address fields the API knows, and only when non-empty — an empty
+ * string is not the same as an absent field to a validator.
+ *
+ * `fixed_location_id` IS ONE OF THEM, and its absence from this list was a real
+ * bug: the page sent a locker id, this function silently dropped it, and the
+ * result priced perfectly and then failed creation with
+ * "Service 4 requires fixed location for pickup address". `/orders/prices` does
+ * not enforce the locker requirement; `/orders` does — so the cheap call that
+ * exists to validate the expensive one said yes while the expensive one said no.
+ *
+ * It is separated below because it is the one field that is NOT a string: the
+ * form collects it as text and the API wants an integer.
+ */
+function address(src: Record<string, string> | undefined): EawbAddress {
+  const out: EawbAddress = {}
   for (const k of [
     "email",
     "phone",
@@ -95,6 +110,8 @@ function address(src: Record<string, string> | undefined) {
     const v = src?.[k]
     if (typeof v === "string" && v.trim()) out[k] = v.trim()
   }
+  const locker = Number(src?.fixed_location_id)
+  if (Number.isInteger(locker) && locker > 0) out.fixed_location_id = locker
   return out
 }
 
@@ -159,8 +176,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === "quote") {
-      const { options, validatedAddresses } = await getPrices(shipmentFrom(body))
-      return NextResponse.json({ ok: true, mode, options, validatedAddresses })
+      const shipment = shipmentFrom(body)
+      const { options, validatedAddresses } = await getPrices(shipment)
+      // The payload and the validation verdict come back even on a SUCCESSFUL
+      // quote, precisely because that is the case that hid the locker bug: a
+      // quote can price a payload that creation will reject, so the quote has
+      // to say out loud what it actually sent and whether creation would refuse
+      // it. Without this the discrepancy is invisible until it costs a 400.
+      return NextResponse.json({
+        ok: true,
+        mode,
+        options,
+        validatedAddresses,
+        payload: sanitizedPayload(shipment),
+        wouldFailCreate: validateShipment(shipment),
+      })
     }
 
     if (mode === "create") {
@@ -176,7 +206,24 @@ export async function POST(req: NextRequest) {
           { status: 428 },
         )
       }
-      const result = await createOrder(shipmentFrom(body))
+      const shipment = shipmentFrom(body)
+      // Refused before the request is made, not after. A locker service with no
+      // locker id cannot succeed, and `POST /orders` is the one endpoint whose
+      // failures we cannot assume were side-effect free.
+      const problems = validateShipment(shipment)
+      if (problems.length) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "validation",
+            message: `Nothing was sent. ${problems.join("; ")}`,
+            problems,
+            payload: sanitizedPayload(shipment),
+          },
+          { status: 422 },
+        )
+      }
+      const result = await createOrder(shipment)
       // The label is fetched straight away rather than left to a second trip:
       // an AWB whose label cannot be produced is not a usable shipment, and
       // finding that out now is the point of a test page.
@@ -188,7 +235,7 @@ export async function POST(req: NextRequest) {
           label = null
         }
       }
-      return NextResponse.json({ ok: true, mode, result, label })
+      return NextResponse.json({ ok: true, mode, result, label, payload: sanitizedPayload(shipment) })
     }
 
     if (mode === "label") {

@@ -121,6 +121,18 @@ export default function ShippingTestClient() {
 
   const ok = result?.ok === true
   const options = (result?.options as Array<Record<string, unknown>>) ?? null
+  const payload = (result?.payload as Record<string, unknown>) ?? null
+  const problems = (result?.wouldFailCreate ?? result?.problems) as string[] | undefined
+
+  /** The two ids the provider validates for locker services, pulled out of the
+   *  payload so they can be checked at a glance instead of by reading JSON.
+   *  This is the whole point of the panel: they were being dropped silently. */
+  const lockerIds = payload
+    ? {
+        from: (payload.address_from as Record<string, unknown> | undefined)?.fixed_location_id,
+        to: (payload.address_to as Record<string, unknown> | undefined)?.fixed_location_id,
+      }
+    : null
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -251,6 +263,51 @@ export default function ShippingTestClient() {
               ))}
             </ul>
           )}
+          {/* The two ids the provider validates, first and unmissable. They
+              were being dropped between the form and the request, and nothing
+              on this page showed what was actually sent. */}
+          {lockerIds && (
+            <div
+              className={`mt-3 rounded-xl border p-3.5 ${
+                problems && problems.length > 0
+                  ? "border-red-300 bg-red-50"
+                  : "border-emerald-200 bg-emerald-50"
+              }`}
+            >
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-600">
+                fixed_location_id trimis către eAWB
+              </p>
+              <ul className="mt-1.5 space-y-0.5 font-mono text-[13px] text-neutral-800">
+                <li>
+                  address_from:{" "}
+                  <strong>{lockerIds.from === undefined ? "LIPSEȘTE" : String(lockerIds.from)}</strong>
+                </li>
+                <li>
+                  address_to:{" "}
+                  <strong>{lockerIds.to === undefined ? "LIPSEȘTE" : String(lockerIds.to)}</strong>
+                </li>
+              </ul>
+              {problems && problems.length > 0 && (
+                <ul className="mt-2 space-y-0.5 text-[12.5px] text-red-700">
+                  {problems.map((p, i) => (
+                    <li key={i}>• {p}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {payload && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-[13px] font-semibold text-neutral-700">
+                Corpul exact trimis către eAWB (fără date personale)
+              </summary>
+              <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-neutral-50 p-4 text-[12px] leading-relaxed text-neutral-700">
+                {JSON.stringify(payload, null, 2)}
+              </pre>
+            </details>
+          )}
+
           <pre className="mt-3 max-h-96 overflow-auto rounded-xl bg-neutral-50 p-4 text-[12px] leading-relaxed text-neutral-700">
             {JSON.stringify(result, null, 2)}
           </pre>

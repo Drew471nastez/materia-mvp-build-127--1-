@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       ? 404
       : result.code === "not_paid"
         ? 409
-        : result.code === "missing_delivery_address"
+        : result.code === "missing_delivery_address" || result.code === "invalid_shipment"
           ? 422
           : result.code === "db_unavailable" || result.code === "schema_missing"
             ? 503

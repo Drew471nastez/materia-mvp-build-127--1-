@@ -47,6 +47,7 @@ export type EawbOutcomeCode =
   | "http_error" // eAWB replied with a non-2xx (other than auth)
   | "parse_error" // eAWB replied 2xx but the body was not valid JSON
   | "network_error" // we could not reach eAWB at all (DNS/TLS/timeout)
+  | "validation" // OUR OWN check refused the payload; nothing was sent
 
 /** Non-sensitive result of a connection/auth check. Contains NO secrets. */
 export interface EawbConnectionResult {
@@ -247,6 +248,109 @@ export interface EawbShipmentInput {
 }
 
 /**
+ * Which side of a service needs a locker.
+ *
+ * The provider validates this and its message is precise:
+ *   "Service 4 requires fixed location for pickup address"
+ *   "Service 4 requires fixed location for delivery address"
+ *
+ * Worth stating plainly because it caused a real 400: `fixed_location_id`
+ * SUPPLEMENTS the street fields, it never replaces them. Both must be present.
+ */
+const LOCKER_REQUIREMENTS: Record<number, { from: boolean; to: boolean }> = {
+  1: { from: false, to: false }, // door → door
+  2: { from: false, to: true }, // door → locker
+  3: { from: true, to: false }, // locker → door
+  4: { from: true, to: true }, // locker → locker
+}
+
+/** A positive integer, or undefined. The UI collects locker ids in text inputs,
+ *  so "66725" arrives as a string and the API wants a number — and an empty
+ *  string must become absent, not 0, because 0 is a value a validator will
+ *  reject rather than ignore. */
+function lockerId(v: unknown): number | undefined {
+  if (v === null || v === undefined || v === "") return undefined
+  const n = Number(v)
+  return Number.isInteger(n) && n > 0 ? n : undefined
+}
+
+/**
+ * One address, normalised.
+ *
+ * THE BUG THIS EXISTS TO PREVENT: any code that copies address fields by
+ * listing them will eventually omit one, and omitting `fixed_location_id`
+ * produces a payload that PRICES FINE and then fails at creation — because
+ * `/orders/prices` does not enforce the locker requirement and `/orders` does.
+ * That is the worst possible failure shape: the cheap call that exists to
+ * validate the expensive one says yes, and the expensive one says no.
+ *
+ * So normalisation happens HERE, once, on the way into the shared body builder,
+ * and every caller gets it whether they remembered to or not.
+ */
+function normalizeAddress(a: EawbAddress): EawbAddress {
+  const out: EawbAddress = { ...a }
+  const id = lockerId(a.fixed_location_id)
+  if (id === undefined) delete out.fixed_location_id
+  else out.fixed_location_id = id
+  return out
+}
+
+/**
+ * Refuse a locker service that is missing a locker id, BEFORE spending a
+ * request on it.
+ *
+ * The provider would reject it anyway — but its rejection arrives as an opaque
+ * HTTP 400 from a call that, for `POST /orders`, we have to assume might have
+ * had side effects. Our own check is unambiguous, free, and cannot half-book
+ * anything.
+ */
+export function validateShipment(input: EawbShipmentInput): string[] {
+  const problems: string[] = []
+  const need = LOCKER_REQUIREMENTS[input.service_id]
+  if (!need) return problems
+
+  if (need.from && lockerId(input.address_from.fixed_location_id) === undefined) {
+    problems.push(
+      `address_from.fixed_location_id is required for service ${input.service_id} (pickup from a locker) but is missing`,
+    )
+  }
+  if (need.to && lockerId(input.address_to.fixed_location_id) === undefined) {
+    problems.push(
+      `address_to.fixed_location_id is required for service ${input.service_id} (delivery to a locker) but is missing`,
+    )
+  }
+  return problems
+}
+
+/**
+ * The exact body that goes to eAWB, with nothing that could identify the
+ * account or the customer.
+ *
+ * Exported so a caller can SHOW it. The whole reason the locker bug survived to
+ * a 400 is that nobody could see what was actually sent — the payload was built
+ * three layers below the button that triggered it. Names, phone numbers and
+ * emails are replaced; the ids and the structure, which are what you need in
+ * order to debug, are kept.
+ */
+export function sanitizedPayload(input: EawbShipmentInput): Record<string, unknown> {
+  const scrub = (a: EawbAddress) => {
+    const n = normalizeAddress(a)
+    return {
+      ...n,
+      contact: n.contact ? "[redacted]" : undefined,
+      phone: n.phone ? "[redacted]" : undefined,
+      email: n.email ? "[redacted]" : undefined,
+    }
+  }
+  const body = buildOrderBody(input)
+  return {
+    ...body,
+    address_from: scrub(input.address_from),
+    address_to: scrub(input.address_to),
+  }
+}
+
+/**
  * The request body both `/orders/prices` and `/orders` take.
  *
  * One builder for both on purpose: a quote that priced a shipment the create
@@ -270,8 +374,10 @@ function buildOrderBody(input: EawbShipmentInput): Record<string, unknown> {
     carrier_id: input.carrier_id,
     service_id: input.service_id,
     billing_to: { billing_address_id: input.billing_address_id },
-    address_from: input.address_from,
-    address_to: input.address_to,
+    // Normalised, not passed through: `fixed_location_id` must reach the API as
+    // an integer, and a caller that collected it from a form has a string.
+    address_from: normalizeAddress(input.address_from),
+    address_to: normalizeAddress(input.address_to),
     content: {
       envelopes_count: 0,
       pallets_count: 0,
@@ -369,6 +475,15 @@ export interface EawbOrderResult {
  * which is what app/api/shipping/create does.
  */
 export async function createOrder(input: EawbShipmentInput): Promise<EawbOrderResult> {
+  // Nothing is sent if our own validation fails. A locker service with no
+  // locker id is a payload we KNOW the provider rejects, and finding that out
+  // from an opaque 400 on the one endpoint with side effects is strictly worse
+  // than refusing here.
+  const problems = validateShipment(input)
+  if (problems.length) {
+    throw taggedError("validation", `Shipment is not valid for service ${input.service_id}: ${problems.join("; ")}`)
+  }
+
   const res = await eawbPostJson<Record<string, unknown>>("/orders", buildOrderBody(input))
   const data = (res.data ?? res) as Record<string, unknown>
   const awb =

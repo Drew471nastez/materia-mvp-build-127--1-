@@ -17,6 +17,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { sanitizedPayload, validateShipment } from "../lib/eawb"
 import { extractLatestStatus, isTerminal, mapCarrierStatus, shouldAdvance } from "../lib/shipping/status"
 import { isMissingShippingSchema } from "../lib/shipping/order-access"
 
@@ -359,6 +360,155 @@ check(
   "the extracted text is bounded",
   (extractLatestStatus({ status: "x".repeat(5000) })?.text.length ?? 0) <= 300,
 )
+
+/* ── THE LOCKER ID SURVIVES THE TRIP TO THE PROVIDER ─────────────────────── */
+//
+// A REAL BUG, pinned. The admin page sent fixed_location_id, the route's address
+// whitelist did not list it, and it was dropped silently. The result priced
+// perfectly — /orders/prices does not enforce the locker requirement — and then
+// failed creation with "Service 4 requires fixed location for pickup address".
+// The cheap call that exists to validate the expensive one said yes.
+{
+  const base = {
+    carrier_id: 6,
+    service_id: 4,
+    billing_address_id: 391214,
+    total_weight: 1,
+    parcels: [{ sequence_no: 1, size: { weight: 1, width: 25, height: 10, length: 35 } }],
+    parcel_content: "test",
+  }
+  const withLockers = {
+    ...base,
+    address_from: { contact: "A", street_name: "S", fixed_location_id: 66725 },
+    address_to: { contact: "B", street_name: "T", fixed_location_id: 2210235 },
+  }
+
+  check(
+    "the admin route's address whitelist includes fixed_location_id",
+    /fixed_location_id/.test(read("app/api/admin/shipping-test/route.ts")),
+    "        This omission was the bug. Without it the id never leaves the route.",
+  )
+  check(
+    "both locker ids reach the body the provider receives",
+    (() => {
+      const p = sanitizedPayload(withLockers) as Record<string, Record<string, unknown>>
+      return p.address_from.fixed_location_id === 66725 && p.address_to.fixed_location_id === 2210235
+    })(),
+  )
+  check(
+    "a locker id arriving as a string is sent as an integer",
+    (() => {
+      const p = sanitizedPayload({
+        ...base,
+        address_from: { fixed_location_id: "66725" as unknown as number },
+        address_to: { fixed_location_id: "2210235" as unknown as number },
+      }) as Record<string, Record<string, unknown>>
+      return p.address_from.fixed_location_id === 66725 && p.address_to.fixed_location_id === 2210235
+    })(),
+    "        Form inputs give strings; the API wants integers.",
+  )
+  check(
+    "an empty locker id becomes absent, not 0",
+    (() => {
+      const p = sanitizedPayload({
+        ...base,
+        address_from: { fixed_location_id: "" as unknown as number },
+        address_to: { fixed_location_id: 2210235 },
+      }) as Record<string, Record<string, unknown>>
+      return !("fixed_location_id" in p.address_from)
+    })(),
+    "        0 is a value a validator rejects rather than ignores.",
+  )
+  check(
+    "service 4 with both locker ids passes validation",
+    validateShipment(withLockers).length === 0,
+  )
+  check(
+    "service 4 missing the SENDER locker is refused, naming that side",
+    (() => {
+      const problems = validateShipment({ ...withLockers, address_from: { contact: "A" } })
+      return problems.length === 1 && /address_from\.fixed_location_id/.test(problems[0])
+    })(),
+  )
+  check(
+    "service 4 missing the RECIPIENT locker is refused, naming that side",
+    (() => {
+      const problems = validateShipment({ ...withLockers, address_to: { contact: "B" } })
+      return problems.length === 1 && /address_to\.fixed_location_id/.test(problems[0])
+    })(),
+  )
+  check(
+    "service 4 missing both is refused with both named",
+    validateShipment({ ...withLockers, address_from: {}, address_to: {} }).length === 2,
+  )
+  check(
+    "service 2 (door→locker) requires only the recipient locker",
+    validateShipment({ ...withLockers, service_id: 2, address_from: {} }).length === 0 &&
+      validateShipment({ ...withLockers, service_id: 2, address_to: {} }).length === 1,
+  )
+  check(
+    "service 3 (locker→door) requires only the sender locker",
+    validateShipment({ ...withLockers, service_id: 3, address_to: {} }).length === 0 &&
+      validateShipment({ ...withLockers, service_id: 3, address_from: {} }).length === 1,
+  )
+  check(
+    "service 1 (door→door) requires neither",
+    validateShipment({ ...withLockers, service_id: 1, address_from: {}, address_to: {} }).length === 0,
+  )
+  check(
+    "createOrder validates BEFORE sending anything",
+    (() => {
+      const src = read("lib/eawb.ts")
+      const fn = src.slice(src.indexOf("export async function createOrder"))
+      return fn.indexOf("validateShipment(input)") < fn.indexOf("eawbPostJson")
+    })(),
+    "        POST /orders is the one endpoint whose failures we cannot assume\n" +
+      "        were side-effect free.",
+  )
+  check(
+    "the quote and the create call share one body builder",
+    (() => {
+      const src = stripComments(read("lib/eawb.ts"))
+      return (
+        /getPrices[\s\S]{0,400}?buildOrderBody\(input\)/.test(src) &&
+        /createOrder[\s\S]{0,600}?buildOrderBody\(input\)/.test(src)
+      )
+    })(),
+    "        Fields cannot disappear between quote and creation if there is only\n" +
+      "        one place that builds the body.",
+  )
+  check(
+    "our own refusal is not reported as a provider failure",
+    /e\?\.code === "validation"[\s\S]{0,200}?invalid_shipment/.test(createAwb),
+    "        'The courier rejected this' sends someone to look at the courier;\n" +
+      "        the truth is usually an unset EAWB_SENDER_LOCKER_ID.",
+  )
+  check(
+    "the sanitized payload keeps the ids and drops the people",
+    (() => {
+      const p = sanitizedPayload({
+        ...base,
+        address_from: { contact: "Ion Pop", phone: "0712345678", email: "a@b.ro", fixed_location_id: 66725 },
+        address_to: { contact: "B", fixed_location_id: 2210235 },
+      }) as Record<string, Record<string, unknown>>
+      const s = JSON.stringify(p)
+      return (
+        p.address_from.fixed_location_id === 66725 &&
+        !s.includes("Ion Pop") &&
+        !s.includes("0712345678") &&
+        !s.includes("a@b.ro")
+      )
+    })(),
+  )
+  check(
+    "the test page reports the payload on a SUCCESSFUL quote too",
+    /ok: true,\s*\n?\s*mode,\s*\n?\s*options,[\s\S]{0,200}?payload: sanitizedPayload/.test(
+      read("app/api/admin/shipping-test/route.ts"),
+    ),
+    "        A quote that prices a payload creation would reject is exactly the\n" +
+      "        case that hid this bug, so success must show what was sent.",
+  )
+}
 
 /* ── THE LOCKER SEARCH ───────────────────────────────────────────────────── */
 check(
