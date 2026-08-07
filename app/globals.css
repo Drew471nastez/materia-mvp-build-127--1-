@@ -808,9 +808,22 @@ html.capacitor a.no-tap-fade:active {
    * Everything above the card travels with it — the title, the switcher, the
    * list — so what arrives is the whole screen, together, from the direction it
    * went when the conversation pushed over it. */
+  /* Slide AND scale, anchored to the left edge — a different animal from the
+   * flat sideways card this replaced, at the seller's explicit request.
+   *
+   * The scale is what gives it depth: with `transform-origin` on the left
+   * edge the screen reads as unfolding back into place from where it went,
+   * rather than as a rectangle being pushed. 0.96 is small enough that no text
+   * visibly resizes and large enough that the settle is felt. The dim starts
+   * deeper (0.72) for the same reason the dip got deeper on the way in — at
+   * 0.86 a fade over 300ms is a rumour.
+   *
+   * Still compositor-only, still only ever matching the inbox
+   * (`[data-primary="list"]`, which contains nothing position: fixed), still
+   * inside the phone media query so the desktop split view never moves. */
   @keyframes pop-return {
-    from { opacity: 0.86; transform: translate3d(-30%, 0, 0); }
-    to   { opacity: 1;    transform: translate3d(0, 0, 0); }
+    from { opacity: 0.72; transform: translate3d(-24%, 0, 0) scale(0.96); }
+    to   { opacity: 1;    transform: translate3d(0, 0, 0) scale(1); }
   }
   /* NAMED, NOT "WHATEVER IS IN MAIN".
    *
@@ -825,9 +838,10 @@ html.capacitor a.no-tap-fade:active {
   html.pop-return .marketing-flex-wrapper > main > [data-primary="list"] {
     /* A hard decelerate: almost all of the travel is spent in the first third,
        so the movement registers immediately and the tail is the part that
-       settles. An even curve over the same distance reads as sliding, which is
-       slower than it is. */
-    animation: pop-return 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+       settles — 380ms is nearly all landing, which is what reads as weight
+       rather than as waiting. */
+    animation: pop-return 380ms cubic-bezier(0.22, 0.9, 0.27, 1) both;
+    transform-origin: 0% 50%;
     will-change: transform, opacity;
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
