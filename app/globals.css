@@ -836,7 +836,7 @@ html.capacitor a.no-tap-fade:active {
    * to reveal on any side — the failure mode that constrained every slide.
    * The overflow is clipped by `[overflow-x:clip]` on <main>. */
   @keyframes pop-return {
-    from { opacity: 0.92; transform: scale(1.035); }
+    from { opacity: 0.94; transform: scale(1.028); }
     to   { opacity: 1;    transform: scale(1); }
   }
   /* NAMED, NOT "WHATEVER IS IN MAIN".
@@ -850,19 +850,25 @@ html.capacitor a.no-tap-fade:active {
    * on <html> the moment Back is pressed without having to be sure what route
    * is on screen when it lands. */
   html.pop-return .marketing-flex-wrapper > main > [data-primary="list"] {
-    /* Nearly all of the travel is spent early and the tail is one long
-       settle, which is what reads as weight rather than as waiting. Origin a
-       little above centre, where the rows you were actually looking at are. */
-    animation: pop-return 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+    /* LONGER AND GENTLER, same character.
+       Smoothness is not speed. 420ms with a smaller scale delta covers less
+       distance over more time, which is the definition of a gentler
+       velocity — and the curve now spends its whole second half easing, so
+       the list does not arrive and stop, it stops arriving. A shorter
+       animation with a harder curve has higher peak velocity, and peak
+       velocity is what the eye reads as abrupt. */
+    animation: pop-return 420ms cubic-bezier(0.16, 0.84, 0.3, 1) both;
     transform-origin: 50% 42%;
     will-change: transform, opacity;
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
     /* Chrome fades with the page but does not travel with it. */
-    animation: pop-return-chrome 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    /* Matched to the list beside it — the top bar fading on its own clock is
+       the same kink, on a different pair of elements. */
+    animation: pop-return-chrome 420ms cubic-bezier(0.16, 0.84, 0.3, 1) both;
   }
   @keyframes pop-return-chrome {
-    from { opacity: 0.92; }
+    from { opacity: 0.94; }
     to   { opacity: 1; }
   }
 
@@ -880,11 +886,19 @@ html.capacitor a.no-tap-fade:active {
    * tail is most of it — the conversation eases the last few percent into
    * place instead of arriving and stopping. */
   @keyframes thread-arrive {
-    from { opacity: 0.86; }
+    from { opacity: 0.9; }
     to   { opacity: 1; }
   }
   .thread-arrive {
-    animation: thread-arrive 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+    /* THE SAME CURVE AND THE SAME LENGTH AS THE DIP ABOVE IT, and that is the
+       whole point rather than a coincidence.
+       <main> rises 0.88 → 1 over 240ms when the route commits. This element is
+       INSIDE it, so the two opacities MULTIPLY — and two ramps of different
+       lengths on different curves multiply into a fade that visibly changes
+       pace partway through. That kink is what was left of "not smooth" on the
+       way in: not either animation, but the beat between them.
+       Matched, they compose into a single smooth ramp from 0.88 x 0.9 to 1. */
+    animation: thread-arrive 240ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
   }
 
   /* The same dip, for the navigations no finger on the bar started — a
