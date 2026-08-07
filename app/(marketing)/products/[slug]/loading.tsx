@@ -24,11 +24,14 @@ export default function ListingLoading() {
   return (
     <div className="min-h-screen bg-white pb-28 md:pb-0">
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
-        {/* The photograph. Neutral-200 rather than a pulse: this is the biggest
-            area on the screen, and a full-width band flashing under your thumb
-            for the length of a fetch is more distracting than a still one. */}
+        {/* The photograph. It does not pulse with everything else — this is the
+            biggest area on the screen, and a full-width band flashing under
+            your thumb for the length of a fetch is more distracting than a
+            still one. What it does instead is sweep once, slowly: a wide,
+            low-contrast highlight travelling across it, which reads as
+            something arriving rather than as something blinking. */}
         <div className="relative md:sticky md:top-24 md:self-start">
-          <div className="relative aspect-[3/4] w-full bg-neutral-200 md:rounded-2xl" />
+          <div className="skeleton-sweep relative aspect-[3/4] w-full bg-neutral-200 md:rounded-2xl" />
 
           <div
             className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between px-3 md:hidden"

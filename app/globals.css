@@ -83,6 +83,25 @@ html.capacitor body {
   overscroll-behavior: none;
 }
 
+/* THE SAME, ON THE MOBILE WEB, where there is no `capacitor` class to key on.
+ *
+ * The rule above only ever applied inside the native shell, so the same drag on
+ * the same page in a phone browser still rubber-banded the document — and a
+ * marketplace people are asked to install is judged on whether the web version
+ * feels like the app. `overscroll-behavior` governs only the bounce and the
+ * chaining; ordinary scrolling, momentum and every scroll listener behave
+ * exactly as before.
+ *
+ * Coarse pointers only. On a trackpad the same elastic is a deliberate
+ * affordance of the platform rather than a page that looks broken, and there is
+ * no reason to take it away from a desktop browser. */
+@media (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
 /* Marketplace feed is white — paint the safe-area (status-bar) canvas white too,
    so the notch/status-bar zone blends into the feed instead of showing the black
    root background as a hard "cutter" bar above the search. Toggled by MobileFeed
@@ -956,7 +975,9 @@ html.capacitor a.no-tap-fade:active {
    inertia at all, which is what "too direct" describes. */
 .native-scroll {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  /* Same correction as the shell scroller above: `contain` only stops chaining,
+     `none` stops this element bouncing on its own. */
+  overscroll-behavior-y: none;
 }
 
 .dark {
@@ -1878,6 +1899,76 @@ html.capacitor a.no-tap-fade:active {
   animation-delay: 1s;
 }
 
+/* SKELETONS BREATHE INSTEAD OF BLINKING.
+ *
+ * Tailwind's `animate-pulse` is `opacity: 1 → .5 → 1` on `cubic-bezier(.4,0,.6,1)`
+ * every second. Two things about it read as cheap on a screen made almost
+ * entirely of skeletons, which the product page is:
+ *
+ *   · it is FAST. A second per cycle on a dozen blocks at once is a page that
+ *     flickers rather than one that waits.
+ *   · it goes to HALF. On #f5f5f5 against white that is a swing from barely
+ *     visible to almost invisible, so the blocks appear to blink out and come
+ *     back rather than to hold their place.
+ *
+ * Slower and shallower: 1.8s, and only down to 0.62, on a sine-like curve that
+ * spends most of its time near the extremes instead of racing between them. The
+ * effect is a surface that is quietly alive rather than one that is signalling.
+ *
+ * Overriding the utility rather than replacing every call site: there are
+ * skeletons in a dozen files and they should not be able to drift apart. A
+ * page that genuinely wants Tailwind's timing can still say so with an
+ * arbitrary value, which wins on specificity.
+ *
+ * Compositor-only — opacity, nothing that touches layout — so a page full of
+ * them costs the same as one. */
+@keyframes skeleton-breathe {
+  0%,
+  100% { opacity: 1; }
+  50%  { opacity: 0.62; }
+}
+.animate-pulse {
+  animation: skeleton-breathe 1.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Held at a value that still reads as "not content yet", rather than
+     animated. A skeleton that does not move is still a skeleton. */
+  .animate-pulse { animation: none; opacity: 0.75; }
+}
+
+/* A single slow highlight travelling across a large skeleton block.
+ *
+ * For the one or two areas too big to pulse — a full-width photograph frame —
+ * where a synchronised fade of the whole surface is a flash rather than a wait.
+ *
+ * `background-position` is animated rather than a transform, which is the
+ * unusual choice here and the correct one: a transform would need a child
+ * element to move, and this is a bare div whose whole job is to be a rectangle.
+ * One repaint of a linear gradient over a fixed box is cheap, and 2.4s means it
+ * happens rarely.
+ *
+ * Low contrast on purpose. The gradient runs from the block's own neutral-200
+ * to a couple of steps lighter and back, so it reads as a sheen rather than as
+ * a stripe crossing the screen. */
+@keyframes skeleton-sweep {
+  from { background-position: -150% 0; }
+  to   { background-position: 250% 0; }
+}
+.skeleton-sweep {
+  background-image: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-sweep 2.4s cubic-bezier(0.4, 0.1, 0.35, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-sweep { animation: none; background-image: none; }
+}
+
 /* Shimmer animation for skeleton loading */
 @keyframes shimmer {
   0% {
@@ -2507,9 +2598,21 @@ html.capacitor .marketing-flex-wrapper {
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  /* Belt and braces: with the document clipped there is nothing left to chain
-     to, but a nested scroller reaching its end must not try. */
-  overscroll-behavior-y: contain;
+  /* NONE, NOT CONTAIN, and the difference is the whole bug.
+   *
+   * `contain` stops a scroller CHAINING its overscroll to whatever is behind
+   * it. It does not stop the scroller's OWN elastic bounce, and this element is
+   * the app's scroller — so on any screen taller than the viewport, dragging
+   * down at the top rubber-banded the entire page and revealed white above the
+   * cover photo. The document was already clipped, so nothing was chaining;
+   * what was moving was this element itself, which `contain` has nothing to say
+   * about.
+   *
+   * `none` is what disables the bounce. Nothing is lost with it: the app's
+   * pull-to-refresh is a custom gesture built on touchstart/touchmove, armed
+   * only when `scrollTop <= 0` (hooks/use-feed-pull-refresh.ts), so it never
+   * depended on native overscroll and keeps working exactly as before. */
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
 }
 /* A modal has to freeze what actually moves. `body.modal-open` pins the
