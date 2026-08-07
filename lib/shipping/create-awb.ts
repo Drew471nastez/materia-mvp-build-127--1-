@@ -49,6 +49,26 @@ const DEFAULT_SERVICE_ID = Number(process.env.EAWB_DEFAULT_SERVICE_ID || 4)
 const DEFAULT_WEIGHT_KG = Number(process.env.EAWB_DEFAULT_WEIGHT_KG || 1)
 
 /**
+ * THE CARRIER THE WHOLE PLATFORM SHIPS ON, and why there is only one.
+ *
+ * A locker→locker shipment needs BOTH lockers on the same courier's network:
+ * DPD cannot collect from a Sameday easybox, and Sameday cannot deliver to a
+ * FANbox. The seller drops parcels at one fixed locker
+ * (`EAWB_SENDER_LOCKER_ID`), and that locker belongs to exactly one carrier —
+ * so every buyer must choose from that same network.
+ *
+ * This is enforced in two places that must agree:
+ *   - the buyer's picker only lists this carrier's lockers, and
+ *   - /api/shipping/address refuses a locker from any other carrier.
+ *
+ * Changing carrier means changing the sender locker too, which is why they are
+ * read from the same configuration and never guessed independently.
+ */
+export function senderCarrierId(): number {
+  return Number(process.env.EAWB_SENDER_CARRIER_ID || process.env.EAWB_DEFAULT_CARRIER_ID || 6)
+}
+
+/**
  * The order row this needs, spelled out.
  *
  * The generated Supabase types come from the CURRENT database and the shipping
@@ -69,6 +89,8 @@ export type ShippableOrder = {
   tracking_number: string | null
   shipping_status: string | null
   shipping_label_url: string | null
+  /** Set when the buyer chose their locker — the network that locker is on. */
+  shipping_carrier_id: number | null
   ship_contact: string | null
   ship_phone: string | null
   ship_country_code: string | null
@@ -83,7 +105,7 @@ export type ShippableOrder = {
 
 const SELECT =
   "id, status, amount_cents, buyer_first_name, buyer_last_name, buyer_email, " +
-  "awb_number, tracking_number, shipping_status, shipping_label_url, " +
+  "awb_number, tracking_number, shipping_status, shipping_label_url, shipping_carrier_id, " +
   "ship_contact, ship_phone, ship_country_code, ship_county, ship_locality, " +
   "ship_street, ship_street_no, ship_details, ship_postal_code, ship_fixed_location_id"
 
@@ -236,7 +258,15 @@ export async function createAwbForOrder(
 
   const weight = Number(opts.weightKg) > 0 ? Number(opts.weightKg) : DEFAULT_WEIGHT_KG
   const shipment: EawbShipmentInput = {
-    carrier_id: Number(opts.carrierId) > 0 ? Number(opts.carrierId) : DEFAULT_CARRIER_ID,
+    // The carrier recorded when the buyer chose their locker wins over the
+    // default. Booking a different carrier than the one that owns the
+    // destination locker is the failure this ordering exists to prevent.
+    carrier_id:
+      Number(opts.carrierId) > 0
+        ? Number(opts.carrierId)
+        : Number(order.shipping_carrier_id) > 0
+          ? Number(order.shipping_carrier_id)
+          : DEFAULT_CARRIER_ID,
     service_id: Number(opts.serviceId) > 0 ? Number(opts.serviceId) : DEFAULT_SERVICE_ID,
     billing_address_id: Number(process.env.EAWB_BILLING_ADDRESS_ID || 0),
     address_from: senderAddress(),

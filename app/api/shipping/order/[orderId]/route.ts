@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { trackByAwb } from "@/lib/eawb"
+import { senderCarrierId } from "@/lib/shipping/create-awb"
 import { resolveOrderParty, type OrderShipping } from "@/lib/shipping/order-access"
 import {
   extractLatestStatus,
@@ -72,6 +73,11 @@ function buyerView(o: OrderShipping) {
     contact: o.ship_contact ?? null,
     phone: o.ship_phone ?? null,
     needsAddress: !o.ship_fixed_location_id && !o.awb_number,
+    // The only network the buyer may pick from: a locker→locker shipment needs
+    // both ends on one carrier, and the seller's drop-off point fixes which.
+    // Sent so the picker filters rather than letting someone choose a locker
+    // the server will then refuse.
+    carrierId: senderCarrierId(),
   }
 }
 

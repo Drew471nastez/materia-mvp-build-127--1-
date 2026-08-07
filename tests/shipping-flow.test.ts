@@ -223,7 +223,16 @@ check(
       orderRouteCode.indexOf("function buyerView"),
       orderRouteCode.indexOf("function sellerView"),
     )
-    return buyer.length > 100 && !/label/i.test(buyer) && !/address_from|sender/i.test(buyer)
+    // Names the leak precisely rather than banning the substring "sender".
+    // The earlier version did the latter and failed on `senderCarrierId()` —
+    // a courier id the buyer already sees on their own tracking, and not an
+    // address at all. A proxy that flags harmless symbols trains people to
+    // edit the test instead of reading it.
+    return (
+      buyer.length > 100 &&
+      !/label/i.test(buyer) &&
+      !/senderAddress|address_from|EAWB_SENDER_/.test(buyer)
+    )
   })(),
   "        A buyer must not receive the label link or the seller's address.",
 )
@@ -755,6 +764,66 @@ check(
       "        under 'Sector 1'..'Sector 6' with county 'Bucuresti'. Matching\n" +
       "        locality alone reported DPD, GLS and Cargus as absent from the\n" +
       "        capital.",
+  )
+}
+
+/* ── BOTH LOCKERS MUST BE ON ONE COURIER'S NETWORK ───────────────────────── */
+//
+// A REAL BUG, caught in review before it shipped a parcel. Production defaulted
+// to carrier 6 (Sameday) while the buyer's picker listed lockers from EVERY
+// network. A buyer choosing a DPD or FAN box would have had Sameday booked
+// against a locker Sameday does not serve — the same class of failure as the
+// dropped fixed_location_id, and this one routes a real parcel.
+{
+  const addressRoute = read("app/api/shipping/address/route.ts")
+
+  check(
+    "the buyer's locker carrier is validated against the seller's network",
+    /Number\(locker\.carrier_id\) !== expectedCarrier/.test(addressRoute) &&
+      /code: "wrong_carrier"/.test(addressRoute),
+    "        DPD cannot collect from a Sameday easybox and Sameday cannot\n" +
+      "        deliver to a FANbox.",
+  )
+  check(
+    "the chosen locker's carrier is recorded on the order",
+    /shipping_carrier_id: Number\(locker\.carrier_id\)/.test(addressRoute),
+  )
+  check(
+    "booking uses the recorded carrier before falling back to the default",
+    (() => {
+      // Anchored on the shipment builder, not on the first "carrier_id:" in the
+      // file — that one is the `shipping_carrier_id` TYPE declaration, and an
+      // earlier version of this check matched it and measured nothing.
+      const i = createAwb.indexOf("const shipment: EawbShipmentInput")
+      const slice = createAwb.slice(i, i + 700)
+      const recorded = slice.indexOf("order.shipping_carrier_id")
+      const fallback = slice.indexOf("DEFAULT_CARRIER_ID")
+      return recorded > -1 && fallback > -1 && recorded < fallback
+    })(),
+  )
+  check(
+    "the order row actually selects shipping_carrier_id",
+    /shipping_carrier_id/.test(createAwb.slice(0, createAwb.indexOf("export type CreateAwbResult"))),
+    "        Reading a column that was never selected is silently undefined,\n" +
+      "        which would fall through to the default carrier every time.",
+  )
+  check(
+    "the picker is filtered to that one network, client-side too",
+    (() => {
+      const panel = read("components/shipping/order-shipping-panel.tsx")
+      return /<LockerPicker[\s\S]{0,160}?carrierId=\{carrierId\}/.test(panel)
+    })(),
+    "        The server check stands alone, but offering lockers it will refuse\n" +
+      "        is a choice the buyer should never be shown.",
+  )
+  check(
+    "the sender's carrier and sender's locker come from one configuration",
+    (() => {
+      const s = read("lib/shipping/create-awb.ts")
+      return /EAWB_SENDER_CARRIER_ID/.test(s) && /EAWB_SENDER_LOCKER_ID/.test(s)
+    })(),
+    "        Changing carrier means changing the drop-off locker too; they must\n" +
+      "        never be guessed independently.",
   )
 }
 

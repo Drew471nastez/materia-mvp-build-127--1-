@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { listFixedLocations } from "@/lib/eawb"
 import { splitStreet } from "@/lib/shipping/compare"
-import { autoAwbEnabled, createAwbForOrder } from "@/lib/shipping/create-awb"
+import { autoAwbEnabled, createAwbForOrder, senderCarrierId } from "@/lib/shipping/create-awb"
 import { isMissingShippingSchema, resolveOrderParty } from "@/lib/shipping/order-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -133,6 +133,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "unknown_locker" }, { status: 400 })
   }
 
+  // BOTH ENDS MUST BE ON THE SAME NETWORK. DPD cannot collect from a Sameday
+  // easybox and Sameday cannot deliver to a FANbox, so a locker→locker shipment
+  // is only bookable when the buyer's locker belongs to the same carrier as the
+  // seller's drop-off point. The picker already filters to that carrier; this
+  // is the check that does not depend on the client having done so.
+  const expectedCarrier = senderCarrierId()
+  if (Number(locker.carrier_id) !== expectedCarrier) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "wrong_carrier",
+        message: "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă.",
+      },
+      { status: 400 },
+    )
+  }
+
   // Shared with the carrier comparison rather than re-derived here. This split
   // had a bug worth not having twice: "Str. Sergent Pechiu Ion 3-7" came back
   // as street "…Ion 3-" and number "7", and an address with no number at all
@@ -153,6 +170,9 @@ export async function POST(req: NextRequest) {
       ship_street_no: streetNo || null,
       ship_details: (locker.name || "").trim() || null,
       ship_fixed_location_id: lockerId,
+      // Recorded so booking uses the network this locker is actually on,
+      // rather than a platform-wide default that may have moved on since.
+      shipping_carrier_id: Number(locker.carrier_id) || null,
       shipping_status: resolved.order.shipping_status || "awaiting_shipment",
     })
     .eq("id", orderId)

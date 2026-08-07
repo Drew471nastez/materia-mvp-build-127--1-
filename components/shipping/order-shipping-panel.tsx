@@ -33,6 +33,8 @@ type BuyerShipping = {
   contact: string | null
   phone: string | null
   needsAddress: boolean
+  /** The only courier network the buyer may pick a locker from. */
+  carrierId: number
 }
 
 type SellerShipping = {
@@ -115,7 +117,8 @@ export function OrderShippingPanel({ orderId }: { orderId: string }) {
 /* ─────────────────────────── buyer ─────────────────────────── */
 
 function BuyerPanel({ data, onSaved }: { data: BuyerShipping; onSaved: () => void }) {
-  if (data.needsAddress) return <ChooseLocker orderId={data.id} onSaved={onSaved} />
+  if (data.needsAddress)
+    return <ChooseLocker orderId={data.id} carrierId={data.carrierId} onSaved={onSaved} />
 
   return (
     <section className="rounded-2xl border border-neutral-200 p-4">
@@ -148,7 +151,15 @@ function BuyerPanel({ data, onSaved }: { data: BuyerShipping; onSaved: () => voi
   )
 }
 
-function ChooseLocker({ orderId, onSaved }: { orderId: string; onSaved: () => void }) {
+function ChooseLocker({
+  orderId,
+  carrierId,
+  onSaved,
+}: {
+  orderId: string
+  carrierId: number
+  onSaved: () => void
+}) {
   const [locker, setLocker] = useState<LockerOption | null>(null)
   const [contact, setContact] = useState("")
   const [phone, setPhone] = useState("")
@@ -192,7 +203,10 @@ function ChooseLocker({ orderId, onSaved }: { orderId: string; onSaved: () => vo
         ce alegi, așa că expedierea începe imediat ce salvezi.
       </p>
 
-      <LockerPicker value={locker} onSelect={setLocker} disabled={saving} />
+      {/* Filtered to the seller's network. Both ends of a locker→locker
+          shipment must be on one carrier, so offering the others would only
+          produce a choice the server has to reject. */}
+      <LockerPicker value={locker} onSelect={setLocker} carrierId={carrierId} disabled={saving} />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
