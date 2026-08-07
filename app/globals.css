@@ -821,9 +821,23 @@ html.capacitor a.no-tap-fade:active {
    * Still compositor-only, still only ever matching the inbox
    * (`[data-primary="list"]`, which contains nothing position: fixed), still
    * inside the phone media query so the desktop split view never moves. */
+  /* THE ZOOM-SETTLE. Third character for this transition — the flat slide and
+   * the left-edge unfold were both rejected — and unlike either it has no
+   * lateral movement and no heavy dim.
+   *
+   * The list starts a touch larger than life and settles down to rest, with
+   * only a whisper of fade. It is the Photos-app pop: you zoomed INTO a row to
+   * open the conversation, so coming back, the list is still slightly zoomed
+   * and relaxes. A movement everybody has felt before, in the direction the
+   * gesture means.
+   *
+   * A scale ABOVE 1 is also the one transform with zero exposure risk: every
+   * edge travels OUTWARD, past the frame, so there is no strip of background
+   * to reveal on any side — the failure mode that constrained every slide.
+   * The overflow is clipped by `[overflow-x:clip]` on <main>. */
   @keyframes pop-return {
-    from { opacity: 0.72; transform: translate3d(-24%, 0, 0) scale(0.96); }
-    to   { opacity: 1;    transform: translate3d(0, 0, 0) scale(1); }
+    from { opacity: 0.92; transform: scale(1.035); }
+    to   { opacity: 1;    transform: scale(1); }
   }
   /* NAMED, NOT "WHATEVER IS IN MAIN".
    *
@@ -836,12 +850,11 @@ html.capacitor a.no-tap-fade:active {
    * on <html> the moment Back is pressed without having to be sure what route
    * is on screen when it lands. */
   html.pop-return .marketing-flex-wrapper > main > [data-primary="list"] {
-    /* A hard decelerate: almost all of the travel is spent in the first third,
-       so the movement registers immediately and the tail is the part that
-       settles — 380ms is nearly all landing, which is what reads as weight
-       rather than as waiting. */
-    animation: pop-return 380ms cubic-bezier(0.22, 0.9, 0.27, 1) both;
-    transform-origin: 0% 50%;
+    /* Nearly all of the travel is spent early and the tail is one long
+       settle, which is what reads as weight rather than as waiting. Origin a
+       little above centre, where the rows you were actually looking at are. */
+    animation: pop-return 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+    transform-origin: 50% 42%;
     will-change: transform, opacity;
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
@@ -849,19 +862,29 @@ html.capacitor a.no-tap-fade:active {
     animation: pop-return-chrome 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes pop-return-chrome {
-    from { opacity: 0.86; }
+    from { opacity: 0.92; }
     to   { opacity: 1; }
   }
 
-  /* DEEPER, for opening a conversation. See lib/tab-leave.ts.
-     0.78 rather than 0.88, which is the difference between a handover you can
-     see and one you have to be told about. Only the value changes — same
-     property, same curve, same 120ms ease down and same 240ms rise back — so a
-     warm route still never reaches the bottom of it and there is nothing here
-     that can uncover anything. */
-  html.tab-leaving.tab-leaving-deep .marketing-flex-wrapper > main,
-  html.tab-leaving.tab-leaving-deep .marketing-flex-wrapper > .native-only-topbar {
-    opacity: 0.78;
+
+  /* ARRIVING AT A CONVERSATION — one fade, spanning the shell and the screen.
+   *
+   * On the segment layout (app/(marketing)/messages/[id]/layout.tsx), which is
+   * the only element that mounts once per visit and survives the loading→page
+   * swap — so this is the entrance that CANNOT restart on the handover, which
+   * is what killed every previous version of it.
+   *
+   * Opacity only. A transform here would make this div the containing block
+   * for the fixed .thread-shell inside it and the screen would jump. From
+   * 0.86, which is visible without being a page-load dim, over 320ms whose
+   * tail is most of it — the conversation eases the last few percent into
+   * place instead of arriving and stopping. */
+  @keyframes thread-arrive {
+    from { opacity: 0.86; }
+    to   { opacity: 1; }
+  }
+  .thread-arrive {
+    animation: thread-arrive 320ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
   }
 
   /* The same dip, for the navigations no finger on the bar started — a

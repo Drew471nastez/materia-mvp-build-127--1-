@@ -125,6 +125,24 @@ export function InitialAvatar({
     // the one asset that needs this (Storelib's own mark) is safe, and nothing
     // else gains permission it did not have. There is nothing to optimise
     // either: it is vector, and already a few hundred bytes.
+    /**
+     * EAGER AND SYNCHRONOUS, because both defaults exist for a different kind
+     * of image than this one.
+     *
+     * `loading="lazy"` (next/image's default) parks the request behind an
+     * IntersectionObserver — which re-fires from scratch on every REMOUNT, so
+     * coming back to a list meant every avatar re-queued behind an observer
+     * callback for a file the browser already had. And `decoding="async"`
+     * paints the element empty first and the pixels a frame or more later,
+     * which on a remount-from-cache is the entire visible delay: the swap from
+     * fallback to face that reads as cheap.
+     *
+     * A 48px avatar decodes in well under a millisecond. Synchronous decode of
+     * a cached avatar means it paints WITH the element's first frame — no
+     * fallback flash at all on the way back to a list. Eager everywhere is a
+     * few KB per row on screens that show a handful of rows; the deliberate
+     * lazy-loading in this app is for photographs, not for faces.
+     */
     const photo = /\.svgx?(\?|$)/i.test(url) ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -132,6 +150,8 @@ export function InitialAvatar({
         alt=""
         width={size}
         height={size}
+        loading="eager"
+        decoding="sync"
         onError={() => setBroken(true)}
         className="absolute inset-0 h-full w-full rounded-full object-cover"
       />
@@ -141,6 +161,8 @@ export function InitialAvatar({
         alt=""
         width={size}
         height={size}
+        loading="eager"
+        decoding="sync"
         onError={() => setBroken(true)}
         className="absolute inset-0 h-full w-full rounded-full object-cover"
       />
