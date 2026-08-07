@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -623,14 +623,52 @@ export function MessagesInbox({
   // A switch is a deliberate, physical act on a phone, so it answers like one:
   // a tick of haptic on the way, and never on a re-tap of the segment you are
   // already reading.
+  /**
+   * EACH TAB REMEMBERS WHERE IT WAS.
+   *
+   * The two lists share ONE scroller — `scrollRef` is a single
+   * `absolute inset-0 overflow-y-auto` box and the tab only decides which list
+   * is rendered inside it. Nothing reset `scrollTop` on a switch, so scrolling
+   * halfway down Messages and tapping Notificări showed the notifications from
+   * 500px in; if that list was shorter, the browser clamped to its bottom
+   * instead. Switching back left Messages wherever Notificări had ended up.
+   * Neither list was ever wrong — the scroller was simply carrying one tab's
+   * position into the other.
+   *
+   * Remembered per tab rather than reset to zero. Zero is defensible and
+   * wrong: coming back to a list you were reading and being thrown to the top
+   * is the same class of annoyance, just quieter. Written on the way OUT and
+   * restored on the way IN, both synchronously, so the incoming list paints at
+   * its own position rather than at the outgoing one's.
+   */
+  const scrollMemory = useRef<Record<string, number>>({ messages: 0, notifications: 0 })
+
   const switchTo = useCallback(
     (next: "messages" | "notifications") => {
       if (next === tab) return
       void triggerHaptic("light")
+      scrollMemory.current[tab] = scrollRef.current?.scrollTop ?? 0
       setTab(next)
     },
     [tab],
   )
+
+  /**
+   * A LAYOUT effect, so the restore happens before the browser paints.
+   *
+   * In a passive effect the incoming list paints once at the outgoing list's
+   * offset and then jumps to its own — which is the same visible jump as
+   * having no memory at all, with an extra frame of it.
+   */
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const want = scrollMemory.current[tab] ?? 0
+    // Clamped by the browser anyway; asking for more than the new list has
+    // simply lands at its end, which is the correct answer for a list that
+    // shrank since you last looked at it.
+    el.scrollTop = want
+  }, [tab])
 
   // The page renders this same screen for a visitor who was never signed in.
   // What is left here is the session that expired while the tab sat open: the
@@ -746,7 +784,7 @@ export function MessagesInbox({
           <IosSpinner size={22} />
         </div>
 
-        <div ref={scrollRef} className="absolute inset-0 overflow-y-auto overscroll-y-contain scrollbar-hide">
+        <div ref={scrollRef} className="absolute inset-0 overflow-y-auto overscroll-y-none scrollbar-hide">
           {/* Remounted per tab so the incoming list fades up instead of
               appearing mid-slide. Opacity only, and the box it happens in is the
               same flex child either way, so nothing under it moves.
@@ -754,7 +792,7 @@ export function MessagesInbox({
               writes the transform straight to this node, so a drag never goes
               through React. */}
           <div ref={listRef} className="min-h-full" style={{ transform: "translate3d(0, 0, 0)" }}>
-            <div key={tab} className="flex min-h-full flex-col">
+            <div key={tab} className="tab-swap flex min-h-full flex-col">
               {/* No entrance on the rows.
                   A staggered rise looked considered in isolation and reads, on a
                   screen you open twenty times a day, as the inbox arriving in

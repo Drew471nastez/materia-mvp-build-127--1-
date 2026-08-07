@@ -1899,6 +1899,43 @@ html.capacitor a.no-tap-fade:active {
   animation-delay: 1s;
 }
 
+/* SWITCHING BETWEEN MESSAGES AND NOTIFICATIONS.
+ *
+ * The pill under the labels slides for 320ms on a compositor transform, and it
+ * always did that well. The CONTENT changed instantly — so one control moved
+ * smoothly while the thing it controls teleported underneath it, and the two
+ * halves of a single gesture disagreed about how long the gesture took. That
+ * mismatch is what reads as unfinished on a control this deliberate.
+ *
+ * The list now settles in over exactly the pill's duration and on exactly the
+ * pill's curve, so both stop at the same moment: one movement with two parts
+ * rather than an animation and a cut.
+ *
+ * 0.82, not zero. A list arriving from nothing is a LOADING state, and this
+ * data is already in hand — an entrance that implies fetching where none
+ * happens is the "the tab is loading rather than changing" mistake this file
+ * has recorded before and is deliberately not repeating. At 0.82 there is no
+ * frame anybody would call empty.
+ *
+ * Replayed on every switch for free: the wrapper carries `key={tab}`, so React
+ * gives the incoming list a genuinely new element and a CSS animation starts
+ * from its first keyframe without anything having to reset it.
+ *
+ * Opacity only. The scroller this sits in is `position: absolute; inset: 0`,
+ * and a transform on its child would make that child the containing block for
+ * anything fixed inside a row — and would move content sideways under a
+ * scrollbar that is not moving. */
+@keyframes tab-swap {
+  from { opacity: 0.82; }
+  to   { opacity: 1; }
+}
+.tab-swap {
+  animation: tab-swap 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-swap { animation: none; }
+}
+
 /* SKELETONS BREATHE INSTEAD OF BLINKING.
  *
  * Tailwind's `animate-pulse` is `opacity: 1 → .5 → 1` on `cubic-bezier(.4,0,.6,1)`
