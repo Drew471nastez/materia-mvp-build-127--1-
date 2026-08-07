@@ -3,6 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+
 import { announceThread } from "@/lib/messages/announce"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
 import {
@@ -11,6 +12,21 @@ import {
   getSystemUserId,
   isOfficialProfile,
 } from "@/lib/system-account"
+
+/**
+ * The service client, or null when it is not configured.
+ *
+ * Local rather than imported from lib/messages/list.ts to keep the dependency
+ * one-way — list.ts already imports from here, and a cycle between the two
+ * would be resolved differently by the bundler than by the test runner.
+ */
+function optionalAdminClient(): SupabaseClient | null {
+  try {
+    return createAdminClient()
+  } catch {
+    return null
+  }
+}
 
 /**
  * One conversation, read once for the two places that need it.
@@ -152,7 +168,35 @@ export async function readThread({
           : res,
       ),
     markRead && !olderThan
-      ? asCaller
+      ? /**
+         * MARKED READ WITH THE ADMIN CLIENT, AND THE REASON IS NOT CONVENIENCE.
+         *
+         * This ran as the caller, which means it needed the `messages_update`
+         * RLS policy to exist. If that migration has not been applied — and on
+         * a database where it has not, nothing says so — the update matches
+         * zero rows and returns NO ERROR. PostgREST reports a policy that
+         * forbids a row exactly the way it reports a row that was not there:
+         * success, nothing changed.
+         *
+         * So "seen" silently did not work, everywhere, forever, and no amount
+         * of correct client code could have fixed it. A feature whose failure
+         * mode is indistinguishable from success is not a feature, it is a
+         * coin toss, and this one has been reported as broken more than once.
+         *
+         * Membership was already PROVEN above: `convo` was read as the caller,
+         * so if the caller is not in this conversation the function has
+         * already returned null and nothing below runs. The predicate is then
+         * fully closed — this conversation, not my own messages, not already
+         * read — so there is no row it can reach that the caller could not
+         * legitimately mark read. Using the service client removes a
+         * dependency on a migration without widening what the operation can
+         * touch by a single row.
+         *
+         * Falls back to the caller's own client when the service key is not
+         * configured, which is the behaviour that shipped and is correct
+         * wherever the policy does exist.
+         */
+        (optionalAdminClient() ?? asCaller)
           .from("messages")
           .update({ read_at: new Date().toISOString() })
           .eq("conversation_id", id)
