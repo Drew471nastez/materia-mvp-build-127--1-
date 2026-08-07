@@ -76,8 +76,10 @@ export async function POST(req: NextRequest) {
         ? 409
         : result.code === "missing_delivery_address" || result.code === "invalid_shipment"
           ? 422
-          : result.code === "db_unavailable" || result.code === "schema_missing"
-            ? 503
+          : result.code === "insufficient_funds"
+            ? 402
+            : result.code === "db_unavailable" || result.code === "schema_missing"
+              ? 503
             : result.code === "save_failed"
               ? 500
               : 200

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import {
   createOrder,
+  getAccountBalance,
   getLabelLink,
   getPrices,
   sanitizedPayload,
@@ -172,7 +173,17 @@ export async function POST(req: NextRequest) {
 
   try {
     if (mode === "connection") {
-      return NextResponse.json({ ok: true, mode, result: await verifyConnection() })
+      // The balance comes back with the connection check because an empty
+      // wallet is the single most likely reason a create will fail, and there
+      // is no reason to learn that only after pressing the button that costs
+      // money. Never fatal — a key can authenticate fine while this read blips.
+      let wallet: { balance: number; currency: string } | null = null
+      try {
+        wallet = await getAccountBalance()
+      } catch {
+        wallet = null
+      }
+      return NextResponse.json({ ok: true, mode, result: await verifyConnection(), wallet })
     }
 
     if (mode === "quote") {

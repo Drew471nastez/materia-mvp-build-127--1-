@@ -469,9 +469,20 @@ check(
     "the quote and the create call share one body builder",
     (() => {
       const src = stripComments(read("lib/eawb.ts"))
+      // Each function's own body, sliced to the next top-level `export`, so this
+      // does not depend on how far apart the two calls happen to sit. An earlier
+      // version used a character window and broke the moment a pre-flight check
+      // was added between them — which is exactly the kind of edit that must NOT
+      // fail this assertion.
+      const bodyOf = (name: string) => {
+        const start = src.indexOf(`export async function ${name}`)
+        if (start < 0) return ""
+        const next = src.indexOf("\nexport ", start + 1)
+        return src.slice(start, next < 0 ? src.length : next)
+      }
       return (
-        /getPrices[\s\S]{0,400}?buildOrderBody\(input\)/.test(src) &&
-        /createOrder[\s\S]{0,600}?buildOrderBody\(input\)/.test(src)
+        bodyOf("getPrices").includes("buildOrderBody(input)") &&
+        bodyOf("createOrder").includes("buildOrderBody(input)")
       )
     })(),
     "        Fields cannot disappear between quote and creation if there is only\n" +
@@ -507,6 +518,68 @@ check(
     ),
     "        A quote that prices a payload creation would reject is exactly the\n" +
       "        case that hid this bug, so success must show what was sent.",
+  )
+}
+
+/* ── AN EMPTY WALLET, AND THE FAKE AWB IT RETURNS ────────────────────────── */
+//
+// A REAL 402, and what it taught. The provider ACCEPTED and priced the shipment
+// (19.89 RON, exactly the quote), created order 183060, and only then failed to
+// charge for it. That order is now permanently order_status:"failed" with
+// awb:"NEGENERAT" — and every retry against an empty wallet leaves another one.
+{
+  const eawb = read("lib/eawb.ts")
+
+  check(
+    "a 402 is its own outcome code, not a generic http_error",
+    /response\.status === 402[\s\S]{0,400}?taggedError\(\s*"insufficient_funds"/.test(eawb),
+    "        A 402 is not a bad payload and not an outage — the request was\n" +
+      "        fine. Reporting it as 'HTTP 402' sends someone to debug the request.",
+  )
+  check(
+    "the balance is read BEFORE the order is posted",
+    (() => {
+      const fn = eawb.slice(eawb.indexOf("export async function createOrder"))
+      return fn.indexOf("getAccountBalance") < fn.indexOf('eawbPostJson<Record<string, unknown>>("/orders"')
+    })(),
+    "        Finding out from the provider costs a permanent failed order.",
+  )
+  check(
+    "a balance that cannot be READ does not block a shipment",
+    /code\?: string \}\)\?\.code === "insufficient_funds"\) throw err/.test(eawb),
+    "        Only our own refusal stops the flow; a blip on the profile\n" +
+      "        endpoint is not a reason to refuse a shipment they would accept.",
+  )
+  check(
+    "the wallet balance comes from the profile, the only endpoint that has it",
+    /getAccountBalance[\s\S]{0,300}?\/account\/profile/.test(eawb),
+    "        /account/wallet and /account/balance both 404.",
+  )
+  check(
+    '"NEGENERAT" is never stored as an AWB',
+    (() => {
+      const m = eawb.match(/const NOT_AN_AWB = (\/[^\n]+\/i)/)
+      if (!m) return false
+      const re = new RegExp(m[1].slice(1, -2), "i")
+      return re.test("NEGENERAT") && re.test("negenerat") && !re.test("2SD1234567")
+    })(),
+    "        A failed order still carries an `awb` field. Storing it would set\n" +
+      "        awb_number, which every idempotency guard keys off — permanently\n" +
+      "        blocking a real retry with a tracking number that does not exist.",
+  )
+  check(
+    "an insufficient balance is retryable, but not invalid",
+    /code === "insufficient_funds"[\s\S]{0,200}?retryable: true/.test(createAwb),
+  )
+  check(
+    "the create route answers 402, not 500, when the wallet is empty",
+    /insufficient_funds"\s*\n?\s*\?\s*402/.test(read("app/api/shipping/create/route.ts")),
+  )
+  check(
+    "the connection check reports the balance without being able to fail on it",
+    /try \{\s*\n?\s*wallet = await getAccountBalance\(\)\s*\n?\s*\} catch \{/.test(
+      read("app/api/admin/shipping-test/route.ts"),
+    ),
   )
 }
 

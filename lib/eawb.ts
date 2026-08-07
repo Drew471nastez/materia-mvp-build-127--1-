@@ -48,6 +48,7 @@ export type EawbOutcomeCode =
   | "parse_error" // eAWB replied 2xx but the body was not valid JSON
   | "network_error" // we could not reach eAWB at all (DNS/TLS/timeout)
   | "validation" // OUR OWN check refused the payload; nothing was sent
+  | "insufficient_funds" // the prepaid wallet cannot cover this shipment
 
 /** Non-sensitive result of a connection/auth check. Contains NO secrets. */
 export interface EawbConnectionResult {
@@ -415,6 +416,17 @@ async function eawbPostJson<T>(path: string, body: unknown): Promise<T> {
   if (response.status === 401 || response.status === 403) {
     throw taggedError("auth", `eAWB rejected the API key (HTTP ${response.status})`, response.status)
   }
+  if (response.status === 402) {
+    // Its own code because it is its own fix. A 402 is not a bug in the payload
+    // and not an outage — the shipment was accepted and priced, and the prepaid
+    // wallet could not cover it. Anything that reports this as a generic
+    // "eAWB returned HTTP 402" sends someone to debug a request that was fine.
+    throw taggedError(
+      "insufficient_funds",
+      "eAWB accepted the shipment but the prepaid wallet has insufficient funds. Top up the eAWB account and retry.",
+      402,
+    )
+  }
   if (!response.ok) {
     // The body carries the field-level validation errors, which are the whole
     // value of a 400 here — surfaced, but truncated, and it never contains the
@@ -484,13 +496,43 @@ export async function createOrder(input: EawbShipmentInput): Promise<EawbOrderRe
     throw taggedError("validation", `Shipment is not valid for service ${input.service_id}: ${problems.join("; ")}`)
   }
 
+  // PRE-FLIGHT: an empty wallet cannot book anything, and finding that out from
+  // the provider costs a permanent `order_status: "failed"` record in the
+  // account (183060 was the first). One cheap GET avoids both the opaque 402
+  // and the litter.
+  //
+  // Deliberately only refuses on a balance of ZERO rather than comparing
+  // against the quoted price: the price is not known here without a second
+  // round trip, and refusing a shipment because our arithmetic about fees
+  // disagreed with theirs would be worse than letting the provider decide. Zero
+  // is unambiguous.
+  try {
+    const { balance, currency } = await getAccountBalance()
+    if (balance <= 0) {
+      throw taggedError(
+        "insufficient_funds",
+        `The eAWB wallet balance is ${balance} ${currency}. Top up the account before booking a shipment. Nothing was sent.`,
+        402,
+      )
+    }
+  } catch (err) {
+    // Only OUR refusal stops the flow. If the balance itself could not be read —
+    // a blip on the profile endpoint — that is not a reason to block a shipment
+    // the provider might well accept, so it falls through to the real attempt.
+    if ((err as { code?: string })?.code === "insufficient_funds") throw err
+  }
+
   const res = await eawbPostJson<Record<string, unknown>>("/orders", buildOrderBody(input))
   const data = (res.data ?? res) as Record<string, unknown>
-  const awb =
+  const rawAwb =
     (data.awb as string) ?? (data.awb_number as string) ?? (data.tracking_number as string) ?? null
+  // "NEGENERAT" is not a tracking number. Letting it through would mark the
+  // order as shipped, and — because every idempotency guard keys off
+  // `awb_number` being non-null — permanently block a real retry.
+  const awb = rawAwb && !NOT_AN_AWB.test(String(rawAwb).trim()) ? String(rawAwb).trim() : null
   return {
     orderId: typeof data.order_id === "number" ? data.order_id : (data.id as number) ?? null,
-    awb: awb ? String(awb) : null,
+    awb,
     carrier: (data.carrier as string) ?? null,
     labelUrl: (data.label_url as string) ?? (data.label as string) ?? null,
     raw: res,
@@ -513,6 +555,46 @@ export async function trackByAwb(awb: string): Promise<unknown> {
 export async function getOrder(orderId: number | string): Promise<unknown> {
   return eawbGetJson<unknown>(`/orders/${encodeURIComponent(String(orderId))}`)
 }
+
+/**
+ * The prepaid balance the account books shipments against.
+ *
+ * WHY THIS EXISTS — a real HTTP 402:
+ *   {"message":"Payment failed: Insufficient wallet funds","order_id":183060}
+ *
+ * Note the `order_id`. The provider had already ACCEPTED and priced the
+ * shipment (19.89 RON, exactly the quote) and created order 183060 before
+ * trying to charge for it. That order is now permanently `order_status:
+ * "failed"` with `awb: "NEGENERAT"`, and every future attempt against an empty
+ * wallet leaves another one behind.
+ *
+ * So the balance is read BEFORE booking. It costs one cheap authenticated GET
+ * and it converts an opaque 402 — plus a junk record in the account — into a
+ * sentence saying how much to top up.
+ *
+ * There is no `/account/wallet` endpoint; both that and `/account/balance`
+ * return 404. The balance lives on the profile, which is verified.
+ */
+export async function getAccountBalance(): Promise<{ balance: number; currency: string }> {
+  const res = await eawbGetJson<{ data?: { wallet_balance?: number; wallet_currency?: string } }>(
+    "/account/profile",
+  )
+  return {
+    balance: Number(res?.data?.wallet_balance ?? 0),
+    currency: String(res?.data?.wallet_currency ?? "RON"),
+  }
+}
+
+/**
+ * The provider's placeholder for "no AWB was issued".
+ *
+ * A trap worth naming: a failed order still carries an `awb` field, and its
+ * value is the literal string "NEGENERAT". Storing that would put a fake
+ * tracking number on an order, satisfy the unique index, and make a shipment
+ * that does not exist look booked — with `awb_number` set, every idempotency
+ * guard in `createAwbForOrder` would then refuse to ever try again.
+ */
+const NOT_AN_AWB = /^(negenerat|n\/a|none|null|-)$/i
 
 /** A parcel machine as the provider describes it. */
 export interface EawbLocker {

@@ -34,6 +34,8 @@ const STATUS_BY_CODE: Record<EawbOutcomeCode, number> = {
   http_error: 502, // upstream returned a non-2xx
   parse_error: 502, // upstream returned an unparseable body
   network_error: 502, // we could not reach upstream
+  validation: 422, // WE refused the payload; nothing was sent upstream
+  insufficient_funds: 402, // upstream accepted it; the prepaid wallet is empty
 }
 
 export async function GET() {

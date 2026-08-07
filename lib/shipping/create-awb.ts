@@ -112,6 +112,8 @@ export type CreateAwbResult =
         | "save_failed"
         /** OUR OWN check refused the payload. Nothing was sent to the courier. */
         | "invalid_shipment"
+        /** The prepaid eAWB wallet cannot cover this. Top up, then retry. */
+        | "insufficient_funds"
         | "provider_error"
       message: string
       /** Present on save_failed: the courier IS booked and this must not be lost. */
@@ -327,6 +329,13 @@ export async function createAwbForOrder(
     // pending — but retrying unchanged cannot help either.
     if (e?.code === "validation") {
       return { ok: false, code: "invalid_shipment", message: e.message, retryable: false }
+    }
+
+    // An empty wallet is neither our bug nor the courier's. It is retryable, but
+    // only after somebody adds money — so it says that, instead of inviting an
+    // immediate retry that cannot possibly behave differently.
+    if (e?.code === "insufficient_funds") {
+      return { ok: false, code: "insufficient_funds", message: e.message, retryable: true }
     }
 
     return {

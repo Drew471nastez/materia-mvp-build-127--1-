@@ -122,6 +122,7 @@ export default function ShippingTestClient() {
   const ok = result?.ok === true
   const options = (result?.options as Array<Record<string, unknown>>) ?? null
   const payload = (result?.payload as Record<string, unknown>) ?? null
+  const wallet = (result?.wallet as { balance: number; currency: string } | null) ?? null
   const problems = (result?.wouldFailCreate ?? result?.problems) as string[] | undefined
 
   /** The two ids the provider validates for locker services, pulled out of the
@@ -263,6 +264,30 @@ export default function ShippingTestClient() {
               ))}
             </ul>
           )}
+          {/* An empty wallet is the most likely reason a create fails, and it
+              costs a permanent "failed" order at the provider to find out the
+              hard way. Shown as soon as the connection is checked. */}
+          {wallet && (
+            <div
+              className={`mt-3 rounded-xl border p-3.5 ${
+                wallet.balance > 0 ? "border-emerald-200 bg-emerald-50" : "border-amber-300 bg-amber-50"
+              }`}
+            >
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-600">
+                Sold portofel eAWB
+              </p>
+              <p className="mt-1 text-[18px] font-bold text-neutral-900">
+                {wallet.balance} {wallet.currency}
+              </p>
+              {wallet.balance <= 0 && (
+                <p className="mt-1 text-[12.5px] leading-snug text-amber-800">
+                  Cu sold 0 nu se poate genera niciun AWB. Alimentează contul pe eAWB.ro — o
+                  expediere locker→locker costă ~19.89 RON.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* The two ids the provider validates, first and unmissable. They
               were being dropped between the form and the request, and nothing
               on this page showed what was actually sent. */}
