@@ -50,7 +50,22 @@ export function MessagesSplit({
   primary: "list" | "detail"
 }) {
   return (
-    <div data-app-screen className="flex min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden">
+    <div
+      data-app-screen
+      /**
+       * Which of the two screens this is, as a fact on the element.
+       *
+       * The back transition keys on it. It used to be applied to `main > *` —
+       * whatever happened to be there — which meant it also matched the
+       * CONVERSATION, whose `.thread-shell` is `position: fixed`: a transform
+       * on an ancestor makes that shell resolve its `top`/`left` against the
+       * ancestor instead of the viewport, and the screen jumps. Naming the
+       * screen means the animation can say the inbox and only the inbox, so
+       * the class is harmless wherever else it lands.
+       */
+      data-primary={primary}
+      className="flex min-h-0 flex-1 flex-col md:flex-row md:overflow-hidden"
+    >
       <aside
         className={cn(
           "min-h-0 flex-col",

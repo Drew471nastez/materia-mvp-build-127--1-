@@ -812,7 +812,17 @@ html.capacitor a.no-tap-fade:active {
     from { opacity: 0.86; transform: translate3d(-30%, 0, 0); }
     to   { opacity: 1;    transform: translate3d(0, 0, 0); }
   }
-  html.pop-return .marketing-flex-wrapper > main > * {
+  /* NAMED, NOT "WHATEVER IS IN MAIN".
+   *
+   * `main > *` matched the conversation too, and the conversation's
+   * `.thread-shell` is `position: fixed`: a transform on an ancestor makes that
+   * shell resolve `top`/`left`/`height` against the ancestor's box instead of
+   * the viewport, so the whole screen jumps for the length of the animation.
+   * `[data-primary="list"]` is only ever the inbox (components/messages/
+   * split-shell.tsx), which contains nothing fixed, so the class can now be put
+   * on <html> the moment Back is pressed without having to be sure what route
+   * is on screen when it lands. */
+  html.pop-return .marketing-flex-wrapper > main > [data-primary="list"] {
     /* A hard decelerate: almost all of the travel is spent in the first third,
        so the movement registers immediately and the tail is the part that
        settles. An even curve over the same distance reads as sliding, which is

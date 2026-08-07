@@ -1158,6 +1158,38 @@ export function MessageThread({
   const closeThread = useCallback(() => {
     if (closing.current) return
     closing.current = true
+
+    /**
+     * THE TRANSITION IS ARMED HERE, NOT WHEN THE INBOX SAYS IT ARRIVED.
+     *
+     * It used to be: this navigates, the inbox mounts, its layout effect reads
+     * a hint off <html>, and only then does the class that animates anything go
+     * on. Four steps, and every one of them is a way for the whole transition
+     * to silently not happen — a hint consumed by something else, an effect
+     * that does not run because the component was not remounted, an arrival
+     * that renders a loading shell first. There is no symptom when that breaks;
+     * it looks exactly like an animation that was never written, which is what
+     * this has looked like for some time.
+     *
+     * A CSS animation begins when an element matching the rule appears. So the
+     * class goes on <html> now, before the route is even asked for, and the
+     * inbox animates from its own first frame whenever it turns up — one frame
+     * later or four hundred milliseconds later, with or without a shell in
+     * between. Nothing has to be told anything.
+     *
+     * Safe to have on early because the rule names the inbox
+     * (`[data-primary="list"]`) rather than "whatever is in <main>": while the
+     * conversation is still on screen there is nothing for it to match.
+     *
+     * Taken off well after the animation is over. Left on it would do no harm —
+     * the animation holds its last frame, which is the resting state — but a
+     * marker that outlives its navigation is how the NEXT one ends up wearing
+     * an animation nobody asked for.
+     */
+    const root = document.documentElement
+    root.classList.add("pop-return")
+    window.setTimeout(() => root.classList.remove("pop-return"), 1200)
+
     navigateBlended("back", () =>
       window.history.length > 1 ? router.back() : router.push("/messages"),
     )

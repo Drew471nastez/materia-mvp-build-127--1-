@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -171,45 +171,26 @@ export function MessagesInbox({
   const { formatPrice } = useLocale()
 
   /**
-   * COMING BACK FROM A CONVERSATION — the whole of that transition lives here.
+   * COMING BACK FROM A CONVERSATION — nothing to do here any more, on purpose.
    *
-   * Not on the conversation, which is the screen that is leaving. Everything
-   * tried there was wrong the same way: fading it out left a blank frame,
-   * because there is nothing behind a conversation to reveal; dimming it left a
-   * grey one. Both were held for however long the route took, which nothing on
-   * that side knows in advance. The arriving screen has neither problem — it is
-   * the thing behind, so it can never uncover anything, and its animation
-   * starts on the frame it first paints, so it is the same length every time
-   * regardless of how long the pop took.
+   * This used to own the back transition: read a hint off <html> on mount, add
+   * the class that animates the page, take it off on a timer. It was four steps
+   * away from the press that started it, and every one of them was a way for
+   * the whole thing to silently not happen — a hint consumed by something else,
+   * an effect that does not run because this was never unmounted, an arrival
+   * that draws a loading shell first and animates the wrong element. None of
+   * those has a symptom. They all look exactly like an animation nobody wrote.
    *
-   * A LAYOUT EFFECT, so the class is on before the browser paints. In a passive
-   * effect the inbox paints once at full opacity and only then drops to 0.9 to
-   * begin — a bright frame immediately before a dim one, which is a flash, and
-   * a worse one than the animation removes.
+   * The class now goes on when Back is PRESSED (components/messages/thread.tsx)
+   * and the rule names this screen, so the animation simply begins whenever
+   * this screen appears. There is no handshake left to fail.
    *
-   * `consumeNavHint` rather than `navHint`, and it is deliberately taken: the
-   * hint is left on <html> for 900ms and is for exactly one arrival. Read
-   * without clearing, the next thing to mount inside that window — a tab
-   * change, a re-render for any reason — would animate as though you had
-   * pressed back, which is a transition appearing out of nowhere.
-   *
-   * The class goes on <html> and the rule targets <main> (app/globals.css),
-   * which is how every other screen-level transition in this app is expressed;
-   * it means the fade covers the page and not just the list inside it.
+   * The hint is still taken, because it is not this screen's alone: left on
+   * <html> for its full 900ms, the next thing to mount inside that window
+   * animates as though you had pressed back.
    */
-  useLayoutEffect(() => {
-    if (consumeNavHint() !== "back") return
-    const root = document.documentElement
-    root.classList.add("pop-return")
-    // Longer than the animation. Taken off early it would cut the fade short,
-    // and the animation carries `both`, so until it is removed <main> is held
-    // at the last keyframe — which is opacity 1, i.e. exactly where it belongs.
-    // Nothing is stuck if this timer never fires.
-    const t = window.setTimeout(() => root.classList.remove("pop-return"), 420)
-    return () => {
-      window.clearTimeout(t)
-      root.classList.remove("pop-return")
-    }
+  useEffect(() => {
+    consumeNavHint()
   }, [])
 
   const [tab, setTab] = useState<"messages" | "notifications">(initialTab)
