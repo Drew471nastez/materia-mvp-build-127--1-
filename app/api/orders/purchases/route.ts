@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
+import { isMissingShippingSchema } from "@/lib/shipping/order-access"
 
 /**
  * The buyer's side of order history.
@@ -16,6 +17,18 @@ import { readSessionAuth } from "@/lib/auth/current-user"
  * seller's name lives two joins away in tables a buyer has no SELECT rights on.
  */
 
+/** The two shipping fields are optional because the migration may not have run. */
+interface PurchaseRow {
+  id: string
+  product_id: string | null
+  amount_cents: number | null
+  status: string | null
+  created_at: string | null
+  shipping_status?: string | null
+  awb_number?: string | null
+  ship_fixed_location_id?: number | null
+}
+
 export async function GET() {
   const supabase = await createClient()
   // The orders read below goes through the caller's own client, so the "users
@@ -29,12 +42,30 @@ export async function GET() {
   }
   if (!auth.userId) return NextResponse.json({ error: "auth_required" }, { status: 401 })
 
-  const { data: orders, error } = await supabase
+  // The shipping columns exist only after supabase/sql/RUN_SHIPPING.sql has been
+  // run. Ask for them, and fall back to the base columns on the specific
+  // "undefined column" failure — an order history that 500s because shipping is
+  // not installed yet would be a much worse answer than one without chips.
+  const BASE = "id, product_id, amount_cents, status, created_at"
+  const withShipping = await supabase
     .from("orders")
-    .select("id, product_id, amount_cents, status, created_at")
+    .select(`${BASE}, shipping_status, awb_number, ship_fixed_location_id`)
     .eq("buyer_id", auth.userId)
     .order("created_at", { ascending: false })
     .limit(50)
+
+  let orders = withShipping.data as PurchaseRow[] | null
+  let error = withShipping.error
+  if (error && isMissingShippingSchema(error)) {
+    const base = await supabase
+      .from("orders")
+      .select(BASE)
+      .eq("buyer_id", auth.userId)
+      .order("created_at", { ascending: false })
+      .limit(50)
+    orders = base.data as PurchaseRow[] | null
+    error = base.error
+  }
   if (error) {
     console.error("[orders/purchases] list failed:", error.message)
     return NextResponse.json({ error: "failed" }, { status: 500 })
@@ -75,6 +106,10 @@ export async function GET() {
         createdAt: o.created_at,
         amountCents: o.amount_cents,
         status: o.status,
+        shippingStatus: o.shipping_status ?? null,
+        // The one thing the buyer must actually do. Only meaningful once the
+        // shipping columns exist — undefined reads as false, which is right.
+        needsAddress: o.awb_number ? false : !o.ship_fixed_location_id,
         product: product
           ? { title: product.title, slug: product.slug, thumbnail_url: product.thumbnail_url, price_cents: product.price_cents }
           : null,

@@ -14,6 +14,12 @@ type Row = {
   createdAt: string
   amountCents: number
   status: string
+  /** Null on a deployment where the shipping migration has not been run. */
+  shippingStatus?: string | null
+  /** Sellers only: the buyer has not chosen a locker yet, so there is nothing to do. */
+  awaitingBuyerAddress?: boolean
+  /** Buyers only: no delivery point chosen, so the parcel cannot be sent. */
+  needsAddress?: boolean
   product: { title: string; slug: string; thumbnail_url: string | null; price_cents: number } | null
   seller?: { display_name: string | null; username: string | null } | null
   buyer?: { name: string | null; email: string | null } | null
@@ -77,8 +83,26 @@ const STATUS_CHIP: Record<string, { label: string; className: string }> = {
   failed: { label: "Eșuată", className: "bg-red-50 text-red-600" },
 }
 
-function StatusChip({ status }: { status: string }) {
-  const chip = STATUS_CHIP[status] ?? { label: status, className: "bg-neutral-100 text-neutral-600" }
+// Once a parcel exists, where it is says more than whether the payment cleared.
+// So the shipping state REPLACES the payment chip when there is one — two chips
+// side by side would make every row read like a status page, and the payment
+// state is still the fallback whenever shipping has nothing to add (including
+// on a deployment where the shipping migration has not been run).
+const SHIPPING_CHIP: Record<string, { label: string; className: string }> = {
+  awaiting_shipment: { label: "De expediat", className: "bg-amber-50 text-amber-700" },
+  awb_created: { label: "Etichetă gata", className: "bg-violet-50 text-violet-700" },
+  shipped: { label: "Expediat", className: "bg-sky-50 text-sky-700" },
+  in_transit: { label: "În tranzit", className: "bg-sky-50 text-sky-700" },
+  delivered: { label: "Livrat", className: "bg-emerald-50 text-emerald-700" },
+  returned: { label: "Returnat", className: "bg-red-50 text-red-600" },
+  cancelled: { label: "Anulat", className: "bg-neutral-100 text-neutral-600" },
+  shipping_creation_failed: { label: "Eroare AWB", className: "bg-red-50 text-red-600" },
+}
+
+function StatusChip({ row }: { row: Row }) {
+  const shipping = row.shippingStatus ? SHIPPING_CHIP[row.shippingStatus] : undefined
+  const chip =
+    shipping ?? STATUS_CHIP[row.status] ?? { label: row.status, className: "bg-neutral-100 text-neutral-600" }
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip.className}`}>
       {chip.label}
@@ -183,24 +207,37 @@ function OrderRow({ row, side, formatPrice }: { row: Row; side: Side; formatPric
         <span className="mt-0.5 block truncate text-[13px] text-neutral-500">
           {counterpart} · {formatDate(row.createdAt)}
         </span>
+        {/* One line, and only when there is something to do about it. A buyer
+            who has not chosen a locker is blocking their own delivery; a seller
+            waiting on that buyer is explicitly told NOT to act, which is the
+            more useful message of the two. */}
+        {side === "purchases" && row.needsAddress && (
+          <span className="mt-1 block truncate text-[12.5px] font-semibold text-[#7c3aed]">
+            Alege punctul de livrare →
+          </span>
+        )}
+        {side === "sales" && row.awaitingBuyerAddress && (
+          <span className="mt-1 block truncate text-[12.5px] text-neutral-400">
+            Așteptăm adresa cumpărătorului
+          </span>
+        )}
       </span>
       <span className="flex shrink-0 flex-col items-end gap-1">
         <span className="text-[15px] font-semibold text-neutral-900">{formatPrice(row.amountCents)}</span>
-        <StatusChip status={row.status} />
+        <StatusChip row={row} />
       </span>
     </>
   )
 
-  // A cascade-deleted listing leaves the order with nothing to open; the row
-  // still renders — money changed hands — it just stops being a link.
-  if (!row.product) {
-    return <div className="flex items-center gap-3 rounded-xl px-2 py-3.5">{body}</div>
-  }
+  // The row opens the ORDER, not the listing. Once something has been bought
+  // the interesting page is where the parcel is — the listing is one tap
+  // further in, from there. A deleted listing therefore no longer costs the row
+  // its link: the order still exists and still has a delivery to show.
   return (
     <SmartLink
-      href={`/products/${encodeURIComponent(row.product.slug)}?origin=orders`}
+      href={`/orders/${row.id}`}
       blend
-      warmImage={row.product.thumbnail_url}
+      warmImage={row.product?.thumbnail_url ?? undefined}
       className="flex items-center gap-3 rounded-xl px-2 py-3.5 transition-colors active:bg-neutral-50"
     >
       {body}

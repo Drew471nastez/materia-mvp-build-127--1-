@@ -67,6 +67,62 @@ export function isTerminal(state: ShippingState | null | undefined): boolean {
 }
 
 /**
+ * Pull the most recent human-readable status out of a tracking response.
+ *
+ * DELIBERATELY STRUCTURE-AGNOSTIC. The provider's tracking payload is the one
+ * part of this integration whose shape has not been verified against a real
+ * response — there is no shipment to track yet — so this walks the JSON
+ * looking for status-ish keys instead of indexing into a path that is a guess.
+ * A guessed path silently yields undefined forever when it is wrong, and the
+ * failure looks exactly like "the parcel has not moved".
+ *
+ * Events usually arrive oldest-first, so the LAST match wins. When a date is
+ * present next to the text it is preferred over position, because a provider
+ * that returns newest-first would otherwise be read backwards.
+ */
+export function extractLatestStatus(raw: unknown): { text: string; at: string | null } | null {
+  const KEYS = /^(status|status_name|state|event|event_name|description|message|status_description)$/i
+  const DATE_KEYS = /^(date|datetime|timestamp|event_date|status_date|created_at|updated_at)$/i
+
+  let best: { text: string; at: string | null; order: number } | null = null
+  let counter = 0
+  const seen = new Set<unknown>()
+
+  const walk = (node: unknown, nearbyDate: string | null) => {
+    if (node === null || typeof node !== "object") return
+    // Cyclic structures are not expected from JSON, but a shared reference
+    // would still be walked twice and waste the traversal budget.
+    if (seen.has(node)) return
+    seen.add(node)
+
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, nearbyDate)
+      return
+    }
+
+    const obj = node as Record<string, unknown>
+    let dateHere = nearbyDate
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === "string" && DATE_KEYS.test(k) && v.trim()) dateHere = v.trim()
+    }
+
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === "string" && KEYS.test(k) && v.trim()) {
+        const order = counter++
+        // `>=` so later events replace earlier ones of equal standing.
+        if (!best || order >= best.order) best = { text: v.trim().slice(0, 300), at: dateHere, order }
+      }
+    }
+    for (const v of Object.values(obj)) walk(v, dateHere)
+  }
+
+  walk(raw, null)
+  if (!best) return null
+  const found = best as { text: string; at: string | null; order: number }
+  return { text: found.text, at: found.at }
+}
+
+/**
  * Should `next` replace `current`?
  *
  * Carrier feeds are not ordered. A late scan can arrive after a delivery

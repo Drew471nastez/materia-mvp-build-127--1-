@@ -2,6 +2,23 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readSessionAuth } from "@/lib/auth/current-user"
+import { isMissingShippingSchema } from "@/lib/shipping/order-access"
+
+/** The shipping fields are optional because the migration may not have run. */
+interface SaleRow {
+  id: string
+  product_id: string | null
+  buyer_id: string | null
+  buyer_first_name: string | null
+  buyer_last_name: string | null
+  buyer_email: string | null
+  amount_cents: number | null
+  status: string | null
+  created_at: string | null
+  shipping_status?: string | null
+  awb_number?: string | null
+  ship_fixed_location_id?: number | null
+}
 
 /**
  * The seller's side of order history.
@@ -51,15 +68,31 @@ export async function GET() {
   const productById = new Map(products.map((p) => [p.id, p]))
 
   const admin = createAdminClient()
-  const { data: orders, error } = await admin
+  const productIds = products.map((p) => p.id)
+  // Shipping columns exist only after supabase/sql/RUN_SHIPPING.sql. Ask for
+  // them, and fall back on the specific "undefined column" failure so a seller's
+  // history still loads on a deployment where shipping is not switched on.
+  const BASE =
+    "id, product_id, buyer_id, buyer_first_name, buyer_last_name, buyer_email, amount_cents, status, created_at"
+  const withShipping = await admin
     .from("orders")
-    .select("id, product_id, buyer_id, buyer_first_name, buyer_last_name, buyer_email, amount_cents, status, created_at")
-    .in(
-      "product_id",
-      products.map((p) => p.id),
-    )
+    .select(`${BASE}, shipping_status, awb_number, ship_fixed_location_id`)
+    .in("product_id", productIds)
     .order("created_at", { ascending: false })
     .limit(50)
+
+  let orders = withShipping.data as SaleRow[] | null
+  let error = withShipping.error
+  if (error && isMissingShippingSchema(error)) {
+    const base = await admin
+      .from("orders")
+      .select(BASE)
+      .in("product_id", productIds)
+      .order("created_at", { ascending: false })
+      .limit(50)
+    orders = base.data as SaleRow[] | null
+    error = base.error
+  }
   if (error) {
     console.error("[orders/sales] list failed:", error.message)
     return NextResponse.json({ error: "failed" }, { status: 500 })
@@ -81,7 +114,11 @@ export async function GET() {
         createdAt: o.created_at,
         amountCents: o.amount_cents,
         status: o.status,
-        product: productById.get(o.product_id) ?? null,
+        shippingStatus: o.shipping_status ?? null,
+        // Drives the "action needed" nudge in the list: sold, buyer has chosen
+        // where it goes, and no label has been produced yet.
+        awaitingBuyerAddress: o.awb_number ? false : !o.ship_fixed_location_id,
+        product: o.product_id ? (productById.get(o.product_id) ?? null) : null,
         buyer: {
           name: snapshotName || profile?.display_name || profile?.username || null,
           email: o.buyer_email ?? null,
