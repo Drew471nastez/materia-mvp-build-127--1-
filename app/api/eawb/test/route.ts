@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { verifyConnection, type EawbOutcomeCode } from "@/lib/eawb"
 
 /**
@@ -8,8 +9,17 @@ import { verifyConnection, type EawbOutcomeCode } from "@/lib/eawb"
  * (Innoship) using the read-only ClientLocations GET — it does NOT create a
  * shipment. Returns a secret-free summary; the API key is never included.
  *
- * NOTE: this is a connectivity check for setup/debugging. Protect or remove it
- * before wiring real shipping flows into the UI.
+ * ADMIN ONLY, and it did not used to be.
+ *
+ * Its own note said to protect it before wiring real shipping flows in, and
+ * that moment arrived. Unauthenticated, anyone who knew the path could make
+ * OUR server call the courier API with OUR credentials, as often as they
+ * liked — a free probe of whether the integration is configured, and a way to
+ * spend our upstream rate limit from the outside. It never leaked the key, but
+ * "it only leaks a little" is not a threat model.
+ *
+ * 404 rather than 401 when the session is absent: an endpoint that does not
+ * exist is better than one advertising itself as merely locked.
  */
 
 // Reads a server secret + calls an external API on every request — never static.
@@ -27,6 +37,9 @@ const STATUS_BY_CODE: Record<EawbOutcomeCode, number> = {
 }
 
 export async function GET() {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
   const result = await verifyConnection()
   const status = STATUS_BY_CODE[result.code] ?? 500
 
