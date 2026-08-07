@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { requireVerifiedUser } from "@/lib/auth/current-user"
-import { listFixedLocations } from "@/lib/eawb"
-import { splitStreet } from "@/lib/shipping/compare"
-import { autoAwbEnabled, createAwbForOrder, senderCarrierId } from "@/lib/shipping/create-awb"
+import { autoAwbEnabled, createAwbForOrder } from "@/lib/shipping/create-awb"
+import { normalisePhone, resolveLocker } from "@/lib/shipping/preference"
 import { isMissingShippingSchema, resolveOrderParty } from "@/lib/shipping/order-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -47,15 +46,6 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/** Romanian mobile numbers, the shape couriers accept: 07xxxxxxxx or +407xxxxxxxx. */
-function normalisePhone(raw: string): string | null {
-  const digits = raw.replace(/[\s.\-()]/g, "")
-  if (/^07\d{8}$/.test(digits)) return digits
-  if (/^\+407\d{8}$/.test(digits)) return `0${digits.slice(3)}`
-  if (/^407\d{8}$/.test(digits)) return `0${digits.slice(2)}`
-  return null
-}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -118,44 +108,23 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // The locker's real address, from the provider — not from the request.
-  let locker
-  try {
-    const all = await listFixedLocations("RO")
-    locker = all.find((l) => Number(l.id) === lockerId)
-  } catch {
+  // The locker's real address, resolved server-side from the id — and the
+  // one-network rule enforced. Shared with the pre-payment step so the two
+  // places a buyer can choose a locker cannot validate it differently.
+  const resolvedLocker = await resolveLocker(lockerId)
+  if (!resolvedLocker.ok) {
+    const message =
+      resolvedLocker.code === "wrong_carrier"
+        ? "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă."
+        : resolvedLocker.code === "provider_unavailable"
+          ? "Nu am putut verifica easybox-ul. Încearcă din nou."
+          : "Easybox necunoscut."
     return NextResponse.json(
-      { ok: false, code: "provider_unavailable", message: "Nu am putut verifica easybox-ul. Încearcă din nou." },
-      { status: 503 },
+      { ok: false, code: resolvedLocker.code, message },
+      { status: resolvedLocker.code === "provider_unavailable" ? 503 : 400 },
     )
   }
-  if (!locker) {
-    return NextResponse.json({ ok: false, code: "unknown_locker" }, { status: 400 })
-  }
-
-  // BOTH ENDS MUST BE ON THE SAME NETWORK. DPD cannot collect from a Sameday
-  // easybox and Sameday cannot deliver to a FANbox, so a locker→locker shipment
-  // is only bookable when the buyer's locker belongs to the same carrier as the
-  // seller's drop-off point. The picker already filters to that carrier; this
-  // is the check that does not depend on the client having done so.
-  const expectedCarrier = senderCarrierId()
-  if (Number(locker.carrier_id) !== expectedCarrier) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "wrong_carrier",
-        message: "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă.",
-      },
-      { status: 400 },
-    )
-  }
-
-  // Shared with the carrier comparison rather than re-derived here. This split
-  // had a bug worth not having twice: "Str. Sergent Pechiu Ion 3-7" came back
-  // as street "…Ion 3-" and number "7", and an address with no number at all
-  // produced an EMPTY street_number, which the provider rejects outright.
-  const address = String(locker.address ?? "").trim()
-  const { street, streetNumber: streetNo } = splitStreet(address, (locker.name || "").trim() || "Easybox")
+  const p = resolvedLocker.pref
 
   const admin = createAdminClient()
   const { error } = await admin
@@ -163,16 +132,16 @@ export async function POST(req: NextRequest) {
     .update({
       ship_contact: contact,
       ship_phone: phone,
-      ship_country_code: locker.country_code || "RO",
-      ship_county: locker.county_name || null,
-      ship_locality: locker.locality_name || null,
-      ship_street: street,
-      ship_street_no: streetNo || null,
-      ship_details: (locker.name || "").trim() || null,
-      ship_fixed_location_id: lockerId,
+      ship_country_code: p.countryCode,
+      ship_county: p.county,
+      ship_locality: p.locality,
+      ship_street: p.street,
+      ship_street_no: p.streetNo,
+      ship_details: p.details,
+      ship_fixed_location_id: p.lockerId,
       // Recorded so booking uses the network this locker is actually on,
       // rather than a platform-wide default that may have moved on since.
-      shipping_carrier_id: Number(locker.carrier_id) || null,
+      shipping_carrier_id: p.carrierId,
       shipping_status: resolved.order.shipping_status || "awaiting_shipment",
     })
     .eq("id", orderId)
@@ -223,11 +192,11 @@ export async function POST(req: NextRequest) {
     awbCreated,
     locker: {
       id: lockerId,
-      name: (locker.name || "").trim(),
-      address,
-      locality: locker.locality_name,
-      county: locker.county_name,
-      carrier: locker.carrier_name,
+      name: resolvedLocker.name,
+      address: resolvedLocker.address,
+      locality: p.locality,
+      county: p.county,
+      carrier: resolvedLocker.carrier,
     },
   })
 }

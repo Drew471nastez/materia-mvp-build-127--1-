@@ -5,11 +5,18 @@ import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; offerId?: string }>
+  searchParams: Promise<{
+    productId?: string
+    variantId?: string
+    customPrice?: string
+    offerId?: string
+    /** Set by /checkout/livrare on the way back, so the gate does not loop. */
+    deliverySet?: string
+  }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice, offerId } = await searchParams
+  const { productId, variantId, customPrice, offerId, deliverySet } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -91,6 +98,42 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
         }
         // User owns specific variants but not the base product - allow purchase
       }
+    }
+  }
+
+  // ── WHERE DOES IT GO? ──────────────────────────────────────────────────────
+  //
+  // Vinted asks before it takes the money, and so do we. A physical item with
+  // no delivery point chosen sends the buyer to /checkout/livrare first, which
+  // records the locker and redirects straight back with `deliverySet=1`.
+  //
+  // A REDIRECT, not a step inside the checkout client — that file is 2,300
+  // lines of payment handling, and the safest change to a payment path is one
+  // that does not touch it. Everything below this block is unchanged.
+  //
+  // Deliberately generous about skipping: digital goods have no parcel, a buyer
+  // who already has a saved address should not be asked twice, `deliverySet`
+  // lets someone opt out on the delivery page itself, and any failure to read
+  // the preference falls through to checkout. A missing address is recoverable
+  // on the order page afterwards; a purchase blocked at the last step is not.
+  if (product.type === "physical" && deliverySet !== "1") {
+    let hasPreference = false
+    if (user) {
+      const { readPreference } = await import("@/lib/shipping/preference")
+      const { createAdminClient } = await import("@/lib/supabase/admin")
+      try {
+        hasPreference = Boolean(await readPreference(createAdminClient(), { userId: user.id }))
+      } catch {
+        // Reading it must never be what stops a sale.
+        hasPreference = true
+      }
+    }
+    if (!hasPreference) {
+      const q = new URLSearchParams({ productId })
+      if (variantId) q.set("variantId", variantId)
+      if (customPrice) q.set("customPrice", customPrice)
+      if (offerId) q.set("offerId", offerId)
+      redirect(`/checkout/livrare?${q}`)
     }
   }
 

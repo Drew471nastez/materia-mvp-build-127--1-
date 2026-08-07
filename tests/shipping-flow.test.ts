@@ -58,6 +58,10 @@ const createAwb = read("lib/shipping/create-awb.ts")
 const createRoute = read("app/api/shipping/create/route.ts")
 const sellerAwbRoute = read("app/api/shipping/order/[orderId]/awb/route.ts")
 const addressRoute = read("app/api/shipping/address/route.ts")
+/** Locker resolution and phone validation live here, shared by BOTH places a
+ *  buyer can choose a locker: the pre-payment step and the order page. */
+const prefLib = read("lib/shipping/preference.ts")
+const prefRoute = read("app/api/shipping/preference/route.ts")
 const labelRoute = read("app/api/shipping/label/[orderId]/route.ts")
 const orderRoute = read("app/api/shipping/order/[orderId]/route.ts")
 const lockersRoute = read("app/api/shipping/lockers/route.ts")
@@ -261,14 +265,25 @@ check(
 /* ── THE ADDRESS COMES FROM THE PROVIDER, NOT FROM THE CLIENT ────────────── */
 check(
   "the client sends a locker id and the server resolves the address",
-  /listFixedLocations\(/.test(addressRoute) &&
-    /all\.find\(\(l\) => Number\(l\.id\) === lockerId\)/.test(addressRoute),
+  /listFixedLocations\(/.test(prefLib) && /all\.find\(\(l\) => Number\(l\.id\) === lockerId\)/.test(prefLib),
   "        Accepting a street from the request lets someone pair one city's\n" +
     "        locker id with another city's address.",
 )
 check(
+  "BOTH places a buyer picks a locker go through the one resolver",
+  /resolveLocker\(/.test(addressRoute) && /resolveLocker\(/.test(prefRoute),
+  "        The pre-payment step and the order page must not be able to\n" +
+    "        validate a locker differently.",
+)
+check(
   "an unknown locker id is rejected",
-  /unknown_locker/.test(addressRoute),
+  // The code is produced in one place and FORWARDED, not restated. Both
+  // callers surface `resolvedLocker.code` / `resolved.code` verbatim, so a new
+  // rejection reason added to the resolver reaches the client without either
+  // route having to learn about it.
+  /code: "unknown_locker"/.test(prefLib) &&
+    /code: resolvedLocker\.code/.test(addressRoute) &&
+    /code: resolved\.code/.test(prefRoute),
 )
 check(
   "the address cannot be changed once an AWB exists",
@@ -281,7 +296,12 @@ check(
 )
 check(
   "the phone number is validated, not stored as typed",
-  /function normalisePhone/.test(addressRoute) && /\^07\\d\{8\}\$/.test(addressRoute),
+  // One normaliser, shared. Two copies would eventually disagree about what a
+  // valid Romanian mobile is, and the courier SMSes the pickup code to it.
+  /export function normalisePhone/.test(prefLib) &&
+    /\^07\\d\{8\}\$/.test(prefLib) &&
+    /normalisePhone\(/.test(addressRoute) &&
+    /normalisePhone\(/.test(prefRoute),
 )
 
 /* ── THE CARRIER POLL CANNOT BECOME A FLOOD ──────────────────────────────── */
@@ -726,7 +746,7 @@ check(
   )
   check(
     "the buyer's saved address uses the same splitter as the comparison",
-    /splitStreet\(address,/.test(read("app/api/shipping/address/route.ts")),
+    /splitStreet\(address,/.test(prefLib),
     "        The same broken regex was written out twice.",
   )
   check(
@@ -779,14 +799,17 @@ check(
 
   check(
     "the buyer's locker carrier is validated against the seller's network",
-    /Number\(locker\.carrier_id\) !== expectedCarrier/.test(addressRoute) &&
-      /code: "wrong_carrier"/.test(addressRoute),
+    /Number\(locker\.carrier_id\) !== senderCarrierId\(\)/.test(prefLib) &&
+      /code: "wrong_carrier"/.test(prefLib),
     "        DPD cannot collect from a Sameday easybox and Sameday cannot\n" +
       "        deliver to a FANbox.",
   )
   check(
     "the chosen locker's carrier is recorded on the order",
-    /shipping_carrier_id: Number\(locker\.carrier_id\)/.test(addressRoute),
+    // Both write paths: the order page, and the pre-payment choice applied
+    // afterwards.
+    /shipping_carrier_id: p\.carrierId/.test(addressRoute) &&
+      /shipping_carrier_id: pref\.carrierId/.test(prefLib),
   )
   check(
     "booking uses the recorded carrier before falling back to the default",
@@ -824,6 +847,93 @@ check(
     })(),
     "        Changing carrier means changing the drop-off locker too; they must\n" +
       "        never be guessed independently.",
+  )
+}
+
+/* ── CHOOSING THE LOCKER BEFORE PAYING ───────────────────────────────────── */
+//
+// Vinted asks before it takes the money. The order does not exist yet at that
+// point, so the choice is stored against the BUYER and attached afterwards.
+{
+  const checkoutPage = read("app/checkout/page.tsx")
+  const deliveryClient = read("app/checkout/livrare/_client.tsx")
+
+  check(
+    "the payment client is not touched by the delivery step",
+    (() => {
+      // The gate is a redirect from the server component. The 2,300-line
+      // payment client must contain nothing about lockers or shipping.
+      const client = read("app/checkout/checkout-client.tsx")
+      return !/locker|livrare|shipping/i.test(client)
+    })(),
+    "        The safest change to a payment path is one that does not touch it.",
+  )
+  check(
+    "only physical products are sent to the delivery step",
+    /product\.type === "physical"/.test(checkoutPage),
+    "        A digital product has no parcel; the step would be wrong, not just\n" +
+      "        unnecessary.",
+  )
+  check(
+    "the gate cannot loop",
+    /deliverySet !== "1"/.test(checkoutPage) && /deliverySet.*1/.test(read("app/checkout/livrare/page.tsx")),
+  )
+  check(
+    "a buyer who already has a saved address is not asked again",
+    /readPreference\(/.test(checkoutPage) && /if \(!hasPreference\)/.test(checkoutPage),
+  )
+  check(
+    "a failure to read the preference never blocks a purchase",
+    /catch \{[\s\S]{0,200}?hasPreference = true/.test(checkoutPage),
+    "        A missing address is recoverable on the order page afterwards; a\n" +
+      "        purchase blocked at the last step is not.",
+  )
+  check(
+    "the buyer can skip the step",
+    /Aleg mai târziu/.test(deliveryClient),
+  )
+  check(
+    "a provider outage forwards to payment instead of trapping the buyer",
+    /shipping_not_configured" \|\| json\.code === "provider_unavailable"[\s\S]{0,120}?proceed\(\)/.test(
+      deliveryClient,
+    ),
+  )
+  check(
+    "a signed-in buyer's identity is their verified id, never a posted email",
+    /const email = userId \? null :/.test(prefRoute) && /requireVerifiedUser\(/.test(prefRoute),
+    "        Otherwise anyone could write to another member's row by posting\n" +
+      "        their address.",
+  )
+  check(
+    "the preferences table is server-only",
+    (() => {
+      const s = read("supabase/sql/RUN_SHIPPING.sql")
+      const block = s.slice(s.indexOf("buyer_shipping_prefs"))
+      // RLS enabled and NO policies: a guest row has no owner to write a policy
+      // against, so the service role is the only way in.
+      return (
+        /alter table public\.buyer_shipping_prefs enable row level security/.test(block) &&
+        !/create policy[\s\S]{0,200}buyer_shipping_prefs/.test(block)
+      )
+    })(),
+    "        Without RLS on, every buyer's phone number is readable with the\n" +
+      "        anon key.",
+  )
+  check(
+    "attaching the choice to an order is idempotent",
+    /\.is\("ship_fixed_location_id", null\)\s*\n?\s*\.is\("awb_number", null\)/.test(stripComments(prefLib)),
+    "        It runs on every poll from either party, so it must only ever\n" +
+      "        write once.",
+  )
+  check(
+    "the order is matched on its own buyer, not on anything from the request",
+    /readPreference\(admin, \{ userId: order\.buyer_id, email: order\.buyer_email \}\)/.test(orderRoute),
+  )
+  check(
+    "a guest is identified by email only while they have no account",
+    /email: who\.userId \? null :/.test(prefLib),
+    "        Once a buyer has an account, user_id is the key and the guessable\n" +
+      "        identity stops existing for them.",
   )
 }
 

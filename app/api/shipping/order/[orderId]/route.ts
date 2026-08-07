@@ -4,6 +4,7 @@ import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { trackByAwb } from "@/lib/eawb"
 import { senderCarrierId } from "@/lib/shipping/create-awb"
 import { resolveOrderParty, type OrderShipping } from "@/lib/shipping/order-access"
+import { applyPreferenceToOrder, readPreference } from "@/lib/shipping/preference"
 import {
   extractLatestStatus,
   isTerminal,
@@ -131,6 +132,26 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
 
   let order = resolved.order
 
+  // ── ATTACH THE PRE-PAYMENT CHOICE ──────────────────────────────────────────
+  //
+  // The buyer picked a locker before paying, but the order did not exist yet.
+  // This is where the two meet.
+  //
+  // A READ that writes, which deserves justifying. The alternative is a hook in
+  // the payment flow, and there are four separate places that insert an order
+  // (checkout/process, confirm-payment, complete-free, the Stripe webhook),
+  // each with a full-then-minimal insert fallback — so editing them would mean
+  // four chances to break payment, and a failed full insert would silently
+  // degrade to an order with no delivery address at all.
+  //
+  // Doing it here instead is safe because `applyPreferenceToOrder` only writes
+  // when `ship_fixed_location_id` is null AND no AWB exists. Running it on every
+  // poll, from either party, is therefore idempotent: the first look attaches
+  // the address and every later one is a no-op.
+  if (!order.ship_fixed_location_id && !order.awb_number) {
+    order = await attachPreference(order)
+  }
+
   if (req.nextUrl.searchParams.get("refresh") === "1") {
     order = await maybeRefresh(order)
   }
@@ -141,6 +162,39 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
     party: resolved.party,
     shipping: resolved.party === "buyer" ? buyerView(order) : sellerView(order),
   })
+}
+
+/**
+ * Copy the buyer's pre-payment delivery choice onto this order.
+ *
+ * Matched on the order's own buyer — `buyer_id` for a member, `buyer_email` for
+ * a guest — never on anything from the request. Never throws: an order page
+ * that fails to render because a preference lookup blipped would be a worse
+ * outcome than an order that still asks for an address.
+ */
+async function attachPreference(order: OrderShipping): Promise<OrderShipping> {
+  try {
+    const admin = createAdminClient()
+    const pref = await readPreference(admin, { userId: order.buyer_id, email: order.buyer_email })
+    if (!pref) return order
+    const applied = await applyPreferenceToOrder(admin, order.id, pref)
+    if (!applied) return order
+    return {
+      ...order,
+      ship_contact: pref.contact,
+      ship_phone: pref.phone,
+      ship_country_code: pref.countryCode,
+      ship_county: pref.county,
+      ship_locality: pref.locality,
+      ship_street: pref.street,
+      ship_street_no: pref.streetNo,
+      ship_details: pref.details,
+      ship_fixed_location_id: pref.lockerId,
+      shipping_status: order.shipping_status ?? "awaiting_shipment",
+    }
+  } catch {
+    return order
+  }
 }
 
 /**

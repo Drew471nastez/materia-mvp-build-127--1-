@@ -83,6 +83,60 @@ comment on column public.orders.shipping_status is
 comment on column public.orders.shipping_raw_status is
   'The carrier''s own status string, unmapped. Kept so the mapping can be audited.';
 
+-- ── The delivery point, chosen BEFORE paying ───────────────────────────────
+--
+-- Vinted asks where the parcel goes before taking the money, and so does
+-- Storelib now. But the order does not exist yet at that moment — it is created
+-- by the payment flow — so the choice has to live somewhere until there is an
+-- order to attach it to. This is that somewhere.
+--
+-- KEYED BY BUYER, NOT BY ORDER, and deliberately: checkout allows guests, so
+-- there may be no user id. A signed-in buyer is matched on user_id; a guest on
+-- the email they typed at checkout. Both columns are on `orders` already, so
+-- attaching the choice afterwards is a lookup, not a schema change to the
+-- payment path — which is the point. Nothing in this feature edits how an order
+-- is created.
+--
+-- It doubles as a remembered address: the second purchase skips the step.
+create table if not exists public.buyer_shipping_prefs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  email text,
+  -- The locker, and the network it is on. Both are needed: a locker→locker
+  -- shipment requires both ends on one carrier.
+  locker_id integer not null,
+  carrier_id integer,
+  contact text not null,
+  phone text not null,
+  -- Resolved server-side from the locker id, never taken from the client.
+  country_code text default 'RO',
+  county text,
+  locality text,
+  street text,
+  street_no text,
+  details text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  -- A buyer has one current delivery point, not a history.
+  constraint buyer_shipping_prefs_identified check (user_id is not null or email is not null)
+);
+
+-- One row per buyer, so saving is an upsert rather than an ever-growing log.
+-- Partial, because the two identities are mutually exclusive in practice.
+create unique index if not exists buyer_shipping_prefs_user_key
+  on public.buyer_shipping_prefs (user_id) where user_id is not null;
+create unique index if not exists buyer_shipping_prefs_email_key
+  on public.buyer_shipping_prefs (lower(email)) where email is not null and user_id is null;
+
+-- RLS on, and NO policies: this table is written and read only by the server
+-- (service role), which is what lets a guest with no session have a row at all.
+-- Without this, RLS-off would leave every buyer's phone number readable with
+-- the anon key.
+alter table public.buyer_shipping_prefs enable row level security;
+
+comment on table public.buyer_shipping_prefs is
+  'Where a buyer wants parcels delivered, chosen before payment. Server-only (service role); see app/api/shipping/preference.';
+
 -- ── Did it work? ───────────────────────────────────────────────────────────
 select
   (select count(*) from information_schema.columns
@@ -90,7 +144,9 @@ select
        and column_name in ('awb_number','shipping_status','ship_locality')) as shipping_columns_present,
   (select count(*) from public.orders where awb_number is not null) as orders_with_awb,
   (select count(*) from pg_indexes
-     where schemaname = 'public' and indexname = 'orders_awb_number_key') as idempotency_index_present;
+     where schemaname = 'public' and indexname = 'orders_awb_number_key') as idempotency_index_present,
+  (select count(*) from information_schema.tables
+     where table_schema = 'public' and table_name = 'buyer_shipping_prefs') as prefs_table_present;
 
 -- PostgREST answers from its own cached schema; without this the API keeps
 -- reporting "Could not find the 'awb_number' column of 'orders'".
