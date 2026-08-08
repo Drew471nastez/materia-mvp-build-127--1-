@@ -10,7 +10,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 // storefront URL is the digital-shop world, and tapping a fashion seller there
 // dropped buyers into the wrong product universe.
 import { getListingUrl } from "@/lib/marketplace/listing-url"
-import { CONDITIONS } from "@/lib/marketplace/categories"
+import { conditionLabel } from "@/lib/marketplace/categories"
 import { FollowButton } from "@/components/explore/follow-button"
 import { cn } from "@/lib/utils"
 
@@ -30,12 +30,6 @@ function galleryImages(thumbnail?: string | null, gallery?: string[] | null): st
     }
   }
   return out.slice(0, 6)
-}
-
-function conditionLabel(condition?: string | null): string | null {
-  if (!condition) return null
-  const key = condition.trim().toLowerCase().replace(/[\s-]+/g, "_")
-  return CONDITIONS.find((c) => c.id === key)?.label ?? null
 }
 
 export interface MobileListingProduct {

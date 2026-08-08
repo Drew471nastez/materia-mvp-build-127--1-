@@ -172,22 +172,45 @@ export function AddressCard({
   )
 }
 
-/** The item being bought, at the top of the page. */
+/**
+ * The item being bought, at the top of the page.
+ *
+ * Everything the listing actually knows about the thing goes here — brand,
+ * size, condition, colour — because this is the last screen before money moves
+ * and "is this the right one, in the right size" is the question somebody is
+ * asking at exactly this moment. It also fills the column: with only a title
+ * and a price pushed to the baseline there was a hand's width of nothing in
+ * between, which reads as something failing to load.
+ *
+ * Facts are listed in the order they matter for a second-hand garment, and any
+ * the listing does not carry are simply absent — never rendered as an empty row
+ * or a dash.
+ */
 export function CheckoutItemCard({
   title,
-  subtitle,
-  variant,
+  seller,
+  brand,
+  size,
+  condition,
+  colour,
   price,
   imageUrl,
 }: {
   title: string
-  /** Brand, when the listing has one. */
-  subtitle?: string | null
-  /** Size or option. */
-  variant?: string | null
+  seller?: string | null
+  brand?: string | null
+  size?: string | null
+  condition?: string | null
+  colour?: string | null
   price: string
   imageUrl?: string | null
 }) {
+  const facts: Array<{ label: string; value: string }> = []
+  if (brand?.trim()) facts.push({ label: "Marcă", value: brand.trim() })
+  if (size?.trim()) facts.push({ label: "Mărime", value: size.trim() })
+  if (condition?.trim()) facts.push({ label: "Stare", value: condition.trim() })
+  if (colour?.trim()) facts.push({ label: "Culoare", value: colour.trim() })
+
   return (
     <div className="flex gap-4">
       {imageUrl ? (
@@ -203,12 +226,20 @@ export function CheckoutItemCard({
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="text-[19px] font-bold leading-tight text-neutral-900">{title}</p>
-        {subtitle && <p className="mt-1 text-[15px] text-neutral-500">{subtitle}</p>}
-        {variant && <p className="mt-0.5 text-[15px] text-neutral-500">{variant}</p>}
-        {/* Pushed to the baseline of the photo, the way the reference sets it —
-            the price reads as the bottom of the block rather than as a fourth
-            line of description. */}
-        <p className="mt-auto text-[19px] font-bold text-neutral-900">{price}</p>
+        {seller && <p className="mt-0.5 truncate text-[15px] text-neutral-500">{seller}</p>}
+
+        {facts.length > 0 && (
+          <dl className="mt-2 space-y-0.5">
+            {facts.map((f) => (
+              <div key={f.label} className="flex gap-1.5 text-[14px] leading-snug">
+                <dt className="shrink-0 text-neutral-400">{f.label}</dt>
+                <dd className="min-w-0 truncate text-neutral-600">{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <p className="mt-2 text-[19px] font-bold text-neutral-900">{price}</p>
       </div>
     </div>
   )

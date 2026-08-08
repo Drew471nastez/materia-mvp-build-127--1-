@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Info } from "lucide-react"
+import { BadgeCheck, Info, MessageSquare, RotateCcw, ShieldCheck } from "lucide-react"
 
 import { CHECKOUT_HEADING } from "@/components/checkout/delivery-options"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { breakdownLines, type PricingBreakdown } from "@/lib/checkout/pricing"
 
 /**
@@ -57,8 +58,11 @@ export function PriceBreakdown({
                 {line.info && (
                   <button
                     type="button"
-                    onClick={() => setOpenInfo((k) => (k === line.label ? null : line.label))}
-                    aria-expanded={openInfo === line.label}
+                    onClick={() => setOpenInfo(line.label)}
+                    // It opens a sheet, so it announces a dialog. `aria-expanded`
+                    // would promise a region unfolding in place, which is what
+                    // this used to do and no longer does.
+                    aria-haspopup="dialog"
                     aria-label={`Ce este ${line.label}?`}
                     className="shrink-0 text-neutral-400 transition-colors active:text-neutral-700 md:hover:text-neutral-700"
                   >
@@ -70,16 +74,71 @@ export function PriceBreakdown({
                 {formatPrice(line.cents)}
               </dd>
             </div>
-            {/* Expands in place rather than opening a dialog — the answer is one
-                sentence and a modal for one sentence loses the buyer's place. */}
-            {line.info && openInfo === line.label && (
-              <p className="mt-1.5 rounded-lg bg-neutral-50 px-3 py-2 text-[13px] leading-snug text-neutral-600">
-                {line.info}
-              </p>
-            )}
           </div>
         ))}
       </dl>
+
+      {/* A sheet rather than a line that unfolds in place.
+          "What is this fee" deserves a real answer — what it covers, when it
+          pays out, how to use it — and four sentences shoved between two price
+          rows pushes the total off the screen at the exact moment somebody is
+          deciding. The sheet follows the finger, throws away on a flick, and
+          leaves the page behind it untouched. */}
+      <BottomSheet
+        open={openInfo !== null}
+        onClose={() => setOpenInfo(null)}
+        label="Taxă de protecție pentru cumpărători"
+        header={
+          <div className="px-4 pb-1">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="h-6 w-6 shrink-0 text-[#7c3aed]" />
+              <h3 className="text-[19px] font-bold leading-tight text-neutral-900">
+                Taxă de protecție pentru cumpărători
+              </h3>
+            </div>
+          </div>
+        }
+      >
+        <div className="px-4 pb-2">
+          <p className="text-[15px] leading-relaxed text-neutral-600">
+            Se adaugă la fiecare comandă și acoperă costul verificării plății și al rezolvării problemelor. Fără
+            ea, un articol care nu ajunge ar fi pierderea ta.
+          </p>
+
+          <ul className="mt-4 space-y-3.5">
+            {[
+              {
+                icon: RotateCcw,
+                title: "Primești banii înapoi",
+                body: "Dacă articolul nu ajunge, ajunge deteriorat sau nu corespunde descrierii din anunț.",
+              },
+              {
+                icon: BadgeCheck,
+                title: "Plată securizată",
+                body: "Banii ajung la vânzător după ce comanda este confirmată, nu în momentul plății.",
+              },
+              {
+                icon: MessageSquare,
+                title: "Ajutor de la o persoană",
+                body: "Ai la dispoziție 48 de ore de la livrare ca să semnalezi o problemă din secțiunea Comenzi.",
+              },
+            ].map(({ icon: Icon, title, body }) => (
+              <li key={title} className="flex gap-3">
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-neutral-400" />
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold text-neutral-900">{title}</p>
+                  <p className="mt-0.5 text-[14px] leading-snug text-neutral-500">{body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-5 rounded-xl bg-neutral-50 px-3.5 py-3 text-[13px] leading-snug text-neutral-500">
+            Taxa este de 5% din prețul articolului plus o sumă fixă de 4 lei. Suma fixă este ceea ce face
+            viabile comenzile mici — un procent singur ar însemna 50 de bani la o vânzare de 10 lei.
+          </p>
+        </div>
+      </BottomSheet>
     </section>
   )
 }

@@ -335,3 +335,20 @@ export const CONDITIONS = [
 
 export type Condition = (typeof CONDITIONS)[number]
 export type ConditionId = Condition["id"]
+
+/**
+ * The human label for a stored condition id.
+ *
+ * Lives here rather than in whichever component happened to need it first: the
+ * listing card, the checkout and anywhere else showing a garment's state must
+ * agree, and a second copy of this lookup is a second place for "very_good" to
+ * come out as "Very Good" or as raw snake_case.
+ *
+ * Returns null for an unknown or empty value, so a caller renders nothing at
+ * all rather than a dash or an id.
+ */
+export function conditionLabel(condition?: string | null): string | null {
+  if (!condition) return null
+  const key = condition.trim().toLowerCase().replace(/[\s-]+/g, "_")
+  return CONDITIONS.find((c) => c.id === key)?.label ?? null
+}

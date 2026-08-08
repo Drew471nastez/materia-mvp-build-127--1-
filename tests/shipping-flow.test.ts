@@ -2694,7 +2694,105 @@ check(
       // Back to the item for somebody still deciding; the feed for somebody
       // who has decided not to. With only one of them, the other person
       // presses back repeatedly.
-      return /router\.push\(productUrl\)/.test(header) && /href="\/"/.test(header)
+      return /onClick=\{goBack\}/.test(header) && /href="\/"/.test(header)
+    })(),
+  )
+  check(
+    "back reverses the navigation rather than pushing a new one",
+    (() => {
+      const s = stripComments(checkout)
+      // history.back() is the move the app already animates in reverse, and it
+      // is what lets the listing — and the feed behind it — restore their own
+      // scroll positions. Pushing plays a FORWARD transition to a page you just
+      // came from. The push is only the cold-arrival fallback.
+      return /cameFromApp\.current\) router\.back\(\)/.test(s) && /router\.push\(getListingUrl\(product\.slug\)\)/.test(s)
+    })(),
+  )
+  check(
+    "back points at the current listing route, not the old subdomain URL",
+    // getProductUrl builds https://<seller>.storelib.com/p/<slug> — a different
+    // origin, so it is a full document load out of the app to a page that is no
+    // longer where listings live.
+    !/getProductUrl/.test(stripComments(checkout)) && /getListingUrl/.test(stripComments(checkout)),
+  )
+  check(
+    "the press is acknowledged before the navigation, not after it",
+    /onPointerDown=\{\(\) => void triggerHaptic\("light"\)\}/.test(stripComments(checkout)),
+    "        A click event on iOS arrives after the browser has decided the\n" +
+      "        touch was not a scroll or a double-tap. Feedback then is feedback\n" +
+      "        after the fact, which is what reads as lag.",
+  )
+  check(
+    "nothing on the checkout is frosted glass",
+    (() => {
+      // A blur behind a header or a payment total smears the photo and the
+      // price through it as the page scrolls, which reads as a rendering fault.
+      const files = ["components/checkout/marketplace-checkout.tsx", "components/checkout/sticky-pay-bar.tsx"]
+      return files.every((f) => !/backdrop-blur/.test(read(f)))
+    })(),
+  )
+  check(
+    "the pay button is never greyed out",
+    (() => {
+      const bar = stripComments(read("components/checkout/sticky-pay-bar.tsx"))
+      const s = stripComments(checkout)
+      // A washed-out pay button says you cannot buy and nothing about what to
+      // do instead. Only `busy` refuses the press, because the money is already
+      // moving; anything missing sends the buyer to the field that is missing.
+      return (
+        /disabled=\{busy\}/.test(bar) &&
+        !/disabled:opacity/.test(bar) &&
+        /if \(openFirstGap\(\)\) return/.test(s)
+      )
+    })(),
+  )
+  check(
+    "the fee explanation is a real sheet, not a line that unfolds",
+    (() => {
+      const bd = stripComments(read("components/checkout/price-breakdown.tsx"))
+      // Four sentences wedged between two price rows push the total off screen
+      // at the exact moment somebody is deciding.
+      return /<BottomSheet/.test(bd) && !/openInfo === line\.label/.test(bd)
+    })(),
+  )
+  check(
+    "the page reserves no empty space for a bar that never covered anything",
+    (() => {
+      const bar = stripComments(read("components/checkout/sticky-pay-bar.tsx"))
+      return /PAY_BAR_SPACER = ""/.test(bar) && !/PAY_BAR_SPACER/.test(stripComments(checkout))
+    })(),
+  )
+  check(
+    "the item card shows what was actually bought",
+    (() => {
+      const parts = stripComments(read("components/checkout/delivery-options.tsx"))
+      // Title and price alone left a hand's width of nothing between them,
+      // which reads as something failing to load.
+      return /Marcă/.test(parts) && /Mărime/.test(parts) && /Stare/.test(parts) && !/mt-auto/.test(parts)
+    })(),
+  )
+  check(
+    "one condition lookup, shared",
+    (() => {
+      const card = read("components/explore/mobile-listing-card.tsx")
+      return (
+        /export function conditionLabel/.test(read("lib/marketplace/categories.ts")) &&
+        !/function conditionLabel/.test(card) &&
+        /conditionLabel/.test(read("app/checkout/page.tsx"))
+      )
+    })(),
+    "        Two copies is two places for \"very_good\" to come out as raw\n" +
+      "        snake_case on one screen and as a label on the other.",
+  )
+  check(
+    "returning to the feed does not undo its own scroll restore",
+    (() => {
+      const feed = stripComments(read("components/explore/mobile-feed.tsx"))
+      // An effect with a dependency array ALSO runs on mount, and coming back
+      // from a listing is a mount — so the two scroll-to-top effects fired two
+      // frames after the restore and threw it away. They now skip the first
+      // run, which is the only run that was never a change.
+      return /catSettled\.current/.test(feed) && /tabSettled\.current/.test(feed)
     })(),
   )
   /* ── STAYING INSIDE THE APP ───────────────────────────────────────────────

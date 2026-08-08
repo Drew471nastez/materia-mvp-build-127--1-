@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
+import { conditionLabel } from "@/lib/marketplace/categories"
 
 interface CheckoutPageProps {
   searchParams: Promise<{
@@ -193,12 +194,15 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
           sellerName: creatorProfile?.display_name || creator?.display_name || null,
           variantId: selectedVariant?.id ?? null,
           variantName: selectedVariant?.name ?? null,
+          brand: product.brand ?? null,
+          size: product.size ?? null,
+          condition: conditionLabel(product.condition),
+          colour: product.colour ?? null,
         }}
         userEmail={user?.email || null}
         isLoggedIn={!!user}
         offerToken={offerToken}
         carrierId={senderCarrierId()}
-        productUrl={getProductUrl(creatorUsername, product.slug)}
       />
     )
   }

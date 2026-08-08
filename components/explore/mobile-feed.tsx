@@ -741,8 +741,31 @@ export function MobileFeed({
     return list
   }, [initialProducts, cat, seed])
 
+  /**
+   * ── THE REASON BACK ALWAYS LANDED AT THE TOP ───────────────────────────────
+   *
+   * The two effects below scroll to the top when the category or tab CHANGES.
+   * But an effect with a dependency array also runs on MOUNT, and returning
+   * from a listing is a mount. So the sequence was:
+   *
+   *   1. the layout effect above puts the feed back where you left it
+   *   2. this effect fires for the first time and scrolls to 0
+   *   3. the next one fires and scrolls to tabScroll["for-you"], which is 0
+   *      because the ref is fresh on a remount
+   *
+   * All of the careful restore work, undone two frames later by two effects
+   * that were only ever meant to react to a change. They now skip their first
+   * run, which is the only run that was never a change.
+   */
+  const catSettled = useRef(false)
+  const tabSettled = useRef(false)
+
   // Category change → back to the top (a different set of listings).
   useEffect(() => {
+    if (!catSettled.current) {
+      catSettled.current = true
+      return
+    }
     tabScroll.current["for-you"] = 0
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" })
   }, [cat])
@@ -750,6 +773,10 @@ export function MobileFeed({
   // Tab change → restore that tab's remembered scroll position (For You keeps
   // your place instead of reloading to the top).
   useEffect(() => {
+    if (!tabSettled.current) {
+      tabSettled.current = true
+      return
+    }
     scrollRef.current?.scrollTo({ top: tabScroll.current[tab] ?? 0, behavior: "auto" })
   }, [tab])
 

@@ -23,11 +23,13 @@ import {
   type DeliveryMethod,
 } from "@/components/checkout/delivery-options"
 import { PriceBreakdown } from "@/components/checkout/price-breakdown"
-import { PAY_BAR_SPACER, StickyPayBar } from "@/components/checkout/sticky-pay-bar"
+import { StickyPayBar } from "@/components/checkout/sticky-pay-bar"
 import { LockerScreen } from "@/components/shipping/locker-screen"
 import type { LockerOption } from "@/components/shipping/locker-picker"
 import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { priceCheckout } from "@/lib/checkout/pricing"
+import { getListingUrl } from "@/lib/marketplace/listing-url"
+import { triggerHaptic } from "@/lib/native-bridge"
 import { getStripePromise } from "@/lib/stripe-client"
 
 /**
@@ -87,6 +89,11 @@ export interface MarketplaceCheckoutProduct {
   sellerName: string | null
   variantId: string | null
   variantName: string | null
+  /** What the listing knows about the garment. Any of these may be absent. */
+  brand: string | null
+  size: string | null
+  condition: string | null
+  colour: string | null
 }
 
 /** Formatted in the currency the card is actually charged in, so the figure on
@@ -118,7 +125,6 @@ export function MarketplaceCheckout(props: {
   isLoggedIn: boolean
   offerToken: string | null
   carrierId: number
-  productUrl: string
 }) {
   /**
    * Stripe.js is not on this page until a card is needed.
@@ -145,7 +151,6 @@ function CheckoutBody({
   isLoggedIn,
   offerToken,
   carrierId,
-  productUrl,
   onNeedStripe,
 }: {
   product: MarketplaceCheckoutProduct
@@ -153,7 +158,6 @@ function CheckoutBody({
   isLoggedIn: boolean
   offerToken: string | null
   carrierId: number
-  productUrl: string
   /** Called the first time a card is actually going to be asked for. */
   onNeedStripe: () => void
 }) {
@@ -172,6 +176,33 @@ function CheckoutBody({
   const [card, setCard] = useState<SavedCard | null>(null)
 
   const [sheet, setSheet] = useState<null | "address" | "locker" | "card">(null)
+
+  /**
+   * Did we arrive from somewhere inside the app?
+   *
+   * Read ONCE on mount. `history.length` grows as the buyer opens subpages, so
+   * asking at the moment they press back would answer for the wrong journey.
+   */
+  const cameFromApp = useRef(false)
+  useEffect(() => {
+    cameFromApp.current = typeof window !== "undefined" && window.history.length > 1
+  }, [])
+
+  /**
+   * Paint the document white for as long as this page is open.
+   *
+   * The checkout is white, the app's ground is grey, and an overscroll bounce
+   * at the bottom pulls the sheet up off that grey — so a strip of it appears
+   * under the pay bar exactly when somebody scrolls to the end. Restored on the
+   * way out, so no other screen inherits it.
+   */
+  useEffect(() => {
+    const prev = document.documentElement.style.backgroundColor
+    document.documentElement.style.backgroundColor = "#ffffff"
+    return () => {
+      document.documentElement.style.backgroundColor = prev
+    }
+  }, [])
   const [lockerQuote, setLockerQuote] = useState<Quote>(NO_QUOTE)
   const [homeQuote, setHomeQuote] = useState<Quote>(NO_QUOTE)
   const [busy, setBusy] = useState(false)
@@ -298,8 +329,52 @@ function CheckoutBody({
     return null
   })()
 
+  /**
+   * Back to the listing.
+   *
+   * `router.back()` when there is history to go back through, because that is
+   * the navigation the app already animates in reverse — pushing a fresh URL
+   * instead plays a FORWARD transition to a page you just came from, which is
+   * the wrong direction and reads as a jump. It is also what lets the listing
+   * restore its own scroll position, and the feed behind it restore its own.
+   *
+   * The push is the cold-arrival fallback: somebody who opened this link
+   * directly has nothing behind them, and back() would leave the app entirely.
+   */
+  const goBack = useCallback(() => {
+    if (cameFromApp.current) router.back()
+    else router.push(getListingUrl(product.slug))
+  }, [router, product.slug])
+
+  /**
+   * Nothing is missing — or the first thing that is, opened.
+   *
+   * The pay button is never greyed out (see StickyPayBar), so pressing it with
+   * an empty address has to DO something. Sending somebody to the field they
+   * have not filled in is the only useful answer; refusing silently is how a
+   * checkout becomes a puzzle.
+   */
+  const openFirstGap = (): boolean => {
+    if (!isContactComplete(address, !isLoggedIn) || (needsStreet && !isAddressComplete(address))) {
+      setSheet("address")
+      return true
+    }
+    if (method === "locker" && !locker) {
+      setSheet("locker")
+      return true
+    }
+    if (!card) {
+      onNeedStripe()
+      setSheet("card")
+      return true
+    }
+    return false
+  }
+
   const pay = async () => {
-    if (blocker || !stripe || !elements || !card) return
+    if (busy) return
+    if (openFirstGap()) return
+    if (!stripe || !elements || !card) return
     setBusy(true)
     setError(null)
 
@@ -438,13 +513,21 @@ function CheckoutBody({
           has changed their mind and wants the feed. Leaving only "back" makes
           the second person press it repeatedly. */}
       <header
-        className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur-sm"
+        // Opaque, not frosted. A blur behind a checkout header means the photo
+        // and the price of the thing being bought smear through it as you
+        // scroll, which reads as a rendering fault rather than as depth.
+        className="sticky top-0 z-40 border-b border-neutral-200 bg-white"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto flex h-14 w-full max-w-2xl items-center gap-2 px-3">
           <button
             type="button"
-            onClick={() => router.push(productUrl)}
+            // Fired on POINTER DOWN, not on click. A click event on iOS arrives
+            // after the browser has waited to see whether the touch becomes a
+            // scroll or a double-tap; feeding back then is feedback arriving
+            // after the decision, which is what "laggy" means here.
+            onPointerDown={() => void triggerHaptic("light")}
+            onClick={goBack}
             aria-label="Înapoi la produs"
             className="-ml-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-800 transition-colors active:bg-neutral-100"
           >
@@ -455,18 +538,19 @@ function CheckoutBody({
               viewport. Centring on the viewport puts the title underneath the
               button on the right at phone widths — this way it is always
               readable and never overlaps, at any size. */}
-          <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-bold text-neutral-900">
+          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-neutral-900">
             Finalizare comandă
           </h1>
 
+          {/* One line, always. It was wrapping onto two, which made the header
+              taller than the row it sits in and left the words stacked in a box
+              — `whitespace-nowrap` is the whole fix, and the title truncates
+              instead if a narrow screen ever runs out of room. */}
           <Link
             href="/"
-            className="shrink-0 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[12px] font-medium leading-tight text-neutral-700 transition-colors active:bg-neutral-50"
+            className="shrink-0 whitespace-nowrap rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11.5px] font-medium text-neutral-700 transition-colors active:bg-neutral-50"
           >
-            Continuă
-            <br className="sm:hidden" />
-            <span className="hidden sm:inline"> </span>
-            cumpărăturile
+            Continuă cumpărăturile
           </Link>
         </div>
       </header>
@@ -475,8 +559,13 @@ function CheckoutBody({
         <div>
           <CheckoutItemCard
             title={product.title}
-            subtitle={product.sellerName}
-            variant={product.variantName}
+            seller={product.sellerName}
+            brand={product.brand}
+            // A chosen variant IS the size when there is one; the column is the
+            // fallback for listings sold without variants.
+            size={product.variantName || product.size}
+            condition={product.condition}
+            colour={product.colour}
             price={formatMinor(product.priceCents)}
             imageUrl={product.thumbnailUrl}
           />
@@ -549,7 +638,6 @@ function CheckoutBody({
           )}
         </div>
 
-        <div className={PAY_BAR_SPACER} />
       </div>
 
       <StickyPayBar
