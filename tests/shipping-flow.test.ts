@@ -922,21 +922,29 @@ check(
       "        unnecessary.",
   )
   check(
-    "the gate cannot loop",
-    /deliverySet !== "1"/.test(checkoutPage) && /deliverySet.*1/.test(read("app/checkout/livrare/page.tsx")),
+    "a physical listing renders the marketplace checkout, not the digital one",
+    (() => {
+      const s = stripComments(checkoutPage)
+      // The branch returns BEFORE the digital client is reached, so the two can
+      // never both render.
+      const branch = s.slice(s.indexOf('product.type === "physical"'))
+      return /MarketplaceCheckout/.test(branch) && branch.indexOf("MarketplaceCheckout") < branch.indexOf("CheckoutPageClient")
+    })(),
+    "        A jacket needs an address and postage; a download needs tips, VAT\n" +
+      "        and a licence. One component for both is how the old client got to\n" +
+      "        2,300 lines.",
   )
   check(
-    "a buyer who already has a saved address is not asked again",
-    /readPreference\(/.test(checkoutPage) && /if \(!hasPreference\)/.test(checkoutPage),
+    "delivery is asked for on the checkout page itself",
+    (() => {
+      const s = read("components/checkout/marketplace-checkout.tsx")
+      return /LockerScreen/.test(s) && /AddressSheet/.test(s) && /DeliveryOptions/.test(s)
+    })(),
+    "        The separate /checkout/livrare gate existed because the old payment\n" +
+      "        client could not be touched. The marketplace checkout can.",
   )
   check(
-    "a failure to read the preference never blocks a purchase",
-    /catch \{[\s\S]{0,200}?hasPreference = true/.test(checkoutPage),
-    "        A missing address is recoverable on the order page afterwards; a\n" +
-      "        purchase blocked at the last step is not.",
-  )
-  check(
-    "the buyer can skip the step",
+    "the buyer can still skip the standalone delivery step",
     /Aleg mai târziu/.test(deliveryClient),
   )
   check(
@@ -2446,6 +2454,189 @@ check(
   "        A slow query for 'clu' landing after 'cluj' would replace the right\n" +
     "        answer with a stale one.",
 )
+
+/* ── POSTAGE: THE NUMBER ON THE SCREEN AND THE NUMBER ON THE CARD ─────────── */
+//
+// A checkout that displays one total and charges another is the worst bug this
+// area can have, and it is not caught by looking at the page. These are the
+// structural reasons it cannot happen.
+{
+  const quoteLib = read("lib/shipping/quote.ts")
+  const quoteRoute = read("app/api/shipping/quote/route.ts")
+  const session = read("app/api/checkout/stripe-session/route.ts")
+  const checkout = read("components/checkout/marketplace-checkout.tsx")
+
+  check(
+    "the price the card is charged is quoted by the server, not sent by the browser",
+    (() => {
+      const s = stripComments(session)
+      const block = s.slice(s.indexOf("let shippingCents"), s.indexOf("const pricing = priceCheckout"))
+      // shippingCents is only ever assigned from the server's own quote.
+      return /shippingCents = quote\.cents/.test(block) && !/shippingCents = (Number\()?expectedShippingCents/.test(block)
+    })(),
+    "        Trusting a posted amount means a request claiming zero postage is\n" +
+      "        a request that ships for free.",
+  )
+  check(
+    "the amount the buyer was shown is compared, never charged",
+    (() => {
+      const s = stripComments(session)
+      return /quoteMatches\(shown, quote\.cents\)/.test(s) && /shipping_price_changed/.test(s)
+    })(),
+    "        If the tariff moved while the page was open, the honest answer is\n" +
+      "        to show the new number, not to take it quietly.",
+  )
+  check(
+    "a quote the server cannot confirm is never charged as though it were",
+    (() => {
+      const s = stripComments(session)
+      // Quote failed AND the page showed a price → refuse and re-ask. Charging
+      // the shown figure would charge an unverified number; charging zero would
+      // take a different total than the one on screen.
+      return /else if \(shown > 0\) \{[\s\S]{0,400}?shipping_price_changed/.test(s)
+    })(),
+  )
+  check(
+    "a delivery quote is only asked for when there is a delivery",
+    /deliveryMode === "locker" \|\| deliveryMode === "home"/.test(stripComments(session)),
+    "        Every digital purchase runs through this route and must reach the\n" +
+      "        courier's price endpoint exactly never.",
+  )
+  check(
+    "the quote resolves a locker's address from the provider, not from the request",
+    (() => {
+      const s = stripComments(quoteLib)
+      const block = s.slice(s.indexOf('if (input.mode === "locker")'), s.indexOf("} else {"))
+      return (
+        /listFixedLocations\("RO"\)/.test(block) &&
+        /locker\.county_name/.test(block) &&
+        /locker\.locality_name/.test(block) &&
+        !/input\.county|input\.locality/.test(block)
+      )
+    })(),
+    "        Otherwise one city's locker id can be paired with another city's\n" +
+      "        street and priced as though it were local.",
+  )
+  check(
+    "a locker on another carrier's network cannot be quoted",
+    /Number\(locker\.carrier_id\) !== carrierId/.test(stripComments(quoteLib)),
+    "        Locker→locker needs both ends on one network; the seller's drop-off\n" +
+      "        point decides which.",
+  )
+  check(
+    "the quote and the AWB ship from the same origin",
+    // One senderAddress(), imported. A second copy of those environment reads
+    // would drift, and the drift is a buyer charged for one route and a parcel
+    // booked on another.
+    /import \{ senderAddress, senderCarrierId \}/.test(quoteLib) &&
+      /export function senderAddress\(\)/.test(read("lib/shipping/create-awb.ts")),
+  )
+  check(
+    "quoting creates nothing and spends nothing",
+    (() => {
+      const s = stripComments(quoteLib)
+      return /getPrices\(/.test(s) && !/createOrder\(/.test(s)
+    })(),
+    "        The price endpoint is non-mutating; the order endpoint books a\n" +
+      "        courier and debits a prepaid wallet.",
+  )
+  check(
+    "an unconfigured courier account degrades to no postage, never to a guess",
+    (() => {
+      const s = stripComments(quoteLib)
+      return /shippingQuoteConfigured\(\)/.test(s) && /code: "not_configured"/.test(s)
+    })(),
+    "        Inventing a plausible number means charging for a service nobody\n" +
+      "        has priced.",
+  )
+  check(
+    "the price is converted into the currency actually being charged",
+    (() => {
+      const s = stripComments(quoteLib)
+      // The provider bills in lei; the card may not be charged in lei yet.
+      return /PLATFORM_CURRENCY === "ron"/.test(s) && /USD_RATES\.RON/.test(s)
+    })(),
+    "        Adding lei to a dollar total is a 4.6× error in whichever direction\n" +
+      "        nobody notices first.",
+  )
+  check(
+    "the quote endpoint answers failures with 200 and a code",
+    (() => {
+      const s = stripComments(quoteRoute)
+      const block = s.slice(s.indexOf("if (!result.ok)"), s.indexOf("return NextResponse.json({\n    ok: true"))
+      return /code: result\.code/.test(block) && !/status: 4|status: 5/.test(block)
+    })(),
+    "        'That locker is on another network' is a normal thing for a\n" +
+      "        checkout to hear, not a malformed request.",
+  )
+  check(
+    "the quote response carries no account details",
+    (() => {
+      const s = stripComments(quoteRoute)
+      const body = s.slice(s.indexOf("ok: true"))
+      return !/api_key|apiKey|billing_address|EAWB_|balance|wallet/i.test(body)
+    })(),
+  )
+  check(
+    "the failed-quote log does not print the seller's contact details",
+    (() => {
+      const s = stripComments(quoteLib)
+      const line = s.slice(s.indexOf("console.error"), s.indexOf("console.error") + 200)
+      return !/shipment|payload|address_from|phone|email/.test(line)
+    })(),
+    "        senderAddress() carries a phone number and an email; a price\n" +
+      "        failure is not worth printing them for.",
+  )
+  check(
+    "the total on the page and the amount charged come from one function",
+    /priceCheckout\(/.test(checkout) && /priceCheckout\(/.test(session),
+    "        Two implementations of the same arithmetic is the bug this whole\n" +
+      "        module exists to prevent.",
+  )
+  check(
+    "the buyer is told when postage could not be priced",
+    /activeQuote\.status === "unavailable"/.test(checkout),
+    "        Silently omitting the line reads as free shipping.",
+  )
+  check(
+    "a superseded quote cannot overwrite a newer one",
+    /if \(mine !== quoteSeq\.current\) return/.test(checkout),
+    "        Switching locker twice quickly would otherwise leave the first\n" +
+      "        answer on screen next to the second locker.",
+  )
+  check(
+    "the card number never reaches this application",
+    (() => {
+      const s = stripComments(read("components/checkout/card-sheet.tsx"))
+      // Stripe's own iframes, and a PaymentMethod id is all that comes back.
+      return (
+        /CardNumberElement/.test(s) &&
+        /stripe\.createPaymentMethod\(/.test(s) &&
+        !/fetch\(/.test(s)
+      )
+    })(),
+  )
+  check(
+    "a payment that succeeded is never presented as retryable",
+    (() => {
+      const s = stripComments(checkout)
+      const block = s.slice(s.indexOf("confirm-payment"))
+      // The money HAS moved by this point. "Try again" here is an invitation to
+      // pay twice.
+      return /Plata a reușit/.test(block) && !/încearcă din nou/i.test(block.slice(0, block.indexOf("router.replace")))
+    })(),
+  )
+  check(
+    "every subpage commits on its own save and discards on close",
+    ["components/checkout/address-sheet.tsx", "components/checkout/card-sheet.tsx"].every((f) => {
+      const s = stripComments(read(f))
+      // onSave is called from the save button only — never from onClose.
+      return /onSave\(/.test(s) && !/onClose = [\s\S]{0,80}onSave/.test(s)
+    }),
+    "        Opening a subpage to check what you typed must never be able to\n" +
+      "        clear it.",
+  )
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {

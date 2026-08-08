@@ -10,13 +10,14 @@ interface CheckoutPageProps {
     variantId?: string
     customPrice?: string
     offerId?: string
-    /** Set by /checkout/livrare on the way back, so the gate does not loop. */
+    /** Accepted for links minted by /checkout/livrare; no longer read, because
+     *  the marketplace checkout asks for delivery on the page itself. */
     deliverySet?: string
   }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice, offerId, deliverySet } = await searchParams
+  const { productId, variantId, customPrice, offerId } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -101,42 +102,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
-  // ── WHERE DOES IT GO? ──────────────────────────────────────────────────────
-  //
-  // Vinted asks before it takes the money, and so do we. A physical item with
-  // no delivery point chosen sends the buyer to /checkout/livrare first, which
-  // records the locker and redirects straight back with `deliverySet=1`.
-  //
-  // A REDIRECT, not a step inside the checkout client — that file is 2,300
-  // lines of payment handling, and the safest change to a payment path is one
-  // that does not touch it. Everything below this block is unchanged.
-  //
-  // Deliberately generous about skipping: digital goods have no parcel, a buyer
-  // who already has a saved address should not be asked twice, `deliverySet`
-  // lets someone opt out on the delivery page itself, and any failure to read
-  // the preference falls through to checkout. A missing address is recoverable
-  // on the order page afterwards; a purchase blocked at the last step is not.
-  if (product.type === "physical" && deliverySet !== "1") {
-    let hasPreference = false
-    if (user) {
-      const { readPreference } = await import("@/lib/shipping/preference")
-      const { createAdminClient } = await import("@/lib/supabase/admin")
-      try {
-        hasPreference = Boolean(await readPreference(createAdminClient(), { userId: user.id }))
-      } catch {
-        // Reading it must never be what stops a sale.
-        hasPreference = true
-      }
-    }
-    if (!hasPreference) {
-      const q = new URLSearchParams({ productId })
-      if (variantId) q.set("variantId", variantId)
-      if (customPrice) q.set("customPrice", customPrice)
-      if (offerId) q.set("offerId", offerId)
-      redirect(`/checkout/livrare?${q}`)
-    }
-  }
-
   // An accepted offer changes what this checkout charges. Verified HERE, against
   // the conversation, and carried forward as a signed token — the endpoints that
   // set the Stripe amount re-verify the token instead of trusting a client
@@ -201,6 +166,41 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       finalPriceCents = pwywMinPriceCents
       customPriceCents = pwywMinPriceCents
     }
+  }
+
+  // ── TWO CHECKOUTS, ONE URL ────────────────────────────────────────────────
+  //
+  // A second-hand jacket and a downloadable preset need different screens. The
+  // jacket needs an address, a locker and postage; the preset needs tips,
+  // gifting, pay-what-you-want, VAT and a licence. Trying to serve both from
+  // one component is how the existing 2,300-line client got that long.
+  //
+  // So physical listings render the marketplace checkout and everything else
+  // keeps the path it has always taken. Splitting HERE — one conditional in a
+  // server component — is what makes that possible without editing a single
+  // line of the payment code digital sales already run through.
+  if (product.type === "physical") {
+    const { MarketplaceCheckout } = await import("@/components/checkout/marketplace-checkout")
+    const { senderCarrierId } = await import("@/lib/shipping/create-awb")
+    return (
+      <MarketplaceCheckout
+        product={{
+          id: product.id,
+          title: product.title,
+          slug: product.slug,
+          priceCents: offerCents ?? finalPriceCents,
+          thumbnailUrl: product.thumbnail_url,
+          sellerName: creatorProfile?.display_name || creator?.display_name || null,
+          variantId: selectedVariant?.id ?? null,
+          variantName: selectedVariant?.name ?? null,
+        }}
+        userEmail={user?.email || null}
+        isLoggedIn={!!user}
+        offerToken={offerToken}
+        carrierId={senderCarrierId()}
+        productUrl={getProductUrl(creatorUsername, product.slug)}
+      />
+    )
   }
 
   return (

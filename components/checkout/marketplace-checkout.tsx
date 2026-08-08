@@ -1,0 +1,708 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, MapPin } from "lucide-react"
+// Must precede any loadStripe() call: stops Stripe Link's prewarm from opening
+// Safari out of the Capacitor WebView.
+import "@/lib/stripe-nav-guard"
+// "@stripe/stripe-js/pure", never "@stripe/stripe-js" — the default entry
+// injects the Stripe script at import time, before anyone has asked for it.
+import { loadStripe } from "@stripe/stripe-js/pure"
+import { Elements, useElements, useStripe } from "@stripe/react-stripe-js"
+
+import { AddressSheet, EMPTY_ADDRESS, formatAddressLines, isAddressComplete, type CheckoutAddress } from "@/components/checkout/address-sheet"
+import { CardSheet, PaymentCard, type SavedCard } from "@/components/checkout/card-sheet"
+import { AddressCard, CheckoutItemCard, DeliveryOptions, type DeliveryMethod } from "@/components/checkout/delivery-options"
+import { PriceBreakdown } from "@/components/checkout/price-breakdown"
+import { PAY_BAR_SPACER, StickyPayBar } from "@/components/checkout/sticky-pay-bar"
+import { LockerScreen } from "@/components/shipping/locker-screen"
+import type { LockerOption } from "@/components/shipping/locker-picker"
+import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
+import { priceCheckout } from "@/lib/checkout/pricing"
+
+/**
+ * ===========================================================================
+ *  THE MARKETPLACE CHECKOUT
+ * ===========================================================================
+ *
+ * One screen of decisions, each one a single line, each line opening a subpage
+ * where that decision is made:
+ *
+ *   the item          — not a decision, but the reason for all the others
+ *   Adresă            → AddressSheet
+ *   Opțiune de livrare — locker or door, both priced, chosen in place
+ *   Punct de ridicare → LockerScreen (map, search, the whole screen)
+ *   Plată             → CardSheet
+ *   Detalii preț      — what the three lines add up to
+ *   ────────────────────────────────────────
+ *   Plătește          — pinned, always showing the current total
+ *
+ * ---------------------------------------------------------------------------
+ * WHY SUBPAGES RATHER THAN ONE LONG FORM
+ * ---------------------------------------------------------------------------
+ * An address is seven fields, a locker is a map, a card is three iframes.
+ * Inlined, that is a screen nobody can see the end of, where the total — the
+ * one number that matters — is permanently below the fold. As subpages, the
+ * checkout is six short lines and a button, and each subpage is a single task
+ * with its own full screen to do it in.
+ *
+ * Every subpage discards on close and commits only on its own save button, so
+ * opening one to check what you typed can never lose it.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PRICE ON THE SCREEN IS THE PRICE ON THE CARD
+ * ---------------------------------------------------------------------------
+ * The total here comes from `priceCheckout`, which is the same function the
+ * PaymentIntent is built with. Postage comes from the courier, server-side, and
+ * the amount displayed is sent back at pay time purely so the server can REFUSE
+ * to charge a different one. If the tariff moved while the page was open, the
+ * buyer is shown the new number rather than quietly charged it.
+ *
+ * ---------------------------------------------------------------------------
+ * THIS FILE DOES NOT REPLACE THE EXISTING CHECKOUT
+ * ---------------------------------------------------------------------------
+ * app/checkout/checkout-client.tsx handles digital goods — tips, gifts, VAT,
+ * pay-what-you-want, discount codes, entitlements — and none of that applies to
+ * a second-hand jacket. Physical listings route here; everything else keeps the
+ * path it has always taken.
+ */
+
+let _stripePromise: ReturnType<typeof loadStripe> | null = null
+function getStripePromise() {
+  if (!_stripePromise) {
+    // In a Capacitor WebView, Stripe.js otherwise creates a hidden controller
+    // iframe which sets window.location.href — a property that cannot be
+    // intercepted there, and which navigates the whole checkout away.
+    const isNative =
+      typeof window !== "undefined" &&
+      (() => {
+        const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+        if (cap?.isNativePlatform?.()) return true
+        const ua = navigator.userAgent || ""
+        return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+      })()
+    _stripePromise = loadStripe(
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+      // Documented in the Stripe.js reference, absent from the typings.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      isNative ? { advancedFraudSignals: false } : undefined,
+    )
+  }
+  return _stripePromise
+}
+
+export interface MarketplaceCheckoutProduct {
+  id: string
+  title: string
+  slug: string
+  priceCents: number
+  thumbnailUrl: string | null
+  /** The seller's name, shown under the title. */
+  sellerName: string | null
+  variantId: string | null
+  variantName: string | null
+}
+
+/** Formatted in the currency the card is actually charged in, so the figure on
+ *  the page and the figure on the statement are the same figure. */
+function formatMinor(cents: number): string {
+  const amount = (cents || 0) / 100
+  try {
+    return new Intl.NumberFormat(PLATFORM_CURRENCY === "ron" ? "ro-RO" : "en-US", {
+      style: "currency",
+      currency: PLATFORM_CURRENCY.toUpperCase(),
+    }).format(amount)
+  } catch {
+    return `${amount.toFixed(2)} ${PLATFORM_CURRENCY.toUpperCase()}`
+  }
+}
+
+/** A courier quote, or the reason there isn't one. */
+interface Quote {
+  status: "idle" | "loading" | "ready" | "unavailable"
+  cents: number
+  message?: string
+}
+
+const NO_QUOTE: Quote = { status: "idle", cents: 0 }
+
+export function MarketplaceCheckout(props: {
+  product: MarketplaceCheckoutProduct
+  userEmail: string | null
+  isLoggedIn: boolean
+  offerToken: string | null
+  carrierId: number
+  productUrl: string
+}) {
+  return (
+    <Elements stripe={getStripePromise()}>
+      <CheckoutBody {...props} />
+    </Elements>
+  )
+}
+
+function CheckoutBody({
+  product,
+  userEmail,
+  isLoggedIn,
+  offerToken,
+  carrierId,
+  productUrl,
+}: {
+  product: MarketplaceCheckoutProduct
+  userEmail: string | null
+  isLoggedIn: boolean
+  offerToken: string | null
+  carrierId: number
+  productUrl: string
+}) {
+  const router = useRouter()
+  const stripe = useStripe()
+  const elements = useElements()
+
+  const [method, setMethod] = useState<DeliveryMethod>("locker")
+  const [locker, setLocker] = useState<LockerOption | null>(null)
+  const [address, setAddress] = useState<CheckoutAddress>(EMPTY_ADDRESS)
+  const [card, setCard] = useState<SavedCard | null>(null)
+  const [email, setEmail] = useState(userEmail ?? "")
+  const [phone, setPhone] = useState("")
+
+  const [sheet, setSheet] = useState<null | "address" | "locker" | "card" | "contact">(null)
+  const [lockerQuote, setLockerQuote] = useState<Quote>(NO_QUOTE)
+  const [homeQuote, setHomeQuote] = useState<Quote>(NO_QUOTE)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // A returning buyer should not retype what they already gave us.
+  useEffect(() => {
+    if (!isLoggedIn) return
+    let alive = true
+    fetch("/api/shipping/preference", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d?.preference) return
+        const p = d.preference
+        setPhone((v) => v || p.phone || "")
+        if (p.mode === "home") {
+          setMethod("home")
+          setAddress({
+            fullName: p.contact ?? "",
+            // "FN" is the server's marker for "no street number", not something
+            // to hand back as though somebody had typed it.
+            street: [p.street, p.streetNo && p.streetNo !== "FN" ? p.streetNo : ""].filter(Boolean).join(" "),
+            details: p.details ?? "",
+            postalCode: p.postalCode ?? "",
+            city: p.locality ?? "",
+            county: p.county ?? "",
+          })
+          return
+        }
+        if (!p.lockerId) return
+        setAddress((a) => ({ ...a, fullName: a.fullName || p.contact || "" }))
+        setLocker({
+          id: p.lockerId,
+          name: p.details || "Easybox",
+          address: [p.street, p.streetNo].filter(Boolean).join(" "),
+          carrier: "",
+          carrierId: p.carrierId ?? carrierId,
+          locality: p.locality ?? "",
+          localityId: 0,
+          county: p.county ?? "",
+          allowsDropOff: true,
+        })
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [isLoggedIn, carrierId])
+
+  // ── Postage ───────────────────────────────────────────────────────────────
+  // Re-asked whenever the destination changes, because the destination is what
+  // it depends on. A request in flight is superseded rather than raced.
+  const quoteSeq = useRef(0)
+  const askForQuote = useCallback(
+    async (body: Record<string, unknown>, set: (q: Quote) => void) => {
+      const mine = ++quoteSeq.current
+      set({ status: "loading", cents: 0 })
+      try {
+        const res = await fetch("/api/shipping/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        const json = await res.json()
+        if (mine !== quoteSeq.current) return
+        if (json?.ok) set({ status: "ready", cents: Number(json.cents) || 0 })
+        else set({ status: "unavailable", cents: 0, message: json?.message })
+      } catch {
+        if (mine !== quoteSeq.current) return
+        set({ status: "unavailable", cents: 0 })
+      }
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (!locker?.id) {
+      setLockerQuote(NO_QUOTE)
+      return
+    }
+    void askForQuote({ mode: "locker", lockerId: locker.id }, setLockerQuote)
+  }, [locker?.id, askForQuote])
+
+  const homeCity = address.city.trim()
+  const homeCounty = address.county.trim()
+  useEffect(() => {
+    if (homeCity.length < 2 || homeCounty.length < 2) {
+      setHomeQuote(NO_QUOTE)
+      return
+    }
+    void askForQuote({ mode: "home", county: homeCounty, locality: homeCity }, setHomeQuote)
+  }, [homeCity, homeCounty, askForQuote])
+
+  const activeQuote = method === "locker" ? lockerQuote : homeQuote
+
+  const breakdown = useMemo(
+    () =>
+      priceCheckout({
+        itemCents: product.priceCents,
+        shippingCents: activeQuote.status === "ready" ? activeQuote.cents : 0,
+      }),
+    [product.priceCents, activeQuote.status, activeQuote.cents],
+  )
+
+  // ── What is still missing? ────────────────────────────────────────────────
+  // One reason at a time, in the order the page reads, so somebody is never
+  // told about a field below the one they have not filled in yet.
+  const addressLines = formatAddressLines(address)
+  const contactName = address.fullName.trim()
+  const emailOk = isLoggedIn || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  const phoneOk = /^0\d{9}$/.test(phone.replace(/[\s.\-()]/g, ""))
+
+  const blocker: string | null = (() => {
+    if (contactName.length < 3) return "Adaugă numele destinatarului."
+    if (method === "locker" && !locker) return "Alege un punct de ridicare."
+    if (method === "home" && !isAddressComplete(address)) return "Completează adresa de livrare."
+    if (!phoneOk) return "Adaugă un număr de telefon (07xxxxxxxx)."
+    if (!emailOk) return "Adaugă o adresă de email."
+    if (!card) return "Adaugă un card."
+    return null
+  })()
+
+  const pay = async () => {
+    if (blocker || !stripe || !elements || !card) return
+    setBusy(true)
+    setError(null)
+
+    try {
+      // 1. Record where the parcel goes. Stored against the buyer, attached to
+      //    the order after it exists — which is what lets this run without
+      //    touching how orders are created.
+      const prefRes = await fetch("/api/shipping/preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          mode: method,
+          lockerId: method === "locker" ? locker?.id : undefined,
+          address:
+            method === "home"
+              ? {
+                  county: address.county,
+                  locality: address.city,
+                  street: address.street,
+                  details: address.details,
+                  postalCode: address.postalCode,
+                }
+              : undefined,
+          contact: contactName,
+          phone,
+          email: email.trim(),
+        }),
+      })
+      const prefJson = await prefRes.json().catch(() => null)
+      if (prefJson && !prefJson.ok) {
+        // The courier being unconfigured or unreachable is not the buyer's
+        // fault and not fixable by them; the address can still be set on the
+        // order afterwards. A lost sale cannot be.
+        if (prefJson.code !== "shipping_not_configured" && prefJson.code !== "provider_unavailable") {
+          setError(prefJson.message || "Nu am putut salva adresa de livrare.")
+          return
+        }
+      }
+
+      // 2. Create the PaymentIntent. The server prices the postage again and
+      //    refuses the charge if it no longer matches what is on this screen.
+      const [firstName, ...rest] = contactName.split(/\s+/)
+      const intentRes = await fetch("/api/checkout/stripe-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          productId: product.id,
+          variantId: product.variantId ?? undefined,
+          firstName: firstName || contactName,
+          lastName: rest.join(" ") || firstName || contactName,
+          email: email.trim(),
+          offerToken: offerToken ?? undefined,
+          deliveryMode: method,
+          deliveryLockerId: method === "locker" ? locker?.id : undefined,
+          deliveryCounty: method === "home" ? address.county : undefined,
+          deliveryLocality: method === "home" ? address.city : undefined,
+          expectedShippingCents: breakdown.shippingCents,
+        }),
+      })
+      const intent = await intentRes.json()
+      if (!intentRes.ok || !intent?.clientSecret) {
+        if (intent?.code === "shipping_price_changed") {
+          // Show them the new number instead of charging it.
+          void askForQuote(
+            method === "locker"
+              ? { mode: "locker", lockerId: locker?.id }
+              : { mode: "home", county: address.county, locality: address.city },
+            method === "locker" ? setLockerQuote : setHomeQuote,
+          )
+          setError("Prețul livrării s-a schimbat. Verifică totalul și încearcă din nou.")
+          return
+        }
+        setError(intent?.error || "Nu am putut începe plata. Încearcă din nou.")
+        return
+      }
+
+      // 3. Confirm with the card already validated in the subpage.
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(intent.clientSecret, {
+        payment_method: card.paymentMethodId,
+        return_url: typeof window !== "undefined" ? window.location.href : undefined,
+      })
+
+      if (stripeError) {
+        setError(stripeError.message || "Cardul a fost refuzat.")
+        return
+      }
+      if (paymentIntent?.status !== "succeeded") {
+        setError("Plata are nevoie de o confirmare suplimentară. Încearcă din nou.")
+        return
+      }
+
+      // 4. Turn the payment into an order.
+      const doneRes = await fetch("/api/checkout/confirm-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentIntentId: intent.paymentIntentId }),
+      })
+      const done = await doneRes.json()
+      if (!doneRes.ok) {
+        // The money HAS moved. Saying "try again" here would be an invitation
+        // to pay twice, so this says what is true and where to look.
+        setError(
+          done?.error ||
+            "Plata a reușit, dar comanda nu s-a finalizat. Verifică secțiunea Comenzi sau scrie-ne.",
+        )
+        return
+      }
+      router.replace(done.redirectUrl || "/orders")
+    } catch {
+      setError("Ceva nu a mers. Verifică conexiunea și încearcă din nou.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const priceFor = (q: Quote): string => {
+    if (q.status === "ready") return formatMinor(q.cents)
+    if (q.status === "loading") return "Se calculează…"
+    if (q.status === "unavailable") return "Cost confirmat după comandă"
+    return method === "locker" ? "Alege un easybox" : "Completează adresa"
+  }
+
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-white">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pt-2">
+        <button
+          type="button"
+          onClick={() => router.push(productUrl)}
+          className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-neutral-600 transition-colors active:bg-neutral-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Înapoi
+        </button>
+
+        <h1 className="mt-1 text-[24px] font-bold leading-tight text-neutral-900">Finalizare comandă</h1>
+
+        <div className="mt-5">
+          <CheckoutItemCard
+            title={product.title}
+            subtitle={product.sellerName}
+            variant={product.variantName}
+            price={formatMinor(product.priceCents)}
+            imageUrl={product.thumbnailUrl}
+          />
+        </div>
+
+        <div className="mt-7 space-y-7">
+          <AddressCard
+            label={method === "home" ? "Adresă de livrare" : "Date de contact"}
+            name={contactName || null}
+            lines={method === "home" ? addressLines : [phone || null, email || null]}
+            onEdit={() => setSheet(method === "home" ? "address" : "contact")}
+            emptyLabel={method === "home" ? "Adaugă o adresă" : "Adaugă numele și telefonul"}
+          />
+
+          <DeliveryOptions
+            options={[
+              { method: "locker", price: priceFor(lockerQuote) },
+              { method: "home", price: priceFor(homeQuote) },
+            ]}
+            selected={method}
+            onSelect={setMethod}
+            disabled={busy}
+          />
+
+          {method === "locker" && (
+            <section aria-label="Punct de ridicare">
+              <h2 className="text-[16px] font-bold text-neutral-900">Punct de ridicare</h2>
+              <button
+                type="button"
+                onClick={() => setSheet("locker")}
+                className="mt-3 flex w-full items-start gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left transition-colors active:bg-neutral-50"
+              >
+                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-neutral-400" />
+                <span className="min-w-0 flex-1">
+                  {locker ? (
+                    <>
+                      <span className="block text-[15px] font-semibold text-neutral-900">{locker.name}</span>
+                      <span className="mt-0.5 block text-[14px] leading-snug text-neutral-500">
+                        {[locker.address, locker.locality].filter(Boolean).join(", ")}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="block text-[15px] text-neutral-500">Alege un easybox pe hartă</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-[14px] font-medium text-[#7c3aed]">
+                  {locker ? "Schimbă" : "Alege"}
+                </span>
+              </button>
+            </section>
+          )}
+
+          {method === "home" && (
+            <AddressCard
+              label="Date de contact"
+              name={null}
+              lines={[phone || null, email || null]}
+              onEdit={() => setSheet("contact")}
+              emptyLabel="Adaugă telefonul și emailul"
+            />
+          )}
+
+          <PaymentCard card={card} onEdit={() => setSheet("card")} />
+
+          <PriceBreakdown breakdown={breakdown} formatPrice={formatMinor} />
+
+          {activeQuote.status === "unavailable" && (
+            <p className="rounded-xl bg-amber-50 px-3.5 py-3 text-[13px] leading-snug text-amber-800">
+              Nu am putut calcula costul livrării acum. Comanda merge mai departe și costul livrării nu îți este
+              perceput la această plată.
+            </p>
+          )}
+
+          {error && (
+            <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-3 text-[13px] leading-snug text-red-700">
+              {error}
+            </p>
+          )}
+        </div>
+
+        <div className={PAY_BAR_SPACER} />
+      </div>
+
+      <StickyPayBar
+        total={formatMinor(breakdown.totalCents)}
+        onAction={pay}
+        disabled={Boolean(blocker) || !stripe}
+        busy={busy}
+        hint={blocker}
+      />
+
+      {/* ── The subpages ───────────────────────────────────────────────────── */}
+      <AddressSheet
+        open={sheet === "address"}
+        initial={address}
+        onClose={() => setSheet(null)}
+        onSave={setAddress}
+      />
+
+      <ContactSheet
+        open={sheet === "contact"}
+        initialName={address.fullName}
+        initialPhone={phone}
+        initialEmail={email}
+        emailLocked={isLoggedIn}
+        onClose={() => setSheet(null)}
+        onSave={(v) => {
+          setAddress((a) => ({ ...a, fullName: v.name }))
+          setPhone(v.phone)
+          setEmail(v.email)
+        }}
+      />
+
+      <LockerScreen
+        open={sheet === "locker"}
+        initial={locker}
+        carrierId={carrierId}
+        onClose={() => setSheet(null)}
+        onSelect={(l) => {
+          setLocker(l)
+          setSheet(null)
+        }}
+      />
+
+      <CardSheet
+        open={sheet === "card"}
+        onClose={() => setSheet(null)}
+        onSave={setCard}
+        billingName={contactName}
+        billingEmail={email}
+      />
+    </div>
+  )
+}
+
+/**
+ * Name, phone and email — the three things the courier needs and the checkout
+ * cannot infer.
+ *
+ * Its own subpage rather than three inputs on the main screen, for the same
+ * reason as everything else here: the main screen stays a summary. The phone
+ * number carries the sentence explaining why it is being asked for, because
+ * "why does a clothes shop want my number" has an answer and it is a good one.
+ */
+function ContactSheet({
+  open,
+  initialName,
+  initialPhone,
+  initialEmail,
+  emailLocked,
+  onClose,
+  onSave,
+}: {
+  open: boolean
+  initialName: string
+  initialPhone: string
+  initialEmail: string
+  emailLocked: boolean
+  onClose: () => void
+  onSave: (v: { name: string; phone: string; email: string }) => void
+}) {
+  const [name, setName] = useState(initialName)
+  const [phone, setPhone] = useState(initialPhone)
+  const [email, setEmail] = useState(initialEmail)
+
+  useEffect(() => {
+    if (!open) return
+    setName(initialName)
+    setPhone(initialPhone)
+    setEmail(initialEmail)
+  }, [open, initialName, initialPhone, initialEmail])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [open, onClose])
+
+  if (!open || typeof document === "undefined") return null
+
+  const phoneOk = /^0\d{9}$/.test(phone.replace(/[\s.\-()]/g, ""))
+  const emailOk = emailLocked || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  const ready = name.trim().length >= 3 && phoneOk && emailOk
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Date de contact"
+      className="fixed inset-0 z-[96] flex flex-col bg-white"
+      style={{ height: "100dvh" }}
+    >
+      <header
+        className="relative shrink-0 border-b border-neutral-200 px-4 pb-3"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
+        <button type="button" onClick={onClose} className="text-[15px] font-medium text-neutral-700 active:opacity-60">
+          Închide
+        </button>
+        <h1 className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[16px] font-bold text-neutral-900">
+          Date de contact
+        </h1>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <label className="block border-b border-neutral-200 px-4 py-3">
+          <span className="block text-[13px] text-neutral-500">Nume complet</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none"
+          />
+        </label>
+        <label className="block border-b border-neutral-200 px-4 py-3">
+          <span className="block text-[13px] text-neutral-500">Telefon</span>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="07xxxxxxxx"
+            className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none placeholder:text-neutral-400"
+          />
+          <span className="mt-1 block text-[12px] text-neutral-500">
+            Curierul trimite codul de ridicare prin SMS la acest număr.
+          </span>
+        </label>
+        {!emailLocked && (
+          <label className="block border-b border-neutral-200 px-4 py-3">
+            <span className="block text-[13px] text-neutral-500">Email</span>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              inputMode="email"
+              autoComplete="email"
+              className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none"
+            />
+          </label>
+        )}
+      </div>
+
+      <div
+        className="shrink-0 border-t border-neutral-200 px-4 pt-3"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={() => {
+            onSave({ name: name.trim(), phone: phone.trim(), email: email.trim() })
+            onClose()
+          }}
+          className="inline-flex h-[52px] w-full items-center justify-center rounded-full bg-[#7c3aed] px-6 text-[16px] font-semibold text-white transition-transform active:scale-[0.985] disabled:opacity-40 disabled:active:scale-100"
+        >
+          Salvează
+        </button>
+      </div>
+    </div>
+  )
+}

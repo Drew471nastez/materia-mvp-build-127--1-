@@ -17,7 +17,25 @@ export async function POST(request: Request) {
   const body = await request.json()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 
-  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null, offerToken = null, emailOptIn = true } = body
+  const {
+    productId,
+    firstName,
+    lastName,
+    email,
+    tipCents = 0,
+    isGift = false,
+    variantId,
+    customPriceCents = null,
+    offerToken = null,
+    emailOptIn = true,
+    // Marketplace checkout only. Absent for every digital purchase, which is
+    // why nothing below changes when they are missing.
+    deliveryMode = null,
+    deliveryLockerId = null,
+    deliveryCounty = null,
+    deliveryLocality = null,
+    expectedShippingCents = null,
+  } = body
 
   if (!productId || !firstName || !lastName || !email) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -200,16 +218,53 @@ export async function POST(request: Request) {
   const sellerSideCents = basePriceCents + (tipCents || 0)
   const feeCalculation = await calculatePlatformFee(sellerSideCents, product.creator.id, admin)
 
+  // ── POSTAGE ────────────────────────────────────────────────────────────────
+  //
+  // Priced HERE, server-side, from the courier — never taken from the request.
+  // The browser sends the figure it displayed, and its only use is to be
+  // compared: if the tariff has moved since the page loaded, the buyer is sent
+  // back to look at the new number rather than quietly charged it.
+  //
+  // Only for physical goods with a delivery method. A digital purchase never
+  // reaches this block, and a failure to price never blocks a sale — the
+  // platform absorbing postage on a bad day is a far better outcome than a
+  // checkout that will not complete.
+  let shippingCents = 0
+  if (deliveryMode === "locker" || deliveryMode === "home") {
+    const { quoteDelivery, quoteMatches } = await import("@/lib/shipping/quote")
+    const quote = await quoteDelivery({
+      mode: deliveryMode,
+      lockerId: deliveryLockerId === null ? null : Number(deliveryLockerId),
+      county: typeof deliveryCounty === "string" ? deliveryCounty : null,
+      locality: typeof deliveryLocality === "string" ? deliveryLocality : null,
+    })
+
+    const shown = Number(expectedShippingCents) || 0
+    if (quote.ok) {
+      if (!quoteMatches(shown, quote.cents)) {
+        return NextResponse.json(
+          { error: "Shipping price changed", code: "shipping_price_changed", shippingCents: quote.cents },
+          { status: 409 },
+        )
+      }
+      shippingCents = quote.cents
+    } else if (shown > 0) {
+      // The page showed a price this request cannot confirm. Charging the shown
+      // amount would be charging an unverified number; charging zero would be
+      // taking a different total than the one on screen. Neither — ask again.
+      return NextResponse.json(
+        { error: "Shipping price changed", code: "shipping_price_changed", shippingCents: 0 },
+        { status: 409 },
+      )
+    }
+  }
+
   // ONE arithmetic, shared with the summary the buyer just read. A checkout
   // that displays one total and charges another is the worst bug this file
   // could have, and the only defence is that both come from here.
-  //
-  // Shipping is deliberately NOT added yet: it depends on a delivery method
-  // that this endpoint does not receive, and inventing a number would be worse
-  // than omitting the line. The pricing module already supports it, so wiring
-  // it is a parameter rather than a rewrite.
   const pricing = priceCheckout({
     itemCents: basePriceCents,
+    shippingCents,
     tipCents: tipCents || 0,
     platformCommissionCents: feeCalculation.platformFeeCents,
   })
@@ -261,6 +316,10 @@ export async function POST(request: Request) {
         product_type: product.type,
         tip_cents: tipCents.toString(),
         base_price_cents: basePriceCents.toString(),
+        // What the buyer paid for postage, so a refund or a reconciliation can
+        // tell it apart from the item and the protection fee.
+        shipping_cents: shippingCents.toString(),
+        buyer_protection_cents: pricing.buyerProtectionCents.toString(),
         access_token: user ? "" : accessToken,
         is_gift: isGift ? "true" : "false",
         session_fingerprint: sessionFingerprint,

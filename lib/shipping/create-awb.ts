@@ -149,8 +149,12 @@ export type CreateAwbResult =
     }
 
 /** The seller's pickup address. One account ships everything for now — when
- *  sellers get their own, this is the function that changes. */
-function senderAddress() {
+ *  sellers get their own, this is the function that changes.
+ *
+ *  Exported so the checkout QUOTE and the AWB CREATE price the same origin. A
+ *  second copy of these environment reads would drift, and the drift shows up
+ *  as a buyer charged for one route and a parcel booked on another. */
+export function senderAddress() {
   return {
     // The seller's DROP-OFF locker. Required for services 2 and 4, and it does
     // NOT replace the street below — the provider validates both, and sending
