@@ -2593,6 +2593,78 @@ check(
     "        Two implementations of the same arithmetic is the bug this whole\n" +
       "        module exists to prevent.",
   )
+  /* ── THE SHAPE OF THE PAGE ────────────────────────────────────────────────
+     Five sections, in this order, each one card summarising one decision. */
+  {
+    const s = stripComments(checkout)
+    const parts = read("components/checkout/delivery-options.tsx")
+
+    check(
+      "the sections appear once each, in the order they are read",
+      (() => {
+        const order = ["Adresă", "Opțiune de livrare", "Detalii de livrare", "Plată", "Detalii preț"]
+        const at = order.map((label) => {
+          if (label === "Opțiune de livrare") return s.indexOf("<DeliveryOptions")
+          if (label === "Plată") return s.indexOf("<PaymentCard")
+          if (label === "Detalii preț") return s.indexOf("<PriceBreakdown")
+          return s.indexOf(`label="${label}"`)
+        })
+        return at.every((i) => i > 0) && at.every((v, i) => i === 0 || v > at[i - 1])
+      })(),
+    )
+    check(
+      "there is exactly one address section",
+      // It used to be two — "Adresă de livrare" and "Date de contact" — which
+      // left somebody guessing which of them held the field they wanted.
+      (s.match(/<AddressCard/g) ?? []).length === 1,
+    )
+    check(
+      "everything about the recipient lives behind that one card",
+      (() => {
+        const sheet = stripComments(read("components/checkout/address-sheet.tsx"))
+        return /label="Telefon"/.test(sheet) && /label="Nume complet"/.test(sheet) && /needsEmail &&/.test(sheet)
+      })(),
+    )
+    check(
+      "a locker delivery does not demand the buyer's street",
+      // The locker's own id says where the parcel goes. Asking for a house
+      // number as well is asking for something that will never be used.
+      /const needsStreet = method === "home"/.test(s) && /needsStreet && !isAddressComplete/.test(s),
+    )
+    check(
+      "the total is shown once, in the bar, not twice",
+      (() => {
+        const bd = stripComments(read("components/checkout/price-breakdown.tsx"))
+        // Two copies a couple of centimetres apart is a page that can be caught
+        // arguing with itself in front of the buyer.
+        return !/Total de plată/.test(bd) && /Total de plată/.test(read("components/checkout/sticky-pay-bar.tsx"))
+      })(),
+    )
+    check(
+      "the cards share one set of measurements",
+      (() => {
+        // A heading constant and a card constant, both used rather than
+        // re-typed, so five sections cannot become five different screens.
+        const usesHeading = /const HEADING = /.test(parts) && /className=\{HEADING\}/.test(parts)
+        const noStrayHeadings = !/text-\[16px\] font-bold text-neutral-900">(Adresă|Plată|Detalii)/.test(s)
+        return usesHeading && noStrayHeadings
+      })(),
+    )
+    check(
+      "an empty row offers a plus and a filled one a pencil",
+      /filled \? <Pencil/.test(stripComments(parts)) && /: <Plus/.test(stripComments(parts)),
+      "        The icon carries the whole message, which is what keeps these\n" +
+        "        rows one line tall instead of wrapping a word onto a second.",
+    )
+    check(
+      "the card is named in type, not in shipped trademark artwork",
+      (() => {
+        const cs = stripComments(read("components/checkout/card-sheet.tsx"))
+        return /se termină cu/.test(cs) && !/\.svg|\.png|data:image/.test(cs)
+      })(),
+    )
+  }
+
   check(
     "the buyer is told when postage could not be priced",
     /activeQuote\.status === "unavailable"/.test(checkout),

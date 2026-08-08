@@ -6,9 +6,22 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, MapPin } from "lucide-react"
 import { Elements, useElements, useStripe } from "@stripe/react-stripe-js"
 
-import { AddressSheet, EMPTY_ADDRESS, formatAddressLines, isAddressComplete, type CheckoutAddress } from "@/components/checkout/address-sheet"
+import {
+  AddressSheet,
+  EMPTY_ADDRESS,
+  formatAddressLines,
+  isAddressComplete,
+  isContactComplete,
+  type CheckoutAddress,
+} from "@/components/checkout/address-sheet"
 import { CardSheet, PaymentCard, type SavedCard } from "@/components/checkout/card-sheet"
-import { AddressCard, CheckoutItemCard, DeliveryOptions, type DeliveryMethod } from "@/components/checkout/delivery-options"
+import {
+  AddressCard,
+  CheckoutItemCard,
+  DeliveryOptions,
+  SummaryCard,
+  type DeliveryMethod,
+} from "@/components/checkout/delivery-options"
 import { PriceBreakdown } from "@/components/checkout/price-breakdown"
 import { PAY_BAR_SPACER, StickyPayBar } from "@/components/checkout/sticky-pay-bar"
 import { LockerScreen } from "@/components/shipping/locker-screen"
@@ -150,12 +163,15 @@ function CheckoutBody({
 
   const [method, setMethod] = useState<DeliveryMethod>("locker")
   const [locker, setLocker] = useState<LockerOption | null>(null)
-  const [address, setAddress] = useState<CheckoutAddress>(EMPTY_ADDRESS)
+  // Seeded with the signed-in buyer's email so the receipt has somewhere to go
+  // without asking them for something we already know.
+  const [address, setAddress] = useState<CheckoutAddress>(() => ({
+    ...EMPTY_ADDRESS,
+    email: userEmail ?? "",
+  }))
   const [card, setCard] = useState<SavedCard | null>(null)
-  const [email, setEmail] = useState(userEmail ?? "")
-  const [phone, setPhone] = useState("")
 
-  const [sheet, setSheet] = useState<null | "address" | "locker" | "card" | "contact">(null)
+  const [sheet, setSheet] = useState<null | "address" | "locker" | "card">(null)
   const [lockerQuote, setLockerQuote] = useState<Quote>(NO_QUOTE)
   const [homeQuote, setHomeQuote] = useState<Quote>(NO_QUOTE)
   const [busy, setBusy] = useState(false)
@@ -170,11 +186,15 @@ function CheckoutBody({
       .then((d) => {
         if (!alive || !d?.preference) return
         const p = d.preference
-        setPhone((v) => v || p.phone || "")
+        setAddress((a) => ({
+          ...a,
+          fullName: a.fullName || p.contact || "",
+          phone: a.phone || p.phone || "",
+        }))
         if (p.mode === "home") {
           setMethod("home")
-          setAddress({
-            fullName: p.contact ?? "",
+          setAddress((a) => ({
+            ...a,
             // "FN" is the server's marker for "no street number", not something
             // to hand back as though somebody had typed it.
             street: [p.street, p.streetNo && p.streetNo !== "FN" ? p.streetNo : ""].filter(Boolean).join(" "),
@@ -182,11 +202,10 @@ function CheckoutBody({
             postalCode: p.postalCode ?? "",
             city: p.locality ?? "",
             county: p.county ?? "",
-          })
+          }))
           return
         }
         if (!p.lockerId) return
-        setAddress((a) => ({ ...a, fullName: a.fullName || p.contact || "" }))
         setLocker({
           id: p.lockerId,
           name: p.details || "Easybox",
@@ -265,15 +284,16 @@ function CheckoutBody({
   // told about a field below the one they have not filled in yet.
   const addressLines = formatAddressLines(address)
   const contactName = address.fullName.trim()
-  const emailOk = isLoggedIn || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  const phoneOk = /^0\d{9}$/.test(phone.replace(/[\s.\-()]/g, ""))
+  const email = address.email.trim()
+  const phone = address.phone.trim()
+  // A locker is identified by its own id, so nothing about the buyer's street
+  // is needed to deliver to one. Only a door needs a door.
+  const needsStreet = method === "home"
 
   const blocker: string | null = (() => {
-    if (contactName.length < 3) return "Adaugă numele destinatarului."
+    if (!isContactComplete(address, !isLoggedIn)) return "Completează adresa și datele de contact."
+    if (needsStreet && !isAddressComplete(address)) return "Completează adresa de livrare."
     if (method === "locker" && !locker) return "Alege un punct de ridicare."
-    if (method === "home" && !isAddressComplete(address)) return "Completează adresa de livrare."
-    if (!phoneOk) return "Adaugă un număr de telefon (07xxxxxxxx)."
-    if (!emailOk) return "Adaugă o adresă de email."
     if (!card) return "Adaugă un card."
     return null
   })()
@@ -306,7 +326,7 @@ function CheckoutBody({
               : undefined,
           contact: contactName,
           phone,
-          email: email.trim(),
+          email,
         }),
       })
       const prefJson = await prefRes.json().catch(() => null)
@@ -332,7 +352,7 @@ function CheckoutBody({
           variantId: product.variantId ?? undefined,
           firstName: firstName || contactName,
           lastName: rest.join(" ") || firstName || contactName,
-          email: email.trim(),
+          email,
           offerToken: offerToken ?? undefined,
           deliveryMode: method,
           deliveryLockerId: method === "locker" ? locker?.id : undefined,
@@ -426,33 +446,33 @@ function CheckoutBody({
             type="button"
             onClick={() => router.push(productUrl)}
             aria-label="Înapoi la produs"
-            className="-ml-1 inline-flex h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-neutral-700 transition-colors active:bg-neutral-100"
+            className="-ml-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-800 transition-colors active:bg-neutral-100"
           >
-            <ArrowLeft className="h-5 w-5 shrink-0" />
-            <span className="hidden sm:inline">Înapoi</span>
+            <ArrowLeft className="h-6 w-6" />
           </button>
 
-          {/* Only where there is room for it. On a narrow phone the title would
-              collide with the button on the right, and a truncated heading over
-              a live checkout reads as breakage. The page's own h1 says the same
-              thing two lines further down. */}
-          <h2 className="hidden min-w-0 flex-1 truncate text-center text-[16px] font-bold text-neutral-900 sm:block">
+          {/* Centred in what is LEFT between the two controls, not in the
+              viewport. Centring on the viewport puts the title underneath the
+              button on the right at phone widths — this way it is always
+              readable and never overlaps, at any size. */}
+          <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-bold text-neutral-900">
             Finalizare comandă
-          </h2>
+          </h1>
 
           <Link
             href="/"
-            className="ml-auto shrink-0 rounded-lg border border-neutral-300 px-3 py-2 text-[13px] font-medium text-neutral-700 transition-colors active:bg-neutral-50 sm:ml-0"
+            className="shrink-0 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[12px] font-medium leading-tight text-neutral-700 transition-colors active:bg-neutral-50"
           >
-            Continuă cumpărăturile
+            Continuă
+            <br className="sm:hidden" />
+            <span className="hidden sm:inline"> </span>
+            cumpărăturile
           </Link>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4">
-        <h1 className="text-[24px] font-bold leading-tight text-neutral-900">Finalizare comandă</h1>
-
-        <div className="mt-5">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5">
+        <div>
           <CheckoutItemCard
             title={product.title}
             subtitle={product.sellerName}
@@ -463,12 +483,16 @@ function CheckoutBody({
         </div>
 
         <div className="mt-7 space-y-7">
+          {/* ONE address section, whichever way it is being delivered — the
+              reference has one and so should this. Everything about the
+              recipient lives behind it, including the phone number the courier
+              texts the pickup code to. */}
           <AddressCard
-            label={method === "home" ? "Adresă de livrare" : "Date de contact"}
+            label="Adresă"
             name={contactName || null}
-            lines={method === "home" ? addressLines : [phone || null, email || null]}
-            onEdit={() => setSheet(method === "home" ? "address" : "contact")}
-            emptyLabel={method === "home" ? "Adaugă o adresă" : "Adaugă numele și telefonul"}
+            lines={needsStreet ? [...addressLines, phone] : [phone, email || null]}
+            onEdit={() => setSheet("address")}
+            emptyLabel="Adaugă o adresă"
           />
 
           <DeliveryOptions
@@ -482,41 +506,23 @@ function CheckoutBody({
           />
 
           {method === "locker" && (
-            <section aria-label="Detalii de livrare">
-              <h2 className="text-[16px] font-bold text-neutral-900">Detalii de livrare</h2>
-              <button
-                type="button"
-                onClick={() => setSheet("locker")}
-                className="mt-3 flex w-full items-start gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left transition-colors active:bg-neutral-50"
-              >
-                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-neutral-400" />
-                <span className="min-w-0 flex-1">
-                  {locker ? (
-                    <>
-                      <span className="block text-[15px] font-semibold text-neutral-900">{locker.name}</span>
-                      <span className="mt-0.5 block text-[14px] leading-snug text-neutral-500">
-                        {[locker.address, locker.locality].filter(Boolean).join(", ")}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="block text-[15px] text-neutral-500">Alege un easybox pe hartă</span>
-                  )}
-                </span>
-                <span className="shrink-0 text-[14px] font-medium text-[#7c3aed]">
-                  {locker ? "Schimbă" : "Alege"}
-                </span>
-              </button>
-            </section>
-          )}
-
-          {method === "home" && (
-            <AddressCard
-              label="Date de contact"
-              name={null}
-              lines={[phone || null, email || null]}
-              onEdit={() => setSheet("contact")}
-              emptyLabel="Adaugă telefonul și emailul"
-            />
+            <SummaryCard
+              label="Detalii de livrare"
+              filled={Boolean(locker)}
+              onEdit={() => setSheet("locker")}
+              leading={locker ? <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-neutral-400" /> : undefined}
+            >
+              {locker ? (
+                <>
+                  <span className="block text-[16px] font-semibold text-neutral-900">{locker.name}</span>
+                  <span className="mt-0.5 block text-[15px] leading-snug text-neutral-500">
+                    {[locker.address, locker.locality].filter(Boolean).join(", ")}
+                  </span>
+                </>
+              ) : (
+                <span className="block text-[16px] text-neutral-900">Alege un punct de ridicare</span>
+              )}
+            </SummaryCard>
           )}
 
           <PaymentCard
@@ -558,22 +564,10 @@ function CheckoutBody({
       <AddressSheet
         open={sheet === "address"}
         initial={address}
+        needsStreet={needsStreet}
+        needsEmail={!isLoggedIn}
         onClose={() => setSheet(null)}
         onSave={setAddress}
-      />
-
-      <ContactSheet
-        open={sheet === "contact"}
-        initialName={address.fullName}
-        initialPhone={phone}
-        initialEmail={email}
-        emailLocked={isLoggedIn}
-        onClose={() => setSheet(null)}
-        onSave={(v) => {
-          setAddress((a) => ({ ...a, fullName: v.name }))
-          setPhone(v.phone)
-          setEmail(v.email)
-        }}
       />
 
       <LockerScreen
@@ -594,141 +588,6 @@ function CheckoutBody({
         billingName={contactName}
         billingEmail={email}
       />
-    </div>
-  )
-}
-
-/**
- * Name, phone and email — the three things the courier needs and the checkout
- * cannot infer.
- *
- * Its own subpage rather than three inputs on the main screen, for the same
- * reason as everything else here: the main screen stays a summary. The phone
- * number carries the sentence explaining why it is being asked for, because
- * "why does a clothes shop want my number" has an answer and it is a good one.
- */
-function ContactSheet({
-  open,
-  initialName,
-  initialPhone,
-  initialEmail,
-  emailLocked,
-  onClose,
-  onSave,
-}: {
-  open: boolean
-  initialName: string
-  initialPhone: string
-  initialEmail: string
-  emailLocked: boolean
-  onClose: () => void
-  onSave: (v: { name: string; phone: string; email: string }) => void
-}) {
-  const [name, setName] = useState(initialName)
-  const [phone, setPhone] = useState(initialPhone)
-  const [email, setEmail] = useState(initialEmail)
-
-  useEffect(() => {
-    if (!open) return
-    setName(initialName)
-    setPhone(initialPhone)
-    setEmail(initialEmail)
-  }, [open, initialName, initialPhone, initialEmail])
-
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => {
-      document.body.style.overflow = prev
-      window.removeEventListener("keydown", onKey)
-    }
-  }, [open, onClose])
-
-  if (!open || typeof document === "undefined") return null
-
-  const phoneOk = /^0\d{9}$/.test(phone.replace(/[\s.\-()]/g, ""))
-  const emailOk = emailLocked || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  const ready = name.trim().length >= 3 && phoneOk && emailOk
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Date de contact"
-      className="fixed inset-0 z-[96] flex flex-col bg-white"
-      style={{ height: "100dvh" }}
-    >
-      <header
-        className="relative shrink-0 border-b border-neutral-200 px-4 pb-3"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-      >
-        <button type="button" onClick={onClose} className="text-[15px] font-medium text-neutral-700 active:opacity-60">
-          închidere
-        </button>
-        <h1 className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[16px] font-bold text-neutral-900">
-          Date de contact
-        </h1>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <label className="block border-b border-neutral-200 px-4 py-3">
-          <span className="block text-[13px] text-neutral-500">Nume complet</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="name"
-            className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none"
-          />
-        </label>
-        <label className="block border-b border-neutral-200 px-4 py-3">
-          <span className="block text-[13px] text-neutral-500">Telefon</span>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="07xxxxxxxx"
-            className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none placeholder:text-neutral-400"
-          />
-          <span className="mt-1 block text-[12px] text-neutral-500">
-            Curierul trimite codul de ridicare prin SMS la acest număr.
-          </span>
-        </label>
-        {!emailLocked && (
-          <label className="block border-b border-neutral-200 px-4 py-3">
-            <span className="block text-[13px] text-neutral-500">Email</span>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              inputMode="email"
-              autoComplete="email"
-              className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none"
-            />
-          </label>
-        )}
-      </div>
-
-      <div
-        className="shrink-0 border-t border-neutral-200 px-4 pt-3"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-      >
-        <button
-          type="button"
-          disabled={!ready}
-          onClick={() => {
-            onSave({ name: name.trim(), phone: phone.trim(), email: email.trim() })
-            onClose()
-          }}
-          className="inline-flex h-[52px] w-full items-center justify-center rounded-full bg-[#7c3aed] px-6 text-[16px] font-semibold text-white transition-transform active:scale-[0.985] disabled:opacity-40 disabled:active:scale-100"
-        >
-          Salvează
-        </button>
-      </div>
     </div>
   )
 }

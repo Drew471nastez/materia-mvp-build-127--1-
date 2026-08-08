@@ -5,6 +5,8 @@ import { createPortal } from "react-dom"
 import { CardCvcElement, CardExpiryElement, CardNumberElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { CreditCard, Loader2, Lock } from "lucide-react"
 
+import { SummaryCard } from "@/components/checkout/delivery-options"
+
 /**
  * ===========================================================================
  *  CARD DETAILS, AS A SUBPAGE
@@ -50,9 +52,12 @@ const BRAND_LABELS: Record<string, string> = {
   unionpay: "UnionPay",
 }
 
+export function cardBrandName(card: SavedCard): string {
+  return BRAND_LABELS[card.brand] ?? (card.brand ? card.brand.toUpperCase() : "Card")
+}
+
 export function cardLabel(card: SavedCard): string {
-  const brand = BRAND_LABELS[card.brand] ?? (card.brand ? card.brand.toUpperCase() : "Card")
-  return `${brand} •••• ${card.last4}`
+  return `${cardBrandName(card)} se termină cu ${card.last4}`
 }
 
 /** 16px, or iOS zooms the page the instant the field takes focus — and a
@@ -265,31 +270,47 @@ export function CardSheet({
   )
 }
 
-/** The one-line summary the main checkout shows in place of the form. */
+/**
+ * The one-line summary the main checkout shows in place of the form.
+ *
+ * The brand is set in type rather than as a logo file. Shipping the networks'
+ * marks means shipping trademarked artwork, and the point of the row is to let
+ * somebody recognise WHICH of their cards this is — for that, the name and the
+ * last four digits do the whole job. Inside the form the number field shows the
+ * real mark anyway, because Stripe draws it there itself.
+ */
 export function PaymentCard({ card, onEdit }: { card: SavedCard | null; onEdit: () => void }) {
   return (
-    <section aria-label="Plată">
-      <h2 className="text-[16px] font-bold text-neutral-900">Plată</h2>
-      <button
-        type="button"
-        onClick={onEdit}
-        className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left transition-colors active:bg-neutral-50"
-      >
-        <CreditCard className="h-5 w-5 shrink-0 text-neutral-400" />
-        <span className="min-w-0 flex-1">
+    <SummaryCard
+      label="Plată"
+      filled={Boolean(card)}
+      onEdit={onEdit}
+      leading={
+        <span className="flex h-9 w-[52px] shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white">
           {card ? (
-            <>
-              <span className="block text-[15px] font-semibold text-neutral-900">{cardLabel(card)}</span>
-              <span className="mt-0.5 block text-[14px] text-neutral-500">
-                Expiră {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
-              </span>
-            </>
+            <span className="px-1 text-[10px] font-bold uppercase leading-none tracking-tight text-neutral-700">
+              {cardBrandName(card)}
+            </span>
           ) : (
-            <span className="block text-[15px] text-neutral-500">Adaugă un card</span>
+            <CreditCard className="h-4 w-4 text-neutral-400" />
           )}
         </span>
-        <span className="shrink-0 text-[14px] font-medium text-[#7c3aed]">{card ? "Schimbă" : "Adaugă"}</span>
-      </button>
-    </section>
+      }
+    >
+      {card ? (
+        <>
+          <span className="block text-[16px] text-neutral-900">
+            <span className="font-semibold">{cardBrandName(card)}</span>
+            <span className="text-neutral-500"> se termină cu </span>
+            <span className="font-semibold">{card.last4}</span>
+          </span>
+          <span className="mt-0.5 block text-[15px] text-neutral-500">
+            Expiră {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}
+          </span>
+        </>
+      ) : (
+        <span className="block text-[16px] text-neutral-500">Adaugă un card</span>
+      )}
+    </SummaryCard>
   )
 }

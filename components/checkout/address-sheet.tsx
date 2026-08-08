@@ -6,11 +6,21 @@ import { createPortal } from "react-dom"
 /**
  * The delivery address, as a full screen of its own.
  *
- * A subpage rather than a section, because an address is seven fields and
- * putting seven fields inline turns the checkout into a form to be waded
+ * A subpage rather than a section, because an address is a page of fields and
+ * putting a page of fields inline turns the checkout into a form to be waded
  * through instead of a summary to be confirmed. The main page shows one card
  * saying where the parcel is going; this is what opens when you tap it.
  *
+ * ---------------------------------------------------------------------------
+ * WHY THE PHONE NUMBER IS HERE AND NOT IN A SECTION OF ITS OWN
+ * ---------------------------------------------------------------------------
+ * The courier sends the pickup code by SMS, so a number is not optional — but a
+ * second "Date de contact" card on the main page would mean two sections that
+ * both mean "who is this going to", and a buyer having to guess which one holds
+ * the thing they want to change. One card, one subpage, everything about the
+ * recipient inside it.
+ *
+ * ---------------------------------------------------------------------------
  * Closing discards. Saving is the only thing that changes the order — so
  * somebody who opens this to check what they typed cannot accidentally clear a
  * field on the way out.
@@ -18,6 +28,8 @@ import { createPortal } from "react-dom"
 
 export interface CheckoutAddress {
   fullName: string
+  phone: string
+  email: string
   street: string
   details: string
   postalCode: string
@@ -27,6 +39,8 @@ export interface CheckoutAddress {
 
 export const EMPTY_ADDRESS: CheckoutAddress = {
   fullName: "",
+  phone: "",
+  email: "",
   street: "",
   details: "",
   postalCode: "",
@@ -34,8 +48,25 @@ export const EMPTY_ADDRESS: CheckoutAddress = {
   county: "",
 }
 
+/** Romanian mobile: ten digits starting with a zero, however it was punctuated. */
+export function isPhoneValid(phone: string): boolean {
+  return /^0\d{9}$/.test(String(phone ?? "").replace(/[\s.\-()]/g, ""))
+}
+
+export function isEmailValid(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email ?? "").trim())
+}
+
+/** Enough to reach the person: who they are and how the courier tells them the
+ *  parcel has arrived. Required whichever way it is being delivered. */
+export function isContactComplete(a: CheckoutAddress, needsEmail: boolean): boolean {
+  return a.fullName.trim().length >= 3 && isPhoneValid(a.phone) && (!needsEmail || isEmailValid(a.email))
+}
+
+/** Enough to put on a parcel. Only required for delivery to a door — a locker
+ *  is identified by its own id and needs no street from the buyer at all. */
 export function isAddressComplete(a: CheckoutAddress): boolean {
-  return a.fullName.trim().length >= 3 && a.street.trim().length >= 3 && a.city.trim().length >= 2
+  return a.street.trim().length >= 3 && a.city.trim().length >= 2 && a.county.trim().length >= 2
 }
 
 /** One line per row, the way an address is actually read. */
@@ -58,7 +89,6 @@ function Field({
   autoComplete,
   inputMode,
   optional,
-  disabled,
 }: {
   label: string
   value: string
@@ -66,9 +96,8 @@ function Field({
   hint?: string
   placeholder?: string
   autoComplete?: string
-  inputMode?: "text" | "numeric"
+  inputMode?: "text" | "numeric" | "tel" | "email"
   optional?: boolean
-  disabled?: boolean
 }) {
   return (
     <label className="block border-b border-neutral-200 px-4 py-3">
@@ -82,9 +111,8 @@ function Field({
         placeholder={placeholder}
         autoComplete={autoComplete}
         inputMode={inputMode}
-        disabled={disabled}
         // 16px minimum, or iOS zooms the page the moment the field is focused.
-        className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none placeholder:text-neutral-400 disabled:opacity-60"
+        className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none placeholder:text-neutral-400"
       />
       {hint && <span className="mt-1 block text-[12px] text-neutral-500">{hint}</span>}
     </label>
@@ -94,11 +122,17 @@ function Field({
 export function AddressSheet({
   open,
   initial,
+  needsStreet,
+  needsEmail,
   onClose,
   onSave,
 }: {
   open: boolean
   initial: CheckoutAddress
+  /** Delivery to a door needs a street; delivery to a locker does not. */
+  needsStreet: boolean
+  /** Only a guest has to supply one — a signed-in buyer already has one. */
+  needsEmail: boolean
   onClose: () => void
   onSave: (a: CheckoutAddress) => void
 }) {
@@ -127,6 +161,7 @@ export function AddressSheet({
   if (!open || typeof document === "undefined") return null
 
   const set = (k: keyof CheckoutAddress) => (v: string) => setDraft((d) => ({ ...d, [k]: v }))
+  const ready = isContactComplete(draft, needsEmail) && (!needsStreet || isAddressComplete(draft))
 
   return createPortal(
     <div
@@ -154,6 +189,24 @@ export function AddressSheet({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <Field label="Nume complet" value={draft.fullName} onChange={set("fullName")} autoComplete="name" />
+        <Field
+          label="Telefon"
+          value={draft.phone}
+          onChange={set("phone")}
+          autoComplete="tel"
+          inputMode="tel"
+          placeholder="07xxxxxxxx"
+          hint="Curierul trimite codul de ridicare prin SMS la acest număr."
+        />
+        {needsEmail && (
+          <Field
+            label="Email"
+            value={draft.email}
+            onChange={set("email")}
+            autoComplete="email"
+            inputMode="email"
+          />
+        )}
         {/* Fixed rather than a selector: the couriers integrated here deliver
             within Romania only, so offering a choice would be offering one that
             fails at the AWB step. */}
@@ -166,6 +219,7 @@ export function AddressSheet({
           value={draft.street}
           onChange={set("street")}
           autoComplete="address-line1"
+          optional={!needsStreet}
         />
         <Field
           label="Detalii adresă"
@@ -188,11 +242,18 @@ export function AddressSheet({
           value={draft.city}
           onChange={set("city")}
           autoComplete="address-level2"
+          optional={!needsStreet}
         />
         {/* Kept, unlike the reference, because the courier prices and routes by
             county and there is no postal-code table here to derive it from.
             Guessing it would be guessing where a parcel goes. */}
-        <Field label="Județ" value={draft.county} onChange={set("county")} autoComplete="address-level1" />
+        <Field
+          label="Județ"
+          value={draft.county}
+          onChange={set("county")}
+          autoComplete="address-level1"
+          optional={!needsStreet}
+        />
       </div>
 
       <div
@@ -201,7 +262,7 @@ export function AddressSheet({
       >
         <button
           type="button"
-          disabled={!isAddressComplete(draft)}
+          disabled={!ready}
           onClick={() => {
             onSave(draft)
             onClose()
