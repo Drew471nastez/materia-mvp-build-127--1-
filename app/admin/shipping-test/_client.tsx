@@ -142,6 +142,9 @@ export default function ShippingTestClient() {
   const payload = (result?.payload as Record<string, unknown>) ?? null
   const wallet = (result?.wallet as { balance: number; currency: string } | null) ?? null
   const compare = (result?.options as CompareOption[] | undefined) ?? null
+  // A created shipment: the AWB to read, and the provider's order id, which is
+  // what both the label PDF and the cancellation are keyed on.
+  const created = (result?.result as { awb?: string; orderId?: number; carrier?: string } | undefined) ?? null
   const skipped = (result?.skipped as Array<{ carrier: string; reason: string }>) ?? null
   const isCompare = title === "compare"
 
@@ -415,6 +418,63 @@ export default function ShippingTestClient() {
                   Opțiune selectată — câmpurile de mai sus (curier, serviciu și ambele easybox-uri) au
                   fost completate. Poți calcula prețul sau crea AWB-ul cu ele.
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* THE POINT OF THE WHOLE PAGE: a real AWB, its barcode, and a way
+              to undo it. The provider refunds a cancelled order to the wallet,
+              so a test costs nothing once the money is there. */}
+          {created?.awb && (
+            <div className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50/60 p-4">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-emerald-800">
+                AWB generat{created.carrier ? ` · ${created.carrier}` : ""}
+              </p>
+              <p className="mt-1 select-all font-mono text-[24px] font-bold leading-tight text-neutral-900">
+                {created.awb}
+              </p>
+              {created.orderId && (
+                <p className="mt-0.5 text-[12px] text-neutral-500">order_id furnizor: {created.orderId}</p>
+              )}
+
+              {created.orderId && (
+                <>
+                  {/* Rendered, not linked. The barcode and QR are the thing
+                      being verified, and a download link does not show them. */}
+                  <div className="mt-3 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                    <iframe
+                      src={`/api/admin/shipping-test/label?orderId=${created.orderId}&format=A6`}
+                      title="Etichetă AWB"
+                      className="h-[520px] w-full"
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <a
+                      href={`/api/admin/shipping-test/label?orderId=${created.orderId}&format=A6`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-neutral-300 px-4 py-2 text-[13px] font-semibold"
+                    >
+                      Deschide A6
+                    </a>
+                    <a
+                      href={`/api/admin/shipping-test/label?orderId=${created.orderId}&format=A4`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-neutral-300 px-4 py-2 text-[13px] font-semibold"
+                    >
+                      Deschide A4
+                    </a>
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => call("cancel", { providerOrderId: created.orderId })}
+                      className="rounded-full bg-red-600 px-4 py-2 text-[13px] font-semibold text-white transition-transform active:scale-[0.97] disabled:opacity-40"
+                    >
+                      {busy === "cancel" ? "…" : "Anulează AWB (banii se întorc în portofel)"}
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}

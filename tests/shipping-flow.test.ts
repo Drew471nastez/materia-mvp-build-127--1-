@@ -60,6 +60,8 @@ const createAwb = read("lib/shipping/create-awb.ts")
 const createRoute = read("app/api/shipping/create/route.ts")
 const sellerAwbRoute = read("app/api/shipping/order/[orderId]/awb/route.ts")
 const addressRoute = read("app/api/shipping/address/route.ts")
+/** The provider client: payload building, labels, cancellation. */
+const eawbLib = read("lib/eawb.ts")
 /** Locker resolution and phone validation live here, shared by BOTH places a
  *  buyer can choose a locker: the pre-payment step and the order page. */
 const prefLib = read("lib/shipping/preference.ts")
@@ -1131,6 +1133,67 @@ check(
       !isUsableCoord({ lat: 91, lng: 0 }) &&
       !isUsableCoord({ lat: NaN, lng: 10 }) &&
       isUsableCoord({ lat: 44.4, lng: 26.1 }),
+  )
+}
+
+/* ── SEEING A REAL LABEL, AND UNDOING IT ─────────────────────────────────── */
+//
+// The provider has NO sandbox — checked against its OpenAPI document, which
+// contains zero occurrences of sandbox / test_mode / dry_run / simulate. So a
+// real AWB costs real money, and the only thing that makes testing affordable
+// is that DELETE /orders/{id} refunds the wallet.
+{
+  const testRoute = read("app/api/admin/shipping-test/route.ts")
+  const labelRoute2 = read("app/api/admin/shipping-test/label/route.ts")
+  const ui = read("app/admin/shipping-test/_client.tsx")
+
+  check(
+    "the label link is read from download_url, the field that exists",
+    /data\.download_url as string/.test(eawbLib),
+    "        It looked for `link` / `url`, which the provider does not return —\n" +
+      "        every label would have come back null, and the failure would have\n" +
+      "        looked like 'the courier has not produced one yet'.",
+  )
+  check(
+    "the label PDF is fetched as bytes, not as a bearer link",
+    /Accept: "application\/pdf"/.test(eawbLib) && /orders\/labels/.test(eawbLib),
+  )
+  check(
+    "the label renders in the page instead of downloading",
+    /<iframe[\s\S]{0,200}?shipping-test\/label\?orderId=/.test(ui) &&
+      /"Content-Disposition": `inline;/.test(labelRoute2),
+    "        The barcode is the thing being verified; a link does not show it.",
+  )
+  check(
+    "the label route is admin-only and 404s otherwise",
+    /isAdminAuthenticated\(\)/.test(labelRoute2) && /"Not found" \}, \{ status: 404 \}/.test(labelRoute2),
+  )
+  check(
+    "a booked shipment can be cancelled, and cancel takes the PROVIDER order id",
+    /export async function cancelOrder/.test(eawbLib) &&
+      /method: "DELETE"/.test(eawbLib) &&
+      /providerOrderId/.test(testRoute),
+    "        DELETE /orders/{id} refunds to the wallet — the only reason a real\n" +
+      "        test is affordable.",
+  )
+  check(
+    "the balance is shown again after a cancellation",
+    (() => {
+      // Comments stripped first, and the block bounded by the NEXT branch
+      // rather than by a character count — a window measured in characters
+      // shrinks every time an explanation is added above the line it is
+      // looking for, which has now cost this file three false failures.
+      const src = stripComments(testRoute)
+      const start = src.indexOf('if (mode === "cancel")')
+      const end = src.indexOf('if (mode === "track")', start)
+      const block = src.slice(start, end > start ? end : undefined)
+      return /getAccountBalance\(\)/.test(block) && /cancelOrder\(/.test(block)
+    })(),
+    "        'Did the money come back' is the question being asked.",
+  )
+  check(
+    "cancelling is offered next to the AWB, not hidden",
+    /call\("cancel", \{ providerOrderId: created\.orderId \}\)/.test(ui),
   )
 }
 

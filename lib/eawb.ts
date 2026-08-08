@@ -539,11 +539,91 @@ export async function createOrder(input: EawbShipmentInput): Promise<EawbOrderRe
   }
 }
 
-/** A printable label for an AWB the account owns. */
+/**
+ * A printable label for an AWB the account owns.
+ *
+ * The field is `download_url`. Read from the provider's OpenAPI document, not
+ * guessed — an earlier version of this looked for `link` / `url`, which do not
+ * exist, so it would have returned null for every label ever requested and the
+ * failure would have looked like "the courier has not produced one yet". The
+ * other two names are kept as fallbacks and cost nothing.
+ */
 export async function getLabelLink(awb: string): Promise<{ url: string | null; raw: unknown }> {
   const res = await eawbGetJson<Record<string, unknown>>(`/orders/label-link/${encodeURIComponent(awb)}`)
   const data = (res.data ?? res) as Record<string, unknown>
-  return { url: (data.link as string) ?? (data.url as string) ?? null, raw: res }
+  const url =
+    (data.download_url as string) ?? (data.link as string) ?? (data.url as string) ?? null
+  return { url: url ? String(url) : null, raw: res }
+}
+
+/**
+ * The label PDF itself, by ORDER id (not AWB), straight from the provider.
+ *
+ * `POST /orders/labels` responds with `application/pdf` rather than a link, so
+ * there is no second hop and no bearer URL to leak. A6 is the thermal-label
+ * size couriers expect; A4 prints four to a page.
+ */
+export async function getLabelPdf(
+  orderIds: Array<number | string>,
+  format: "A4" | "A6" = "A6",
+): Promise<{ bytes: ArrayBuffer; contentType: string }> {
+  const apiKey = getApiKey()
+  const res = await fetch(`${API_BASE_URL}/orders/labels`, {
+    method: "POST",
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/pdf",
+    },
+    body: JSON.stringify({ order_ids: orderIds.map((id) => Number(id)).filter(Number.isFinite), format }),
+    cache: "no-store",
+  })
+  if (res.status === 401 || res.status === 403) {
+    throw taggedError("auth", `eAWB rejected the API key (HTTP ${res.status})`, res.status)
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "")
+    throw taggedError("http_error", `eAWB returned HTTP ${res.status}: ${safeSnippet(body, 400)}`, res.status)
+  }
+  return { bytes: await res.arrayBuffer(), contentType: res.headers.get("content-type") || "application/pdf" }
+}
+
+/**
+ * CANCEL a booked shipment.
+ *
+ * The provider's own words: "Refunds are automatically processed to the
+ * customer's wallet." That is what makes testing affordable — an AWB can be
+ * created, its label and barcode inspected, and then cancelled, with the money
+ * returning to the balance instead of being spent on a parcel nobody sends.
+ *
+ * Takes the provider's ORDER id, which is stored on our order as
+ * `shipping_provider_order_id`, not the AWB.
+ */
+export async function cancelOrder(providerOrderId: number | string): Promise<unknown> {
+  const apiKey = getApiKey()
+  const url = `${API_BASE_URL}/orders/${encodeURIComponent(String(providerOrderId))}`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: "DELETE",
+      headers: { "X-API-Key": apiKey, Accept: "application/json" },
+      cache: "no-store",
+    })
+  } catch (err) {
+    throw taggedError("network_error", `Could not reach eAWB: ${err instanceof Error ? err.message : "unknown"}`)
+  }
+  const body = await res.text().catch(() => "")
+  if (res.status === 401 || res.status === 403) {
+    throw taggedError("auth", `eAWB rejected the request (HTTP ${res.status})`, res.status)
+  }
+  if (!res.ok) {
+    throw taggedError("http_error", `eAWB returned HTTP ${res.status}: ${safeSnippet(body, 400)}`, res.status)
+  }
+  try {
+    return JSON.parse(body)
+  } catch {
+    return { ok: true }
+  }
 }
 
 /** Carrier scan history for an AWB. */

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { compareLockerRoutes } from "@/lib/shipping/compare"
 import {
+  cancelOrder,
   createOrder,
   getAccountBalance,
   getLabelLink,
@@ -75,6 +76,8 @@ type Body = {
   codAmount?: number
   /** compare mode: restrict to carriers owning the sender's chosen locker. */
   pinSenderLocker?: boolean
+  /** cancel mode: the PROVIDER's order id, which is what DELETE /orders takes. */
+  providerOrderId?: number | string
 }
 
 function num(v: unknown, fallback: number): number {
@@ -277,6 +280,25 @@ export async function POST(req: NextRequest) {
     if (mode === "label") {
       if (!body.awb) return NextResponse.json({ ok: false, message: "awb required" }, { status: 400 })
       return NextResponse.json({ ok: true, mode, label: await getLabelLink(body.awb) })
+    }
+
+    if (mode === "cancel") {
+      // The provider refunds a cancelled order to the wallet, which is what
+      // makes testing affordable: create one, look at the barcode, cancel it,
+      // get the money back. Takes the PROVIDER's order id, not the AWB.
+      if (!body.providerOrderId) {
+        return NextResponse.json({ ok: false, message: "providerOrderId required" }, { status: 400 })
+      }
+      const result = await cancelOrder(body.providerOrderId)
+      let wallet: { balance: number; currency: string } | null = null
+      try {
+        // Shown straight back, because the refund is the whole point and
+        // "did the money come back" is the question being asked.
+        wallet = await getAccountBalance()
+      } catch {
+        wallet = null
+      }
+      return NextResponse.json({ ok: true, mode, result, wallet })
     }
 
     if (mode === "track") {
