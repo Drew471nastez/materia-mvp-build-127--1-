@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Check, Crosshair, Loader2, MapPin, Search } from "lucide-react"
 
+import { LockerMap } from "@/components/shipping/locker-map"
 import { useGeolocation } from "@/components/shipping/use-geolocation"
 import { formatDistance } from "@/lib/geo"
 
@@ -174,18 +175,29 @@ export function LockerPicker({
       )}
 
       {value && (
-        <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
-          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
-            <Check className="h-3 w-3" strokeWidth={3} />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[14px] font-semibold text-emerald-900">{value.name}</span>
-            <span className="mt-0.5 block text-[13px] leading-snug text-emerald-800/80">
-              {value.address}
-              {value.locality ? `, ${value.locality}` : ""}
+        <>
+          <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+              <Check className="h-3 w-3" strokeWidth={3} />
             </span>
-          </span>
-        </div>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-semibold text-emerald-900">{value.name}</span>
+              <span className="mt-0.5 block text-[13px] leading-snug text-emerald-800/80">
+                {value.address}
+                {value.locality ? `, ${value.locality}` : ""}
+              </span>
+            </span>
+          </div>
+          {/* Renders nothing when the provider has no coordinates for this
+              locker — a map of the wrong place is worse than none. */}
+          <LockerMap
+            lat={value.lat}
+            lng={value.lng}
+            name={value.name}
+            address={value.address}
+            className="mt-2"
+          />
+        </>
       )}
 
       {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}

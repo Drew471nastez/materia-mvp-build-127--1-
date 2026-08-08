@@ -1514,6 +1514,99 @@ check(
   )
 }
 
+/* ── SEARCH THAT FINDS WHAT YOU TYPED ────────────────────────────────────── */
+{
+  // The real function, lifted out of the route so the behaviour is tested
+  // rather than the regex that implements it.
+  const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  const tokenise = (q: string) => fold(q).split(/[\s,._-]+/).map((t) => t.trim()).filter(Boolean)
+  const matches = (hay: string, q: string) => {
+    for (const t of tokenise(q)) {
+      if (/^\d{1,2}$/.test(t)) {
+        if (!new RegExp(`(^|[^0-9])${t}([^0-9]|$)`).test(hay)) return false
+      } else if (!hay.includes(t)) return false
+    }
+    return true
+  }
+  const sector4 = fold("PROFI VACARESTI Str. Vacaresti 391 Sector 4 Bucuresti")
+  const sector3 = fold("easybox Alliance Str. Sergent Pechiu Ion 3-7 Sector 3 Bucuresti")
+
+  check(
+    "words can be typed in any order",
+    matches(sector4, "profi bucuresti") && matches(sector4, "bucuresti profi"),
+    "        A plain substring found NOTHING for 'profi bucuresti' — the two\n" +
+      "        words sit far apart in the address and a substring must be\n" +
+      "        contiguous.",
+  )
+  check(
+    "a sector number is not satisfied by a house number",
+    !matches(sector4, "sector 3") && matches(sector3, "sector 3"),
+    "        The bare '3' is inside '391', so 'sector 3' matched a locker in\n" +
+      "        Sector 4.",
+  )
+  check(
+    "extra words narrow the list rather than widening it",
+    matches(sector3, "easybox sector 3") && !matches(sector4, "easybox sector 3"),
+  )
+  check(
+    "longer numbers still match as substrings",
+    matches(sector4, "391") && !matches(sector3, "391"),
+  )
+  check(
+    "diacritics are still ignored in both directions",
+    matches(fold("Str. București nr. 1"), "bucuresti") && matches(sector4, "vacaresti"),
+  )
+  check(
+    "the route uses the tokenised matcher, not a raw includes",
+    /matchesQuery\(/.test(lockersRoute) && /function tokenise/.test(lockersRoute),
+  )
+}
+
+/* ── THE MAP ─────────────────────────────────────────────────────────────── */
+{
+  const map = read("components/shipping/locker-map.tsx")
+
+  check(
+    "the map costs no dependency and no API key",
+    (() => {
+      const pkg = JSON.parse(read("package.json")) as { dependencies?: Record<string, string> }
+      const deps = Object.keys(pkg.dependencies ?? {})
+      return (
+        !deps.some((d) => /^(leaflet|maplibre|mapbox|react-map|google-map)/.test(d)) &&
+        !/apiKey|api_key|accessToken/i.test(map)
+      )
+    })(),
+    "        A mapping library is 40–150 KB shipped to every buyer to draw one\n" +
+      "        pin.",
+  )
+  check(
+    "a locker with no coordinates renders no map at all",
+    /Number\.isFinite\(lat\)/.test(map) && /lat === 0 && lng === 0/.test(map),
+    "        NaN in the URL produces a map of the middle of the ocean, which\n" +
+      "        looks like an answer.",
+  )
+  check(
+    "the embedded frame cannot reach back into the page",
+    /sandbox="allow-scripts allow-same-origin"/.test(map) && /referrerPolicy="no-referrer"/.test(map),
+  )
+  check(
+    "there is a way out to a real maps app for directions",
+    /google\.com\/maps\/search\/\?api=1&query=/.test(map),
+    "        A static frame cannot give directions; the device already has an\n" +
+      "        app that can.",
+  )
+  check(
+    "the map is shown for the CHOSEN locker, in the shared picker",
+    /<LockerMap/.test(picker) && /lat=\{value\.lat\}/.test(picker),
+    "        So both places a buyer picks — before payment and on the order —\n" +
+      "        get it from one component.",
+  )
+  check(
+    "coordinates reach the client for it to draw",
+    /lat: l\.coordinates \? Number\(l\.coordinates\.lat\) : null/.test(lockersRoute),
+  )
+}
+
 /* ── THE LOCKER SEARCH ───────────────────────────────────────────────────── */
 check(
   "locker search folds diacritics, so 'Bucuresti' finds 'București'",

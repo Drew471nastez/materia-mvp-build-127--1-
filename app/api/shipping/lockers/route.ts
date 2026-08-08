@@ -58,6 +58,45 @@ function fold(s: string): string {
     .toLowerCase()
 }
 
+/**
+ * Does every word of the query appear in this locker's text?
+ *
+ * A plain substring match was wrong in both directions, and both were easy to
+ * hit:
+ *
+ *   "profi bucuresti"  found NOTHING, because those two words are far apart in
+ *                      "PROFI VACARESTI, Str. Vacaresti 391, Sector 4,
+ *                      Bucuresti" and a substring has to be contiguous.
+ *
+ *   "sector 3"         matched "Sector 4 ... 391", because the bare "3" is
+ *                      inside "391".
+ *
+ * So: every token must be present (AND, not OR — extra words should narrow the
+ * list, which is what people expect when they add one), and a SHORT NUMERIC
+ * token must match on a word boundary so a house number cannot satisfy a
+ * sector number. Longer numbers are left as substrings, because "391" finding
+ * "3910" is harmless and postcode-ish prefixes are useful.
+ */
+function matchesQuery(haystack: string, tokens: string[]): boolean {
+  for (const t of tokens) {
+    if (/^\d{1,2}$/.test(t)) {
+      // \b would not do: the fold keeps punctuation, and "sector 3," must match.
+      if (!new RegExp(`(^|[^0-9])${t}([^0-9]|$)`).test(haystack)) return false
+    } else if (!haystack.includes(t)) {
+      return false
+    }
+  }
+  return true
+}
+
+/** Split a query into the words that must all appear. */
+function tokenise(q: string): string[] {
+  return fold(q)
+    .split(/[\s,._-]+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const country = (url.searchParams.get("country") || "RO").toUpperCase().slice(0, 2)
@@ -73,7 +112,7 @@ export async function GET(req: NextRequest) {
     const all = await lockersFor(country)
     const fCounty = fold(county)
     const fLocality = fold(locality)
-    const fq = fold(q)
+    const qTokens = tokenise(q)
 
     // A coordinate turns this from a search into a "what is near me" list, and
     // it is the buyer's own position — never stored, never logged, used only to
@@ -99,8 +138,11 @@ export async function GET(req: NextRequest) {
           : true,
       )
       .filter((l) =>
-        fq
-          ? fold(`${l.name || ""} ${l.address || ""} ${l.locality_name || ""} ${l.county_name || ""}`).includes(fq)
+        qTokens.length
+          ? matchesQuery(
+              fold(`${l.name || ""} ${l.address || ""} ${l.locality_name || ""} ${l.county_name || ""}`),
+              qTokens,
+            )
           : true,
       )
 
