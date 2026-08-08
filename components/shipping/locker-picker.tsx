@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Check, Crosshair, Loader2, MapPin, Search } from "lucide-react"
 
+import { LocationPrompt } from "@/components/shipping/location-prompt"
 import { LockerMap } from "@/components/shipping/locker-map"
 import { LockerMapPicker } from "@/components/shipping/locker-map-picker"
 import { useGeolocation } from "@/components/shipping/use-geolocation"
@@ -148,23 +149,9 @@ export function LockerPicker({
           Hidden entirely when there is nothing to offer: already denied, or no
           geolocation at all (which includes the iOS app until Info.plist
           declares NSLocationWhenInUseUsageDescription). */}
-      {geo.state.status !== "ready" &&
-        geo.state.status !== "denied" &&
-        geo.state.status !== "unavailable" && (
-          <button
-            type="button"
-            disabled={disabled || geo.state.status === "locating"}
-            onClick={geo.prime}
-            className="mt-2.5 inline-flex h-10 items-center gap-2 rounded-full border border-neutral-300 px-4 text-[13.5px] font-semibold text-neutral-800 transition-transform active:scale-[0.97] disabled:opacity-40"
-          >
-            {geo.state.status === "locating" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Crosshair className="h-3.5 w-3.5" />
-            )}
-            {geo.state.status === "locating" ? "Se caută locația…" : "Arată-mi cele mai apropiate"}
-          </button>
-        )}
+      {/* Explains itself before the system dialog is spent — see
+          LocationPrompt. Renders nothing once the question is settled. */}
+      <LocationPrompt state={geo.state} onAllow={geo.prime} />
 
       {geo.state.status === "ready" && (
         <p className="mt-2.5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-700">

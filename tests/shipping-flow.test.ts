@@ -1110,8 +1110,18 @@ check(
     /permissions\s*\n?\s*\?\.query\(\{ name: "geolocation"/.test(geoHook),
   )
   check(
-    "a denied or unavailable permission hides the button rather than dangling it",
-    /status !== "denied" &&\s*\n?\s*geo\.state\.status !== "unavailable"/.test(picker),
+    "a denied or unavailable permission never leaves a dead button on screen",
+    (() => {
+      // The bare button moved into LocationPrompt, which returns early for
+      // every settled state — null when there is nothing to be done, and one
+      // line of help when the answer was no.
+      const p = read("components/shipping/location-prompt.tsx")
+      return (
+        /if \(state\.status !== "idle" && state\.status !== "locating"\)/.test(p) &&
+        /if \(state\.status === "denied"\)/.test(p) &&
+        /return null/.test(p)
+      )
+    })(),
   )
   check(
     "distance sorting happens before the result cap",
@@ -1124,6 +1134,58 @@ check(
   check(
     "lockers with no coordinates sink instead of sorting as if at the origin",
     /if \(a\.km === null\) return b\.km === null \? 0 : 1/.test(lockersRoute),
+  )
+  check(
+    "the system dialog is never spent cold",
+    (() => {
+      // On iOS the OS alert may only ever be shown ONCE; decline it and every
+      // later request silently fails until the user finds the app in Settings.
+      // So our own explanation comes first, and only "Permite" calls the real
+      // thing. "Nu acum" costs nothing — the system prompt was never shown.
+      const p = read("components/shipping/location-prompt.tsx")
+      return /onClick=\{onAllow\}/.test(p) && /Nu acum/.test(p) && !/getCurrentPosition/.test(p)
+    })(),
+  )
+  check(
+    "a dismissal is remembered for the session, not forever",
+    (() => {
+      const p = read("components/shipping/location-prompt.tsx")
+      // sessionStorage: a new visit is a fair time to ask again, and a buyer
+      // who declined last month may be somewhere else entirely today. A prompt
+      // that reappears within the same session is what makes people uninstall.
+      //
+      // Comments stripped — the file NAMES localStorage to explain why it is
+      // not used, and matching that is matching the documentation.
+      const code = stripComments(p)
+      return /sessionStorage/.test(code) && !/localStorage/.test(code)
+    })(),
+  )
+  check(
+    "storage being unavailable does not break checkout",
+    (() => {
+      const p = read("components/shipping/location-prompt.tsx")
+      return (p.match(/catch \{/g) ?? []).length >= 2
+    })(),
+    "        Private mode throws on sessionStorage; showing the card once more\n" +
+      "        is a better failure than crashing a purchase.",
+  )
+  check(
+    "a refused permission explains where to re-enable it, per platform",
+    (() => {
+      const p = read("components/shipping/location-prompt.tsx")
+      return /isNativeApp\(\)/.test(p) && /Setări/.test(p) && /bara de adrese/.test(p)
+    })(),
+    "        The fix is not in this app, so pointing at it is the only useful\n" +
+      "        thing left to say.",
+  )
+  check(
+    "the prompt is not rendered on the server, where sessionStorage does not exist",
+    (() => {
+      const p = read("components/shipping/location-prompt.tsx")
+      // Defaults to dismissed and flips in an effect; assuming "not dismissed"
+      // would flash the card on every single load.
+      return /useState\(true\)/.test(p) && /useEffect\(\(\) => \{\s*\n?\s*setDismissed/.test(p)
+    })(),
   )
   check(
     "a location lets the buyer browse without typing",

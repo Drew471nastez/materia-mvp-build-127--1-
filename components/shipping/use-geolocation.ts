@@ -44,6 +44,13 @@ export type GeoState =
   | { status: "unavailable" }
   | { status: "error"; message: string }
 
+/** Are we inside the Capacitor shell rather than a browser? */
+export function isNativeApp(): boolean {
+  if (typeof window === "undefined") return false
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+  return typeof cap?.isNativePlatform === "function" && cap.isNativePlatform() === true
+}
+
 /** Long enough for a cold GPS fix, short enough not to look hung. */
 const TIMEOUT_MS = 10_000
 /** A minute-old fix is fine for "which locker is nearest". */
