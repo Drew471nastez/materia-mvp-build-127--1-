@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { trackByAwb } from "@/lib/eawb"
-import { senderCarrierId } from "@/lib/shipping/create-awb"
+import { autoAwbEnabled, createAwbForOrder, isPaid, senderCarrierId } from "@/lib/shipping/create-awb"
 import { resolveOrderParty, type OrderShipping } from "@/lib/shipping/order-access"
 import { applyPreferenceToOrder, readPreference } from "@/lib/shipping/preference"
 import { qrDataUri } from "@/lib/shipping/qr"
@@ -198,6 +198,23 @@ async function attachPreference(order: OrderShipping): Promise<OrderShipping> {
     if (!pref) return order
     const applied = await applyPreferenceToOrder(admin, order.id, pref)
     if (!applied) return order
+
+    // The destination just arrived, so the shipment can be booked — this is the
+    // fast path that makes a label appear within seconds of the buyer paying,
+    // rather than whenever the cron next sweeps.
+    //
+    // Awaited, not fired and forgotten: a serverless function that returns can
+    // be frozen mid-flight, and a half-executed booking is the one thing this
+    // must never produce. Failures are swallowed on purpose — the order page is
+    // not the place to explain a courier outage, and the sweep will retry.
+    if (autoAwbEnabled() && isPaid(order.status)) {
+      try {
+        await createAwbForOrder(order.id)
+      } catch {
+        // Recorded on the order by createAwbForOrder itself.
+      }
+    }
+
     return {
       ...order,
       ship_contact: pref.contact,

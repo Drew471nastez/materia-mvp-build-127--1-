@@ -168,17 +168,35 @@ function senderAddress() {
 }
 
 /**
+ * Which order states may be shipped.
+ *
+ * Exported so the callers that decide whether to book automatically ask the
+ * same question this module answers internally — a second list of "paid-ish"
+ * strings somewhere else would drift, and the drift would show up as a courier
+ * booked for an order nobody paid for.
+ */
+export function isPaid(status: string | null | undefined): boolean {
+  return ["completed", "paid", "succeeded"].includes(String(status || "").toLowerCase())
+}
+
+/**
  * Is automatic booking switched on?
  *
- * DEFAULTS TO OFF, deliberately. Every AWB spends real money from a prepaid
- * wallet, and an integration that starts booking couriers the moment it is
- * deployed — before anyone has watched a single label come out correctly — is
- * the kind of thing that is discovered from a balance, not from a log. The flag
- * is the operator's statement that they have verified one shipment end to end
- * and funded the account.
+ * DEFAULTS TO ON. A marketplace generates the label when the order is placed —
+ * that is what a seller expects and what the buyer is told is happening — so
+ * making them press a button was the wrong default.
+ *
+ * It is still a flag, and `SHIPPING_AUTO_AWB=0` turns it off, because the thing
+ * on the other side of it spends real money from a prepaid wallet. That escape
+ * hatch matters on a day when something is wrong with the courier account and
+ * the cheapest fix is to stop booking until it is sorted out.
+ *
+ * What makes ON safe is everything else in this file: nothing unpaid is
+ * booked, nothing without a destination is booked, nothing is booked twice, and
+ * an empty wallet is refused before the provider is called rather than after.
  */
 export function autoAwbEnabled(): boolean {
-  return process.env.SHIPPING_AUTO_AWB === "1"
+  return process.env.SHIPPING_AUTO_AWB !== "0"
 }
 
 export async function createAwbForOrder(
@@ -229,8 +247,7 @@ export async function createAwbForOrder(
 
   // Only a paid order may be shipped. Booking a courier for something never paid
   // for costs money and cannot be undone by refunding anything.
-  const paid = ["completed", "paid", "succeeded"].includes(String(order.status || "").toLowerCase())
-  if (!paid) {
+  if (!isPaid(order.status)) {
     return { ok: false, code: "not_paid", message: `Order status is "${order.status}" — not shippable.`, retryable: false }
   }
 

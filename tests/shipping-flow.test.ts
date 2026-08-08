@@ -157,10 +157,37 @@ check(
 
 /* ── AUTOMATIC BOOKING IS OFF UNTIL SOMEBODY SWITCHES IT ON ──────────────── */
 check(
-  "auto-AWB is opt-in, and defaults to off",
-  /process\.env\.SHIPPING_AUTO_AWB === "1"/.test(createAwb),
-  "        A deployment must not start booking couriers before an operator has\n" +
-    "        watched one label come out correctly and funded the wallet.",
+  "auto-AWB is ON by default, with an explicit off switch",
+  /process\.env\.SHIPPING_AUTO_AWB !== "0"/.test(createAwb),
+  "        A marketplace generates the label when the order is placed. The flag\n" +
+    "        survives as an escape hatch for the day the courier account is\n" +
+    "        wrong and the cheapest fix is to stop booking.",
+)
+check(
+  "what makes automatic safe is checked before the provider, not after",
+  (() => {
+    // ON by default is only defensible because each of these refuses BEFORE a
+    // courier is called: unpaid, no destination, already booked, empty wallet.
+    const i = createAwb.indexOf("await createOrder(")
+    return (
+      createAwb.indexOf("not_paid") < i &&
+      createAwb.indexOf("missing_delivery_address") < i &&
+      createAwb.indexOf("if (order.awb_number)") < i &&
+      /getAccountBalance/.test(eawbLib)
+    )
+  })(),
+)
+check(
+  "the paid-status list exists once, not once per caller",
+  (() => {
+    // A second list of "paid-ish" strings would drift, and the drift shows up
+    // as a courier booked for an order nobody paid for.
+    const others = [orderRoute, read("app/api/cron/shipping-awb/route.ts")]
+    return (
+      /export function isPaid/.test(createAwb) &&
+      others.every((s) => !/"completed",\s*"paid",\s*"succeeded"/.test(stripComments(s)) || /\.in\("status"/.test(s))
+    )
+  })(),
 )
 check(
   "the auto-booking is awaited, not fired and forgotten",
@@ -1275,6 +1302,88 @@ check(
       }
       return Boolean(pkg.dependencies?.qrcode) && Boolean(pkg.devDependencies?.["@types/qrcode"])
     })(),
+  )
+}
+
+/* ── THE LABEL APPEARS WITHOUT ANYONE ASKING ─────────────────────────────── */
+//
+// Two triggers, because one is fast and the other is reliable, and neither
+// touches the payment flow — four separate places create orders in this
+// codebase and none of them had to change.
+{
+  const cron = read("app/api/cron/shipping-awb/route.ts")
+
+  check(
+    "the sweep is scheduled",
+    (() => {
+      const v = JSON.parse(read("vercel.json")) as { crons?: Array<{ path: string; schedule: string }> }
+      return Boolean(v.crons?.some((c) => c.path === "/api/cron/shipping-awb"))
+    })(),
+  )
+  check(
+    "the sweep answers on GET, which is what Vercel Cron sends",
+    /export async function GET/.test(cron) && /export async function POST/.test(cron),
+  )
+  check(
+    "the sweep is authorised by CRON_SECRET",
+    /`Bearer \$\{secret\}`/.test(cron),
+  )
+  check(
+    "the sweep looks for a destination by MODE, not by locker id",
+    /\.not\("ship_mode", "is", null\)/.test(cron),
+    "        A home delivery has no locker id and would be swept up forever, or\n" +
+      "        never, depending on which way the test was written.",
+  )
+  check(
+    "the sweep is bounded per run",
+    /const BATCH = \d+/.test(cron) && /\.limit\(BATCH\)/.test(cron),
+    "        Each booking is a round trip that spends money; an unbounded loop\n" +
+      "        is the wrong shape for that.",
+  )
+  check(
+    "an empty wallet stops the run instead of failing every pending order",
+    /if \(result\.code === "insufficient_funds"\) break/.test(cron),
+  )
+  check(
+    "the sweep books through the same guarded function as everything else",
+    /createAwbForOrder\(order\.id\)/.test(cron) && !/\bcreateOrder\(/.test(cron),
+    "        Overlapping runs are safe only because the claim and the unique\n" +
+      "        index are inside that function.",
+  )
+  check(
+    "a missing migration is quiet, not a recurring error",
+    /isMissingShippingSchema\(error\)/.test(cron) && /shipping_not_configured/.test(cron),
+    "        A cron that screams every ten minutes trains people to ignore it.",
+  )
+  check(
+    "the sweep logs counts, never order ids",
+    (() => {
+      const log = cron.slice(cron.indexOf("console.log(\"[cron/shipping-awb]\""))
+      return /considered|booked|failed/.test(log) && !/order\.id|orders\.map/.test(log.slice(0, 200))
+    })(),
+  )
+  check(
+    "the fast path books as soon as the address lands on a PAID order",
+    /autoAwbEnabled\(\) && isPaid\(order\.status\)[\s\S]{0,200}?await createAwbForOrder\(order\.id\)/.test(orderRoute),
+  )
+  check(
+    "the fast path is awaited, not fired and forgotten",
+    (() => {
+      const src = stripComments(orderRoute)
+      const i = src.indexOf("if (autoAwbEnabled() && isPaid(")
+      return i > -1 && /await createAwbForOrder/.test(src.slice(i, i + 300))
+    })(),
+    "        A serverless function that returns can be frozen mid-flight, and a\n" +
+      "        half-executed booking is the one thing this must never produce.",
+  )
+  check(
+    "the seller's panel no longer tells them to press a button first",
+    (() => {
+      const panel = read("components/shipping/order-shipping-panel.tsx")
+      return /Eticheta se generează automat/.test(panel) && /Reîncearcă/.test(panel)
+    })(),
+    "        The copy has to match what actually happens, and the button is now\n" +
+      "        a retry rather than the normal path.",
   )
 }
 

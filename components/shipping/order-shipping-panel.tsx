@@ -369,9 +369,14 @@ function SellerPanel({ data, onChanged }: { data: SellerShipping; onChanged: () 
             </>
           ) : (
             <div className="mt-4">
+              {/* The label is created automatically the moment the order is
+                  paid and has a destination. This branch is what a seller sees
+                  in the seconds before that lands — or after it failed, which
+                  is the only time the button below is the answer. */}
               <p className="text-[13.5px] leading-relaxed text-neutral-600">
-                Cumpărătorul și-a ales easybox-ul. Generează eticheta, printeaz-o și lasă coletul la
-                orice easybox care acceptă ridicări.
+                {data.error
+                  ? "Generarea etichetei a eșuat. Comanda rămâne plătită — poți reîncerca."
+                  : "Eticheta se generează automat. Durează câteva secunde."}
               </p>
               {(error || data.error) && (
                 <p className="mt-2 text-[12.5px] text-red-600">{error ?? data.error}</p>
@@ -380,10 +385,10 @@ function SellerPanel({ data, onChanged }: { data: SellerShipping; onChanged: () 
                 type="button"
                 disabled={creating}
                 onClick={createAwb}
-                className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-6 text-[15px] font-semibold text-white transition-transform active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100"
+                className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-neutral-300 px-6 text-[15px] font-semibold text-neutral-800 transition-transform active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100"
               >
                 {creating && <Loader2 className="h-4 w-4 animate-spin" />}
-                {creating ? "Se generează…" : "Generează eticheta"}
+                {creating ? "Se generează…" : data.error ? "Reîncearcă" : "Generează acum"}
               </button>
             </div>
           )}
