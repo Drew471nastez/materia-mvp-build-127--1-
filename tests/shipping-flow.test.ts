@@ -1830,9 +1830,49 @@ check(
   )
   check(
     "off-screen markers are not rendered",
-    /p\.x < -40 \|\| p\.y < -60/.test(mapPicker),
+    // The cutoff is now TILE_SIZE, matching the tile buffer — panning does not
+    // re-render, so a pin must exist as far out as a tile does or it pops in
+    // at the edge of a drag.
+    /p\.x < -TILE_SIZE \|\|\s*\n?\s*p\.y < -TILE_SIZE/.test(mapPicker),
     "        A hundred absolutely-positioned buttons outside the viewport is a\n" +
       "        hundred things the browser still lays out.",
+  )
+  check(
+    "panning does not re-render: it moves one layer on the compositor",
+    (() => {
+      // The lag report. setCentre on every pointermove re-rendered a dozen
+      // tiles and up to sixty markers, at pointer-event rate — 120 times a
+      // second on a modern phone, each one a layout pass.
+      const s = stripComments(mapPicker)
+      const move = s.slice(s.indexOf("const onPointerMove"), s.indexOf("const onPointerUp"))
+      return (
+        !/setCentre\(/.test(move) &&
+        /applyOffset\(dx, dy\)/.test(move) &&
+        /style\.transform = `translate3d/.test(s)
+      )
+    })(),
+  )
+  check(
+    "the dragged pixels are folded back into the centre on release",
+    /const commitOffset[\s\S]{0,400}?setCentre\(unproject/.test(stripComments(mapPicker)),
+  )
+  check(
+    "tiles are rendered with a buffer, since panning cannot fetch more",
+    /tilesFor\(centre, zoom, size\.width, size\.height, 1\)/.test(mapPicker),
+  )
+  check(
+    "a React reposition resets the layer transform",
+    /offset\.current = \{ x: 0, y: 0 \}[\s\S]{0,200}?translate3d\(0px, 0px, 0px\)/.test(
+      stripComments(mapPicker),
+    ),
+    "        The new tile positions already account for the new centre, so a\n" +
+      "        leftover translate would double-apply it.",
+  )
+  check(
+    "starting a pinch commits the pan first",
+    /commitOffset\(\)\s*\n?\s*pinch\.current = \{/.test(stripComments(mapPicker)),
+    "        Otherwise the zoom anchor is computed from a centre the map is not\n" +
+      "        actually showing.",
   )
   check(
     "OpenStreetMap attribution is present, as its terms require",

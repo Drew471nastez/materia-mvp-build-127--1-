@@ -61,6 +61,10 @@ export function LockerMapPicker({
   height?: number
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
+  /** The pannable layer. Moved imperatively during a drag so React stays out
+   *  of the way; see applyOffset. */
+  const layerRef = useRef<HTMLDivElement | null>(null)
+  const offset = useRef({ x: 0, y: 0 })
   const [size, setSize] = useState({ width: 0, height })
   const [centre, setCentre] = useState<LatLng | null>(null)
   const [zoom, setZoom] = useState(12)
@@ -146,6 +150,17 @@ export function LockerMapPicker({
 
   const zoomBy = useCallback((delta: number) => zoomAround(delta), [zoomAround])
 
+  /**
+   * Whenever React repositions the map, the layer's transform must go back to
+   * zero — the new tile positions already account for the new centre, so a
+   * leftover translate would double-apply it and shift everything.
+   */
+  useEffect(() => {
+    offset.current = { x: 0, y: 0 }
+    const el = layerRef.current
+    if (el) el.style.transform = "translate3d(0px, 0px, 0px)"
+  }, [centre, zoom])
+
   /** Where a pointer is, relative to the map's own top-left. */
   const localPoint = (e: React.PointerEvent | React.WheelEvent) => {
     const r = ref.current?.getBoundingClientRect()
@@ -155,14 +170,45 @@ export function LockerMapPicker({
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 2) {
-      // A second finger ends the pan and starts a pinch. The drag is marked as
-      // moved so releasing does not register as a tap on whatever is underneath.
+      // A second finger ends the pan and starts a pinch. Whatever had been
+      // dragged so far is folded into the centre first — leaving it in the
+      // layer transform would make the zoom anchor calculation work from a
+      // centre the map is not actually showing.
+      commitOffset()
       pinch.current = { distance: pointerDistance(), accumulated: 0 }
       if (drag.current) drag.current.moved = true
       return
     }
     drag.current = { x: e.clientX, y: e.clientY, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  /**
+   * Move the map WITHOUT telling React.
+   *
+   * This is the difference between a map that drags smoothly and one that
+   * stutters. The previous version called setCentre on every pointermove, which
+   * re-rendered a dozen tiles and up to sixty markers — at pointer-event rate,
+   * which on a 120 Hz phone is 120 times a second. Every one of those was a
+   * layout pass.
+   *
+   * Now the whole layer is translated on the compositor and React is not
+   * involved at all until the finger lifts. Tiles are rendered with a ring of
+   * buffer around the viewport so there is always something to drag into view.
+   */
+  const applyOffset = (dx: number, dy: number) => {
+    offset.current = { x: dx, y: dy }
+    const el = layerRef.current
+    if (el) el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`
+  }
+
+  /** Fold the dragged pixels back into the real centre and reset the layer. */
+  const commitOffset = () => {
+    const { x, y } = offset.current
+    if ((x === 0 && y === 0) || !centre) return
+    const c = project(centre, zoom)
+    setCentre(unproject({ x: c.x - x, y: c.y - y }, zoom))
+    applyOffset(0, 0)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -199,16 +245,19 @@ export function LockerMapPicker({
     const dy = e.clientY - d.y
     if (!d.moved && Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return
     d.moved = true
-    // Panning moves the map under the finger, so the CENTRE moves the other way.
-    const c = project(centre, zoom)
-    setCentre(unproject({ x: c.x - dx, y: c.y - dy }, zoom))
-    drag.current = { x: e.clientX, y: e.clientY, moved: true }
+    // The layer follows the finger; the centre catches up on release. Measured
+    // from where the drag STARTED, not from the last event, so the offset is
+    // absolute and cannot accumulate rounding error over a long drag.
+    applyOffset(dx, dy)
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId)
     if (pointers.current.size < 2) pinch.current = null
-    if (pointers.current.size === 0) drag.current = null
+    if (pointers.current.size === 0) {
+      commitOffset()
+      drag.current = null
+    }
   }
 
   const onWheel = (e: React.WheelEvent) => {
@@ -218,7 +267,10 @@ export function LockerMapPicker({
 
   if (pins.length === 0) return null
 
-  const tiles = centre && size.width ? tilesFor(centre, zoom, size.width, size.height) : []
+  // One ring of buffer: panning does not re-render, so anything dragged into
+  // view must already be mounted. 256 px of slack in every direction is more
+  // than a thumb covers before the finger lifts.
+  const tiles = centre && size.width ? tilesFor(centre, zoom, size.width, size.height, 1) : []
 
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200">
@@ -232,23 +284,37 @@ export function LockerMapPicker({
         onPointerCancel={onPointerUp}
         onWheel={onWheel}
       >
-        {tiles.map((t) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={`${t.z}/${t.x}/${t.y}`}
-            src={TILE_URL(t.z, t.x, t.y)}
-            alt=""
-            width={TILE_SIZE}
-            height={TILE_SIZE}
-            draggable={false}
-            className="pointer-events-none absolute max-w-none"
-            style={{ left: t.left, top: t.top }}
-          />
-        ))}
+        {/* ONE transformed layer holding tiles and markers together. Panning
+            moves this and nothing else, so a drag is a compositor operation
+            rather than a React render — and the markers stay glued to the map
+            because they are inside it. */}
+        <div
+          ref={layerRef}
+          className="absolute inset-0 will-change-transform"
+          style={{ transform: "translate3d(0px, 0px, 0px)" }}
+        >
+          {tiles.map((t) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={`${t.z}/${t.x}/${t.y}`}
+              src={TILE_URL(t.z, t.x, t.y)}
+              alt=""
+              width={TILE_SIZE}
+              height={TILE_SIZE}
+              draggable={false}
+              // decoding=async keeps a newly-arrived tile from blocking the
+              // frame it lands in, which is what produced the visible hitch
+              // when panning into fresh tiles.
+              decoding="async"
+              className="pointer-events-none absolute max-w-none"
+              style={{ left: t.left, top: t.top }}
+            />
+          ))}
 
-        {/* The buyer's own position, drawn differently from a locker because it
-            is not somewhere a parcel can go. */}
-        {origin && centre && size.width > 0 && (
+          {/* The buyer's own position, drawn differently from a locker because
+              it is not somewhere a parcel can go. Inside the layer, so it pans
+              with the map instead of sliding across it. */}
+          {origin && centre && size.width > 0 && (
           <span
             aria-hidden
             className="pointer-events-none absolute z-[1] -ml-[7px] -mt-[7px] h-3.5 w-3.5 rounded-full border-2 border-white bg-[#2563eb] shadow"
@@ -259,14 +325,21 @@ export function LockerMapPicker({
           />
         )}
 
-        {centre &&
+          {centre &&
           size.width > 0 &&
           pins.map((l) => {
             const p = screenPosition({ lat: l.lat, lng: l.lng }, centre, zoom, size.width, size.height)
-            // Off-screen markers are not rendered at all rather than clipped —
-            // a hundred absolutely-positioned buttons outside the viewport is
-            // a hundred things the browser still has to lay out.
-            if (p.x < -40 || p.y < -60 || p.x > size.width + 40 || p.y > size.height + 40) return null
+            // Markers well outside the buffered area are not rendered — a
+            // hundred absolutely-positioned buttons off-screen is a hundred
+            // things the browser still lays out. The margin matches the tile
+            // buffer so a pin does not pop in at the edge of a drag.
+            if (
+              p.x < -TILE_SIZE ||
+              p.y < -TILE_SIZE ||
+              p.x > size.width + TILE_SIZE ||
+              p.y > size.height + TILE_SIZE
+            )
+              return null
             const selected = value?.id === l.id
             return (
               <button
@@ -294,6 +367,7 @@ export function LockerMapPicker({
               </button>
             )
           })}
+        </div>
 
         <div className="absolute right-2 top-2 z-[3] flex flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-sm">
           <button

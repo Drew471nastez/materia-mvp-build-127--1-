@@ -112,16 +112,28 @@ export function tilesFor(
   zoom: number,
   width: number,
   height: number,
+  /**
+   * Extra rings of tiles beyond the viewport.
+   *
+   * Panning is done by translating the whole layer on the GPU, which means the
+   * tiles do not re-render while a finger is down — so whatever is dragged into
+   * view has to already exist. One ring covers a 256 px drag in any direction,
+   * which is more than a thumb travels between frames.
+   */
+  buffer = 0,
 ): Array<{ z: number; x: number; y: number; left: number; top: number }> {
   const c = project(centre, zoom)
   const originX = c.x - width / 2
   const originY = c.y - height / 2
   const count = Math.pow(2, zoom)
 
-  const first = { x: Math.floor(originX / TILE_SIZE), y: Math.floor(originY / TILE_SIZE) }
+  const first = {
+    x: Math.floor(originX / TILE_SIZE) - buffer,
+    y: Math.floor(originY / TILE_SIZE) - buffer,
+  }
   const last = {
-    x: Math.floor((originX + width) / TILE_SIZE),
-    y: Math.floor((originY + height) / TILE_SIZE),
+    x: Math.floor((originX + width) / TILE_SIZE) + buffer,
+    y: Math.floor((originY + height) / TILE_SIZE) + buffer,
   }
 
   const out: Array<{ z: number; x: number; y: number; left: number; top: number }> = []
