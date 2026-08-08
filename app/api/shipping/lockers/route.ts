@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { listFixedLocations, type EawbLocker } from "@/lib/eawb"
 import { distanceKm, isUsableCoord } from "@/lib/geo"
+import { normalizeLocker } from "@/lib/shipping/locker"
 
 /**
  * ===========================================================================
@@ -172,20 +173,28 @@ export async function GET(req: NextRequest) {
       // rendering opening hours yet; sending it would multiply the response
       // size for no visible difference. Coordinates ARE included — they are
       // what a map, once there is one, would draw from.
-      .map(({ l, km }) => ({
-        id: l.id,
-        name: (l.name || "").trim(),
-        address: l.address,
-        carrier: l.carrier_name,
-        carrierId: l.carrier_id,
-        locality: l.locality_name,
-        localityId: l.locality_id,
-        county: l.county_name,
-        allowsDropOff: l.allows_drop_off !== false,
-        lat: l.coordinates ? Number(l.coordinates.lat) : null,
-        lng: l.coordinates ? Number(l.coordinates.long) : null,
-        distanceKm: km === null ? null : Math.round(km * 100) / 100,
-      }))
+      // Through the shared normaliser, so the shape the map renders is the same
+      // shape the AWB is built from and there is one place a provider field
+      // name appears.
+      .map(({ l, km }) => {
+        const n = normalizeLocker(l)
+        if (!n) return null
+        return {
+          ...n,
+          distanceMeters: km === null ? undefined : Math.round(km * 1000),
+          // Kept for the existing callers, which speak kilometres.
+          distanceKm: km === null ? null : Math.round(km * 100) / 100,
+          // Legacy aliases: the picker and the admin page were written against
+          // these names. Removing them is a separate change from adding the
+          // normaliser, and doing both at once would make a regression here
+          // impossible to attribute.
+          address: n.addressLine1,
+          locality: n.city,
+          lat: n.latitude,
+          lng: n.longitude,
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
 
     return NextResponse.json(
       { ok: true, total: items.length, items },

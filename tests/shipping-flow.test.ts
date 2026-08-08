@@ -20,6 +20,8 @@ import { join } from "node:path"
 import { sanitizedPayload, validateShipment } from "../lib/eawb"
 import { distanceKm, formatDistance, isUsableCoord } from "../lib/geo"
 import { fitZoom, project, tilesFor, unproject } from "../lib/geo-tiles"
+import { clusterByScreenGrid, zoomToBreakUp } from "../lib/shipping/cluster"
+import { normalizeLocker, toStoredLocker } from "../lib/shipping/locker"
 import { splitStreet } from "../lib/shipping/compare"
 import { validateHomeAddress } from "../lib/shipping/preference"
 import { extractLatestStatus, isTerminal, mapCarrierStatus, shouldAdvance } from "../lib/shipping/status"
@@ -1712,7 +1714,8 @@ check(
   )
   check(
     "coordinates reach the client for it to draw",
-    /lat: l\.coordinates \? Number\(l\.coordinates\.lat\) : null/.test(lockersRoute),
+    // Now via the normaliser, which is where the null-island rejection lives.
+    /latitude/.test(lockersRoute) && /lat: n\.latitude/.test(lockersRoute),
   )
 }
 
@@ -1954,6 +1957,279 @@ check(
     /if \(drag\.current\) drag\.current\.moved = true/.test(mapPicker),
     "        Otherwise lifting from a pinch registers as a tap on whatever pin\n" +
       "        happened to be underneath.",
+  )
+}
+
+/* ── ONE LOCKER SHAPE, WHATEVER THE CARRIER CALLS IT ─────────────────────── */
+{
+  const raw = {
+    id: 549670,
+    fixed_location_type: "locker",
+    carrier_id: 2,
+    carrier_name: "DPD",
+    locality_id: 13894,
+    locality_name: "Sector 4",
+    county_id: 10,
+    county_name: "Bucuresti",
+    country_code: "RO",
+    name: " PROFI VACARESTI",
+    address: "cal. VACARESTI Nr. 176-178",
+    allows_drop_off: true,
+    is_active: true,
+    coordinates: { lat: 44.41567, long: 26.113185 },
+    schedule: [
+      { day: 1, openingHour: "00:00", closingHour: "23:59" },
+      { day: 2, openingHour: "00:00", closingHour: "23:59" },
+    ],
+  }
+
+  check(
+    "the provider's own locker id survives normalisation untouched",
+    (() => {
+      const n = normalizeLocker(raw)
+      return n?.providerLockerId === 549670 && n?.carrierId === 2
+    })(),
+    "        This is the field whose absence produced 'Service 4 requires fixed\n" +
+      "        location for pickup address'. It is captured at selection time and\n" +
+      "        never re-derived from an address.",
+  )
+  check(
+    "the street is split once, server-side",
+    (() => {
+      const n = normalizeLocker(raw)
+      return n?.street === "cal. VACARESTI Nr." && n?.streetNumber === "176-178"
+    })(),
+  )
+  check(
+    "a name with stray whitespace is trimmed",
+    normalizeLocker(raw)?.name === "PROFI VACARESTI",
+  )
+  check(
+    "real opening hours are carried through",
+    (() => {
+      const n = normalizeLocker(raw)
+      return n?.hours.length === 2 && n.hours[0].opens === "00:00" && n.hours[0].day === 1
+    })(),
+    "        The provider DOES return `schedule` — the locker route was throwing\n" +
+      "        it away, so the UI had nothing honest to show.",
+  )
+  check(
+    "a malformed schedule row is dropped, not rendered half-empty",
+    (() => {
+      const n = normalizeLocker({
+        ...raw,
+        schedule: [
+          { day: 1, openingHour: "09:00", closingHour: "" },
+          { day: 99, openingHour: "09:00", closingHour: "18:00" },
+          { day: 2, openingHour: "09:00", closingHour: "18:00" },
+        ],
+      })
+      return n?.hours.length === 1 && n.hours[0].day === 2
+    })(),
+    "        Better than showing '09:00 – ' beside a real one.",
+  )
+  check(
+    "an inactive locker is not offered at all",
+    normalizeLocker({ ...raw, is_active: false }) === null,
+    "        Offering it produces a booking the carrier rejects.",
+  )
+  check(
+    "availability is never invented",
+    (() => {
+      // The provider exposes is_active and nothing finer. Claiming "available"
+      // for a locker that may be full is a promise we cannot keep.
+      const n = normalizeLocker(raw)
+      return n?.availability === "unknown"
+    })(),
+  )
+  check(
+    "null island coordinates become null, not a point off Africa",
+    (() => {
+      const n = normalizeLocker({ ...raw, coordinates: { lat: 0, long: 0 } })
+      return n?.latitude === null && n?.longitude === null
+    })(),
+  )
+  check(
+    "a locker with no id is rejected",
+    normalizeLocker({ ...raw, id: 0 }) === null,
+  )
+  check(
+    "what gets STORED is the AWB fields, not a snapshot of everything",
+    (() => {
+      const n = normalizeLocker(raw)
+      if (!n) return false
+      const s = toStoredLocker(n)
+      // Opening hours and coordinates change; a copy taken at checkout would
+      // slowly become a lie. The id and carrier cannot drift.
+      return (
+        s.providerLockerId === 549670 &&
+        s.carrierId === 2 &&
+        !("hours" in s) &&
+        !("latitude" in s) &&
+        !("availability" in s)
+      )
+    })(),
+  )
+  check(
+    "pickup and delivery lockers are modelled separately",
+    (() => {
+      const src = read("lib/shipping/locker.ts")
+      return /pickupLocker\?: StoredLocker/.test(src) && /deliveryLocker\?: StoredLocker/.test(src)
+    })(),
+    "        Reusing one for both is silent and expensive: the parcel is\n" +
+      "        collected from wherever pickup says and delivered to wherever\n" +
+      "        delivery says.",
+  )
+  check(
+    "the locker route answers through the normaliser",
+    /normalizeLocker\(l\)/.test(lockersRoute),
+    "        So the shape the map renders is the shape the AWB is built from.",
+  )
+}
+
+/* ── LOCKER DETAILS SHOW ONLY WHAT IS KNOWN ──────────────────────────────── */
+{
+  const details = read("components/shipping/locker-details.tsx")
+
+  check(
+    "no ratings, reviews or busyness are invented",
+    (() => {
+      const s = stripComments(details)
+      return !/rating|review|stars|busy|popular/i.test(s)
+    })(),
+    "        None of it exists in the data, and inventing it would be lying to\n" +
+      "        someone deciding where to collect a parcel.",
+  )
+  check(
+    "each field renders only when the provider sent it",
+    /schedule\.length > 0 &&/.test(details) &&
+      /typeof locker\.distanceKm === "number" &&/.test(details) &&
+      /locker\.carrier &&/.test(details),
+    "        A sparse locker degrades to a name and an address, not a column of\n" +
+      "        dashes.",
+  )
+  check(
+    "identical consecutive days collapse into a range",
+    (() => {
+      // Seven rows all reading 00:00–23:59 is not information.
+      const s = details
+      return /function summariseHours/.test(s) && /isAlwaysOpen/.test(s)
+    })(),
+  )
+  check(
+    "a non-consecutive day does not join a range",
+    /cur\.day === prev\.day \+ 1/.test(details),
+    "        Monday and Wednesday sharing hours is two entries, not\n" +
+      "        'Luni – Miercuri'.",
+  )
+  check(
+    "always-open is detected only when all seven days are covered",
+    (() => {
+      const src = read("lib/shipping/locker.ts")
+      return /hours\.length < 7/.test(src)
+    })(),
+  )
+}
+
+/* ── CLUSTERING ──────────────────────────────────────────────────────────── */
+{
+  const at = (id: number, lat: number, lng: number) => ({ id, latitude: lat, longitude: lng })
+
+  check(
+    "lockers on top of each other become one marker with a count",
+    (() => {
+      // Three within a few metres, one a kilometre away.
+      const c = clusterByScreenGrid(
+        [at(1, 44.4268, 26.1025), at(2, 44.42681, 26.10251), at(3, 44.42682, 26.10252), at(4, 44.44, 26.13)],
+        12,
+      )
+      return c.length === 2 && c.some((g) => g.items.length === 3) && c.some((g) => g.items.length === 1)
+    })(),
+  )
+  check(
+    "zooming in breaks a cluster apart",
+    (() => {
+      const pts = [at(1, 44.4268, 26.1025), at(2, 44.4288, 26.1045)]
+      const grouped = clusterByScreenGrid(pts, 11)
+      const separate = clusterByScreenGrid(pts, 17)
+      return grouped.length < separate.length && separate.length === 2
+    })(),
+  )
+  check(
+    "a cluster sits on its members, not on the grid cell",
+    (() => {
+      // Identical coordinates, so the pair is guaranteed into one cell — an
+      // earlier version used two points 22 m apart and they straddled a cell
+      // boundary, which is a REAL artefact of grid clustering and is documented
+      // in lib/shipping/cluster.ts rather than tuned around here.
+      const c = clusterByScreenGrid([at(1, 44.42, 26.1), at(2, 44.42, 26.1)], 12)
+      const g = c[0]
+      return g.items.length === 2 && g.centre.lat === 44.42 && g.centre.lng === 26.1
+    })(),
+  )
+  check(
+    "the centre is the mean of the members, not of the cell",
+    (() => {
+      // Two points that DO share a cell at a low zoom, where cells are large.
+      const c = clusterByScreenGrid([at(1, 44.0, 26.0), at(2, 44.02, 26.02)], 8)
+      if (c.length !== 1) return false
+      return Math.abs(c[0].centre.lat - 44.01) < 1e-9 && Math.abs(c[0].centre.lng - 26.01) < 1e-9
+    })(),
+  )
+  check(
+    "tapping a cluster zooms enough to separate it, and not absurdly far",
+    (() => {
+      const c = clusterByScreenGrid([at(1, 44.4268, 26.1025), at(2, 44.4272, 26.1029)], 12)
+      const target = zoomToBreakUp(c[0], 12)
+      return target > 12 && target <= 16
+    })(),
+    "        Jumping ten levels because two lockers share a doorway is\n" +
+      "        disorienting, and at that point they are the same place.",
+  )
+  check(
+    "members with no coordinates are excluded rather than placed at (0,0)",
+    (() => {
+      const c = clusterByScreenGrid(
+        [at(1, 44.4268, 26.1025), { id: 2, latitude: null, longitude: null }],
+        12,
+      )
+      return c.length === 1 && c[0].items.length === 1
+    })(),
+  )
+  check(
+    "the objects that come out are the ones that went in",
+    (() => {
+      // So a marker can hand one straight to onSelect without a lookup.
+      const original = { id: 7, latitude: 44.4, longitude: 26.1, name: "X" }
+      const c = clusterByScreenGrid([original], 12)
+      return (c[0].items[0] as typeof original).name === "X"
+    })(),
+  )
+  check(
+    "cluster keys are zoom-scoped so React remounts rather than animating",
+    (() => {
+      const pts = [at(1, 44.4268, 26.1025)]
+      return clusterByScreenGrid(pts, 12)[0].key !== clusterByScreenGrid(pts, 13)[0].key
+    })(),
+  )
+  check(
+    "clustering runs on zoom changes, never during a pan",
+    (() => {
+      // Memoised on the pin ids and the zoom. Panning changes neither, and
+      // panning does not re-render at all — so a drag never re-clusters.
+      const src = stripComments(read("components/shipping/locker-map-picker.tsx"))
+      const i = src.indexOf("clusterByScreenGrid(")
+      const around = src.slice(Math.max(0, i - 200), i + 400)
+      return /useMemo\(/.test(around) && /join\(","\), zoom\]/.test(around)
+    })(),
+  )
+  check(
+    "a cluster marker does not guess which locker was meant",
+    (() => {
+      const src = read("components/shipping/locker-map-picker.tsx")
+      const block = src.slice(src.indexOf("if (cluster.items.length > 1)"), src.indexOf("// ── ONE LOCKER"))
+      return /setZoom\(/.test(block) && !/onSelect\(/.test(block)
+    })(),
   )
 }
 

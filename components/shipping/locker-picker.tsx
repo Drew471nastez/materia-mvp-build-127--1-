@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Check, Crosshair, Loader2, MapPin, Search } from "lucide-react"
 
 import { LocationPrompt } from "@/components/shipping/location-prompt"
+import { LockerDetails } from "@/components/shipping/locker-details"
 import { LockerMap } from "@/components/shipping/locker-map"
 import { LockerMapPicker } from "@/components/shipping/locker-map-picker"
 import { useGeolocation } from "@/components/shipping/use-geolocation"
 import { formatDistance } from "@/lib/geo"
+import type { LockerHours } from "@/lib/shipping/locker"
 
 /**
  * Choose an easybox.
@@ -38,6 +40,8 @@ export interface LockerOption {
   lng?: number | null
   /** Only present when the buyer shared their location. */
   distanceKm?: number | null
+  /** Opening hours as the carrier publishes them. Empty when it publishes none. */
+  hours?: LockerHours[]
 }
 
 /** Long enough that a normal typist makes one request per word, not per key. */
@@ -173,6 +177,16 @@ export function LockerPicker({
                 {value.locality ? `, ${value.locality}` : ""}
               </span>
             </span>
+          </div>
+          {/* Everything the provider actually knows about the chosen locker —
+              hours included, which it does publish. */}
+          <div className="mt-2">
+            <LockerDetails
+              locker={value}
+              hours={value.hours}
+              selected
+              onSelect={() => onSelect(value)}
+            />
           </div>
           {/* Renders nothing when the provider has no coordinates for this
               locker — a map of the wrong place is worse than none. */}

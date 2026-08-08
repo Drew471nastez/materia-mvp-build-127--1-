@@ -693,6 +693,11 @@ export interface EawbLocker {
   allows_drop_off?: boolean
   is_active?: boolean
   coordinates?: { lat: number; long: number }
+  /** Opening hours, when the carrier publishes them. `day` is ISO-8601:
+   *  1 = Monday … 7 = Sunday. Most easyboxes report 00:00–23:59 every day. */
+  schedule?: Array<{ day?: number; openingHour?: string; closingHour?: string }>
+  /** How the locker takes payment, when it takes any. */
+  payment_type?: string
 }
 
 /**

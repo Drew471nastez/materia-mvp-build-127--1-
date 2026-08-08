@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Check, Minus, Plus } from "lucide-react"
 
 import type { LockerOption } from "@/components/shipping/locker-picker"
 import { formatDistance, isUsableCoord, type LatLng } from "@/lib/geo"
+import { clusterByScreenGrid, zoomToBreakUp } from "@/lib/shipping/cluster"
 import {
   centreOf,
   fitZoom,
@@ -87,6 +88,22 @@ export function LockerMapPicker({
   const pins = lockers.filter((l) => isUsableCoord({ lat: l.lat, lng: l.lng })) as Array<
     LockerOption & { lat: number; lng: number }
   >
+
+  // Recomputed only when the pins or the zoom change — NOT while panning, which
+  // does not re-render at all. A pass over a few hundred points once per zoom
+  // is far below anything the eye can notice.
+  const clusters = useMemo(
+    () =>
+      // Spread rather than rebuilt: the objects that come back out are the same
+      // LockerOptions that went in, so a marker can hand one straight to
+      // onSelect without a lookup.
+      clusterByScreenGrid(
+        pins.map((l) => ({ ...l, latitude: l.lat, longitude: l.lng })),
+        zoom,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pins.map((p) => p.id).join(","), zoom],
+  )
 
   // Measured rather than assumed: the width is whatever the column gives us,
   // and the tile grid has to cover exactly that.
@@ -327,8 +344,8 @@ export function LockerMapPicker({
 
           {centre &&
           size.width > 0 &&
-          pins.map((l) => {
-            const p = screenPosition({ lat: l.lat, lng: l.lng }, centre, zoom, size.width, size.height)
+          clusters.map((cluster) => {
+            const p = screenPosition(cluster.centre, centre, zoom, size.width, size.height)
             // Markers well outside the buffered area are not rendered — a
             // hundred absolutely-positioned buttons off-screen is a hundred
             // things the browser still lays out. The margin matches the tile
@@ -340,27 +357,66 @@ export function LockerMapPicker({
               p.y > size.height + TILE_SIZE
             )
               return null
+
+            // ── A CLUSTER ────────────────────────────────────────────────────
+            if (cluster.items.length > 1) {
+              const holdsSelected = value ? cluster.items.some((i) => i.id === value.id) : false
+              return (
+                <button
+                  key={cluster.key}
+                  type="button"
+                  aria-label={`${cluster.items.length} easybox-uri în această zonă. Apropie pentru a le vedea.`}
+                  onClick={() => {
+                    if (drag.current?.moved) return
+                    // Zoom in on the knot rather than guessing which of them
+                    // was meant — picking one for the user would be wrong.
+                    const target = zoomToBreakUp(cluster, zoom)
+                    setCentre(cluster.centre)
+                    setZoom(Math.min(MAX_ZOOM, target))
+                  }}
+                  className="absolute z-[2] -translate-x-1/2 -translate-y-1/2 transition-transform active:scale-95"
+                  style={{ left: p.x, top: p.y }}
+                >
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-[12px] font-bold shadow-md ${
+                      holdsSelected
+                        ? "border-white bg-emerald-600 text-white"
+                        : "border-white bg-[#7c3aed] text-white"
+                    }`}
+                  >
+                    {cluster.items.length}
+                  </span>
+                </button>
+              )
+            }
+
+            // ── ONE LOCKER ───────────────────────────────────────────────────
+            const l = cluster.items[0]
             const selected = value?.id === l.id
             return (
               <button
-                key={l.id}
+                key={cluster.key}
                 type="button"
                 title={l.name}
+                aria-label={`${l.name}, ${l.address}${selected ? " — selectat" : ""}`}
+                aria-pressed={selected}
                 onClick={() => {
                   // A pan that ended on a marker is a pan, not a choice.
                   if (drag.current?.moved) return
                   onSelect(l)
                 }}
-                className="absolute z-[2] -translate-x-1/2 -translate-y-full transition-transform active:scale-95"
+                className="group absolute z-[2] -translate-x-1/2 -translate-y-full transition-transform active:scale-95"
                 style={{ left: p.x, top: p.y }}
               >
                 <span
-                  className={`flex h-7 items-center gap-1 rounded-full border px-2 text-[11px] font-bold shadow-sm ${
+                  className={`flex h-7 items-center gap-1 rounded-full border px-2 text-[11px] font-bold shadow-sm transition-colors ${
                     selected
                       ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-neutral-300 bg-white text-neutral-800"
+                      : "border-neutral-300 bg-white text-neutral-800 md:group-hover:border-neutral-900 md:group-hover:bg-neutral-900 md:group-hover:text-white"
                   }`}
                 >
+                  {/* A tick as well as the colour: selection must not be
+                      communicated by hue alone. */}
                   {selected && <Check className="h-3 w-3" strokeWidth={3} />}
                   {typeof l.distanceKm === "number" ? formatDistance(l.distanceKm) : "easybox"}
                 </span>
