@@ -1462,6 +1462,58 @@ check(
   )
 }
 
+/* ── THE SIMULATOR LETS YOU CHOOSE, NOT TYPE IDS ─────────────────────────── */
+{
+  const ui = read("app/admin/shipping-test/_client.tsx")
+
+  check(
+    "both easyboxes are chosen with a search, not a numeric field",
+    (() => {
+      // Typing 66725 into a text box is not choosing. Two pickers, one per
+      // party, and the sender's filtered to lockers that accept drop-offs.
+      const pickers = ui.match(/<LockerPicker/g) ?? []
+      return pickers.length >= 1 && /dropOffOnly=\{dropOff\}/.test(ui)
+    })(),
+  )
+  check(
+    "picking a locker writes its id AND its address together",
+    (() => {
+      const i = ui.indexOf("onSelect={(l) => {")
+      const block = ui.slice(i, i + 600)
+      return (
+        /fixed_location_id: String\(l\.id\)/.test(block) &&
+        /locality_name: l\.locality/.test(block) &&
+        /county_name: l\.county/.test(block) &&
+        /street_name:/.test(block)
+      )
+    })(),
+    "        The provider validates both, and an id from one city paired with a\n" +
+      "        street from another is exactly the mismatch that caused the 400.",
+  )
+  check(
+    "a locker with no street number gets FN, not an empty field",
+    /street_number: m \? m\[2\] : "FN"/.test(ui),
+  )
+  check(
+    "the picker only filters by carrier once a carrier is chosen",
+    /carrierId=\{Number\(carrierId\) > 0 \? Number\(carrierId\) : undefined\}/.test(ui),
+    "        Comparing all couriers means all their lockers are fair game.",
+  )
+  check(
+    "the comparison can be restricted to the chosen sender locker",
+    /call\("compare", \{ pinSenderLocker: true \}\)/.test(ui) &&
+      /body\.pinSenderLocker \? Number\(body\.from\?\.fixed_location_id\)/.test(
+        read("app/api/admin/shipping-test/route.ts"),
+      ),
+    "        'What can I get from THIS locker' is a different question from\n" +
+      "        'what is cheapest between these two towns'.",
+  )
+  check(
+    "that button is disabled until a sender locker exists",
+    /disabled=\{busy !== null \|\| !from\.fixed_location_id\}/.test(ui),
+  )
+}
+
 /* ── THE LOCKER SEARCH ───────────────────────────────────────────────────── */
 check(
   "locker search folds diacritics, so 'Bucuresti' finds 'București'",

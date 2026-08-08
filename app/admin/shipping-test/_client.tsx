@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react"
 
+import { LockerPicker, type LockerOption } from "@/components/shipping/locker-picker"
+
 /**
  * The shipping simulation, driven entirely through our own backend.
  *
@@ -208,6 +210,58 @@ export default function ShippingTestClient() {
         <Field label="Billing address ID" value={billingAddressId} onChange={setBillingAddressId} />
       </div>
 
+      {/* Choosing an easybox by typing its numeric id is not choosing. These
+          two searches write the id AND the address of whatever is picked
+          straight into the fields below, which is the only way the two can be
+          guaranteed to describe the same locker. */}
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {(
+          [
+            ["Easybox predare (expeditor)", true, from, setFrom],
+            ["Easybox livrare (destinatar)", false, to, setTo],
+          ] as const
+        ).map(([label, dropOff, value, set]) => (
+          <div key={label} className="rounded-xl border border-neutral-200 p-3.5">
+            <p className="mb-2 text-[13px] font-semibold text-neutral-900">{label}</p>
+            <LockerPicker
+              value={
+                value.fixed_location_id
+                  ? ({
+                      id: Number(value.fixed_location_id),
+                      name: value.street_name || "Easybox",
+                      address: [value.street_name, value.street_number].filter(Boolean).join(" "),
+                      carrier: "",
+                      carrierId: Number(carrierId) || 0,
+                      locality: value.locality_name ?? "",
+                      localityId: 0,
+                      county: value.county_name ?? "",
+                      allowsDropOff: true,
+                    } as LockerOption)
+                  : null
+              }
+              // Only filtered when a carrier has been chosen. Comparing all of
+              // them means all their lockers are fair game.
+              carrierId={Number(carrierId) > 0 ? Number(carrierId) : undefined}
+              dropOffOnly={dropOff}
+              disabled={busy !== null}
+              onSelect={(l) => {
+                const m = String(l.address ?? "").match(/^(.*?)[\s,]+(\d+[A-Za-z0-9\-/]*)\s*$/)
+                set({
+                  ...value,
+                  county_name: l.county,
+                  locality_name: l.locality,
+                  street_name: (m ? m[1] : l.address).trim() || l.name,
+                  // FN — *fără număr* — for the ~8% of lockers whose address has
+                  // no trailing number. An empty street_number is rejected.
+                  street_number: m ? m[2] : "FN",
+                  fixed_location_id: String(l.id),
+                })
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         {(
           [
@@ -255,6 +309,19 @@ export default function ShippingTestClient() {
           className="rounded-full border border-neutral-900 px-4 py-2 text-[14px] font-semibold disabled:opacity-40"
         >
           {busy === "compare" ? "…" : "2. Compară toți curierii"}
+        </button>
+        {/* The same comparison, but restricted to the couriers that actually
+            own the easybox chosen above — the answer to "what can I get from
+            THIS locker", which is a different question from "what is cheapest
+            between these two towns". */}
+        <button
+          type="button"
+          disabled={busy !== null || !from.fixed_location_id}
+          onClick={() => call("compare", { pinSenderLocker: true })}
+          className="rounded-full border border-neutral-300 px-4 py-2 text-[14px] font-semibold disabled:opacity-40"
+          title="Doar curierii care dețin easybox-ul de predare ales"
+        >
+          {busy === "compare" ? "…" : "Compară doar pentru easybox-ul ales"}
         </button>
         <button
           type="button"
