@@ -2625,6 +2625,83 @@ check(
       return /router\.push\(productUrl\)/.test(header) && /href="\/"/.test(header)
     })(),
   )
+  /* ── STAYING INSIDE THE APP ───────────────────────────────────────────────
+     Opening the checkout in the native app navigated the whole WebView to
+     https://js.stripe.com/v3/m-outer-<hash>.html — Stripe's advanced fraud
+     signals frame — and the buyer ended up in Safari mid-purchase. */
+  {
+    const loader = read("lib/stripe-client.ts")
+    const guard = read("lib/stripe-nav-guard.ts")
+
+    check(
+      "advanced fraud signals are switched off the way Stripe actually reads it",
+      /loadStripe\.setLoadParameters\(\{ advancedFraudSignals: false \}\)/.test(stripComments(loader)),
+      "        It is a LOAD parameter. Passed as the second argument to\n" +
+        "        loadStripe() it lands in StripeConstructorOptions and is dropped\n" +
+        "        silently — which is exactly what was happening.",
+    )
+    check(
+      "nobody passes it as a constructor option any more",
+      (() => {
+        // A @ts-ignore over an option Stripe's own typings do not have was the
+        // tell that it was never being read.
+        const files = [
+          "lib/stripe-client.ts",
+          "components/checkout/marketplace-checkout.tsx",
+          "app/checkout/checkout-client.tsx",
+          "components/app/billing/checkout-modal.tsx",
+          "app/app/checkout/CheckoutClient.tsx",
+        ]
+        return files.every((f) => !/\{ advancedFraudSignals: false \} : undefined/.test(read(f)))
+      })(),
+    )
+    check(
+      "the fraud frame is blocked as well as disabled",
+      // The guard matched "controller" only, so m-outer walked through all
+      // four of its layers untouched.
+      /\(controller\|m-outer\)/.test(guard),
+    )
+    check(
+      "the frames that ARE the payment form are never blocked",
+      (() => {
+        const re = /const CONTROLLER_IFRAME_RE = (.+)/.exec(stripComments(guard))?.[1] ?? ""
+        // elements-inner-* is the card input itself; blocking it means a
+        // checkout with no card fields in it.
+        return !/elements|link-|payment-element/.test(re)
+      })(),
+    )
+    check(
+      "Stripe.js is never loaded at module scope",
+      (() => {
+        const files = [
+          "components/checkout/marketplace-checkout.tsx",
+          "app/checkout/checkout-client.tsx",
+          "components/app/billing/checkout-modal.tsx",
+          "app/app/checkout/CheckoutClient.tsx",
+        ]
+        // A module-scope call runs on import and locks the load parameters
+        // before any other checkout on the page can choose them — so the flag
+        // above would be lost to whichever module imported first.
+        return files.every((f) => !/^const stripePromise = loadStripe\(/m.test(stripComments(read(f))))
+      })(),
+    )
+    check(
+      "one loader, so the decision is made once",
+      ["components/checkout/marketplace-checkout.tsx", "app/checkout/checkout-client.tsx"].every((f) =>
+        /from "@\/lib\/stripe-client"/.test(read(f)),
+      ),
+    )
+    check(
+      "the marketplace checkout loads Stripe only when a card is needed",
+      (() => {
+        const s = stripComments(checkout)
+        return /<Elements stripe=\{stripePromise\}>/.test(s) && /onNeedStripe\(\)/.test(s)
+      })(),
+      "        Loading it on page open puts the fraud frame and the controller\n" +
+        "        frame live while somebody is still choosing an easybox.",
+    )
+  }
+
   check(
     "the card number never reaches this application",
     (() => {

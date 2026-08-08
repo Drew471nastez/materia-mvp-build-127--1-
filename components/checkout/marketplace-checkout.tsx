@@ -4,12 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, MapPin } from "lucide-react"
-// Must precede any loadStripe() call: stops Stripe Link's prewarm from opening
-// Safari out of the Capacitor WebView.
-import "@/lib/stripe-nav-guard"
-// "@stripe/stripe-js/pure", never "@stripe/stripe-js" — the default entry
-// injects the Stripe script at import time, before anyone has asked for it.
-import { loadStripe } from "@stripe/stripe-js/pure"
 import { Elements, useElements, useStripe } from "@stripe/react-stripe-js"
 
 import { AddressSheet, EMPTY_ADDRESS, formatAddressLines, isAddressComplete, type CheckoutAddress } from "@/components/checkout/address-sheet"
@@ -21,6 +15,7 @@ import { LockerScreen } from "@/components/shipping/locker-screen"
 import type { LockerOption } from "@/components/shipping/locker-picker"
 import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { priceCheckout } from "@/lib/checkout/pricing"
+import { getStripePromise } from "@/lib/stripe-client"
 
 /**
  * ===========================================================================
@@ -69,31 +64,6 @@ import { priceCheckout } from "@/lib/checkout/pricing"
  * path it has always taken.
  */
 
-let _stripePromise: ReturnType<typeof loadStripe> | null = null
-function getStripePromise() {
-  if (!_stripePromise) {
-    // In a Capacitor WebView, Stripe.js otherwise creates a hidden controller
-    // iframe which sets window.location.href — a property that cannot be
-    // intercepted there, and which navigates the whole checkout away.
-    const isNative =
-      typeof window !== "undefined" &&
-      (() => {
-        const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-        if (cap?.isNativePlatform?.()) return true
-        const ua = navigator.userAgent || ""
-        return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
-      })()
-    _stripePromise = loadStripe(
-      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
-      // Documented in the Stripe.js reference, absent from the typings.
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      isNative ? { advancedFraudSignals: false } : undefined,
-    )
-  }
-  return _stripePromise
-}
-
 export interface MarketplaceCheckoutProduct {
   id: string
   title: string
@@ -137,9 +107,21 @@ export function MarketplaceCheckout(props: {
   carrierId: number
   productUrl: string
 }) {
+  /**
+   * Stripe.js is not on this page until a card is needed.
+   *
+   * Loading it when the checkout opens means the fraud frame, the controller
+   * frame and a third-party script are all live while somebody is still
+   * choosing an easybox — and every one of them is a way to be thrown out of
+   * the WebView before anything has been bought. `<Elements>` takes null and
+   * accepts the promise later precisely so this can be deferred.
+   */
+  const [stripePromise, setStripePromise] = useState<ReturnType<typeof getStripePromise> | null>(null)
+  const armStripe = useCallback(() => setStripePromise((p) => p ?? getStripePromise()), [])
+
   return (
-    <Elements stripe={getStripePromise()}>
-      <CheckoutBody {...props} />
+    <Elements stripe={stripePromise}>
+      <CheckoutBody {...props} onNeedStripe={armStripe} />
     </Elements>
   )
 }
@@ -151,6 +133,7 @@ function CheckoutBody({
   offerToken,
   carrierId,
   productUrl,
+  onNeedStripe,
 }: {
   product: MarketplaceCheckoutProduct
   userEmail: string | null
@@ -158,6 +141,8 @@ function CheckoutBody({
   offerToken: string | null
   carrierId: number
   productUrl: string
+  /** Called the first time a card is actually going to be asked for. */
+  onNeedStripe: () => void
 }) {
   const router = useRouter()
   const stripe = useStripe()
@@ -534,7 +519,13 @@ function CheckoutBody({
             />
           )}
 
-          <PaymentCard card={card} onEdit={() => setSheet("card")} />
+          <PaymentCard
+            card={card}
+            onEdit={() => {
+              onNeedStripe()
+              setSheet("card")
+            }}
+          />
 
           <PriceBreakdown breakdown={breakdown} formatPrice={formatMinor} />
 
@@ -560,7 +551,7 @@ function CheckoutBody({
         onAction={pay}
         disabled={Boolean(blocker) || !stripe}
         busy={busy}
-        hint={blocker}
+        hint={blocker ?? (stripe ? null : "Se pregătește plata securizată…")}
       />
 
       {/* ── The subpages ───────────────────────────────────────────────────── */}

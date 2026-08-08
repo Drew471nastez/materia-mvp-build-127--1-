@@ -45,11 +45,24 @@
 let _applied = false
 
 /**
- * Matches the Stripe controller iframe src specifically.
- * Used for layers 1–4 (iframe blocking) — we only suppress the controller
- * iframe, not other js.stripe.com iframes like the card element inputs.
+ * Matches the Stripe frames that exist to phone home, and only those.
+ *
+ *   controller-with-preconnect-*.html   the Link prewarm controller
+ *   m-outer-*.html                      advanced fraud signals
+ *
+ * BOTH are needed. The guard originally matched "controller" alone, and the
+ * frame that actually took the app to Safari was
+ *
+ *   https://js.stripe.com/v3/m-outer-<hash>.html#url=…&referrer=…&muid=NA
+ *
+ * which contains neither the word "controller" nor anything else layers 1–4
+ * were looking for, so all four of them waved it straight through.
+ *
+ * Card input (elements-inner-*), Link (link-*) and the payment element are NOT
+ * matched here and must never be: those iframes are the payment form itself,
+ * and blocking one means a checkout with no card fields in it.
  */
-const CONTROLLER_IFRAME_RE = /js\.stripe\.com[^#?]*controller/
+const CONTROLLER_IFRAME_RE = /js\.stripe\.com[^#?]*(controller|m-outer)/
 
 /**
  * Matches ANY top-level navigation to js.stripe.com that isn't a card-element

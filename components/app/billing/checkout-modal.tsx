@@ -1,8 +1,7 @@
 "use client"
 
-import "@/lib/stripe-nav-guard"
 import { useCallback, useState } from "react"
-import { loadStripe } from "@stripe/stripe-js/pure"
+import { getStripePromise } from "@/lib/stripe-client"
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,
@@ -10,21 +9,12 @@ import {
 import { X, ArrowLeft } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
-// Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
-// The controller iframe triggers window.location.href navigation which in WebKit
-// is [LegacyUnforgeable] and can't be intercepted by JS — preventing the controller
-// from being created is the only reliable solution.
-const _isNative = typeof window !== "undefined" && (() => {
-  const cap = (window as any).Capacitor
-  if (cap?.isNativePlatform?.()) return true
-  const ua = navigator.userAgent || ""
-  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
-})()
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
-  // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
-  _isNative ? { advancedFraudSignals: false } : undefined,
-)
+// Stripe.js is loaded by lib/stripe-client.ts, which carries the nav guard,
+// the "/pure" entry point, and — crucially — sets advancedFraudSignals through
+// loadStripe.setLoadParameters rather than as a constructor option, where it
+// was being silently ignored. It is also called lazily rather than at module
+// scope: a module-scope call runs on import and locks the load parameters
+// before any other checkout on the page gets to choose them.
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
@@ -143,7 +133,7 @@ export function CheckoutModal({
         {/* Stripe Embedded Checkout */}
         <div className="min-h-[400px]">
           <EmbeddedCheckoutProvider
-            stripe={stripePromise}
+            stripe={getStripePromise()}
             options={{ fetchClientSecret }}
           >
             <EmbeddedCheckout />

@@ -5,17 +5,7 @@ import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-// Prevent Stripe.js Link prewarm from opening Safari in Capacitor WebViews.
-// Must be imported before any loadStripe() call.
-import "@/lib/stripe-nav-guard"
 import { isNativeApp } from "@/lib/platform-utils"
-
-// IMPORTANT: import from "@stripe/stripe-js/pure" NOT "@stripe/stripe-js".
-// The default "@stripe/stripe-js" injects <script src="https://js.stripe.com/v3/">
-// at module import time — before loadStripe() is even called — which triggers
-// the Stripe Link prewarm experiment and opens the browser.
-// /pure never touches the DOM until loadStripe() is explicitly invoked.
-import { loadStripe } from "@stripe/stripe-js/pure"
 import {
   Elements,
   CardNumberElement,
@@ -25,42 +15,17 @@ import {
   useElements,
 } from "@stripe/react-stripe-js"
 
-// Lazy Stripe loader — only calls loadStripe() when a paid checkout actually
-// needs it. Combined with the /pure import, Stripe.js is completely absent
-// on free checkout pages.
+// The loader lives in lib/stripe-client.ts, which also carries the nav guard and
+// the "/pure" entry point so Stripe.js is never injected at import time.
 //
-// In Capacitor WKWebView (native iOS/Android), Stripe.js normally creates a hidden
-// "controller" iframe (js.stripe.com/v3/controller-with-preconnect-*.html) for
-// advanced fraud signals collection. That iframe sends a postMessage to Stripe.js
-// which then sets window.location.href = controllerUrl — a [LegacyUnforgeable] WebIDL
-// property that cannot be intercepted in WKWebView. This navigates the main frame
-// away from the checkout page.
-//
-// Setting advancedFraudSignals: false prevents the controller iframe from being
-// created entirely, so window.location.href is never set. Card entry stays inline.
-// (The stripe-nav-guard.ts import above remains as a secondary defence.)
-let _stripePromise: ReturnType<typeof loadStripe> | null = null
-function getStripePromise() {
-  if (!_stripePromise) {
-    // Detect Capacitor native context at call-time (runs client-side only)
-    const isNative = typeof window !== "undefined" && (() => {
-      const cap = (window as any).Capacitor
-      if (cap?.isNativePlatform?.()) return true
-      const ua = navigator.userAgent || ""
-      return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
-    })()
-
-    _stripePromise = loadStripe(
-      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
-      // advancedFraudSignals is documented in the Stripe.js reference but not yet
-      // reflected in the @stripe/stripe-js TypeScript types — suppress the error.
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      isNative ? { advancedFraudSignals: false } : undefined,
-    )
-  }
-  return _stripePromise
-}
+// It used to be inlined here, and it passed `advancedFraudSignals: false` as the
+// SECOND ARGUMENT to loadStripe(). That argument is StripeConstructorOptions —
+// stripeAccount, apiVersion, locale, betas — so the flag was silently dropped
+// (it needed a @ts-ignore to compile at all, which was the tell). The fraud
+// frame loaded anyway, and in the WebView it could take the whole app to
+// js.stripe.com mid-purchase. It is a LOAD parameter and has to go through
+// loadStripe.setLoadParameters, which is what the shared loader does.
+import { getStripePromise } from "@/lib/stripe-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
