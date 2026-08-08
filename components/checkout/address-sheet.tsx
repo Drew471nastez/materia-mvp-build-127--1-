@@ -145,7 +145,7 @@ export function AddressSheet({
           onClick={onClose}
           className="text-[15px] font-medium text-neutral-700 active:opacity-60"
         >
-          Închide
+          închidere
         </button>
         <h1 className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[16px] font-bold text-neutral-900">
           Adresă
@@ -183,7 +183,15 @@ export function AddressSheet({
           inputMode="numeric"
           optional
         />
-        <Field label="Oraș/localitate" value={draft.city} onChange={set("city")} autoComplete="address-level2" />
+        <Field
+          label="Oraș/localitate"
+          value={draft.city}
+          onChange={set("city")}
+          autoComplete="address-level2"
+        />
+        {/* Kept, unlike the reference, because the courier prices and routes by
+            county and there is no postal-code table here to derive it from.
+            Guessing it would be guessing where a parcel goes. */}
         <Field label="Județ" value={draft.county} onChange={set("county")} autoComplete="address-level1" />
       </div>
 

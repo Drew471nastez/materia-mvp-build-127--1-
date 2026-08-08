@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, MapPin } from "lucide-react"
 // Must precede any loadStripe() call: stops Stripe Link's prewarm from opening
@@ -420,17 +421,51 @@ function CheckoutBody({
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-white">
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pt-2">
-        <button
-          type="button"
-          onClick={() => router.push(productUrl)}
-          className="-ml-2 inline-flex h-10 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-neutral-600 transition-colors active:bg-neutral-100"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Înapoi
-        </button>
+      {/* ── The header ──────────────────────────────────────────────────────
+          Sticky, and its background is carried UP THROUGH the status bar by
+          the safe-area padding rather than starting below it. Without that,
+          the clock and signal strength sit on whatever the page happens to be
+          scrolled to, and on a phone the notch area ends up a different colour
+          from the bar directly under it.
 
-        <h1 className="mt-1 text-[24px] font-bold leading-tight text-neutral-900">Finalizare comandă</h1>
+          Two ways out, because a checkout needs both: back, for somebody who
+          wants the item they were just looking at, and out, for somebody who
+          has changed their mind and wants the feed. Leaving only "back" makes
+          the second person press it repeatedly. */}
+      <header
+        className="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur-sm"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="mx-auto flex h-14 w-full max-w-2xl items-center gap-2 px-3">
+          <button
+            type="button"
+            onClick={() => router.push(productUrl)}
+            aria-label="Înapoi la produs"
+            className="-ml-1 inline-flex h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-neutral-700 transition-colors active:bg-neutral-100"
+          >
+            <ArrowLeft className="h-5 w-5 shrink-0" />
+            <span className="hidden sm:inline">Înapoi</span>
+          </button>
+
+          {/* Only where there is room for it. On a narrow phone the title would
+              collide with the button on the right, and a truncated heading over
+              a live checkout reads as breakage. The page's own h1 says the same
+              thing two lines further down. */}
+          <h2 className="hidden min-w-0 flex-1 truncate text-center text-[16px] font-bold text-neutral-900 sm:block">
+            Finalizare comandă
+          </h2>
+
+          <Link
+            href="/"
+            className="ml-auto shrink-0 rounded-lg border border-neutral-300 px-3 py-2 text-[13px] font-medium text-neutral-700 transition-colors active:bg-neutral-50 sm:ml-0"
+          >
+            Continuă cumpărăturile
+          </Link>
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4">
+        <h1 className="text-[24px] font-bold leading-tight text-neutral-900">Finalizare comandă</h1>
 
         <div className="mt-5">
           <CheckoutItemCard
@@ -462,8 +497,8 @@ function CheckoutBody({
           />
 
           {method === "locker" && (
-            <section aria-label="Punct de ridicare">
-              <h2 className="text-[16px] font-bold text-neutral-900">Punct de ridicare</h2>
+            <section aria-label="Detalii de livrare">
+              <h2 className="text-[16px] font-bold text-neutral-900">Detalii de livrare</h2>
               <button
                 type="button"
                 onClick={() => setSheet("locker")}
@@ -642,7 +677,7 @@ function ContactSheet({
         style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         <button type="button" onClick={onClose} className="text-[15px] font-medium text-neutral-700 active:opacity-60">
-          Închide
+          închidere
         </button>
         <h1 className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[16px] font-bold text-neutral-900">
           Date de contact

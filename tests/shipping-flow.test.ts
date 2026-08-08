@@ -2605,6 +2605,27 @@ check(
       "        answer on screen next to the second locker.",
   )
   check(
+    "the header is pinned and carries its background through the status bar",
+    (() => {
+      const s = stripComments(checkout)
+      const header = s.slice(s.indexOf("<header"), s.indexOf("</header>"))
+      return /sticky top-0/.test(header) && /paddingTop: "env\(safe-area-inset-top\)"/.test(header)
+    })(),
+    "        Padding that starts BELOW the inset leaves the clock and signal\n" +
+      "        strength sitting on whatever the page is scrolled to.",
+  )
+  check(
+    "the checkout has a way back and a way out",
+    (() => {
+      const s = stripComments(checkout)
+      const header = s.slice(s.indexOf("<header"), s.indexOf("</header>"))
+      // Back to the item for somebody still deciding; the feed for somebody
+      // who has decided not to. With only one of them, the other person
+      // presses back repeatedly.
+      return /router\.push\(productUrl\)/.test(header) && /href="\/"/.test(header)
+    })(),
+  )
+  check(
     "the card number never reaches this application",
     (() => {
       const s = stripComments(read("components/checkout/card-sheet.tsx"))

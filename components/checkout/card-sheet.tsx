@@ -70,9 +70,11 @@ const ELEMENT_STYLE = {
   },
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/** One labelled line inside the bordered group. `last` drops the rule so the
+ *  group's own border is the only thing closing it off. */
+function Row({ label, children, last }: { label: string; children: React.ReactNode; last?: boolean }) {
   return (
-    <div className="border-b border-neutral-200 px-4 py-3">
+    <div className={`px-4 py-3 ${last ? "" : "border-b border-neutral-200"}`}>
       <span className="block text-[13px] text-neutral-500">{label}</span>
       <div className="mt-2">{children}</div>
     </div>
@@ -174,57 +176,74 @@ export function CardSheet({
           onClick={onClose}
           className="text-[15px] font-medium text-neutral-700 active:opacity-60"
         >
-          Închide
+          închidere
         </button>
         <h1 className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[16px] font-bold text-neutral-900">
           Detalii card
         </h1>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <Row label="Numărul cardului">
-          <CardNumberElement
-            options={{ ...ELEMENT_STYLE, showIcon: true }}
-            onChange={(e) => setComplete((c) => ({ ...c, number: e.complete }))}
-          />
-        </Row>
-        <div className="grid grid-cols-2">
-          <div className="border-r border-neutral-200">
-            <Row label="Expiră">
-              <CardExpiryElement
-                options={ELEMENT_STYLE}
-                onChange={(e) => setComplete((c) => ({ ...c, expiry: e.complete }))}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
+        <h2 className="mt-5 text-[26px] font-bold leading-tight text-neutral-900">Detalii card</h2>
+        <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-neutral-500">
+          Cardul este criptat în mod securizat
+          <Lock className="h-3.5 w-3.5" />
+        </p>
+
+        {/* The fields sit in ONE bordered group rather than as full-width rules,
+            because a card is a single object with four parts, not four
+            unrelated questions. The brand mark appears inside the number field
+            as soon as the network is recognisable — Stripe draws it, which is
+            also why no trademarked logo files are shipped here. */}
+        <div className="mt-5 rounded-2xl border border-neutral-200">
+          <Row label="Nume titular">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="cc-name"
+              className="w-full bg-transparent text-[16px] text-neutral-900 outline-none placeholder:text-neutral-400"
+            />
+          </Row>
+          <Row label="Număr card">
+            <CardNumberElement
+              options={{ ...ELEMENT_STYLE, showIcon: true, placeholder: "de ex.: 1234 1234 1234 1234" }}
+              onChange={(e) => setComplete((c) => ({ ...c, number: e.complete }))}
+            />
+          </Row>
+          <div className="grid grid-cols-2">
+            <div className="border-r border-neutral-200">
+              <Row label="Data de expirare" last>
+                <CardExpiryElement
+                  options={{ ...ELEMENT_STYLE, placeholder: "LL / AA" }}
+                  onChange={(e) => setComplete((c) => ({ ...c, expiry: e.complete }))}
+                />
+              </Row>
+            </div>
+            <Row label="Cod de securitate" last>
+              <CardCvcElement
+                options={{ ...ELEMENT_STYLE, placeholder: "de ex.: 123" }}
+                onChange={(e) => setComplete((c) => ({ ...c, cvc: e.complete }))}
               />
             </Row>
           </div>
-          <Row label="CVC">
-            <CardCvcElement
-              options={ELEMENT_STYLE}
-              onChange={(e) => setComplete((c) => ({ ...c, cvc: e.complete }))}
-            />
-          </Row>
         </div>
-        <label className="block border-b border-neutral-200 px-4 py-3">
-          <span className="block text-[13px] text-neutral-500">Nume pe card</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="cc-name"
-            className="mt-1 w-full bg-transparent text-[16px] text-neutral-900 outline-none placeholder:text-neutral-400"
-          />
-        </label>
 
-        <p className="flex items-start gap-2 px-4 py-4 text-[12.5px] leading-snug text-neutral-500">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        {/* No "save this card for next time" box. The reference has one; we do
+            not have anywhere to save a card to, and a checkbox that quietly
+            does nothing is worse than an absent one — somebody would tick it,
+            come back, and be asked for their number again. */}
+        <p className="mt-4 text-[12.5px] leading-snug text-neutral-500">
           Datele cardului sunt trimise criptat direct către procesatorul de plăți. Storelib nu le vede și nu le
           stochează.
         </p>
 
         {error && (
-          <p role="alert" className="px-4 pb-4 text-[13px] text-red-600">
+          <p role="alert" className="mt-3 text-[13px] text-red-600">
             {error}
           </p>
         )}
+
+        <div className="h-6" />
       </div>
 
       <div
@@ -238,7 +257,7 @@ export function CardSheet({
           className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-6 text-[16px] font-semibold text-white transition-transform active:scale-[0.985] disabled:opacity-40 disabled:active:scale-100"
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {busy ? "Se verifică…" : "Salvează cardul"}
+          {busy ? "Se verifică…" : "Utilizează acest card"}
         </button>
       </div>
     </div>,
