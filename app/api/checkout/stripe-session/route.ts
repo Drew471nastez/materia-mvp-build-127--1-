@@ -8,6 +8,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
+import { priceCheckout } from "@/lib/checkout/pricing"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -192,22 +193,44 @@ export async function POST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  const totalAmount = basePriceCents + (tipCents || 0)
+  // The seller's commission is charged on THEIR money — the item and any tip.
+  // Not on the buyer's protection fee and not on the postage, neither of which
+  // was ever theirs to be taxed on.
+  const sellerSideCents = basePriceCents + (tipCents || 0)
+  const feeCalculation = await calculatePlatformFee(sellerSideCents, product.creator.id, admin)
+
+  // ONE arithmetic, shared with the summary the buyer just read. A checkout
+  // that displays one total and charges another is the worst bug this file
+  // could have, and the only defence is that both come from here.
+  //
+  // Shipping is deliberately NOT added yet: it depends on a delivery method
+  // that this endpoint does not receive, and inventing a number would be worse
+  // than omitting the line. The pricing module already supports it, so wiring
+  // it is a parameter rather than a rewrite.
+  const pricing = priceCheckout({
+    itemCents: basePriceCents,
+    tipCents: tipCents || 0,
+    platformCommissionCents: feeCalculation.platformFeeCents,
+  })
+
+  const totalAmount = pricing.totalCents
 
   if (totalAmount < 50) {
     return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
   }
 
-  // Calculate platform fee based on creator's subscription plan
-  const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin)
-  const platformFee = feeCalculation.platformFeeCents
+  // The platform keeps its commission PLUS the protection fee. Passing the
+  // bare commission here would hand the seller a share of the buyer's
+  // protection fee on every single order.
+  const platformFee = pricing.platformTakesCents
 
   console.log("[v0] Checkout fee breakdown:", {
     totalAmount,
     basePriceCents,
+    buyerProtectionCents: pricing.buyerProtectionCents,
     tipCents: tipCents || 0,
     platformFee,
-    sellerReceives: totalAmount - platformFee,
+    sellerReceives: pricing.sellerReceivesCents,
     stripeAccountId: product.creator.stripe_account_id,
     creatorPlan: feeCalculation.planId,
     planName: feeCalculation.planName,
