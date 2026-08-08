@@ -5,6 +5,7 @@ import { trackByAwb } from "@/lib/eawb"
 import { senderCarrierId } from "@/lib/shipping/create-awb"
 import { resolveOrderParty, type OrderShipping } from "@/lib/shipping/order-access"
 import { applyPreferenceToOrder, readPreference } from "@/lib/shipping/preference"
+import { qrDataUri } from "@/lib/shipping/qr"
 import {
   extractLatestStatus,
   isTerminal,
@@ -168,7 +169,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
     ok: true,
     configured: true,
     party: resolved.party,
-    shipping: resolved.party === "buyer" ? buyerView(order) : sellerView(order),
+    shipping:
+      resolved.party === "buyer"
+        ? buyerView(order)
+        : {
+            ...sellerView(order),
+            // The AWB as a scannable code, for the seller standing at the
+            // locker. Generated beside the number it encodes so the two cannot
+            // disagree, and only for the seller — the buyer has a tracking
+            // number, which is what they actually need.
+            qr: order.awb_number ? await qrDataUri(order.awb_number) : null,
+          },
   })
 }
 

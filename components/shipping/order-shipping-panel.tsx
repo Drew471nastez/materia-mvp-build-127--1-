@@ -65,6 +65,8 @@ type SellerShipping = {
   error: string | null
   destinationLocality: string | null
   buyerReady: boolean
+  /** SVG data URI of the AWB, for scanning at the locker. Null before booking. */
+  qr: string | null
 }
 
 export function OrderShippingPanel({ orderId }: { orderId: string }) {
@@ -363,7 +365,7 @@ function SellerPanel({ data, onChanged }: { data: SellerShipping; onChanged: () 
                 Descarcă eticheta
               </a>
 
-              <TrackingRow awb={data.awb} carrier={data.carrier} />
+              <TrackingRow awb={data.awb} carrier={data.carrier} qr={data.qr} />
             </>
           ) : (
             <div className="mt-4">
@@ -393,7 +395,7 @@ function SellerPanel({ data, onChanged }: { data: SellerShipping; onChanged: () 
 
 /* ─────────────────────────── shared ─────────────────────────── */
 
-function TrackingRow({ awb, carrier }: { awb: string; carrier: string | null }) {
+function TrackingRow({ awb, carrier, qr }: { awb: string; carrier: string | null; qr?: string | null }) {
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
@@ -409,6 +411,14 @@ function TrackingRow({ awb, carrier }: { awb: string; carrier: string | null }) 
 
   return (
     <div className="mt-4 flex items-center gap-3 rounded-xl bg-neutral-50 p-3.5">
+      {/* The white padding is functional: a QR needs a quiet zone or scanners
+          cannot locate its finder patterns. */}
+      {qr && (
+        <span className="shrink-0 rounded-lg border border-neutral-200 bg-white p-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt={`Cod QR pentru AWB ${awb}`} width={72} height={72} />
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="block text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
           AWB{carrier ? ` · ${carrier}` : ""}

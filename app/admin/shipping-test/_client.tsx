@@ -145,6 +145,8 @@ export default function ShippingTestClient() {
   // A created shipment: the AWB to read, and the provider's order id, which is
   // what both the label PDF and the cancellation are keyed on.
   const created = (result?.result as { awb?: string; orderId?: number; carrier?: string } | undefined) ?? null
+  /** SVG data URI, generated server-side beside the AWB it encodes. */
+  const qr = (result?.qr as string | undefined) ?? null
   const skipped = (result?.skipped as Array<{ carrier: string; reason: string }>) ?? null
   const isCompare = title === "compare"
 
@@ -303,6 +305,15 @@ export default function ShippingTestClient() {
         >
           Urmărire
         </button>
+        {/* For an AWB whose creation response has scrolled away. */}
+        <button
+          type="button"
+          disabled={busy !== null || !awb}
+          onClick={() => call("qr", { awb })}
+          className="rounded-full border border-neutral-300 px-4 py-2 text-[14px] font-semibold disabled:opacity-40"
+        >
+          {busy === "qr" ? "…" : "Cod QR"}
+        </button>
       </div>
 
       {result && (
@@ -430,12 +441,30 @@ export default function ShippingTestClient() {
               <p className="text-[12px] font-semibold uppercase tracking-wide text-emerald-800">
                 AWB generat{created.carrier ? ` · ${created.carrier}` : ""}
               </p>
-              <p className="mt-1 select-all font-mono text-[24px] font-bold leading-tight text-neutral-900">
-                {created.awb}
-              </p>
-              {created.orderId && (
-                <p className="mt-0.5 text-[12px] text-neutral-500">order_id furnizor: {created.orderId}</p>
-              )}
+
+              <div className="mt-1 flex flex-wrap items-start gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="select-all break-all font-mono text-[24px] font-bold leading-tight text-neutral-900">
+                    {created.awb}
+                  </p>
+                  {created.orderId && (
+                    <p className="mt-0.5 text-[12px] text-neutral-500">order_id furnizor: {created.orderId}</p>
+                  )}
+                </div>
+
+                {/* The same number as a scannable code. White padding is not
+                    decoration — a QR needs a quiet zone around it or scanners
+                    fail to find the finder patterns. */}
+                {qr && (
+                  <div className="shrink-0 rounded-xl border border-neutral-200 bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qr} alt={`Cod QR pentru AWB ${created.awb}`} width={132} height={132} />
+                    <p className="mt-1 text-center text-[10.5px] uppercase tracking-wide text-neutral-400">
+                      scanează
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {created.orderId && (
                 <>

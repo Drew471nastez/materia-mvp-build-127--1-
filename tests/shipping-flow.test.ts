@@ -1197,6 +1197,87 @@ check(
   )
 }
 
+/* ── THE AWB AS A SCANNABLE CODE ─────────────────────────────────────────── */
+{
+  const qrLib = read("lib/shipping/qr.ts")
+
+  check(
+    "the QR encodes the AWB alone, with no URL or wrapper",
+    (() => {
+      // A courier's scanner expects the tracking number and nothing else.
+      // Wrapping it in a URL produces a code that scans to something the
+      // scanner cannot use, and that a human cannot read back off the screen.
+      const s = stripComments(qrLib)
+      return !/https?:\/\//.test(s) && !/JSON\.stringify/.test(s) && /QRCode\.toString\(value/.test(s)
+    })(),
+  )
+  check(
+    "empty input yields no code rather than a code encoding nothing",
+    /if \(!value\) return null/.test(qrLib),
+    "        A QR of an empty string still scans, and yields nothing — worse\n" +
+      "        than no QR at all.",
+  )
+  check(
+    "generating a QR can never take down the page that shows it",
+    /} catch \{\s*\n?\s*return null\s*\n?\s*\}/.test(qrLib),
+  )
+  check(
+    "the data URI is base64, not raw SVG",
+    /base64,\$\{Buffer\.from\(svg, "utf8"\)\.toString\("base64"\)\}/.test(qrLib),
+    "        SVG contains '#', which terminates a data URI early in some\n" +
+      "        browsers unless escaped.",
+  )
+  check(
+    "error correction is raised above the default for screen scanning",
+    /const ERROR_CORRECTION = "Q"/.test(qrLib),
+  )
+  check(
+    "the QR is generated server-side, never in the client bundle",
+    (() => {
+      // Importing `qrcode` into a "use client" module would ship the encoder to
+      // every buyer for something only the server needs.
+      const clients = [
+        "components/shipping/order-shipping-panel.tsx",
+        "app/admin/shipping-test/_client.tsx",
+      ]
+      return clients.every((f) => !/from "qrcode"|shipping\/qr/.test(read(f)))
+    })(),
+  )
+  check(
+    "the QR is built beside the AWB it encodes, in both places",
+    /qrDataUri\(result\.awb\)/.test(read("app/api/admin/shipping-test/route.ts")) &&
+      /qrDataUri\(order\.awb_number\)/.test(orderRoute),
+    "        Generated apart from the number, the two can disagree.",
+  )
+  check(
+    "the buyer never receives a QR — only the seller stands at a locker",
+    (() => {
+      const src = stripComments(orderRoute)
+      const buyer = src.slice(src.indexOf("function buyerView"), src.indexOf("function sellerView"))
+      return !/qr/i.test(buyer)
+    })(),
+  )
+  check(
+    "the AWB is always shown as text beside the code",
+    (() => {
+      // The QR is an aid. If it will not scan — glare, a cracked screen, a
+      // scanner that wants a barcode — the number must still be readable.
+      const ui = read("app/admin/shipping-test/_client.tsx")
+      return /select-all break-all font-mono/.test(ui) && /alt=\{`Cod QR pentru AWB/.test(ui)
+    })(),
+  )
+  check(
+    "qrcode was already a dependency, so nothing new was installed",
+    (() => {
+      const pkg = JSON.parse(read("package.json")) as {
+        dependencies?: Record<string, string>
+        devDependencies?: Record<string, string>
+      }
+      return Boolean(pkg.dependencies?.qrcode) && Boolean(pkg.devDependencies?.["@types/qrcode"])
+    })(),
+  )
+}
+
 /* ── THE LOCKER SEARCH ───────────────────────────────────────────────────── */
 check(
   "locker search folds diacritics, so 'Bucuresti' finds 'București'",

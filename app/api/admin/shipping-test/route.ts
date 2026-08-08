@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { isAdminAuthenticated } from "@/lib/admin-blog-auth"
 import { compareLockerRoutes } from "@/lib/shipping/compare"
+import { qrDataUri } from "@/lib/shipping/qr"
 import {
   cancelOrder,
   createOrder,
@@ -274,7 +275,11 @@ export async function POST(req: NextRequest) {
           label = null
         }
       }
-      return NextResponse.json({ ok: true, mode, result, label, payload: sanitizedPayload(shipment) })
+      // The AWB as a scannable code, generated alongside it so the two cannot
+      // get out of step. Null-safe: a QR is an aid and the number is always
+      // shown as text beside it.
+      const qr = result.awb ? await qrDataUri(result.awb) : null
+      return NextResponse.json({ ok: true, mode, result, label, qr, payload: sanitizedPayload(shipment) })
     }
 
     if (mode === "label") {
@@ -304,6 +309,13 @@ export async function POST(req: NextRequest) {
     if (mode === "track") {
       if (!body.awb) return NextResponse.json({ ok: false, message: "awb required" }, { status: 400 })
       return NextResponse.json({ ok: true, mode, tracking: await trackByAwb(body.awb) })
+    }
+
+    // Regenerate the code for an AWB typed in by hand — useful when checking an
+    // older shipment whose creation response has scrolled away.
+    if (mode === "qr") {
+      if (!body.awb) return NextResponse.json({ ok: false, message: "awb required" }, { status: 400 })
+      return NextResponse.json({ ok: true, mode, qr: await qrDataUri(body.awb), result: { awb: body.awb } })
     }
 
     return NextResponse.json({ ok: false, message: "Unknown mode" }, { status: 400 })
