@@ -30,27 +30,34 @@
  * `platformTakesCents` below is the number that goes there.
  *
  * ---------------------------------------------------------------------------
- * A CURRENCY MISMATCH THAT PREDATES THIS FILE
+ * CURRENCY
  * ---------------------------------------------------------------------------
- * The app displays RON and the PaymentIntent is created with `currency: "usd"`.
- * Everything here works in the same minor unit as `price_cents`, whatever that
- * unit turns out to be, so the percentage is always right and the FIXED part is
- * the one thing that depends on the answer. `BUYER_PROTECTION_FIXED` is
- * therefore a named constant rather than a number sprinkled through the code —
- * when the currency question is settled, exactly one line changes.
+ * Everything here works in whatever minor unit `price_cents` holds, so the
+ * PERCENTAGE is always correct regardless. The FIXED part is the one number
+ * that depends on which currency that is, and it comes from
+ * lib/checkout/currency.ts rather than being written here — see the note on
+ * BUYER_PROTECTION_FIXED below for what happens when it is not.
  */
+
+import { BUYER_PROTECTION_FIXED_BY_CURRENCY, PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 
 /** 5% of the item price. */
 export const BUYER_PROTECTION_PERCENT = 0.05
 
 /**
- * Plus a flat 4 RON — 400 bani.
+ * Plus a flat 4 lei.
  *
  * The flat part is what makes small orders viable: a percentage alone earns 50
  * bani on a 10-lei sale, which does not cover the cost of handling a dispute
  * about it.
+ *
+ * Taken from the currency module rather than written here as 400, because 400
+ * minor units is four LEI in one configuration and four DOLLARS in the other —
+ * roughly an eighteen-lei fee, which is not what was asked for and would
+ * quietly overcharge every small order. It follows whatever the platform
+ * actually charges in.
  */
-export const BUYER_PROTECTION_FIXED = 400
+export const BUYER_PROTECTION_FIXED = BUYER_PROTECTION_FIXED_BY_CURRENCY[PLATFORM_CURRENCY]
 
 export interface PricingInput {
   /** The item, in minor units. An accepted offer price belongs here. */

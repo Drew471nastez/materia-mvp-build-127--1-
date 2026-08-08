@@ -1,3 +1,4 @@
+import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -149,7 +150,7 @@ export async function POST(request: Request) {
       product_id: product.id,
       amount_cents: 0,
       tip_cents: tipCents || 0,
-      currency: "usd",
+      currency: PLATFORM_CURRENCY,
       status: "completed",
       provider: "free",
       fee_cents: 0,

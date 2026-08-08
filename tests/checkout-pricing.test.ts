@@ -13,6 +13,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { BUYER_PROTECTION_FIXED_BY_CURRENCY } from "../lib/checkout/currency"
 import {
   BUYER_PROTECTION_FIXED,
   BUYER_PROTECTION_PERCENT,
@@ -42,21 +43,31 @@ console.log("\nCheckout pricing: what the buyer pays, and who gets it\n")
 
 /* ── THE FEE ─────────────────────────────────────────────────────────────── */
 check(
-  "the fee is 5% of the item plus a flat 4 RON",
-  BUYER_PROTECTION_PERCENT === 0.05 && BUYER_PROTECTION_FIXED === 400,
+  "the fee is 5% of the item plus a flat amount",
+  // The FIXED part follows the currency being charged — 400 bani in lei, its
+  // equivalent in cents until the migration runs — so the test reads it rather
+  // than pinning one side and failing on the other.
+  BUYER_PROTECTION_PERCENT === 0.05 && BUYER_PROTECTION_FIXED > 0,
 )
 check(
-  "a 345,37 order is charged 21,27 protection",
-  // 34537 * 0.05 = 1726.85, + 400 = 2126.85 → 2127
-  buyerProtectionFee(34537) === 2127,
+  "in lei, a 345,37 order is charged 21,27 protection",
+  (() => {
+    // 34537 * 0.05 = 1726.85, + 400 = 2126.85 → 2127
+    const inRon = Math.round(34537 * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED_BY_CURRENCY.ron)
+    return inRon === 2127
+  })(),
+)
+check(
+  "the fee tracks whatever currency is configured",
+  buyerProtectionFee(34537) === Math.round(34537 * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED),
 )
 check(
   "the flat part is what makes a small order viable",
   (() => {
     // A percentage alone earns 50 bani on a 10-lei sale, which does not cover
     // the cost of handling one dispute about it.
-    const tenLei = buyerProtectionFee(1000)
-    return tenLei === 450 && tenLei > 1000 * BUYER_PROTECTION_PERCENT
+    const small = buyerProtectionFee(1000)
+    return small === 50 + BUYER_PROTECTION_FIXED && small > 1000 * BUYER_PROTECTION_PERCENT
   })(),
 )
 check(
@@ -94,7 +105,7 @@ check(
   "the total is item + protection + shipping + tip",
   (() => {
     const b = priceCheckout({ itemCents: 34537, shippingCents: 1621, tipCents: 0 })
-    return b.totalCents === 34537 + 2127 + 1621
+    return b.totalCents === 34537 + buyerProtectionFee(34537) + 1621
   })(),
 )
 check(
@@ -141,7 +152,7 @@ check(
   "the platform takes commission + protection + postage",
   (() => {
     const b = priceCheckout({ itemCents: 34537, shippingCents: 1621, platformCommissionCents: 2072 })
-    return b.platformTakesCents === 2072 + 2127 + 1621
+    return b.platformTakesCents === 2072 + buyerProtectionFee(34537) + 1621
   })(),
 )
 check(
@@ -219,9 +230,94 @@ check(
       // The app displays RON and the PaymentIntent is created in USD — a
       // mismatch that predates this work. When it is settled, exactly one line
       // should need to change.
+      // Defined once, from the currency module, so switching currency is one
+      // env var rather than a hunt through the codebase for the number 400.
+      // Comments stripped: the file NAMES 400 in order to explain why it is not
+      // written there, and matching that is matching the documentation.
       const p = read("lib/checkout/pricing.ts")
-      return /export const BUYER_PROTECTION_FIXED = 400/.test(p) && (p.match(/\b400\b/g) ?? []).length <= 2
+      const code = p.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+      return (
+        /export const BUYER_PROTECTION_FIXED = BUYER_PROTECTION_FIXED_BY_CURRENCY/.test(code) &&
+        !/\b400\b/.test(code)
+      )
     })(),
+  )
+}
+
+/* ── CURRENCY ────────────────────────────────────────────────────────────── */
+{
+  const cur = read("lib/checkout/currency.ts")
+  const sql = read("supabase/sql/RUN_CURRENCY_RON.sql")
+
+  check(
+    "the charge currency is one constant, not a string in every route",
+    (() => {
+      const routes = [
+        "app/api/checkout/stripe-session/route.ts",
+        "app/api/checkout/confirm-payment/route.ts",
+        "app/api/checkout/process/route.ts",
+        "app/api/checkout/complete/route.ts",
+        "app/api/checkout/route.ts",
+        "app/api/checkout/quick-free/route.ts",
+      ]
+      return routes.every((f) => {
+        const s = read(f)
+        return !/currency: "usd"/.test(s) && /PLATFORM_CURRENCY/.test(s)
+      })
+    })(),
+  )
+  check(
+    "it defaults to the historical value until the migration has run",
+    /=== "ron" \? "ron" : "usd"/.test(cur),
+    "        A deployment that has not migrated must not start quoting lei\n" +
+      "        against dollar-denominated rows.",
+  )
+  check(
+    "the fixed fee follows the currency being charged",
+    (() => {
+      // 400 minor units is four LEI in one configuration and four DOLLARS in
+      // the other — roughly an eighteen-lei fee. This was a real bug in the
+      // first version of the protection fee.
+      const p = read("lib/checkout/pricing.ts")
+      return (
+        /BUYER_PROTECTION_FIXED_BY_CURRENCY\[PLATFORM_CURRENCY\]/.test(p) &&
+        /ron: 400/.test(cur) &&
+        /usd: 87/.test(cur)
+      )
+    })(),
+  )
+  check(
+    "the two fixed amounts are the same size in real terms",
+    (() => {
+      const ron = Number(cur.match(/ron: (\d+)/)?.[1] ?? 0)
+      const usd = Number(cur.match(/usd: (\d+)/)?.[1] ?? 0)
+      // 4 lei at the 4.6 rate the display has always used.
+      return ron === 400 && Math.abs(usd * 4.6 - ron) < 20
+    })(),
+  )
+  check(
+    "the migration cannot be applied twice",
+    /platform_migrations where key = 'currency_ron_2026'/.test(sql) && /if already then/.test(sql),
+    "        Running it twice multiplies the whole catalogue by 4.6 again.",
+  )
+  check(
+    "the migration reprices variants and PWYW floors, not just products",
+    /product_variants/.test(sql) && /pwyw_min_price_cents/.test(sql),
+    "        A half-migration shows up as one listing costing a fifth of what\n" +
+      "        its own variants do.",
+  )
+  check(
+    "historical orders are left alone",
+    /orders\.amount_cents` records what was actually charged/.test(sql) &&
+      !/update public\.orders/.test(sql),
+    "        Rewriting them would falsify receipts and make past payouts\n" +
+      "        irreconcilable with Stripe.",
+  )
+  check(
+    "the migration states the order of operations",
+    /Run this migration\.[\s\S]{0,200}?THEN set NEXT_PUBLIC_PLATFORM_CURRENCY/.test(sql),
+    "        Flag first charges lei against dollar rows — a 78% discount applied\n" +
+      "        silently to the entire catalogue.",
   )
 }
 

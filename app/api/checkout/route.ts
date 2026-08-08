@@ -1,3 +1,4 @@
+import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     line_items: [
       {
         price_data: {
-          currency: "usd",
+          currency: PLATFORM_CURRENCY,
           product_data: {
             name: product.title,
             description: `By ${creatorProfile?.display_name || "Creator"}`,

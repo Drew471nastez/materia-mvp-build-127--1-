@@ -1,3 +1,4 @@
+import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
@@ -244,7 +245,7 @@ export async function POST(request: Request) {
     // Build PaymentIntent config
     const intentConfig: any = {
       amount: totalAmount,
-      currency: "usd",
+      currency: PLATFORM_CURRENCY,
       automatic_payment_methods: {
         enabled: true,
       },
@@ -326,7 +327,7 @@ export async function POST(request: Request) {
       try {
         const fallbackConfig: any = {
           amount: totalAmount,
-          currency: "usd",
+          currency: PLATFORM_CURRENCY,
           automatic_payment_methods: { enabled: true },
           metadata: {
             product_id: product.id,
