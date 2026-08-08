@@ -1743,6 +1743,70 @@ check(
     "the map is reachable from the shared picker, so both flows get it",
     /<LockerMapPicker/.test(picker) && /view === "map"/.test(picker),
   )
+  check(
+    "zooming keeps the point under the finger exactly where it is",
+    (() => {
+      // Zoom-to-centre is the easy version and is subtly awful: the thing you
+      // were looking at slides away as you zoom in on it. This replicates
+      // zoomAround and checks the anchored point does not move.
+      const W = 640
+      const H = 340
+      const zoomAround = (centre: { lat: number; lng: number }, z: number, next: number, fx: number, fy: number) => {
+        const before = project(centre, z)
+        const anchor = unproject({ x: before.x - W / 2 + fx, y: before.y - H / 2 + fy }, z)
+        const a = project(anchor, next)
+        return unproject({ x: a.x + W / 2 - fx, y: a.y + H / 2 - fy }, next)
+      }
+      const centre = { lat: 44.4268, lng: 26.1025 }
+      let worst = 0
+      for (const [fx, fy] of [
+        [0, 0],
+        [W, H],
+        [100, 50],
+        [600, 300],
+      ]) {
+        for (const [z, next] of [
+          [12, 13],
+          [13, 12],
+          [10, 16],
+          [18, 17],
+        ]) {
+          const b = project(centre, z)
+          const anchor = unproject({ x: b.x - W / 2 + fx, y: b.y - H / 2 + fy }, z)
+          const nc = zoomAround(centre, z, next, fx, fy)
+          const p = project(anchor, next)
+          const c = project(nc, next)
+          const after = { x: p.x - (c.x - W / 2), y: p.y - (c.y - H / 2) }
+          worst = Math.max(worst, Math.hypot(after.x - fx, after.y - fy))
+        }
+      }
+      return worst < 1e-6
+    })(),
+  )
+  check(
+    "the map pinches and scroll-zooms, not just its buttons",
+    (() => {
+      // A map you cannot pinch reads as broken on a phone, which is the
+      // platform this app mostly runs on.
+      return (
+        /onWheel=\{onWheel\}/.test(mapPicker) &&
+        /pointers\.current\.size === 2/.test(mapPicker) &&
+        /Math\.log2\(now \/ p\.distance\)/.test(mapPicker)
+      )
+    })(),
+  )
+  check(
+    "a pinch is spent one whole zoom level at a time",
+    /Math\.abs\(accumulated\) >= 1/.test(mapPicker),
+    "        Tiles exist only at integer zooms, so the continuous pinch ratio\n" +
+      "        has to be accumulated rather than applied directly.",
+  )
+  check(
+    "a second finger cancels the pan instead of dragging the map with it",
+    /if \(drag\.current\) drag\.current\.moved = true/.test(mapPicker),
+    "        Otherwise lifting from a pinch registers as a tap on whatever pin\n" +
+      "        happened to be underneath.",
+  )
 }
 
 /* ── THE LOCKER SEARCH ───────────────────────────────────────────────────── */

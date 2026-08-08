@@ -65,6 +65,20 @@ export function LockerMapPicker({
   const [centre, setCentre] = useState<LatLng | null>(null)
   const [zoom, setZoom] = useState(12)
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  /** Every finger currently down, so a pinch can be told from a pan. */
+  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ distance: number; accumulated: number } | null>(null)
+
+  const pointerDistance = () => {
+    const [a, b] = [...pointers.current.values()]
+    if (!a || !b) return 0
+    return Math.hypot(b.x - a.x, b.y - a.y)
+  }
+  const pointerMidpoint = () => {
+    const [a, b] = [...pointers.current.values()]
+    if (!a || !b) return { x: 0, y: 0 }
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+  }
 
   const pins = lockers.filter((l) => isUsableCoord({ lat: l.lat, lng: l.lng })) as Array<
     LockerOption & { lat: number; lng: number }
@@ -96,17 +110,89 @@ export function LockerMapPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, size.width, size.height])
 
-  const zoomBy = useCallback(
-    (delta: number) => setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta))),
-    [],
+  /**
+   * Zoom while keeping one point on screen exactly where it is.
+   *
+   * Zooming to the centre is the easy version and it is subtly awful: the thing
+   * you were looking at slides away as you zoom in on it. Instead the geographic
+   * point under the cursor — or under the middle of a pinch — is measured
+   * first, and the centre is recomputed afterwards so that point has not moved.
+   */
+  const zoomAround = useCallback(
+    (delta: number, focal?: { x: number; y: number }) => {
+      setZoom((z) => {
+        const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta))
+        if (next === z) return z
+        setCentre((c) => {
+          if (!c || !size.width) return c
+          const fx = focal?.x ?? size.width / 2
+          const fy = focal?.y ?? size.height / 2
+          // Where is that screen point, geographically, right now?
+          const before = project(c, z)
+          const anchor = unproject(
+            { x: before.x - size.width / 2 + fx, y: before.y - size.height / 2 + fy },
+            z,
+          )
+          // Put the new centre where it needs to be for the anchor to land back
+          // under the same pixel.
+          const a = project(anchor, next)
+          return unproject({ x: a.x + size.width / 2 - fx, y: a.y + size.height / 2 - fy }, next)
+        })
+        return next
+      })
+    },
+    [size.width, size.height],
   )
 
+  const zoomBy = useCallback((delta: number) => zoomAround(delta), [zoomAround])
+
+  /** Where a pointer is, relative to the map's own top-left. */
+  const localPoint = (e: React.PointerEvent | React.WheelEvent) => {
+    const r = ref.current?.getBoundingClientRect()
+    return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) }
+  }
+
   const onPointerDown = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.current.size === 2) {
+      // A second finger ends the pan and starts a pinch. The drag is marked as
+      // moved so releasing does not register as a tap on whatever is underneath.
+      pinch.current = { distance: pointerDistance(), accumulated: 0 }
+      if (drag.current) drag.current.moved = true
+      return
+    }
     drag.current = { x: e.clientX, y: e.clientY, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (pointers.current.has(e.pointerId)) {
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    }
+
+    // ── PINCH ────────────────────────────────────────────────────────────────
+    const p = pinch.current
+    if (p && pointers.current.size >= 2) {
+      const now = pointerDistance()
+      if (now > 0 && p.distance > 0) {
+        // Tiles exist only at whole zoom levels, so the continuous pinch ratio
+        // is accumulated and spent one level at a time. A doubling of finger
+        // distance is one level, which is what the projection actually means.
+        const accumulated = p.accumulated + Math.log2(now / p.distance)
+        if (Math.abs(accumulated) >= 1) {
+          const steps = Math.trunc(accumulated)
+          const mid = pointerMidpoint()
+          const r = ref.current?.getBoundingClientRect()
+          zoomAround(steps, { x: mid.x - (r?.left ?? 0), y: mid.y - (r?.top ?? 0) })
+          pinch.current = { distance: now, accumulated: accumulated - steps }
+        } else {
+          pinch.current = { distance: p.distance, accumulated }
+        }
+      }
+      return
+    }
+
+    // ── PAN ──────────────────────────────────────────────────────────────────
     const d = drag.current
     if (!d || !centre) return
     const dx = e.clientX - d.x
@@ -119,8 +205,15 @@ export function LockerMapPicker({
     drag.current = { x: e.clientX, y: e.clientY, moved: true }
   }
 
-  const onPointerUp = () => {
-    drag.current = null
+  const onPointerUp = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId)
+    if (pointers.current.size < 2) pinch.current = null
+    if (pointers.current.size === 0) drag.current = null
+  }
+
+  const onWheel = (e: React.WheelEvent) => {
+    // Trackpads emit a stream of small deltas; one notch of intent is one level.
+    zoomAround(e.deltaY < 0 ? 1 : -1, localPoint(e))
   }
 
   if (pins.length === 0) return null
@@ -137,6 +230,7 @@ export function LockerMapPicker({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onWheel={onWheel}
       >
         {tiles.map((t) => (
           // eslint-disable-next-line @next/next/no-img-element
