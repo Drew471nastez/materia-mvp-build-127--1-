@@ -175,8 +175,10 @@ function senderAddress() {
  * strings somewhere else would drift, and the drift would show up as a courier
  * booked for an order nobody paid for.
  */
+export const PAID_STATUSES = ["completed", "paid", "succeeded"] as const
+
 export function isPaid(status: string | null | undefined): boolean {
-  return ["completed", "paid", "succeeded"].includes(String(status || "").toLowerCase())
+  return (PAID_STATUSES as readonly string[]).includes(String(status || "").toLowerCase())
 }
 
 /**

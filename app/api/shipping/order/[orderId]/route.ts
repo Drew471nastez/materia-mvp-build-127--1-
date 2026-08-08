@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { trackByAwb } from "@/lib/eawb"
 import { autoAwbEnabled, createAwbForOrder, isPaid, senderCarrierId } from "@/lib/shipping/create-awb"
-import { resolveOrderParty, type OrderShipping } from "@/lib/shipping/order-access"
+import { readOrderShipping, resolveOrderParty, type OrderShipping } from "@/lib/shipping/order-access"
 import { applyPreferenceToOrder, readPreference } from "@/lib/shipping/preference"
 import { qrDataUri } from "@/lib/shipping/qr"
 import {
@@ -209,7 +209,16 @@ async function attachPreference(order: OrderShipping): Promise<OrderShipping> {
     // not the place to explain a courier outage, and the sweep will retry.
     if (autoAwbEnabled() && isPaid(order.status)) {
       try {
-        await createAwbForOrder(order.id)
+        const created = await createAwbForOrder(order.id)
+        if (created.ok) {
+          // RE-READ, rather than patching fields onto the stale object. The
+          // booking writes the AWB, the carrier, the label URL and the status;
+          // returning the pre-booking copy would make this response say "no AWB
+          // yet" milliseconds after producing one, and the seller would see
+          // "generating…" until they refreshed a page that was already done.
+          const fresh = await readOrderShipping(admin, order.id)
+          if (fresh.order) return fresh.order
+        }
       } catch {
         // Recorded on the order by createAwbForOrder itself.
       }

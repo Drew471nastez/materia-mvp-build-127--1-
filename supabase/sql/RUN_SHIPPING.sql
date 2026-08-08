@@ -61,6 +61,24 @@ alter table public.orders
   add column if not exists shipping_raw_status    text,
   add column if not exists shipping_error         text;
 
+-- Backfill: orders written before `ship_mode` existed carry a locker id and no
+-- mode. Everything now asks "has a destination been chosen?" by testing the
+-- mode, so without this those orders would read as having no address — and the
+-- buyer's saved preference would overwrite the locker they already picked.
+update public.orders
+   set ship_mode = 'locker'
+ where ship_mode is null
+   and ship_fixed_location_id is not null;
+
+-- The same for anything that has a street but no locker: that is a home
+-- delivery, whatever it was called when it was written.
+update public.orders
+   set ship_mode = 'home'
+ where ship_mode is null
+   and ship_fixed_location_id is null
+   and ship_street is not null
+   and ship_locality is not null;
+
 -- ── The idempotency guarantee, in the database ─────────────────────────────
 --
 -- THE MOST IMPORTANT LINE IN THIS FILE.

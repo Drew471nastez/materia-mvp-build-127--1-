@@ -1387,6 +1387,81 @@ check(
   )
 }
 
+/* ── TWO BUGS FOUND IN REVIEW, PINNED ────────────────────────────────────── */
+{
+  check(
+    "a guest's email is matched with eq, never ilike",
+    (() => {
+      // ilike treats `_` and `%` as WILDCARDS, and underscores are ordinary in
+      // email addresses. "john_doe@x.com" matched "johnXdoe@x.com" — which in
+      // readPreference returned a different person's name and phone, and in
+      // savePreference DELETED their saved address.
+      const s = stripComments(prefLib)
+      return !/\.ilike\(/.test(s) && /\.eq\("email", normaliseEmail\(who\.email\)\)/.test(s)
+    })(),
+  )
+  check(
+    "guest lookups are also scoped to rows with no user_id",
+    (() => {
+      const s = stripComments(prefLib)
+      // Otherwise a guest email could match a member's row from before they
+      // signed up.
+      return (s.match(/\.is\("user_id", null\)/g) ?? []).length >= 2
+    })(),
+  )
+  check(
+    "emails are normalised through one function on both write and read",
+    (() => {
+      const s = stripComments(prefLib)
+      return (
+        /function normaliseEmail/.test(s) && (s.match(/normaliseEmail\(/g) ?? []).length >= 3
+      )
+    })(),
+    "        Written lowercased and read raw, a differently-cased address\n" +
+      "        silently gets a second row and loses the first.",
+  )
+  check(
+    "booking on the order page re-reads instead of returning the stale copy",
+    // Comments stripped before matching. A window measured in characters
+    // shrinks every time an explanation is added above the line it is looking
+    // for; that has now cost this file four false failures, so the rule is:
+    // never match across prose.
+    /if \(created\.ok\)[\s\S]{0,200}?readOrderShipping\(admin, order\.id\)/.test(stripComments(orderRoute)),
+    "        The booking writes the AWB, carrier, label URL and status. Patching\n" +
+      "        fields onto the pre-booking object made the response say 'no AWB'\n" +
+      "        milliseconds after producing one, so the seller saw 'generating…'\n" +
+      "        until they refreshed a page that was already finished.",
+  )
+  check(
+    "orders written before ship_mode existed are backfilled",
+    (() => {
+      const s = read("supabase/sql/RUN_SHIPPING.sql")
+      return (
+        /update public\.orders\s+set ship_mode = 'locker'/.test(s) &&
+        /update public\.orders\s+set ship_mode = 'home'/.test(s)
+      )
+    })(),
+    "        Everything now asks 'has a destination been chosen?' via the mode.\n" +
+      "        Without this, an order that already had a locker would read as\n" +
+      "        having none and be overwritten by the buyer's saved preference.",
+  )
+  check(
+    "the UI's delivery modes cannot drift from the server's",
+    (() => {
+      // Two DeliveryMode unions exist — one in the client component, one in the
+      // server module — because a client bundle must not import server code.
+      // They must agree, so the values are compared rather than the types.
+      const modes = (src: string) => {
+        const m = src.match(/type DeliveryMode = ([^\n]+)/)
+        return m ? m[1].replace(/[\s"']/g, "").split("|").sort().join(",") : null
+      }
+      const ui = modes(read("components/shipping/delivery-choice.tsx"))
+      const server = modes(prefLib)
+      return ui !== null && ui === server
+    })(),
+  )
+}
+
 /* ── THE LOCKER SEARCH ───────────────────────────────────────────────────── */
 check(
   "locker search folds diacritics, so 'Bucuresti' finds 'București'",

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-import { autoAwbEnabled, createAwbForOrder } from "@/lib/shipping/create-awb"
+import { autoAwbEnabled, createAwbForOrder, PAID_STATUSES } from "@/lib/shipping/create-awb"
 import { isMissingShippingSchema } from "@/lib/shipping/order-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -72,7 +72,10 @@ async function sweep(req: NextRequest) {
   const { data, error } = await admin
     .from("orders")
     .select("id")
-    .in("status", ["completed", "paid", "succeeded"])
+    // The same list createAwbForOrder checks against, imported rather than
+    // retyped — a second copy would drift, and the drift shows up as orders
+    // this sweep never picks up and nobody notices are unshipped.
+    .in("status", PAID_STATUSES as unknown as string[])
     .not("ship_mode", "is", null)
     .is("awb_number", null)
     // An order already being booked by something else is left alone; the claim

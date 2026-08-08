@@ -57,6 +57,17 @@ export interface BuyerIdentity {
   email?: string | null
 }
 
+/**
+ * The one form an email is compared in.
+ *
+ * Rows are written lowercased, so lookups must lowercase too — and both sides
+ * must go through THIS function, because a guest identified by a
+ * differently-cased address silently gets a second row and loses the first.
+ */
+function normaliseEmail(email: string | null | undefined): string {
+  return String(email ?? "").trim().toLowerCase()
+}
+
 /** Missing table = the migration has not been run. Not an error; the feature
  *  is simply not switched on yet, and checkout must not break because of it. */
 export function isMissingPrefsTable(err: { code?: string; message?: string } | null | undefined): boolean {
@@ -201,7 +212,7 @@ export async function savePreference(
     user_id: who.userId ?? null,
     // Email is only the identity for guests; storing it for signed-in buyers
     // too would make the two unique indexes fight over the same person.
-    email: who.userId ? null : (who.email ?? null)?.toLowerCase() ?? null,
+    email: who.userId ? null : normaliseEmail(who.email) || null,
     mode: pref.mode,
     locker_id: pref.lockerId,
     carrier_id: pref.carrierId,
@@ -220,10 +231,15 @@ export async function savePreference(
   // Delete-then-insert rather than onConflict: the conflict target differs by
   // identity (user_id for members, lower(email) for guests) and both are
   // partial indexes, which upsert cannot express in one call.
+  //
+  // `.eq` on a normalised value, NEVER `.ilike`. ilike treats `_` and `%` as
+  // wildcards, and underscores are ordinary in email addresses — so
+  // "john_doe@x.com" would have matched "johnXdoe@x.com" and this DELETE would
+  // have removed a different person's saved address.
   const existing = admin.from("buyer_shipping_prefs").delete()
   const scoped = who.userId
     ? existing.eq("user_id", who.userId)
-    : existing.is("user_id", null).ilike("email", who.email ?? "")
+    : existing.is("user_id", null).eq("email", normaliseEmail(who.email))
   const del = await scoped
   if (del.error && isMissingPrefsTable(del.error)) return { ok: false, notInstalled: true }
 
@@ -249,7 +265,12 @@ export async function readPreference(
         "mode, locker_id, carrier_id, contact, phone, country_code, county, locality, street, street_no, details, postal_code",
       )
       .limit(1)
-    const { data, error } = await (who.userId ? q.eq("user_id", who.userId) : q.ilike("email", who.email ?? ""))
+    // `.eq` on a normalised value, never `.ilike` — see savePreference. A
+    // wildcard match here would return a DIFFERENT guest's name and phone
+    // number, and then attach their address to this order.
+    const { data, error } = await (who.userId
+      ? q.eq("user_id", who.userId)
+      : q.is("user_id", null).eq("email", normaliseEmail(who.email)))
     if (error || !data?.length) return null
     const r = data[0] as Record<string, unknown>
     return {
