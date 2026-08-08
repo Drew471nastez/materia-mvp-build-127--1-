@@ -151,4 +151,20 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Location — REQUIRED for the delivery-point picker.
+         The Android WebView refuses the JavaScript Geolocation API unless the
+         host app holds a location permission, so without this the call fails
+         with no prompt and looks like a broken feature.
+
+         COARSE only, deliberately. Sorting easyboxes by distance needs to know
+         which part of town you are in, not which doorway — coarse is accurate
+         to roughly a city block, which is far more precision than this feature
+         uses. Asking for FINE would be a scarier prompt, a heavier Play Store
+         disclosure, and would buy nothing.
+
+         Not `required`, so the app still installs on a device with no location
+         hardware; the picker falls back to searching by town. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
 </manifest>
