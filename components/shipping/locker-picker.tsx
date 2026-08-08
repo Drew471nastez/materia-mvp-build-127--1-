@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Check, Crosshair, Loader2, MapPin, Search } from "lucide-react"
 
 import { LockerMap } from "@/components/shipping/locker-map"
+import { LockerMapPicker } from "@/components/shipping/locker-map-picker"
 import { useGeolocation } from "@/components/shipping/use-geolocation"
 import { formatDistance } from "@/lib/geo"
 
@@ -64,6 +65,7 @@ export function LockerPicker({
   const [error, setError] = useState<string | null>(null)
   const seq = useRef(0)
   const geo = useGeolocation()
+  const [view, setView] = useState<"list" | "map">("list")
 
   const search = useCallback(
     async (q: string, near?: { lat: number; lng: number } | null) => {
@@ -202,7 +204,43 @@ export function LockerPicker({
 
       {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
 
-      {items !== null && !error && (
+      {/* List or map, over the same results. A toggle rather than both at once:
+          on a phone a map plus a list means neither gets enough room. Only
+          offered when there is something to draw. */}
+      {items !== null && !error && items.length > 0 && (
+        <div className="mt-3 flex gap-1 rounded-full bg-neutral-100 p-1">
+          {(
+            [
+              ["list", "Listă"],
+              ["map", "Hartă"],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`h-8 flex-1 rounded-full text-[13px] font-semibold transition-colors ${
+                view === v ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {items !== null && !error && view === "map" && items.length > 0 && (
+        <div className="mt-2">
+          <LockerMapPicker
+            lockers={items}
+            value={value}
+            onSelect={onSelect}
+            origin={geo.state.status === "ready" ? geo.state.coords : null}
+          />
+        </div>
+      )}
+
+      {items !== null && !error && view === "list" && (
         <div className="mt-3 overflow-hidden rounded-xl border border-neutral-200">
           {items.length === 0 ? (
             <p className="px-4 py-6 text-center text-[13.5px] text-neutral-500">

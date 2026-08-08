@@ -19,6 +19,7 @@ import { join } from "node:path"
 
 import { sanitizedPayload, validateShipment } from "../lib/eawb"
 import { distanceKm, formatDistance, isUsableCoord } from "../lib/geo"
+import { fitZoom, project, tilesFor, unproject } from "../lib/geo-tiles"
 import { splitStreet } from "../lib/shipping/compare"
 import { validateHomeAddress } from "../lib/shipping/preference"
 import { extractLatestStatus, isTerminal, mapCarrierStatus, shouldAdvance } from "../lib/shipping/status"
@@ -1604,6 +1605,143 @@ check(
   check(
     "coordinates reach the client for it to draw",
     /lat: l\.coordinates \? Number\(l\.coordinates\.lat\) : null/.test(lockersRoute),
+  )
+}
+
+/* ── PICKING A LOCKER OFF THE MAP ────────────────────────────────────────── */
+{
+  const mapPicker = read("components/shipping/locker-map-picker.tsx")
+
+  // The projection is the part that is either right or produces a map of the
+  // sea, so it is checked against the canonical formula rather than itself.
+  check(
+    "the projection matches the standard Web Mercator formula",
+    (() => {
+      const wiki = (c: { lat: number; lng: number }, z: number) => {
+        const n = Math.pow(2, z)
+        const latRad = (c.lat * Math.PI) / 180
+        return {
+          x: (((c.lng + 180) / 360) * n) * 256,
+          y: (((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n) * 256,
+        }
+      }
+      const cases = [
+        { lat: 44.4268, lng: 26.1025 },
+        { lat: 52.5145, lng: 13.3501 },
+        { lat: -33.86, lng: 151.21 },
+        { lat: 0, lng: 0 },
+      ]
+      return cases.every((c) =>
+        [1, 5, 12, 16, 18].every((z) => {
+          const a = project(c, z)
+          const b = wiki(c, z)
+          return Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6
+        }),
+      )
+    })(),
+  )
+  check(
+    "a coordinate survives a round trip through the projection",
+    (() => {
+      const o = { lat: 44.4268, lng: 26.1025 }
+      const back = unproject(project(o, 14), 14)
+      return Math.abs(back.lat - o.lat) < 1e-9 && Math.abs(back.lng - o.lng) < 1e-9
+    })(),
+  )
+  check(
+    "latitude is clamped so a polar coordinate cannot blank the map",
+    (() => {
+      // Mercator goes to infinity at the poles; an unclamped y renders nothing
+      // and looks like broken tiles. Clamped, 89.9° lands ON the top edge —
+      // y ≈ 0, which floating point returns as a hair BELOW zero. An earlier
+      // version of this asserted `y > 0` and failed on correct code.
+      const world = 256 * Math.pow(2, 10)
+      const north = project({ lat: 89.9, lng: 0 }, 10)
+      const south = project({ lat: -89.9, lng: 0 }, 10)
+      const inWorld = (y: number) => Number.isFinite(y) && y >= -1 && y <= world + 1
+      return inWorld(north.y) && inWorld(south.y) && south.y > north.y
+    })(),
+  )
+  check(
+    "the tile grid covers the whole viewport",
+    (() => {
+      const centre = { lat: 44.4268, lng: 26.1025 }
+      const w = 640
+      const h = 340
+      const tiles = tilesFor(centre, 13, w, h)
+      if (tiles.length === 0) return false
+      const covered =
+        Math.min(...tiles.map((t) => t.left)) <= 0 &&
+        Math.min(...tiles.map((t) => t.top)) <= 0 &&
+        Math.max(...tiles.map((t) => t.left)) + 256 >= w &&
+        Math.max(...tiles.map((t) => t.top)) + 256 >= h
+      return covered
+    })(),
+    "        A gap at an edge shows as grey stripes across the map.",
+  )
+  check(
+    "tiles wrap around the date line but never above the pole",
+    (() => {
+      const n = Math.pow(2, 4)
+      const tiles = tilesFor({ lat: 0, lng: 179.9 }, 4, 640, 340)
+      return tiles.every((t) => t.x >= 0 && t.x < n && t.y >= 0 && t.y < n)
+    })(),
+  )
+  check(
+    "the chosen zoom actually fits the points it was given",
+    (() => {
+      const pts = [
+        { lat: 44.4268, lng: 26.1025 },
+        { lat: 44.5, lng: 26.2 },
+      ]
+      const z = fitZoom(pts, 640, 340)
+      const p = pts.map((c) => project(c, z))
+      const w = Math.max(...p.map((q) => q.x)) - Math.min(...p.map((q) => q.x))
+      const h = Math.max(...p.map((q) => q.y)) - Math.min(...p.map((q) => q.y))
+      return w <= 640 && h <= 340
+    })(),
+  )
+  check(
+    "a single locker is shown at street level, not at a zoom that fits nothing",
+    fitZoom([{ lat: 44.4268, lng: 26.1025 }], 640, 340) >= 15,
+  )
+  check(
+    "the map needs no mapping library",
+    (() => {
+      const pkg = JSON.parse(read("package.json")) as { dependencies?: Record<string, string> }
+      return !Object.keys(pkg.dependencies ?? {}).some((d) =>
+        /^(leaflet|maplibre|mapbox|react-leaflet|google-map)/.test(d),
+      )
+    })(),
+  )
+  check(
+    "a marker tap selects, and a pan that ends on one does not",
+    /if \(drag\.current\?\.moved\) return/.test(mapPicker),
+    "        Otherwise every drag that finishes over a pin silently changes the\n" +
+      "        buyer's delivery point.",
+  )
+  check(
+    "off-screen markers are not rendered",
+    /p\.x < -40 \|\| p\.y < -60/.test(mapPicker),
+    "        A hundred absolutely-positioned buttons outside the viewport is a\n" +
+      "        hundred things the browser still lays out.",
+  )
+  check(
+    "OpenStreetMap attribution is present, as its terms require",
+    /openstreetmap\.org\/copyright/.test(mapPicker) && /© OpenStreetMap/.test(mapPicker),
+  )
+  check(
+    "the tile host is one constant, so it can be swapped",
+    (() => {
+      const hosts = mapPicker.match(/https:\/\/[a-z.]*tile[a-z.]*\.[a-z]+/g) ?? []
+      return new Set(hosts).size === 1 && /const TILE_URL =/.test(mapPicker)
+    })(),
+    "        OSM asks that heavy production traffic move to a dedicated\n" +
+      "        provider; that must be a one-line change.",
+  )
+  check(
+    "the map is reachable from the shared picker, so both flows get it",
+    /<LockerMapPicker/.test(picker) && /view === "map"/.test(picker),
   )
 }
 
