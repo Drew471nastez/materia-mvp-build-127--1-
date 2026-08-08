@@ -870,10 +870,11 @@ check(
   check(
     "the picker is filtered to that one network, client-side too",
     (() => {
-      // The picker now sits inside DeliveryChoice, which both entry points
-      // render — so the carrier has to be threaded through it.
+      // DeliveryChoice now opens the full-screen LockerScreen rather than
+      // embedding a picker, so the carrier is threaded through that instead.
+      // Both entry points render DeliveryChoice, so checking it covers both.
       const choice = read("components/shipping/delivery-choice.tsx")
-      const pipedThrough = /<LockerPicker[\s\S]{0,200}?carrierId=\{carrierId\}/.test(choice)
+      const pipedThrough = /<LockerScreen[\s\S]{0,300}?carrierId=\{carrierId\}/.test(choice)
       return (
         pipedThrough &&
         [
@@ -2127,6 +2128,93 @@ check(
     (() => {
       const src = read("lib/shipping/locker.ts")
       return /hours\.length < 7/.test(src)
+    })(),
+  )
+}
+
+/* ── THE FULL-SCREEN PICKER ──────────────────────────────────────────────── */
+{
+  const screen = read("components/shipping/locker-screen.tsx")
+
+  check(
+    "tapping a pin opens details rather than selecting outright",
+    (() => {
+      // Tapping a pin is "what is this one?", not "this one". A picker that
+      // commits on first tap makes people afraid to explore it.
+      const s = stripComments(screen)
+      return /onSelect=\{setFocused\}/.test(s) && /const commit = \(l: LockerOption\) =>/.test(s)
+    })(),
+  )
+  check(
+    "closing without choosing leaves the previous selection alone",
+    (() => {
+      const s = stripComments(screen)
+      // onClose is passed straight through; only commit() calls onSelect.
+      const commit = s.slice(s.indexOf("const commit ="), s.indexOf("const commit =") + 200)
+      return /onSelect\(l\)/.test(commit) && !/onSelect\(/.test(s.slice(s.indexOf("onClose={onClose}") || 0, 0))
+    })(),
+  )
+  check(
+    "reopening restores the previous choice instead of resetting",
+    /if \(open\) setFocused\(initial \?\? null\)/.test(screen),
+  )
+  check(
+    "an abandoned search is cancelled, not merely ignored",
+    /abort\.current\?\.abort\(\)/.test(screen) && /new AbortController\(\)/.test(screen),
+    "        An abandoned search over 12,000 lockers is bandwidth on a phone.",
+  )
+  check(
+    "an aborted request is not reported as a failure",
+    /AbortError/.test(screen),
+  )
+  check(
+    "the page behind cannot scroll while the map is up",
+    /document\.body\.style\.overflow = "hidden"/.test(screen),
+    "        A full-screen map over a scrolling page drags both at once.",
+  )
+  check(
+    "Android back closes the picker instead of leaving checkout",
+    /history\.pushState/.test(screen) && /popstate/.test(screen),
+    "        Otherwise back throws away a half-finished purchase.",
+  )
+  check(
+    "Escape closes the sheet first, then the screen",
+    /if \(focused\) setFocused\(null\)\s*\n?\s*else onClose\(\)/.test(stripComments(screen)),
+  )
+  check(
+    "the viewport uses dvh, not vh",
+    /100dvh/.test(screen) && !/100vh/.test(screen),
+    "        On iOS Safari the address bar makes vh taller than the visible\n" +
+      "        area, so a vh-sized map hides its own controls behind the bar.",
+  )
+  check(
+    "the safe-area inset is respected at the top",
+    /env\(safe-area-inset-top\)/.test(screen),
+  )
+  check(
+    "the search input cannot trigger iOS zoom-on-focus",
+    /text-\[16px\]/.test(screen),
+    "        Anything under 16px makes Safari zoom the page when focused.",
+  )
+  check(
+    "the map measures its own height in fill mode",
+    /height: fill \? el\.clientHeight : height/.test(read("components/shipping/locker-map-picker.tsx")),
+    "        That is what survives an address-bar collapse or a rotation, since\n" +
+      "        neither changes any React state.",
+  )
+  check(
+    "the results are usable without touching the map",
+    /function LockerList/.test(screen) && /aria-current=/.test(screen),
+  )
+  check(
+    "the list and map agree on which locker is highlighted",
+    /focusedId=\{focused\?\.id \?\? null\}/.test(screen) && /value=\{focused\}/.test(screen),
+  )
+  check(
+    "the checkout row summarises the choice and offers Change",
+    (() => {
+      const c = read("components/shipping/delivery-choice.tsx")
+      return /Schimbă/.test(c) && /setPickerOpen\(true\)/.test(c)
     })(),
   )
 }

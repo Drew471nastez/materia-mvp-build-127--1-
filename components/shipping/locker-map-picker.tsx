@@ -53,6 +53,7 @@ export function LockerMapPicker({
   onSelect,
   origin,
   height = 340,
+  fill = false,
 }: {
   lockers: LockerOption[]
   value: LockerOption | null
@@ -60,6 +61,10 @@ export function LockerMapPicker({
   /** The buyer's own position, when they have shared it. */
   origin?: LatLng | null
   height?: number
+  /** Fill the parent instead of taking a fixed height — for the full-screen
+   *  picker, where the container decides and the map must follow it through
+   *  address-bar changes and orientation flips. */
+  fill?: boolean
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
   /** The pannable layer. Moved imperatively during a drag so React stays out
@@ -110,12 +115,17 @@ export function LockerMapPicker({
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const measure = () => setSize({ width: el.clientWidth, height })
+    // In fill mode the HEIGHT is measured too, not assumed. That is what keeps
+    // the tile grid correct through an iOS address-bar collapse, a rotation, or
+    // a sheet opening underneath — all of which change the box without any
+    // React state changing.
+    const measure = () =>
+      setSize({ width: el.clientWidth, height: fill ? el.clientHeight : height })
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [height])
+  }, [height, fill])
 
   // Frame the results whenever the SET of lockers changes — but never while the
   // user is looking around, which is why this keys off the ids rather than the
@@ -290,11 +300,22 @@ export function LockerMapPicker({
   const tiles = centre && size.width ? tilesFor(centre, zoom, size.width, size.height, 1) : []
 
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200">
+    <div
+      className={
+        fill
+          ? "flex h-full flex-col overflow-hidden"
+          : "overflow-hidden rounded-xl border border-neutral-200"
+      }
+    >
       <div
         ref={ref}
-        className="relative touch-none select-none bg-neutral-100"
-        style={{ height: size.height, cursor: drag.current ? "grabbing" : "grab" }}
+        className={`relative touch-none select-none bg-neutral-100 ${fill ? "min-h-0 flex-1" : ""}`}
+        style={{
+          // In fill mode the parent sizes it; forcing a pixel height here would
+          // fight the flex layout and reintroduce the iOS viewport problem.
+          height: fill ? undefined : size.height,
+          cursor: drag.current ? "grabbing" : "grab",
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

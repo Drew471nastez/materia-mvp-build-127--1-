@@ -1,8 +1,10 @@
 "use client"
 
-import { Home, Package } from "lucide-react"
+import { useState } from "react"
+import { Check, Home, MapPin, Package } from "lucide-react"
 
-import { LockerPicker, type LockerOption } from "@/components/shipping/locker-picker"
+import { LockerScreen } from "@/components/shipping/locker-screen"
+import type { LockerOption } from "@/components/shipping/locker-picker"
 
 /**
  * Easybox or your front door — the two ways a parcel can arrive.
@@ -102,6 +104,7 @@ export function DeliveryChoice({
   onAddressChange: (a: HomeAddress) => void
   disabled?: boolean
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   const set = (k: keyof HomeAddress) => (v: string) => onAddressChange({ ...address, [k]: v })
 
   return (
@@ -142,7 +145,49 @@ export function DeliveryChoice({
 
       <div className="mt-4">
         {mode === "locker" ? (
-          <LockerPicker value={locker} onSelect={onLockerChange} carrierId={carrierId} disabled={disabled} />
+          <>
+            {/* One button that opens the full-screen picker, rather than an
+                inline search. A map worth using does not fit beside a form,
+                and a summary of what was chosen is what a form actually wants
+                to show. */}
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => setPickerOpen(true)}
+              className={`flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition-colors disabled:opacity-50 ${
+                locker ? "border-emerald-200 bg-emerald-50/60" : "border-neutral-200 bg-white"
+              }`}
+            >
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                  locker ? "bg-emerald-600 text-white" : "bg-neutral-100 text-neutral-500"
+                }`}
+              >
+                {locker ? <Check className="h-4 w-4" strokeWidth={3} /> : <MapPin className="h-4 w-4" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-semibold text-neutral-900">
+                  {locker ? locker.name : "Alege un easybox"}
+                </span>
+                <span className="mt-0.5 block truncate text-[12.5px] text-neutral-500">
+                  {locker
+                    ? [locker.address, locker.locality].filter(Boolean).join(", ")
+                    : "Caută pe hartă sau după oraș"}
+                </span>
+              </span>
+              <span className="shrink-0 text-[13px] font-semibold text-[#7c3aed]">
+                {locker ? "Schimbă" : "Alege"}
+              </span>
+            </button>
+
+            <LockerScreen
+              open={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+              onSelect={onLockerChange}
+              initial={locker}
+              carrierId={carrierId}
+            />
+          </>
         ) : (
           <div className="grid gap-3">
             <div className="grid grid-cols-2 gap-3">
