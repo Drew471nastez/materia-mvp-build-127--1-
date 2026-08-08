@@ -1,82 +1,68 @@
 /**
  * stripe-nav-guard.ts
  *
- * Keeps paid checkout entirely inside the Capacitor WKWebView — no browser
- * opens, no page navigation away from the checkout screen.
+ * Keeps paid checkout inside the Capacitor WKWebView — no browser opens, no
+ * navigation away from the checkout screen.
  *
- * ─── How Stripe triggers the problem ────────────────────────────────────────
- * When Stripe.js initialises it creates a hidden controller iframe:
+ * ─── WHAT ACTUALLY EJECTS THE APP ───────────────────────────────────────────
+ * Stripe.js hands the entire page off to Stripe when it cannot do its work in
+ * an iframe. The handoff looks like this:
  *
- *   <iframe src="https://js.stripe.com/v3/controller-with-preconnect-*.html">
+ *     https://js.stripe.com/v3/m-outer-<hash>.html#url=<the page>&referrer=…
  *
- * The controller sends a postMessage to its parent (Stripe.js in the main
- * frame). Stripe.js then sets window.location.href = controllerUrl as the
- * Link prewarm step. In a Capacitor WKWebView this replaces the checkout page
- * with the controller page, or opens Safari.
+ * — the current URL packed into the fragment so Stripe can send you back. In a
+ * browser that is a hidden frame's job; in a WKWebView it becomes a top-level
+ * navigation and the buyer is in Safari, mid-purchase.
  *
- * ─── Why pure location-href patching does not work ───────────────────────────
- * `window.location.href` is declared [LegacyUnforgeable] in the WebIDL spec.
- * In iOS WebKit the property is non-configurable on every Location instance;
- * Object.defineProperty on Location.prototype silently fails. There is no
- * reliable JS way to intercept the href setter in WKWebView.
+ * ─── THE MISTAKE THIS FILE USED TO MAKE ─────────────────────────────────────
+ * It blocked Stripe's iframes: the controller frame first, later the fraud
+ * frame too, across five layers of interception.
  *
- * ─── Correct approach ────────────────────────────────────────────────────────
- * Block the CONTROLLER IFRAME before it ever loads. If the iframe has no src
- * it never bootstraps, never sends the postMessage, and Stripe.js never calls
- * window.location.href. The card-input iframes (elements-inner-card-*.html)
- * are NOT blocked — they are required for Stripe Elements to work.
+ * That is backwards. Blocking the frame is the thing that CAUSES the handoff.
+ * Stripe.js needs the controller frame to hold its shared state; deny it and
+ * the page-level fallback is exactly what it reaches for. The guard was
+ * producing the navigation it existed to prevent, and the CSP in proxy.ts was
+ * doing the same thing at the same time from the other direction.
  *
- * Five layers target every known path Stripe uses to create the controller:
+ * ─── WHAT IS DONE INSTEAD ───────────────────────────────────────────────────
+ * Three things, in order of how much work they do:
  *
- *   1. HTMLIFrameElement.prototype.src setter        — direct property set
- *   2. HTMLElement.prototype.setAttribute('src',…)  — setAttribute path
- *   3. document.createElement override              — captures the element
- *                                                     at creation time and
- *                                                     installs a one-shot src
- *                                                     watcher via Object.define
- *   4. MutationObserver on <html>                   — innerHTML / parser path
- *      (removes controller iframes added via insertAdjacentHTML / innerHTML)
- *   5. window.open / location.assign / replace      — navigation fallbacks
+ *   1. lib/stripe-client.ts sets `advancedFraudSignals: false` through
+ *      loadStripe.setLoadParameters, so the fraud frame is never requested in
+ *      the first place. This is Stripe's own documented switch and it is the
+ *      actual fix.
  *
- * The guard is scoped by CONTROLLER_RE so only URLs containing both
- * "js.stripe.com" and "controller" in the path are affected.
+ *   2. proxy.ts serves a frame-src that ALLOWS js.stripe.com, so every frame
+ *      Stripe does ask for is created and it never needs a fallback.
+ *
+ *   3. This file blocks TOP-LEVEL NAVIGATION to Stripe — window.open,
+ *      location.assign, location.replace. Not frames. If something still tries
+ *      to take the whole page to js.stripe.com, that attempt is dropped.
+ *
+ * ─── THE ONE HOLE, STATED HONESTLY ──────────────────────────────────────────
+ * `window.location.href = …` cannot be intercepted. It is [LegacyUnforgeable]
+ * in the WebIDL spec, non-configurable on every Location instance, and
+ * Object.defineProperty on Location.prototype silently fails in WebKit. If
+ * Stripe.js ever reaches for that specific assignment, no JavaScript can stop
+ * it — which is exactly why the real defence is making sure it never gets far
+ * enough to want to.
+ *
+ * `window.open` returns a FAKE window rather than null, deliberately: null
+ * reads as "popup blocked", and popup-blocked is a state Stripe responds to by
+ * falling back to a top-level redirect. A non-null window means it waits for a
+ * postMessage that never arrives, and does nothing.
  */
 
 let _applied = false
 
 /**
- * Matches the Stripe frames that exist to phone home, and only those.
+ * Any top-level navigation to Stripe's own hosts.
  *
- *   controller-with-preconnect-*.html   the Link prewarm controller
- *   m-outer-*.html                      advanced fraud signals
- *
- * BOTH are needed. The guard originally matched "controller" alone, and the
- * frame that actually took the app to Safari was
- *
- *   https://js.stripe.com/v3/m-outer-<hash>.html#url=…&referrer=…&muid=NA
- *
- * which contains neither the word "controller" nor anything else layers 1–4
- * were looking for, so all four of them waved it straight through.
- *
- * Card input (elements-inner-*), Link (link-*) and the payment element are NOT
- * matched here and must never be: those iframes are the payment form itself,
- * and blocking one means a checkout with no card fields in it.
+ * Frames are deliberately NOT matched by anything in this file any more — see
+ * the note above. These hosts only ever appear as a top-level URL when Stripe
+ * is trying to take the page, which is the one case worth stopping.
  */
-const CONTROLLER_IFRAME_RE = /(js\.stripe\.com[^#?]*(controller|m-outer)|m\.stripe\.network)/
-
-/**
- * Matches ANY top-level navigation to js.stripe.com that isn't a card-element
- * iframe path. Used for layer 5 (window.open / location.assign / replace).
- * The card-element iframe paths (elements-inner-*) should never appear as
- * top-level navigations; blocking all js.stripe.com top-level navigations is
- * safe and also covers Stripe Link popup URLs (which use different patterns
- * like js.stripe.com/v3/link-*).
- */
-const STRIPE_NAV_RE = /^https?:\/\/js\.stripe\.com\//
-
-function isController(url: unknown): boolean {
-  return CONTROLLER_IFRAME_RE.test(String(url ?? ""))
-}
+const STRIPE_NAV_RE = /^https?:\/\/(js\.stripe\.com|m\.stripe\.network)\//
 
 function isStripeTopLevelNav(url: unknown): boolean {
   return STRIPE_NAV_RE.test(String(url ?? ""))
@@ -86,140 +72,42 @@ export function applyStripeNavGuard(): void {
   if (typeof window === "undefined" || _applied) return
   _applied = true
 
-  // ── 1. HTMLIFrameElement.prototype.src setter ────────────────────────────────
-  // Intercepts:  iframe.src = 'https://js.stripe.com/v3/controller-*.html'
-  try {
-    const iDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "src")
-    if (iDesc?.set) {
-      const _iSet = iDesc.set
-      Object.defineProperty(HTMLIFrameElement.prototype, "src", {
-        ...iDesc,
-        set(url: string) {
-          if (isController(url)) return  // drop — controller never loads
-          _iSet.call(this, url)
-        },
-      })
-    }
-  } catch { /* ignore */ }
-
-  // ── 2. HTMLElement.prototype.setAttribute for src ────────────────────────────
-  // Intercepts:  iframe.setAttribute('src', 'https://js.stripe.com/…/controller-*.html')
-  try {
-    const _origSetAttr = HTMLElement.prototype.setAttribute
-    HTMLElement.prototype.setAttribute = function (name: string, value: string) {
-      if (name === "src" && this instanceof HTMLIFrameElement && isController(value)) return
-      _origSetAttr.call(this, name, value)
-    }
-  } catch { /* ignore */ }
-
-  // ── 3. document.createElement override ──────────────────────────────────────
-  // Wraps every new <iframe> so that any later src assignment (even after the
-  // element is attached to the DOM) is intercepted by a defineProperty watcher.
-  try {
-    const _origCreate = document.createElement.bind(document)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(document as any).createElement = function (tagName: string, options?: ElementCreationOptions) {
-      const el = _origCreate(tagName, options)
-      if (tagName.toLowerCase() === "iframe") {
-        // Install a per-instance src watcher as soon as the element is created.
-        const iDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "src")
-        if (iDesc?.set) {
-          const _iSet = iDesc.set
-          try {
-            Object.defineProperty(el, "src", {
-              configurable: true,
-              get() { return iDesc.get ? iDesc.get.call(this) : "" },
-              set(url: string) {
-                if (isController(url)) return
-                _iSet.call(this, url)
-              },
-            })
-          } catch { /* ignore if already patched by layer 1 */ }
-        }
-      }
-      return el
-    }
-  } catch { /* ignore */ }
-
-  // ── 4. MutationObserver — innerHTML / insertAdjacentHTML / parser path ───────
-  // When Stripe uses innerHTML assignment the browser parses the HTML and sets
-  // the src attribute directly during DOM construction, bypassing JS setters.
-  // The MutationObserver fires synchronously after the node is added and removes
-  // any controller iframe before it has a chance to establish a connection.
-  try {
-    const _obs = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node instanceof HTMLIFrameElement) {
-            const src = node.getAttribute("src") || (node as HTMLIFrameElement).src
-            if (isController(src)) {
-              node.remove()
-            }
-          }
-        }
-        // Also catch setAttribute('src', …) changes on existing iframes
-        if (
-          m.type === "attributes" &&
-          m.attributeName === "src" &&
-          m.target instanceof HTMLIFrameElement
-        ) {
-          const src = (m.target as HTMLIFrameElement).getAttribute("src") || ""
-          if (isController(src)) {
-            (m.target as HTMLIFrameElement).removeAttribute("src")
-          }
-        }
-      }
-    })
-    _obs.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["src"],
-    })
-  } catch { /* ignore */ }
-
-  // ── 5. Navigation fallbacks (window.open / assign / replace) ─────────────────
-  // Belt-and-suspenders: catch any top-level navigation attempt that somehow
-  // escapes layers 1–4. These DO work in WebKit for non-href paths.
-  //
-  // We block ALL js.stripe.com top-level navigations here (not just controller),
-  // because Stripe Link uses different URL patterns (js.stripe.com/v3/link-*,
-  // js.stripe.com/v3/payment-element-*) that wouldn't match CONTROLLER_IFRAME_RE.
-  // Card-element iframe paths never appear as top-level navigations, so blocking
-  // the entire js.stripe.com origin for window.open/assign/replace is safe.
-  //
-  // For window.open: return a minimal fake window object instead of null.
-  // Returning null signals "popup blocked" to Stripe, which may cause it to
-  // fall back to window.location.href (the unforgeable href we can't intercept).
-  // A fake non-null window tells Stripe the popup "opened" — it will wait for a
-  // postMessage that never comes rather than falling back to a top-level redirect.
+  // ── window.open ─────────────────────────────────────────────────────────────
   try {
     const _open = window.open.bind(window)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).open = (url?: string | URL, target?: string, features?: string) => {
       if (isStripeTopLevelNav(url)) {
-        // Return a fake window so Stripe doesn't fall back to location.href
+        // A fake window, not null. See the note above on why null is worse.
         return {
           closed: false,
-          close() { (this as any).closed = true },
+          close() {
+            ;(this as { closed: boolean }).closed = true
+          },
           focus() {},
           blur() {},
           postMessage() {},
-          location: { href: String(url ?? '') },
+          location: { href: String(url ?? "") },
           opener: window,
         } as unknown as Window
       }
       return _open(url, target, features)
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
+  // ── location.assign / location.replace ──────────────────────────────────────
+  // Both ARE patchable in WebKit, unlike the href setter.
   try {
     const _assign = window.location.assign.bind(window.location)
     window.location.assign = (url: string | URL) => {
       if (isStripeTopLevelNav(url)) return
       _assign(String(url))
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   try {
     const _replace = window.location.replace.bind(window.location)
@@ -227,7 +115,9 @@ export function applyStripeNavGuard(): void {
       if (isStripeTopLevelNav(url)) return
       _replace(String(url))
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 // Auto-apply on import.

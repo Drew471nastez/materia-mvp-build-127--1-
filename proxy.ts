@@ -552,37 +552,47 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ── Stripe controller CSP (Capacitor WKWebView only) ────────────────────────
-  // When Stripe.js initialises it creates a hidden controller iframe at
-  // js.stripe.com/v3/controller-with-preconnect-*.html. That iframe sends a
-  // postMessage; Stripe.js reacts by setting window.location.href = controllerUrl.
-  // In WebKit, window.location.href is [LegacyUnforgeable] — no JS patch can
-  // intercept it. The WebView navigates away from the checkout page.
+  // ── Stripe frame CSP (Capacitor WKWebView only) ─────────────────────────────
   //
-  // Fix: inject a Content-Security-Policy frame-src that only allows the Stripe
-  // iframe URL patterns actually needed. The controller URL (controller-with-
-  // preconnect-*.html) is intentionally absent → the browser engine blocks it
-  // before any JS runs → no postMessage is ever sent → window.location.href
-  // is never set → checkout stays inline.
+  // THIS HEADER USED TO BE THE BUG IT WAS WRITTEN TO PREVENT.
   //
-  // Allowed patterns (all live under js.stripe.com/v3/):
-  //   elements-*        CardNumberElement / CardExpiryElement / CardCvcElement
-  //   payment-request-* Apple Pay / Google Pay availability check iframe
-  //   three-ds-*        3DS v2 bank-auth challenge iframes
-  //   link-*            Stripe Link authentication iframes
+  // It tried to allow only certain Stripe iframes by path, like this:
+  //
+  //     frame-src https://js.stripe.com/v3/elements-*
+  //
+  // A `*` in the PATH of a CSP source is not a wildcard. CSP only wildcards the
+  // host (`https://*.stripe.com`); in a path it is an ordinary character, and
+  // the matching rule is: a source ending in "/" is a path PREFIX, anything
+  // else is an EXACT match. So that line permitted exactly one URL — a file
+  // literally named "elements-*" — and therefore permitted nothing at all.
+  //
+  // Every Stripe iframe was blocked. Not just the controller: the card number,
+  // expiry and CVC fields are `elements-inner-card-*` frames, so they could
+  // never have rendered either.
+  //
+  // And blocking the controller is what CAUSED the ejection. Stripe.js needs
+  // that frame to hold its shared state; with no way to create it, it falls
+  // back to handing the whole page off to Stripe — which is precisely the
+  //
+  //     js.stripe.com/v3/m-outer-<hash>.html#url=…&referrer=…
+  //
+  // top-level navigation people were being thrown out of the app by. The
+  // header meant to keep the checkout inline was the reason it left.
+  //
+  // So: allow Stripe's frame hosts properly, and let Stripe.js have the frames
+  // it needs so it never reaches for the fallback. What is NOT wanted — the
+  // advanced-fraud-signals frame — is turned off where it is actually
+  // configurable, in lib/stripe-client.ts, and stripe-nav-guard.ts remains as
+  // the JS-level net for genuine top-level navigation attempts.
+  //
+  //   js.stripe.com     Elements, the controller, Link, 3DS challenge frames
   //   hooks.stripe.com  3DS redirect-return host
-  //
-  // NOT allowed (intentionally blocked):
-  //   controller-with-preconnect-*  ← the cause of the top-level navigation
+  //   m.stripe.network  named so a blocked frame cannot trigger the fallback;
+  //                     it is not requested at all with fraud signals off
   if ((request.headers.get("user-agent") || "").includes("Capacitor")) {
     supabaseResponse.headers.set(
       "Content-Security-Policy",
-      "frame-src 'self'" +
-      " https://js.stripe.com/v3/elements-*" +
-      " https://js.stripe.com/v3/payment-request-*" +
-      " https://js.stripe.com/v3/three-ds-*" +
-      " https://js.stripe.com/v3/link-*" +
-      " https://hooks.stripe.com",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://m.stripe.network",
     )
   }
 

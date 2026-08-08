@@ -33,15 +33,27 @@ const config: CapacitorConfig = {
     // as a safety net. Without this, the default WKWebView UA is a plain
     // Safari-like string with no way to distinguish native from browser.
     appendUserAgent: 'Capacitor',
-    // js.stripe.com  — must be listed so that IF the controller somehow escapes
-    //   the three-layer guard (advancedFraudSignals: false + CSP frame-src +
-    //   stripe-nav-guard.ts), any navigation stays INSIDE the WKWebView rather
-    //   than ejecting to the system Safari browser.  The primary fix is the CSP
-    //   middleware (middleware.ts) which blocks the controller iframe at the
-    //   browser-engine level before any JS runs.
-    // hooks.stripe.com — needed for 3DS bank-auth redirect pages so they stay
-    //   in-app rather than opening the system Safari browser.
-    allowNavigation: ['js.stripe.com', 'hooks.stripe.com'],
+    // The last line of defence, and only that.
+    //
+    // A host listed here is one WKWebView will navigate to IN PLACE instead of
+    // handing to the system browser. It does not stop a navigation — it stops
+    // the navigation from ejecting the buyer out of the app mid-purchase.
+    //
+    // The actual fix for Stripe lives in the web layer, where it can ship
+    // without an App Store release: advancedFraudSignals is switched off in
+    // lib/stripe-client.ts so the frame that triggers the page-level handoff is
+    // never requested, and proxy.ts serves a frame-src that ALLOWS Stripe's
+    // frames — an earlier version blocked them, which is what made Stripe.js
+    // reach for the handoff in the first place.
+    //
+    //   js.stripe.com    Elements, the controller, Link, 3DS challenge frames
+    //   hooks.stripe.com 3DS bank-auth redirect-return host
+    //   m.stripe.network the fraud host; listed so that if it is ever reached
+    //                    it stays in-app rather than opening Safari
+    //
+    // NOTE: changes here need `npx cap sync` and a native rebuild to take
+    // effect. The web-layer fixes do not.
+    allowNavigation: ['js.stripe.com', 'hooks.stripe.com', 'm.stripe.network'],
   },
   ios: {
     contentInset: 'never',

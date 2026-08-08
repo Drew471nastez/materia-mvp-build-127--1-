@@ -2933,18 +2933,49 @@ check(
       })(),
     )
     check(
-      "the fraud frame is blocked as well as disabled",
-      // The guard matched "controller" only, so m-outer walked through all
-      // four of its layers untouched.
-      /\(controller\|m-outer\)/.test(guard),
+      "no Stripe iframe is blocked, by anything",
+      (() => {
+        const g = stripComments(guard)
+        const csp = stripComments(read("proxy.ts"))
+        // BLOCKING A FRAME IS WHAT CAUSES THE EJECTION. Stripe.js needs the
+        // controller frame to hold its shared state; deny it and the page-level
+        // handoff — js.stripe.com/v3/m-outer-<hash>.html#url=… — is what it
+        // reaches for. The guard and the CSP were each producing the navigation
+        // they existed to prevent.
+        const noFrameBlocking =
+          !/HTMLIFrameElement/.test(g) && !/MutationObserver/.test(g) && !/createElement/.test(g)
+        const cspAllowsStripe = /frame-src 'self' https:\/\/js\.stripe\.com/.test(csp)
+        return noFrameBlocking && cspAllowsStripe
+      })(),
     )
     check(
-      "the frames that ARE the payment form are never blocked",
+      "the CSP does not try to wildcard a path",
       (() => {
-        const re = /const CONTROLLER_IFRAME_RE = (.+)/.exec(stripComments(guard))?.[1] ?? ""
-        // elements-inner-* is the card input itself; blocking it means a
-        // checkout with no card fields in it.
-        return !/elements|link-|payment-element/.test(re)
+        const csp = stripComments(read("proxy.ts"))
+        const header = /"Content-Security-Policy",\s*\n?\s*"([^"]+)"/.exec(csp)?.[1] ?? ""
+        // A `*` in the PATH of a CSP source is not a wildcard — CSP wildcards
+        // the HOST only. In a path it is an ordinary character, and the match
+        // is exact unless the source ends in "/". So
+        // `https://js.stripe.com/v3/elements-*` permitted exactly one URL: a
+        // file literally named "elements-*". It allowed nothing, and the card
+        // fields are elements-inner-card-* frames, so they were blocked too.
+        return header.length > 0 && !/\/v3\/[a-z-]*\*/.test(header)
+      })(),
+    )
+    check(
+      "top-level navigation to Stripe is still refused",
+      (() => {
+        const g = stripComments(guard)
+        // The one thing worth stopping: something taking the WHOLE PAGE to
+        // Stripe. window.open returns a fake window rather than null, because
+        // null reads as "popup blocked" and popup-blocked is a state Stripe
+        // answers with a top-level redirect.
+        return (
+          /window\.location\.assign/.test(g) &&
+          /window\.location\.replace/.test(g) &&
+          /isStripeTopLevelNav/.test(g) &&
+          /opener: window/.test(g)
+        )
       })(),
     )
     check(
