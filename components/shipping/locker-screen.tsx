@@ -47,6 +47,14 @@ import { formatDistance } from "@/lib/geo"
 const DEBOUNCE_MS = 300
 const MIN_QUERY = 2
 
+/** The rectangle currently on screen. */
+interface Bounds {
+  minLat: number
+  minLng: number
+  maxLat: number
+  maxLng: number
+}
+
 export function LockerScreen({
   open,
   onClose,
@@ -75,6 +83,11 @@ export function LockerScreen({
   const geo = useGeolocation()
   const seq = useRef(0)
   const abort = useRef<AbortController | null>(null)
+  /** Whether the server had more than it was willing to send. */
+  const [truncated, setTruncated] = useState(false)
+  /** The rectangle the map is showing. Null until it first settles. */
+  const [bounds, setBounds] = useState<Bounds | null>(null)
+  const cache = useRef(new Map<string, { items: LockerOption[]; truncated: boolean }>())
 
   // Reopening restores the previous choice and centres on it, rather than
   // dropping someone back at a default view having forgotten what they picked.
@@ -85,9 +98,27 @@ export function LockerScreen({
   const near = geo.state.status === "ready" ? geo.state.coords : null
 
   const search = useCallback(
-    async (q: string, coords: { lat: number; lng: number } | null) => {
-      if (!coords && q.trim().length < MIN_QUERY) {
+    async (
+      q: string,
+      coords: { lat: number; lng: number } | null,
+      box: Bounds | null,
+    ) => {
+      if (!coords && !box && q.trim().length < MIN_QUERY) {
         setItems(null)
+        setLoading(false)
+        return
+      }
+
+      // Panning back over somewhere already fetched should cost nothing. The
+      // key includes the query and carrier, so a text search is not served the
+      // results of a blank one.
+      const cacheKey = `${q.trim()}|${carrierId ?? ""}|${dropOffOnly}|${
+        box ? `${box.minLat.toFixed(3)},${box.minLng.toFixed(3)},${box.maxLat.toFixed(3)},${box.maxLng.toFixed(3)}` : ""
+      }|${coords ? `${coords.lat.toFixed(3)},${coords.lng.toFixed(3)}` : ""}`
+      const hit = cache.current.get(cacheKey)
+      if (hit) {
+        setItems(hit.items)
+        setTruncated(hit.truncated)
         setLoading(false)
         return
       }
@@ -107,6 +138,9 @@ export function LockerScreen({
           params.set("lat", String(coords.lat))
           params.set("lng", String(coords.lng))
         }
+        if (box) {
+          params.set("bbox", `${box.minLat},${box.minLng},${box.maxLat},${box.maxLng}`)
+        }
         if (carrierId) params.set("carrier", String(carrierId))
         if (dropOffOnly) params.set("dropOff", "1")
         const res = await fetch(`/api/shipping/lockers?${params}`, { signal: controller.signal })
@@ -116,7 +150,16 @@ export function LockerScreen({
           setError("Nu am putut încărca easybox-urile.")
           setItems([])
         } else {
-          setItems(data.items ?? [])
+          const next = (data.items ?? []) as LockerOption[]
+          setItems(next)
+          setTruncated(Boolean(data.truncated))
+          cache.current.set(cacheKey, { items: next, truncated: Boolean(data.truncated) })
+          // A handful of viewports is plenty; without a bound this grows for as
+          // long as somebody keeps panning.
+          if (cache.current.size > 40) {
+            const oldest = cache.current.keys().next().value
+            if (oldest) cache.current.delete(oldest)
+          }
         }
       } catch (e) {
         // An aborted request is not a failure; it is the newer one doing its job.
@@ -133,9 +176,12 @@ export function LockerScreen({
 
   useEffect(() => {
     if (!open) return
-    const t = setTimeout(() => void search(query, near), DEBOUNCE_MS)
+    // Typing REPLACES the viewport query: someone searching "Cluj" wants Cluj,
+    // not the lockers currently on screen that happen to match the word.
+    const box = query.trim().length >= MIN_QUERY ? null : bounds
+    const t = setTimeout(() => void search(query, near, box), DEBOUNCE_MS)
     return () => clearTimeout(t)
-  }, [open, query, near, search])
+  }, [open, query, near, bounds, search])
 
   // A full-screen map behind a scrolling page is the classic way to end up
   // dragging the map and the page at once. The body is frozen while this is up.
@@ -180,6 +226,30 @@ export function LockerScreen({
       if (window.history.state?.lockerScreen) window.history.back()
     }
   }, [open, onClose])
+
+  /**
+   * Stable identity, so passing this to the map does not re-run the map's own
+   * bounds effect on every render of this screen — which would be an infinite
+   * fetch loop rather than a slow one.
+   *
+   * Ignores movements smaller than a fifth of the current view: a settle that
+   * barely moved is the same neighbourhood, and refetching it would turn every
+   * nudge into a request.
+   */
+  const onBoundsChange = useCallback((b: Bounds) => {
+    setBounds((prev) => {
+      if (!prev) return b
+      const spanLat = Math.abs(prev.maxLat - prev.minLat)
+      const spanLng = Math.abs(prev.maxLng - prev.minLng)
+      const movedEnough =
+        Math.abs(b.minLat - prev.minLat) > spanLat / 5 ||
+        Math.abs(b.minLng - prev.minLng) > spanLng / 5 ||
+        // A zoom changes the span without moving the corner much, and must
+        // always refetch — that is exactly when new lockers become relevant.
+        Math.abs(Math.abs(b.maxLat - b.minLat) - spanLat) > spanLat / 10
+      return movedEnough ? b : prev
+    })
+  }, [])
 
   const commit = (l: LockerOption) => {
     onSelect(l)
@@ -243,6 +313,13 @@ export function LockerScreen({
           </button>
         </div>
         <LocationPrompt state={geo.state} onAllow={geo.prime} />
+        {/* Said out loud. A silently capped list is exactly what made the map
+            look like it was losing lockers. */}
+        {truncated && (
+          <p className="mt-1.5 text-[12px] text-neutral-500">
+            Se afișează cele mai apropiate {list.length}. Apropie harta pentru a le vedea pe toate.
+          </p>
+        )}
       </header>
 
       {/* ── Body: map full-bleed on mobile, list beside it on desktop ──────── */}
@@ -275,6 +352,7 @@ export function LockerScreen({
               onSelect={setFocused}
               origin={near}
               fill
+              onBoundsChange={onBoundsChange}
             />
           ) : (
             <div className="flex h-full items-center justify-center px-8 text-center">

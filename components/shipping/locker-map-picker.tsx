@@ -54,6 +54,7 @@ export function LockerMapPicker({
   origin,
   height = 340,
   fill = false,
+  onBoundsChange,
 }: {
   lockers: LockerOption[]
   value: LockerOption | null
@@ -65,6 +66,13 @@ export function LockerMapPicker({
    *  picker, where the container decides and the map must follow it through
    *  address-bar changes and orientation flips. */
   fill?: boolean
+  /**
+   * The rectangle now on screen, reported after the map SETTLES — never during
+   * a drag. Panning fires no React state at all, so this is the only signal the
+   * parent gets, and it is the one that lets it fetch the lockers for wherever
+   * the map has arrived.
+   */
+  onBoundsChange?: (b: { minLat: number; minLng: number; maxLat: number; maxLng: number }) => void
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
   /** The pannable layer. Moved imperatively during a drag so React stays out
@@ -187,6 +195,33 @@ export function LockerMapPicker({
     const el = layerRef.current
     if (el) el.style.transform = "translate3d(0px, 0px, 0px)"
   }, [centre, zoom])
+
+  /**
+   * Tell the parent what is on screen, once the map has stopped moving.
+   *
+   * Keyed off `centre` and `zoom`, which only change when a gesture COMMITS —
+   * so this is the equivalent of a map library's "moveend", not "move". A pan
+   * of a hundred frames produces exactly one call.
+   */
+  useEffect(() => {
+    if (!onBoundsChange || !centre || !size.width) return
+    const topLeft = unproject(
+      { x: project(centre, zoom).x - size.width / 2, y: project(centre, zoom).y - size.height / 2 },
+      zoom,
+    )
+    const bottomRight = unproject(
+      { x: project(centre, zoom).x + size.width / 2, y: project(centre, zoom).y + size.height / 2 },
+      zoom,
+    )
+    onBoundsChange({
+      // Latitude runs the other way to y, so the top-left corner is the MAXIMUM
+      // latitude. Getting this backwards yields an empty rectangle every time.
+      minLat: bottomRight.lat,
+      maxLat: topLeft.lat,
+      minLng: topLeft.lng,
+      maxLng: bottomRight.lng,
+    })
+  }, [centre, zoom, size.width, size.height, onBoundsChange])
 
   /** Where a pointer is, relative to the map's own top-left. */
   const localPoint = (e: React.PointerEvent | React.WheelEvent) => {

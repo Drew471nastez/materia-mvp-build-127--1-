@@ -38,8 +38,27 @@ export const dynamic = "force-dynamic"
 /** Lockers move rarely. An hour is far below how often the list changes and
  *  far above how often a checkout page asks. */
 const TTL_MS = 60 * 60 * 1000
-/** Enough to choose from; small enough to render and to send. */
+/**
+ * Enough to choose from; small enough to render and to send.
+ *
+ * THIS CAP WAS THE "INVISIBLE LOCKERS" BUG. Bucharest county has 2,276 active
+ * lockers and a text search returned sixty of them, so the map drew sixty and
+ * the rest simply did not exist as far as the browser was concerned. It looked
+ * like a rendering fault and was a truncation.
+ */
 const MAX_RESULTS = 60
+
+/**
+ * The cap when the caller asks for a specific rectangle of the world.
+ *
+ * Higher, because a viewport query is already bounded by geography — at street
+ * zoom a city block holds a handful of lockers, and the only way to reach this
+ * number is to zoom out far enough that clustering is doing the work anyway.
+ *
+ * Not unlimited: 2,276 normalised lockers is roughly half a megabyte, which is
+ * not a thing to send to a phone on mobile data because someone panned.
+ */
+const MAX_IN_BOUNDS = 400
 
 let cache: { at: number; country: string; items: EawbLocker[] } | null = null
 
@@ -122,10 +141,43 @@ export async function GET(req: NextRequest) {
     const lng = Number(url.searchParams.get("lng"))
     const origin = isUsableCoord({ lat, lng }) ? { lat, lng } : null
 
+    /**
+     * The rectangle the map is currently showing: "minLat,minLng,maxLat,maxLng".
+     *
+     * When present it REPLACES the result cap with a geographic one, which is
+     * what makes every locker in view actually reach the browser. Panning
+     * somewhere else fetches that somewhere else, so the total sent stays
+     * bounded no matter how many lockers the country has.
+     */
+    const bboxParam = url.searchParams.get("bbox") ?? ""
+    const bboxParts = bboxParam.split(",").map(Number)
+    const bbox =
+      bboxParts.length === 4 && bboxParts.every((n) => Number.isFinite(n))
+        ? {
+            // Sorted rather than trusted, so a caller that sends the corners in
+            // the other order gets its lockers instead of an empty rectangle.
+            minLat: Math.min(bboxParts[0], bboxParts[2]),
+            maxLat: Math.max(bboxParts[0], bboxParts[2]),
+            minLng: Math.min(bboxParts[1], bboxParts[3]),
+            maxLng: Math.max(bboxParts[1], bboxParts[3]),
+          }
+        : null
+
     const matched = all
       .filter((l) => l.is_active !== false)
       .filter((l) => (dropOffOnly ? l.allows_drop_off !== false : true))
       .filter((l) => (carrier > 0 ? l.carrier_id === carrier : true))
+      // Inside the visible rectangle, when one was given. Applied before the
+      // text filters so a query narrows what is on screen rather than searching
+      // the whole country and then discarding most of it.
+      .filter((l) => {
+        if (!bbox) return true
+        const c = l.coordinates
+        if (!c) return false
+        const la = Number(c.lat)
+        const ln = Number(c.long)
+        return la >= bbox.minLat && la <= bbox.maxLat && ln >= bbox.minLng && ln <= bbox.maxLng
+      })
       // Locality OR county, because Bucharest's lockers are filed under
       // "Sector 1".."Sector 6" with county "Bucuresti" — matching locality
       // alone finds 47 of roughly 2,600.
@@ -167,8 +219,14 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    const cap = bbox ? MAX_IN_BOUNDS : MAX_RESULTS
+    // Said out loud rather than hidden: the client shows "zoom in to see the
+    // rest" instead of silently drawing a subset, which is exactly how the
+    // sixty-locker cap read as a broken map.
+    const truncated = withDistance.length > cap
+
     const items = withDistance
-      .slice(0, MAX_RESULTS)
+      .slice(0, cap)
       // Only what a chooser needs. The full schedule is large and nobody is
       // rendering opening hours yet; sending it would multiply the response
       // size for no visible difference. Coordinates ARE included — they are
@@ -197,7 +255,7 @@ export async function GET(req: NextRequest) {
       .filter((x): x is NonNullable<typeof x> => x !== null)
 
     return NextResponse.json(
-      { ok: true, total: items.length, items },
+      { ok: true, total: items.length, matched: withDistance.length, truncated, items },
       // A buyer's browser may cache this too — the data is public and slow.
       { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=3600" } },
     )

@@ -1176,7 +1176,7 @@ check(
     "distance sorting happens before the result cap",
     (() => {
       const r = stripComments(lockersRoute)
-      return r.indexOf("withDistance.sort") < r.indexOf(".slice(0, MAX_RESULTS)")
+      return r.indexOf("withDistance.sort") < r.indexOf(".slice(0, cap)")
     })(),
     "        Otherwise 'nearest 60' means nearest of an arbitrary first 60.",
   )
@@ -2211,6 +2211,51 @@ check(
     /focusedId=\{focused\?\.id \?\? null\}/.test(screen) && /value=\{focused\}/.test(screen),
   )
   check(
+    "the map reports its bounds only after it settles",
+    (() => {
+      // Panning fires no React state, so `centre`/`zoom` change only when a
+      // gesture commits. That makes this the equivalent of a map library's
+      // moveend — a hundred-frame pan produces one call, not a hundred.
+      const m = stripComments(read("components/shipping/locker-map-picker.tsx"))
+      const i = m.indexOf("onBoundsChange({")
+      return i > -1 && /\}, \[centre, zoom, size\.width, size\.height, onBoundsChange\]\)/.test(m)
+    })(),
+  )
+  check(
+    "the top-left corner is the MAXIMUM latitude",
+    /maxLat: topLeft\.lat/.test(read("components/shipping/locker-map-picker.tsx")),
+    "        Latitude runs opposite to y. Getting it backwards yields an empty\n" +
+      "        rectangle every single time.",
+  )
+  check(
+    "a tiny map movement does not refetch",
+    /movedEnough/.test(screen) && /spanLat \/ 5/.test(screen),
+  )
+  check(
+    "a zoom always refetches, even when the corner barely moved",
+    /Math\.abs\(b\.maxLat - b\.minLat\) - spanLat\) > spanLat \/ 10/.test(screen),
+    "        Zooming is exactly when new lockers become relevant.",
+  )
+  check(
+    "panning back somewhere already seen costs nothing",
+    /cache\.current\.get\(cacheKey\)/.test(screen) && /cache\.current\.set\(cacheKey/.test(screen),
+  )
+  check(
+    "the viewport cache is bounded",
+    /cache\.current\.size > \d+/.test(screen),
+    "        Without a bound it grows for as long as somebody keeps panning.",
+  )
+  check(
+    "typing replaces the viewport query rather than intersecting it",
+    /query\.trim\(\)\.length >= MIN_QUERY \? null : bounds/.test(screen),
+    "        Someone searching 'Cluj' wants Cluj, not the lockers currently on\n" +
+      "        screen that happen to match the word.",
+  )
+  check(
+    "a truncated result says so",
+    /Apropie harta pentru a le vedea pe toate/.test(screen),
+  )
+  check(
     "the checkout row summarises the choice and offers Change",
     (() => {
       const c = read("components/shipping/delivery-choice.tsx")
@@ -2327,8 +2372,38 @@ check(
   /normalize\("NFD"\)/.test(lockersRoute),
 )
 check(
-  "the locker response is capped",
-  /MAX_RESULTS/.test(lockersRoute) && /\.slice\(0, MAX_RESULTS\)/.test(lockersRoute),
+  "the locker response is capped, and says when it capped",
+  // The cap is now geographic when a viewport is given and a count otherwise.
+  // Either way it is bounded — 2,276 normalised lockers is half a megabyte,
+  // which is not a thing to send to a phone because somebody panned.
+  /const MAX_RESULTS = \d+/.test(lockersRoute) &&
+    /const MAX_IN_BOUNDS = \d+/.test(lockersRoute) &&
+    /\.slice\(0, cap\)/.test(lockersRoute) &&
+    /truncated/.test(lockersRoute),
+)
+check(
+  "a viewport query is allowed more results than a blind one",
+  (() => {
+    const blind = Number(lockersRoute.match(/const MAX_RESULTS = (\d+)/)?.[1] ?? 0)
+    const bounded = Number(lockersRoute.match(/const MAX_IN_BOUNDS = (\d+)/)?.[1] ?? 0)
+    return blind > 0 && bounded > blind
+  })(),
+  "        A viewport is already bounded by geography, so the count cap can be\n" +
+    "        looser without the response growing without limit.",
+)
+check(
+  "lockers are filtered to the visible rectangle when one is given",
+  /const bboxParam = url\.searchParams\.get\("bbox"\)/.test(lockersRoute) &&
+    /la >= bbox\.minLat && la <= bbox\.maxLat/.test(lockersRoute),
+  "        THE FIX FOR 'SOME LOCKERS ARE INVISIBLE'. Bucharest has 2,276 active\n" +
+    "        lockers and the response returned 60, so 2,216 never reached the\n" +
+    "        browser. It looked like a rendering fault and was a truncation.",
+)
+check(
+  "the bounding box is sorted rather than trusted",
+  /Math\.min\(bboxParts\[0\], bboxParts\[2\]\)/.test(lockersRoute),
+  "        Corners in the other order would otherwise yield an empty rectangle\n" +
+    "        and an empty map.",
 )
 check(
   "the locker response carries no account or order data",
