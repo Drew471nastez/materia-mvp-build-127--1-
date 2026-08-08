@@ -1110,6 +1110,52 @@ check(
     /permissions\s*\n?\s*\?\.query\(\{ name: "geolocation"/.test(geoHook),
   )
   check(
+    "a request that never answers cannot hang the UI forever",
+    (() => {
+      // A REAL BUG, seen on the iOS app: the button sat on "Se caută…" until
+      // the page was reloaded. PositionOptions.timeout only bounds ACQUIRING a
+      // fix once permission exists — it does not bound the permission step, and
+      // a WKWebView with no NSLocationWhenInUseUsageDescription drops the
+      // request entirely: no success callback, no error callback, ever.
+      const s = stripComments(geoHook)
+      return (
+        /const WATCHDOG_MS/.test(geoHook) &&
+        /setTimeout\(\(\) => \{/.test(s) &&
+        /clearTimeout\(watchdog\)/.test(s)
+      )
+    })(),
+  )
+  check(
+    "the watchdog outlives the API's own timeout, so the specific error wins",
+    (() => {
+      const t = Number(geoHook.match(/const TIMEOUT_MS = ([\d_]+)/)?.[1].replace(/_/g, "") ?? 0)
+      const w = Number(geoHook.match(/const WATCHDOG_MS = ([\d_]+)/)?.[1].replace(/_/g, "") ?? 0)
+      return t > 0 && w > t
+    })(),
+    "        A genuine slow fix should get to report its own, more useful,\n" +
+      "        error before the generic one fires.",
+  )
+  check(
+    "only the first outcome is applied",
+    /if \(settled\) return\s*\n?\s*settled = true/.test(stripComments(geoHook)),
+    "        A late callback arriving after the watchdog would otherwise flip\n" +
+      "        the UI back out of the state it had just settled into.",
+  )
+  check(
+    "a WebView that throws synchronously does not leave the spinner running",
+    /\} catch \{\s*\n?\s*settle\(\{ status: "unavailable" \}\)/.test(stripComments(geoHook)),
+  )
+  check(
+    "the native app is told the app itself needs updating",
+    /isNativeApp\(\)[\s\S]{0,120}?App Store/.test(geoHook),
+    "        Info.plist is compiled into the binary, so a web deploy cannot fix\n" +
+      "        it and telling someone to check their settings would be wrong.",
+  )
+  check(
+    "a failed attempt can be retried",
+    /Încearcă din nou/.test(read("components/shipping/location-prompt.tsx")),
+  )
+  check(
     "a denied or unavailable permission never leaves a dead button on screen",
     (() => {
       // The bare button moved into LocationPrompt, which returns early for

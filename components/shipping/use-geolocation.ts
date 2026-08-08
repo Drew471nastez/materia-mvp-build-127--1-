@@ -56,6 +56,22 @@ const TIMEOUT_MS = 10_000
 /** A minute-old fix is fine for "which locker is nearest". */
 const MAX_AGE_MS = 60_000
 
+/**
+ * OUR OWN deadline, because the API's is not one.
+ *
+ * `PositionOptions.timeout` only bounds how long the device may spend ACQUIRING
+ * a fix once permission exists. It does not bound the permission step, and — as
+ * observed on the iOS app — a WKWebView with no `NSLocationWhenInUseUsageDescription`
+ * in Info.plist drops the request entirely: no success callback, no error
+ * callback, nothing, forever. The button sat on "Se caută…" until the page was
+ * reloaded.
+ *
+ * So a timer runs alongside the request and settles the state if neither
+ * callback has arrived. Slightly longer than TIMEOUT_MS so a genuine slow fix
+ * still gets to report its own, more specific, error first.
+ */
+const WATCHDOG_MS = 13_000
+
 export function useGeolocation() {
   const [state, setState] = useState<GeoState>({ status: "idle" })
 
@@ -90,17 +106,45 @@ export function useGeolocation() {
       return
     }
     setState({ status: "locating" })
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setState({ status: "ready", coords: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
-      (err) => {
-        // PERMISSION_DENIED = 1. Distinguished from a timeout or a device with
-        // no fix, because only one of those is worth offering a retry for.
-        if (err.code === err.PERMISSION_DENIED) setState({ status: "denied" })
-        else if (err.code === err.POSITION_UNAVAILABLE) setState({ status: "unavailable" })
-        else setState({ status: "error", message: "Nu am putut afla locația." })
-      },
-      { enableHighAccuracy: false, timeout: TIMEOUT_MS, maximumAge: MAX_AGE_MS },
-    )
+
+    // Whichever of the three outcomes lands first wins, and the other two are
+    // ignored. Without this, a late callback arriving after the watchdog would
+    // flip the UI back out of the state it had just settled into.
+    let settled = false
+    const settle = (next: GeoState) => {
+      if (settled) return
+      settled = true
+      clearTimeout(watchdog)
+      setState(next)
+    }
+
+    const watchdog = setTimeout(() => {
+      settle({
+        status: "error",
+        message: isNativeApp()
+          ? "Locația nu răspunde. Aplicația trebuie actualizată din App Store."
+          : "Locația nu răspunde.",
+      })
+    }, WATCHDOG_MS)
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => settle({ status: "ready", coords: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
+        (err) => {
+          // PERMISSION_DENIED = 1. Distinguished from a timeout or a device with
+          // no fix, because only one of those is worth offering a retry for.
+          if (err.code === err.PERMISSION_DENIED) settle({ status: "denied" })
+          else if (err.code === err.POSITION_UNAVAILABLE) settle({ status: "unavailable" })
+          else settle({ status: "error", message: "Nu am putut afla locația." })
+        },
+        { enableHighAccuracy: false, timeout: TIMEOUT_MS, maximumAge: MAX_AGE_MS },
+      )
+    } catch {
+      // Some WebViews throw synchronously rather than calling the error
+      // callback. Without this the watchdog would be the only thing that ever
+      // ended the spinner, thirteen seconds later.
+      settle({ status: "unavailable" })
+    }
   }, [])
 
   return { state, prime }

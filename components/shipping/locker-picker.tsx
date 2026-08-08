@@ -159,9 +159,6 @@ export function LockerPicker({
           Sortate după distanța față de tine
         </p>
       )}
-      {geo.state.status === "error" && (
-        <p className="mt-2.5 text-[12.5px] text-neutral-500">{geo.state.message} Caută după oraș.</p>
-      )}
 
       {value && (
         <>

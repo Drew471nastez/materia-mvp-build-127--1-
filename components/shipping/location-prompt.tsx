@@ -71,23 +71,41 @@ export function LocationPrompt({
     setDismissed(dismissedThisSession())
   }, [])
 
-  // Nothing to ask for: already answered, already refused, or the platform
-  // cannot do it at all.
-  if (state.status !== "idle" && state.status !== "locating") {
-    // A refusal is worth one line of help, because the fix is not in this app.
-    if (state.status === "denied") {
-      return (
-        <p className="mt-2 text-[12.5px] leading-snug text-neutral-500">
-          Locația este blocată.{" "}
-          {isNativeApp()
-            ? "O poți reactiva din Setări › Storelib › Locație."
-            : "O poți reactiva din setările site-ului, în bara de adrese."}{" "}
-          Sau caută după oraș.
-        </p>
-      )
-    }
-    return null
+  // A refusal is worth one line of help, because the fix is not in this app.
+  // Shown regardless of dismissal — it is the answer to something the buyer
+  // just did, not a request for permission.
+  if (state.status === "denied") {
+    return (
+      <p className="mt-2 text-[12.5px] leading-snug text-neutral-500">
+        Locația este blocată.{" "}
+        {isNativeApp()
+          ? "O poți reactiva din Setări › Storelib › Locație."
+          : "O poți reactiva din setările site-ului, în bara de adrese."}{" "}
+        Sau caută după oraș.
+      </p>
+    )
   }
+
+  // Something went wrong rather than being refused — a timeout, or a WebView
+  // that never answered. Retrying is reasonable, so it is offered, but the
+  // search box above still works and the message says so.
+  if (state.status === "error") {
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <p className="text-[12.5px] leading-snug text-neutral-500">{state.message} Caută după oraș.</p>
+        <button
+          type="button"
+          onClick={onAllow}
+          className="inline-flex h-8 items-center rounded-full border border-neutral-300 px-3 text-[12.5px] font-semibold text-neutral-700"
+        >
+          Încearcă din nou
+        </button>
+      </div>
+    )
+  }
+
+  // Nothing left to ask for: answered, or the platform cannot do it at all.
+  if (state.status !== "idle" && state.status !== "locating") return null
   if (dismissed) return null
 
   const dismiss = () => {
