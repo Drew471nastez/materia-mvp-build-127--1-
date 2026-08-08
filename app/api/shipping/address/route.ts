@@ -2,7 +2,13 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { requireVerifiedUser } from "@/lib/auth/current-user"
 import { autoAwbEnabled, createAwbForOrder } from "@/lib/shipping/create-awb"
-import { normalisePhone, resolveLocker } from "@/lib/shipping/preference"
+import {
+  normalisePhone,
+  resolveLocker,
+  validateHomeAddress,
+  type DeliveryMode,
+  type HomeAddressInput,
+} from "@/lib/shipping/preference"
 import { isMissingShippingSchema, resolveOrderParty } from "@/lib/shipping/order-access"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -54,7 +60,14 @@ export async function POST(req: NextRequest) {
   const userId = await requireVerifiedUser(supabase)
   if (!userId) return NextResponse.json({ ok: false, code: "auth_required" }, { status: 401 })
 
-  let body: { orderId?: string; lockerId?: number | string; contact?: string; phone?: string } = {}
+  let body: {
+    orderId?: string
+    mode?: string
+    lockerId?: number | string
+    address?: HomeAddressInput
+    contact?: string
+    phone?: string
+  } = {}
   try {
     body = await req.json()
   } catch {
@@ -66,8 +79,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "bad_order_id" }, { status: 400 })
   }
 
+  const mode: DeliveryMode = body.mode === "home" ? "home" : "locker"
+
   const lockerId = Number(body.lockerId)
-  if (!Number.isInteger(lockerId) || lockerId <= 0) {
+  if (mode === "locker" && (!Number.isInteger(lockerId) || lockerId <= 0)) {
     return NextResponse.json({ ok: false, code: "bad_locker" }, { status: 400 })
   }
 
@@ -111,20 +126,42 @@ export async function POST(req: NextRequest) {
   // The locker's real address, resolved server-side from the id — and the
   // one-network rule enforced. Shared with the pre-payment step so the two
   // places a buyer can choose a locker cannot validate it differently.
-  const resolvedLocker = await resolveLocker(lockerId)
-  if (!resolvedLocker.ok) {
-    const message =
-      resolvedLocker.code === "wrong_carrier"
-        ? "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă."
-        : resolvedLocker.code === "provider_unavailable"
-          ? "Nu am putut verifica easybox-ul. Încearcă din nou."
-          : "Easybox necunoscut."
-    return NextResponse.json(
-      { ok: false, code: resolvedLocker.code, message },
-      { status: resolvedLocker.code === "provider_unavailable" ? 503 : 400 },
-    )
+  // Locker or front door. Both resolve to the same shape, validated by the same
+  // functions the pre-payment step uses — two validators for one thing would
+  // eventually disagree about what a deliverable address is.
+  let p
+  let lockerName: string | null = null
+  let lockerAddress: string | null = null
+  let lockerCarrier: string | null = null
+
+  if (mode === "home") {
+    const home = validateHomeAddress(body.address ?? {})
+    if (!home.ok) {
+      return NextResponse.json(
+        { ok: false, code: "bad_address", field: home.field, message: home.message },
+        { status: 400 },
+      )
+    }
+    p = home.pref
+  } else {
+    const resolvedLocker = await resolveLocker(lockerId)
+    if (!resolvedLocker.ok) {
+      const message =
+        resolvedLocker.code === "wrong_carrier"
+          ? "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă."
+          : resolvedLocker.code === "provider_unavailable"
+            ? "Nu am putut verifica easybox-ul. Încearcă din nou."
+            : "Easybox necunoscut."
+      return NextResponse.json(
+        { ok: false, code: resolvedLocker.code, message },
+        { status: resolvedLocker.code === "provider_unavailable" ? 503 : 400 },
+      )
+    }
+    p = resolvedLocker.pref
+    lockerName = resolvedLocker.name
+    lockerAddress = resolvedLocker.address
+    lockerCarrier = resolvedLocker.carrier
   }
-  const p = resolvedLocker.pref
 
   const admin = createAdminClient()
   const { error } = await admin
@@ -138,7 +175,9 @@ export async function POST(req: NextRequest) {
       ship_street: p.street,
       ship_street_no: p.streetNo,
       ship_details: p.details,
+      ship_postal_code: p.postalCode,
       ship_fixed_location_id: p.lockerId,
+      ship_mode: p.mode,
       // Recorded so booking uses the network this locker is actually on,
       // rather than a platform-wide default that may have moved on since.
       shipping_carrier_id: p.carrierId,
@@ -190,13 +229,21 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     awbCreated,
-    locker: {
-      id: lockerId,
-      name: resolvedLocker.name,
-      address: resolvedLocker.address,
-      locality: p.locality,
-      county: p.county,
-      carrier: resolvedLocker.carrier,
-    },
+    mode: p.mode,
+    locker:
+      p.mode === "locker"
+        ? {
+            id: p.lockerId,
+            name: lockerName,
+            address: lockerAddress,
+            locality: p.locality,
+            county: p.county,
+            carrier: lockerCarrier,
+          }
+        : null,
+    address:
+      p.mode === "home"
+        ? { street: p.street, streetNo: p.streetNo, locality: p.locality, county: p.county }
+        : null,
   })
 }

@@ -31,8 +31,13 @@ alter table public.orders
   add column if not exists ship_details      text,
   add column if not exists ship_postal_code  text,
   -- Locker deliveries: the courier's pickup-point id, when the buyer chose one
-  -- instead of a street. Mutually exclusive with the street fields in practice.
-  add column if not exists ship_fixed_location_id integer;
+  -- instead of a street.
+  add column if not exists ship_fixed_location_id integer,
+  -- 'locker' | 'home'. The presence of THIS, not of the locker id, is what
+  -- means "a delivery address has been chosen" — a home delivery legitimately
+  -- has no locker id, so testing that column would report every home order as
+  -- still needing an address, forever.
+  add column if not exists ship_mode text;
 
 -- ── What the courier gave back ─────────────────────────────────────────────
 alter table public.orders
@@ -120,6 +125,41 @@ create table if not exists public.buyer_shipping_prefs (
   -- A buyer has one current delivery point, not a history.
   constraint buyer_shipping_prefs_identified check (user_id is not null or email is not null)
 );
+
+-- Home delivery as well as lockers. Written as ALTERs rather than folded into
+-- the CREATE above so that a database where this file has ALREADY been run
+-- picks the changes up too — `create table if not exists` would skip them
+-- silently and leave the newer code querying columns that do not exist.
+alter table public.buyer_shipping_prefs
+  -- 'locker' → the parcel goes to a fixed location; 'home' → to a street
+  -- address. Which one decides the courier SERVICE: the seller always drops off
+  -- at a locker, so it is locker→locker (4) or locker→door (3).
+  add column if not exists mode text not null default 'locker',
+  add column if not exists postal_code text;
+
+-- Home delivery has no locker id, so the column cannot stay NOT NULL. Guarded
+-- because re-running this after the change would otherwise error.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'buyer_shipping_prefs'
+       and column_name = 'locker_id' and is_nullable = 'NO'
+  ) then
+    alter table public.buyer_shipping_prefs alter column locker_id drop not null;
+  end if;
+end $$;
+
+-- Each mode has its own required fields. A row that claims to be a locker
+-- delivery without a locker, or a home delivery without a street, is not a
+-- delivery address at all — and it would fail at the courier, after payment.
+alter table public.buyer_shipping_prefs
+  drop constraint if exists buyer_shipping_prefs_mode_complete;
+alter table public.buyer_shipping_prefs
+  add constraint buyer_shipping_prefs_mode_complete check (
+    (mode = 'locker' and locker_id is not null)
+    or (mode = 'home' and street is not null and locality is not null and county is not null)
+  );
 
 -- One row per buyer, so saving is an upsert rather than an ever-growing log.
 -- Partial, because the two identities are mutually exclusive in practice.

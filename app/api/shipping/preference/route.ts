@@ -6,6 +6,10 @@ import {
   readPreference,
   resolveLocker,
   savePreference,
+  validateHomeAddress,
+  type DeliveryMode,
+  type HomeAddressInput,
+  type ShippingPreference,
 } from "@/lib/shipping/preference"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -59,15 +63,24 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { lockerId?: number | string; contact?: string; phone?: string; email?: string } = {}
+  let body: {
+    mode?: string
+    lockerId?: number | string
+    address?: HomeAddressInput
+    contact?: string
+    phone?: string
+    email?: string
+  } = {}
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: false, code: "bad_body" }, { status: 400 })
   }
 
+  const mode: DeliveryMode = body.mode === "home" ? "home" : "locker"
+
   const lockerId = Number(body.lockerId)
-  if (!Number.isInteger(lockerId) || lockerId <= 0) {
+  if (mode === "locker" && (!Number.isInteger(lockerId) || lockerId <= 0)) {
     return NextResponse.json({ ok: false, code: "bad_locker" }, { status: 400 })
   }
 
@@ -99,25 +112,38 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const resolved = await resolveLocker(lockerId)
-  if (!resolved.ok) {
-    const message =
-      resolved.code === "wrong_carrier"
-        ? "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă."
-        : resolved.code === "provider_unavailable"
-          ? "Nu am putut verifica easybox-ul. Încearcă din nou."
-          : "Easybox necunoscut."
-    return NextResponse.json(
-      { ok: false, code: resolved.code, message },
-      { status: resolved.code === "provider_unavailable" ? 503 : 400 },
-    )
+  // Two shapes of answer. A locker is an id we resolve; a home address is
+  // fields we validate. Both end as the same ShippingPreference, which is why
+  // everything downstream — saving, attaching to an order, booking — needs no
+  // knowledge of which one the buyer picked.
+  let pref: Omit<ShippingPreference, "contact" | "phone">
+  let locker: { id: number; name: string; address: string; carrier: string } | null = null
+
+  if (mode === "home") {
+    const home = validateHomeAddress(body.address ?? {})
+    if (!home.ok) {
+      return NextResponse.json({ ok: false, code: "bad_address", field: home.field, message: home.message }, { status: 400 })
+    }
+    pref = home.pref
+  } else {
+    const resolved = await resolveLocker(lockerId)
+    if (!resolved.ok) {
+      const message =
+        resolved.code === "wrong_carrier"
+          ? "Acest easybox aparține altui curier. Alege unul din rețeaua disponibilă."
+          : resolved.code === "provider_unavailable"
+            ? "Nu am putut verifica easybox-ul. Încearcă din nou."
+            : "Easybox necunoscut."
+      return NextResponse.json(
+        { ok: false, code: resolved.code, message },
+        { status: resolved.code === "provider_unavailable" ? 503 : 400 },
+      )
+    }
+    pref = resolved.pref
+    locker = { id: lockerId, name: resolved.name, address: resolved.address, carrier: resolved.carrier }
   }
 
-  const saved = await savePreference(
-    createAdminClient(),
-    { userId, email },
-    { ...resolved.pref, contact, phone },
-  )
+  const saved = await savePreference(createAdminClient(), { userId, email }, { ...pref, contact, phone })
   if (!saved.ok) {
     if (saved.notInstalled) {
       // The migration has not been run. Checkout must still work, so this is
@@ -130,13 +156,13 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    locker: {
-      id: lockerId,
-      name: resolved.name,
-      address: resolved.address,
-      carrier: resolved.carrier,
-      locality: resolved.pref.locality,
-      county: resolved.pref.county,
-    },
+    mode: pref.mode,
+    locker: locker
+      ? { ...locker, locality: pref.locality, county: pref.county }
+      : null,
+    address:
+      pref.mode === "home"
+        ? { street: pref.street, streetNo: pref.streetNo, locality: pref.locality, county: pref.county }
+        : null,
   })
 }

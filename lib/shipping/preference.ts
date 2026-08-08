@@ -25,8 +25,19 @@ import { senderCarrierId } from "@/lib/shipping/create-awb"
  * lookup.
  */
 
+/**
+ * Where the parcel goes, and therefore which courier service is used.
+ *
+ * The seller always drops off at a locker, so the buyer's choice decides the
+ * second half: locker→locker (service 4) or locker→door (service 3). Verified
+ * live, Bucharest→Cluj: DPD 13.23 RON to a locker, 15.23 RON to a door.
+ */
+export type DeliveryMode = "locker" | "home"
+
 export interface ShippingPreference {
-  lockerId: number
+  mode: DeliveryMode
+  /** Null for home delivery. */
+  lockerId: number | null
   carrierId: number | null
   contact: string
   phone: string
@@ -35,7 +46,9 @@ export interface ShippingPreference {
   locality: string | null
   street: string | null
   streetNo: string | null
+  /** Flat, block, floor — free text the courier prints. Locker name for lockers. */
   details: string | null
+  postalCode: string | null
 }
 
 /** The buyer, however we can identify them. */
@@ -103,6 +116,7 @@ export async function resolveLocker(
     address,
     carrier: locker.carrier_name || "",
     pref: {
+      mode: "locker",
       lockerId,
       carrierId: Number(locker.carrier_id) || null,
       countryCode: locker.country_code || "RO",
@@ -111,9 +125,70 @@ export async function resolveLocker(
       street,
       streetNo: streetNumber || null,
       details: name || null,
+      postalCode: null,
     },
   }
 }
+
+/** What a home delivery needs before a courier will accept it. */
+export interface HomeAddressInput {
+  county?: string
+  locality?: string
+  street?: string
+  streetNo?: string
+  details?: string
+  postalCode?: string
+}
+
+/**
+ * Validate a typed street address.
+ *
+ * Verified against the live API: the provider resolves a free-text
+ * `locality_name` to its own locality id ("Cluj-Napoca" → 4571), so a typed
+ * town is acceptable and does not need to be chosen from a list. What it will
+ * NOT accept is an empty street number — the same rule the lockers hit — so an
+ * address with no number says FN, *fără număr*, rather than an empty string.
+ *
+ * Deliberately permissive about everything else. A courier that cannot find a
+ * flat number phones the recipient; a checkout that rejects a legitimate
+ * address loses the sale outright, and the two failures are not comparable.
+ */
+export function validateHomeAddress(
+  input: HomeAddressInput,
+): { ok: true; pref: Omit<ShippingPreference, "contact" | "phone"> } | { ok: false; field: string; message: string } {
+  const county = String(input.county ?? "").trim().slice(0, 80)
+  const locality = String(input.locality ?? "").trim().slice(0, 120)
+  const street = String(input.street ?? "").trim().slice(0, 160)
+  const streetNo = String(input.streetNo ?? "").trim().slice(0, 24)
+  const details = String(input.details ?? "").trim().slice(0, 200)
+  const postalCode = String(input.postalCode ?? "").trim().slice(0, 12)
+
+  if (county.length < 2) return { ok: false, field: "county", message: "Alege județul." }
+  if (locality.length < 2) return { ok: false, field: "locality", message: "Completează localitatea." }
+  if (street.length < 3) return { ok: false, field: "street", message: "Completează strada." }
+
+  return {
+    ok: true,
+    pref: {
+      mode: "home",
+      lockerId: null,
+      // Home delivery is not tied to one network — every carrier delivers to a
+      // door — so the carrier is left for the booking step to decide.
+      carrierId: null,
+      countryCode: "RO",
+      county,
+      locality,
+      street,
+      streetNo: streetNo || NO_STREET_NUMBER_FALLBACK,
+      details: details || null,
+      postalCode: postalCode || null,
+    },
+  }
+}
+
+/** Same notation the lockers use, for the same reason: the API rejects an
+ *  empty street_number outright. */
+const NO_STREET_NUMBER_FALLBACK = "FN"
 
 /** Save (or replace) this buyer's delivery point. Upsert, not append — a buyer
  *  has one current address, not a history. */
@@ -127,6 +202,7 @@ export async function savePreference(
     // Email is only the identity for guests; storing it for signed-in buyers
     // too would make the two unique indexes fight over the same person.
     email: who.userId ? null : (who.email ?? null)?.toLowerCase() ?? null,
+    mode: pref.mode,
     locker_id: pref.lockerId,
     carrier_id: pref.carrierId,
     contact: pref.contact,
@@ -137,6 +213,7 @@ export async function savePreference(
     street: pref.street,
     street_no: pref.streetNo,
     details: pref.details,
+    postal_code: pref.postalCode,
     updated_at: new Date().toISOString(),
   }
 
@@ -168,13 +245,17 @@ export async function readPreference(
   try {
     const q = admin
       .from("buyer_shipping_prefs")
-      .select("locker_id, carrier_id, contact, phone, country_code, county, locality, street, street_no, details")
+      .select(
+        "mode, locker_id, carrier_id, contact, phone, country_code, county, locality, street, street_no, details, postal_code",
+      )
       .limit(1)
     const { data, error } = await (who.userId ? q.eq("user_id", who.userId) : q.ilike("email", who.email ?? ""))
     if (error || !data?.length) return null
     const r = data[0] as Record<string, unknown>
     return {
-      lockerId: Number(r.locker_id),
+      mode: r.mode === "home" ? "home" : "locker",
+      lockerId: r.locker_id === null || r.locker_id === undefined ? null : Number(r.locker_id),
+      postalCode: (r.postal_code as string) ?? null,
       carrierId: r.carrier_id === null ? null : Number(r.carrier_id),
       contact: String(r.contact ?? ""),
       phone: String(r.phone ?? ""),
@@ -215,12 +296,19 @@ export async function applyPreferenceToOrder(
       ship_street: pref.street,
       ship_street_no: pref.streetNo,
       ship_details: pref.details,
+      ship_postal_code: pref.postalCode,
+      // Null for home delivery, which is what makes the booking step choose
+      // locker→door (3) instead of locker→locker (4).
       ship_fixed_location_id: pref.lockerId,
+      ship_mode: pref.mode,
       shipping_carrier_id: pref.carrierId,
       shipping_status: "awaiting_shipment",
     })
     .eq("id", orderId)
-    .is("ship_fixed_location_id", null)
+    // Guarded on ship_mode, NOT on the locker id: a home delivery has no
+    // locker, so testing that column would make this re-apply on every poll
+    // and would report every home order as still needing an address.
+    .is("ship_mode", null)
     .is("awb_number", null)
     .select("id")
 

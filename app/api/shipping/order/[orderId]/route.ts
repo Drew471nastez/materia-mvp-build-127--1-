@@ -61,19 +61,26 @@ function buyerView(o: OrderShipping) {
     rawStatus: o.shipping_raw_status ?? null,
     shippedAt: o.shipped_at ?? null,
     deliveredAt: o.delivered_at ?? null,
-    // Their own delivery point, so they can check it before it ships.
-    destination: o.ship_fixed_location_id
+    // Their own delivery point, so they can check it before it ships. Covers
+    // both shapes: an easybox, or their own front door.
+    destination: o.ship_mode
       ? {
-          lockerId: o.ship_fixed_location_id,
+          mode: o.ship_mode,
+          lockerId: o.ship_fixed_location_id ?? null,
           name: o.ship_details ?? null,
-          street: [o.ship_street, o.ship_street_no].filter(Boolean).join(" ") || null,
+          // "FN" is the marker for an address with no street number; showing it
+          // back to the buyer would read as a typo.
+          street:
+            [o.ship_street, o.ship_street_no === "FN" ? null : o.ship_street_no].filter(Boolean).join(" ") || null,
           locality: o.ship_locality ?? null,
           county: o.ship_county ?? null,
         }
       : null,
     contact: o.ship_contact ?? null,
     phone: o.ship_phone ?? null,
-    needsAddress: !o.ship_fixed_location_id && !o.awb_number,
+    // Keyed on the MODE, not the locker: a home delivery has no locker id and
+    // would otherwise be asked for an address forever.
+    needsAddress: !o.ship_mode && !o.awb_number,
     // The only network the buyer may pick from: a locker→locker shipment needs
     // both ends on one carrier, and the seller's drop-off point fixes which.
     // Sent so the picker filters rather than letting someone choose a locker
@@ -103,7 +110,8 @@ function sellerView(o: OrderShipping) {
     // The buyer's town is enough to set expectations; the exact locker and the
     // phone number are the courier's business, and they are on the label.
     destinationLocality: o.ship_locality ?? null,
-    buyerReady: Boolean(o.ship_fixed_location_id),
+    // Mode, not locker id — a home delivery is just as ready to ship.
+    buyerReady: Boolean(o.ship_mode),
   }
 }
 
@@ -145,10 +153,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
   // degrade to an order with no delivery address at all.
   //
   // Doing it here instead is safe because `applyPreferenceToOrder` only writes
-  // when `ship_fixed_location_id` is null AND no AWB exists. Running it on every
-  // poll, from either party, is therefore idempotent: the first look attaches
-  // the address and every later one is a no-op.
-  if (!order.ship_fixed_location_id && !order.awb_number) {
+  // when `ship_mode` is null AND no AWB exists. Running it on every poll, from
+  // either party, is therefore idempotent: the first look attaches the address
+  // and every later one is a no-op.
+  if (!order.ship_mode && !order.awb_number) {
     order = await attachPreference(order)
   }
 
@@ -190,6 +198,7 @@ async function attachPreference(order: OrderShipping): Promise<OrderShipping> {
       ship_street_no: pref.streetNo,
       ship_details: pref.details,
       ship_fixed_location_id: pref.lockerId,
+      ship_mode: pref.mode,
       shipping_status: order.shipping_status ?? "awaiting_shipment",
     }
   } catch {

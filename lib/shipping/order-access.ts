@@ -72,6 +72,9 @@ export interface OrderShipping {
   ship_details?: string | null
   ship_postal_code?: string | null
   ship_fixed_location_id?: number | null
+  /** 'locker' | 'home'. Its PRESENCE means an address has been chosen — a home
+   *  delivery has no locker id, so that column cannot answer the question. */
+  ship_mode?: string | null
 }
 
 /** The columns that only exist post-migration, as one selectable string. */
@@ -80,7 +83,7 @@ const SHIPPING_COLUMNS =
   "shipping_raw_status, shipping_error, shipping_created_at, shipped_at, delivered_at, " +
   "shipping_last_checked_at, " +
   "ship_contact, ship_phone, ship_country_code, ship_county, ship_locality, " +
-  "ship_street, ship_street_no, ship_details, ship_postal_code, ship_fixed_location_id"
+  "ship_street, ship_street_no, ship_details, ship_postal_code, ship_fixed_location_id, ship_mode"
 
 /** The columns that exist on every deployment, migration or not. */
 const BASE_COLUMNS =

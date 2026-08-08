@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from "react"
 import { Copy, Loader2, Package, Printer, Truck } from "lucide-react"
 
-import { LockerPicker, type LockerOption } from "@/components/shipping/locker-picker"
+import {
+  DeliveryChoice,
+  EMPTY_HOME_ADDRESS,
+  isHomeAddressComplete,
+  type DeliveryMode,
+  type HomeAddress,
+} from "@/components/shipping/delivery-choice"
+import type { LockerOption } from "@/components/shipping/locker-picker"
 import { ShippingTimeline } from "@/components/shipping/shipping-timeline"
 import type { ShippingState } from "@/lib/shipping/status"
 
@@ -29,7 +36,14 @@ type BuyerShipping = {
   rawStatus: string | null
   shippedAt: string | null
   deliveredAt: string | null
-  destination: { lockerId: number; name: string | null; street: string | null; locality: string | null; county: string | null } | null
+  destination: {
+    mode: "locker" | "home"
+    lockerId: number | null
+    name: string | null
+    street: string | null
+    locality: string | null
+    county: string | null
+  } | null
   contact: string | null
   phone: string | null
   needsAddress: boolean
@@ -136,12 +150,21 @@ function BuyerPanel({ data, onSaved }: { data: BuyerShipping; onSaved: () => voi
 
       {data.destination && (
         <div className="mt-4 rounded-xl bg-neutral-50 p-3.5">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500">Punct de ridicare</p>
-          <p className="mt-1 text-[14px] font-medium text-neutral-900">{data.destination.name || "Easybox"}</p>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
+            {data.destination.mode === "home" ? "Adresă de livrare" : "Punct de ridicare"}
+          </p>
+          {data.destination.mode === "locker" && (
+            <p className="mt-1 text-[14px] font-medium text-neutral-900">
+              {data.destination.name || "Easybox"}
+            </p>
+          )}
           <p className="mt-0.5 text-[13px] leading-snug text-neutral-600">
             {[data.destination.street, data.destination.locality, data.destination.county]
               .filter(Boolean)
               .join(", ")}
+            {/* The flat/block line is part of a home address, not a label for
+                it — at a locker the same field holds the locker's own name. */}
+            {data.destination.mode === "home" && data.destination.name ? `, ${data.destination.name}` : ""}
           </p>
         </div>
       )}
@@ -160,6 +183,8 @@ function ChooseLocker({
   carrierId: number
   onSaved: () => void
 }) {
+  const [mode, setMode] = useState<DeliveryMode>("locker")
+  const [address, setAddress] = useState<HomeAddress>(EMPTY_HOME_ADDRESS)
   const [locker, setLocker] = useState<LockerOption | null>(null)
   const [contact, setContact] = useState("")
   const [phone, setPhone] = useState("")
@@ -167,7 +192,6 @@ function ChooseLocker({
   const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
-    if (!locker) return
     setSaving(true)
     setError(null)
     try {
@@ -175,7 +199,14 @@ function ChooseLocker({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ orderId, lockerId: locker.id, contact, phone }),
+        body: JSON.stringify({
+          orderId,
+          mode,
+          lockerId: locker?.id,
+          address: mode === "home" ? address : undefined,
+          contact,
+          phone,
+        }),
       })
       const json = await res.json()
       if (!json.ok) {
@@ -190,7 +221,8 @@ function ChooseLocker({
     }
   }
 
-  const ready = Boolean(locker) && contact.trim().length >= 3 && phone.trim().length >= 10
+  const destinationOk = mode === "locker" ? Boolean(locker) : isHomeAddressComplete(address)
+  const ready = destinationOk && contact.trim().length >= 3 && phone.trim().length >= 10
 
   return (
     <section className="rounded-2xl border border-[#7c3aed]/25 bg-[#7c3aed]/[0.03] p-4">
@@ -203,10 +235,18 @@ function ChooseLocker({
         ce alegi, așa că expedierea începe imediat ce salvezi.
       </p>
 
-      {/* Filtered to the seller's network. Both ends of a locker→locker
-          shipment must be on one carrier, so offering the others would only
-          produce a choice the server has to reject. */}
-      <LockerPicker value={locker} onSelect={setLocker} carrierId={carrierId} disabled={saving} />
+      {/* The same component the pre-payment step uses, so the two places a
+          buyer can choose a delivery point cannot drift apart. */}
+      <DeliveryChoice
+        mode={mode}
+        onModeChange={setMode}
+        locker={locker}
+        onLockerChange={setLocker}
+        carrierId={carrierId}
+        address={address}
+        onAddressChange={setAddress}
+        disabled={saving}
+      />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">

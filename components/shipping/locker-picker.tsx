@@ -1,7 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Check, Loader2, MapPin, Search } from "lucide-react"
+import { Check, Crosshair, Loader2, MapPin, Search } from "lucide-react"
+
+import { useGeolocation } from "@/components/shipping/use-geolocation"
+import { formatDistance } from "@/lib/geo"
 
 /**
  * Choose an easybox.
@@ -27,6 +30,11 @@ export interface LockerOption {
   localityId: number
   county: string
   allowsDropOff: boolean
+  /** Null when the provider has no coordinates for this locker. */
+  lat?: number | null
+  lng?: number | null
+  /** Only present when the buyer shared their location. */
+  distanceKm?: number | null
 }
 
 /** Long enough that a normal typist makes one request per word, not per key. */
@@ -54,10 +62,14 @@ export function LockerPicker({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const seq = useRef(0)
+  const geo = useGeolocation()
 
   const search = useCallback(
-    async (q: string) => {
-      if (q.trim().length < MIN_QUERY) {
+    async (q: string, near?: { lat: number; lng: number } | null) => {
+      // With a location we can list what is nearest without any typing at all;
+      // without one, a query short enough to match thousands of rows tells the
+      // buyer nothing, so we wait.
+      if (!near && q.trim().length < MIN_QUERY) {
         setItems(null)
         setLoading(false)
         return
@@ -69,7 +81,12 @@ export function LockerPicker({
       setLoading(true)
       setError(null)
       try {
-        const params = new URLSearchParams({ q: q.trim() })
+        const params = new URLSearchParams()
+        if (q.trim()) params.set("q", q.trim())
+        if (near) {
+          params.set("lat", String(near.lat))
+          params.set("lng", String(near.lng))
+        }
         if (carrierId) params.set("carrier", String(carrierId))
         if (dropOffOnly) params.set("dropOff", "1")
         const res = await fetch(`/api/shipping/lockers?${params}`)
@@ -92,10 +109,12 @@ export function LockerPicker({
     [carrierId, dropOffOnly],
   )
 
+  const near = geo.state.status === "ready" ? geo.state.coords : null
+
   useEffect(() => {
-    const t = setTimeout(() => void search(query), DEBOUNCE_MS)
+    const t = setTimeout(() => void search(query, near), DEBOUNCE_MS)
     return () => clearTimeout(t)
-  }, [query, search])
+  }, [query, near, search])
 
   return (
     <div className="w-full">
@@ -117,6 +136,42 @@ export function LockerPicker({
           <Loader2 className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-neutral-400" />
         )}
       </div>
+
+      {/* Bound to a click, never fired on mount. A location prompt the buyer
+          did not ask for is the most-refused dialog on the web, and a refusal
+          is permanent for the origin — spending that one chance on a page they
+          have not read yet loses the feature for good.
+
+          Hidden entirely when there is nothing to offer: already denied, or no
+          geolocation at all (which includes the iOS app until Info.plist
+          declares NSLocationWhenInUseUsageDescription). */}
+      {geo.state.status !== "ready" &&
+        geo.state.status !== "denied" &&
+        geo.state.status !== "unavailable" && (
+          <button
+            type="button"
+            disabled={disabled || geo.state.status === "locating"}
+            onClick={geo.prime}
+            className="mt-2.5 inline-flex h-10 items-center gap-2 rounded-full border border-neutral-300 px-4 text-[13.5px] font-semibold text-neutral-800 transition-transform active:scale-[0.97] disabled:opacity-40"
+          >
+            {geo.state.status === "locating" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Crosshair className="h-3.5 w-3.5" />
+            )}
+            {geo.state.status === "locating" ? "Se caută locația…" : "Arată-mi cele mai apropiate"}
+          </button>
+        )}
+
+      {geo.state.status === "ready" && (
+        <p className="mt-2.5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-700">
+          <Crosshair className="h-3.5 w-3.5" />
+          Sortate după distanța față de tine
+        </p>
+      )}
+      {geo.state.status === "error" && (
+        <p className="mt-2.5 text-[12.5px] text-neutral-500">{geo.state.message} Caută după oraș.</p>
+      )}
 
       {value && (
         <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5">
@@ -163,7 +218,14 @@ export function LockerPicker({
                           {l.locality ? `, ${l.locality}` : ""}
                         </span>
                       </span>
-                      {selected && <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={3} />}
+                      <span className="flex shrink-0 items-center gap-2">
+                        {typeof l.distanceKm === "number" && (
+                          <span className="whitespace-nowrap text-[12.5px] font-semibold text-neutral-700">
+                            {formatDistance(l.distanceKm)}
+                          </span>
+                        )}
+                        {selected && <Check className="h-4 w-4 text-emerald-600" strokeWidth={3} />}
+                      </span>
                     </button>
                   </li>
                 )

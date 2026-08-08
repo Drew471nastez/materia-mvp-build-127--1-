@@ -4,7 +4,14 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2, Package } from "lucide-react"
 
-import { LockerPicker, type LockerOption } from "@/components/shipping/locker-picker"
+import {
+  DeliveryChoice,
+  EMPTY_HOME_ADDRESS,
+  isHomeAddressComplete,
+  type DeliveryMode,
+  type HomeAddress,
+} from "@/components/shipping/delivery-choice"
+import type { LockerOption } from "@/components/shipping/locker-picker"
 
 /**
  * Where do you want it delivered? — asked BEFORE paying, the way Vinted does.
@@ -33,6 +40,8 @@ export default function DeliveryStepClient({
   productPrice: string | null
 }) {
   const router = useRouter()
+  const [mode, setMode] = useState<DeliveryMode>("locker")
+  const [address, setAddress] = useState<HomeAddress>(EMPTY_HOME_ADDRESS)
   const [locker, setLocker] = useState<LockerOption | null>(null)
   const [contact, setContact] = useState("")
   const [phone, setPhone] = useState("")
@@ -53,6 +62,20 @@ export default function DeliveryStepClient({
         const p = d.preference
         setContact((c) => c || p.contact || "")
         setPhone((c) => c || p.phone || "")
+        if (p.mode === "home") {
+          setMode("home")
+          setAddress({
+            county: p.county ?? "",
+            locality: p.locality ?? "",
+            street: p.street ?? "",
+            // "FN" is the server's marker for "no street number", not something
+            // to show back to someone as though they had typed it.
+            streetNo: p.streetNo && p.streetNo !== "FN" ? p.streetNo : "",
+            details: p.details ?? "",
+            postalCode: p.postalCode ?? "",
+          })
+          return
+        }
         setLocker({
           id: p.lockerId,
           name: p.details || "Easybox",
@@ -74,7 +97,6 @@ export default function DeliveryStepClient({
   const proceed = useCallback(() => router.replace(nextUrl), [router, nextUrl])
 
   const submit = async () => {
-    if (!locker) return
     setSaving(true)
     setError(null)
     try {
@@ -82,7 +104,14 @@ export default function DeliveryStepClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ lockerId: locker.id, contact, phone, email }),
+        body: JSON.stringify({
+          mode,
+          lockerId: locker?.id,
+          address: mode === "home" ? address : undefined,
+          contact,
+          phone,
+          email,
+        }),
       })
       const json = await res.json()
       if (!json.ok) {
@@ -104,7 +133,8 @@ export default function DeliveryStepClient({
   }
 
   const emailOk = signedIn || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  const ready = Boolean(locker) && contact.trim().length >= 3 && phone.trim().length >= 10 && emailOk
+  const destinationOk = mode === "locker" ? Boolean(locker) : isHomeAddressComplete(address)
+  const ready = destinationOk && contact.trim().length >= 3 && phone.trim().length >= 10 && emailOk
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pb-28 pt-3 md:pb-12">
@@ -135,7 +165,16 @@ export default function DeliveryStepClient({
       )}
 
       <div className="mt-5">
-        <LockerPicker value={locker} onSelect={setLocker} carrierId={carrierId} disabled={saving} />
+        <DeliveryChoice
+          mode={mode}
+          onModeChange={setMode}
+          locker={locker}
+          onLockerChange={setLocker}
+          carrierId={carrierId}
+          address={address}
+          onAddressChange={setAddress}
+          disabled={saving}
+        />
       </div>
 
       <div className="mt-5 grid gap-3">

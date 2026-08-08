@@ -18,7 +18,9 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { sanitizedPayload, validateShipment } from "../lib/eawb"
+import { distanceKm, formatDistance, isUsableCoord } from "../lib/geo"
 import { splitStreet } from "../lib/shipping/compare"
+import { validateHomeAddress } from "../lib/shipping/preference"
 import { extractLatestStatus, isTerminal, mapCarrierStatus, shouldAdvance } from "../lib/shipping/status"
 import { isMissingShippingSchema } from "../lib/shipping/order-access"
 
@@ -820,7 +822,10 @@ check(
       const i = createAwb.indexOf("const shipment: EawbShipmentInput")
       const slice = createAwb.slice(i, i + 700)
       const recorded = slice.indexOf("order.shipping_carrier_id")
-      const fallback = slice.indexOf("DEFAULT_CARRIER_ID")
+      // The fallback is the SENDER's carrier, not a standalone default: home
+      // delivery records no carrier, but the sender is still a locker, so the
+      // booking must use whoever owns the seller's drop-off point.
+      const fallback = slice.indexOf("senderCarrierId()")
       return recorded > -1 && fallback > -1 && recorded < fallback
     })(),
   )
@@ -833,8 +838,17 @@ check(
   check(
     "the picker is filtered to that one network, client-side too",
     (() => {
-      const panel = read("components/shipping/order-shipping-panel.tsx")
-      return /<LockerPicker[\s\S]{0,160}?carrierId=\{carrierId\}/.test(panel)
+      // The picker now sits inside DeliveryChoice, which both entry points
+      // render — so the carrier has to be threaded through it.
+      const choice = read("components/shipping/delivery-choice.tsx")
+      const pipedThrough = /<LockerPicker[\s\S]{0,200}?carrierId=\{carrierId\}/.test(choice)
+      return (
+        pipedThrough &&
+        [
+          "components/shipping/order-shipping-panel.tsx",
+          "app/checkout/livrare/_client.tsx",
+        ].every((f) => /<DeliveryChoice[\s\S]{0,400}?carrierId=\{carrierId\}/.test(read(f)))
+      )
     })(),
     "        The server check stands alone, but offering lockers it will refuse\n" +
       "        is a choice the buyer should never be shown.",
@@ -921,9 +935,26 @@ check(
   )
   check(
     "attaching the choice to an order is idempotent",
-    /\.is\("ship_fixed_location_id", null\)\s*\n?\s*\.is\("awb_number", null\)/.test(stripComments(prefLib)),
+    // Guarded on ship_mode, NOT the locker id. A home delivery has no locker,
+    // so the old guard would have re-applied on every single poll and reported
+    // every home order as still needing an address, forever.
+    /\.is\("ship_mode", null\)\s*\n?\s*\.is\("awb_number", null\)/.test(stripComments(prefLib)),
     "        It runs on every poll from either party, so it must only ever\n" +
       "        write once.",
+  )
+  check(
+    "'has an address' is decided by the mode, never by the locker id",
+    (() => {
+      // Four places asked this question; all four must ask it the same way, or
+      // a home delivery is invisible to one of them.
+      const order = stripComments(orderRoute)
+      return (
+        /needsAddress: !o\.ship_mode/.test(order) &&
+        /buyerReady: Boolean\(o\.ship_mode\)/.test(order) &&
+        /!order\.ship_mode && !order\.awb_number/.test(order) &&
+        /\.is\("ship_mode", null\)/.test(stripComments(prefLib))
+      )
+    })(),
   )
   check(
     "the order is matched on its own buyer, not on anything from the request",
@@ -934,6 +965,172 @@ check(
     /email: who\.userId \? null :/.test(prefLib),
     "        Once a buyer has an account, user_id is the key and the guessable\n" +
       "        identity stops existing for them.",
+  )
+}
+
+/* ── HOME DELIVERY, AND THE SERVICE IT IMPLIES ───────────────────────────── */
+//
+// Verified live, Bucharest→Cluj with a TYPED address: the provider resolves
+// free-text "Cluj-Napoca" to locality 4571, so a typed town is acceptable.
+// DPD locker→door 15.23 RON against locker→locker 13.23.
+{
+  const choice = read("components/shipping/delivery-choice.tsx")
+
+  check(
+    "the service is derived from where the buyer chose, not defaulted",
+    /order\.ship_fixed_location_id\s*\n?\s*\? EAWB_SERVICE\.lockerToLocker\s*\n?\s*: EAWB_SERVICE\.lockerToDoor/.test(
+      createAwb,
+    ),
+    "        The seller always drops at a locker, so the buyer's end decides:\n" +
+      "        locker→locker (4) or locker→door (3).",
+  )
+  check(
+    "there is no fixed default service left to override it",
+    // Comments stripped: the file NAMES the removed variable in order to
+    // explain why it is gone, and matching that is matching the documentation.
+    !/EAWB_DEFAULT_SERVICE_ID/.test(stripComments(createAwb)),
+    "        A fixed default would silently book locker→locker for a buyer who\n" +
+      "        asked for home delivery.",
+  )
+  check(
+    "a home address with no street number sends FN, not an empty string",
+    (() => {
+      const r = validateHomeAddress({ county: "Cluj", locality: "Cluj-Napoca", street: "Str. Memorandumului" })
+      return r.ok && r.pref.streetNo === "FN" && r.pref.mode === "home" && r.pref.lockerId === null
+    })(),
+  )
+  check(
+    "a home address missing county, town or street is refused",
+    (() => {
+      const missing = [
+        { locality: "Cluj-Napoca", street: "Str. X" },
+        { county: "Cluj", street: "Str. X" },
+        { county: "Cluj", locality: "Cluj-Napoca" },
+      ]
+      return missing.every((m) => validateHomeAddress(m).ok === false)
+    })(),
+  )
+  check(
+    "a complete home address is accepted",
+    (() => {
+      const r = validateHomeAddress({
+        county: "Cluj",
+        locality: "Cluj-Napoca",
+        street: "Strada Memorandumului",
+        streetNo: "28",
+      })
+      return r.ok && r.pref.streetNo === "28" && r.pref.carrierId === null
+    })(),
+    "        Home delivery is not tied to one network — every courier delivers\n" +
+      "        to a door — so the carrier is left for the booking step.",
+  )
+  check(
+    "both places a buyer chooses render the SAME component",
+    ["components/shipping/order-shipping-panel.tsx", "app/checkout/livrare/_client.tsx"].every((f) =>
+      /<DeliveryChoice/.test(read(f)),
+    ),
+    "        Two copies of a delivery form drift, and one of them ends up\n" +
+      "        collecting a field the courier needs and the other does not.",
+  )
+  check(
+    "the database refuses a half-specified delivery point",
+    (() => {
+      const s = read("supabase/sql/RUN_SHIPPING.sql")
+      return /mode = 'locker' and locker_id is not null/.test(s) && /mode = 'home' and street is not null/.test(s)
+    })(),
+    "        A row claiming to be a locker delivery with no locker would fail\n" +
+      "        at the courier — after payment.",
+  )
+  check(
+    "home delivery columns are added with ALTER, not folded into CREATE",
+    (() => {
+      // SQL comments start with `--`; stripComments only knows JS, so they are
+      // removed here before looking for statement adjacency.
+      const s = read("supabase/sql/RUN_SHIPPING.sql").replace(/^\s*--.*$/gm, "")
+      const i = s.indexOf("create table if not exists public.buyer_shipping_prefs")
+      const after = s.slice(i)
+      return /alter table public\.buyer_shipping_prefs\s+add column if not exists mode/.test(after)
+    })(),
+    "        `create table if not exists` silently skips a database where this\n" +
+      "        file has already been run, leaving newer code querying columns\n" +
+      "        that do not exist.",
+  )
+  check(
+    "the two modes are offered as a visible choice, not a hidden default",
+    /role="tab"/.test(choice) && /Easybox/.test(choice) && /La adresă/.test(choice),
+  )
+}
+
+/* ── LOCATION: OFFERED, NEVER IMPOSED ────────────────────────────────────── */
+{
+  const geoHook = read("components/shipping/use-geolocation.ts")
+
+  check(
+    "the location prompt is bound to a click, never fired on mount",
+    (() => {
+      // getCurrentPosition PROMPTS. It must live in the callback, not the
+      // effect — a refusal is permanent for the origin, and spending that one
+      // chance on page load loses the feature for good.
+      const effect = geoHook.slice(geoHook.indexOf("useEffect("), geoHook.indexOf("const prime"))
+      return !/getCurrentPosition/.test(effect) && /const prime = useCallback/.test(geoHook)
+    })(),
+  )
+  check(
+    "the permission is only QUERIED on mount, which never prompts",
+    /permissions\s*\n?\s*\?\.query\(\{ name: "geolocation"/.test(geoHook),
+  )
+  check(
+    "a denied or unavailable permission hides the button rather than dangling it",
+    /status !== "denied" &&\s*\n?\s*geo\.state\.status !== "unavailable"/.test(picker),
+  )
+  check(
+    "distance sorting happens before the result cap",
+    (() => {
+      const r = stripComments(lockersRoute)
+      return r.indexOf("withDistance.sort") < r.indexOf(".slice(0, MAX_RESULTS)")
+    })(),
+    "        Otherwise 'nearest 60' means nearest of an arbitrary first 60.",
+  )
+  check(
+    "lockers with no coordinates sink instead of sorting as if at the origin",
+    /if \(a\.km === null\) return b\.km === null \? 0 : 1/.test(lockersRoute),
+  )
+  check(
+    "a location lets the buyer browse without typing",
+    /!near && q\.trim\(\)\.length < MIN_QUERY/.test(picker),
+  )
+  check(
+    "the buyer's coordinates are never persisted or logged",
+    (() => {
+      const r = lockersRoute
+      // Used to sort one response and then discarded. No insert, no console.
+      return !/console\.(log|error|warn)[\s\S]{0,120}(lat|lng)/.test(r) && !/\.insert\(/.test(r)
+    })(),
+  )
+  check(
+    "distance is formatted at a precision that matches the distance",
+    (() => {
+      return (
+        formatDistance(0.35) === "350 m" &&
+        formatDistance(2.4) === "2,4 km" &&
+        formatDistance(18.2) === "18 km"
+      )
+    })(),
+  )
+  check(
+    "the haversine distance is right for a known pair",
+    (() => {
+      // Bucharest → Cluj-Napoca is about 325 km great-circle.
+      const km = distanceKm({ lat: 44.4268, lng: 26.1025 }, { lat: 46.7712, lng: 23.6236 })
+      return km > 315 && km < 335
+    })(),
+  )
+  check(
+    "null island and out-of-range coordinates are rejected",
+    !isUsableCoord({ lat: 0, lng: 0 }) &&
+      !isUsableCoord({ lat: 91, lng: 0 }) &&
+      !isUsableCoord({ lat: NaN, lng: 10 }) &&
+      isUsableCoord({ lat: 44.4, lng: 26.1 }),
   )
 }
 
@@ -955,17 +1152,31 @@ check(
 // of what gets POSTed: the body carries the id, the name and the phone, and the
 // server looks the address up again from the id.
 check(
-  "the request body carries the locker id and no address fields",
+  "a LOCKER choice is sent as an id, never as an address",
   (() => {
-    const panel = read("components/shipping/order-shipping-panel.tsx")
-    const body = panel.slice(panel.indexOf("JSON.stringify({ orderId"), panel.indexOf("})," ) + 3)
-    return (
-      /lockerId: locker\.id/.test(body) &&
-      !/street|locality|county|address/i.test(body)
-    )
+    // Home delivery legitimately posts a typed street — that IS the data, and
+    // the server validates it. What must never happen is the client supplying
+    // the address OF A LOCKER: the server looks that up from the id, so the two
+    // can never disagree. So the address field is only ever populated for home.
+    const send = (f: string) => {
+      const s = read(f)
+      const i = s.indexOf("body: JSON.stringify({")
+      return s.slice(i, i + 400)
+    }
+    return [
+      "components/shipping/order-shipping-panel.tsx",
+      "app/checkout/livrare/_client.tsx",
+    ].every((f) => {
+      const body = send(f)
+      return (
+        /lockerId: locker\?\.id/.test(body) &&
+        /address: mode === "home" \? address : undefined/.test(body) &&
+        !/street|locality|county/i.test(body)
+      )
+    })
   })(),
-  "        Accepting an address from the client lets one city's locker id be\n" +
-    "        paired with another city's street.",
+  "        Accepting a locker's address from the client lets one city's locker\n" +
+    "        id be paired with another city's street.",
 )
 check(
   "a stale search response cannot overwrite a newer one",

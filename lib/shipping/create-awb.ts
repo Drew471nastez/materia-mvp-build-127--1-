@@ -1,4 +1,4 @@
-import { createOrder, getLabelLink, type EawbShipmentInput } from "@/lib/eawb"
+import { createOrder, getLabelLink, EAWB_SERVICE, type EawbShipmentInput } from "@/lib/eawb"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
@@ -44,9 +44,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * door-to-door. Env-overridable so one order can go door-to-door without a
  * deploy if a buyer has no locker near them.
  */
-const DEFAULT_CARRIER_ID = Number(process.env.EAWB_DEFAULT_CARRIER_ID || 6)
-const DEFAULT_SERVICE_ID = Number(process.env.EAWB_DEFAULT_SERVICE_ID || 4)
 const DEFAULT_WEIGHT_KG = Number(process.env.EAWB_DEFAULT_WEIGHT_KG || 1)
+
+// There is deliberately no EAWB_DEFAULT_SERVICE_ID any more. The service is
+// DERIVED from where the buyer chose to receive the parcel, and a fixed default
+// would silently book locker→locker for a buyer who asked for home delivery.
 
 /**
  * THE CARRIER THE WHOLE PLATFORM SHIPS ON, and why there is only one.
@@ -101,13 +103,15 @@ export type ShippableOrder = {
   ship_details: string | null
   ship_postal_code: string | null
   ship_fixed_location_id: number | null
+  /** 'locker' | 'home'. Decides the courier service. */
+  ship_mode: string | null
 }
 
 const SELECT =
   "id, status, amount_cents, buyer_first_name, buyer_last_name, buyer_email, " +
   "awb_number, tracking_number, shipping_status, shipping_label_url, shipping_carrier_id, " +
   "ship_contact, ship_phone, ship_country_code, ship_county, ship_locality, " +
-  "ship_street, ship_street_no, ship_details, ship_postal_code, ship_fixed_location_id"
+  "ship_street, ship_street_no, ship_details, ship_postal_code, ship_fixed_location_id, ship_mode"
 
 /** Every way this can end, as one discriminated result. No throwing: each of
  *  these is an outcome a caller must render differently, not an exception. */
@@ -266,8 +270,22 @@ export async function createAwbForOrder(
         ? Number(opts.carrierId)
         : Number(order.shipping_carrier_id) > 0
           ? Number(order.shipping_carrier_id)
-          : DEFAULT_CARRIER_ID,
-    service_id: Number(opts.serviceId) > 0 ? Number(opts.serviceId) : DEFAULT_SERVICE_ID,
+          : // Home delivery records no carrier — every courier delivers to a
+            // door — but the SENDER is still a locker, so the carrier must be
+            // the one that owns the seller's drop-off point.
+            senderCarrierId(),
+    // The seller ALWAYS drops off at a locker, so the buyer's choice decides
+    // the other half: locker→locker (4) or locker→door (3). Verified live,
+    // Bucharest→Cluj with DPD: 13.23 RON to a locker, 15.23 to a door.
+    //
+    // Keyed off the locker id rather than ship_mode so an order written before
+    // ship_mode existed still books correctly.
+    service_id:
+      Number(opts.serviceId) > 0
+        ? Number(opts.serviceId)
+        : order.ship_fixed_location_id
+          ? EAWB_SERVICE.lockerToLocker
+          : EAWB_SERVICE.lockerToDoor,
     billing_address_id: Number(process.env.EAWB_BILLING_ADDRESS_ID || 0),
     address_from: senderAddress(),
     address_to: {

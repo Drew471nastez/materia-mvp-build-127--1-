@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 import { listFixedLocations, type EawbLocker } from "@/lib/eawb"
+import { distanceKm, isUsableCoord } from "@/lib/geo"
 
 /**
  * ===========================================================================
@@ -74,20 +75,62 @@ export async function GET(req: NextRequest) {
     const fLocality = fold(locality)
     const fq = fold(q)
 
-    const items = all
+    // A coordinate turns this from a search into a "what is near me" list, and
+    // it is the buyer's own position — never stored, never logged, used only to
+    // sort this one response.
+    const lat = Number(url.searchParams.get("lat"))
+    const lng = Number(url.searchParams.get("lng"))
+    const origin = isUsableCoord({ lat, lng }) ? { lat, lng } : null
+
+    const matched = all
       .filter((l) => l.is_active !== false)
       .filter((l) => (dropOffOnly ? l.allows_drop_off !== false : true))
       .filter((l) => (carrier > 0 ? l.carrier_id === carrier : true))
-      .filter((l) => (fCounty ? fold(l.county_name || "").includes(fCounty) : true))
-      .filter((l) => (fLocality ? fold(l.locality_name || "").includes(fLocality) : true))
+      // Locality OR county, because Bucharest's lockers are filed under
+      // "Sector 1".."Sector 6" with county "Bucuresti" — matching locality
+      // alone finds 47 of roughly 2,600.
       .filter((l) =>
-        fq ? fold(`${l.name || ""} ${l.address || ""}`).includes(fq) : true,
+        fCounty ? fold(l.county_name || "").includes(fCounty) : true,
       )
+      .filter((l) =>
+        fLocality
+          ? fold(l.locality_name || "").includes(fLocality) ||
+            fold(l.county_name || "").includes(fLocality)
+          : true,
+      )
+      .filter((l) =>
+        fq
+          ? fold(`${l.name || ""} ${l.address || ""} ${l.locality_name || ""} ${l.county_name || ""}`).includes(fq)
+          : true,
+      )
+
+    // Distance decides the order when we know where the buyer is; otherwise the
+    // provider's order stands. Sorting happens BEFORE the cap, so "nearest 60"
+    // means nearest of all of them, not nearest of an arbitrary first 60.
+    const withDistance = matched.map((l) => {
+      const c = l.coordinates
+      const point = c ? { lat: Number(c.lat), lng: Number(c.long) } : null
+      const km = origin && isUsableCoord(point) ? distanceKm(origin, point) : null
+      return { l, km }
+    })
+
+    if (origin) {
+      withDistance.sort((a, b) => {
+        // Lockers with no coordinates sink to the bottom rather than sorting as
+        // though they were at the origin.
+        if (a.km === null) return b.km === null ? 0 : 1
+        if (b.km === null) return -1
+        return a.km - b.km
+      })
+    }
+
+    const items = withDistance
       .slice(0, MAX_RESULTS)
-      // Only what a chooser needs. The schedule and coordinates are large and
-      // nobody is drawing a map yet; sending them would make this response ten
-      // times the size for no visible difference.
-      .map((l) => ({
+      // Only what a chooser needs. The full schedule is large and nobody is
+      // rendering opening hours yet; sending it would multiply the response
+      // size for no visible difference. Coordinates ARE included — they are
+      // what a map, once there is one, would draw from.
+      .map(({ l, km }) => ({
         id: l.id,
         name: (l.name || "").trim(),
         address: l.address,
@@ -97,6 +140,9 @@ export async function GET(req: NextRequest) {
         localityId: l.locality_id,
         county: l.county_name,
         allowsDropOff: l.allows_drop_off !== false,
+        lat: l.coordinates ? Number(l.coordinates.lat) : null,
+        lng: l.coordinates ? Number(l.coordinates.long) : null,
+        distanceKm: km === null ? null : Math.round(km * 100) / 100,
       }))
 
     return NextResponse.json(
