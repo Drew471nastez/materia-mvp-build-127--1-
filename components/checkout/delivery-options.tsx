@@ -114,6 +114,7 @@ export function SummaryCard({
   onEdit,
   children,
   leading,
+  invalid,
 }: {
   /** The section heading above the card. */
   label: string
@@ -123,11 +124,19 @@ export function SummaryCard({
   children: React.ReactNode
   /** Optional mark on the left — a locker pin, a card brand. */
   leading?: React.ReactNode
+  /** This is the section the checkout is waiting on. Draws the border in the
+   *  warning colour so the row and the message under it read as one thing. */
+  invalid?: boolean
 }) {
   return (
     <section aria-label={label}>
       <h2 className={HEADING}>{label}</h2>
-      <button type="button" onClick={onEdit} className={`mt-3 items-start ${CARD}`}>
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-invalid={invalid || undefined}
+        className={`mt-3 items-start ${CARD} ${invalid ? "border-[#c2410c]" : ""}`}
+      >
         {leading}
         <span className="min-w-0 flex-1">{children}</span>
         <span className="mt-0.5 shrink-0 text-neutral-400">
@@ -145,17 +154,19 @@ export function AddressCard({
   onEdit,
   label = "Adresă",
   emptyLabel = "Adaugă o adresă",
+  invalid,
 }: {
   name?: string | null
   lines?: Array<string | null | undefined>
   onEdit: () => void
   label?: string
   emptyLabel?: string
+  invalid?: boolean
 }) {
   const filled = Boolean(name) || (lines ?? []).some(Boolean)
 
   return (
-    <SummaryCard label={label} filled={filled} onEdit={onEdit}>
+    <SummaryCard label={label} filled={filled} onEdit={onEdit} invalid={invalid}>
       {filled ? (
         <>
           {name && <span className="block text-[16px] font-semibold text-neutral-900">{name}</span>}

@@ -41,26 +41,28 @@ import { loadStripe } from "@stripe/stripe-js/pure"
  * loaded anyway.
  *
  * ---------------------------------------------------------------------------
- * WHY ONLY IN THE NATIVE APP
+ * WHY IT IS OFF EVERYWHERE, NOT JUST IN THE APP
  * ---------------------------------------------------------------------------
- * These signals are real fraud protection and are worth having on the web,
- * where the frame behaves. They are turned off exactly where they break the
- * app and nowhere else.
+ * The first version of this asked, at runtime, whether it was inside the
+ * Capacitor WebView, and only disabled the frame if the answer was yes. It was
+ * still happening after that shipped — and a runtime platform check is the
+ * obvious suspect, because there is no way to be sure from here what a given
+ * device's user-agent says or whether the Capacitor global is on `window` yet
+ * at the moment the checkout mounts. A guess about the platform is a strange
+ * thing to hang a working checkout on.
  *
- * `setLoadParameters` throws if it is called after `loadStripe`, so the
- * decision is made once, on the first call, and never revisited.
+ * So the frame is off unconditionally. What that costs is Stripe's device
+ * fingerprinting signal, which feeds Radar's ML scoring; Radar's own rules,
+ * 3-D Secure, CVC and postcode checks and every other control are untouched.
+ * For a marketplace whose buyers are in the EU, a third-party tracking iframe
+ * on the payment page is a thing to be able to justify anyway.
+ *
+ * `setLoadParameters` throws if it is called after `loadStripe` has already
+ * run, so this must be the FIRST thing that ever touches Stripe.js — which is
+ * why every checkout in the app now comes through this one function.
  */
 
 let _promise: ReturnType<typeof loadStripe> | null = null
-
-/** Are we inside the Capacitor WebView rather than a browser? */
-function isNativeWebView(): boolean {
-  if (typeof window === "undefined") return false
-  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-  if (cap?.isNativePlatform?.()) return true
-  const ua = navigator.userAgent || ""
-  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
-}
 
 /**
  * Stripe.js, loaded at most once per page.
@@ -71,13 +73,11 @@ function isNativeWebView(): boolean {
  */
 export function getStripePromise() {
   if (!_promise) {
-    if (isNativeWebView()) {
-      try {
-        loadStripe.setLoadParameters({ advancedFraudSignals: false })
-      } catch {
-        // Only throws if loadStripe already ran, in which case the parameters
-        // are whatever they are and there is nothing left to decide.
-      }
+    try {
+      loadStripe.setLoadParameters({ advancedFraudSignals: false })
+    } catch {
+      // Only throws if loadStripe already ran, in which case the parameters are
+      // whatever they are and there is nothing left to decide.
     }
     _promise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
   }

@@ -119,6 +119,31 @@ interface Quote {
 
 const NO_QUOTE: Quote = { status: "idle", cents: 0 }
 
+/**
+ * What a section still needs, said underneath that section.
+ *
+ * Animated open rather than snapped in: a line of red text materialising under
+ * a card the instant you press Pay reads as an error the page threw at you,
+ * where the same line easing into place over 200ms reads as the page answering
+ * a question. It is `grid-template-rows` on a single cell — the one way to
+ * transition to a height nobody has measured, without a fixed pixel value that
+ * would clip a message when it wraps to two lines.
+ */
+function GapNote({ show, text }: { show: boolean; text: string }) {
+  return (
+    <div
+      className="grid transition-[grid-template-rows] duration-200 ease-out"
+      style={{ gridTemplateRows: show ? "1fr" : "0fr" }}
+    >
+      <div className="overflow-hidden">
+        <p role="alert" className="pt-2 text-[13.5px] leading-snug text-[#c2410c]">
+          {text}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function MarketplaceCheckout(props: {
   product: MarketplaceCheckoutProduct
   userEmail: string | null
@@ -176,6 +201,20 @@ function CheckoutBody({
   const [card, setCard] = useState<SavedCard | null>(null)
 
   const [sheet, setSheet] = useState<null | "address" | "locker" | "card">(null)
+
+  /**
+   * Which section is being asked for, shown UNDER that section.
+   *
+   * Not above the pay button. A message at the bottom of the screen naming a
+   * field near the top is a message you have to go and hunt for — it says what
+   * is wrong and nothing about where. Attached to the card itself it is read in
+   * the same glance as the thing it is about.
+   */
+  const [gap, setGap] = useState<null | "address" | "locker" | "card">(null)
+  const addressRef = useRef<HTMLDivElement>(null)
+  const lockerRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const scrollerRef = useRef<HTMLDivElement>(null)
 
   /**
    * Did we arrive from somewhere inside the app?
@@ -321,14 +360,6 @@ function CheckoutBody({
   // is needed to deliver to one. Only a door needs a door.
   const needsStreet = method === "home"
 
-  const blocker: string | null = (() => {
-    if (!isContactComplete(address, !isLoggedIn)) return "Completează adresa și datele de contact."
-    if (needsStreet && !isAddressComplete(address)) return "Completează adresa de livrare."
-    if (method === "locker" && !locker) return "Alege un punct de ridicare."
-    if (!card) return "Adaugă un card."
-    return null
-  })()
-
   /**
    * Back to the listing.
    *
@@ -347,33 +378,56 @@ function CheckoutBody({
   }, [router, product.slug])
 
   /**
-   * Nothing is missing — or the first thing that is, opened.
+   * Nothing is missing — or the first thing that is, scrolled to and marked.
    *
    * The pay button is never greyed out (see StickyPayBar), so pressing it with
-   * an empty address has to DO something. Sending somebody to the field they
-   * have not filled in is the only useful answer; refusing silently is how a
-   * checkout becomes a puzzle.
+   * an empty address has to DO something. What it does is GLIDE to the section
+   * that is missing and put the reason underneath it. Not open the subpage
+   * outright: a full screen appearing because you pressed a button labelled
+   * "Pay" is a place you did not ask to be, and the way out of it is another
+   * gesture. Scrolling to the row and naming what it needs leaves the next move
+   * where it belongs.
+   *
+   * @returns true if something was missing, in which case nothing is charged.
    */
-  const openFirstGap = (): boolean => {
-    if (!isContactComplete(address, !isLoggedIn) || (needsStreet && !isAddressComplete(address))) {
-      setSheet("address")
-      return true
+  const showFirstGap = (): boolean => {
+    const target: null | "address" | "locker" | "card" =
+      !isContactComplete(address, !isLoggedIn) || (needsStreet && !isAddressComplete(address))
+        ? "address"
+        : method === "locker" && !locker
+          ? "locker"
+          : !card
+            ? "card"
+            : null
+    if (!target) {
+      setGap(null)
+      return false
     }
-    if (method === "locker" && !locker) {
-      setSheet("locker")
-      return true
-    }
-    if (!card) {
-      onNeedStripe()
-      setSheet("card")
-      return true
-    }
-    return false
+    setGap(target)
+    void triggerHaptic("light")
+    const node = (target === "address" ? addressRef : target === "locker" ? lockerRef : cardRef).current
+    // `nearest` rather than `center`: the sections are tall, and centring one
+    // scrolls further than it needs to, which reads as the page overshooting.
+    node?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    return true
   }
+
+  // Clear the marker the moment the thing it is complaining about is supplied,
+  // rather than leaving a red line under a row that is now filled in.
+  useEffect(() => {
+    if (!gap) return
+    const fixed =
+      gap === "address"
+        ? isContactComplete(address, !isLoggedIn) && (!needsStreet || isAddressComplete(address))
+        : gap === "locker"
+          ? Boolean(locker)
+          : Boolean(card)
+    if (fixed) setGap(null)
+  }, [gap, address, isLoggedIn, needsStreet, locker, card])
 
   const pay = async () => {
     if (busy) return
-    if (openFirstGap()) return
+    if (showFirstGap()) return
     if (!stripe || !elements || !card) return
     setBusy(true)
     setError(null)
@@ -500,7 +554,15 @@ function CheckoutBody({
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-white">
+    /* ── THE PAGE IS EXACTLY THE VIEWPORT ────────────────────────────────
+       h-[100dvh] with overflow-hidden, and the content scrolls in its own
+       box inside. The document itself no longer scrolls at all, which is
+       what removes the strip of grey under the pay bar: there was never
+       anything painted down there, only the area below a document that had
+       run out. It also means the header and the bar are ordinary flex
+       children pinned by layout rather than by `sticky`, so neither can
+       come unstuck inside a transformed ancestor during a navigation. */
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-white">
       {/* ── The header ──────────────────────────────────────────────────────
           Sticky, and its background is carried UP THROUGH the status bar by
           the safe-area padding rather than starting below it. Without that,
@@ -516,7 +578,7 @@ function CheckoutBody({
         // Opaque, not frosted. A blur behind a checkout header means the photo
         // and the price of the thing being bought smear through it as you
         // scroll, which reads as a rendering fault rather than as depth.
-        className="sticky top-0 z-40 border-b border-neutral-200 bg-white"
+        className="shrink-0 border-b border-neutral-200 bg-white"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="mx-auto flex h-14 w-full max-w-2xl items-center gap-2 px-3">
@@ -555,8 +617,8 @@ function CheckoutBody({
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5">
-        <div>
+      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-5">
           <CheckoutItemCard
             title={product.title}
             seller={product.sellerName}
@@ -569,20 +631,30 @@ function CheckoutBody({
             price={formatMinor(product.priceCents)}
             imageUrl={product.thumbnailUrl}
           />
-        </div>
 
-        <div className="mt-7 space-y-7">
+          <div className="mt-7 space-y-7">
           {/* ONE address section, whichever way it is being delivered — the
               reference has one and so should this. Everything about the
               recipient lives behind it, including the phone number the courier
               texts the pickup code to. */}
-          <AddressCard
-            label="Adresă"
-            name={contactName || null}
-            lines={needsStreet ? [...addressLines, phone] : [phone, email || null]}
-            onEdit={() => setSheet("address")}
-            emptyLabel="Adaugă o adresă"
-          />
+          <div ref={addressRef} className="scroll-mt-4">
+            <AddressCard
+              label="Adresă"
+              name={contactName || null}
+              lines={needsStreet ? [...addressLines, phone] : [phone, email || null]}
+              onEdit={() => setSheet("address")}
+              emptyLabel="Adaugă o adresă"
+              invalid={gap === "address"}
+            />
+            <GapNote
+              show={gap === "address"}
+              text={
+                needsStreet
+                  ? "Avem nevoie de nume, telefon și adresa completă pentru livrare."
+                  : "Avem nevoie de nume și de un număr de telefon — curierul trimite codul de ridicare prin SMS."
+              }
+            />
+          </div>
 
           <DeliveryOptions
             options={[
@@ -595,10 +667,12 @@ function CheckoutBody({
           />
 
           {method === "locker" && (
+            <div ref={lockerRef} className="scroll-mt-4">
             <SummaryCard
               label="Detalii de livrare"
               filled={Boolean(locker)}
               onEdit={() => setSheet("locker")}
+              invalid={gap === "locker"}
               leading={locker ? <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-neutral-400" /> : undefined}
             >
               {locker ? (
@@ -612,15 +686,21 @@ function CheckoutBody({
                 <span className="block text-[16px] text-neutral-900">Alege un punct de ridicare</span>
               )}
             </SummaryCard>
+            <GapNote show={gap === "locker"} text="Alege easybox-ul din care vrei să ridici coletul." />
+            </div>
           )}
 
-          <PaymentCard
-            card={card}
-            onEdit={() => {
-              onNeedStripe()
-              setSheet("card")
-            }}
-          />
+          <div ref={cardRef} className="scroll-mt-4">
+            <PaymentCard
+              card={card}
+              invalid={gap === "card"}
+              onEdit={() => {
+                onNeedStripe()
+                setSheet("card")
+              }}
+            />
+            <GapNote show={gap === "card"} text="Adaugă un card ca să poți finaliza comanda." />
+          </div>
 
           <PriceBreakdown breakdown={breakdown} formatPrice={formatMinor} />
 
@@ -638,14 +718,14 @@ function CheckoutBody({
           )}
         </div>
 
+        </div>
       </div>
 
       <StickyPayBar
         total={formatMinor(breakdown.totalCents)}
         onAction={pay}
-        disabled={Boolean(blocker) || !stripe}
         busy={busy}
-        hint={blocker ?? (stripe ? null : "Se pregătește plata securizată…")}
+        hint={card && !stripe ? "Se pregătește plata securizată…" : null}
       />
 
       {/* ── The subpages ───────────────────────────────────────────────────── */}

@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createPortal } from "react-dom"
 import { CardCvcElement, CardExpiryElement, CardNumberElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { CreditCard, Loader2, Lock } from "lucide-react"
 
 import { SummaryCard } from "@/components/checkout/delivery-options"
+import { FullScreenSheet, SHEET_SAVE_BUTTON } from "@/components/checkout/full-screen-sheet"
 
 /**
  * ===========================================================================
@@ -114,22 +114,6 @@ export function CardSheet({
     }
   }, [open, billingName])
 
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => {
-      document.body.style.overflow = prev
-      window.removeEventListener("keydown", onKey)
-    }
-  }, [open, onClose])
-
-  if (!open || typeof document === "undefined") return null
-
   const ready = complete.number && complete.expiry && complete.cvc && name.trim().length >= 3
 
   const save = async () => {
@@ -164,31 +148,19 @@ export function CardSheet({
     }
   }
 
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Detalii card"
-      className="fixed inset-0 z-[96] flex flex-col bg-white"
-      style={{ height: "100dvh" }}
-    >
-      <header
-        className="relative shrink-0 border-b border-neutral-200 px-4 pb-3"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-[15px] font-medium text-neutral-700 active:opacity-60"
-        >
-          închidere
+  return (
+    <FullScreenSheet
+      open={open}
+      onClose={onClose}
+      title="Detalii card"
+      footer={
+        <button type="button" disabled={!ready || busy || !stripe} onClick={save} className={SHEET_SAVE_BUTTON}>
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? "Se verifică…" : "Utilizează acest card"}
         </button>
-        <h1 className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[16px] font-bold text-neutral-900">
-          Detalii card
-        </h1>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
+      }
+    >
+      <div className="px-4">
         <h2 className="mt-5 text-[26px] font-bold leading-tight text-neutral-900">Detalii card</h2>
         <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-neutral-500">
           Cardul este criptat în mod securizat
@@ -250,23 +222,7 @@ export function CardSheet({
 
         <div className="h-6" />
       </div>
-
-      <div
-        className="shrink-0 border-t border-neutral-200 px-4 pt-3"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-      >
-        <button
-          type="button"
-          disabled={!ready || busy || !stripe}
-          onClick={save}
-          className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-6 text-[16px] font-semibold text-white transition-transform active:scale-[0.985] disabled:opacity-40 disabled:active:scale-100"
-        >
-          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {busy ? "Se verifică…" : "Utilizează acest card"}
-        </button>
-      </div>
-    </div>,
-    document.body,
+    </FullScreenSheet>
   )
 }
 
@@ -279,12 +235,21 @@ export function CardSheet({
  * last four digits do the whole job. Inside the form the number field shows the
  * real mark anyway, because Stripe draws it there itself.
  */
-export function PaymentCard({ card, onEdit }: { card: SavedCard | null; onEdit: () => void }) {
+export function PaymentCard({
+  card,
+  onEdit,
+  invalid,
+}: {
+  card: SavedCard | null
+  onEdit: () => void
+  invalid?: boolean
+}) {
   return (
     <SummaryCard
       label="Plată"
       filled={Boolean(card)}
       onEdit={onEdit}
+      invalid={invalid}
       leading={
         <span className="flex h-9 w-[52px] shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white">
           {card ? (

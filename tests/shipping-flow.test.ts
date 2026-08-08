@@ -2191,7 +2191,11 @@ check(
   )
   check(
     "the viewport uses dvh, not vh",
-    /100dvh/.test(screen) && !/100vh/.test(screen),
+    // The height now comes from the shared slide-panel style, so the check
+    // follows it there rather than asserting a literal that moved.
+    /SLIDE_PANEL_STYLE/.test(screen) &&
+      /height: "100dvh"/.test(read("components/checkout/full-screen-sheet.tsx")) &&
+      !/100vh/.test(screen),
     "        On iOS Safari the address bar makes vh taller than the visible\n" +
       "        area, so a vh-sized map hides its own controls behind the bar.",
   )
@@ -2681,7 +2685,15 @@ check(
     (() => {
       const s = stripComments(checkout)
       const header = s.slice(s.indexOf("<header"), s.indexOf("</header>"))
-      return /sticky top-0/.test(header) && /paddingTop: "env\(safe-area-inset-top\)"/.test(header)
+      // Pinned by LAYOUT now, not by `sticky`: the page is exactly the viewport
+      // and the content scrolls in its own box, so the header simply cannot
+      // move. That also removes the last thing `sticky` could break on — a
+      // transformed ancestor during a navigation.
+      return (
+        /h-\[100dvh\] flex-col overflow-hidden/.test(s) &&
+        /shrink-0 border-b/.test(header) &&
+        /paddingTop: "env\(safe-area-inset-top\)"/.test(header)
+      )
     })(),
     "        Padding that starts BELOW the inset leaves the clock and signal\n" +
       "        strength sitting on whatever the page is scrolled to.",
@@ -2742,7 +2754,102 @@ check(
       return (
         /disabled=\{busy\}/.test(bar) &&
         !/disabled:opacity/.test(bar) &&
-        /if \(openFirstGap\(\)\) return/.test(s)
+        /if \(showFirstGap\(\)\) return/.test(s)
+      )
+    })(),
+  )
+  check(
+    "the page is exactly the viewport, so nothing exists below the pay bar",
+    (() => {
+      const s = stripComments(checkout)
+      // The grey strip under the button was the area below a document that had
+      // run out of content. With the page fixed to the viewport height and the
+      // content scrolling in its own box, the document never scrolls and there
+      // is no "below" to see.
+      return /h-\[100dvh\] flex-col overflow-hidden/.test(s) && /min-h-0 flex-1 overflow-y-auto/.test(s)
+    })(),
+  )
+  check(
+    "the last price row is not flush against the bar",
+    /pb-8 pt-5/.test(stripComments(checkout)),
+  )
+  check(
+    "a missing field is named under ITS OWN section, not over the button",
+    (() => {
+      const s = stripComments(checkout)
+      // A message at the bottom of the screen naming a field near the top says
+      // what is wrong and nothing about where.
+      return (
+        /<GapNote\s+show=\{gap === "address"\}/.test(s) &&
+        /<GapNote\s+show=\{gap === "locker"\}/.test(s) &&
+        /<GapNote\s+show=\{gap === "card"\}/.test(s)
+      )
+    })(),
+  )
+  check(
+    "pressing pay glides to what is missing rather than yanking a subpage open",
+    (() => {
+      const s = stripComments(checkout)
+      // A full screen appearing because you pressed a button labelled "Pay" is
+      // a place you did not ask to be.
+      return (
+        /scrollIntoView\(\{ behavior: "smooth", block: "nearest" \}\)/.test(s) &&
+        !/setSheet\("address"\)\s*\n\s*return true/.test(s)
+      )
+    })(),
+  )
+  check(
+    "the marker clears itself once the gap is filled",
+    /if \(fixed\) setGap\(null\)/.test(stripComments(checkout)),
+    "        Otherwise a red line stays under a row that is now complete.",
+  )
+  check(
+    "every subpage arrives on the same slide",
+    (() => {
+      const files = [
+        "components/checkout/address-sheet.tsx",
+        "components/checkout/card-sheet.tsx",
+        "components/shipping/locker-screen.tsx",
+      ]
+      // Two different easings for two kinds of panel in one flow is precisely
+      // what reads as unfinished.
+      return files.every((f) => /full-screen-sheet/.test(read(f)))
+    })(),
+  )
+  check(
+    "the slide mounts off-screen first, and stays mounted while it leaves",
+    (() => {
+      const sheet = stripComments(read("components/checkout/full-screen-sheet.tsx"))
+      // Set the final transform in the mounting frame and the browser collapses
+      // the two states into one — nothing animates. Unmount on close and the
+      // panel vanishes instead of leaving. Both are as abrupt as no animation.
+      return (
+        /void el\.offsetHeight/.test(sheet) &&
+        /requestAnimationFrame\(\(\) => slide\("in"\)\)/.test(sheet) &&
+        /setTimeout\([\s\S]{0,120}?setMounted\(false\)/.test(sheet)
+      )
+    })(),
+  )
+  check(
+    "the slide animates transform and nothing else",
+    (() => {
+      const sheet = stripComments(read("components/checkout/full-screen-sheet.tsx"))
+      // Anything else drops it onto the main thread, where it competes with
+      // React and with Stripe's iframes.
+      return /transition = `transform /.test(sheet) && !/transition = `(width|height|top|left|opacity)/.test(sheet)
+    })(),
+  )
+  check(
+    "the fraud frame is disabled without asking what platform this is",
+    (() => {
+      const loader = stripComments(read("lib/stripe-client.ts"))
+      // A runtime platform check was the one part of the previous fix that
+      // could silently not apply — there is no way to be sure from here what a
+      // given device's user-agent says, or whether the Capacitor global is on
+      // `window` yet when the checkout mounts.
+      return (
+        /loadStripe\.setLoadParameters\(\{ advancedFraudSignals: false \}\)/.test(loader) &&
+        !/isNativeWebView|Capacitor/.test(loader)
       )
     })(),
   )

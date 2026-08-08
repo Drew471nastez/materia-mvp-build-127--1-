@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+
+import { SLIDE_PANEL_STYLE, useSlideInPanel } from "@/components/checkout/full-screen-sheet"
 import { ArrowLeft, List, Loader2, Map as MapIcon, Search } from "lucide-react"
 
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -73,6 +75,10 @@ export function LockerScreen({
   dropOffOnly?: boolean
   title?: string
 }) {
+  // Stays mounted while it slides back out, so the map leaves rather than
+  // vanishing. Every `if (!open) return` below still keys off `open`, which is
+  // correct: work should stop the moment it starts closing, not when it lands.
+  const { mounted, ref: panelRef } = useSlideInPanel(open)
   const [query, setQuery] = useState("")
   const [items, setItems] = useState<LockerOption[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -257,19 +263,24 @@ export function LockerScreen({
     onClose()
   }
 
-  if (!open || typeof document === "undefined") return null
+  if (!mounted || typeof document === "undefined") return null
 
   const list = items ?? []
 
   return createPortal(
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-label={title}
       // dvh, not vh: on iOS Safari the address bar makes vh taller than the
       // visible area, so a vh-sized map hides its own controls behind the bar.
+      //
+      // It arrives on the same slide as the other checkout subpages — the map
+      // is the heaviest of the three to build, and appearing instantly after a
+      // pause is what made it feel like the app had frozen and then jumped.
       className="fixed inset-0 z-[95] flex flex-col bg-white"
-      style={{ height: "100dvh" }}
+      style={SLIDE_PANEL_STYLE}
     >
       {/* ── Top bar: back, search, and on mobile a list/map toggle ─────────── */}
       <header

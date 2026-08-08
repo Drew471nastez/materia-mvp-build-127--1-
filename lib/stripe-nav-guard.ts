@@ -62,7 +62,7 @@ let _applied = false
  * matched here and must never be: those iframes are the payment form itself,
  * and blocking one means a checkout with no card fields in it.
  */
-const CONTROLLER_IFRAME_RE = /js\.stripe\.com[^#?]*(controller|m-outer)/
+const CONTROLLER_IFRAME_RE = /(js\.stripe\.com[^#?]*(controller|m-outer)|m\.stripe\.network)/
 
 /**
  * Matches ANY top-level navigation to js.stripe.com that isn't a card-element
