@@ -321,6 +321,69 @@ check(
   )
 }
 
+/* ── THE CHECKOUT SURFACE ────────────────────────────────────────────────── */
+{
+  const bar = read("components/checkout/sticky-pay-bar.tsx")
+  const opts = read("components/checkout/delivery-options.tsx")
+
+  check(
+    "the pay bar is sticky, not fixed",
+    /sticky bottom-0/.test(bar) && !/\bfixed bottom-0\b/.test(bar),
+    "        A fixed element inside a transformed ancestor is positioned against\n" +
+      "        that ancestor rather than the viewport, and this app transforms\n" +
+      "        page containers during navigation.",
+  )
+  check(
+    "the bar adds the safe-area inset rather than ignoring it",
+    /max\(0\.75rem, env\(safe-area-inset-bottom\)\)/.test(bar),
+    "        A button flush to the bottom of a phone with a home indicator is a\n" +
+      "        button people miss and a gesture they fire by accident.",
+  )
+  check(
+    "the page is given a way to reserve room for the bar",
+    /export const PAY_BAR_SPACER/.test(bar),
+    "        Without it the bar permanently covers the last section and whatever\n" +
+      "        is there can never be read.",
+  )
+  check(
+    "the total sits beside the button, not at the end of a scroll",
+    (() => {
+      // Every choice on a checkout changes the total; making the consequence
+      // visible at the moment of the choice is the whole point.
+      const i = bar.indexOf("totalLabel}")
+      const j = bar.indexOf("actionLabel}")
+      return i > -1 && j > i
+    })(),
+  )
+  check(
+    "both delivery options show their price at the same time",
+    /o\.unavailable \? "Indisponibil" : o\.price/.test(opts),
+    "        A choice presented without its price is not a choice — locker\n" +
+      "        against courier is 16 lei against 118.",
+  )
+  check(
+    "the selected option is marked by more than colour",
+    /active && <Check/.test(opts) && /aria-checked=\{active\}/.test(opts),
+  )
+  check(
+    "the delivery options are a real radio group",
+    /role="radiogroup"/.test(opts) && /role="radio"/.test(opts),
+  )
+  check(
+    "the address card looks the same whether filled or empty",
+    /const filled = Boolean\(name\)/.test(opts),
+    "        So the section does not jump around between states.",
+  )
+  check(
+    "these components price nothing themselves",
+    (() => {
+      // They render numbers the caller formatted, so they obey whatever
+      // currency is configured and cannot disagree with the charge.
+      return !/0\.05|BUYER_PROTECTION|toFixed\(2\)/.test(bar + opts)
+    })(),
+  )
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log(`Failing: ${failures.join(", ")}`)
