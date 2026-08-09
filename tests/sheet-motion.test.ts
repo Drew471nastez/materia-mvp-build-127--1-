@@ -323,7 +323,8 @@ check(
     // field, eight panels over, thrown away unread.
     return (
       /children: \(\) => React\.ReactNode/.test(page) &&
-      /\{painted \? children\(\) : null\}/.test(page) &&
+      /\{live\}/.test(page) &&
+      /const live = painted \? children\(\) : null/.test(page) &&
       (form.match(/<PickerPage\b/g) ?? []).length === 8 &&
       (form.match(/>\{\(\) => \(/g) ?? []).length === 8
     )
@@ -516,6 +517,119 @@ check(
   ),
 )
 
+console.log("\nAnd the levels inside the panel push too")
+
+check(
+  "a change of level is animated, not a content swap",
+  (() => {
+    // Three lists deep, and moving between them used to mean the rows were
+    // simply different on the next frame. That is the same hard cut the panel
+    // itself used to be, one level down — and worse there, because the chrome
+    // does not move at all, so nothing on the screen says a navigation
+    // happened.
+    return (
+      /const LEVEL_MS = \d+/.test(page) &&
+      /level=\{catLevel\}/.test(form) &&
+      /depth=\{catDepth\}/.test(form)
+    )
+  })(),
+)
+
+check(
+  "depth is what decides the direction",
+  (() => {
+    // Without it a push and a pop are the same event, and every level would
+    // arrive from the same side however you got there.
+    return (
+      /forward: depth >= depthRef\.current/.test(page) &&
+      /const catDepth = catSearching \? 0 : catItems \? 2 : catDep \? 1 : 0/.test(form)
+    )
+  })(),
+)
+
+check(
+  "clearing the search walks you back rather than sideways",
+  // A search is depth 0 whatever you had drilled to.
+  /const catLevel = catSearching \? "search"/.test(form),
+)
+
+check(
+  "the leaving list is a snapshot; the live one never is",
+  (() => {
+    // The outgoing layer has to keep painting rows for a state that has already
+    // moved past it — but the live layer must not, because ticking a row has to
+    // show on the row you ticked.
+    return (
+      /const live = painted \? children\(\) : null/.test(page) &&
+      /setOut\(\{ key: levelRef\.current, node: lastNode\.current, forward: /.test(page)
+    )
+  })(),
+)
+
+check(
+  "the start state is computed before the move, or the lists just swap",
+  (() => {
+    const fx = page.slice(page.indexOf("useLayoutEffect(() => {\n    if (!out) return"))
+    return /void i\.offsetHeight/.test(fx.slice(0, 1600)) && /requestAnimationFrame/.test(fx.slice(0, 1900))
+  })(),
+)
+
+check(
+  "both layers move on the compositor, and hand the layer back",
+  (() => {
+    const fx = page.slice(page.indexOf("useLayoutEffect(() => {\n    if (!out) return"))
+    const body = fx.slice(0, 2400)
+    return (
+      /willChange = "transform, opacity"/.test(body) &&
+      /i\.style\.willChange = ""/.test(body) &&
+      !/(height|width|left|top):/.test(body)
+    )
+  })(),
+)
+
+check(
+  "the outgoing list cannot be tapped while it is leaving",
+  /pointer-events-none absolute inset-0 overflow-hidden bg-white/.test(page),
+)
+
+check(
+  "the search field does not slide away with the level it was sitting in",
+  (() => {
+    // It belongs to the picker, not to whichever list it happens to be
+    // filtering — and it was inside the scroller, so it left with it.
+    return /\{painted && sticky \? <div className="shrink-0">\{sticky\(\)\}<\/div> : null\}/.test(page) &&
+      /sticky=\{\(\) => <SheetSearch/.test(form)
+  })(),
+)
+
+console.log("\nThe mark on a chosen row")
+
+check(
+  "it is a ring that fills, not a tick that appears",
+  (() => {
+    // A bare check has no unselected state to animate FROM, so it can only pop.
+    // A ring is always there: selecting it is a colour and a check growing into
+    // a shape that already existed, and every row now carries a visible "not
+    // this one" as well.
+    const row = form.slice(form.indexOf("function OptionRow("), form.indexOf("function DrillRow("))
+    return (
+      /rounded-full border-2/.test(row) &&
+      /transition-\[background-color,border-color\] duration-200/.test(row) &&
+      !/selected && <Check/.test(row)
+    )
+  })(),
+)
+
+check(
+  "the check is in the DOM even when it is not showing",
+  (() => {
+    // A transition needs something to transition from; mounting the check on
+    // select is the pop this replaces.
+    const row = form.slice(form.indexOf("function OptionRow("), form.indexOf("function DrillRow("))
+    return /selected \? "scale-100 opacity-100" : "scale-50 opacity-0"/.test(row)
+  })(),
+)
+
 console.log("\nWhat is inside a picker")
 
 check(
@@ -670,7 +784,7 @@ check(
     // Somebody who already knows the word should not have to walk three levels
     // to reach it — and a back button pointing at a level the search is hiding
     // is a control that lies.
-    return /onBack=\{!catQuery\.trim\(\) && \(catDep \|\| catGroup\) \? categoryBack : undefined\}/.test(form)
+    return /onBack=\{!catSearching && \(catDep \|\| catGroup\) \? categoryBack : undefined\}/.test(form)
   })(),
 )
 

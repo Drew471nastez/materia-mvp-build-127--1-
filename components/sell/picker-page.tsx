@@ -88,6 +88,34 @@ const EDGE_PX = 28
 const BACK_FRACTION = 0.32
 const FLICK_VELOCITY = 0.45
 
+/**
+ * ===========================================================================
+ *  AND THE LEVELS INSIDE IT PUSH TOO
+ * ===========================================================================
+ *
+ * The category picker is three lists deep — who it is for, what kind of thing,
+ * which thing — and moving between them was a content swap: the rows were
+ * simply different on the next frame. That is the same hard cut the panel
+ * itself used to be, one level down, and it is worse there because the chrome
+ * does not move at all, so nothing on the screen says a navigation happened.
+ *
+ * So a level arrives the way the panel does. Forward, the new list comes in
+ * from the right while the old one slides a quarter of the way left and dims;
+ * back, exactly the reverse. Both layers are in the DOM for the length of it —
+ * the outgoing one is a SNAPSHOT, the node that was live when the level
+ * changed, which is why it can keep rendering rows for a state that has
+ * already moved on.
+ *
+ * The live layer is never a snapshot, because ticking a row has to show on the
+ * row you ticked. Only what is leaving is frozen.
+ */
+const LEVEL_MS = 300
+/** How far the outgoing list travels, and how far the incoming one comes from
+ *  when going back. A quarter, not a whole screen: the layer underneath is
+ *  meant to read as still being there. */
+const LEVEL_SHIFT = "25%"
+const LEVEL_DIM = "0.55"
+
 type Stage = "closed" | "arming" | "open" | "leaving"
 
 export function PickerPage({
@@ -95,6 +123,9 @@ export function PickerPage({
   title,
   onClose,
   onBack,
+  level = "",
+  depth = 0,
+  sticky,
   children,
 }: {
   open: boolean
@@ -102,6 +133,13 @@ export function PickerPage({
   onClose: () => void
   /** One level back inside the panel. Without it the arrow closes it. */
   onBack?: () => void
+  /** Identity of the list currently showing. A change animates. */
+  level?: string
+  /** How deep that list is, which is the only way to know which way to move. */
+  depth?: number
+  /** Rendered above the levels and outside them — a search field belongs to the
+   *  picker, not to whichever list it is filtering. */
+  sticky?: () => React.ReactNode
   children: () => React.ReactNode
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -262,6 +300,77 @@ export function PickerPage({
   const up = stage === "open"
   const painted = stage !== "closed"
 
+  /**
+   * THE LEVEL STACK.
+   *
+   * `live` is recomputed every render, so ticking a row shows on the row you
+   * ticked. `out` is a SNAPSHOT taken at the moment the level changed — the
+   * node that was live one render ago — which is the only way a list can carry
+   * on painting rows for a state that has already moved past it.
+   *
+   * Setting state during render is the sanctioned way to derive from a changed
+   * prop: React re-runs the component immediately, and the guard makes the
+   * second pass a no-op rather than a loop.
+   */
+  const live = painted ? children() : null
+  const levelRef = useRef(level)
+  const depthRef = useRef(depth)
+  const lastNode = useRef<React.ReactNode>(null)
+  const [out, setOut] = useState<{ key: string; node: React.ReactNode; forward: boolean } | null>(null)
+
+  if (painted && level !== levelRef.current) {
+    setOut({ key: levelRef.current, node: lastNode.current, forward: depth >= depthRef.current })
+    levelRef.current = level
+    depthRef.current = depth
+  }
+  lastNode.current = live
+
+  const inRef = useRef<HTMLDivElement>(null)
+  const outRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!out) return
+    const i = inRef.current
+    const o = outRef.current
+    if (!i || !o) return
+    const f = out.forward
+    const move = `transform ${LEVEL_MS}ms ${EASE}, opacity ${LEVEL_MS}ms ${EASE}`
+
+    i.style.transition = "none"
+    i.style.transform = f ? "translate3d(100%, 0, 0)" : `translate3d(-${LEVEL_SHIFT}, 0, 0)`
+    i.style.opacity = f ? "1" : LEVEL_DIM
+    i.style.willChange = "transform, opacity"
+    o.style.transition = "none"
+    o.style.transform = "translate3d(0, 0, 0)"
+    o.style.opacity = "1"
+    o.style.willChange = "transform, opacity"
+    // The start state has to be COMPUTED, or the browser collapses both style
+    // changes into one frame and the lists simply swap.
+    void i.offsetHeight
+
+    const raf = requestAnimationFrame(() => {
+      i.style.transition = move
+      i.style.transform = "translate3d(0, 0, 0)"
+      i.style.opacity = "1"
+      o.style.transition = move
+      o.style.transform = f ? `translate3d(-${LEVEL_SHIFT}, 0, 0)` : "translate3d(100%, 0, 0)"
+      o.style.opacity = f ? LEVEL_DIM : "1"
+    })
+    const t = window.setTimeout(() => {
+      // Handed back: a layer per level, held for the life of the form, is
+      // memory the compositor cannot reuse.
+      i.style.transition = ""
+      i.style.transform = ""
+      i.style.opacity = ""
+      i.style.willChange = ""
+      setOut(null)
+    }, LEVEL_MS + 20)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(t)
+    }
+  }, [out])
+
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   if (!mounted || typeof document === "undefined") return null
@@ -345,14 +454,33 @@ export function PickerPage({
           </div>
         </header>
 
-        <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-          // The list scrolls one way. Saying so lets the browser commit to the
-          // gesture on the first touch instead of holding a frame to see
-          // whether a horizontal pan is coming.
-          style={{ touchAction: "pan-y" }}
-        >
-          {painted ? children() : null}
+        {/* Above the levels and outside them: a search field belongs to the
+            picker, not to whichever list it happens to be filtering, and it
+            would otherwise slide off with the level it was sitting in. */}
+        {painted && sticky ? <div className="shrink-0">{sticky()}</div> : null}
+
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {out && (
+            <div
+              key={`out-${out.key}`}
+              ref={outRef}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 overflow-hidden bg-white"
+            >
+              {out.node}
+            </div>
+          )}
+          <div
+            key={level}
+            ref={inRef}
+            className="absolute inset-0 overflow-y-auto overscroll-contain bg-white"
+            // The list scrolls one way. Saying so lets the browser commit to
+            // the gesture on the first touch instead of holding a frame to see
+            // whether a horizontal pan is coming.
+            style={{ touchAction: "pan-y" }}
+          >
+            {live}
+          </div>
         </div>
       </div>
     </div>,

@@ -187,15 +187,12 @@ function OptionRow({
   hint,
   selected,
   onClick,
-  multi,
 }: {
   label: string
   /** A second line, for a choice that needs qualifying. */
   hint?: string
   selected: boolean
   onClick: () => void
-  /** Ticks stay put and the sheet stays open — the caller closes it. */
-  multi?: boolean
 }) {
   return (
     <button
@@ -226,19 +223,31 @@ function OptionRow({
           </span>
           {hint && <span className="mt-0.5 block truncate text-[13px] text-neutral-400">{hint}</span>}
         </span>
-        {multi ? (
-          <span
-            aria-hidden
+        {/* A CIRCLE THAT FILLS, not a tick that blinks into the margin.
+            A bare check appearing and disappearing gives the row nothing to
+            animate between — there is no unselected state to animate FROM, so
+            the mark can only pop. A ring is always there, so selecting it is a
+            colour and a check growing into a shape that already existed, and
+            every row carries a visible "not this one" as well.
+
+            The check is always in the DOM at scale 0, because a transition
+            needs something to transition from. */}
+        <span
+          aria-hidden
+          className={cn(
+            "flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full border-2",
+            "transition-[background-color,border-color] duration-200 ease-out",
+            selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300 bg-white text-transparent",
+          )}
+        >
+          <Check
             className={cn(
-              "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border-2 transition-colors duration-150",
-              selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300",
+              "h-[14px] w-[14px] transition-[transform,opacity] duration-200 ease-out",
+              selected ? "scale-100 opacity-100" : "scale-50 opacity-0",
             )}
-          >
-            {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-          </span>
-        ) : (
-          selected && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />
-        )}
+            strokeWidth={3.2}
+          />
+        </span>
       </span>
     </button>
   )
@@ -383,7 +392,7 @@ function SheetSearch({
   placeholder: string
 }) {
   return (
-    <div className="sticky top-0 z-[2] bg-white px-4 pb-3 pt-3">
+    <div className="border-b border-neutral-100 bg-white px-4 pb-3 pt-3">
       <div className="relative">
         <Search
           className="pointer-events-none absolute left-4 top-1/2 h-[19px] w-[19px] -translate-y-1/2 text-neutral-500"
@@ -1352,6 +1361,18 @@ export function NewListingForm() {
     [catGroup, catGroups],
   )
 
+  /**
+   * WHICH LIST IS SHOWING, AND HOW DEEP IT IS.
+   *
+   * The panel animates between these two the way it animates itself: a change
+   * of `catLevel` is a push, and `catDepth` is the only thing that says which
+   * direction. A search is depth 0 whatever you had drilled to, so clearing the
+   * field walks you back rather than sideways.
+   */
+  const catSearching = catQuery.trim().length > 0
+  const catLevel = catSearching ? "search" : catItems ? `item:${catGroup}` : catDep ? `grp:${catDep}` : "dep"
+  const catDepth = catSearching ? 0 : catItems ? 2 : catDep ? 1 : 0
+
   /** The sheet's own title, which is the breadcrumb — there is nowhere else on
    *  a phone sheet to put one. */
   const categoryTitle = catItems
@@ -2086,13 +2107,15 @@ export function NewListingForm() {
           whole drill-down for as long as there is one. */}
       <PickerPage
         open={sheet === "category"}
-        title={catQuery.trim() ? "Categorie" : categoryTitle}
+        title={catSearching ? "Categorie" : categoryTitle}
         onClose={() => setSheet(null)}
-        onBack={!catQuery.trim() && (catDep || catGroup) ? categoryBack : undefined}
+        onBack={!catSearching && (catDep || catGroup) ? categoryBack : undefined}
+        level={catLevel}
+        depth={catDepth}
+        sticky={() => <SheetSearch value={catQuery} onChange={setCatQuery} placeholder="Caută categoria" />}
       >{() => (
         <>
-        <SheetSearch value={catQuery} onChange={setCatQuery} placeholder="Caută categoria" />
-        {!catQuery.trim() && !catGroup && (
+        {!catSearching && !catGroup && (
           <PickerNote>Categoria decide unde apare anunțul și ce filtre îl găsesc.</PickerNote>
         )}
 
@@ -2156,9 +2179,13 @@ export function NewListingForm() {
       )}
       </PickerPage>
 
-      <PickerPage open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>{() => (
+      <PickerPage
+        open={sheet === "brand"}
+        title="Brand"
+        onClose={() => setSheet(null)}
+        sticky={() => <SheetSearch value={brandQuery} onChange={setBrandQuery} placeholder="Caută brandul" />}
+      >{() => (
         <>
-        <SheetSearch value={brandQuery} onChange={setBrandQuery} placeholder="Caută brandul" />
         <div className="pb-6">
           {/* Skeleton rows rather than an empty sheet. A blank list under a
               search box reads as "no brands", which is a wrong answer; rows
