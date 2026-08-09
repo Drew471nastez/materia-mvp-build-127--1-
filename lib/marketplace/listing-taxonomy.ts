@@ -11,8 +11,10 @@
 
 export type Option = { id: string; label: string }
 
-/** A category is two levels: a group you scan, and the leaf you actually pick. */
-export type CategoryGroup = { id: string; label: string; items: Option[] }
+/** A category is two levels: a group you scan, and the leaf you actually pick.
+ *  `short` is the group's name WITHOUT its department, for when the department
+ *  is already established by where you are — see categoryShortLabel. */
+export type CategoryGroup = { id: string; label: string; short?: string; items: Option[] }
 
 const OTHER: Option = { id: "other", label: "Altele" }
 
@@ -247,6 +249,7 @@ export const LISTING_CATEGORIES: CategoryGroup[] = [
   {
     id: "kids",
     label: "Copii",
+    short: "Îmbrăcăminte",
     items: [
       { id: "tops", label: "Tricouri și bluze" },
       { id: "bottoms", label: "Pantaloni și fuste" },
@@ -258,6 +261,81 @@ export const LISTING_CATEGORIES: CategoryGroup[] = [
     ],
   },
 ]
+
+/**
+ * ===========================================================================
+ *  THE THIRD LEVEL: WHO IT IS FOR
+ * ===========================================================================
+ *
+ * There are twenty-two groups and about a hundred and sixty leaves, and the
+ * picker used to show all of them at once: one flat scroll from "Damă ·
+ * Tricouri" to "Copii · Bebeluși", with the department repeated in every
+ * single group heading because that was the only thing distinguishing
+ * "Bărbați · Încălțăminte" from "Damă · Încălțăminte". Finding your category
+ * meant reading past every category you were not looking for.
+ *
+ * The department was always there — it was just written into the labels
+ * instead of being a level you could stand on. Stated here, it becomes the
+ * first question, which is the one nobody has to think about, and it removes
+ * three quarters of the list before the second question is asked.
+ *
+ * This adds NOTHING to the database. `products.category` still stores the group
+ * id and `products.subcategory` still stores the leaf id — the department is a
+ * route through the picker, not a value.
+ */
+export type Department = { id: string; label: string }
+
+export const DEPARTMENTS: Department[] = [
+  { id: "women", label: "Damă" },
+  { id: "men", label: "Bărbați" },
+  { id: "kids", label: "Copii" },
+]
+
+/**
+ * Groups that belong to every department rather than to one.
+ *
+ * Accessories, bags, sportswear, swimwear and underwear are sold for women,
+ * men and children alike, and their leaves say which — so they appear under
+ * all three rather than being exiled to a fourth department nobody would think
+ * to open.
+ */
+const SHARED_GROUPS = new Set(["accessories", "bags", "activewear", "swimwear", "underwear"])
+
+/** Which department a group lives in, from the id prefix it already had. */
+function departmentIdOf(groupId: string): string | null {
+  if (SHARED_GROUPS.has(groupId)) return null // every department
+  if (groupId.startsWith("women-")) return "women"
+  if (groupId.startsWith("men-")) return "men"
+  if (groupId === "kids") return "kids"
+  return null
+}
+
+export function groupsForDepartment(departmentId: string): CategoryGroup[] {
+  return LISTING_CATEGORIES.filter((g) => {
+    const own = departmentIdOf(g.id)
+    return own === null ? SHARED_GROUPS.has(g.id) : own === departmentId
+  })
+}
+
+/** Which department to open the picker on for a group already chosen, so
+ *  re-opening it lands where the choice was made rather than at the top. */
+export function departmentForGroup(groupId?: string | null): string | null {
+  if (!groupId) return null
+  return departmentIdOf(groupId) ?? "women"
+}
+
+/**
+ * The group's name with the department taken off.
+ *
+ * "Damă · Tricouri și bluze" reads as "Tricouri și bluze" once you are already
+ * inside Damă, and repeating the department in every row of a department's own
+ * list is the noise the drill-down exists to remove.
+ */
+export function categoryShortLabel(group: CategoryGroup): string {
+  if (group.short) return group.short
+  const at = group.label.indexOf(" · ")
+  return at === -1 ? group.label : group.label.slice(at + 3)
+}
 
 /** Flattened, for search and for turning a stored pair back into labels. */
 export const CATEGORY_INDEX: { groupId: string; groupLabel: string; item: Option }[] =

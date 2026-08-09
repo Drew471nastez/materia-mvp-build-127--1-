@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { X } from "lucide-react"
+import { ChevronLeft, X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -11,7 +11,10 @@ import { cn } from "@/lib/utils"
    open/close transition must share one easing string, or the first drag would
    leave a stale curve behind for every open/close after it. */
 const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const SHEET_MS = 360
+/* 320, not 360. The travel is the same and the curve is the same; the extra
+   forty milliseconds bought nothing but the impression of a sheet that takes a
+   moment to make up its mind. */
+const SHEET_MS = 320
 const SHEET_TRANSITION = `transform ${SHEET_MS}ms ${SHEET_EASE}`
 
 /* Release past this fraction of the sheet's height means dismiss. */
@@ -80,11 +83,15 @@ export function DragSheet({
   open,
   title,
   onClose,
+  onBack,
   children,
 }: {
   open: boolean
   title: string
   onClose: () => void
+  /** Present only when the sheet is showing a level you can come back from.
+   *  It is the ONLY control in the header — see the note on the grabber. */
+  onBack?: () => void
   children: React.ReactNode
 }) {
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -160,16 +167,57 @@ export function DragSheet({
     return () => window.removeEventListener("keydown", onKey)
   }, [open, onClose])
 
-  // Drag state lives in a ref and is applied straight to the DOM: routing a
-  // touchmove per frame through setState would re-render the entire picker
-  // list under the finger, and the sheet would visibly stutter on mid-range
-  // phones.
-  const drag = useRef({ armed: false, startY: 0, dy: 0, lastY: 0, lastT: 0, velocity: 0 })
+  /**
+   * Drag state lives in a ref and is applied straight to the DOM: routing a
+   * touchmove per frame through setState would re-render the entire picker
+   * list under the finger, and the sheet would visibly stutter on mid-range
+   * phones.
+   *
+   * TWO THINGS THAT WERE COSTING FRAMES HERE:
+   *
+   *   `offsetHeight` was read on every touchmove, to work out how far down the
+   *   scrim should be faded. Reading a layout property mid-gesture forces the
+   *   browser to flush layout synchronously, and it was being asked to do that
+   *   once per touch event on a sheet holding a hundred and sixty rows. The
+   *   height cannot change during a drag, so it is measured once, at the start.
+   *
+   *   The transform and the scrim's opacity were written per EVENT. Touch
+   *   events outrun the compositor on a 120Hz screen, so the same two writes
+   *   were done several times for one visible frame. They are coalesced into a
+   *   rAF now: the finger's position is recorded on the event, and the frame
+   *   paints whatever the latest one was — which is the only one that was ever
+   *   going to be seen.
+   */
+  const drag = useRef({ armed: false, startY: 0, dy: 0, lastY: 0, lastT: 0, velocity: 0, height: 1 })
+  const frameId = useRef(0)
+
+  const paint = useCallback(() => {
+    frameId.current = 0
+    const d = drag.current
+    const el = sheetRef.current
+    if (!d.armed || !el) return
+    el.style.transform = `translate3d(0, ${d.dy}px, 0)`
+    // The scrim thins as the sheet travels, so letting go mid-drag never
+    // produces a jump from a stale full-dark overlay.
+    if (scrimRef.current) {
+      scrimRef.current.style.opacity = String(Math.max(0, 1 - Math.max(0, d.dy) / d.height))
+    }
+  }, [])
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (isDesktop) return
     const t = e.touches[0]
-    drag.current = { armed: true, startY: t.clientY, dy: 0, lastY: t.clientY, lastT: e.timeStamp, velocity: 0 }
+    drag.current = {
+      armed: true,
+      startY: t.clientY,
+      dy: 0,
+      lastY: t.clientY,
+      lastT: e.timeStamp,
+      velocity: 0,
+      // Measured once. It cannot change while a finger is on the sheet, and
+      // asking for it again per event is a forced layout per event.
+      height: sheetRef.current?.offsetHeight || 1,
+    }
     // Transitions off for the duration of the drag, otherwise the sheet eases
     // towards the finger a frame behind instead of sitting under it.
     if (sheetRef.current) sheetRef.current.style.transition = "none"
@@ -178,8 +226,7 @@ export function DragSheet({
 
   const onTouchMove = (e: React.TouchEvent) => {
     const d = drag.current
-    const el = sheetRef.current
-    if (!d.armed || !el) return
+    if (!d.armed) return
     const t = e.touches[0]
     const raw = t.clientY - d.startY
     // Downward follows the finger with slight resistance; upward is rubber-
@@ -195,13 +242,7 @@ export function DragSheet({
     d.dy = dy
     d.lastY = t.clientY
     d.lastT = e.timeStamp
-    el.style.transform = `translate3d(0, ${dy}px, 0)`
-    // The scrim thins as the sheet travels, so letting go mid-drag never
-    // produces a jump from a stale full-dark overlay.
-    if (scrimRef.current) {
-      const h = el.offsetHeight || 1
-      scrimRef.current.style.opacity = String(Math.max(0, 1 - Math.max(0, dy) / h))
-    }
+    if (!frameId.current) frameId.current = requestAnimationFrame(paint)
   }
 
   const onTouchEnd = () => {
@@ -209,14 +250,17 @@ export function DragSheet({
     const el = sheetRef.current
     if (!d.armed || !el) return
     d.armed = false
-    const h = el.offsetHeight || 1
+    if (frameId.current) {
+      cancelAnimationFrame(frameId.current)
+      frameId.current = 0
+    }
     // Clearing the inline value hands the scrim back to its class transition.
     if (scrimRef.current) scrimRef.current.style.transition = ""
     // A flick counts even from a short drag, but only with some real travel
     // behind it — the velocity estimate over the couple of milliseconds of a
     // sloppy tap is pure noise.
     el.style.transition = SHEET_TRANSITION
-    if (d.dy > h * DISMISS_FRACTION || (d.velocity > FLICK_VELOCITY && d.dy > 12)) {
+    if (d.dy > d.height * DISMISS_FRACTION || (d.velocity > FLICK_VELOCITY && d.dy > 12)) {
       el.style.transform = "translate3d(0, 100%, 0)"
       if (scrimRef.current) scrimRef.current.style.opacity = "0"
       // Nothing is hidden here. `leaving` is what keeps the sheet painted for
@@ -228,6 +272,13 @@ export function DragSheet({
       void triggerHaptic("light")
     }
   }
+
+  useEffect(
+    () => () => {
+      if (frameId.current) cancelAnimationFrame(frameId.current)
+    },
+    [],
+  )
 
   const up = stage === "open"
   const painted = stage !== "closed"
@@ -265,15 +316,24 @@ export function DragSheet({
     <div className={cn("fixed inset-0 z-[120]", !open && "pointer-events-none")} aria-hidden={!open}>
       <div
         ref={scrimRef}
-        className="absolute inset-0 bg-black/45 transition-opacity duration-300"
-        style={{ opacity: up ? 1 : 0 }}
+        className="absolute inset-0 bg-black/45"
+        style={{
+          opacity: up ? 1 : 0,
+          // Matched to the sheet, so the screen finishes dimming exactly as the
+          // panel lands rather than a moment before it.
+          transition: `opacity ${SHEET_MS}ms ${SHEET_EASE}`,
+          // A full-viewport opacity animation belongs on its own layer. Without
+          // this the browser may repaint the whole area per frame, on the same
+          // frames the sheet is asking for.
+          willChange: painted ? "opacity" : "auto",
+        }}
         onClick={close}
       />
       <div
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        className="absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-[22px] md:pb-0"
+        className="absolute inset-x-0 bottom-0 flex max-h-[86dvh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-[22px] md:pb-0"
         style={panelStyle}
       >
         {/* Only this zone arms the drag. The content below scrolls, and a sheet
@@ -286,28 +346,54 @@ export function DragSheet({
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
         >
-          {/* THE GRABBER. It is not decoration: this sheet can be pulled down,
-              and the pill is the one shape that says so without a word, on
-              every phone anybody has used. It is also the target — 36 by 5
-              pixels of pill inside 22 pixels of tappable band, because the
-              affordance and the hit area are not the same thing. */}
+          {/* THE GRABBER, AND THE ONLY THING IN THE HEADER BESIDES THE NAME.
+              It is not decoration: this sheet can be pulled down, and the pill
+              is the one shape that says so without a word, on every phone
+              anybody has used. It is also the target — 36 by 5 pixels of pill
+              inside 22 pixels of tappable band, because the affordance and the
+              hit area are not the same thing.
+
+              THERE IS NO CLOSE BUTTON. There were three ways out of this sheet
+              — pull it down, tap the dimmed screen behind it, press the X — and
+              the X was the only one that needed a control drawn for it, the
+              only one that was not already a habit, and the one that put a
+              second object in a header that has room for one thing. Two
+              gestures that people already have beat a button that has to be
+              aimed at. */}
           <div className="flex h-[22px] items-end justify-center pb-[7px] md:hidden">
             <span aria-hidden className="h-[5px] w-9 rounded-full bg-neutral-300" />
           </div>
 
-          {/* Title centred with the close on the right, the way a phone sheet
-              is laid out — the title belongs to the sheet, not to the row of
-              controls. The spacer keeps it optically centred against the
-              button rather than shifted by its width. */}
+          {/* Title centred, the way a phone sheet is laid out. The back
+              control appears only on a level you can come back FROM, and it is
+              the one exception to "nothing else in the header" — because
+              without it a drill-down is a one-way door. */}
           <div className="relative flex items-center justify-center px-14 pb-2.5 pt-1 md:px-14 md:pb-3 md:pt-3.5">
             <h2 className="min-w-0 truncate text-[16.5px] font-semibold tracking-[-0.015em] text-neutral-900">
               {title}
             </h2>
+            {onBack && (
+              <button
+                type="button"
+                onClick={() => {
+                  void triggerHaptic("light")
+                  onBack()
+                }}
+                aria-label="Înapoi"
+                className="absolute left-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-neutral-500 transition-[background-color,transform] duration-150 active:scale-[0.92] active:bg-neutral-100"
+              >
+                <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2.4} />
+              </button>
+            )}
+            {/* Desktop keeps one, because none of the three ways out survive
+                the trip: there is no grabber to pull, a click on the backdrop
+                is a habit far weaker with a mouse than a swipe is with a
+                thumb, and Escape is not a control anybody can see. */}
             <button
               type="button"
               onClick={close}
               aria-label="Închide"
-              className="absolute right-2.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-[background-color,transform] duration-150 active:scale-[0.92] active:bg-neutral-200"
+              className="absolute right-2.5 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-colors duration-150 hover:bg-neutral-200 md:flex"
             >
               <X className="h-[17px] w-[17px]" strokeWidth={2.6} />
             </button>

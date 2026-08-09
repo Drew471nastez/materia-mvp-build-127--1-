@@ -16,6 +16,11 @@ import {
   SOURCES,
   STYLES,
   categoryLabelFor,
+  categoryShortLabel,
+  departmentForGroup,
+  groupsForDepartment,
+  DEPARTMENTS,
+  type CategoryGroup,
   type Option,
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -73,53 +78,40 @@ type DragGesture = {
 const PHOTO_COLS = 3
 
 /**
- * ONE MARK FOR "REQUIRED", EVERYWHERE ON THIS FORM.
+ * NOTHING MARKS "REQUIRED" ON THIS FORM, BECAUSE ALMOST EVERYTHING IS.
  *
- * There were two: an asterisk after the field labels and, latterly, a dot
- * before the photo heading. Two marks for one meaning is the thing that makes
- * a screen read as assembled rather than designed — and an asterisk is a
- * footnote reference to a footnote that does not exist, borrowed from paper
- * forms and kept out of habit.
+ * There was an asterisk after every label, then a coloured dot before every
+ * heading. Both are the same mistake: on a form where eleven of fourteen
+ * fields are required, marking the required ones puts a badge on almost every
+ * line and tells you nothing — the mark is only information where it is rare.
  *
- * A dot in the brand colour, before the label, is the mark. It reads at a
- * glance, it is the same object at every size on the page, and it leaves the
- * label itself alone.
+ * So the minority is what is marked. Three fields are optional and they say
+ * so, quietly, on the right where the value goes; everything else is simply
+ * expected, which is what the publish button already enforces and says in
+ * plain words when something is missing.
  */
-function Req() {
-  return <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full bg-[#7c3aed]" />
+function OptionalTag() {
+  return (
+    <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-[3px] text-[11px] font-medium text-neutral-400">
+      Opțional
+    </span>
+  )
 }
 
-/** The heading of one card, with the required dot and an optional right-hand
- *  slot (the photo count, so far). */
+/** The heading of one card, with an optional right-hand slot (the photo
+ *  count, so far). */
 function SectionHeading({
   children,
-  required,
   trailing,
 }: {
   children: React.ReactNode
-  required?: boolean
   trailing?: React.ReactNode
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">
-        {required && <Req />}
-        {children}
-        {required && <span className="sr-only">(obligatoriu)</span>}
-      </h2>
+      <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">{children}</h2>
       {trailing}
     </div>
-  )
-}
-
-/** The label above a text input, with the same mark. */
-function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <span className="flex items-center gap-2 text-[15px] font-semibold text-neutral-900">
-      {required && <Req />}
-      {children}
-      {required && <span className="sr-only">(obligatoriu)</span>}
-    </span>
   )
 }
 
@@ -128,12 +120,13 @@ function Field({
   label,
   value,
   onClick,
-  required,
+  optional,
 }: {
   label: string
   value: string | null
   onClick: () => void
-  required?: boolean
+  /** The rare case, and therefore the one worth marking. */
+  optional?: boolean
 }) {
   return (
     <button
@@ -144,22 +137,22 @@ function Field({
       }}
       className="-mx-1 flex w-full items-center justify-between gap-3 rounded-xl border-b border-neutral-100 px-1 py-3.5 text-left transition-colors duration-150 last:border-b-0 active:bg-neutral-50"
     >
-      <span className="flex shrink-0 items-center gap-2 text-[15px] text-neutral-900">
-        {required && <Req />}
-        {label}
-        {required && <span className="sr-only">(obligatoriu)</span>}
-      </span>
-      <span className="flex min-w-0 items-center gap-1">
+      <span className="shrink-0 text-[15px] text-neutral-900">{label}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
         {/* A chosen value is the answer, so it is set in the same weight as the
             question; "Alege" is a prompt and stays quiet. */}
-        <span
-          className={cn(
-            "truncate text-[15px]",
-            value ? "font-semibold text-neutral-900" : "text-neutral-400",
-          )}
-        >
-          {value || "Alege"}
-        </span>
+        {optional && !value ? (
+          <OptionalTag />
+        ) : (
+          <span
+            className={cn(
+              "truncate text-[15px]",
+              value ? "font-semibold text-neutral-900" : "text-neutral-400",
+            )}
+          >
+            {value || "Alege"}
+          </span>
+        )}
         <ChevronRight className="h-[17px] w-[17px] shrink-0 text-neutral-300" strokeWidth={2.4} />
       </span>
     </button>
@@ -242,6 +235,58 @@ function OptionRow({
       ) : (
         selected && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />
       )}
+    </button>
+  )
+}
+
+/**
+ * A row that goes DOWN a level rather than choosing.
+ *
+ * Visually a sibling of OptionRow, and deliberately so — it is the same list —
+ * but it ends in a chevron instead of a check, because those are two different
+ * promises: one closes the sheet with an answer, the other asks the next
+ * question. Getting that wrong is how a drill-down feels like a trap.
+ *
+ * The tint marks the branch your current choice lives down, so re-opening the
+ * picker shows you where you already are at every level rather than only at
+ * the leaf.
+ */
+function DrillRow({
+  label,
+  hint,
+  selected,
+  onClick,
+}: {
+  label: string
+  hint?: string
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void triggerHaptic("light")
+        onClick()
+      }}
+      className={cn(
+        "flex w-full items-center gap-3 px-4 text-left transition-colors duration-150 active:bg-neutral-100",
+        selected && "bg-violet-50/70",
+      )}
+      style={{ minHeight: 56 }}
+    >
+      <span className="min-w-0 flex-1 py-2.5">
+        <span
+          className={cn(
+            "block truncate text-[15.5px]",
+            selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
+          )}
+        >
+          {label}
+        </span>
+        {hint && <span className="mt-0.5 block truncate text-[12.5px] text-neutral-400">{hint}</span>}
+      </span>
+      <ChevronRight className="h-[19px] w-[19px] shrink-0 text-neutral-300" strokeWidth={2.4} />
     </button>
   )
 }
@@ -438,6 +483,27 @@ export function NewListingForm() {
   const [postAnother, setPostAnother] = useState(false)
 
   const [sheet, setSheet] = useState<null | "category" | "brand" | "condition" | "colour" | "size" | "era" | "source" | "style">(null)
+
+  /**
+   * WHERE YOU ARE INSIDE THE CATEGORY PICKER.
+   *
+   * Twenty-two groups and about a hundred and sixty leaves used to arrive as
+   * one flat scroll, every group heading repeating the department because that
+   * was the only thing telling "Bărbați · Încălțăminte" from "Damă ·
+   * Încălțăminte". Finding your category meant reading past every category you
+   * were not looking for.
+   *
+   * Three levels now — department, group, leaf — so the first question is the
+   * one nobody has to think about and it removes three quarters of the list
+   * before the second one is asked. `null` at a level means "not chosen yet",
+   * which is also the level being shown.
+   *
+   * Neither of these is saved anywhere. `products.category` still stores the
+   * group id and `products.subcategory` the leaf: the department is a route
+   * through the picker, not a value.
+   */
+  const [catDep, setCatDep] = useState<string | null>(null)
+  const [catGroup, setCatGroup] = useState<string | null>(null)
   const [catQuery, setCatQuery] = useState("")
   const [brandQuery, setBrandQuery] = useState("")
   const [brands, setBrands] = useState<{ name: string; slug: string }[]>([])
@@ -1215,6 +1281,46 @@ export function NewListingForm() {
     }
   }, [sheet, brandQuery])
 
+  /**
+   * Opening the picker lands where the choice was made, not at the top.
+   *
+   * Coming back to change "Damă · Rochii midi" to "Rochii maxi" and being made
+   * to answer "who is it for" again is the drill-down charging you for a
+   * decision you already made. With nothing chosen there is nothing to restore
+   * and it opens at the first question, which is where it should be.
+   */
+  const openCategory = useCallback(() => {
+    const dep = departmentForGroup(group)
+    setCatDep(dep)
+    setCatGroup(dep && group ? group : null)
+    setCatQuery("")
+    setSheet("category")
+  }, [group])
+
+  /** One level back, and out of the sheet from the first one. */
+  const categoryBack = useCallback(() => {
+    if (catGroup) setCatGroup(null)
+    else if (catDep) setCatDep(null)
+    else setSheet(null)
+  }, [catGroup, catDep])
+
+  const catGroups: CategoryGroup[] = useMemo(
+    () => (catDep ? groupsForDepartment(catDep) : []),
+    [catDep],
+  )
+  const catItems: CategoryGroup | null = useMemo(
+    () => (catGroup ? (catGroups.find((g) => g.id === catGroup) ?? null) : null),
+    [catGroup, catGroups],
+  )
+
+  /** The sheet's own title, which is the breadcrumb — there is nowhere else on
+   *  a phone sheet to put one. */
+  const categoryTitle = catItems
+    ? categoryShortLabel(catItems)
+    : catDep
+      ? (DEPARTMENTS.find((d) => d.id === catDep)?.label ?? "Categorie")
+      : "Categorie"
+
   const catResults = useMemo(() => {
     const q = catQuery.trim().toLowerCase()
     if (!q) return null
@@ -1600,7 +1706,6 @@ export function NewListingForm() {
         */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
         <SectionHeading
-          required
           trailing={
             <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-neutral-500">
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
@@ -1765,9 +1870,7 @@ export function NewListingForm() {
 
       {/* ---- Title + description ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <label className="block">
-          <FieldLabel required>Titlu</FieldLabel>
-        </label>
+        <label className="block text-[15px] font-semibold text-neutral-900">Titlu</label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -1776,9 +1879,7 @@ export function NewListingForm() {
           className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
 
-        <label className="mt-6 block">
-          <FieldLabel required>Descriere</FieldLabel>
-        </label>
+        <label className="mt-6 block text-[15px] font-semibold text-neutral-900">Descriere</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -1796,26 +1897,24 @@ export function NewListingForm() {
       <div className="min-w-0">
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <SectionHeading required>Detalii</SectionHeading>
+        <SectionHeading>Detalii</SectionHeading>
         <div className="mt-1">
-          <Field label="Categorie" required value={categoryLabelFor(group, item)} onClick={() => setSheet("category")} />
-          <Field label="Brand" required value={brand} onClick={() => setSheet("brand")} />
-          <Field label="Stare" required value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} />
-          <Field label="Mărime" required value={label(SIZES, size)} onClick={() => setSheet("size")} />
-          <Field label="Culoare" required value={label(COLOURS, colour)} onClick={() => setSheet("colour")} />
-          <Field label="Tip" value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
-          <Field label="Epocă" value={label(ERAS, era)} onClick={() => setSheet("era")} />
-          <Field label="Stil" value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
+          <Field label="Categorie" value={categoryLabelFor(group, item)} onClick={openCategory} />
+          <Field label="Brand" value={brand} onClick={() => setSheet("brand")} />
+          <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} />
+          <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} />
+          <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} />
+          <Field label="Tip" optional value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
+          <Field label="Epocă" optional value={label(ERAS, era)} onClick={() => setSheet("era")} />
+          <Field label="Stil" optional value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
         </div>
       </section>
 
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <SectionHeading required>Preț</SectionHeading>
+        <SectionHeading>Preț</SectionHeading>
         <div className="mt-3 flex gap-3">
           <div className="flex-1">
-            {/* No mark here: the card's own heading already carries it, and
-                repeating it on the only required field inside is noise. */}
             <label className="block text-[13px] text-neutral-500">Preț</label>
             <input
               value={price}
@@ -1919,8 +2018,18 @@ export function NewListingForm() {
       </div>
 
       {/* ---- Pickers ---- */}
-      <DragSheet open={sheet === "category"} title="Categorie" onClose={() => setSheet(null)}>
+      {/* THREE LEVELS: who it is for, what kind of thing, which thing.
+          Search cuts across all of them — somebody who already knows the word
+          should not have to walk the tree to reach it — so a query replaces the
+          whole drill-down for as long as there is one. */}
+      <DragSheet
+        open={sheet === "category"}
+        title={catQuery.trim() ? "Categorie" : categoryTitle}
+        onClose={() => setSheet(null)}
+        onBack={!catQuery.trim() && (catDep || catGroup) ? categoryBack : undefined}
+      >
         <SheetSearch value={catQuery} onChange={setCatQuery} placeholder="Caută categoria" />
+
         {catResults ? (
           <div className="pb-6">
             {catResults.map((c) => (
@@ -1941,29 +2050,42 @@ export function NewListingForm() {
               <p className="px-4 py-10 text-center text-[14.5px] text-neutral-400">Nicio categorie găsită</p>
             )}
           </div>
+        ) : catItems ? (
+          <div className="pb-6">
+            {catItems.items.map((it) => (
+              <OptionRow
+                key={it.id}
+                label={it.label}
+                selected={group === catItems.id && item === it.id}
+                onClick={() => {
+                  setGroup(catItems.id)
+                  setItem(it.id)
+                  setSheet(null)
+                }}
+              />
+            ))}
+          </div>
+        ) : catDep ? (
+          <div className="pb-6">
+            {catGroups.map((g) => (
+              <DrillRow
+                key={g.id}
+                label={categoryShortLabel(g)}
+                hint={`${g.items.length} opțiuni`}
+                selected={group === g.id}
+                onClick={() => setCatGroup(g.id)}
+              />
+            ))}
+          </div>
         ) : (
           <div className="pb-6">
-            {LISTING_CATEGORIES.map((g) => (
-              <div key={g.id}>
-                {/* The group name travels with the list rather than sitting
-                    above it, so you can always see which department you are
-                    scrolling through. */}
-                <p className="sticky top-0 z-[1] bg-neutral-50/95 px-4 py-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-neutral-400 backdrop-blur-none">
-                  {g.label}
-                </p>
-                {g.items.map((it) => (
-                  <OptionRow
-                    key={it.id}
-                    label={it.label}
-                    selected={group === g.id && item === it.id}
-                    onClick={() => {
-                      setGroup(g.id)
-                      setItem(it.id)
-                      setSheet(null)
-                    }}
-                  />
-                ))}
-              </div>
+            {DEPARTMENTS.map((d) => (
+              <DrillRow
+                key={d.id}
+                label={d.label}
+                selected={departmentForGroup(group) === d.id && !!group}
+                onClick={() => setCatDep(d.id)}
+              />
             ))}
           </div>
         )}

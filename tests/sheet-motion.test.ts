@@ -50,7 +50,16 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const strip = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
+import {
+  DEPARTMENTS,
+  LISTING_CATEGORIES,
+  categoryShortLabel,
+  departmentForGroup,
+  groupsForDepartment,
+} from "../lib/marketplace/listing-taxonomy"
+
 const css = strip(read("app/globals.css"))
+const taxonomy = strip(read("lib/marketplace/listing-taxonomy.ts"))
 const form = strip(read("components/sell/new-listing-form.tsx"))
 const bar = strip(read("components/explore/mobile-bottom-nav.tsx"))
 const dragSheet = strip(read("components/ui/drag-sheet.tsx"))
@@ -349,6 +358,55 @@ check(
 )
 
 check(
+  "the height is measured once, not on every touchmove",
+  (() => {
+    // Reading a layout property mid-gesture forces a synchronous layout flush,
+    // and it was being asked for once per touch event on a sheet holding a
+    // hundred and sixty rows. It cannot change while a finger is on the sheet.
+    const move = dragSheet.slice(dragSheet.indexOf("const onTouchMove"), dragSheet.indexOf("const onTouchEnd"))
+    return !/offsetHeight/.test(move) && /height: sheetRef\.current\?\.offsetHeight \|\| 1/.test(dragSheet)
+  })(),
+)
+
+check(
+  "the drag paints once per frame, not once per event",
+  (() => {
+    // Touch events outrun the compositor on a 120Hz screen, so the same two
+    // style writes were done several times for one visible frame.
+    const move = dragSheet.slice(dragSheet.indexOf("const onTouchMove"), dragSheet.indexOf("const onTouchEnd"))
+    return (
+      /if \(!frameId\.current\) frameId\.current = requestAnimationFrame\(paint\)/.test(move) &&
+      !/el\.style\.transform/.test(move)
+    )
+  })(),
+)
+
+check(
+  "the scrim animates on its own layer, and in step with the sheet",
+  (() => {
+    // A full-viewport opacity animation without a layer is a full-viewport
+    // repaint per frame, on the same frames the sheet is asking for. Matching
+    // the duration is why the screen finishes dimming as the panel lands.
+    return (
+      /willChange: painted \? "opacity" : "auto"/.test(dragSheet) &&
+      /transition: `opacity \$\{SHEET_MS\}ms \$\{SHEET_EASE\}`/.test(dragSheet)
+    )
+  })(),
+)
+
+check(
+  "a mobile sheet has no close button",
+  (() => {
+    // There were three ways out — pull it down, tap the dimmed screen, press
+    // the X — and the X was the only one that needed a control drawn for it and
+    // the only one that was not already a habit. Desktop keeps one, because
+    // none of the other three survive the trip to a mouse.
+    const at = dragSheet.indexOf('aria-label="Închide"')
+    return at > 0 && /hidden h-8 w-8 [^"]*md:flex/.test(dragSheet.slice(at, at + 420))
+  })(),
+)
+
+check(
   "the compositor layer is held only while the sheet is on screen",
   /willChange: painted \? "transform" : "auto"/.test(dragSheet),
 )
@@ -421,13 +479,112 @@ check(
 )
 
 check(
-  "required is marked ONE way on this form",
+  "the rare case is what gets marked, not the common one",
   (() => {
-    // An asterisk after the label and a dot before the heading are two marks
-    // for one meaning, which is what makes a screen read as assembled rather
-    // than designed. An asterisk is also a footnote reference to a footnote
-    // that does not exist.
-    return /function Req\(\)/.test(form) && !/text-\[#7c3aed\]">\*<\/span>/.test(form)
+    // First an asterisk after every label, then a coloured dot before every
+    // heading. Both are the same mistake: on a form where eleven of fourteen
+    // fields are required, marking the required ones puts a badge on almost
+    // every line and tells you nothing. A mark is only information where it is
+    // rare — so the three OPTIONAL fields say so and nothing else does.
+    return (
+      /function OptionalTag\(\)/.test(form) &&
+      !/function Req\(\)/.test(form) &&
+      !/text-\[#7c3aed\]">\*<\/span>/.test(form) &&
+      (form.match(/<Field label="[^"]+" optional/g) ?? []).length === 3
+    )
+  })(),
+)
+
+console.log("\nFinding a category")
+
+check(
+  "the picker asks who it is for before it asks what it is",
+  (() => {
+    // Twenty-two groups and about a hundred and sixty leaves arrived as one
+    // flat scroll, every heading repeating the department because that was the
+    // only thing telling "Bărbați · Încălțăminte" from "Damă · Încălțăminte".
+    return /DEPARTMENTS\.map\(\(d\) => \(/.test(form) && /catGroups\.map\(\(g\) => \(/.test(form)
+  })(),
+)
+
+check(
+  "the department is a route, not a value",
+  (() => {
+    // products.category still stores the group id and products.subcategory the
+    // leaf. Persisting the department would mean a migration and a second
+    // source of truth for something derivable from the group.
+    const submit = form.slice(form.indexOf("const submit ="), form.indexOf("const submit =") + 3000)
+    return !/catDep/.test(submit) && /export function departmentForGroup/.test(taxonomy)
+  })(),
+)
+
+check(
+  "a group that is sold for everyone appears under every department",
+  (() => {
+    // Accessories, bags, sportswear, swimwear and underwear are not a fourth
+    // department nobody would think to open.
+    const women = groupsForDepartment("women").map((g) => g.id)
+    const men = groupsForDepartment("men").map((g) => g.id)
+    const kids = groupsForDepartment("kids").map((g) => g.id)
+    return (
+      women.includes("accessories") && men.includes("accessories") && kids.includes("accessories") &&
+      women.includes("women-dresses") && !men.includes("women-dresses") && !kids.includes("women-dresses")
+    )
+  })(),
+)
+
+check(
+  "every group is reachable from some department",
+  (() => {
+    // A group nobody can drill into is a category that can never be chosen
+    // again — including on listings that already use it.
+    const reachable = new Set(
+      DEPARTMENTS.flatMap((d) => groupsForDepartment(d.id).map((g) => g.id)),
+    )
+    return LISTING_CATEGORIES.every((g) => reachable.has(g.id))
+  })(),
+)
+
+check(
+  "re-opening lands where the choice was made",
+  (() => {
+    // Coming back to change "Rochii midi" to "Rochii maxi" and being asked who
+    // it is for again is the drill-down charging you for a decision you have
+    // already made.
+    return (
+      /const dep = departmentForGroup\(group\)/.test(form) &&
+      departmentForGroup("women-dresses") === "women" &&
+      departmentForGroup("men-suits") === "men" &&
+      departmentForGroup("kids") === "kids" &&
+      departmentForGroup(null) === null
+    )
+  })(),
+)
+
+check(
+  "the department is not repeated inside its own list",
+  categoryShortLabel({ id: "women-dresses", label: "Damă · Rochii și salopete", items: [] }) ===
+    "Rochii și salopete" &&
+    categoryShortLabel({ id: "bags", label: "Genți", items: [] }) === "Genți",
+)
+
+check(
+  "search cuts across the whole tree, and replaces the drill-down while it is on",
+  (() => {
+    // Somebody who already knows the word should not have to walk three levels
+    // to reach it — and a back button pointing at a level the search is hiding
+    // is a control that lies.
+    return /onBack=\{!catQuery\.trim\(\) && \(catDep \|\| catGroup\) \? categoryBack : undefined\}/.test(form)
+  })(),
+)
+
+check(
+  "going down and choosing look different",
+  (() => {
+    // One closes the sheet with an answer, the other asks the next question.
+    // Getting that wrong is how a drill-down feels like a trap.
+    const drill = form.slice(form.indexOf("function DrillRow("), form.indexOf("function OptionChip("))
+    return /<ChevronRight/.test(drill) && !/<Check/.test(drill)
   })(),
 )
 
