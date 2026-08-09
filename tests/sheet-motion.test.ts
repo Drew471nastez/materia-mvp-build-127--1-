@@ -215,17 +215,53 @@ check(
 console.log("\nThe keyboard")
 
 check(
-  "the action bar collapses while the keyboard is up",
+  "the action bar collapses while somebody is typing",
   (() => {
     // Writing a description on a phone leaves about four visible lines. Two
     // buttons and a checkbox pinned under it took a third of what was left, to
     // offer an action nobody wants mid-sentence — and neither is reachable
     // without dismissing the keyboard anyway.
     return (
-      /html\[data-keyboard="open"\] \.sell-actions \{[\s\S]{0,120}?grid-template-rows: 0fr;/.test(css) &&
+      /\.sell-sheet\.sell-typing \.sell-actions,[\s\S]{0,140}?grid-template-rows: 0fr;/.test(css) &&
       /className="sell-actions shrink-0 grid md:hidden"/.test(form)
     )
   })(),
+)
+
+check(
+  "it is driven by FOCUS, not by measuring the keyboard",
+  (() => {
+    // Both keyboard detectors here compute innerHeight - visualViewport.height.
+    // In a browser the layout viewport stays tall while the visual one shrinks,
+    // so that difference IS the keyboard. In the Capacitor WebView the plugin
+    // resizes the web view itself, so innerHeight shrinks WITH it and the
+    // difference stays near zero — the attribute is never set, and the bar sat
+    // under the keyboard exactly as before. Focus needs no arithmetic.
+    return (
+      /onFocus=\{onFieldFocus\}/.test(form) &&
+      /onBlur=\{onFieldBlur\}/.test(form) &&
+      /classList\.toggle\("sell-typing", on\)/.test(form)
+    )
+  })(),
+)
+
+check(
+  "a checkbox does not count as typing",
+  // It takes focus and opens no keyboard, and the one on this screen lives ON
+  // the bar — collapsing the bar because somebody ticked it would be absurd.
+  /type !== "checkbox"/.test(form),
+)
+
+check(
+  "moving between two fields does not flash the bar back",
+  // focusout fires before focusin, so a blur followed immediately by a focus
+  // would collapse and re-expand between two taps.
+  /blurTimer/.test(form) && /window\.clearTimeout\(blurTimer\.current\)/.test(form),
+)
+
+check(
+  "focus is tracked without re-rendering a 1,400-line form",
+  /const typing = useRef\(false\)/.test(form),
 )
 
 check(

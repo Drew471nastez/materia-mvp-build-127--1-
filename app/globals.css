@@ -516,6 +516,21 @@ html.capacitor a.no-tap-fade:active {
     grid-template-rows: 1fr;
     transition: grid-template-rows 220ms cubic-bezier(0.32, 0.72, 0, 1);
   }
+  /* `.sell-typing` is set from FOCUS, by the form itself. The data-keyboard
+   * attribute is kept alongside it because it is correct on the mobile web —
+   * but it is NOT correct in the app, and the app is where this was still
+   * showing.
+   *
+   * Both keyboard detectors in this codebase measure
+   * `window.innerHeight - visualViewport.height`. In a browser the layout
+   * viewport stays tall while the visual one shrinks, so that difference is the
+   * keyboard. In the Capacitor WebView the Keyboard plugin resizes the web view
+   * itself, so innerHeight shrinks WITH visualViewport.height and the
+   * difference stays near zero — the attribute is never set, and the bar sat
+   * under the keyboard exactly as before.
+   *
+   * Focus needs no arithmetic and no platform. */
+  .sell-sheet.sell-typing .sell-actions,
   html[data-keyboard="open"] .sell-actions {
     grid-template-rows: 0fr;
     pointer-events: none;

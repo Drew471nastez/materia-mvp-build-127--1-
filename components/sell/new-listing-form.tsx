@@ -648,6 +648,73 @@ export function NewListingForm() {
   const sheetRef = useRef<HTMLDivElement>(null)
   const motion = useRef<SheetMotion>("enter")
 
+  /**
+   * ── IS SOMEBODY TYPING? ────────────────────────────────────────────────
+   *
+   * Driven by FOCUS, not by the keyboard's height, and that is the whole
+   * reason this works in the app.
+   *
+   * There are two keyboard detectors in this codebase and both measure the
+   * same thing: `window.innerHeight - visualViewport.height`. In a browser the
+   * layout viewport stays tall while the visual one shrinks, so that
+   * difference IS the keyboard. In the Capacitor WebView it is not: the
+   * Keyboard plugin resizes the web view itself, so `innerHeight` shrinks
+   * along with `visualViewport.height` and the difference stays at roughly
+   * zero. `data-keyboard="open"` is therefore never set in the native app,
+   * which is exactly where the bar was still sitting under the keyboard.
+   *
+   * Focus needs no arithmetic and no platform. A text field has focus or it
+   * does not, and on a phone a focused text field means a keyboard — that is
+   * also precisely how the request was phrased: "when I click on the input".
+   *
+   * Written straight onto the node for the same reason the motion classes are:
+   * this component is 1,400 lines and re-rendering it every time a field takes
+   * focus is work nobody asked for.
+   */
+  const typing = useRef(false)
+  const setTyping = useCallback((on: boolean) => {
+    if (typing.current === on) return
+    typing.current = on
+    sheetRef.current?.classList.toggle("sell-typing", on)
+  }, [])
+
+  /**
+   * Moving between two fields must not flash the bar back for a frame.
+   *
+   * `focusout` fires before `focusin`, so a blur followed immediately by a
+   * focus would collapse and re-expand the bar between two taps. The blur is
+   * deferred by a tick and cancelled if focus lands somewhere else that types.
+   */
+  const blurTimer = useRef<number | null>(null)
+  const isTextField = (el: EventTarget | null): boolean => {
+    const node = el as HTMLElement | null
+    if (!node) return false
+    const tag = node.tagName
+    if (tag === "TEXTAREA") return true
+    if (tag !== "INPUT") return false
+    // A checkbox takes focus and opens no keyboard. Collapsing the bar because
+    // somebody ticked the box that lives ON the bar would be absurd.
+    const type = (node as HTMLInputElement).type
+    return type !== "checkbox" && type !== "radio" && type !== "button" && type !== "submit"
+  }
+  const onFieldFocus = useCallback(
+    (e: React.FocusEvent) => {
+      if (blurTimer.current !== null) {
+        window.clearTimeout(blurTimer.current)
+        blurTimer.current = null
+      }
+      if (isTextField(e.target)) setTyping(true)
+    },
+    [setTyping],
+  )
+  const onFieldBlur = useCallback(() => {
+    if (blurTimer.current !== null) window.clearTimeout(blurTimer.current)
+    blurTimer.current = window.setTimeout(() => {
+      blurTimer.current = null
+      setTyping(false)
+    }, 80)
+  }, [setTyping])
+
   /** Swap the class on the node itself. No render, no reconciliation. */
   const setMotion = useCallback((next: SheetMotion) => {
     const el = sheetRef.current
@@ -1043,6 +1110,11 @@ export function NewListingForm() {
       {/* The one scroller. */}
       <div
         ref={scrollerRef}
+        // React's onFocus/onBlur are focusin/focusout, so they bubble from
+        // whichever field was tapped — one pair of handlers for the whole form
+        // rather than a pair on every input.
+        onFocus={onFieldFocus}
+        onBlur={onFieldBlur}
         className="min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain md:overflow-visible"
       >
       <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl">
