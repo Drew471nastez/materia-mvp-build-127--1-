@@ -175,6 +175,25 @@ export function NewListingForm() {
   /** The sheet's one scroller — sent back to the top when a second listing starts. */
   const scrollerRef = useRef<HTMLDivElement>(null)
 
+  /**
+   * The draft being finished, if this is one.
+   *
+   * Read once at first client render from the URL, not with `useSearchParams`:
+   * that hook forces a Suspense boundary around this component, so the sheet
+   * would mount, suspend and mount AGAIN — playing its slide twice. The same
+   * reasoning, and the same fix, as the listing page's `origin` breadcrumb.
+   */
+  const [draftId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      return new URLSearchParams(window.location.search).get("draft")
+    } catch {
+      return null
+    }
+  })
+  /** Filling in from a saved draft. Distinct from "no photos yet". */
+  const [loadingDraft, setLoadingDraft] = useState(false)
+
   const [photos, setPhotos] = useState<Photo[]>([])
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -207,6 +226,66 @@ export function NewListingForm() {
    * mean it can fade out over the emptied form instead.
    */
   const [posted, setPosted] = useState<false | "in" | "out">(false)
+
+  /**
+   * Fill the form in from a saved draft.
+   *
+   * The photos come back as URLs that are already uploaded, so they are marked
+   * `uploading: false` with their url in place — the form's own upload path is
+   * for files being chosen NOW, and re-running it against something already in
+   * storage would upload it a second time.
+   *
+   * A draft that cannot be loaded — deleted on another device, or somebody
+   * else's id in the URL — leaves an empty form rather than an error page. The
+   * worst case is writing a listing from scratch, which is what the screen is
+   * for anyway.
+   */
+  useEffect(() => {
+    if (!draftId) return
+    let alive = true
+    setLoadingDraft(true)
+    fetch(`/api/listings/drafts/${encodeURIComponent(draftId)}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d?.draft) return
+        const v = d.draft
+        const urls: string[] = [v.thumbnail_url, ...(Array.isArray(v.gallery_urls) ? v.gallery_urls : [])].filter(
+          (u: unknown): u is string => typeof u === "string" && !!u,
+        )
+        const variants = Array.isArray(v.image_variants) ? v.image_variants : []
+        setPhotos(
+          urls.map((url, i) => ({
+            id: `draft-${i}-${url.slice(-12)}`,
+            url,
+            uploading: false,
+            localUrl: url,
+            variant: variants[i] ?? null,
+          })),
+        )
+        setTitle(v.title ?? "")
+        setDescription(v.description ?? "")
+        setGroup(v.category ?? null)
+        setItem(v.subcategory ?? null)
+        setBrand(v.brand ?? null)
+        setCondition(v.condition ?? null)
+        setColour(v.colour ?? null)
+        setSize(v.size ?? null)
+        setEra(v.era ?? null)
+        setSources(Array.isArray(v.source_tags) ? v.source_tags : [])
+        setStyles(Array.isArray(v.style_tags) ? v.style_tags : [])
+        // Minor units back to what somebody typed. 0 is "no price yet" on a
+        // draft, and must not come back as the string "0".
+        setPrice(v.price_cents > 0 ? String(v.price_cents / 100) : "")
+        setCompareAt(v.compare_at_cents > 0 ? String(v.compare_at_cents / 100) : "")
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setLoadingDraft(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [draftId])
 
   // ---- photos ----
   const addFiles = useCallback(async (files: FileList | null) => {
@@ -707,12 +786,22 @@ export function NewListingForm() {
       }
       setSaving(draft ? "draft" : "post")
       try {
-        const res = await fetch("/api/listings", {
-          method: "POST",
+        // FINISHING A DRAFT UPDATES THE ROW IT CAME FROM.
+        //
+        // POSTing again would create a SECOND listing and leave the draft
+        // behind — so saving twice would leave two half-listings, and
+        // publishing would leave a live listing next to the draft it came
+        // from, both of which are things somebody then has to tidy up by hand.
+        // It also mints a fresh slug, breaking any link already shared.
+        const res = await fetch(draftId ? `/api/listings/drafts/${encodeURIComponent(draftId)}` : "/api/listings", {
+          method: draftId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             draft,
+            // The PATCH route asks the question the other way round, because
+            // "am I publishing" is what it has to decide about.
+            publish: !draft,
             photos: uploaded.map((p) => p.url),
             // Positionally aligned with `photos`, so index 0 is the cover in
             // both. A null element is a photo the phone could not re-encode —
@@ -829,7 +918,7 @@ export function NewListingForm() {
         setSaving(null)
       }
     },
-    [missing, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion],
+    [missing, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId],
   )
 
   // One definition rendered in two places — the phone's pinned bottom bar and

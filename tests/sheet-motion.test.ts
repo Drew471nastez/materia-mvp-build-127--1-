@@ -293,7 +293,7 @@ check(
   "the checkbox is actually read at submit time",
   // `submit` is a useCallback; without postAnother in its dependencies it would
   // close over whatever the box was when the form first rendered.
-  /postAnother, router, setMotion\]/.test(form),
+  /postAnother, router, setMotion(, [a-zA-Z]+)*\]/.test(form),
 )
 
 check(
