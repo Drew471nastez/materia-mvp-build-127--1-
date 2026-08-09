@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -11,40 +11,8 @@ import { cn } from "@/lib/utils"
    open/close transition must share one easing string, or the first drag would
    leave a stale curve behind for every open/close after it. */
 const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const SHEET_TRANSITION = `transform 360ms ${SHEET_EASE}`
-
-/**
- * ===========================================================================
- *  A CLOSED SHEET MUST NOT PAINT ANYTHING
- * ===========================================================================
- *
- * THE BLACK FADE ALONG THE BOTTOM OF THE SELL FORM WAS THIS.
- *
- * The panel is never unmounted — it has to exist to be able to slide, which is
- * correct — and when closed it is parked at `translateY(100%)`, immediately
- * below the viewport. It carries `shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)]`,
- * and that shadow points UP. So a sheet sitting just off the bottom of the
- * screen casts a forty-pixel blurred black band back INTO the visible area,
- * for as long as it is closed, which is almost always.
- *
- * The sell form renders EIGHT of these — category, brand, condition, colour,
- * size, era, style, sources. Eight shadows, stacked, along the bottom edge.
- * That is why it was so dark, why it feathered at the sides, and why it moved
- * with whatever content happened to be above it.
- *
- * `visibility: hidden` removes the element from painting entirely, shadow
- * included. It cannot be transitioned — but it CAN be delayed, and that is the
- * whole trick:
- *
- *   opening   visibility 0s          → visible at once, transform animates in
- *   closing   visibility 0s linear 360ms → stays visible for the whole slide
- *                                          down, then stops painting
- *
- * So the sheet still leaves the way it always did, and the instant it is gone
- * it is genuinely gone.
- */
-const VISIBLE_NOW = `${SHEET_TRANSITION}, visibility 0s`
-const HIDE_AFTER_SLIDE = `${SHEET_TRANSITION}, visibility 0s linear 360ms`
+const SHEET_MS = 360
+const SHEET_TRANSITION = `transform ${SHEET_MS}ms ${SHEET_EASE}`
 
 /* Release past this fraction of the sheet's height means dismiss. */
 const DISMISS_FRACTION = 0.3
@@ -52,11 +20,61 @@ const DISMISS_FRACTION = 0.3
 const FLICK_VELOCITY = 0.5
 
 /**
- * Bottom sheet that tracks the finger. Dragging is armed only from the
- * handle/header zone so scrollable content inside never fights the gesture;
- * release past 30% of the height or a fast downward flick dismisses,
- * anything less springs back. From `md` up it renders as a centred modal
- * with no drag — a mouse has no business flinging a panel around.
+ * ===========================================================================
+ *  WHAT A SHEET IS DOING, AS ONE VARIABLE
+ * ===========================================================================
+ *
+ * Two problems used to be solved separately here, badly:
+ *
+ *   1. A CLOSED SHEET WAS STILL PAINTING. The panel is never unmounted — it has
+ *      to exist to be able to slide — and when closed it sits at
+ *      `translateY(100%)`, immediately below the viewport, carrying a shadow
+ *      that points UP. So it cast a forty-pixel blurred black band back INTO
+ *      the visible area for as long as it was closed, which is almost always.
+ *      The sell form renders EIGHT of these. That was the black fade along the
+ *      bottom of the form.
+ *
+ *   2. A CLOSED SHEET WAS STILL RENDERING ITS CONTENTS. Eight pickers' worth of
+ *      options — every category, every brand, thirty-one styles — reconciled on
+ *      every keystroke in the title field, and all of it built during the sell
+ *      form's own mount. That is the "it takes a while before the options come
+ *      up" on the first tap: the work was never done lazily, it was done
+ *      constantly, and the frame you tapped on was competing with it.
+ *
+ * One state variable answers both, because both are the same question — is this
+ * sheet on screen at all:
+ *
+ *   closed    not painted, and its children are not mounted
+ *   arming    children mounted, panel still parked below the screen and not yet
+ *             painted. One frame, in which the browser builds the list.
+ *   open      up, and moving or arrived
+ *   leaving   sliding down, still painted, children still mounted
+ *
+ * `arming` is the frame that makes the animation smooth. Mounting a list and
+ * starting a transform on the SAME frame means the transform's first frames are
+ * spent building DOM, which is the stutter at the start of an opening sheet.
+ * Here the list is built in a frame where nothing is moving, and the slide
+ * starts against a layout that is already settled.
+ *
+ * It is also why `visibility` needs no delayed transition any more. The old
+ * version had to keep a closed sheet visible for exactly the length of its
+ * slide with `visibility 0s linear 360ms`, which is a duration written in two
+ * places and true only by coincidence. `leaving` IS that interval.
+ */
+type Stage = "closed" | "arming" | "open" | "leaving"
+
+/**
+ * Bottom sheet that tracks the finger.
+ *
+ * The grabber at the top is the drag target and says so — a light grey pill,
+ * the one shape every phone user already knows means "pull this down". Dragging
+ * is armed only from that zone and the header beneath it, so a long list inside
+ * never fights the gesture: flinging a brand list upward has to scroll it, not
+ * dismiss the sheet. Release past 30% of the height, or flick down, and it
+ * goes; anything less springs back.
+ *
+ * From `md` up it renders as a centred modal with no drag — a mouse has no
+ * business flinging a panel around.
  */
 export function DragSheet({
   open,
@@ -83,6 +101,46 @@ export function DragSheet({
     mql.addEventListener("change", update)
     return () => mql.removeEventListener("change", update)
   }, [])
+
+  const [stage, setStage] = useState<Stage>("closed")
+  // Read inside the effect below, which is keyed on `open` alone — the stage it
+  // is transitioning FROM must not re-run it.
+  const stageRef = useRef<Stage>("closed")
+  stageRef.current = stage
+  const leaveTimer = useRef(0)
+
+  useEffect(() => {
+    window.clearTimeout(leaveTimer.current)
+    if (open) {
+      // A sheet still on its way down already has its children mounted, so
+      // there is nothing to arm: catch it and send it back up from wherever it
+      // got to. Re-arming would blank it mid-slide.
+      if (stageRef.current === "leaving") setStage("open")
+      else if (stageRef.current !== "open") setStage("arming")
+      return
+    }
+    if (stageRef.current === "closed") return
+    setStage("leaving")
+    leaveTimer.current = window.setTimeout(() => setStage("closed"), SHEET_MS)
+  }, [open])
+
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), [])
+
+  /**
+   * The frame between mounting the list and moving the panel.
+   *
+   * `offsetHeight` is read deliberately: a transition needs the browser to have
+   * COMPUTED the starting value, and two style changes inside one frame are
+   * otherwise collapsed into one — the sheet would appear in place rather than
+   * slide. Forcing the flush here and setting the destination in the next frame
+   * is the same two-step the sell sheet's own slide uses.
+   */
+  useLayoutEffect(() => {
+    if (stage !== "arming") return
+    void sheetRef.current?.offsetHeight
+    const id = requestAnimationFrame(() => setStage((s) => (s === "arming" ? "open" : s)))
+    return () => cancelAnimationFrame(id)
+  }, [stage])
 
   useEffect(() => {
     if (!open) return
@@ -124,9 +182,11 @@ export function DragSheet({
     if (!d.armed || !el) return
     const t = e.touches[0]
     const raw = t.clientY - d.startY
-    // Downward follows the finger with slight resistance; upward is clamped —
-    // the sheet is already fully open, there is nowhere further to go.
-    const dy = raw > 0 ? raw * 0.95 : 0
+    // Downward follows the finger with slight resistance; upward is rubber-
+    // banded rather than clamped dead — the sheet is already fully open, so
+    // there is nowhere further to go, but a hard stop feels like a broken
+    // gesture rather than the end of one.
+    const dy = raw > 0 ? raw * 0.95 : Math.max(-28, raw * 0.16)
     const dt = e.timeStamp - d.lastT
     if (dt > 0) {
       // Exponentially smoothed so a single janky frame can't fake a flick.
@@ -135,12 +195,12 @@ export function DragSheet({
     d.dy = dy
     d.lastY = t.clientY
     d.lastT = e.timeStamp
-    el.style.transform = `translateY(${dy}px)`
+    el.style.transform = `translate3d(0, ${dy}px, 0)`
     // The scrim thins as the sheet travels, so letting go mid-drag never
     // produces a jump from a stale full-dark overlay.
     if (scrimRef.current) {
       const h = el.offsetHeight || 1
-      scrimRef.current.style.opacity = String(Math.max(0, 1 - dy / h))
+      scrimRef.current.style.opacity = String(Math.max(0, 1 - Math.max(0, dy) / h))
     }
   }
 
@@ -150,68 +210,75 @@ export function DragSheet({
     if (!d.armed || !el) return
     d.armed = false
     const h = el.offsetHeight || 1
-    // The dismissing branch below needs the delayed visibility, and the
-    // snapping-back branch needs the immediate one — set per outcome, a few
-    // lines down, rather than here where the outcome is not known yet.
     // Clearing the inline value hands the scrim back to its class transition.
     if (scrimRef.current) scrimRef.current.style.transition = ""
     // A flick counts even from a short drag, but only with some real travel
     // behind it — the velocity estimate over the couple of milliseconds of a
     // sloppy tap is pure noise.
+    el.style.transition = SHEET_TRANSITION
     if (d.dy > h * DISMISS_FRACTION || (d.velocity > FLICK_VELOCITY && d.dy > 12)) {
-      el.style.transition = HIDE_AFTER_SLIDE
-      el.style.transform = "translateY(100%)"
-      el.style.visibility = "hidden"
+      el.style.transform = "translate3d(0, 100%, 0)"
       if (scrimRef.current) scrimRef.current.style.opacity = "0"
+      // Nothing is hidden here. `leaving` is what keeps the sheet painted for
+      // exactly as long as it is still moving, and it starts on this call.
       onClose()
     } else {
-      el.style.transition = VISIBLE_NOW
-      el.style.transform = "translateY(0px)"
-      el.style.visibility = "visible"
+      el.style.transform = "translate3d(0, 0, 0)"
       if (scrimRef.current) scrimRef.current.style.opacity = "1"
+      void triggerHaptic("light")
     }
   }
 
+  const up = stage === "open"
+  const painted = stage !== "closed"
+
   const panelStyle: React.CSSProperties = isDesktop
     ? {
-        opacity: open ? 1 : 0,
-        transform: open ? "translateY(0)" : "translateY(12px)",
-        transition: open
-          ? `opacity 240ms ease, transform 320ms ${SHEET_EASE}, visibility 0s`
-          : `opacity 240ms ease, transform 320ms ${SHEET_EASE}, visibility 0s linear 320ms`,
+        opacity: up ? 1 : 0,
+        transform: up ? "translate3d(0, 0, 0)" : "translate3d(0, 12px, 0)",
+        transition: `opacity 220ms ease, transform 320ms ${SHEET_EASE}`,
         // Opacity 0 already hides it, but a fully transparent element is still
         // a painted one. On a desktop that costs little; being consistent costs
         // less than remembering which of the two branches is the careful one.
-        visibility: open ? "visible" : "hidden",
+        visibility: painted ? "visible" : "hidden",
+        willChange: painted ? "transform, opacity" : "auto",
       }
     : {
-        transform: open ? "translateY(0)" : "translateY(100%)",
-        // Visible the instant it opens; hidden only once it has finished
-        // sliding away. See the note on VISIBLE_NOW above — a closed sheet
-        // parked below the viewport was casting its upward shadow back onto
-        // the screen.
-        transition: open ? VISIBLE_NOW : HIDE_AFTER_SLIDE,
-        visibility: open ? "visible" : "hidden",
+        transform: up ? "translate3d(0, 0, 0)" : "translate3d(0, 100%, 0)",
+        transition: SHEET_TRANSITION,
+        // `arming` is deliberately NOT painted: the panel is parked below the
+        // viewport during it and its shadow points up, so one visible frame
+        // there is a black band across the bottom of the form.
+        visibility: up || stage === "leaving" ? "visible" : "hidden",
+        // Asked for before the movement starts and released when it is over —
+        // a full-width layer built on the first frame of an animation is the
+        // hitch at the beginning of it.
+        willChange: painted ? "transform" : "auto",
       }
+
+  const close = useCallback(() => {
+    void triggerHaptic("light")
+    onClose()
+  }, [onClose])
 
   return (
     <div className={cn("fixed inset-0 z-[120]", !open && "pointer-events-none")} aria-hidden={!open}>
       <div
         ref={scrimRef}
-        className="absolute inset-0 bg-black/40 transition-opacity duration-300"
-        style={{ opacity: open ? 1 : 0 }}
-        onClick={onClose}
+        className="absolute inset-0 bg-black/45 transition-opacity duration-300"
+        style={{ opacity: up ? 1 : 0 }}
+        onClick={close}
       />
       <div
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        className="absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col overflow-hidden rounded-t-[26px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-2xl md:pb-0"
+        className="absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-[22px] md:pb-0"
         style={panelStyle}
       >
-        {/* Only this zone arms the drag. The content below scrolls, and a
-            sheet that dismisses itself when someone flings a long brand list
-            towards the top is unusable. */}
+        {/* Only this zone arms the drag. The content below scrolls, and a sheet
+            that dismisses itself when someone flings a long brand list towards
+            the top is unusable. */}
         <div
           className="shrink-0 touch-none select-none"
           onTouchStart={onTouchStart}
@@ -219,31 +286,43 @@ export function DragSheet({
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
         >
-          {/* No grab handle. The pill was the only thing on these sheets that
-              looked like it belonged to an older app, and it advertised a
-              gesture that is a liability on a picker: fling a long brand list
-              upward and a drag-to-dismiss reads it as a dismissal. The header
-              still arms the drag for anyone who reaches for it; the X is the
-              stated way out, and it is a real 44pt target now rather than a
-              20px icon with 6px of padding. */}
-          <div className="flex items-center justify-between gap-2 border-b border-neutral-100 py-2 pl-4 pr-2 md:py-2.5">
-            <h2 className="min-w-0 truncate text-[16.5px] font-semibold tracking-[-0.01em] text-neutral-900">
+          {/* THE GRABBER. It is not decoration: this sheet can be pulled down,
+              and the pill is the one shape that says so without a word, on
+              every phone anybody has used. It is also the target — 36 by 5
+              pixels of pill inside 22 pixels of tappable band, because the
+              affordance and the hit area are not the same thing. */}
+          <div className="flex h-[22px] items-end justify-center pb-[7px] md:hidden">
+            <span aria-hidden className="h-[5px] w-9 rounded-full bg-neutral-300" />
+          </div>
+
+          {/* Title centred with the close on the right, the way a phone sheet
+              is laid out — the title belongs to the sheet, not to the row of
+              controls. The spacer keeps it optically centred against the
+              button rather than shifted by its width. */}
+          <div className="relative flex items-center justify-center px-14 pb-2.5 pt-1 md:px-14 md:pb-3 md:pt-3.5">
+            <h2 className="min-w-0 truncate text-[16.5px] font-semibold tracking-[-0.015em] text-neutral-900">
               {title}
             </h2>
             <button
               type="button"
-              onClick={() => {
-                void triggerHaptic("light")
-                onClose()
-              }}
+              onClick={close}
               aria-label="Închide"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-[background-color,transform] duration-150 active:scale-[0.94] active:bg-neutral-100"
+              className="absolute right-2.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-[background-color,transform] duration-150 active:scale-[0.92] active:bg-neutral-200"
             >
-              <X className="h-[21px] w-[21px]" strokeWidth={2.2} />
+              <X className="h-[17px] w-[17px]" strokeWidth={2.6} />
             </button>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+
+        {/* A hairline, not a border on the header — so it sits under the
+            grabber and the title as one edge rather than boxing them in. */}
+        <div aria-hidden className="h-px shrink-0 bg-neutral-100" />
+
+        {/* MOUNTED ONLY WHILE IT IS ON SCREEN. Eight of these live in the sell
+            form; keeping their lists in the tree meant reconciling every
+            category, every brand and thirty-one styles on every keystroke in
+            the title field. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{painted ? children : null}</div>
       </div>
     </div>
   )

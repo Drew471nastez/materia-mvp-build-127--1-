@@ -72,6 +72,57 @@ type DragGesture = {
  *  it so the grid is always a complete rectangle rather than a ragged row. */
 const PHOTO_COLS = 3
 
+/**
+ * ONE MARK FOR "REQUIRED", EVERYWHERE ON THIS FORM.
+ *
+ * There were two: an asterisk after the field labels and, latterly, a dot
+ * before the photo heading. Two marks for one meaning is the thing that makes
+ * a screen read as assembled rather than designed — and an asterisk is a
+ * footnote reference to a footnote that does not exist, borrowed from paper
+ * forms and kept out of habit.
+ *
+ * A dot in the brand colour, before the label, is the mark. It reads at a
+ * glance, it is the same object at every size on the page, and it leaves the
+ * label itself alone.
+ */
+function Req() {
+  return <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full bg-[#7c3aed]" />
+}
+
+/** The heading of one card, with the required dot and an optional right-hand
+ *  slot (the photo count, so far). */
+function SectionHeading({
+  children,
+  required,
+  trailing,
+}: {
+  children: React.ReactNode
+  required?: boolean
+  trailing?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-2 text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">
+        {required && <Req />}
+        {children}
+        {required && <span className="sr-only">(obligatoriu)</span>}
+      </h2>
+      {trailing}
+    </div>
+  )
+}
+
+/** The label above a text input, with the same mark. */
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <span className="flex items-center gap-2 text-[15px] font-semibold text-neutral-900">
+      {required && <Req />}
+      {children}
+      {required && <span className="sr-only">(obligatoriu)</span>}
+    </span>
+  )
+}
+
 /** A tappable row that shows what's chosen and opens its picker. */
 function Field({
   label,
@@ -91,53 +142,66 @@ function Field({
         void triggerHaptic("light")
         onClick()
       }}
-      className="flex w-full items-center justify-between gap-3 border-b border-neutral-100 py-3.5 text-left last:border-b-0"
+      className="-mx-1 flex w-full items-center justify-between gap-3 rounded-xl border-b border-neutral-100 px-1 py-3.5 text-left transition-colors duration-150 last:border-b-0 active:bg-neutral-50"
     >
-      <span className="shrink-0 text-[15px] text-neutral-900">
+      <span className="flex shrink-0 items-center gap-2 text-[15px] text-neutral-900">
+        {required && <Req />}
         {label}
-        {required && <span className="ml-0.5 text-[#7c3aed]">*</span>}
+        {required && <span className="sr-only">(obligatoriu)</span>}
       </span>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className={cn("truncate text-[15px]", value ? "text-neutral-900" : "text-neutral-400")}>
+      <span className="flex min-w-0 items-center gap-1">
+        {/* A chosen value is the answer, so it is set in the same weight as the
+            question; "Alege" is a prompt and stays quiet. */}
+        <span
+          className={cn(
+            "truncate text-[15px]",
+            value ? "font-semibold text-neutral-900" : "text-neutral-400",
+          )}
+        >
           {value || "Alege"}
         </span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
+        <ChevronRight className="h-[17px] w-[17px] shrink-0 text-neutral-300" strokeWidth={2.4} />
       </span>
     </button>
   )
 }
 
 /**
- * One choice in a picker.
+ * One choice in a picker, as a ROW.
  *
- * Every sheet was writing its own: a rounded box with a hover tint, 14.5px
+ * Every sheet used to write its own: a rounded box with a hover tint, 14.5px
  * text, a check floated to the right, and 2px of padding round the list so the
  * rows sat in from the edges. Six copies of it, none quite the same, and the
  * result read like a web menu dropped into a phone rather than like the
- * platform's own list — which is what "the option selector styles" is.
+ * platform's own list.
  *
- * So: one row, full-bleed to the sheet's edges, 54px tall — comfortably past
+ * So: one row, full-bleed to the sheet's edges, 56px tall — comfortably past
  * the 44pt minimum, and past the point where a list of them is a wall of text.
- * Hairlines between rows rather than a gap, so the list reads as one surface.
- * The selected one is stated twice, in tint and in a check, because on a phone
+ * Hairlines INSET to the text rather than run wall to wall, which is how a
+ * phone's own lists are drawn and the difference between a list and a table.
+ * The selected one is stated twice, in tint and in a mark, because on a phone
  * in daylight a colour alone is not a state.
  *
  * `active:` rather than `hover:`. A phone has no hover, and the hover styles
  * these rows carried were dead weight that also produced a stuck highlight
  * after a tap on iOS.
+ *
+ * Rows are for choices that need a sentence — the condition ladder, a category
+ * with its group underneath it. Anything whose label is one word is a chip; see
+ * OptionChip below, and the note there about why that is not just decoration.
  */
 function OptionRow({
   label,
+  hint,
   selected,
   onClick,
-  swatch,
   multi,
 }: {
   label: string
+  /** A second line, for a choice that needs qualifying. */
+  hint?: string
   selected: boolean
   onClick: () => void
-  /** A colour chip, for the palette. */
-  swatch?: string
   /** Ticks stay put and the sheet stays open — the caller closes it. */
   multi?: boolean
 }) {
@@ -149,36 +213,164 @@ function OptionRow({
         onClick()
       }}
       className={cn(
-        "flex w-full items-center gap-3 border-b border-neutral-100 px-4 text-left transition-colors duration-150 last:border-b-0 active:bg-neutral-100",
+        "group flex w-full items-center gap-3 px-4 text-left transition-colors duration-150 active:bg-neutral-100",
         selected && "bg-violet-50/70",
       )}
-      style={{ minHeight: 54 }}
+      style={{ minHeight: 56 }}
     >
-      {swatch && (
+      <span className="min-w-0 flex-1 py-2.5">
         <span
-          aria-hidden
-          className="h-6 w-6 shrink-0 rounded-full border border-black/10"
-          style={{ background: swatch }}
-        />
-      )}
-      <span className={cn("min-w-0 flex-1 truncate text-[15.5px]", selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900")}>
-        {label}
+          className={cn(
+            "block truncate text-[15.5px]",
+            selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
+          )}
+        >
+          {label}
+        </span>
+        {hint && <span className="mt-0.5 block truncate text-[12.5px] text-neutral-400">{hint}</span>}
       </span>
       {multi ? (
         <span
           aria-hidden
           className={cn(
-            "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-150",
+            "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border-2 transition-colors duration-150",
             selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300",
           )}
         >
           {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
         </span>
       ) : (
-        selected && <Check className="h-[18px] w-[18px] shrink-0 text-[#7c3aed]" strokeWidth={2.6} />
+        selected && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />
       )}
     </button>
   )
+}
+
+/**
+ * One choice in a picker, as a CHIP.
+ *
+ * Thirty-one styles, nineteen colours and nine sizes were nine hundred pixels
+ * of identical 56px rows each, and every one of them said a single word. A list
+ * is the right shape for a choice you have to READ; for a choice you RECOGNISE
+ * it is the wrong one twice over — it is four times taller than the word it
+ * contains, so most of the options are below the fold on the first paint, and
+ * the eye has to travel the full height of the sheet to compare two of them.
+ *
+ * As a wrapped row of chips the whole vocabulary is usually on screen at once.
+ * The sizes fit in two lines instead of nine screens' worth of scrolling, and
+ * "which of these am I" becomes a glance rather than a scroll.
+ *
+ * Selected is the brand fill, not a tick in the margin — at this size the chip
+ * IS the control, and a state you can see from across the sheet is worth more
+ * than one you have to look for.
+ */
+function OptionChip({
+  label,
+  selected,
+  onClick,
+  swatch,
+}: {
+  label: string
+  selected: boolean
+  onClick: () => void
+  /** A colour dot, for the palette. */
+  swatch?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void triggerHaptic("light")
+        onClick()
+      }}
+      className={cn(
+        "flex min-h-[44px] items-center gap-2 rounded-full border px-4 text-[14.5px] font-medium",
+        "transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.96]",
+        selected
+          ? "border-transparent bg-[#7c3aed] text-white shadow-[0_2px_10px_-2px_rgba(124,58,237,0.5)]"
+          : "border-neutral-200 bg-white text-neutral-800 active:bg-neutral-100",
+      )}
+    >
+      {swatch && (
+        <span
+          aria-hidden
+          className={cn(
+            "h-[18px] w-[18px] shrink-0 rounded-full",
+            selected ? "ring-2 ring-white/70" : "ring-1 ring-black/10",
+          )}
+          style={{ background: swatch }}
+        />
+      )}
+      {label}
+    </button>
+  )
+}
+
+/** The wrapper the chips sit in. Its own component so all five chip pickers
+ *  are spaced identically without five copies of the same class string. */
+function ChipField({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-wrap gap-2 px-4 pb-6 pt-4">{children}</div>
+}
+
+/**
+ * The search field at the top of a long picker.
+ *
+ * It sits ON the sheet's own white rather than in a bordered box of its own —
+ * two nested boxes with two radii is what made these read as a web dropdown
+ * that had been dropped onto a phone. `enterKeyHint="search"` and
+ * `autoCorrect=off` because this is a lookup, not prose, and the keyboard
+ * should say so.
+ */
+function SheetSearch({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  return (
+    <div className="sticky top-0 z-[2] bg-white px-4 pb-2.5 pt-3">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-neutral-400" />
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          type="search"
+          enterKeyHint="search"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          className="w-full rounded-[14px] bg-neutral-100 py-3 pl-11 pr-3.5 text-[15px] outline-none transition-shadow duration-150 placeholder:text-neutral-400 focus:ring-2 focus:ring-[#7c3aed]/25 [&::-webkit-search-cancel-button]:appearance-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+/** The line under a multi-select sheet's title. It used to be crammed into the
+ *  title itself — "Stil · alege până la 3" — where it competed with the name of
+ *  the picker for the one line a phone sheet gives it. */
+function PickerNote({ children }: { children: React.ReactNode }) {
+  return <p className="px-4 pt-3 text-[12.5px] text-neutral-400">{children}</p>
+}
+
+/**
+ * What each rung of the condition ladder actually means.
+ *
+ * The five labels are a database constraint and cannot change, but on their own
+ * they are five synonyms for "used" — and the difference between them is the
+ * difference between a listing that is described accurately and one that comes
+ * back. The hint is where the meaning goes.
+ */
+const CONDITION_HINTS: Record<string, string> = {
+  new_with_tags: "Nepurtat, cu eticheta originală",
+  new_without_tags: "Nepurtat, dar fără etichetă",
+  very_good: "Purtat de câteva ori, fără urme vizibile",
+  good: "Purtat, cu urme mici de folosire",
+  satisfactory: "Urme vizibile sau un defect descris în anunț",
 }
 
 /**
@@ -978,9 +1170,37 @@ export function NewListingForm() {
   }, [router, setMotion])
 
   // ---- brand search ----
+  /**
+   * WARMED ON MOUNT, NOT ON OPEN.
+   *
+   * Brand is a required field, so this picker WILL be opened — and a request
+   * that starts when the sheet does is a request the opening animation has to
+   * wait for, which is why the list used to appear a beat after the sheet did.
+   * Fetching the default list while somebody is still choosing photographs
+   * costs one small query and makes the first tap instant.
+   *
+   * It never overwrites a list that is already there: a search result that came
+   * back first must not be replaced by the defaults arriving late.
+   */
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/brands?q=", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { brands: [] }))
+      .then((d) => {
+        if (!cancelled && Array.isArray(d?.brands)) setBrands((b) => (b.length ? b : d.brands))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     if (sheet !== "brand") return
     let cancelled = false
+    // A debounce is for a keystroke that another keystroke is about to replace.
+    // Opening the sheet, or clearing the field, is neither — those want the
+    // answer now.
     const id = setTimeout(() => {
       fetch(`/api/brands?q=${encodeURIComponent(brandQuery)}`)
         .then((r) => (r.ok ? r.json() : { brands: [] }))
@@ -988,7 +1208,7 @@ export function NewListingForm() {
           if (!cancelled) setBrands(Array.isArray(d?.brands) ? d.brands : [])
         })
         .catch(() => {})
-    }, 180)
+    }, brandQuery ? 180 : 0)
     return () => {
       cancelled = true
       clearTimeout(id)
@@ -1379,16 +1599,16 @@ export function NewListingForm() {
         * of what reordering is for here.
         */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">
-            <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-[#7c3aed]" />
-            Fotografii
-            <span className="sr-only">(obligatoriu)</span>
-          </h2>
-          <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-neutral-500">
-            {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
-          </span>
-        </div>
+        <SectionHeading
+          required
+          trailing={
+            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-neutral-500">
+              {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
+            </span>
+          }
+        >
+          Fotografii
+        </SectionHeading>
         <p className="mt-1.5 text-[13px] text-neutral-500">
           {photos.length === 0
             ? `Minimum ${MIN_PHOTOS}. Prima fotografie este coperta anunțului.`
@@ -1545,8 +1765,8 @@ export function NewListingForm() {
 
       {/* ---- Title + description ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <label className="block text-[15px] font-semibold text-neutral-900">
-          Titlu<span className="ml-0.5 text-[#7c3aed]">*</span>
+        <label className="block">
+          <FieldLabel required>Titlu</FieldLabel>
         </label>
         <input
           value={title}
@@ -1556,8 +1776,8 @@ export function NewListingForm() {
           className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
 
-        <label className="mt-6 block text-[15px] font-semibold text-neutral-900">
-          Descriere<span className="ml-0.5 text-[#7c3aed]">*</span>
+        <label className="mt-6 block">
+          <FieldLabel required>Descriere</FieldLabel>
         </label>
         <textarea
           value={description}
@@ -1576,7 +1796,7 @@ export function NewListingForm() {
       <div className="min-w-0">
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">Detalii</h2>
+        <SectionHeading required>Detalii</SectionHeading>
         <div className="mt-1">
           <Field label="Categorie" required value={categoryLabelFor(group, item)} onClick={() => setSheet("category")} />
           <Field label="Brand" required value={brand} onClick={() => setSheet("brand")} />
@@ -1591,12 +1811,12 @@ export function NewListingForm() {
 
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">Preț</h2>
+        <SectionHeading required>Preț</SectionHeading>
         <div className="mt-3 flex gap-3">
           <div className="flex-1">
-            <label className="block text-[13px] text-neutral-500">
-              Preț<span className="ml-0.5 text-[#7c3aed]">*</span>
-            </label>
+            {/* No mark here: the card's own heading already carries it, and
+                repeating it on the only required field inside is noise. */}
+            <label className="block text-[13px] text-neutral-500">Preț</label>
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
@@ -1700,60 +1920,48 @@ export function NewListingForm() {
 
       {/* ---- Pickers ---- */}
       <DragSheet open={sheet === "category"} title="Categorie" onClose={() => setSheet(null)}>
-        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white p-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={catQuery}
-              onChange={(e) => setCatQuery(e.target.value)}
-              placeholder="Caută categoria"
-              className="w-full rounded-full bg-neutral-100 py-2.5 pl-9 pr-3 text-[14.5px] outline-none"
-            />
-          </div>
-        </div>
+        <SheetSearch value={catQuery} onChange={setCatQuery} placeholder="Caută categoria" />
         {catResults ? (
-          <div className="p-2">
+          <div className="pb-6">
             {catResults.map((c) => (
-              <button
+              <OptionRow
                 key={`${c.groupId}-${c.item.id}`}
-                type="button"
+                label={c.item.label}
+                hint={c.groupLabel}
+                selected={group === c.groupId && item === c.item.id}
                 onClick={() => {
                   setGroup(c.groupId)
                   setItem(c.item.id)
                   setSheet(null)
                   setCatQuery("")
                 }}
-                className="flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left hover:bg-neutral-50"
-              >
-                <span className="text-[14.5px] text-neutral-900">{c.item.label}</span>
-                <span className="text-[12px] text-neutral-400">{c.groupLabel}</span>
-              </button>
+              />
             ))}
             {catResults.length === 0 && (
-              <p className="px-3 py-6 text-center text-[14px] text-neutral-400">Nicio categorie găsită</p>
+              <p className="px-4 py-10 text-center text-[14.5px] text-neutral-400">Nicio categorie găsită</p>
             )}
           </div>
         ) : (
-          <div className="p-2">
+          <div className="pb-6">
             {LISTING_CATEGORIES.map((g) => (
-              <div key={g.id} className="mb-3">
-                <p className="px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-neutral-400">
+              <div key={g.id}>
+                {/* The group name travels with the list rather than sitting
+                    above it, so you can always see which department you are
+                    scrolling through. */}
+                <p className="sticky top-0 z-[1] bg-neutral-50/95 px-4 py-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-neutral-400 backdrop-blur-none">
                   {g.label}
                 </p>
                 {g.items.map((it) => (
-                  <button
+                  <OptionRow
                     key={it.id}
-                    type="button"
+                    label={it.label}
+                    selected={group === g.id && item === it.id}
                     onClick={() => {
                       setGroup(g.id)
                       setItem(it.id)
                       setSheet(null)
                     }}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14.5px] text-neutral-900 hover:bg-neutral-50"
-                  >
-                    {it.label}
-                    {group === g.id && item === it.id && <Check className="h-4 w-4 text-[#7c3aed]" />}
-                  </button>
+                  />
                 ))}
               </div>
             ))}
@@ -1762,53 +1970,59 @@ export function NewListingForm() {
       </DragSheet>
 
       <DragSheet open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>
-        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white p-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={brandQuery}
-              onChange={(e) => setBrandQuery(e.target.value)}
-              placeholder="Caută brandul"
-              className="w-full rounded-full bg-neutral-100 py-2.5 pl-9 pr-3 text-[14.5px] outline-none"
-            />
-          </div>
-        </div>
-        <div className="p-2">
+        <SheetSearch value={brandQuery} onChange={setBrandQuery} placeholder="Caută brandul" />
+        <div className="pb-6">
+          {/* Skeleton rows rather than an empty sheet. A blank list under a
+              search box reads as "no brands", which is a wrong answer; rows
+              that are the right height and the right count read as "not yet",
+              and they hold the layout so nothing jumps when the names land. */}
+          {brands.length === 0 &&
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={`skel-${i}`} className="flex h-[56px] items-center px-4">
+                <span
+                  className="h-[13px] animate-pulse rounded-full bg-neutral-100"
+                  style={{ width: `${38 + ((i * 17) % 42)}%` }}
+                />
+              </div>
+            ))}
           {brands.map((b) => (
-            <button
+            <OptionRow
               key={b.slug}
-              type="button"
+              label={b.name}
+              selected={brand === b.name}
               onClick={() => {
                 setBrand(b.name)
                 setSheet(null)
               }}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[14.5px] text-neutral-900 hover:bg-neutral-50"
-            >
-              {b.name}
-              {brand === b.name && <Check className="h-4 w-4 text-[#7c3aed]" />}
-            </button>
+            />
           ))}
           {/* Always available, never a row in the table — a brand directory can
               never be complete, and a missing brand shouldn't block a listing. */}
           <button
             type="button"
             onClick={() => {
+              void triggerHaptic("light")
               setBrand("Altele")
               setSheet(null)
             }}
-            className="mt-1 flex w-full items-center justify-between rounded-lg border-t border-neutral-100 px-3 py-3 text-left text-[14.5px] font-medium text-neutral-600 hover:bg-neutral-50"
+            className="mt-2 flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-4 text-left text-[15px] font-medium text-neutral-600 transition-colors duration-150 active:bg-neutral-100"
           >
-            Nu găsesc brandul — Altele
-            {brand === "Altele" && <Check className="h-4 w-4 text-[#7c3aed]" />}
+            <span className="flex-1">Nu găsesc brandul — Altele</span>
+            {brand === "Altele" && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />}
           </button>
         </div>
       </DragSheet>
 
+      {/* The condition ladder is the one picker whose choices need reading
+          rather than recognising — "nou, fără etichetă" and "foarte bună" are
+          a sentence apart, not a word — so it stays a list, and each rung says
+          what it means. */}
       <DragSheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>
         {CONDITIONS.map((c) => (
           <OptionRow
             key={c.id}
             label={c.label}
+            hint={CONDITION_HINTS[c.id]}
             selected={condition === c.id}
             onClick={() => { setCondition(c.id); setSheet(null) }}
           />
@@ -1816,61 +2030,71 @@ export function NewListingForm() {
       </DragSheet>
 
       <DragSheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>
-        {SIZES.map((c) => (
-          <OptionRow
-            key={c.id}
-            label={c.label}
-            selected={size === c.id}
-            onClick={() => { setSize(c.id); setSheet(null) }}
-          />
-        ))}
+        <ChipField>
+          {SIZES.map((c) => (
+            <OptionChip
+              key={c.id}
+              label={c.label}
+              selected={size === c.id}
+              onClick={() => { setSize(c.id); setSheet(null) }}
+            />
+          ))}
+        </ChipField>
       </DragSheet>
 
       <DragSheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>
-        {COLOURS.map((c) => (
-          <OptionRow
-            key={c.id}
-            label={c.label}
-            swatch={c.hex}
-            selected={colour === c.id}
-            onClick={() => { setColour(c.id); setSheet(null) }}
-          />
-        ))}
+        <ChipField>
+          {COLOURS.map((c) => (
+            <OptionChip
+              key={c.id}
+              label={c.label}
+              swatch={c.hex}
+              selected={colour === c.id}
+              onClick={() => { setColour(c.id); setSheet(null) }}
+            />
+          ))}
+        </ChipField>
       </DragSheet>
 
-      <DragSheet open={sheet === "source"} title="Tip · alege până la 2" onClose={() => setSheet(null)}>
-        {SOURCES.map((o) => (
-          <OptionRow
-            key={o.id}
-            label={o.label}
-            multi
-            selected={sources.includes(o.id)}
-            onClick={() => setSources((l) => toggleIn(l, o.id, 2))}
-          />
-        ))}
+      <DragSheet open={sheet === "source"} title="Tip" onClose={() => setSheet(null)}>
+        <PickerNote>Alege până la 2</PickerNote>
+        <ChipField>
+          {SOURCES.map((o) => (
+            <OptionChip
+              key={o.id}
+              label={o.label}
+              selected={sources.includes(o.id)}
+              onClick={() => setSources((l) => toggleIn(l, o.id, 2))}
+            />
+          ))}
+        </ChipField>
       </DragSheet>
 
       <DragSheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>
-        {ERAS.map((c) => (
-          <OptionRow
-            key={c.id}
-            label={c.label}
-            selected={era === c.id}
-            onClick={() => { setEra(c.id); setSheet(null) }}
-          />
-        ))}
+        <ChipField>
+          {ERAS.map((c) => (
+            <OptionChip
+              key={c.id}
+              label={c.label}
+              selected={era === c.id}
+              onClick={() => { setEra(c.id); setSheet(null) }}
+            />
+          ))}
+        </ChipField>
       </DragSheet>
 
-      <DragSheet open={sheet === "style"} title="Stil · alege până la 3" onClose={() => setSheet(null)}>
-        {STYLES.map((o) => (
-          <OptionRow
-            key={o.id}
-            label={o.label}
-            multi
-            selected={styles.includes(o.id)}
-            onClick={() => setStyles((l) => toggleIn(l, o.id, 3))}
-          />
-        ))}
+      <DragSheet open={sheet === "style"} title="Stil" onClose={() => setSheet(null)}>
+        <PickerNote>Alege până la 3</PickerNote>
+        <ChipField>
+          {STYLES.map((o) => (
+            <OptionChip
+              key={o.id}
+              label={o.label}
+              selected={styles.includes(o.id)}
+              onClick={() => setStyles((l) => toggleIn(l, o.id, 3))}
+            />
+          ))}
+        </ChipField>
       </DragSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a

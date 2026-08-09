@@ -213,7 +213,17 @@ check(
   ),
 )
 
-console.log("\nA closed sheet paints nothing")
+console.log("\nA closed sheet paints nothing, and renders nothing")
+
+check(
+  "what a sheet is doing is ONE variable, not three booleans in agreement",
+  (() => {
+    // Painted-or-not, mounted-or-not and moving-or-not are the same question
+    // asked three ways, and they were answered separately — a delayed
+    // visibility transition, an always-mounted subtree, and `open`.
+    return /type Stage = "closed" \| "arming" \| "open" \| "leaving"/.test(dragSheet)
+  })(),
+)
 
 check(
   "a parked picker does not cast its shadow back onto the screen",
@@ -224,37 +234,123 @@ check(
     // shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)]. That shadow points UP, so it
     // was cast back INTO the visible area for as long as the sheet was closed,
     // which is almost always. The sell form renders EIGHT of them.
-    return /visibility: open \? "visible" : "hidden"/.test(dragSheet) && /shadow-\[0_-8px_40px/.test(dragSheet)
-  })(),
-)
-
-check(
-  "hiding waits for the slide to finish",
-  (() => {
-    // `visibility` cannot be transitioned, but it CAN be delayed — that is the
-    // whole trick. Hidden immediately would make the sheet vanish rather than
-    // leave, which is exactly the hard cut the animation exists to avoid.
     return (
-      /const HIDE_AFTER_SLIDE = `\$\{SHEET_TRANSITION\}, visibility 0s linear 360ms`/.test(dragSheet) &&
-      /const VISIBLE_NOW = `\$\{SHEET_TRANSITION\}, visibility 0s`/.test(dragSheet)
+      /visibility: up \|\| stage === "leaving" \? "visible" : "hidden"/.test(dragSheet) &&
+      /shadow-\[0_-8px_40px/.test(dragSheet)
     )
   })(),
 )
 
 check(
-  "opening is immediate, so nothing has to fade in from nowhere",
-  /transition: open \? VISIBLE_NOW : HIDE_AFTER_SLIDE/.test(dragSheet),
+  "hiding waits for the slide to finish — and the wait IS the state",
+  (() => {
+    // `visibility` cannot be transitioned, and the old version delayed it by a
+    // hand-written 360ms that was only equal to the animation by coincidence.
+    // `leaving` is that interval, so the duration is stated once.
+    return (
+      /leaveTimer\.current = window\.setTimeout\(\(\) => setStage\("closed"\), SHEET_MS\)/.test(dragSheet) &&
+      /const SHEET_TRANSITION = `transform \$\{SHEET_MS\}ms \$\{SHEET_EASE\}`/.test(dragSheet)
+    )
+  })(),
 )
 
 check(
-  "a flick-to-dismiss hides it too, not only the close button",
+  "the list is built in a frame where nothing is moving",
   (() => {
-    // The drag handler writes transform and transition straight onto the node,
-    // so it has to write the visibility as well or a dismissed sheet keeps
-    // painting its shadow until the next React render happens to agree.
-    const end = dragSheet.slice(dragSheet.indexOf("const onTouchEnd"))
-    return /el\.style\.visibility = "hidden"/.test(end) && /el\.style\.visibility = "visible"/.test(end)
+    // Mounting a picker and starting its transform on the SAME frame spends the
+    // animation's first frames building DOM. `arming` is one frame in which the
+    // children mount against a parked panel, and the slide starts against a
+    // layout that has already settled.
+    const armed = dragSheet.slice(dragSheet.indexOf('if (stage !== "arming") return'))
+    return (
+      /void sheetRef\.current\?\.offsetHeight/.test(armed.slice(0, 400)) &&
+      /requestAnimationFrame\(\(\) => setStage\(\(s\) => \(s === "arming" \? "open" : s\)\)\)/.test(
+        armed.slice(0, 400),
+      )
+    )
   })(),
+  "        offsetHeight is the forced flush: two style changes inside one frame\n" +
+    "        collapse into one, and the sheet appears in place instead of sliding.",
+)
+
+check(
+  "a closed picker's contents are not in the tree at all",
+  (() => {
+    // Eight pickers' worth of options — every category, every brand, thirty-one
+    // styles — were reconciled on every keystroke in the title field, and built
+    // during the sell form's own mount. That is why the first tap felt slow:
+    // the work was not being done lazily, it was being done constantly.
+    return /\{painted \? children : null\}/.test(dragSheet)
+  })(),
+)
+
+check(
+  "re-opening catches a sheet that is still on its way down",
+  (() => {
+    // Its children are already mounted, so there is nothing to arm — and
+    // re-arming would blank it mid-slide, because `arming` is deliberately not
+    // painted.
+    return /if \(stageRef\.current === "leaving"\) setStage\("open"\)/.test(dragSheet)
+  })(),
+)
+
+check(
+  "the timer is set in an effect, not inside a state updater",
+  (() => {
+    // An updater is a function React is free to call twice; a setTimeout inside
+    // one leaks the first timer, and the leaked one is the untracked one.
+    const fx = dragSheet.slice(dragSheet.indexOf("window.clearTimeout(leaveTimer.current)"))
+    return !/setStage\(\(s\) => \{/.test(fx.slice(0, 600))
+  })(),
+)
+
+check(
+  "a flick-to-dismiss goes through the same state, not around it",
+  (() => {
+    // The drag handler used to write `visibility: hidden` straight onto the
+    // node, which meant the hiding rule existed in two places and only one of
+    // them was the one anybody read.
+    const end = dragSheet.slice(dragSheet.indexOf("const onTouchEnd"))
+    return !/el\.style\.visibility/.test(end) && /onClose\(\)/.test(end)
+  })(),
+)
+
+check(
+  "the drag and the transition share one easing string",
+  // React only rewrites a style property when its own value changes between
+  // renders, so a drag that left a different curve on the node would leak it
+  // into every open and close afterwards.
+  (() => {
+    const end = dragSheet.slice(dragSheet.indexOf("const onTouchEnd"))
+    return /el\.style\.transition = SHEET_TRANSITION/.test(end) && /transition: SHEET_TRANSITION/.test(dragSheet)
+  })(),
+)
+
+check(
+  "there is a grabber, and it is the thing you drag",
+  (() => {
+    // The pill was removed once for looking dated. It is the one shape every
+    // phone user already reads as "pull this down", and the sheets it was taken
+    // off are sheets you can in fact pull down — so its absence was not
+    // restraint, it was a gesture with no affordance.
+    const zone = dragSheet.slice(dragSheet.indexOf("onTouchStart={onTouchStart}"))
+    return /rounded-full bg-neutral-300/.test(zone.slice(0, 900))
+  })(),
+)
+
+check(
+  "only the header zone arms the drag",
+  (() => {
+    // A sheet that dismisses itself when somebody flings a long brand list
+    // towards the top is unusable.
+    const zone = dragSheet.slice(dragSheet.indexOf('className="shrink-0 touch-none select-none"'))
+    return zone.indexOf("onTouchStart={onTouchStart}") < zone.indexOf("overflow-y-auto")
+  })(),
+)
+
+check(
+  "the compositor layer is held only while the sheet is on screen",
+  /willChange: painted \? "transform" : "auto"/.test(dragSheet),
 )
 
 check(
@@ -264,6 +360,108 @@ check(
   /if \(!mounted \|\| typeof document === "undefined"\) return null/.test(
     strip(read("components/ui/bottom-sheet.tsx")),
   ),
+)
+
+console.log("\nWhat is inside a picker")
+
+check(
+  "a one-word choice is a chip, not a 56px row",
+  (() => {
+    // Thirty-one styles, nineteen colours and nine sizes were nine hundred
+    // pixels of identical rows each, every one of them containing a single
+    // word. A list is the right shape for a choice you have to READ; for one
+    // you RECOGNISE it puts most of the vocabulary below the fold and makes
+    // comparing two of them a scroll.
+    const chipped = ["size", "colour", "source", "era", "style"]
+    return chipped.every((k) => {
+      const at = form.indexOf(`open={sheet === "${k}"}`)
+      return at > 0 && /<ChipField>/.test(form.slice(at, at + 900))
+    })
+  })(),
+)
+
+check(
+  "the condition ladder stays a list, and each rung says what it means",
+  (() => {
+    // The five labels are a database constraint and cannot change; on their own
+    // they are five synonyms for "used", and the difference between them is the
+    // difference between an accurate listing and a return.
+    const at = form.indexOf('open={sheet === "condition"}')
+    return /<OptionRow/.test(form.slice(at, at + 500)) && /const CONDITION_HINTS: Record<string, string> = \{/.test(form)
+  })(),
+)
+
+check(
+  "the six pickers share one row and one chip, not six near-copies",
+  (() => {
+    // Every sheet used to write its own — a rounded box, a hover tint, a check
+    // floated right, 2px of padding so the rows sat in from the edges — and no
+    // two were quite the same.
+    return (
+      /function OptionRow\(/.test(form) &&
+      /function OptionChip\(/.test(form) &&
+      /function SheetSearch\(/.test(form) &&
+      !/rounded-lg px-3 py-2\.5 text-left/.test(form)
+    )
+  })(),
+)
+
+check(
+  "no picker row carries a hover style",
+  // A phone has no hover, and these produced a highlight that stuck after a tap
+  // on iOS.
+  !/hover:bg-neutral-50/.test(form),
+)
+
+check(
+  "the multi-select limit is a line of its own, not crammed into the title",
+  // "Stil · alege până la 3" put two different things on the one line a phone
+  // sheet gives a title.
+  /function PickerNote\(/.test(form) && !/alege până la 3"/.test(form),
+)
+
+check(
+  "required is marked ONE way on this form",
+  (() => {
+    // An asterisk after the label and a dot before the heading are two marks
+    // for one meaning, which is what makes a screen read as assembled rather
+    // than designed. An asterisk is also a footnote reference to a footnote
+    // that does not exist.
+    return /function Req\(\)/.test(form) && !/text-\[#7c3aed\]">\*<\/span>/.test(form)
+  })(),
+)
+
+console.log("\nHow fast a picker fills")
+
+check(
+  "the brand list is fetched while the form mounts, not when the sheet opens",
+  (() => {
+    // Brand is required, so the picker WILL be opened, and a request that
+    // starts when the sheet does is a request the animation has to wait for.
+    // `}, [])` is the whole claim: a mount effect, not one keyed on the sheet.
+    return /fetch\("\/api\/brands\?q=", \{ credentials: "include" \}\)[\s\S]{0,420}?\}, \[\]\)/.test(form)
+  })(),
+)
+
+check(
+  "warming never overwrites a search result that came back first",
+  /setBrands\(\(b\) => \(b\.length \? b : d\.brands\)\)/.test(form),
+)
+
+check(
+  "opening the sheet is not debounced; only typing is",
+  // 180ms is for a keystroke another keystroke is about to replace. Opening the
+  // picker, or clearing the field, wants the answer now.
+  /\}, brandQuery \? 180 : 0\)/.test(form),
+)
+
+check(
+  "an unfilled brand list shows that it is loading, not that there are none",
+  (() => {
+    const at = form.indexOf('open={sheet === "brand"}')
+    const sheetBody = form.slice(at, at + 1400)
+    return /brands\.length === 0 &&/.test(sheetBody) && /animate-pulse/.test(sheetBody)
+  })(),
 )
 
 console.log("\nThe keyboard")

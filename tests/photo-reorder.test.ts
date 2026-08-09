@@ -353,7 +353,8 @@ check(
   (() => {
     // It used to be a full-width dashed panel that was replaced by a grid the
     // moment the first photo landed.
-    return !/Adaugă fotografii<\/span>/.test(form) && !/px-4 py-10/.test(form)
+    const section = form.slice(form.indexOf("{photos.length > 0 ? `${photos.length}"), form.indexOf("ref={fileRef}"))
+    return !/Adaugă fotografii<\/span>/.test(section) && !/py-10/.test(section) && /grid grid-cols-3/.test(section)
   })(),
 )
 
