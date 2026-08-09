@@ -403,9 +403,44 @@ html.capacitor a.no-tap-fade:active {
   to   { transform: translate3d(0, 100%, 0); }
 }
 .sell-sheet-enter,
-.sell-sheet-leave {
+.sell-sheet-leave,
+/* Armed one frame BEFORE the leave begins — see `close()` in
+ * components/sell/new-listing-form.tsx. `will-change` on this element only
+ * exists while one of the animation classes is on it, and the enter class is
+ * removed once the sheet has arrived. So pressing X used to ask the browser to
+ * BUILD a full-screen compositor layer on the very frame the close animation
+ * started, and the hitch you saw was that layer being created. Arming a frame
+ * early means the layer already exists when the movement begins. */
+.sell-sheet-armed {
   will-change: transform;
   backface-visibility: hidden;
+}
+
+/* ── NO BLUR WHILE IT IS MOVING ─────────────────────────────────────────────
+ *
+ * THIS is what made the slide stutter, and it was never the animation.
+ *
+ * A `backdrop-filter` inside a transformed ancestor cannot be composited once
+ * and reused: the browser has to re-sample the backdrop and re-blur it on
+ * EVERY FRAME the ancestor moves. The sheet contained five of them — the
+ * header, plus four chips on each photo tile — so with six photos uploaded
+ * there were twenty-five live blur passes fighting a 420ms slide. Which is
+ * exactly why it felt worse the more you had added.
+ *
+ * Suspended for the duration of the travel rather than removed. Every one of
+ * those chips already sits on `bg-black/55` or `bg-white/95`, so for the third
+ * of a second the sheet is in motion they look the same and read the same —
+ * and nobody has ever detected the sharpness of a blur on a surface that is
+ * sliding past them. The moment it settles, the class goes and the blur is
+ * back.
+ *
+ * `!important` because these are Tailwind utilities on the elements
+ * themselves, and this has to win for exactly as long as the class is present. */
+.sell-sheet-enter *,
+.sell-sheet-leave *,
+.sell-sheet-armed * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 .sell-sheet-enter { animation: sell-sheet-enter 420ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sell-sheet-leave { animation: sell-sheet-leave 300ms cubic-bezier(0.55, 0, 1, 0.45) both; }
@@ -413,7 +448,8 @@ html.capacitor a.no-tap-fade:active {
   /* On a monitor it is a page, not a sheet, and a full-viewport slide there
      reads as a website doing tricks. */
   .sell-sheet-enter,
-  .sell-sheet-leave { animation: none; will-change: auto; }
+  .sell-sheet-leave,
+  .sell-sheet-armed { animation: none; will-change: auto; }
 }
 
 /* THE SHEET IS THE SIZE OF WHAT YOU CAN SEE, not of the layout viewport.

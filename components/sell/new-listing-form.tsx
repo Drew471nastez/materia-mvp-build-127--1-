@@ -547,9 +547,26 @@ export function NewListingForm() {
    * the only way out of a full-screen form dead.
    */
   const [leaving, setLeaving] = useState(false)
+  /**
+   * The frame before the close.
+   *
+   * `will-change: transform` on the sheet only exists while one of the
+   * animation classes is on it, and the enter class comes off once the sheet
+   * has arrived. So pressing X asked the browser to BUILD a full-screen
+   * compositor layer on the very frame the close animation started — and that
+   * layer being created is the hitch at the start of the close.
+   *
+   * Arming sets `will-change` (and suspends the blurs) one frame early, so by
+   * the time the movement begins the layer is already there and the animation
+   * is compositor-only from its first pixel.
+   */
+  const [armed, setArmed] = useState(false)
   const close = useCallback(() => {
     if (leaving) return
-    setLeaving(true)
+    setArmed(true)
+    // One frame. Not a timeout — a rAF is exactly "after the browser has had a
+    // chance to act on the class I just set", which is the whole requirement.
+    requestAnimationFrame(() => setLeaving(true))
     /**
      * 280, not 300 — one frame INSIDE the animation rather than on its last.
      *
@@ -567,7 +584,11 @@ export function NewListingForm() {
     window.setTimeout(() => {
       if (typeof window !== "undefined" && window.history.length > 1) router.back()
       else router.push("/")
-    }, 280)
+      // 296, not 280: the animation now begins one frame after this timer is
+      // set, so the old number landed 36ms inside a 300ms slide rather than the
+      // 20 it was tuned for — the screen behind appearing while the sheet still
+      // had visible travel left.
+    }, 296)
   }, [leaving, router])
 
   // ---- brand search ----
@@ -726,12 +747,16 @@ export function NewListingForm() {
             void triggerHaptic("light")
             return
           }
-          setLeaving(true)
+          // Armed a frame early, same as `close()` — this is the other way the
+          // sheet leaves, and it deserves the same compositor layer waiting for
+          // it rather than being built under the animation.
+          setArmed(true)
+          requestAnimationFrame(() => setLeaving(true))
           window.setTimeout(() => {
             if (draft) router.replace("/products/drafts")
             else if (data?.slug) router.replace(`/products/${data.slug}`)
             else router.replace("/")
-          }, 300)
+          }, 316)
         }, 1100)
       } catch {
         setError("Ceva n-a mers. Verifică conexiunea și încearcă din nou.")
@@ -825,14 +850,18 @@ export function NewListingForm() {
         "sell-sheet fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
         // Leaving wins: pressing X mid-entrance must go down from wherever the
         // sheet has got to, not finish arriving first.
-        leaving ? "sell-sheet-leave" : entering && "sell-sheet-enter",
+        leaving ? "sell-sheet-leave" : entering ? "sell-sheet-enter" : armed && "sell-sheet-armed",
       )}
     >
       {/* The header. An X and a title, like every sheet on a phone — and it
           pays the status-bar inset itself, because the strip that used to do
           that for this route is gone. */}
       <header
-        className="shrink-0 border-b border-neutral-200/80 bg-white/95 backdrop-blur-md md:hidden"
+        // Opaque, and NO backdrop blur. It sits directly on the sheet's own
+        // solid background, so there was never anything behind it to blur —
+        // the filter cost a full re-composite on every frame of the slide and
+        // bought a visual difference of precisely nothing.
+        className="shrink-0 border-b border-neutral-200/80 bg-white md:hidden"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div className="relative flex h-14 items-center justify-center px-2">
