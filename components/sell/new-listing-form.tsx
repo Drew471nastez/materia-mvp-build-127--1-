@@ -7,7 +7,6 @@ import {
   CATEGORY_INDEX,
   COLOURS,
   CONDITIONS,
-  DESCRIPTION_PLACEHOLDER,
   ERAS,
   LISTING_CATEGORIES,
   MAX_PHOTOS,
@@ -206,35 +205,41 @@ function OptionRow({
         onClick()
       }}
       className={cn(
-        "group flex w-full items-center gap-3 px-4 text-left transition-colors duration-150 active:bg-neutral-100",
+        "flex w-full items-center gap-3 pl-4 text-left transition-colors duration-150 active:bg-neutral-100",
         selected && "bg-violet-50/70",
       )}
-      style={{ minHeight: 56 }}
+      style={{ minHeight: 58 }}
     >
-      <span className="min-w-0 flex-1 py-2.5">
-        <span
-          className={cn(
-            "block truncate text-[15.5px]",
-            selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
-          )}
-        >
-          {label}
+      {/* The hairline hangs off the CONTENT, not off the button, so it starts
+          where the words start and stops at the right padding — which is how a
+          phone's own lists are drawn, and the difference between a list and a
+          table. */}
+      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-neutral-100 py-3.5 pr-4">
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block truncate text-[16px]",
+              selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
+            )}
+          >
+            {label}
+          </span>
+          {hint && <span className="mt-0.5 block truncate text-[13px] text-neutral-400">{hint}</span>}
         </span>
-        {hint && <span className="mt-0.5 block truncate text-[12.5px] text-neutral-400">{hint}</span>}
+        {multi ? (
+          <span
+            aria-hidden
+            className={cn(
+              "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border-2 transition-colors duration-150",
+              selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300",
+            )}
+          >
+            {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+          </span>
+        ) : (
+          selected && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />
+        )}
       </span>
-      {multi ? (
-        <span
-          aria-hidden
-          className={cn(
-            "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border-2 transition-colors duration-150",
-            selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300",
-          )}
-        >
-          {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-        </span>
-      ) : (
-        selected && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />
-      )}
     </button>
   )
 }
@@ -270,23 +275,25 @@ function DrillRow({
         onClick()
       }}
       className={cn(
-        "flex w-full items-center gap-3 px-4 text-left transition-colors duration-150 active:bg-neutral-100",
+        "flex w-full items-center gap-3 pl-4 text-left transition-colors duration-150 active:bg-neutral-100",
         selected && "bg-violet-50/70",
       )}
-      style={{ minHeight: 56 }}
+      style={{ minHeight: 58 }}
     >
-      <span className="min-w-0 flex-1 py-2.5">
-        <span
-          className={cn(
-            "block truncate text-[15.5px]",
-            selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
-          )}
-        >
-          {label}
+      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-neutral-100 py-3.5 pr-4">
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block truncate text-[16px]",
+              selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
+            )}
+          >
+            {label}
+          </span>
+          {hint && <span className="mt-0.5 block truncate text-[13px] text-neutral-400">{hint}</span>}
         </span>
-        {hint && <span className="mt-0.5 block truncate text-[12.5px] text-neutral-400">{hint}</span>}
+        <ChevronRight className="h-[19px] w-[19px] shrink-0 text-neutral-400" strokeWidth={2.4} />
       </span>
-      <ChevronRight className="h-[19px] w-[19px] shrink-0 text-neutral-300" strokeWidth={2.4} />
     </button>
   )
 }
@@ -376,9 +383,12 @@ function SheetSearch({
   placeholder: string
 }) {
   return (
-    <div className="sticky top-0 z-[2] bg-white px-4 pb-2.5 pt-3">
+    <div className="sticky top-0 z-[2] bg-white px-4 pb-3 pt-3">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-neutral-400" />
+        <Search
+          className="pointer-events-none absolute left-4 top-1/2 h-[19px] w-[19px] -translate-y-1/2 text-neutral-500"
+          strokeWidth={2.6}
+        />
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -388,7 +398,7 @@ function SheetSearch({
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
-          className="w-full rounded-[14px] bg-neutral-100 py-3 pl-11 pr-3.5 text-[15px] outline-none transition-shadow duration-150 placeholder:text-neutral-400 focus:ring-2 focus:ring-[#7c3aed]/25 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full rounded-[13px] bg-neutral-100 py-3.5 pl-12 pr-4 text-[16px] outline-none transition-shadow duration-150 placeholder:text-neutral-500 focus:ring-2 focus:ring-[#7c3aed]/25 [&::-webkit-search-cancel-button]:appearance-none"
         />
       </div>
     </div>
@@ -399,7 +409,7 @@ function SheetSearch({
  *  title itself — "Stil · alege până la 3" — where it competed with the name of
  *  the picker for the one line a phone sheet gives it. */
 function PickerNote({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 pt-3 text-[12.5px] text-neutral-400">{children}</p>
+  return <p className="px-4 pb-1 pt-1 text-[13px] text-neutral-500">{children}</p>
 }
 
 /**
@@ -735,9 +745,22 @@ export function NewListingForm() {
    */
   const slots = useRef<Box[]>([])
 
-  const measureTiles = useCallback(() => {
+  /**
+   * The tiles that are about to move, measured in one batch.
+   *
+   * `lo`/`hi` bound it to the range a single swap actually disturbs. Moving a
+   * photo one place left moves exactly two tiles; measuring all eight was six
+   * rects nobody read, and every rect is a synchronous layout flush the browser
+   * has to serve mid-drag. Reads stay grouped and come before any write, so it
+   * is still one flush rather than one per tile.
+   */
+  const measureTiles = useCallback((lo = 0, hi = Number.MAX_SAFE_INTEGER) => {
     const m = new Map<string, DOMRect>()
-    tileEls.current.forEach((el, id) => m.set(id, el.getBoundingClientRect()))
+    const list = photosRef.current
+    for (let i = Math.max(0, lo); i <= Math.min(hi, list.length - 1); i++) {
+      const el = tileEls.current.get(list[i].id)
+      if (el) m.set(list[i].id, el.getBoundingClientRect())
+    }
     return m
   }, [])
 
@@ -798,10 +821,24 @@ export function NewListingForm() {
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return
       el.style.transition = "none"
       el.style.transform = `translate3d(${dx}px, ${dy}px, 0)`
+      // The layer has to exist BEFORE the frame the movement starts on, or the
+      // browser builds it on that frame — which is the one frame of a 200ms
+      // animation anybody would notice.
+      el.style.willChange = "transform"
       requestAnimationFrame(() => {
         el.style.transition = `transform ${FLIP_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
         el.style.transform = "translate3d(0, 0, 0)"
       })
+      // And given back afterwards: a promoted layer per tile, held for the life
+      // of the form, is memory the compositor cannot reuse. `once` because a
+      // swap during the animation re-arms it from the top of this block.
+      el.addEventListener(
+        "transitionend",
+        () => {
+          if (drag.current?.id !== id) el.style.willChange = ""
+        },
+        { once: true },
+      )
     })
   })
 
@@ -833,7 +870,7 @@ export function NewListingForm() {
     // tiles, which are what the answer moves.
     const to = indexAtPoint(slots.current, d.x, d.y)
     if (to < 0 || to === from) return
-    flipFrom.current = measureTiles()
+    flipFrom.current = measureTiles(Math.min(from, to), Math.max(from, to))
     setPhotos((p) => moveItem(p, from, to))
     void triggerHaptic("light")
   }, [measureTiles, paintDragged])
@@ -1043,8 +1080,10 @@ export function NewListingForm() {
    * the only one of the two that a keyboard or an assistive device can perform.
    */
   const makeCover = useCallback((id: string) => {
-    flipFrom.current = measureTiles()
-    setPhotos((p) => moveItem(p, p.findIndex((ph) => ph.id === id), 0))
+    const at = photosRef.current.findIndex((ph) => ph.id === id)
+    if (at <= 0) return
+    flipFrom.current = measureTiles(0, at)
+    setPhotos((p) => moveItem(p, at, 0))
   }, [measureTiles])
 
   /**
@@ -1540,7 +1579,7 @@ export function NewListingForm() {
             void submit(true)
           }}
           disabled={saving !== null}
-          className="h-12 flex-1 rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+          className="h-12 flex-1 rounded-lg bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-colors duration-150 active:bg-neutral-200 disabled:opacity-60"
         >
           Salvează
         </button>
@@ -1557,7 +1596,7 @@ export function NewListingForm() {
           // strip, so the glow adds no separation and reads as a smudge under
           // it — which on a bar sitting at the very bottom edge of the screen
           // is the most conspicuous place to have one.
-          className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white transition-transform duration-200 active:scale-[0.98] disabled:opacity-60"
+          className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-lg bg-[#7c3aed] text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-[#6d28d9] disabled:opacity-60"
         >
           {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Publică anunțul
@@ -1654,8 +1693,12 @@ export function NewListingForm() {
         onBlur={onFieldBlur}
         className="min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain md:overflow-visible"
       >
-      <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl">
-      <header className="mb-5 hidden md:block">
+      {/* The page column. Mobile is untouched — max-w-2xl at 16px gutters is the
+          sheet it has always been. Above md it becomes a page: wider, with
+          gutters that grow with the window rather than staying at phone size on
+          a 27-inch monitor. */}
+      <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl md:px-6 lg:max-w-6xl lg:px-8">
+      <header className="mb-6 hidden md:block lg:mb-8">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
           Listează un articol
         </h1>
@@ -1670,7 +1713,12 @@ export function NewListingForm() {
           the columns must NOT be items-start: the right column has to stretch
           to the full row height so the sticky action card inside it has room
           to travel while the long left column scrolls. */}
-      <div className="md:grid md:grid-cols-2 md:gap-6">
+      {/* The left column takes slightly more than half: it holds the photo
+          grid and the description, both of which are the better for the width,
+          against a right column of fixed-height rows that gains nothing from
+          it. `minmax(0,…)` on both, or a long unbroken title in a Field row
+          would blow the track out past the container. */}
+      <div className="md:grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-6 lg:gap-8">
       <div className="min-w-0">
       {/* ---- Photos ---- */}
       {/**
@@ -1704,7 +1752,7 @@ export function NewListingForm() {
         * anything into the first slot makes it the cover — which is the whole
         * of what reordering is for here.
         */}
-      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <SectionHeading
           trailing={
             <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-neutral-500">
@@ -1820,6 +1868,11 @@ export function NewListingForm() {
           ))}
 
           {Array.from({ length: emptySlots }).map((_, n) => (
+            /* NO SCALE ON PRESS. A tile that shrinks and springs back under a
+               thumb is a bump, and on a target this size it reads as a misfire
+               rather than as feedback — the thing you were aiming at moved. The
+               feedback is the fill going violet, which happens where the finger
+               already is and does not move anything. */
             <button
               key={`slot-${n}`}
               type="button"
@@ -1829,26 +1882,33 @@ export function NewListingForm() {
               }}
               aria-label="Adaugă fotografii"
               className={cn(
-                "flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-2xl border-2",
-                "transition-[transform,background-color,border-color,color] duration-150 active:scale-[0.97]",
+                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl border",
+                "transition-colors duration-150",
                 n === 0
-                  ? "border-[#7c3aed]/35 bg-violet-50/70 text-[#7c3aed] active:bg-violet-100/70"
-                  : "border-neutral-200 bg-neutral-50/70 text-neutral-400 active:border-[#7c3aed]/35 active:text-[#7c3aed]",
+                  ? "border-neutral-200 bg-neutral-50 active:border-[#7c3aed]/40 active:bg-violet-50"
+                  : "border-neutral-200/80 bg-neutral-50/60 active:border-[#7c3aed]/40 active:bg-violet-50",
               )}
             >
+              {/* The soft rounded square, not a circle: it is the shape of the
+                  thing it stands for. The white ring and the shadow under it
+                  are what stop a light grey icon on a light grey tile from
+                  disappearing. */}
               <span
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full bg-white",
-                  n === 0 ? "shadow-[0_2px_8px_rgba(76,29,149,0.18)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
+                  "flex h-12 w-12 items-center justify-center rounded-[15px] bg-neutral-100",
+                  "ring-[3px] ring-white shadow-[0_2px_8px_-1px_rgba(0,0,0,0.10)]",
+                  n === 0 ? "text-[#7c3aed]" : "text-neutral-400",
                 )}
               >
                 {n === 0 && photos.length === 0 ? (
-                  <Camera className="h-[18px] w-[18px]" />
+                  <Camera className="h-[21px] w-[21px]" strokeWidth={1.9} />
                 ) : (
-                  <Plus className="h-[18px] w-[18px]" strokeWidth={2.6} />
+                  <Plus className="h-[21px] w-[21px]" strokeWidth={2.2} />
                 )}
               </span>
-              <span className="text-[11.5px] font-semibold">Adaugă</span>
+              <span className={cn("text-[12px] font-medium", n === 0 ? "text-neutral-600" : "text-neutral-400")}>
+                Adaugă
+              </span>
             </button>
           ))}
         </div>
@@ -1869,13 +1929,13 @@ export function NewListingForm() {
       </section>
 
       {/* ---- Title + description ---- */}
-      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <label className="block text-[15px] font-semibold text-neutral-900">Titlu</label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
-          placeholder="Ex: Hanorac Nike vintage verde"
+          placeholder="Titlu"
           className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
 
@@ -1885,7 +1945,7 @@ export function NewListingForm() {
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={1500}
-          placeholder={DESCRIPTION_PLACEHOLDER}
+          placeholder="Descriere"
           className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
         <p className="mt-1.5 text-[12.5px] text-neutral-400">
@@ -1895,23 +1955,8 @@ export function NewListingForm() {
       </div>
 
       <div className="min-w-0">
-      {/* ---- Details ---- */}
-      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <SectionHeading>Detalii</SectionHeading>
-        <div className="mt-1">
-          <Field label="Categorie" value={categoryLabelFor(group, item)} onClick={openCategory} />
-          <Field label="Brand" value={brand} onClick={() => setSheet("brand")} />
-          <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} />
-          <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} />
-          <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} />
-          <Field label="Tip" optional value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
-          <Field label="Epocă" optional value={label(ERAS, era)} onClick={() => setSheet("era")} />
-          <Field label="Stil" optional value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
-        </div>
-      </section>
-
       {/* ---- Price ---- */}
-      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <SectionHeading>Preț</SectionHeading>
         <div className="mt-3 flex gap-3">
           <div className="flex-1">
@@ -1942,6 +1987,21 @@ export function NewListingForm() {
               className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
             />
           </div>
+        </div>
+      </section>
+
+      {/* ---- Details ---- */}
+      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
+        <SectionHeading>Detalii</SectionHeading>
+        <div className="mt-1">
+          <Field label="Categorie" value={categoryLabelFor(group, item)} onClick={openCategory} />
+          <Field label="Brand" value={brand} onClick={() => setSheet("brand")} />
+          <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} />
+          <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} />
+          <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} />
+          <Field label="Tip" optional value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
+          <Field label="Epocă" optional value={label(ERAS, era)} onClick={() => setSheet("era")} />
+          <Field label="Stil" optional value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
         </div>
       </section>
 
@@ -2030,6 +2090,9 @@ export function NewListingForm() {
       >{() => (
         <>
         <SheetSearch value={catQuery} onChange={setCatQuery} placeholder="Caută categoria" />
+        {!catQuery.trim() && !catGroup && (
+          <PickerNote>Categoria decide unde apare anunțul și ce filtre îl găsesc.</PickerNote>
+        )}
 
         {catResults ? (
           <div className="pb-6">

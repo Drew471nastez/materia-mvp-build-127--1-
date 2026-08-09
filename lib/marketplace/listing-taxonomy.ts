@@ -458,6 +458,3 @@ export const SIZES: Option[] = [
 /** Photos: at least two, at most eight. */
 export const MIN_PHOTOS = 2
 export const MAX_PHOTOS = 8
-
-export const DESCRIPTION_PLACEHOLDER =
-  "Ex: Hanorac Nike vintage din anii '90, bumbac gros, culoare verde kaki. Purtat de câteva ori, fără pete sau găuri. Se potrivește lejer — port de obicei M și îmi vine oversize."

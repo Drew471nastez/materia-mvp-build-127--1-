@@ -402,6 +402,134 @@ check(
   })(),
 )
 
+console.log("\nThe picker, as an object on the page")
+
+check(
+  "pressing Adaugă does not make it jump",
+  (() => {
+    // A tile that shrinks and springs back under a thumb reads as a misfire
+    // rather than as feedback: the thing you were aiming at moved. The fill
+    // going violet happens where the finger already is and moves nothing.
+    const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
+    return !/active:scale/.test(slots) && /active:bg-violet-50/.test(slots)
+  })(),
+)
+
+check(
+  "the empty slot's icon is a soft rounded square, not a flat circle",
+  (() => {
+    // A light grey glyph on a light grey tile disappears; the white ring and
+    // the shadow under it are what stop that, and the square is the shape of
+    // the thing it stands for.
+    const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
+    return /rounded-\[15px\] bg-neutral-100/.test(slots) && /ring-\[3px\] ring-white/.test(slots)
+  })(),
+)
+
+console.log("\nThe reorder, per frame")
+
+check(
+  "only the tiles that move are measured",
+  (() => {
+    // Moving a photo one place left moves exactly two tiles; measuring all
+    // eight was six rects nobody read, and every rect is a synchronous layout
+    // flush the browser has to serve mid-drag.
+    return (
+      /const measureTiles = useCallback\(\(lo = 0, hi = Number\.MAX_SAFE_INTEGER\)/.test(form) &&
+      /measureTiles\(Math\.min\(from, to\), Math\.max\(from, to\)\)/.test(form) &&
+      /flipFrom\.current = measureTiles\(0, at\)/.test(form)
+    )
+  })(),
+)
+
+check(
+  "reads are grouped and come before any write",
+  (() => {
+    // Interleaving getBoundingClientRect with style writes turns one layout
+    // flush into one per tile.
+    const fn = form.slice(form.indexOf("const measureTiles = useCallback"), form.indexOf("const paintDragged"))
+    return !/\.style\./.test(fn)
+  })(),
+)
+
+check(
+  "a moving tile holds a compositor layer, and gives it back",
+  (() => {
+    // Built before the frame the movement starts on, or the browser builds it
+    // ON that frame — the one frame of a 200ms animation anybody notices. And
+    // released after, because a promoted layer per tile held for the life of
+    // the form is memory the compositor cannot reuse.
+    const fx = form.slice(form.indexOf("const before = flipFrom.current"))
+    const body = fx.slice(0, 1800)
+    return (
+      /el\.style\.willChange = "transform"/.test(body) &&
+      body.indexOf('el.style.willChange = "transform"') < body.indexOf("requestAnimationFrame") &&
+      /"transitionend"/.test(body)
+    )
+  })(),
+)
+
+console.log("\nA page on a monitor, a sheet on a phone")
+
+check(
+  "the desktop column grows with the window; the phone one does not",
+  (() => {
+    // max-w-2xl at 16px gutters is the sheet the phone has always been, and it
+    // stays exactly that. Above md it becomes a page.
+    return /max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl md:px-6 lg:max-w-6xl lg:px-8/.test(form)
+  })(),
+)
+
+check(
+  "neither desktop column can be blown out by one long value",
+  (() => {
+    // A grid track is sized by its content unless told otherwise, so an
+    // unbroken brand name in a Field row would push the column past the
+    // container and take the page's horizontal scrollbar with it.
+    return /md:grid-cols-\[minmax\(0,1\.1fr\)_minmax\(0,1fr\)\]/.test(form)
+  })(),
+)
+
+check(
+  "the buttons are not pills",
+  (() => {
+    // A fully-rounded 48px bar reads as a chip rather than as the primary
+    // action of the screen.
+    const actions = form.slice(form.indexOf("const actionControls ="), form.indexOf("Publică anunțul"))
+    return /rounded-lg bg-\[#7c3aed\]/.test(actions) && !/rounded-full/.test(actions)
+  })(),
+)
+
+check(
+  "and they do not bump either",
+  (() => {
+    const actions = form.slice(form.indexOf("const actionControls ="), form.indexOf("Publică anunțul"))
+    return !/active:scale/.test(actions) && /active:bg-\[#6d28d9\]/.test(actions)
+  })(),
+)
+
+check(
+  "the placeholders name the field rather than writing the listing for you",
+  (() => {
+    // A worked example in the box is a paragraph you have to read and delete
+    // before you can type, and it makes an empty field look full.
+    return (
+      /placeholder="Titlu"/.test(form) &&
+      /placeholder="Descriere"/.test(form) &&
+      !/DESCRIPTION_PLACEHOLDER/.test(form)
+    )
+  })(),
+)
+
+check(
+  "price is asked before the attribute list, not after it",
+  (() => {
+    // It is the decision people arrive with and the one they change most; it
+    // was sitting under eight rows of pickers.
+    return form.indexOf("<SectionHeading>Preț</SectionHeading>") < form.indexOf("<SectionHeading>Detalii</SectionHeading>")
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
