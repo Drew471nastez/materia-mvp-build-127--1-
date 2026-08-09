@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { ChevronLeft, X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -92,7 +93,18 @@ export function DragSheet({
   /** Present only when the sheet is showing a level you can come back from.
    *  It is the ONLY control in the header — see the note on the grabber. */
   onBack?: () => void
-  children: React.ReactNode
+  /**
+   * A FUNCTION, not a node.
+   *
+   * As a node, the caller has to BUILD the whole picker on every one of its own
+   * renders — a hundred and sixty React elements per keystroke in the title
+   * field, thrown away unread because the sheet is shut. Gating the render with
+   * `{painted ? children : null}` stopped the reconciliation and none of the
+   * allocation, which is the half that was being paid eight times over.
+   *
+   * A thunk is not called until there is a sheet to put the result in.
+   */
+  children: () => React.ReactNode
 }) {
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
@@ -127,8 +139,18 @@ export function DragSheet({
       return
     }
     if (stageRef.current === "closed") return
-    setStage("leaving")
-    leaveTimer.current = window.setTimeout(() => setStage("closed"), SHEET_MS)
+    // ONE FRAME BEFORE THE SLIDE DOWN, for exactly the reason `arming` exists
+    // on the way up. Closing is always triggered by a state change in the
+    // caller — choosing a category re-renders the form that owns the sheet —
+    // and a transition begins on the frame its starting value is computed, so
+    // starting the transform in that same commit spends the animation's first
+    // frame on somebody else's reconciliation. A frame of nothing costs
+    // sixteen milliseconds nobody can see and buys a clean first frame.
+    const id = requestAnimationFrame(() => {
+      setStage("leaving")
+      leaveTimer.current = window.setTimeout(() => setStage("closed"), SHEET_MS)
+    })
+    return () => cancelAnimationFrame(id)
   }, [open])
 
   useEffect(() => () => window.clearTimeout(leaveTimer.current), [])
@@ -312,7 +334,28 @@ export function DragSheet({
     onClose()
   }, [onClose])
 
-  return (
+  /**
+   * PORTALLED TO THE BODY, not left where it was written.
+   *
+   * These sheets are declared inside the sell form, which is itself a
+   * full-screen fixed panel that runs its own transform animation and holds
+   * `will-change: transform` while it does. A `position: fixed` child of an
+   * element with a transform is positioned against THAT element rather than the
+   * viewport, and it joins its compositing and stacking context — so an opening
+   * picker was a layer inside a layer, clipped by an ancestor's overflow and
+   * re-composited whenever anything about that ancestor changed.
+   *
+   * At the top of the document it is a sibling of everything, answers to the
+   * viewport, and its transform is its own business.
+   *
+   * `mounted` guards the server render: document does not exist there, and a
+   * portal has to go somewhere.
+   */
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted || typeof document === "undefined") return null
+
+  return createPortal(
     <div className={cn("fixed inset-0 z-[120]", !open && "pointer-events-none")} aria-hidden={!open}>
       <div
         ref={scrimRef}
@@ -333,14 +376,27 @@ export function DragSheet({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        className="absolute inset-x-0 bottom-0 flex max-h-[86dvh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:rounded-[22px] md:pb-0"
+        /* NO `overflow-hidden` ON A PHONE, and a much smaller shadow.
+           Both are raster costs on the layer that is being animated. A
+           composited layer with a border-radius clip AROUND A SCROLLER is a
+           slow path in WebKit — the clip cannot be done by the compositor, so
+           the layer is repainted rather than moved — and a 40px blur across the
+           full width has to be rasterised before it can be moved at all.
+
+           Neither is needed here. The only thing at the top of the sheet is the
+           header, which is opaque and carries the radius itself; the bottom
+           edge is off the screen. And the sheet is already separated from the
+           page by a scrim at 45% black, which is doing all the work the big
+           shadow was being blurred for. Desktop keeps the clip, because there
+           the panel floats and its list really can reach the bottom corners. */
+        className="absolute inset-x-0 bottom-0 flex max-h-[86dvh] flex-col rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_14px_-6px_rgba(0,0,0,0.22)] md:inset-0 md:m-auto md:h-[70vh] md:max-w-lg md:overflow-hidden md:rounded-[22px] md:pb-0"
         style={panelStyle}
       >
         {/* Only this zone arms the drag. The content below scrolls, and a sheet
             that dismisses itself when someone flings a long brand list towards
             the top is unusable. */}
         <div
-          className="shrink-0 touch-none select-none"
+          className="shrink-0 touch-none select-none rounded-t-[28px] bg-white md:rounded-none"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -408,8 +464,17 @@ export function DragSheet({
             form; keeping their lists in the tree meant reconciling every
             category, every brand and thirty-one styles on every keystroke in
             the title field. */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{painted ? children : null}</div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          // The list scrolls one way. Saying so lets the browser commit to the
+          // gesture on the first touch instead of holding the frame to see
+          // whether a horizontal pan is coming.
+          style={{ touchAction: "pan-y" }}
+        >
+          {painted ? children() : null}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

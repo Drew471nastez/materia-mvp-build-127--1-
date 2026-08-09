@@ -243,10 +243,7 @@ check(
     // shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)]. That shadow points UP, so it
     // was cast back INTO the visible area for as long as the sheet was closed,
     // which is almost always. The sell form renders EIGHT of them.
-    return (
-      /visibility: up \|\| stage === "leaving" \? "visible" : "hidden"/.test(dragSheet) &&
-      /shadow-\[0_-8px_40px/.test(dragSheet)
-    )
+    return /visibility: up \|\| stage === "leaving" \? "visible" : "hidden"/.test(dragSheet)
   })(),
 )
 
@@ -289,7 +286,7 @@ check(
     // styles — were reconciled on every keystroke in the title field, and built
     // during the sell form's own mount. That is why the first tap felt slow:
     // the work was not being done lazily, it was being done constantly.
-    return /\{painted \? children : null\}/.test(dragSheet)
+    return /\{painted \? children\(\) : null\}/.test(dragSheet) && /children: \(\) => React\.ReactNode/.test(dragSheet)
   })(),
 )
 
@@ -352,8 +349,72 @@ check(
   (() => {
     // A sheet that dismisses itself when somebody flings a long brand list
     // towards the top is unusable.
-    const zone = dragSheet.slice(dragSheet.indexOf('className="shrink-0 touch-none select-none"'))
+    const zone = dragSheet.slice(dragSheet.indexOf('className="shrink-0 touch-none select-none'))
     return zone.indexOf("onTouchStart={onTouchStart}") < zone.indexOf("overflow-y-auto")
+  })(),
+)
+
+check(
+  "the animated layer is not asked to clip a scroller to a radius",
+  (() => {
+    // A composited layer with a border-radius clip around a scrollable area is
+    // a WebKit slow path: the clip cannot be applied by the compositor, so the
+    // layer is REPAINTED every frame rather than moved. Nothing needs it on a
+    // phone — the only thing at the top is the opaque header, which carries the
+    // radius itself, and the bottom edge is off the screen. Desktop keeps it,
+    // because there the panel floats and its list can reach the corners.
+    return (
+      /md:overflow-hidden md:rounded-\[22px\]/.test(dragSheet) &&
+      !/flex max-h-\[86dvh\] flex-col overflow-hidden/.test(dragSheet) &&
+      /rounded-t-\[28px\] bg-white md:rounded-none/.test(dragSheet)
+    )
+  })(),
+)
+
+check(
+  "the shadow is not a forty-pixel blur across the full width",
+  (() => {
+    // It has to be rasterised before the layer can be moved, and the scrim at
+    // 45% black is already doing everything it was being blurred for.
+    return !/shadow-\[0_-8px_40px/.test(dragSheet) && /shadow-\[0_-2px_14px/.test(dragSheet)
+  })(),
+)
+
+check(
+  "the sheet is portalled out of the form that declares it",
+  (() => {
+    // These live inside the sell form, which is itself a full-screen fixed
+    // panel that runs its own transform animation. A `position: fixed` child of
+    // a transformed element is positioned against THAT element, not the
+    // viewport, and joins its compositing and stacking context — a layer inside
+    // a layer, clipped by an ancestor's overflow.
+    return /createPortal\(/.test(dragSheet) && /document\.body,/.test(dragSheet)
+  })(),
+)
+
+check(
+  "a closed picker's contents are not even BUILT",
+  (() => {
+    // Gating with `{painted ? children : null}` stopped the reconciliation and
+    // none of the allocation: the caller still constructed a hundred and sixty
+    // React elements per keystroke, eight sheets over, to throw them away.
+    return (
+      /children: \(\) => React\.ReactNode/.test(dragSheet) &&
+      (form.match(/<DragSheet\b/g) ?? []).length === 8 &&
+      (form.match(/>\{\(\) => \(/g) ?? []).length === 8
+    )
+  })(),
+)
+
+check(
+  "the close gets its own clean frame, the way the open does",
+  (() => {
+    // Closing is always triggered by a state change in the caller, and a
+    // transition begins on the frame its starting value is computed — so
+    // starting the transform in that commit spends the animation's first frame
+    // on somebody else's reconciliation.
+    const fx = dragSheet.slice(dragSheet.indexOf('if (stageRef.current === "closed") return'))
+    return /requestAnimationFrame\(\(\) => \{\s*\n\s*setStage\("leaving"\)/.test(fx.slice(0, 700))
   })(),
 )
 

@@ -2027,7 +2027,8 @@ export function NewListingForm() {
         title={catQuery.trim() ? "Categorie" : categoryTitle}
         onClose={() => setSheet(null)}
         onBack={!catQuery.trim() && (catDep || catGroup) ? categoryBack : undefined}
-      >
+      >{() => (
+        <>
         <SheetSearch value={catQuery} onChange={setCatQuery} placeholder="Caută categoria" />
 
         {catResults ? (
@@ -2089,9 +2090,12 @@ export function NewListingForm() {
             ))}
           </div>
         )}
+        </>
+      )}
       </DragSheet>
 
-      <DragSheet open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>{() => (
+        <>
         <SheetSearch value={brandQuery} onChange={setBrandQuery} placeholder="Caută brandul" />
         <div className="pb-6">
           {/* Skeleton rows rather than an empty sheet. A blank list under a
@@ -2133,13 +2137,16 @@ export function NewListingForm() {
             {brand === "Altele" && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />}
           </button>
         </div>
+        </>
+      )}
       </DragSheet>
 
       {/* The condition ladder is the one picker whose choices need reading
           rather than recognising — "nou, fără etichetă" and "foarte bună" are
           a sentence apart, not a word — so it stays a list, and each rung says
           what it means. */}
-      <DragSheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>{() => (
+        <>
         {CONDITIONS.map((c) => (
           <OptionRow
             key={c.id}
@@ -2149,9 +2156,12 @@ export function NewListingForm() {
             onClick={() => { setCondition(c.id); setSheet(null) }}
           />
         ))}
+        </>
+      )}
       </DragSheet>
 
-      <DragSheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>{() => (
+        <>
         <ChipField>
           {SIZES.map((c) => (
             <OptionChip
@@ -2162,9 +2172,12 @@ export function NewListingForm() {
             />
           ))}
         </ChipField>
+        </>
+      )}
       </DragSheet>
 
-      <DragSheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>{() => (
+        <>
         <ChipField>
           {COLOURS.map((c) => (
             <OptionChip
@@ -2176,9 +2189,12 @@ export function NewListingForm() {
             />
           ))}
         </ChipField>
+        </>
+      )}
       </DragSheet>
 
-      <DragSheet open={sheet === "source"} title="Tip" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "source"} title="Tip" onClose={() => setSheet(null)}>{() => (
+        <>
         <PickerNote>Alege până la 2</PickerNote>
         <ChipField>
           {SOURCES.map((o) => (
@@ -2190,9 +2206,12 @@ export function NewListingForm() {
             />
           ))}
         </ChipField>
+        </>
+      )}
       </DragSheet>
 
-      <DragSheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>{() => (
+        <>
         <ChipField>
           {ERAS.map((c) => (
             <OptionChip
@@ -2203,9 +2222,12 @@ export function NewListingForm() {
             />
           ))}
         </ChipField>
+        </>
+      )}
       </DragSheet>
 
-      <DragSheet open={sheet === "style"} title="Stil" onClose={() => setSheet(null)}>
+      <DragSheet open={sheet === "style"} title="Stil" onClose={() => setSheet(null)}>{() => (
+        <>
         <PickerNote>Alege până la 3</PickerNote>
         <ChipField>
           {STYLES.map((o) => (
@@ -2217,6 +2239,8 @@ export function NewListingForm() {
             />
           ))}
         </ChipField>
+        </>
+      )}
       </DragSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
