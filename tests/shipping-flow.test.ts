@@ -916,10 +916,29 @@ check(
     "        The safest change to a payment path is one that does not touch it.",
   )
   check(
-    "only physical products are sent to the delivery step",
-    /product\.type === "physical"/.test(checkoutPage),
-    "        A digital product has no parcel; the step would be wrong, not just\n" +
-      "        unnecessary.",
+    "the split is on whether it has to be posted, not on one exact string",
+    (() => {
+      const s = stripComments(checkoutPage)
+      // `type === "physical"` sent every row with a null or legacy type to the
+      // DIGITAL checkout — a jacket on a screen with no address field. The
+      // question with a closed answer is the other one: there are three kinds
+      // of product delivered as access, and everything else is a parcel.
+      return /isShippable\(product\.type\)/.test(s) && !/product\.type === "physical"/.test(s)
+    })(),
+  )
+  check(
+    "an unrecognised type is treated as a parcel, not as a download",
+    (() => {
+      const kind = stripComments(read("lib/marketplace/product-kind.ts"))
+      // Being wrong about a download and asking for an address is recoverable
+      // in a sentence. Being wrong about a parcel means selling something with
+      // nowhere to send it.
+      return (
+        /DIGITAL_DELIVERY_TYPES/.test(kind) &&
+        /return !isDigitalDelivery\(type\)/.test(kind) &&
+        /"digital", "course", "community"/.test(kind)
+      )
+    })(),
   )
   check(
     "a physical listing renders the marketplace checkout, not the digital one",
@@ -927,7 +946,7 @@ check(
       const s = stripComments(checkoutPage)
       // The branch returns BEFORE the digital client is reached, so the two can
       // never both render.
-      const branch = s.slice(s.indexOf('product.type === "physical"'))
+      const branch = s.slice(s.indexOf("isShippable(product.type)"))
       return /MarketplaceCheckout/.test(branch) && branch.indexOf("MarketplaceCheckout") < branch.indexOf("CheckoutPageClient")
     })(),
     "        A jacket needs an address and postage; a download needs tips, VAT\n" +

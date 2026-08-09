@@ -48,6 +48,9 @@ export type SkipReason =
   | "duplicate"
   | "muted"
   | "already-read"
+  /** They are in the app right now — the thread is already updating in front
+   *  of them, so a banner would be the app interrupting itself. */
+  | "in-app"
 
 export interface NotifyOutcome {
   sent: boolean
@@ -133,7 +136,23 @@ export interface MessagePushDb {
   unreadTotal(recipientId: string): Promise<number>
   /** Whether this exact message has already been read. See the note below. */
   isMessageRead(messageId: string): Promise<boolean>
+  /** When the recipient was last seen with the app in the foreground, or null. */
+  lastSeenAt(userId: string): Promise<Date | null>
 }
+
+/**
+ * How recently somebody has to have been seen to count as "in the app".
+ *
+ * The presence beacon in the layout pings every 120 seconds while the tab is
+ * visible, and again the moment it becomes visible. So a ping inside this
+ * window means the app was open and in front of them very recently; a longer
+ * gap means it was backgrounded or closed, because a hidden tab stops pinging.
+ *
+ * The slack over 120s covers a ping that was in flight, or one that landed a
+ * moment late. Wider than that starts silencing people who really have put the
+ * phone down.
+ */
+export const IN_APP_WINDOW_MS = 150_000
 
 export type SendFn = (userId: string, payload: {
   title: string
@@ -185,6 +204,24 @@ export async function notifyNewMessage(
   //  suppress a message nobody has seen.
   if (await db.isMessageRead(input.messageId)) {
     return { sent: false, reason: "already-read" }
+  }
+
+  // ── 4b. Are they holding the phone, looking at Storelib? ─────────────────
+  //  A banner for something already on screen is not a notification, it is an
+  //  interruption by the app you are currently using. The conversation updates
+  //  live; the inbox badge updates live. Nothing about a push adds to that.
+  //
+  //  The signal is the presence beacon, which only pings while the tab is
+  //  VISIBLE — so this is "the app is in front of them", not "the app exists
+  //  on their phone". Backgrounding stops the pings, and within one window the
+  //  pushes resume.
+  //
+  //  It errs toward sending: an unreadable or absent timestamp means send. The
+  //  cost of a wrong suppression is a message somebody never hears about, and
+  //  that is much worse than a redundant banner.
+  const seen = await db.lastSeenAt(input.recipientId)
+  if (seen && Date.now() - seen.getTime() < IN_APP_WINDOW_MS) {
+    return { sent: false, reason: "in-app" }
   }
 
   // ── 5. Build it. ─────────────────────────────────────────────────────────

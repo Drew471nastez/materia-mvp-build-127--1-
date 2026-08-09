@@ -101,14 +101,68 @@ export function messagePushDb(): MessagePushDb {
       return count ?? 1
     },
 
+    /**
+     * ── THE NUMBER ON THE APP ICON ────────────────────────────────────────
+     *
+     * This used to be:
+     *
+     *     from("messages").neq("sender_id", recipientId).is("read_at", null)
+     *
+     * with NO restriction to the recipient's own conversations — and through
+     * the admin client, so RLS was not there to add one. It counted every
+     * unread message on the platform written by anybody other than this person.
+     *
+     * That is why every user's icon showed the same four-figure number: it was
+     * not their unread count, it was Storelib's. It also meant the badge leaked
+     * total message volume across the whole site to every phone that had the
+     * app installed.
+     *
+     * Scoped now to the conversations this person is actually in. Two queries
+     * rather than a join, because the join depends on a foreign key being named
+     * the way PostgREST expects, and a badge is not worth a query that breaks
+     * silently when it is not.
+     */
     async unreadTotal(recipientId) {
+      const { data: convos, error: convoErr } = await admin
+        .from("conversations")
+        .select("id")
+        .or(`buyer_id.eq.${recipientId},seller_id.eq.${recipientId}`)
+        // A person with more open conversations than this has a badge that
+        // reads "lots" either way. Bounded so the id list below cannot grow
+        // into a request too long to send.
+        .limit(500)
+
+      if (convoErr || !convos?.length) return 0
+
       const { count, error } = await admin
         .from("messages")
         .select("id", { count: "exact", head: true })
+        .in("conversation_id", convos.map((c) => c.id))
         .neq("sender_id", recipientId)
         .is("read_at", null)
       if (error) return 0
       return count ?? 0
+    },
+
+    /**
+     * When the app was last in front of this person.
+     *
+     * `profiles.last_seen_at` is written by the presence beacon in the layout,
+     * which only pings while the tab is VISIBLE — so a recent value means the
+     * app is open and in front of them, not merely installed.
+     *
+     * Null on any failure, and null means "send". A push nobody needed is a far
+     * cheaper mistake than a message nobody hears about.
+     */
+    async lastSeenAt(userId) {
+      const { data, error } = await admin
+        .from("profiles")
+        .select("last_seen_at")
+        .eq("id", userId)
+        .maybeSingle()
+      if (error || !data?.last_seen_at) return null
+      const t = new Date(data.last_seen_at as string)
+      return Number.isNaN(t.getTime()) ? null : t
     },
 
     async isMessageRead(messageId) {

@@ -280,6 +280,9 @@ export type ActivitySkipReason =
   | "too-soon"
   | "quiet-hours"
   | "claim-lost"
+  /** They are using the app right now. The events stay pending and roll into
+   *  the next digest, the same way "too-soon" leaves them. */
+  | "in-app"
 
 export interface ActivityPlan {
   send: boolean
@@ -298,6 +301,9 @@ export interface ActivityContext {
   preview: boolean
   /** Epoch ms of the last activity digest sent to this person, or null. */
   lastPushAt: number | null
+  /** The app was in front of them very recently. A digest about things already
+   *  visible in their own notifications tab is the app interrupting itself. */
+  inApp?: boolean
   /** Overridable so a test can pin quiet hours without pinning the clock. */
   timeZone?: string
 }
@@ -316,6 +322,12 @@ export function planDigest(
   recipientId: string,
 ): ActivityPlan {
   if (!ctx.enabled) return { send: false, reason: "muted", eventIds: [] }
+
+  // Using the app right now. Deliberately BEFORE the eligibility filter, so the
+  // events are left pending rather than claimed and consumed — they roll into
+  // the next digest once the phone is back in a pocket, exactly like
+  // "too-soon" below.
+  if (ctx.inApp) return { send: false, reason: "in-app", eventIds: [] }
 
   const nowMs = ctx.now.getTime()
 

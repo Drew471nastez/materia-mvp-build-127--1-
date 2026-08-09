@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
 import { conditionLabel } from "@/lib/marketplace/categories"
+import { isShippable } from "@/lib/marketplace/product-kind"
 
 interface CheckoutPageProps {
   searchParams: Promise<{
@@ -176,11 +177,17 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   // gifting, pay-what-you-want, VAT and a licence. Trying to serve both from
   // one component is how the existing 2,300-line client got that long.
   //
-  // So physical listings render the marketplace checkout and everything else
-  // keeps the path it has always taken. Splitting HERE — one conditional in a
-  // server component — is what makes that possible without editing a single
-  // line of the payment code digital sales already run through.
-  if (product.type === "physical") {
+  // So anything that has to be put in a box renders the marketplace checkout,
+  // and the three kinds of product delivered as access keep the path they have
+  // always taken. Splitting HERE — one conditional in a server component — is
+  // what makes that possible without editing a single line of the payment code
+  // digital sales already run through.
+  //
+  // The test is `isShippable`, not `type === "physical"`, because the second
+  // one sent every row with a null or legacy type to the digital checkout —
+  // a jacket on a screen with no address field and a "delivered instantly"
+  // promise. See lib/marketplace/product-kind.ts.
+  if (isShippable(product.type)) {
     const { MarketplaceCheckout } = await import("@/components/checkout/marketplace-checkout")
     const { senderCarrierId } = await import("@/lib/shipping/create-awb")
     return (

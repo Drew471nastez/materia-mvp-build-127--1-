@@ -21,6 +21,14 @@ import {
   type NewMessageInput,
 } from "../lib/push/message-notification"
 import { tapTargetFor } from "../lib/push/tap-target"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+/** Source without comments — the prose here describes the very things being
+ *  asserted absent, and matching raw source fails the test while the code is
+ *  right. */
+const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 // ── a tiny harness ──────────────────────────────────────────────────────────
 let passed = 0
@@ -55,6 +63,9 @@ type FakeOpts = {
   unreadHere?: number
   unreadTotal?: number
   read?: boolean
+  /** Milliseconds since the recipient's app was last in the foreground.
+   *  Undefined means never seen, which must behave as "send". */
+  seenMsAgo?: number
 }
 
 function fakeDb(o: FakeOpts = {}) {
@@ -74,6 +85,10 @@ function fakeDb(o: FakeOpts = {}) {
     async nameOf() {
       calls.push("name")
       return o.name === undefined ? "Sarah" : o.name
+    },
+    async lastSeenAt() {
+      calls.push("lastSeen")
+      return o.seenMsAgo === undefined ? null : new Date(Date.now() - o.seenMsAgo)
     },
     async unreadInConversation() {
       calls.push("unreadHere")
@@ -268,6 +283,34 @@ async function run() {
   }
 
   // ────────────────────────────────────────────────────────────────────────
+  section("in the app right now")
+  {
+    // A banner for something already on screen is not a notification, it is the
+    // app interrupting itself. The presence beacon only pings while the tab is
+    // VISIBLE, so a recent timestamp means the app is in front of them.
+    const r = await notifyNewMessage(base, fakeDb({ seenMsAgo: 5_000 }).db, fakeSend().fn)
+    eq("somebody holding the phone with Storelib open is not pushed", [r.sent, r.reason], [false, "in-app"])
+
+    const r2 = await notifyNewMessage(base, fakeDb({ seenMsAgo: 10 * 60_000 }).db, fakeSend().fn)
+    eq("ten minutes away and the push comes back", r2.sent, true)
+
+    // The beacon pings every 120s; the window has to be wider than that, or
+    // somebody with the app open gets a banner in the gap between two pings.
+    const r3 = await notifyNewMessage(base, fakeDb({ seenMsAgo: 130_000 }).db, fakeSend().fn)
+    eq("a gap between two beacon pings still counts as present", [r3.sent, r3.reason], [false, "in-app"])
+
+    // Never seen — a fresh account, or the column missing. Send.
+    const r4 = await notifyNewMessage(base, fakeDb({}).db, fakeSend().fn)
+    eq("an unknown last-seen sends rather than silences", r4.sent, true)
+
+    // Presence is asked AFTER the cheap absolute checks, so a muted recipient
+    // never costs a profile read.
+    const f = fakeDb({ enabled: false, seenMsAgo: 5_000 })
+    await notifyNewMessage(base, f.db, fakeSend().fn)
+    eq("a muted recipient is never looked up for presence", f.calls.includes("lastSeen"), false)
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
   section("badge — from the database, not from pushes sent")
   {
     const { db } = fakeDb({ unreadTotal: 7 })
@@ -280,6 +323,68 @@ async function run() {
     const s = fakeSend()
     await notifyNewMessage(base, db, s.fn)
     eq("zero is a real answer and is sent as one", s.seen[0].payload.badge, 0)
+  }
+  {
+    // ── THE 1,216 ──────────────────────────────────────────────────────────
+    // The query behind that number was
+    //     from("messages").neq("sender_id", me).is("read_at", null)
+    // with NO restriction to the caller's own conversations — through the admin
+    // client, so RLS was not there to add one. It counted every unread message
+    // on the platform. Every user's icon showed the same figure, and that
+    // figure was Storelib's total message volume, on their phone.
+    const src = strip(read("lib/push/message-db.ts"))
+    const fn = src.slice(src.indexOf("async unreadTotal("), src.indexOf("async lastSeenAt("))
+    eq(
+      "the badge counts only conversations this person is in",
+      /buyer_id\.eq\.\$\{recipientId\},seller_id\.eq\.\$\{recipientId\}/.test(fn) &&
+        /\.in\("conversation_id"/.test(fn),
+      true,
+    )
+    eq(
+      "and it is bounded, so the id list cannot outgrow a request",
+      /\.limit\(500\)/.test(fn),
+      true,
+    )
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  section("delivered now, not eventually")
+  {
+    const src = strip(read("lib/push/sender.ts"))
+    // Without an explicit priority a push can be treated as deferrable and held
+    // until the device next wakes for some other reason — minutes, not seconds.
+    eq("iOS is told to deliver immediately", /"apns-priority": "10"/.test(src), true)
+    eq("and told what kind of push it is", /"apns-push-type": "alert"/.test(src), true)
+    // FCM's Android default is "normal", which is explicitly the batched tier.
+    eq("Android is told to wake the device", /priority: "high"/.test(src), true)
+  }
+  {
+    // Activity digests are batched ON PURPOSE — 10 minutes to settle, four
+    // hours between pushes — so a burst of likes is one banner rather than
+    // nine. That delay is the design and is left alone; the priority headers
+    // above are about a push taking minutes to ARRIVE once it has been sent,
+    // which is a different thing and was a real fault.
+    const src = strip(read("lib/push/activity-notification.ts"))
+    eq("the digest still settles before it sends", /SETTLE_MS = 10 \* 60_000/.test(src), true)
+    eq("and still spaces itself out", /MIN_GAP_MS = 4 \* 60 \* 60_000/.test(src), true)
+    // In-app suppression sits BEFORE the eligibility filter, so the events stay
+    // pending and roll into the next digest instead of being consumed silently.
+    const plan = src.slice(src.indexOf("export function planDigest"))
+    eq(
+      "a digest is not sent to somebody using the app",
+      /if \(ctx\.inApp\) return \{ send: false, reason: "in-app", eventIds: \[\] \}/.test(plan),
+      true,
+    )
+    eq(
+      "and its events are not consumed by the skip",
+      plan.indexOf("ctx.inApp") < plan.indexOf("const eligible"),
+      true,
+    )
+    eq(
+      "an unknown last-seen sends the digest rather than swallowing it",
+      /Number\.isFinite\(seen\) &&/.test(strip(read("lib/push/activity-db.ts"))),
+      true,
+    )
   }
 
   // ────────────────────────────────────────────────────────────────────────

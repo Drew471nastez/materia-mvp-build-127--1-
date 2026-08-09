@@ -97,7 +97,22 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         ...(platform === "ios"
           ? {
               apns: {
-                ...(collapseId ? { headers: { "apns-collapse-id": collapseId } } : {}),
+                headers: {
+                  ...(collapseId ? { "apns-collapse-id": collapseId } : {}),
+                  // ── WHY THE NOTIFICATIONS WERE LATE ────────────────────────
+                  // Without an explicit priority, a push can be treated as
+                  // deferrable and held until the device next wakes for some
+                  // other reason — which is minutes, not seconds, and is
+                  // exactly the "arrives late" complaint.
+                  //
+                  // 10 means deliver immediately. It is the correct value for
+                  // anything that shows a banner; 5 is for background work that
+                  // genuinely can wait, and this is never that.
+                  "apns-priority": "10",
+                  // Required by APNs since iOS 13 for anything that displays.
+                  // FCM usually infers it; saying it removes the guess.
+                  "apns-push-type": "alert",
+                },
                 payload: {
                   aps: {
                     sound: sound === "default" ? "default" : `${sound}.wav`,
@@ -115,6 +130,12 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
               ...(collapseId ? { collapseKey: collapseId } : {}),
               android: {
                 ...(collapseId ? { collapseKey: collapseId } : {}),
+                // FCM's default for Android is "normal", which is explicitly a
+                // BATCHED tier: the message waits for the next time the device
+                // is awake, and on a phone in someone's pocket that is measured
+                // in minutes. "high" wakes the device now, which is what a
+                // message from another person is for.
+                priority: "high",
                 notification: {
                   sound: sound,
                   channelId: "default",

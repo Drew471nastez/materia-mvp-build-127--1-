@@ -222,11 +222,20 @@ async function pendingFor(recipientId: string): Promise<PendingActivity[]> {
   return toPending((data ?? []) as QueueRow[])
 }
 
-async function stateFor(userId: string): Promise<{ enabled: boolean; preview: boolean; lastPushAt: number | null }> {
+/**
+ * How recently somebody has to have been seen to count as "in the app".
+ *
+ * Same window and same reasoning as the chat module: the presence beacon pings
+ * every 120 seconds while the tab is VISIBLE, so a value inside this means the
+ * app was in front of them, and a longer gap means it was backgrounded.
+ */
+const IN_APP_WINDOW_MS = 150_000
+
+async function stateFor(userId: string): Promise<{ enabled: boolean; preview: boolean; lastPushAt: number | null; inApp: boolean }> {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("profiles")
-    .select("push_activity_enabled, push_preview_enabled, activity_push_last_at")
+    .select("push_activity_enabled, push_preview_enabled, activity_push_last_at, last_seen_at")
     .eq("id", userId)
     .maybeSingle()
   // See the note at the top: unknown means DO NOT SEND here. A missing column
@@ -234,13 +243,18 @@ async function stateFor(userId: string): Promise<{ enabled: boolean; preview: bo
   // feature exists to avoid.
   if (error || !data) {
     if (error) warnMissingOnce("prefs", error.message)
-    return { enabled: false, preview: false, lastPushAt: null }
+    return { enabled: false, preview: false, lastPushAt: null, inApp: false }
   }
   const last = (data as any).activity_push_last_at
+  const seen = Date.parse((data as any).last_seen_at ?? "")
   return {
     enabled: (data as any).push_activity_enabled !== false,
     preview: (data as any).push_preview_enabled !== false,
     lastPushAt: last ? Date.parse(last) : null,
+    // NaN when the column is absent or empty, and NaN fails the comparison —
+    // so an unknown presence means "not in the app", which means the digest is
+    // sent. Never the other way round.
+    inApp: Number.isFinite(seen) && Date.now() - seen < IN_APP_WINDOW_MS,
   }
 }
 
