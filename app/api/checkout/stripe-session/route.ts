@@ -10,6 +10,8 @@ import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 import { priceCheckout } from "@/lib/checkout/pricing"
+import { minimumChargeCents } from "@/lib/checkout/currency"
+import { isShippable } from "@/lib/marketplace/product-kind"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -191,6 +193,44 @@ export async function POST(request: Request) {
     }
   }
 
+  // ── TWO THINGS THAT MUST BE REFUSED BEFORE A CARD IS TOUCHED ───────────────
+  //
+  // Both were checked only in the interface, which says of itself that it is
+  // "not an authority — worst case the buttons render and checkout refuses".
+  // Checkout did not refuse. These are that refusal.
+
+  // 1. NOBODY BUYS THEIR OWN LISTING.
+  //    With a Connect destination charge, a seller buying from themselves pays
+  //    themselves back minus fees — which is a way to move money through the
+  //    platform, and a way to manufacture completed orders and the reviews and
+  //    badges that hang off them.
+  if (user && product.creator?.user_id && user.id === product.creator.user_id) {
+    return NextResponse.json({ error: "You cannot buy your own listing" }, { status: 400 })
+  }
+
+  // 2. A SECOND-HAND ITEM EXISTS ONCE.
+  //    Every listing on the marketplace is one physical object, so a second
+  //    completed order for it is a sale that cannot be fulfilled — two people
+  //    paid, one gets a refund and an apology. The listing is marked sold when
+  //    the first order completes (see confirm-payment) and every listing
+  //    surface filters on status = 'published', so this is the narrow window
+  //    between one buyer paying and that write landing.
+  if (isShippable(product.type)) {
+    const { data: alreadySold } = await admin
+      .from("orders")
+      .select("id")
+      .eq("product_id", productId)
+      .in("status", ["completed", "paid", "succeeded"])
+      .limit(1)
+      .maybeSingle()
+    if (alreadySold) {
+      return NextResponse.json(
+        { error: "This item has already been sold", code: "already_sold" },
+        { status: 409 },
+      )
+    }
+  }
+
   const accessToken = nanoid(32)
   const sessionFingerprint = nanoid(32)
   const receiptToken = generateReceiptToken()
@@ -271,8 +311,16 @@ export async function POST(request: Request) {
 
   const totalAmount = pricing.totalCents
 
-  if (totalAmount < 50) {
-    return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
+  // Stripe's floor, in the currency actually being charged. Hard-coded as 50 it
+  // meant 50 BANI once the platform moved to lei — half a leu, roughly a tenth
+  // of the real minimum, so a charge under it would have been built here and
+  // rejected by Stripe with a message nobody could act on.
+  const minimum = minimumChargeCents()
+  if (totalAmount < minimum) {
+    return NextResponse.json(
+      { error: `Minimum payment amount is ${(minimum / 100).toFixed(2)} ${PLATFORM_CURRENCY.toUpperCase()}` },
+      { status: 400 },
+    )
   }
 
   // The platform keeps its commission PLUS the protection fee. Passing the

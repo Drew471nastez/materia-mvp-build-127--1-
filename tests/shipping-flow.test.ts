@@ -2688,6 +2688,62 @@ check(
     )
   }
 
+  /* ── MONEY INTEGRITY ──────────────────────────────────────────────────────
+     Three refusals that have to happen on the server, because the interface
+     says of itself that it is "not an authority". */
+  {
+    const ses = stripComments(session)
+    const confirm = stripComments(read("app/api/checkout/confirm-payment/route.ts"))
+
+    check(
+      "nobody can buy their own listing",
+      /user\.id === product\.creator\.user_id/.test(ses),
+      "        With a Connect destination charge that is money moving through\n" +
+        "        the platform back to itself, and completed orders — with the\n" +
+        "        reviews and badges that hang off them — manufactured for free.",
+    )
+    check(
+      "a listing cannot be sold twice",
+      (() => {
+        // One physical object. A second completed order is a sale that cannot
+        // be fulfilled: two people paid, one gets a refund and an apology.
+        const refuses = /code: "already_sold"/.test(ses) && /isShippable\(product\.type\)/.test(ses)
+        const marks = /\.update\(\{ status: "sold" \}\)/.test(confirm) && /\.eq\("status", "published"\)/.test(confirm)
+        return refuses && marks
+      })(),
+    )
+    check(
+      "marking it sold cannot revive or overwrite a draft",
+      // Guarded on 'published', so the write is a no-op against any other state.
+      /\.update\(\{ status: "sold" \}\)[\s\S]{0,120}?\.eq\("status", "published"\)/.test(confirm),
+    )
+    check(
+      "marking it sold happens AFTER the order exists",
+      (() => {
+        // If this write fails, a paid order still stands and the listing is
+        // merely still visible — recoverable. The other order would lose a sale.
+        return confirm.indexOf('status: "sold"') > confirm.indexOf("Order created")
+      })(),
+    )
+    check(
+      "the minimum charge follows the currency being charged",
+      // Hard-coded as 50 it meant fifty BANI once the platform moved to lei —
+      // a tenth of the real floor, so Stripe would reject a charge this route
+      // had already built, with a message nobody could act on.
+      /minimumChargeCents\(\)/.test(ses) && !/totalAmount < 50/.test(ses),
+    )
+    check(
+      "the public quote endpoint cannot be looped into the courier's rate limit",
+      (() => {
+        const q = stripComments(read("lib/shipping/quote.ts"))
+        // A read of public, slow-moving data. Failures are deliberately not
+        // cached — a courier being briefly unreachable must not become ten
+        // minutes of "no delivery available" for everybody.
+        return /CACHE_TTL_MS/.test(q) && /if \(result\.ok\) \{/.test(q) && /CACHE_MAX/.test(q)
+      })(),
+    )
+  }
+
   check(
     "the buyer is told when postage could not be priced",
     /activeQuote\.status === "unavailable"/.test(checkout),

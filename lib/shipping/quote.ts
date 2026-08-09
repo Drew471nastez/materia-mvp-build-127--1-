@@ -54,6 +54,41 @@ export type QuoteFailure =
   | "provider_unavailable"
   | "no_options"
 
+/**
+ * ===========================================================================
+ *  ONE PROVIDER CALL PER ROUTE PER TEN MINUTES
+ * ===========================================================================
+ *
+ * /api/shipping/quote is public — it has to be, because a guest can reach the
+ * checkout — and every call was a round trip to the courier. That is somebody
+ * else's rate limit and somebody else's bill, reachable from a loop.
+ *
+ * A cache in module scope is normally the wrong answer in serverless, and this
+ * file's neighbours say so. The reasoning inverts for a READ of public,
+ * slow-moving data: a courier's tariff for a given route does not change
+ * during an afternoon, a cold instance simply fetches once, and the worst case
+ * of a stale entry is a price ten minutes old.
+ *
+ * It does not weaken the display-equals-charge guarantee. Both the endpoint the
+ * page reads and the endpoint that charges go through here, so within an
+ * instance they agree by construction; across instances a difference is caught
+ * by `quoteMatches` and the buyer is shown the new number rather than charged
+ * it.
+ *
+ * Failures are NOT cached. A courier being briefly unreachable must not turn
+ * into ten minutes of "no delivery available" for everybody.
+ */
+const CACHE_TTL_MS = 10 * 60_000
+/** Bounded so a spray of distinct locker ids cannot grow this without limit. */
+const CACHE_MAX = 400
+const cache = new Map<string, { at: number; result: QuoteResult }>()
+
+function cacheKey(input: QuoteInput): string {
+  return input.mode === "locker"
+    ? `l:${Number(input.lockerId) || 0}`
+    : `h:${String(input.county ?? "").trim().toLowerCase()}|${String(input.locality ?? "").trim().toLowerCase()}`
+}
+
 export type QuoteResult =
   | {
       ok: true
@@ -107,6 +142,20 @@ export function shippingQuoteConfigured(): boolean {
  * very different things said to the person waiting.
  */
 export async function quoteDelivery(input: QuoteInput): Promise<QuoteResult> {
+  const key = cacheKey(input)
+  const hit = cache.get(key)
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.result
+
+  const result = await priceRoute(input)
+  // Only a real price is worth remembering. See the note on the cache above.
+  if (result.ok) {
+    if (cache.size >= CACHE_MAX) cache.clear()
+    cache.set(key, { at: Date.now(), result })
+  }
+  return result
+}
+
+async function priceRoute(input: QuoteInput): Promise<QuoteResult> {
   if (!shippingQuoteConfigured()) {
     return { ok: false, code: "not_configured", message: "Livrarea nu este configurată încă." }
   }

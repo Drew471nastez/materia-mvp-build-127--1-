@@ -7,6 +7,7 @@ import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { v4 as uuidv4 } from "uuid"
+import { isShippable } from "@/lib/marketplace/product-kind"
 
 export const runtime = "nodejs"
 
@@ -175,6 +176,30 @@ export async function POST(request: Request) {
     }
 
     console.log("[confirm-payment] Order created:", order.id)
+
+    // ── THE LISTING IS NOW SOLD ───────────────────────────────────────────
+    //
+    // A second-hand listing is one physical object. Nothing was marking it
+    // sold, so it stayed on the feed, in search and in every wishlist — and a
+    // second buyer could pay for a jacket that was already in the post. Two
+    // people out of pocket, one of them owed a refund and an explanation.
+    //
+    // `status` is what all 45 listing queries filter on, so this single write
+    // removes it from every surface at once. Guarded on 'published' so it can
+    // never revive or overwrite a draft, and deliberately AFTER the order
+    // exists: if this fails, a paid order still stands and the listing is
+    // merely still visible — recoverable. The other order would lose the sale.
+    if (isShippable(metadata.product_type)) {
+      const { error: soldError } = await admin
+        .from("products")
+        .update({ status: "sold" })
+        .eq("id", productId)
+        .eq("status", "published")
+      if (soldError) {
+        // Loud, because the window this leaves open is a double sale.
+        console.error("[confirm-payment] could not mark listing sold:", productId, soldError.message)
+      }
+    }
 
     // Set cookie for device recognition
     if (sessionFingerprint) {
