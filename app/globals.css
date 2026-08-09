@@ -490,6 +490,38 @@ html.capacitor a.no-tap-fade:active {
   }
 }
 
+/* ── THE ACTION BAR GETS OUT OF THE WAY OF THE KEYBOARD ─────────────────────
+ *
+ * Writing a description on a phone leaves about four visible lines of the field
+ * you are typing into. Two buttons and a checkbox pinned under it were taking a
+ * third of what was left, to offer an action nobody wants mid-sentence — and
+ * neither button is reachable without dismissing the keyboard anyway, so it was
+ * occupying the screen purely to be looked at.
+ *
+ * One grid row, 1fr to 0fr. That is the only way to transition to a height
+ * nobody has measured: a pixel value is a guess that clips the row as soon as
+ * the safe-area inset differs by a few points, and `height: auto` does not
+ * animate at all. The space goes straight to the scroller above, because the
+ * sheet is a flex column — the field grows into it rather than a gap opening
+ * underneath.
+ *
+ * Both directions for free, so putting the keyboard away brings the bar back on
+ * the same curve it left on.
+ *
+ * `pointer-events: none` while it is collapsing: it is clipped rather than
+ * removed, and a control you cannot see should not be one a stray thumb on the
+ * edge of the keyboard can press. */
+@media (width < 48rem) {
+  .sell-actions {
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  html[data-keyboard="open"] .sell-actions {
+    grid-template-rows: 0fr;
+    pointer-events: none;
+  }
+}
+
 /* A listing card acknowledging the finger before anything else happens. */
 /* `.press-dim` IS GONE, and this is the note explaining why it must not return.
  *

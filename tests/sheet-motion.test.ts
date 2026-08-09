@@ -212,6 +212,58 @@ check(
   ),
 )
 
+console.log("\nThe keyboard")
+
+check(
+  "the action bar collapses while the keyboard is up",
+  (() => {
+    // Writing a description on a phone leaves about four visible lines. Two
+    // buttons and a checkbox pinned under it took a third of what was left, to
+    // offer an action nobody wants mid-sentence — and neither is reachable
+    // without dismissing the keyboard anyway.
+    return (
+      /html\[data-keyboard="open"\] \.sell-actions \{[\s\S]{0,120}?grid-template-rows: 0fr;/.test(css) &&
+      /className="sell-actions shrink-0 grid md:hidden"/.test(form)
+    )
+  })(),
+)
+
+check(
+  "it collapses to a height nobody had to measure",
+  (() => {
+    const rule = css.slice(css.indexOf(".sell-actions {"), css.indexOf(".sell-actions {") + 260)
+    // A pixel value is a guess that clips the row the moment the safe-area
+    // inset differs; `height: auto` does not transition at all.
+    return /grid-template-rows: 1fr;/.test(rule) && /transition: grid-template-rows/.test(rule)
+  })(),
+)
+
+check(
+  "the space goes to the field being typed into, not into a gap",
+  (() => {
+    // The sheet is a flex column, so a shrinking last row hands its height to
+    // the scroller above rather than leaving a hole where the bar was.
+    const markup = form.slice(form.indexOf('className="sell-actions'))
+    return /<div className="overflow-hidden">/.test(markup.slice(0, 220))
+  })(),
+)
+
+check(
+  "a hidden control cannot be pressed by accident",
+  // It is clipped, not removed, so without this a thumb on the edge of the
+  // keyboard could still publish a listing.
+  /html\[data-keyboard="open"\] \.sell-actions \{[\s\S]{0,140}?pointer-events: none;/.test(css),
+)
+
+check(
+  "none of it applies where there is no keyboard taking half the screen",
+  (() => {
+    const at = css.indexOf(".sell-actions {")
+    const before = css.slice(Math.max(0, at - 400), at)
+    return /@media \(width < 48rem\)/.test(before)
+  })(),
+)
+
 console.log("\nPublishing, and what happens straight afterwards")
 
 check(

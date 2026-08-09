@@ -1364,8 +1364,29 @@ export function NewListingForm() {
           already unmistakably a separate surface — opaque white against a grey
           form, with a hairline along the top. A shadow on top of that is a
           third statement of something already said twice. */}
-      <div className="shrink-0 border-t border-neutral-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 md:hidden">
-       <div className="mx-auto w-full max-w-2xl space-y-2.5">{actionControls}</div>
+      {/* ── IT GETS OUT OF THE WAY OF THE KEYBOARD ────────────────────────
+          Writing a description on a phone leaves about four visible lines of
+          the field you are typing into. Two buttons and a checkbox pinned
+          under it were taking a third of what was left to offer an action
+          nobody can want while mid-sentence — and neither of them is reachable
+          without dismissing the keyboard anyway.
+
+          A grid with ONE row, transitioned 1fr → 0fr. That is the only way to
+          animate to a height nobody has measured: a pixel value would be a
+          guess that clips the row the moment the safe-area inset differs, and
+          `height: auto` does not transition at all. The space it gives up goes
+          straight to the scroller above it, because the sheet is a flex column
+          — so the field grows into it rather than a gap appearing.
+
+          `data-keyboard` is published on <html> by components/viewport-vars,
+          which the conversation composer has used since it had this same
+          problem. */}
+      <div className="sell-actions shrink-0 grid md:hidden">
+        <div className="overflow-hidden">
+          <div className="border-t border-neutral-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3">
+            <div className="mx-auto w-full max-w-2xl space-y-2.5">{actionControls}</div>
+          </div>
+        </div>
       </div>
 
       {/* ---- Pickers ---- */}
