@@ -536,6 +536,47 @@ html.capacitor a.no-tap-fade:active {
   60%  { opacity: 1; }
   to   { opacity: 1; transform: scale(1); }
 }
+/* Going away.
+ *
+ * "Publish and add another" used to take the confirmation off by unmounting it
+ * — a full-screen white veil vanishing between two frames, which is the one
+ * place in this flow where a hard cut is most visible because it is the only
+ * thing on screen. It fades now, and the emptied form is revealed underneath
+ * rather than appearing beside it. */
+@keyframes posted-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* THE STRIP OF SOMETHING ELSE UNDER THE SHEET.
+ *
+ * `.sell-sheet` is sized to the VISIBLE viewport — top: --vv-top, height:
+ * --vv-h — so that the action bar clears the software keyboard. When those two
+ * do not add up to the whole screen, whatever is behind shows through in the
+ * band below it. On the feed that is a reels card, which carries a black
+ * gradient along its bottom edge: the dark smudge under the Publish button,
+ * which reads as a shadow the bar is casting and is nothing of the kind.
+ *
+ * An absolutely positioned block hanging off the bottom of the sheet, in the
+ * sheet's own colour. Absolute rather than fixed on purpose — it belongs to the
+ * sheet and must travel WITH it during the slide, where a fixed strip would sit
+ * still and be visible under a sheet that had already left.
+ *
+ * 100vh of it, so there is no arithmetic to get wrong and nothing to keep in
+ * step with the viewport variables. Nothing below the sheet is interactive and
+ * this is `pointer-events: none` regardless. */
+@media (width < 48rem) {
+  .sell-sheet::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 100vh;
+    background: #f6f6f7;
+    pointer-events: none;
+  }
+}
 
 /* Following list rows arriving — a short rise, staggered, so the list assembles
    instead of appearing all at once. */

@@ -157,6 +157,9 @@ function OptionRow({
  *   leave  sliding down.
  *   idle   arrived. No layer held, no blurs suspended.
  */
+/** How long the confirmation takes to fade off an emptied form. */
+const POSTED_OUT_MS = 260
+
 type SheetMotion = "enter" | "armed" | "leave" | "idle"
 
 const MOTION_CLASS: Record<SheetMotion, string> = {
@@ -194,7 +197,16 @@ export function NewListingForm() {
   const [brands, setBrands] = useState<{ name: string; slug: string }[]>([])
   const [saving, setSaving] = useState<null | "draft" | "post">(null)
   const [error, setError] = useState<string | null>(null)
-  const [posted, setPosted] = useState(false)
+  /**
+   * The confirmation: absent, arriving, or leaving.
+   *
+   * It used to be a boolean, and "publish and add another" took it off by
+   * flipping that boolean to false — a full-screen white veil disappearing
+   * between two frames, which is the most visible possible place for a hard
+   * cut because at that moment it is the only thing on screen. Three states
+   * mean it can fade out over the emptied form instead.
+   */
+  const [posted, setPosted] = useState<false | "in" | "out">(false)
 
   // ---- photos ----
   const addFiles = useCallback(async (files: FileList | null) => {
@@ -740,7 +752,7 @@ export function NewListingForm() {
           setSaving(null)
           return
         }
-        setPosted(true)
+        setPosted("in")
 
         /**
          * WHAT HAPPENS AFTER "Publică anunțul".
@@ -786,9 +798,19 @@ export function NewListingForm() {
             setCompareAt("")
             setError(null)
             setSaving(null)
-            setPosted(false)
-            scrollerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+            // INSTANT, and while the veil still covers everything.
+            //
+            // It was a SMOOTH scroll, fired on the same tick the veil was
+            // removed — so you watched a form that had just lost most of its
+            // height slide back to the top, with the scroll position clamping
+            // under it as the content shrank. That is the layout shift: a
+            // deliberate animation of a container whose size was changing
+            // beneath it. Behind the veil there is nothing to animate for.
+            scrollerRef.current?.scrollTo({ top: 0, behavior: "auto" })
             void triggerHaptic("light")
+            // Then the veil fades off the empty form rather than being deleted.
+            setPosted("out")
+            window.setTimeout(() => setPosted(false), POSTED_OUT_MS)
             return
           }
           // The other way the sheet leaves, and it gets the same treatment:
@@ -807,7 +829,7 @@ export function NewListingForm() {
         setSaving(null)
       }
     },
-    [missing, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router],
+    [missing, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion],
   )
 
   // One definition rendered in two places — the phone's pinned bottom bar and
@@ -1437,18 +1459,41 @@ export function NewListingForm() {
           screen from wherever it sits in the tree. */}
       {posted && (
         <div
-          className="fixed inset-0 z-[130] flex items-center justify-center bg-white/85 backdrop-blur-sm"
-          style={{ animation: "posted-veil 300ms ease-out both" }}
+          // Opaque, and no backdrop blur. A full-screen `backdrop-filter` is
+          // recomputed on every frame of the fade it sits under, and there is
+          // nothing worth seeing through it — the form behind is either about
+          // to be left or about to be emptied.
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-white"
+          style={{
+            animation:
+              posted === "out"
+                ? `posted-out ${POSTED_OUT_MS}ms ease-out both`
+                : "posted-veil 300ms ease-out both",
+          }}
         >
           <div
             className="flex flex-col items-center gap-3"
             style={{ animation: "posted-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
           >
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#7c3aed] text-white shadow-[0_8px_28px_-6px_rgba(124,58,237,0.7)]">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#7c3aed] text-white">
               <Check className="h-8 w-8" strokeWidth={3} />
             </span>
-            <p className="text-[16px] font-semibold text-neutral-900">Anunț publicat</p>
-            <p className="text-[13.5px] text-neutral-500">Te ducem la anunțul tău…</p>
+            {/* Three outcomes, three sentences. It said "Anunț publicat / Te
+                ducem la anunțul tău" for all of them — including saving a
+                DRAFT, which publishes nothing, and including "add another",
+                where nothing takes you anywhere at all. A confirmation that
+                describes something other than what just happened is worse than
+                no confirmation. */}
+            <p className="text-[16px] font-semibold text-neutral-900">
+              {saving === "draft" ? "Ciornă salvată" : "Anunț publicat"}
+            </p>
+            <p className="text-[13.5px] text-neutral-500">
+              {saving === "draft"
+                ? "Te ducem la ciornele tale…"
+                : postAnother
+                  ? "Poți adăuga următorul articol."
+                  : "Te ducem la anunțul tău…"}
+            </p>
           </div>
         </div>
       )}

@@ -212,6 +212,82 @@ check(
   ),
 )
 
+console.log("\nPublishing, and what happens straight afterwards")
+
+check(
+  "nothing shows through under the action bar",
+  (() => {
+    // `.sell-sheet` is sized to the VISIBLE viewport so the buttons clear the
+    // keyboard. When --vv-top + --vv-h is short of the screen, whatever is
+    // behind shows in the band below — and on the feed that is a reels card
+    // with a black gradient along its bottom edge. The dark smudge under the
+    // Publish button was that, read as a shadow the bar was casting.
+    return /\.sell-sheet::after \{[\s\S]{0,260}?top: 100%;[\s\S]{0,200}?background: #f6f6f7;/.test(css)
+  })(),
+)
+
+check(
+  "the strip travels with the sheet rather than sitting still under it",
+  (() => {
+    const rule = css.slice(css.indexOf(".sell-sheet::after"), css.indexOf(".sell-sheet::after") + 320)
+    // Fixed would stay put and be visible under a sheet that had already left.
+    return /position: absolute;/.test(rule) && !/position: fixed;/.test(rule)
+  })(),
+)
+
+check(
+  "the confirmation says what actually happened",
+  (() => {
+    // It said "Anunț publicat / Te ducem la anunțul tău" for all three
+    // outcomes — including saving a DRAFT, which publishes nothing, and
+    // including "add another", where nothing takes you anywhere.
+    return (
+      /Ciornă salvată/.test(form) &&
+      /Poți adăuga următorul articol/.test(form) &&
+      /Te ducem la anunțul tău/.test(form)
+    )
+  })(),
+)
+
+check(
+  "the veil fades away instead of being deleted",
+  // Unmounting a full-screen white overlay between two frames is the most
+  // visible possible hard cut, because at that moment it is the only thing on
+  // screen.
+  /useState<false \| "in" \| "out">\(false\)/.test(form) &&
+    /posted-out \$\{POSTED_OUT_MS\}ms/.test(form) &&
+    /@keyframes posted-out/.test(css),
+)
+
+check(
+  "the emptied form is reset behind the veil, not in front of it",
+  (() => {
+    // A SMOOTH scroll fired on the tick the veil was removed meant watching a
+    // form that had just lost most of its height slide back to the top, with
+    // the offset clamping under it as the content shrank. That is the layout
+    // shift.
+    const branch = form.slice(form.indexOf("if (postAnother && !draft)"))
+    return /scrollTo\(\{ top: 0, behavior: "auto" \}\)/.test(branch.slice(0, 1600))
+  })(),
+)
+
+check(
+  "the checkbox is actually read at submit time",
+  // `submit` is a useCallback; without postAnother in its dependencies it would
+  // close over whatever the box was when the form first rendered.
+  /postAnother, router, setMotion\]/.test(form),
+)
+
+check(
+  "no full-screen blur under the confirmation",
+  (() => {
+    const veil = form.slice(form.indexOf("fixed inset-0 z-[130]"))
+    // A backdrop-filter is recomputed on every frame of the fade it sits
+    // under, and there is nothing worth seeing through it.
+    return /bg-white\n/.test(veil.slice(0, 200)) || !/backdrop-blur/.test(veil.slice(0, 200))
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
