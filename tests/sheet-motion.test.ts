@@ -53,6 +53,7 @@ const strip = (src: string) =>
 const css = strip(read("app/globals.css"))
 const form = strip(read("components/sell/new-listing-form.tsx"))
 const bar = strip(read("components/explore/mobile-bottom-nav.tsx"))
+const dragSheet = strip(read("components/ui/drag-sheet.tsx"))
 
 console.log("\nThe sell sheet: what happens during the 400ms it is moving")
 
@@ -209,6 +210,59 @@ check(
   // scrolled halfway down — a navigation you never made.
   /pathname\?\.startsWith\("\/products\/new"\)\) return/.test(
     strip(read("components/marketing/shell-scroll-reset.tsx")),
+  ),
+)
+
+console.log("\nA closed sheet paints nothing")
+
+check(
+  "a parked picker does not cast its shadow back onto the screen",
+  (() => {
+    // THE BLACK FADE ALONG THE BOTTOM OF THE SELL FORM. DragSheet is never
+    // unmounted — it has to exist to be able to slide — and when closed it sits
+    // at translateY(100%), immediately below the viewport, carrying
+    // shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)]. That shadow points UP, so it
+    // was cast back INTO the visible area for as long as the sheet was closed,
+    // which is almost always. The sell form renders EIGHT of them.
+    return /visibility: open \? "visible" : "hidden"/.test(dragSheet) && /shadow-\[0_-8px_40px/.test(dragSheet)
+  })(),
+)
+
+check(
+  "hiding waits for the slide to finish",
+  (() => {
+    // `visibility` cannot be transitioned, but it CAN be delayed — that is the
+    // whole trick. Hidden immediately would make the sheet vanish rather than
+    // leave, which is exactly the hard cut the animation exists to avoid.
+    return (
+      /const HIDE_AFTER_SLIDE = `\$\{SHEET_TRANSITION\}, visibility 0s linear 360ms`/.test(dragSheet) &&
+      /const VISIBLE_NOW = `\$\{SHEET_TRANSITION\}, visibility 0s`/.test(dragSheet)
+    )
+  })(),
+)
+
+check(
+  "opening is immediate, so nothing has to fade in from nowhere",
+  /transition: open \? VISIBLE_NOW : HIDE_AFTER_SLIDE/.test(dragSheet),
+)
+
+check(
+  "a flick-to-dismiss hides it too, not only the close button",
+  (() => {
+    // The drag handler writes transform and transition straight onto the node,
+    // so it has to write the visibility as well or a dismissed sheet keeps
+    // painting its shadow until the next React render happens to agree.
+    const end = dragSheet.slice(dragSheet.indexOf("const onTouchEnd"))
+    return /el\.style\.visibility = "hidden"/.test(end) && /el\.style\.visibility = "visible"/.test(end)
+  })(),
+)
+
+check(
+  "the other bottom sheet was already fine and is left alone",
+  // components/ui/bottom-sheet.tsx unmounts once its exit animation finishes,
+  // so it has nothing parked off-screen to cast anything.
+  /if \(!mounted \|\| typeof document === "undefined"\) return null/.test(
+    strip(read("components/ui/bottom-sheet.tsx")),
   ),
 )
 

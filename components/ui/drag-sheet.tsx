@@ -13,6 +13,39 @@ import { cn } from "@/lib/utils"
 const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const SHEET_TRANSITION = `transform 360ms ${SHEET_EASE}`
 
+/**
+ * ===========================================================================
+ *  A CLOSED SHEET MUST NOT PAINT ANYTHING
+ * ===========================================================================
+ *
+ * THE BLACK FADE ALONG THE BOTTOM OF THE SELL FORM WAS THIS.
+ *
+ * The panel is never unmounted — it has to exist to be able to slide, which is
+ * correct — and when closed it is parked at `translateY(100%)`, immediately
+ * below the viewport. It carries `shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)]`,
+ * and that shadow points UP. So a sheet sitting just off the bottom of the
+ * screen casts a forty-pixel blurred black band back INTO the visible area,
+ * for as long as it is closed, which is almost always.
+ *
+ * The sell form renders EIGHT of these — category, brand, condition, colour,
+ * size, era, style, sources. Eight shadows, stacked, along the bottom edge.
+ * That is why it was so dark, why it feathered at the sides, and why it moved
+ * with whatever content happened to be above it.
+ *
+ * `visibility: hidden` removes the element from painting entirely, shadow
+ * included. It cannot be transitioned — but it CAN be delayed, and that is the
+ * whole trick:
+ *
+ *   opening   visibility 0s          → visible at once, transform animates in
+ *   closing   visibility 0s linear 360ms → stays visible for the whole slide
+ *                                          down, then stops painting
+ *
+ * So the sheet still leaves the way it always did, and the instant it is gone
+ * it is genuinely gone.
+ */
+const VISIBLE_NOW = `${SHEET_TRANSITION}, visibility 0s`
+const HIDE_AFTER_SLIDE = `${SHEET_TRANSITION}, visibility 0s linear 360ms`
+
 /* Release past this fraction of the sheet's height means dismiss. */
 const DISMISS_FRACTION = 0.3
 /* px per ms — a downward flick dismisses even from a short drag. */
@@ -117,18 +150,24 @@ export function DragSheet({
     if (!d.armed || !el) return
     d.armed = false
     const h = el.offsetHeight || 1
-    el.style.transition = SHEET_TRANSITION
+    // The dismissing branch below needs the delayed visibility, and the
+    // snapping-back branch needs the immediate one — set per outcome, a few
+    // lines down, rather than here where the outcome is not known yet.
     // Clearing the inline value hands the scrim back to its class transition.
     if (scrimRef.current) scrimRef.current.style.transition = ""
     // A flick counts even from a short drag, but only with some real travel
     // behind it — the velocity estimate over the couple of milliseconds of a
     // sloppy tap is pure noise.
     if (d.dy > h * DISMISS_FRACTION || (d.velocity > FLICK_VELOCITY && d.dy > 12)) {
+      el.style.transition = HIDE_AFTER_SLIDE
       el.style.transform = "translateY(100%)"
+      el.style.visibility = "hidden"
       if (scrimRef.current) scrimRef.current.style.opacity = "0"
       onClose()
     } else {
+      el.style.transition = VISIBLE_NOW
       el.style.transform = "translateY(0px)"
+      el.style.visibility = "visible"
       if (scrimRef.current) scrimRef.current.style.opacity = "1"
     }
   }
@@ -137,11 +176,22 @@ export function DragSheet({
     ? {
         opacity: open ? 1 : 0,
         transform: open ? "translateY(0)" : "translateY(12px)",
-        transition: `opacity 240ms ease, transform 320ms ${SHEET_EASE}`,
+        transition: open
+          ? `opacity 240ms ease, transform 320ms ${SHEET_EASE}, visibility 0s`
+          : `opacity 240ms ease, transform 320ms ${SHEET_EASE}, visibility 0s linear 320ms`,
+        // Opacity 0 already hides it, but a fully transparent element is still
+        // a painted one. On a desktop that costs little; being consistent costs
+        // less than remembering which of the two branches is the careful one.
+        visibility: open ? "visible" : "hidden",
       }
     : {
         transform: open ? "translateY(0)" : "translateY(100%)",
-        transition: SHEET_TRANSITION,
+        // Visible the instant it opens; hidden only once it has finished
+        // sliding away. See the note on VISIBLE_NOW above — a closed sheet
+        // parked below the viewport was casting its upward shadow back onto
+        // the screen.
+        transition: open ? VISIBLE_NOW : HIDE_AFTER_SLIDE,
+        visibility: open ? "visible" : "hidden",
       }
 
   return (
