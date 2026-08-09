@@ -453,7 +453,7 @@ function SheetSearch({
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
-          className="w-full rounded-[13px] bg-neutral-100 py-3.5 pl-12 pr-4 text-[16px] font-medium outline-none transition-shadow duration-150 placeholder:text-neutral-500 focus:ring-2 focus:ring-[#7c3aed]/25 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full rounded-[13px] bg-neutral-100 py-3.5 pl-12 pr-4 text-[16px] font-medium outline-none transition-shadow duration-150 placeholder:text-neutral-500 focus:ring-1 focus:ring-neutral-900/15 [&::-webkit-search-cancel-button]:appearance-none"
         />
       </div>
     </div>
@@ -1540,9 +1540,20 @@ export function NewListingForm() {
     if (el) gapEls.current.set(key, el)
     else gapEls.current.delete(key)
   }, [])
+  /**
+   * An empty form has one more thing to say than a half-written one, and only
+   * when it is being SAVED rather than published — so it is not in `gaps`,
+   * which is the publish checklist. It replaces the title's message rather
+   * than adding a second note under the same field.
+   */
+  const emptyDraft = showGaps && !title.trim() && uploaded.length === 0
   const gapFor = useCallback(
-    (key: GapKey) => (showGaps ? (gaps.find((g) => g.key === key)?.message ?? null) : null),
-    [showGaps, gaps],
+    (key: GapKey) => {
+      if (!showGaps) return null
+      if (key === "title" && emptyDraft) return "Adaugă un titlu sau o fotografie ca să poți salva ciorna."
+      return gaps.find((g) => g.key === key)?.message ?? null
+    },
+    [showGaps, gaps, emptyDraft],
   )
 
   /**
@@ -1563,6 +1574,26 @@ export function NewListingForm() {
   const submit = useCallback(
     async (draft: boolean) => {
       setError(null)
+      /**
+       * SAVING A DRAFT ASKS FOR LESS, BUT IT STILL ASKS.
+       *
+       * It asked for nothing at all: pressing Salvează on an untouched form
+       * created an empty row, took you to the drafts list, and left you looking
+       * at "Fără titlu — Fără preț" wondering what you had just saved. And
+       * because the button never refused, it never scrolled anywhere either —
+       * so the one control on this screen that CAN be pressed by accident was
+       * also the one that gave you no feedback.
+       *
+       * One thing is enough to make a draft worth keeping. Below that it is not
+       * a half-written listing, it is an empty one, and it says so at the title
+       * — the same note in the same place the publish gaps use.
+       */
+      if (draft && !title.trim() && uploaded.length === 0) {
+        setShowGaps(true)
+        showFirstGap("title")
+        void triggerHaptic("medium")
+        return
+      }
       if (!draft && gaps.length) {
         // The note goes AT the control, and the form goes to it. The one-line
         // summary by the button is gone: it was the whole of the feedback, and
@@ -1962,7 +1993,7 @@ export function NewListingForm() {
       >
         <SectionHeading
           trailing={
-            <span className="rounded-full border border-neutral-200/90 bg-white px-2 py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.03em] tabular-nums text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_1px_1px_-0.5px_rgba(0,0,0,0.04)]">
+            <span className="rounded-full bg-neutral-900 px-2 py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.03em] tabular-nums text-white">
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
@@ -2144,7 +2175,7 @@ export function NewListingForm() {
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
           placeholder="Adaugă un titlu"
-          className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+          className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
         />
         {gapFor("title") && <GapNote>{gapFor("title")}</GapNote>}
         </div>
@@ -2157,7 +2188,7 @@ export function NewListingForm() {
           rows={5}
           maxLength={1500}
           placeholder="Adaugă o descriere"
-          className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+          className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium leading-relaxed outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
         />
         {gapFor("description") && <GapNote>{gapFor("description")}</GapNote>}
         <p className="mt-1.5 text-[12.5px] font-medium text-neutral-400">
@@ -2179,7 +2210,7 @@ export function NewListingForm() {
               onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
               inputMode="decimal"
               placeholder="0"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
             />
           </div>
           <div className="flex-1" ref={(el) => setGapEl("compare", el)}>
@@ -2207,7 +2238,7 @@ export function NewListingForm() {
               onChange={(e) => setCompareAt(e.target.value.replace(/[^0-9.,]/g, ""))}
               inputMode="decimal"
               placeholder="Opțional"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
             />
           </div>
         </div>
@@ -2535,7 +2566,7 @@ export function NewListingForm() {
           actually stops people using it wrongly: it is what the item used to
           cost, not what you think it is worth. */}
       <BottomSheet open={priceInfo} onClose={() => setPriceInfo(false)} label="Preț comparativ">
-        <div className="px-5 pb-8 pt-1">
+        <div className="px-5 pb-8 pt-5">
           <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">Preț comparativ</h2>
           <p className="mt-2.5 text-[15px] font-medium leading-relaxed text-neutral-600">
             Este prețul de dinainte de reducere. Pe anunț apare tăiat, lângă prețul cerut, cu o etichetă

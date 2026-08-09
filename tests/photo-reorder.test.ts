@@ -608,7 +608,7 @@ check(
   (() => {
     // A form that turns amber while you are still filling it in is telling you
     // off for not having finished yet.
-    return /const \[showGaps, setShowGaps\] = useState\(false\)/.test(form) && /showGaps \? \(gaps\.find/.test(form)
+    return /const \[showGaps, setShowGaps\] = useState\(false\)/.test(form) && /if \(!showGaps\) return null/.test(form)
   })(),
 )
 
@@ -620,6 +620,43 @@ check(
     // prints a sentence, because a server saying no is a different event from a
     // form not being finished — and there is nothing on screen to anchor it to.
     return !/\$\{missing\.join/.test(form) && !/const missing = useMemo/.test(form)
+  })(),
+)
+
+check(
+  "Salvează refuses an EMPTY form, and refuses it the same way",
+  (() => {
+    // It asked for nothing at all: pressing it on an untouched form created an
+    // empty row and left you looking at "Fără titlu — Fără preț" wondering what
+    // you had just saved. And because it never refused, it never scrolled
+    // anywhere either — so the one control that can be pressed by accident was
+    // also the one that gave no feedback.
+    const submit = form.slice(form.indexOf("const submit = useCallback"), form.indexOf("const submit = useCallback") + 1400)
+    return (
+      /if \(draft && !title\.trim\(\) && uploaded\.length === 0\)/.test(submit) &&
+      /showFirstGap\("title"\)/.test(submit)
+    )
+  })(),
+)
+
+check(
+  "and it asks for less than a publish does",
+  (() => {
+    // A draft is allowed to be half-written; one thing is enough to make it
+    // worth keeping. It also replaces the title's message rather than stacking
+    // a second note under the same field.
+    return /const emptyDraft = showGaps && !title\.trim\(\) && uploaded\.length === 0/.test(form) &&
+      /if \(key === "title" && emptyDraft\) return/.test(form)
+  })(),
+)
+
+check(
+  "no field glows violet when you type in it",
+  (() => {
+    // A four-pixel coloured halo around a text box is the browser's focus ring
+    // wearing the brand colour, and on a form of eight fields it fires eight
+    // times. The border going dark says the same thing without lighting up.
+    return !/focus:ring-4 focus:ring-violet-100/.test(form) && /focus:border-neutral-900 focus:bg-white/.test(form)
   })(),
 )
 
@@ -640,16 +677,12 @@ check(
 )
 
 check(
-  "the count badge is outlined, with just enough depth to sit on the card",
+  "the count badge is a black pill",
   (() => {
-    // A solid black pill on a white card next to a grid of photographs is the
-    // heaviest thing in the section, and it is a counter. An outline with a
-    // one-pixel shadow reads as an object without competing to be looked at.
-    return (
-      /rounded-full border border-neutral-200\/90 bg-white/.test(form) &&
-      /shadow-\[0_1px_2px_rgba\(0,0,0,0\.05\)/.test(form) &&
-      !/bg-neutral-900 px-2\.5 py-\[5px\][^"]*text-white/.test(form)
-    )
+    // Tried outlined; the counter disappeared into the card it was sitting on.
+    // At 10.5px a solid fill is a mark rather than a shout, which is what an
+    // outline at this size could not manage.
+    return /rounded-full bg-neutral-900 px-2 py-\[3px\] text-\[10\.5px\][^"]*text-white/.test(form)
   })(),
 )
 
