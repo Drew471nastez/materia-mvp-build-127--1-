@@ -531,7 +531,13 @@ html.capacitor a.no-tap-fade:active {
    *
    * Focus needs no arithmetic and no platform. */
   .sell-sheet.sell-typing .sell-actions,
-  html[data-keyboard="open"] .sell-actions {
+  html[data-keyboard="open"] .sell-actions,
+  /* KeyboardGuard's class. It measures the same difference but tests `> 0`
+   * rather than a 20% threshold, so it is the likelier of the two to fire if a
+   * platform ever leaves a few pixels of daylight. Two independent signals for
+   * something that is only ever "hide a bar", where a false positive costs
+   * nothing and a false negative is the bug being fixed. */
+  html.keyboard-open .sell-actions {
     grid-template-rows: 0fr;
     pointer-events: none;
   }

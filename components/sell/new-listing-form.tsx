@@ -1072,10 +1072,21 @@ export function NewListingForm() {
       onAnimationEnd={onSheetAnimationEnd}
       className={cn(
         "sell-sheet fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
-        // Read from the ref, so the server render carries the enter class and a
-        // re-render for any other reason recomputes the same one the animation
-        // is already using rather than wiping it.
+        // BOTH of these read from a ref, and both have to.
+        //
+        // React owns this `className`, so every render rewrites the whole
+        // attribute — and a class written straight onto the node with
+        // `classList` is wiped by the next render that happens for any other
+        // reason. `sell-typing` was written that way and NOT read back here,
+        // and this form re-renders on every keystroke because the title and the
+        // description are state. So the bar collapsed the moment a field took
+        // focus and came back the moment the first character was typed, which
+        // is exactly "sometimes it appears".
+        //
+        // Reading the refs here means a render recomputes the same classes the
+        // element already has rather than clearing them.
         MOTION_CLASS[motion.current],
+        typing.current && "sell-typing",
       )}
     >
       {/* The header. An X and a title, like every sheet on a phone — and it

@@ -319,6 +319,35 @@ check(
 )
 
 check(
+  "typing does not put the bar back",
+  (() => {
+    // React owns this className, so every render rewrites the whole attribute
+    // and wipes a class written straight onto the node with classList. This
+    // form re-renders on every keystroke — title and description are state — so
+    // the bar collapsed on focus and came back on the first character. Which is
+    // exactly "sometimes it appears".
+    const at = form.indexOf('"sell-sheet fixed inset-0')
+    const cn = form.slice(at, at + 700)
+    return /typing\.current && "sell-typing"/.test(cn) && /MOTION_CLASS\[motion\.current\]/.test(cn)
+  })(),
+  "        The same trap the motion classes are read from a ref to avoid.",
+)
+
+check(
+  "two independent signals, because a false negative is the bug",
+  (() => {
+    // Focus is the one that works in the app. The two keyboard classes are kept
+    // because they are correct on the mobile web, and hiding a bar is something
+    // where a false positive costs nothing.
+    return (
+      /\.sell-sheet\.sell-typing \.sell-actions,/.test(css) &&
+      /html\[data-keyboard="open"\] \.sell-actions,/.test(css) &&
+      /html\.keyboard-open \.sell-actions \{/.test(css)
+    )
+  })(),
+)
+
+check(
   "it collapses to a height nobody had to measure",
   (() => {
     const rule = css.slice(css.indexOf(".sell-actions {"), css.indexOf(".sell-actions {") + 260)
@@ -342,7 +371,7 @@ check(
   "a hidden control cannot be pressed by accident",
   // It is clipped, not removed, so without this a thumb on the edge of the
   // keyboard could still publish a listing.
-  /html\[data-keyboard="open"\] \.sell-actions \{[\s\S]{0,140}?pointer-events: none;/.test(css),
+  /html\.keyboard-open \.sell-actions \{[\s\S]{0,140}?pointer-events: none;/.test(css),
 )
 
 check(
