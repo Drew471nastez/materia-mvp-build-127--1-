@@ -227,6 +227,24 @@ check(
 )
 
 check(
+  "the bar behind the sheet cannot be a grey smudge",
+  (() => {
+    // WHAT THE "SHADOW" ACTUALLY WAS. The tab bar is fixed at the bottom, z-80,
+    // UNDER the sell sheet at z-95 — and `--vv-h` is visualViewport.height,
+    // which on iOS can fall short of the screen by roughly the home-indicator
+    // strip. So a band of 95%-white-with-a-backdrop-blur showed under the
+    // Publish button, over a full-bleed reels photograph. A smudged grey fade
+    // that reads unmistakably as a shadow the button is casting.
+    //
+    // Opaque white cannot do that whatever ends up behind it. It also stops a
+    // backdrop-filter being recomputed against fresh content on every frame of
+    // every scroll on every page, which is the same argument the sell form's
+    // own action bar makes about itself.
+    return /border-t border-neutral-200 bg-white"/.test(bar) && !/backdrop-blur/.test(bar)
+  })(),
+)
+
+check(
   "the strip travels with the sheet rather than sitting still under it",
   (() => {
     const rule = css.slice(css.indexOf(".sell-sheet::after"), css.indexOf(".sell-sheet::after") + 320)

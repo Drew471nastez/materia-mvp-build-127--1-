@@ -367,7 +367,22 @@ export function MobileBottomNav({
 
   return (
     <nav
-      className="z-40 shrink-0 border-t border-neutral-200 bg-white/95 backdrop-blur-md"
+      // OPAQUE, and no backdrop blur. Two reasons, and the second one is the
+      // grey fade under the sell sheet's Publish button.
+      //
+      // A `backdrop-filter` on a bar pinned over a scroller is recomputed
+      // against fresh content on every frame of that scroll — the most
+      // expensive thing on the screen, in service of an effect nobody asked
+      // for. The sell form's own action bar says exactly this about itself and
+      // is opaque for exactly this reason; this bar is on EVERY page.
+      //
+      // And it sits UNDER the sell sheet at z-80. Whenever the sheet is a few
+      // pixels short of the bottom — it is sized to the visible viewport so its
+      // buttons clear the keyboard — this strip showed through: 95% white with
+      // a blur, over a full-bleed reels photograph, which is a smudged grey
+      // band that reads unmistakably as a shadow the Publish button is casting.
+      // Opaque white cannot do that whatever ends up behind it.
+      className="z-40 shrink-0 border-t border-neutral-200 bg-white"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="mx-auto flex max-w-lg items-stretch px-1 pt-1 pb-1">
