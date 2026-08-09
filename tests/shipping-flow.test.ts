@@ -2784,6 +2784,86 @@ check(
       })(),
     )
     check(
+      "two buyers reaching pay together cannot both be charged",
+      (() => {
+        const sql = read("supabase/sql/RUN_RESERVATIONS.sql")
+        // A read-then-write can never close this: both requests read "no
+        // completed order" because neither order exists yet. Something has to
+        // make Postgres pick, and a primary key is the cheapest thing that
+        // does — one row per listing, claimed by a single INSERT … ON CONFLICT.
+        return (
+          /product_id uuid primary key/.test(sql) &&
+          /on conflict \(product_id\) do update/.test(sql) &&
+          /where product_reservations\.expires_at < now\(\)/.test(sql) &&
+          /or product_reservations\.buyer_key = excluded\.buyer_key/.test(sql)
+        )
+      })(),
+    )
+    check(
+      "the reservation is taken BEFORE a card is charged",
+      (() => {
+        const s = stripComments(session)
+        // Reserving after the PaymentIntent exists would mean creating a charge
+        // for somebody about to be told they cannot have the thing — the same
+        // bug, one step later.
+        return (
+          s.indexOf("claimReservation(") > 0 &&
+          s.indexOf("claimReservation(") < s.indexOf("stripe.paymentIntents.create") &&
+          /code: "reserved_by_other"/.test(s)
+        )
+      })(),
+    )
+    check(
+      "a buyer is never locked out by their own abandoned attempt",
+      // Same buyer_key re-takes the row, so a reload or a failed first card
+      // does not mean waiting fifteen minutes to try again.
+      /or product_reservations\.buyer_key = excluded\.buyer_key/.test(read("supabase/sql/RUN_RESERVATIONS.sql")),
+    )
+    check(
+      "nobody can release somebody else's claim",
+      // Otherwise it is a one-line way to snipe an item out from under whoever
+      // is in the middle of paying for it.
+      /delete from public\.product_reservations[\s\S]{0,120}?and buyer_key = p_buyer_key/.test(
+        read("supabase/sql/RUN_RESERVATIONS.sql"),
+      ),
+    )
+    check(
+      "an unrun migration does not stop the platform selling",
+      (() => {
+        const r = stripComments(read("lib/marketplace/reservation.ts"))
+        // Deploys are live the moment they build and the SQL is run by hand
+        // afterwards. Failing closed would mean a deploy that silently stops
+        // every sale until somebody notices.
+        return /isMissingFunction/.test(r) && /return true/.test(r) && /RUN_RESERVATIONS\.sql/.test(r)
+      })(),
+    )
+    check(
+      "the reservation table is server-only",
+      (() => {
+        const sql = read("supabase/sql/RUN_RESERVATIONS.sql")
+        // It would say which listings somebody is midway through buying, which
+        // is neither useful nor anybody's business.
+        return (
+          /alter table public\.product_reservations enable row level security/.test(sql) &&
+          !/create policy[\s\S]{0,200}product_reservations/.test(sql) &&
+          /grant execute on function public\.claim_product_reservation[\s\S]{0,80}?to service_role/.test(sql)
+        )
+      })(),
+    )
+    check(
+      "the buyer is told which of these happened, not just that it failed",
+      (() => {
+        const c = stripComments(checkout)
+        // "Already sold", "someone else is paying" and "that is your own item"
+        // are three different things, and none of them is worth "try again".
+        return (
+          /code === "already_sold"/.test(c) &&
+          /code === "reserved_by_other"/.test(c) &&
+          /code === "own_item"/.test(c)
+        )
+      })(),
+    )
+    check(
       "the minimum charge follows the currency being charged",
       // Hard-coded as 50 it meant fifty BANI once the platform moved to lei —
       // a tenth of the real floor, so Stripe would reject a charge this route

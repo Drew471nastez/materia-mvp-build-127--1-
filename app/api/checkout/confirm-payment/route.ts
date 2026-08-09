@@ -8,6 +8,7 @@ import { cookies } from "next/headers"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { v4 as uuidv4 } from "uuid"
 import { isShippable } from "@/lib/marketplace/product-kind"
+import { buyerKeyFor, releaseReservation } from "@/lib/marketplace/reservation"
 
 export const runtime = "nodejs"
 
@@ -199,6 +200,13 @@ export async function POST(request: Request) {
         // Loud, because the window this leaves open is a double sale.
         console.error("[confirm-payment] could not mark listing sold:", productId, soldError.message)
       }
+
+      // The listing is sold, so the reservation is only clutter now. Tidying,
+      // not correctness — it expires on its own either way.
+      await releaseReservation(admin, {
+        productId,
+        buyerKey: buyerKeyFor(buyerId, buyerEmail),
+      })
     }
 
     // Set cookie for device recognition

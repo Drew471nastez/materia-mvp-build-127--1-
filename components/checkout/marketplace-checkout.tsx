@@ -503,6 +503,21 @@ function CheckoutBody({
           setError("Prețul livrării s-a schimbat. Verifică totalul și încearcă din nou.")
           return
         }
+        // A listing is one physical object, so two of the ways this can fail
+        // are about the item rather than about the payment — and neither is
+        // worth "try again", which is what an unexplained failure invites.
+        if (intent?.code === "already_sold") {
+          setError("Articolul tocmai a fost vândut. Îl poți vedea în continuare, dar nu mai poate fi cumpărat.")
+          return
+        }
+        if (intent?.code === "reserved_by_other") {
+          setError("Altcineva finalizează chiar acum comanda pentru acest articol. Încearcă din nou în câteva minute.")
+          return
+        }
+        if (intent?.code === "own_item") {
+          setError("Nu îți poți cumpăra propriul articol.")
+          return
+        }
         setError(intent?.error || "Nu am putut începe plata. Încearcă din nou.")
         return
       }

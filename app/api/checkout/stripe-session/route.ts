@@ -12,6 +12,8 @@ import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 import { priceCheckout } from "@/lib/checkout/pricing"
 import { minimumChargeCents } from "@/lib/checkout/currency"
 import { isShippable } from "@/lib/marketplace/product-kind"
+import { buyerKeyFor, claimReservation } from "@/lib/marketplace/reservation"
+import { SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -205,7 +207,10 @@ export async function POST(request: Request) {
   //    platform, and a way to manufacture completed orders and the reviews and
   //    badges that hang off them.
   if (user && product.creator?.user_id && user.id === product.creator.user_id) {
-    return NextResponse.json({ error: "You cannot buy your own listing" }, { status: 400 })
+    return NextResponse.json(
+      { error: SELF_ACTION_MESSAGE.buy, code: SELF_ACTION_CODE },
+      { status: 400 },
+    )
   }
 
   // 2. A SECOND-HAND ITEM EXISTS ONCE.
@@ -226,6 +231,31 @@ export async function POST(request: Request) {
     if (alreadySold) {
       return NextResponse.json(
         { error: "This item has already been sold", code: "already_sold" },
+        { status: 409 },
+      )
+    }
+
+    // ── AND THE NARROW CASE THE READ ABOVE CANNOT SEE ──────────────────────
+    //
+    // Two people pressing pay in the same second both read "no completed
+    // order", because neither order exists yet — and both cards get charged.
+    // A read-then-write can never close that; something has to make Postgres
+    // pick. This is a single INSERT … ON CONFLICT against a primary key, so of
+    // two requests arriving together exactly one comes back holding the item.
+    //
+    // Taken BEFORE the PaymentIntent exists. Reserving after it would mean
+    // creating a charge for somebody who is about to be told they cannot have
+    // the thing, which is the same bug one step later.
+    const reserved = await claimReservation(admin, {
+      productId,
+      buyerKey: buyerKeyFor(user?.id, email),
+    })
+    if (!reserved) {
+      return NextResponse.json(
+        {
+          error: "Someone else is buying this right now. Try again in a few minutes.",
+          code: "reserved_by_other",
+        },
         { status: 409 },
       )
     }
