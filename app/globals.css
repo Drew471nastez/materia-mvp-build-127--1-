@@ -390,16 +390,25 @@ html.capacitor a.no-tap-fade:active {
  *
  * `backface-visibility: hidden` is the other half of the same request, and it is
  * the one WebKit actually listens to on a large subtree. */
+/* Ends at translate3d(0,0,0), NOT `transform: none`.
+ *
+ * They look identical and they are not. `none` removes the transform outright,
+ * which takes the element off its own compositor layer — on the LAST FRAME of
+ * the animation, so the slide finishes with a promotion being torn down and the
+ * full-screen content repainted into the page layer. That is a hitch at exactly
+ * the moment the sheet is supposed to settle. An identity translate keeps the
+ * layer, and the class comes off on `animationend` instead, when nothing is
+ * moving and a repaint costs nobody anything. */
 @keyframes sell-sheet-enter {
   from { transform: translate3d(0, 100%, 0); }
-  to   { transform: none; }
+  to   { transform: translate3d(0, 0, 0); }
 }
 /* Going back down. Faster than the way up, and on the mirrored curve — almost
  * all of the travel late rather than early. Something being dismissed should
  * leave decisively; something being presented should settle. Symmetrical
  * timings are what make a close feel like it is dawdling. */
 @keyframes sell-sheet-leave {
-  from { transform: none; }
+  from { transform: translate3d(0, 0, 0); }
   to   { transform: translate3d(0, 100%, 0); }
 }
 .sell-sheet-enter,

@@ -146,6 +146,26 @@ function OptionRow({
   )
 }
 
+/**
+ * The four things the sheet can be doing, and the class for each.
+ *
+ *   enter  sliding up. On the element from the server render, so the sheet is
+ *          off-screen before hydration rather than drawn in place first.
+ *   armed  not moving yet, but the compositor layer exists and the blurs are
+ *          off — one frame of this before a close, so the layer is not being
+ *          built on the frame the movement starts.
+ *   leave  sliding down.
+ *   idle   arrived. No layer held, no blurs suspended.
+ */
+type SheetMotion = "enter" | "armed" | "leave" | "idle"
+
+const MOTION_CLASS: Record<SheetMotion, string> = {
+  enter: "sell-sheet-enter",
+  armed: "sell-sheet-armed",
+  leave: "sell-sheet-leave",
+  idle: "",
+}
+
 export function NewListingForm() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -517,79 +537,103 @@ export function NewListingForm() {
    * you least want one, because every keypress in a textarea repaints against
    * it.
    */
-  const [entering, setEntering] = useState(true)
-  useLayoutEffect(() => {
-    const t = window.setTimeout(() => setEntering(false), 460)
-    return () => window.clearTimeout(t)
+  /**
+   * ── MOTION IS A REF, NOT STATE ─────────────────────────────────────────────
+   *
+   * Every class this element wears during the slide used to be React state, so
+   * starting the close RE-RENDERED a 1,381-line component on the very frame the
+   * animation began — reconciling the whole form while the compositor was meant
+   * to be doing nothing but moving a layer. That is main-thread work landing in
+   * the worst possible frame, and it is the last thing between this and a slide
+   * that never touches the main thread at all.
+   *
+   * The ref is the source of truth and the class is written straight onto the
+   * node. `className` still reads the ref, so the server render carries the
+   * enter class from the very first painted pixel, and any re-render this
+   * component happens to do for its own reasons — an upload finishing, a brand
+   * search returning — recomputes the SAME class rather than wiping the one the
+   * animation is using.
+   */
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const motion = useRef<SheetMotion>("enter")
+
+  /** Swap the class on the node itself. No render, no reconciliation. */
+  const setMotion = useCallback((next: SheetMotion) => {
+    const el = sheetRef.current
+    if (el) {
+      const from = MOTION_CLASS[motion.current]
+      const to = MOTION_CLASS[next]
+      if (from) el.classList.remove(from)
+      if (to) el.classList.add(to)
+    }
+    motion.current = next
   }, [])
 
   /**
-   * Closing: down first, THEN the navigation.
+   * THE SLIDE UP starts from the first painted frame — the class is in the
+   * server HTML, so the sheet is off-screen before hydration rather than being
+   * drawn in place and then sent back down, which was the old flash.
    *
-   * It used to be the navigation on its own, so the sheet that slid up simply
-   * ceased to exist — a hard cut in the one direction where a sheet most
-   * obviously ought to go back the way it came.
+   * Taken off once it has arrived. The animation ends at translate3d(0,0,0) so
+   * nothing is left out of place, but `will-change: transform` would keep a
+   * full-screen compositor layer alive for as long as the form is open — the
+   * screen where you least want one, because every keypress in a textarea
+   * repaints against it.
    *
-   * The route change is held until the slide has finished rather than fired
-   * alongside it, because Next unmounts this component the instant the route
-   * commits and there is no way to animate something that is no longer in the
-   * document. 300ms is the animation; the navigation goes on the same tick it
-   * ends.
-   *
-   * Guarded against a second press: the X is a large target on a screen that is
-   * already moving, and two overlapping `router.back()` calls pop two entries.
-   *
-   * Where it goes: back if there is anywhere to go back to, the feed otherwise.
-   * A sheet opened from the + in the tab bar always has history behind it, so
-   * back returns you to whatever you were looking at — the difference between a
-   * sheet closing and a navigation happening. A cold arrival has nothing to pop,
-   * and `router.back()` on an empty stack does nothing at all, which would leave
-   * the only way out of a full-screen form dead.
+   * On `animationend` rather than a timer: the browser knows exactly when it
+   * finished and a number does not. A timer set to 460 for a 420ms animation
+   * was both a guess and 40ms of a layer nobody needed.
    */
-  const [leaving, setLeaving] = useState(false)
-  /**
-   * The frame before the close.
-   *
-   * `will-change: transform` on the sheet only exists while one of the
-   * animation classes is on it, and the enter class comes off once the sheet
-   * has arrived. So pressing X asked the browser to BUILD a full-screen
-   * compositor layer on the very frame the close animation started — and that
-   * layer being created is the hitch at the start of the close.
-   *
-   * Arming sets `will-change` (and suspends the blurs) one frame early, so by
-   * the time the movement begins the layer is already there and the animation
-   * is compositor-only from its first pixel.
-   */
-  const [armed, setArmed] = useState(false)
+  const onSheetAnimationEnd = useCallback(
+    (e: React.AnimationEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return
+      if (motion.current === "enter") setMotion("idle")
+    },
+    [setMotion],
+  )
+
+  const closing = useRef(false)
   const close = useCallback(() => {
-    if (leaving) return
-    setArmed(true)
-    // One frame. Not a timeout — a rAF is exactly "after the browser has had a
-    // chance to act on the class I just set", which is the whole requirement.
-    requestAnimationFrame(() => setLeaving(true))
+    if (closing.current) return
+    closing.current = true
+
+    // Armed for one frame first: `will-change` only exists while one of the
+    // motion classes is on the element, and the enter class comes off when the
+    // sheet arrives. Without this the browser has to BUILD a full-screen
+    // compositor layer on the very frame the close starts, and that build is
+    // the hitch. Arming also suspends every backdrop-filter inside — see the
+    // note in globals.css.
+    setMotion("armed")
+    // A frame, not a guessed delay. rAF is exactly "after the browser has had a
+    // chance to act on what I just set", which is the entire requirement.
+    requestAnimationFrame(() => setMotion("leave"))
+
     /**
-     * 280, not 300 — one frame INSIDE the animation rather than on its last.
+     * 296 — one frame INSIDE the animation rather than on its last.
      *
-     * The leave runs 300ms. Firing the navigation at exactly 300 puts the route
-     * commit on the same tick the sheet reaches the bottom of the screen, and
-     * on a slow frame the two land in the wrong order: the sheet is unmounted
-     * while it still has a pixel or two of travel left, so the last thing you
-     * see is it disappearing rather than leaving. Twenty milliseconds early
-     * means the commit is already in flight when the animation finishes, and
-     * the sheet is off-screen before anything can replace it.
+     * The leave runs 300ms and starts a frame after this timer is set. Firing
+     * the navigation on the tick the sheet reaches the bottom puts the route
+     * commit and the last frame in the same slot, and on a slow frame they land
+     * in the wrong order: the sheet is unmounted while it still has a pixel or
+     * two of travel left, so the last thing you see is it disappearing rather
+     * than leaving. Landing just inside means the commit is already in flight
+     * when the animation finishes.
      *
-     * It cannot go much earlier than this without the opposite problem — the
-     * screen behind appearing while the sheet is still visibly over it.
+     * It cannot go much earlier without the opposite problem — the screen
+     * behind appearing while the sheet is still visibly over it.
+     *
+     * Where it goes: back if there is anywhere to go back to, the feed
+     * otherwise. A sheet opened from the + always has history behind it, so
+     * back returns you to whatever you were looking at — the difference between
+     * a sheet closing and a navigation happening. A cold arrival has nothing to
+     * pop, and `router.back()` on an empty stack does nothing at all, which
+     * would leave the only way out of a full-screen form dead.
      */
     window.setTimeout(() => {
       if (typeof window !== "undefined" && window.history.length > 1) router.back()
       else router.push("/")
-      // 296, not 280: the animation now begins one frame after this timer is
-      // set, so the old number landed 36ms inside a 300ms slide rather than the
-      // 20 it was tuned for — the screen behind appearing while the sheet still
-      // had visible travel left.
     }, 296)
-  }, [leaving, router])
+  }, [router, setMotion])
 
   // ---- brand search ----
   useEffect(() => {
@@ -747,11 +791,11 @@ export function NewListingForm() {
             void triggerHaptic("light")
             return
           }
-          // Armed a frame early, same as `close()` — this is the other way the
-          // sheet leaves, and it deserves the same compositor layer waiting for
-          // it rather than being built under the animation.
-          setArmed(true)
-          requestAnimationFrame(() => setLeaving(true))
+          // The other way the sheet leaves, and it gets the same treatment:
+          // armed a frame early so the layer is waiting, and driven off React
+          // so publishing does not reconcile the form under the animation.
+          setMotion("armed")
+          requestAnimationFrame(() => setMotion("leave"))
           window.setTimeout(() => {
             if (draft) router.replace("/products/drafts")
             else if (data?.slug) router.replace(`/products/${data.slug}`)
@@ -846,11 +890,14 @@ export function NewListingForm() {
      * page it was.
      */
     <div
+      ref={sheetRef}
+      onAnimationEnd={onSheetAnimationEnd}
       className={cn(
         "sell-sheet fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
-        // Leaving wins: pressing X mid-entrance must go down from wherever the
-        // sheet has got to, not finish arriving first.
-        leaving ? "sell-sheet-leave" : entering ? "sell-sheet-enter" : armed && "sell-sheet-armed",
+        // Read from the ref, so the server render carries the enter class and a
+        // re-render for any other reason recomputes the same one the animation
+        // is already using rather than wiping it.
+        MOTION_CLASS[motion.current],
       )}
     >
       {/* The header. An X and a title, like every sheet on a phone — and it

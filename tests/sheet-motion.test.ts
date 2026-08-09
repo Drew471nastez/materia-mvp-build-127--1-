@@ -83,7 +83,7 @@ check(
 check(
   "the compositor layer exists BEFORE the close starts moving",
   /\.sell-sheet-armed \{[\s\S]{0,80}?will-change: transform/.test(css) &&
-    /setArmed\(true\)\s*\n\s*requestAnimationFrame\(\(\) => setLeaving\(true\)\)/.test(form),
+    /setMotion\("armed"\)\s*\n\s*requestAnimationFrame\(\(\) => setMotion\("leave"\)\)/.test(form),
   "        Otherwise the browser builds a full-screen layer on the very frame\n" +
     "        the animation begins, which is the hitch at the start of a close.",
 )
@@ -92,7 +92,48 @@ check(
   "both ways out of the sheet are armed, not just the X",
   // Closing by pressing X and closing by publishing are two different code
   // paths, and only one of them used to exist when this was written.
-  (form.match(/setArmed\(true\)/g) ?? []).length >= 2,
+  (form.match(/setMotion\("armed"\)/g) ?? []).length >= 2,
+)
+
+check(
+  "starting the animation does not re-render the form",
+  (() => {
+    // Every motion class used to be React state, so beginning the close
+    // reconciled a 1,381-line component on the very frame the animation
+    // started — main-thread work in the worst possible frame. The ref is the
+    // source of truth now and the class goes straight onto the node.
+    const usesRef = /const motion = useRef<SheetMotion>\("enter"\)/.test(form)
+    const writesDirect = /el\.classList\.(add|remove)\(/.test(form)
+    const noMotionState =
+      !/useState\(false\)[\s\S]{0,40}leaving/.test(form) && !/setLeaving|setArmed|setEntering/.test(form)
+    return usesRef && writesDirect && noMotionState
+  })(),
+)
+
+check(
+  "a re-render for any other reason cannot wipe the class mid-slide",
+  // An upload finishing or a brand search returning re-renders this component
+  // while the sheet is moving. className reads the same ref, so it recomputes
+  // the class the animation is already using instead of clearing it.
+  /MOTION_CLASS\[motion\.current\]/.test(form),
+)
+
+check(
+  "the enter animation ends on an identity transform, not `none`",
+  (() => {
+    const enter = css.slice(css.indexOf("@keyframes sell-sheet-enter"), css.indexOf("@keyframes sell-sheet-leave"))
+    // `none` removes the transform outright, which takes the element off its
+    // compositor layer ON THE LAST FRAME — the slide finishing with a promotion
+    // torn down and a full-screen repaint, exactly where it should settle.
+    return /to\s*\{ transform: translate3d\(0, 0, 0\); \}/.test(enter) && !/transform: none/.test(enter)
+  })(),
+)
+
+check(
+  "the layer is released when the browser says it finished, not on a timer",
+  // A timer set to 460 for a 420ms animation was both a guess and 40ms of a
+  // full-screen layer nobody needed.
+  /onAnimationEnd=\{onSheetAnimationEnd\}/.test(form) && !/setTimeout\(\(\) => setEntering/.test(form),
 )
 
 check(
