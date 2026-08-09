@@ -2726,6 +2726,64 @@ check(
       })(),
     )
     check(
+      "one rule for acting on your own things, in one file",
+      (() => {
+        const self = stripComments(read("lib/marketplace/self-action.ts"))
+        // The guards were being written one at a time, in whichever route
+        // noticed — which produced follows and messages correctly refusing and
+        // wishlist and reviews quietly allowing. Same rule, remembered twice
+        // and forgotten twice.
+        return /export async function isOwnProduct/.test(self) && /SELF_ACTION_MESSAGE/.test(self)
+      })(),
+    )
+    check(
+      "you cannot save, review, follow or message your own listing",
+      (() => {
+        const guarded = (f: string) => /isOwnProduct\(/.test(read(f))
+        return (
+          guarded("app/api/wishlist/route.ts") &&
+          guarded("app/api/reviews/route.ts") &&
+          /cannot_follow_self/.test(read("app/api/follows/route.ts")) &&
+          /That's your own listing/.test(read("app/api/messages/route.ts"))
+        )
+      })(),
+      "        Saves and reviews are the numbers a buyer judges an item by. A\n" +
+        "        seller who can inflate their own makes everybody else's worth\n" +
+        "        less.",
+    )
+    check(
+      "an owner lookup that fails does not block the whole platform",
+      (() => {
+        const self = stripComments(read("lib/marketplace/self-action.ts"))
+        // Wrong in one direction is somebody saving their own jumper. Wrong in
+        // the other is a database hiccup stopping everyone from saving anything.
+        return /catch \{\s*return null\s*\}/.test(self) && /if \(!userId\) return false/.test(self)
+      })(),
+    )
+    check(
+      "a sold listing stays readable instead of turning into a 404",
+      (() => {
+        const page = stripComments(read("app/(marketing)/products/[slug]/page.tsx"))
+        const detail = stripComments(read("components/product/product-detail.tsx"))
+        // The link is in the buyer's receipt and in their messages. It is not
+        // missing — it is sold, and the page says so instead of vanishing.
+        return (
+          /product\.status !== "published" && product\.status !== "sold"/.test(page) &&
+          /const isSold = product\.status === "sold"/.test(detail) &&
+          /Vândut/.test(detail)
+        )
+      })(),
+    )
+    check(
+      "and it cannot be bought or haggled over once it is gone",
+      (() => {
+        const detail = stripComments(read("components/product/product-detail.tsx"))
+        // Both bars — the desktop pair and the mobile one — or the phone still
+        // sells a jacket that is already in the post.
+        return (detail.match(/isSold \? \(/g) ?? []).length >= 2
+      })(),
+    )
+    check(
       "the minimum charge follows the currency being charged",
       // Hard-coded as 50 it meant fifty BANI once the platform moved to lei —
       // a tenth of the real floor, so Stripe would reject a charge this route

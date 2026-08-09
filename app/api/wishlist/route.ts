@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { recordListingLike } from "@/lib/push/activity-db"
+import { isOwnProduct, SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60
@@ -187,6 +188,17 @@ export async function POST(request: NextRequest) {
       userId = data?.user?.id || null
     } catch {
       // Not authenticated
+    }
+
+    // Saving your own listing inflates the one number a buyer uses to judge
+    // whether an item is worth acting on. Refused here, not just hidden in the
+    // interface — anything reachable by a request has to be refused by the code
+    // that handles the request. See lib/marketplace/self-action.ts.
+    if (userId && (await isOwnProduct(adminClient, userId, productId))) {
+      return NextResponse.json(
+        { error: SELF_ACTION_MESSAGE.save, code: SELF_ACTION_CODE },
+        { status: 400 },
+      )
     }
 
     if (userId) {

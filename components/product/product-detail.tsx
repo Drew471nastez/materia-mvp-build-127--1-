@@ -82,6 +82,10 @@ export function ProductDetail({ product }: { product: any }) {
   // a link into it rather than a second payment stack. The offer goes through
   // messages — that is where the negotiation lives.
   const [offerOpen, setOfferOpen] = useState(false)
+  // Sold. One physical object, so once it has gone there is nothing on this
+  // page left to do — no buying, no offering, and no messaging about a price.
+  // The listing stays visible because the link is in somebody's receipt.
+  const isSold = product.status === "sold"
   const sellerUserId = product.creator?.user_id ?? null
   // Own listing? Then neither button makes sense. The snapshot is a head start,
   // not an authority — worst case the buttons render and checkout refuses.
@@ -620,20 +624,28 @@ export function ProductDetail({ product }: { product: any }) {
               and hidden at md, so without this the desktop page had no way to
               actually buy the thing it was showing. */}
           <div className="mt-5 hidden gap-2.5 md:flex">
-            <button
-              type="button"
-              onClick={onOffer}
-              className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98] hover:bg-[#7c3aed]/5"
-            >
-              Fă o ofertă
-            </button>
-            <button
-              type="button"
-              onClick={onBuy}
-              className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] hover:bg-[#6d2fd6]"
-            >
-              Cumpără
-            </button>
+            {isSold ? (
+              <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
+              Vândut
+            </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onOffer}
+                  className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98] hover:bg-[#7c3aed]/5"
+                >
+                  Fă o ofertă
+                </button>
+                <button
+                  type="button"
+                  onClick={onBuy}
+                  className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98] hover:bg-[#6d2fd6]"
+                >
+                  Cumpără
+                </button>
+              </>
+            )}
           </div>
 
           {/* Seller */}
@@ -732,20 +744,28 @@ export function ProductDetail({ product }: { product: any }) {
         }}
       >
         <div className="flex gap-2.5">
-            <button
-              type="button"
-              onClick={onOffer}
-              className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98]"
-            >
-              Fă o ofertă
-            </button>
-            <button
-              type="button"
-              onClick={onBuy}
-              className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98]"
-            >
-              Cumpără
-            </button>
+            {isSold ? (
+              <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
+              Vândut
+            </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onOffer}
+                  className="h-12 flex-1 rounded-full border border-[#7c3aed] text-[15px] font-semibold text-[#7c3aed] transition-transform duration-200 active:scale-[0.98]"
+                >
+                  Fă o ofertă
+                </button>
+                <button
+                  type="button"
+                  onClick={onBuy}
+                  className="h-12 flex-[1.4] rounded-full bg-[#7c3aed] text-[15.5px] font-semibold text-white shadow-[0_4px_16px_-4px_rgba(124,58,237,0.6)] transition-transform duration-200 active:scale-[0.98]"
+                >
+                  Cumpără
+                </button>
+              </>
+            )}
           </div>
       </div>
 

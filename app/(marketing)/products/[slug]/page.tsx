@@ -149,7 +149,11 @@ export default async function ProductPage({
 }) {
   const { slug } = await params
   const product = await load(slug)
-  if (!product || product.status !== "published") notFound()
+  // A sold listing STAYS. It used to 404 the moment the sale completed, which
+  // broke the link in the buyer's own receipt and messages, broke the seller's
+  // page, and broke every link anyone had shared. It is not missing — it is
+  // sold, and the page says so. Only drafts and removed listings are gone.
+  if (!product || (product.status !== "published" && product.status !== "sold")) notFound()
   // `origin` is read on the client, from window.location — see ProductDetail.
   // Reading it here would opt the whole page back into dynamic rendering for the
   // sake of one analytics breadcrumb, and reading it with useSearchParams would

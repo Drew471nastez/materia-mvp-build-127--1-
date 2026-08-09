@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
+import { isOwnProduct, SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
 
 // GET - Fetch reviews for a product
 export async function GET(request: NextRequest) {
@@ -84,6 +85,17 @@ export async function POST(request: NextRequest) {
 
   if (content.trim().length < 10) {
     return NextResponse.json({ error: "Review must be at least 10 characters" }, { status: 400 })
+  }
+
+  // Reviewing your own listing. An entitlement check alone does not stop this:
+  // a seller who bought from themselves before that was refused still holds
+  // one, and a five-star review of your own jumper is exactly the kind of
+  // number that makes every other review on the platform worth less.
+  if (await isOwnProduct(admin, user.id, productId)) {
+    return NextResponse.json(
+      { error: SELF_ACTION_MESSAGE.review, code: SELF_ACTION_CODE },
+      { status: 403 },
+    )
   }
 
   // Check if user has purchased this product
