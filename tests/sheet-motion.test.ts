@@ -602,6 +602,44 @@ check(
   })(),
 )
 
+check(
+  "the header catches up with the list under it",
+  (() => {
+    // The header is the only chrome a subpage has, and a breadcrumb that swaps
+    // instantly while the list underneath travels for a third of a second is
+    // the one part of the push that was still a cut. Keyed on the title so
+    // React replaces the node and the animation plays again.
+    return (
+      /key=\{title\}/.test(page) &&
+      /className="picker-title /.test(page) &&
+      /@keyframes picker-title-in/.test(css) &&
+      /\.picker-title \{[\s\S]{0,120}?animation: picker-title-in/.test(css)
+    )
+  })(),
+)
+
+check(
+  "and it rises rather than sliding, because it moves in both directions",
+  (() => {
+    // Picking a side would be wrong half the time.
+    const kf = css.slice(css.indexOf("@keyframes picker-title-in"), css.indexOf("@keyframes picker-title-in") + 260)
+    return /translate3d\(0, 4px, 0\)/.test(kf) && !/translate3d\([^0]/.test(kf)
+  })(),
+)
+
+check(
+  "the title animation is opacity and transform only",
+  (() => {
+    const kf = css.slice(css.indexOf("@keyframes picker-title-in"), css.indexOf("@keyframes picker-title-in") + 260)
+    return !/(height|width|top|left|margin|color):/.test(kf)
+  })(),
+)
+
+check(
+  "somebody who has asked for less motion gets less motion",
+  /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,120}?\.picker-title \{[\s\S]{0,60}?animation: none/.test(css),
+)
+
 console.log("\nThe mark on a chosen row")
 
 check(

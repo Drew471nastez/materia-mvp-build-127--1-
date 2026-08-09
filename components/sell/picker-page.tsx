@@ -109,7 +109,10 @@ const FLICK_VELOCITY = 0.45
  * The live layer is never a snapshot, because ticking a row has to show on the
  * row you ticked. Only what is leaving is frozen.
  */
-const LEVEL_MS = 300
+/* Matched to the panel's own out-and-in rather than shorter than both. A
+   level that finishes moving before the header has caught up reads as two
+   things happening, not one. */
+const LEVEL_MS = 340
 /** How far the outgoing list travels, and how far the incoming one comes from
  *  when going back. A quarter, not a whole screen: the layer underneath is
  *  meant to read as still being there. */
@@ -448,7 +451,17 @@ export function PickerPage({
             >
               <ChevronLeft className="h-[24px] w-[24px]" strokeWidth={2.3} />
             </button>
-            <h1 className="min-w-0 truncate text-[17px] font-semibold tracking-[-0.015em] text-neutral-900">
+            {/* KEYED ON THE TITLE, so React replaces the node and the CSS
+                animation plays again. The header is the only chrome a subpage
+                has, and a breadcrumb that swaps instantly while the list
+                underneath it travels for a third of a second is the one part
+                of the push that was still a cut. A rise rather than a slide:
+                it is correct in both directions, and picking a side would be
+                wrong half the time. */}
+            <h1
+              key={title}
+              className="picker-title min-w-0 truncate text-[17px] font-semibold tracking-[-0.015em] text-neutral-900"
+            >
               {title}
             </h1>
           </div>

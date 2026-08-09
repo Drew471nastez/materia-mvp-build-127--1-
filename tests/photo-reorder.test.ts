@@ -405,15 +405,28 @@ check(
 console.log("\nThe picker, as an object on the page")
 
 check(
-  "the empty slots are the ones that were there before, press animation included",
+  "an empty slot is the reference's media tile",
   (() => {
-    // Reverted whole, on the third asking. The soft-shadowed square read as a
-    // different app's component dropped into this grid, and the scale on press
-    // is part of what was being asked back for — this file previously asserted
-    // its ABSENCE, which is exactly the kind of test that argues with the
-    // person it is written for.
+    // A chunky rounded square in light grey, ringed in white with a soft shadow
+    // under it — the shape of the thing it stands for. A flat circle read as a
+    // generic "add" button rather than as a picture that is not there yet.
     const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
-    return /active:scale-\[0\.97\]/.test(slots) && /rounded-full bg-white/.test(slots)
+    return (
+      /rounded-\[17px\]/.test(slots) &&
+      /ring-\[3px\] ring-white/.test(slots) &&
+      /shadow-\[0_3px_10px/.test(slots) &&
+      !/rounded-full bg-white/.test(slots)
+    )
+  })(),
+)
+
+check(
+  "the press animation is still there",
+  (() => {
+    // Removed once as a fix for a bump nobody had asked to keep, and asked back
+    // for twice. It stays through restyles.
+    const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
+    return /active:scale-\[0\.97\]/.test(slots)
   })(),
 )
 
@@ -424,7 +437,7 @@ check(
     // in the brand colour says "start here", which is the only thing an empty
     // photo grid has to communicate.
     const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
-    return /border-\[#7c3aed\]\/35 bg-violet-50\/70/.test(slots) && /border-neutral-200 bg-neutral-50\/70/.test(slots)
+    return /bg-violet-100 text-\[#7c3aed\]/.test(slots) && /bg-neutral-100 text-neutral-400/.test(slots)
   })(),
 )
 

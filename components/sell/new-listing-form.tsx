@@ -1900,9 +1900,12 @@ export function NewListingForm() {
           ))}
 
           {Array.from({ length: emptySlots }).map((_, n) => (
-            /* Exactly what this was before it was reworked into a soft-shadowed
-               square — bordered tile, violet first slot, and the press
-               animation back with it. */
+            /* THE REFERENCE'S MEDIA TILE.
+               A chunky rounded square in light grey, ringed in white with a
+               soft shadow under it — the shape of the thing it stands for,
+               and the ring is what stops a light glyph on a light tile from
+               disappearing into it. A flat circle read as a generic "add"
+               button rather than as a picture that is not there yet. */
             <button
               key={`slot-${n}`}
               type="button"
@@ -1912,26 +1915,34 @@ export function NewListingForm() {
               }}
               aria-label="Adaugă fotografii"
               className={cn(
-                "flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-2xl border-2",
-                "transition-[transform,background-color,border-color,color] duration-150 active:scale-[0.97]",
+                "flex aspect-[3/4] flex-col items-center justify-center gap-3 rounded-2xl border",
+                "transition-[transform,background-color,border-color] duration-150 active:scale-[0.97]",
                 n === 0
-                  ? "border-[#7c3aed]/35 bg-violet-50/70 text-[#7c3aed] active:bg-violet-100/70"
-                  : "border-neutral-200 bg-neutral-50/70 text-neutral-400 active:border-[#7c3aed]/35 active:text-[#7c3aed]",
+                  ? "border-[#7c3aed]/30 bg-violet-50/60 active:bg-violet-100/70"
+                  : "border-neutral-200 bg-neutral-50 active:border-[#7c3aed]/30 active:bg-violet-50/60",
               )}
             >
               <span
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full bg-white",
-                  n === 0 ? "shadow-[0_2px_8px_rgba(76,29,149,0.18)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
+                  "flex h-[52px] w-[52px] items-center justify-center rounded-[17px]",
+                  "ring-[3px] ring-white shadow-[0_3px_10px_-2px_rgba(0,0,0,0.12)]",
+                  n === 0 ? "bg-violet-100 text-[#7c3aed]" : "bg-neutral-100 text-neutral-400",
                 )}
               >
                 {n === 0 && photos.length === 0 ? (
-                  <Camera className="h-[18px] w-[18px]" />
+                  <Camera className="h-[23px] w-[23px]" strokeWidth={1.8} />
                 ) : (
-                  <Plus className="h-[18px] w-[18px]" strokeWidth={2.6} />
+                  <Plus className="h-[23px] w-[23px]" strokeWidth={2} />
                 )}
               </span>
-              <span className="text-[11.5px] font-semibold">Adaugă</span>
+              <span
+                className={cn(
+                  "text-[12.5px] font-semibold",
+                  n === 0 ? "text-neutral-700" : "text-neutral-400",
+                )}
+              >
+                Adaugă
+              </span>
             </button>
           ))}
         </div>
