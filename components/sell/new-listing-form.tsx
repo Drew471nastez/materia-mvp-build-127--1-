@@ -1822,9 +1822,9 @@ export function NewListingForm() {
                 className={cn(
                   "absolute inset-0 overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-inset ring-black/[0.07]",
                   "transition-[transform,box-shadow] duration-200 ease-out",
-                  i === 0 && "ring-[2.5px] ring-[#7c3aed]",
+                  i === 0 && "ring-[2.5px] ring-neutral-900",
                   dragId === p.id &&
-                    "z-10 scale-[1.06] shadow-[0_16px_36px_-10px_rgba(76,29,149,0.55)] ring-[2.5px] ring-[#7c3aed] will-change-transform",
+                    "z-10 scale-[1.06] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.45)] ring-[2.5px] ring-neutral-900 will-change-transform",
                 )}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1837,7 +1837,7 @@ export function NewListingForm() {
 
                 {p.uploading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#7c3aed]" />
+                    <Loader2 className="h-5 w-5 animate-spin text-neutral-500" />
                   </div>
                 )}
 
@@ -1845,7 +1845,7 @@ export function NewListingForm() {
                     it is said in the brand colour rather than in a grey pill
                     that reads as a caption. */}
                 {i === 0 && !p.uploading && (
-                  <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-[#7c3aed] px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_2px_6px_rgba(76,29,149,0.35)]">
+                  <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-neutral-900 px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.04em] text-white shadow-[0_2px_6px_rgba(0,0,0,0.28)]">
                     Copertă
                   </span>
                 )}
@@ -1890,7 +1890,7 @@ export function NewListingForm() {
                       void triggerHaptic("light")
                       makeCover(p.id)
                     }}
-                    className="absolute bottom-1.5 right-1.5 rounded-full bg-white/95 px-2 py-1.5 text-[10.5px] font-bold leading-none text-[#7c3aed] shadow-[0_1px_4px_rgba(0,0,0,0.18)] transition-transform active:scale-90"
+                    className="absolute bottom-1.5 right-1.5 rounded-full bg-white/95 px-2 py-1.5 text-[10.5px] font-bold leading-none text-neutral-900 shadow-[0_1px_4px_rgba(0,0,0,0.18)] transition-transform active:scale-90"
                   >
                     Copertă
                   </button>
@@ -1918,15 +1918,15 @@ export function NewListingForm() {
                 "flex aspect-[3/4] flex-col items-center justify-center gap-3 rounded-2xl border",
                 "transition-[transform,background-color,border-color] duration-150 active:scale-[0.97]",
                 n === 0
-                  ? "border-[#7c3aed]/30 bg-violet-50/60 active:bg-violet-100/70"
-                  : "border-neutral-200 bg-neutral-50 active:border-[#7c3aed]/30 active:bg-violet-50/60",
+                  ? "border-neutral-300 bg-neutral-50 active:border-neutral-400 active:bg-neutral-100"
+                  : "border-neutral-200 bg-neutral-50/60 active:border-neutral-300 active:bg-neutral-100",
               )}
             >
               <span
                 className={cn(
                   "flex h-[52px] w-[52px] items-center justify-center rounded-[17px]",
                   "ring-[3px] ring-white shadow-[0_3px_10px_-2px_rgba(0,0,0,0.12)]",
-                  n === 0 ? "bg-violet-100 text-[#7c3aed]" : "bg-neutral-100 text-neutral-400",
+                  n === 0 ? "bg-neutral-200/80 text-neutral-600" : "bg-neutral-100 text-neutral-400",
                 )}
               >
                 {n === 0 && photos.length === 0 ? (
@@ -1938,7 +1938,7 @@ export function NewListingForm() {
               <span
                 className={cn(
                   "text-[12.5px] font-semibold",
-                  n === 0 ? "text-neutral-700" : "text-neutral-400",
+                  n === 0 ? "text-neutral-600" : "text-neutral-400",
                 )}
               >
                 Adaugă

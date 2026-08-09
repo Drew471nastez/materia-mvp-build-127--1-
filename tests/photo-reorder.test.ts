@@ -368,10 +368,19 @@ check(
 )
 
 check(
-  "the cover says so in the brand colour, and is ringed",
+  "the cover says so, and is ringed — in ink, not in violet",
   (() => {
+    // NOTHING in this grid is the brand colour. Every tile is a photograph, and
+    // a saturated accent laid over a wall of photographs competes with the only
+    // thing on the screen that is supposed to be looked at. Black and white is
+    // what a photo grid is set in everywhere it is done well.
     const section = form.slice(form.indexOf('<div className="mt-3 grid grid-cols-3'), form.indexOf("ref={fileRef}"))
-    return /bg-\[#7c3aed\][^"]*text-white/.test(section) && /i === 0 && "ring-\[2\.5px\] ring-\[#7c3aed\]"/.test(section)
+    return (
+      /bg-neutral-900[^"]*text-white/.test(section) &&
+      /i === 0 && "ring-\[2\.5px\] ring-neutral-900"/.test(section) &&
+      !/7c3aed/.test(section) &&
+      !/violet/.test(section)
+    )
   })(),
 )
 
@@ -431,13 +440,15 @@ check(
 )
 
 check(
-  "the first empty slot is the one that reads as the invitation",
+  "the first empty slot still reads as the one to start on",
   (() => {
-    // Eight identical grey squares say "eight things are missing"; one of them
-    // in the brand colour says "start here", which is the only thing an empty
-    // photo grid has to communicate.
+    // Eight identical squares say "eight things are missing"; one of them a
+    // shade darker says "start here", which is the only thing an empty photo
+    // grid has to communicate — and it says it in the greys the photographs
+    // themselves will sit in, rather than in a brand colour competing with
+    // them.
     const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
-    return /bg-violet-100 text-\[#7c3aed\]/.test(slots) && /bg-neutral-100 text-neutral-400/.test(slots)
+    return /bg-neutral-200\/80 text-neutral-600/.test(slots) && /bg-neutral-100 text-neutral-400/.test(slots)
   })(),
 )
 
