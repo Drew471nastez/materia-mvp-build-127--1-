@@ -17,6 +17,7 @@ import { claimSurface } from "@/lib/surface-bg"
 import { OfferSheet } from "@/components/product/offer-sheet"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
   CONDITIONS,
@@ -88,12 +89,34 @@ export function ProductDetail({ product }: { product: any }) {
   // The listing stays visible because the link is in somebody's receipt.
   const isSold = product.status === "sold"
   const sellerUserId = product.creator?.user_id ?? null
-  // Own listing? Then neither button makes sense. The snapshot is a head start,
-  // not an authority — worst case the buttons render and checkout refuses.
+  // Own listing? Then neither button makes sense.
+  //
+  // The page is CACHED and auth-free on purpose (revalidate: 300), so this can
+  // only be decided on the client. The localStorage snapshot alone was not
+  // enough: an account signed in before the snapshot carried userId — or on a
+  // device where it was never written — reported null, and the owner was shown
+  // Buy and Make an offer on their own listing. The Supabase session is the
+  // authority, and reading it is a localStorage read, not a network call. The
+  // snapshot stays as the fast path so the buttons do not flicker for the
+  // common case it does cover.
   const [isOwn, setIsOwn] = useState(false)
   useEffect(() => {
+    if (!sellerUserId) return
     const snap = readAuthSnapshot()
-    if (snap?.signedIn && snap.userId && sellerUserId && snap.userId === sellerUserId) setIsOwn(true)
+    if (snap?.signedIn && snap.userId === sellerUserId) {
+      setIsOwn(true)
+      return
+    }
+    let alive = true
+    void createBrowserSupabase()
+      .auth.getSession()
+      .then(({ data }: { data: { session: { user?: { id?: string } } | null } }) => {
+        if (alive && data.session?.user?.id === sellerUserId) setIsOwn(true)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
   }, [sellerUserId])
 
   // A listing says nothing about the seller's Stripe state — not to buyers,
@@ -720,7 +743,9 @@ export function ProductDetail({ product }: { product: any }) {
                 )}
               </span>
             </SmartLink>
-            <FollowButton userId={product.creator?.user_id} variant="quiet" />
+            {/* Following yourself is the same non-action as buying from
+                yourself, and the button was still offered. */}
+            {!isOwn && <FollowButton userId={product.creator?.user_id} variant="quiet" />}
           </div>
 
           {/* Asking a question sits WITH the seller, not in the buy bar. It is

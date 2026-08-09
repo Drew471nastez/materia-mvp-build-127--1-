@@ -11,7 +11,8 @@ import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
-import { DraftsList } from "@/components/sell/drafts-list"
+import { DraftsGrid } from "@/components/member/drafts-grid"
+import { DepthSwap } from "@/components/ui/depth-swap"
 import { SellerReviewsList } from "@/components/member/seller-reviews-list"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { MoreHorizontal } from "lucide-react"
@@ -226,7 +227,10 @@ function ShelfTab({
       aria-selected={active}
       role="tab"
       className={cn(
-        "relative -mb-px flex items-baseline gap-1.5 border-b-2 pb-2.5 pt-1 text-[15px] transition-colors duration-150",
+        // flex-1 and centred: three names sharing the full measure, the way
+        // the feed's own Pentru tine / Urmărești / Salvate strip does — not a
+        // cluster parked at one end of the line.
+        "relative -mb-px flex flex-1 items-baseline justify-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[15px] transition-colors duration-150",
         active
           ? "border-neutral-900 font-semibold text-neutral-900"
           : "border-transparent font-medium text-neutral-400 active:text-neutral-600",
@@ -711,7 +715,7 @@ export function MemberProfile({
         {/* The tab strip. Underline marks the current one — the same mark
             every app in this category uses — and the listing count keeps its
             place next to the word it counts. */}
-        <div className="flex items-center gap-6 border-b border-neutral-200/80">
+        <div className="flex items-stretch border-b border-neutral-200/80">
           <ShelfTab
             active={shelfTab === "listings"}
             onClick={() => setShelfTab("listings")}
@@ -733,16 +737,13 @@ export function MemberProfile({
           </ShelfTab>
         </div>
 
+        {/* One switch grammar per app: the panels trade places along Z, the
+            same move the feed's Pentru tine / Urmărești / Salvate makes. */}
+        <DepthSwap id={shelfTab}>
         {shelfTab === "drafts" && isOwner ? (
-          <div key="drafts" className="shelf-panel-in">
-            <div className="pt-4">
-              <DraftsList embedded />
-            </div>
-          </div>
+          <DraftsGrid />
         ) : shelfTab === "reviews" ? (
-          <div key="reviews" className="shelf-panel-in">
-            <SellerReviewsList sellerUserId={member.id} isOwner={isOwner} />
-          </div>
+          <SellerReviewsList sellerUserId={member.id} isOwner={isOwner} />
         ) : listings.length === 0 ? (
           // An empty shop is a normal state for a new member, not an error — so
           // it is drawn in the same language as the inbox's empty screens
@@ -769,7 +770,7 @@ export function MemberProfile({
           // opinion about the same height — on a short screen it forced the
           // page taller than the window and gave a profile with nothing on it
           // something to scroll.
-          <div key="empty" className="shelf-panel-in flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
             {/* Moving, and drawn rather than played from a file — see
                 components/member/empty-shelf.tsx. An empty state is the one
                 screen with nothing on it to hold anybody's attention, which is
@@ -796,7 +797,7 @@ export function MemberProfile({
             )}
           </div>
         ) : (
-          <div key="grid" className="shelf-panel-in mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
             {listings.map((listing, i) => (
               /* An archived listing is on YOUR shelf and nobody else's, and it
                  has to say so — otherwise it sits in the grid looking exactly
@@ -834,6 +835,7 @@ export function MemberProfile({
             ))}
           </div>
         )}
+        </DepthSwap>
       </section>
 
 

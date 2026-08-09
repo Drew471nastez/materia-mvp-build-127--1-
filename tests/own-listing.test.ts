@@ -253,7 +253,7 @@ check(
     // "Salvează" on a new listing means "keep this as a draft", and there is no
     // turning something already live back into one — the button would either
     // lie or do nothing.
-    return /\{editId \? "Salvează modificările" : "Publică anunțul"\}/.test(form) && /\{!editId && \(/.test(form)
+    return /\{editId \? "Actualizează anunțul" : "Publică anunțul"\}/.test(form) && /\{!editId && \(/.test(form)
   })(),
 )
 
@@ -380,6 +380,139 @@ check(
       /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,120}?\.shelf-panel-in \{[\s\S]{0,60}?animation: none/.test(css)
     )
   })(),
+)
+
+console.log("\nOwnership is decided from the session, not from a cache")
+
+check(
+  "the auth snapshot is a fast path, and the Supabase session is the authority",
+  (() => {
+    // The listing page is cached and auth-free on purpose, so isOwn can only be
+    // decided on the client — and the localStorage snapshot alone was not
+    // enough: an account signed in before the snapshot carried userId reported
+    // null, and the owner was shown Buy and Make an offer on their own listing.
+    return (
+      /createBrowserSupabase\(\)\s*\n\s*\.auth\.getSession\(\)/.test(detail) &&
+      /data\.session\?\.user\?\.id === sellerUserId\) setIsOwn\(true\)/.test(detail)
+    )
+  })(),
+)
+
+check(
+  "you cannot be offered your own follow button either",
+  /\{!isOwn && <FollowButton userId=\{product\.creator\?\.user_id\} variant="quiet" \/>\}/.test(detail),
+)
+
+console.log("\nThe shelf, drawn like the feed")
+
+check(
+  "the tabs share the full measure, centred",
+  (() => {
+    // Three names spread across the line, the way the feed's own strip is —
+    // not a cluster parked at one end.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return /flex flex-1 items-baseline justify-center/.test(profile)
+  })(),
+)
+
+check(
+  "switching panels is the feed's own move: depth, with a snapshot leaving",
+  (() => {
+    // One switch grammar per app. The outgoing panel is a snapshot so it can
+    // keep painting a list for a state that has already moved on; both layers
+    // are transform and opacity only, and hand their layers back.
+    const swap = strip(read("components/ui/depth-swap.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /<DepthSwap id=\{shelfTab\}>/.test(profile) &&
+      /setOut\(\{ key: idRef\.current, node: lastNode\.current \}\)/.test(swap) &&
+      /void i\.offsetHeight/.test(swap) &&
+      /willChange = "transform, opacity"/.test(swap)
+    )
+  })(),
+)
+
+check(
+  "drafts are drawn the way listings are drawn",
+  (() => {
+    // A draft IS a listing that is not finished, so it wears the same clothes:
+    // the same card grid, with the difference said once in a corner badge —
+    // not a different species of list.
+    const grid = strip(read("components/member/drafts-grid.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /<DraftsGrid \/>/.test(profile) &&
+      /grid grid-cols-2 gap-x-3/.test(grid) &&
+      /Ciornă/.test(grid) &&
+      /\/products\/new\?draft=/.test(grid)
+    )
+  })(),
+)
+
+check(
+  "deleting a draft from the grid asks in place, and waits for the server",
+  (() => {
+    const grid = strip(read("components/member/drafts-grid.tsx"))
+    const fn = grid.slice(grid.indexOf("const remove ="))
+    return /confirming === d\.id \? "Șterg\?"/.test(grid) && fn.indexOf("if (!res.ok) return") < fn.indexOf("setDrafts((list)")
+  })(),
+)
+
+console.log("\nSettings stands up")
+
+check(
+  "/settings no longer mounts the legacy dashboard form",
+  (() => {
+    // loadSettingsData + SettingsFormNew was the crash: 1,700 lines of seller
+    // dashboard mounted into a marketing route, falling over client-side on
+    // any account whose data did not fit its assumptions.
+    const page = strip(read("app/(marketing)/settings/page.tsx"))
+    return (
+      !/SettingsFormNew/.test(page) &&
+      !/loadSettingsData/.test(page) &&
+      /<SettingsHub/.test(page)
+    )
+  })(),
+)
+
+check(
+  "it is a table of contents, and the rows go to screens that exist",
+  (() => {
+    const hub = strip(read("components/settings/settings-hub.tsx"))
+    return (
+      /href: "\/profile"/.test(hub) &&
+      /href: "\/products\/drafts"/.test(hub) &&
+      /href: "\/sales"/.test(hub) &&
+      /href: "\/purchases"/.test(hub) &&
+      /href: "\/wishlist"/.test(hub) &&
+      /href: "\/messages"/.test(hub) &&
+      /href="\/profile\/edit"/.test(hub)
+    )
+  })(),
+)
+
+check(
+  "a missing profile row renders, not crashes",
+  (() => {
+    // A buyer who signed up yesterday IS a normal account.
+    const page = strip(read("app/(marketing)/settings/page.tsx"))
+    return /profile\?\.display_name \?\? user\.user_metadata\?\.display_name \?\? null/.test(page) && /catch/.test(page)
+  })(),
+)
+
+check(
+  "signing out leaves by a full document load",
+  (() => {
+    // Half the header state lives in server components; a client-side push
+    // would keep painting the signed-in chrome around a signed-out session.
+    const hub = strip(read("components/settings/settings-hub.tsx"))
+    return /auth\.signOut\(\)/.test(hub) && /window\.location\.assign\("\/"\)/.test(hub)
+  })(),
+)
+
+check(
+  "signed-out visitors are sent to login, and back here after",
+  /redirect\("\/login\?redirect=\/settings"\)/.test(strip(read("app/(marketing)/settings/page.tsx"))),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

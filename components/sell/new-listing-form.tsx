@@ -1870,7 +1870,7 @@ export function NewListingForm() {
           className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-lg bg-[#7c3aed] text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-[#6d28d9] disabled:opacity-60"
         >
           {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {editId ? "Salvează modificările" : "Publică anunțul"}
+          {editId ? "Actualizează anunțul" : "Publică anunțul"}
         </button>
       </div>
     </>
