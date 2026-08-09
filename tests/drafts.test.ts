@@ -74,8 +74,8 @@ check(
     // next to the draft it came from. It also mints a fresh slug and breaks any
     // link already shared.
     return (
-      /draftId \? `\/api\/listings\/drafts\/\$\{encodeURIComponent\(draftId\)\}` : "\/api\/listings"/.test(form) &&
-      /method: draftId \? "PATCH" : "POST"/.test(form)
+      /: draftId\s*\n\s*\? `\/api\/listings\/drafts\/\$\{encodeURIComponent\(draftId\)\}`\s*\n\s*: "\/api\/listings"/.test(form) &&
+      /method: editId \|\| draftId \? "PATCH" : "POST"/.test(form)
     )
   })(),
 )
@@ -84,13 +84,13 @@ check(
   "the draft id is in the submit callback's dependencies",
   // Without it, `submit` closes over whatever the id was on first render — so
   // the first save of a resumed draft would go to the wrong endpoint.
-  /setMotion, draftId\]/.test(form),
+  /setMotion, draftId, editId\]/.test(form),
 )
 
 check(
   "photos already in storage are not uploaded a second time",
   (() => {
-    const loader = form.slice(form.indexOf("fetch(`/api/listings/drafts/"))
+    const loader = form.slice(form.indexOf("const url = editId"))
     return /uploading: false/.test(loader.slice(0, 1800))
   })(),
 )
@@ -98,7 +98,7 @@ check(
 check(
   "a draft that will not load leaves an empty form, not an error",
   (() => {
-    const loader = form.slice(form.indexOf("fetch(`/api/listings/drafts/"))
+    const loader = form.slice(form.indexOf("const url = editId"))
     // Deleted on another device, or somebody else's id pasted into the URL.
     // The worst case is writing the listing from scratch, which is what the
     // screen is for anyway.

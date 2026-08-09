@@ -60,6 +60,8 @@ export type SellerListingRow = {
   type: string | null
   category: string | null
   created_at: string | null
+  /** 'published' or 'archived'. Only your own shelf ever sees the second. */
+  status?: string | null
   size?: string | null
   size_system?: string | null
   brand?: string | null
@@ -67,7 +69,7 @@ export type SellerListingRow = {
 }
 
 const BASE_COLS =
-  "id, title, slug, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, created_at"
+  "id, title, slug, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, created_at, status"
 
 /** Resale attributes only exist after 20260730_marketplace_physical_attributes. */
 const ATTR_COLS = `${BASE_COLS}, size, size_system, brand, condition`
@@ -76,11 +78,22 @@ export async function readSellerListings({
   admin,
   userId,
   limit,
+  includeArchived = false,
 }: {
   admin: Admin
   /** The auth user whose shelf this is — NOT a creators id. */
   userId: string
   limit: number
+  /**
+   * Your OWN profile, and nowhere else.
+   *
+   * Archiving takes a listing off the feed, and the profile is the only place
+   * left that could show it to you — so without this, archiving something is
+   * losing it: no screen anywhere lists it, and the only control that could
+   * put it back lives on a page you can no longer reach. A visitor still sees
+   * published listings and nothing else.
+   */
+  includeArchived?: boolean
 }): Promise<{ rows: SellerListingRow[]; count: number }> {
   // Every creator row this account holds, not "the" one. See above.
   const { data: creators } = await admin.from("creators").select("id").eq("user_id", userId)
@@ -92,7 +105,7 @@ export async function readSellerListings({
       .from("products")
       .select(cols, { count: "exact" })
       .in("creator_id", creatorIds)
-      .eq("status", "published")
+      .in("status", includeArchived ? ["published", "archived"] : ["published"])
       .order("created_at", { ascending: false })
       .limit(limit)
 

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom"
 import Image from "next/image"
 import { CARD_RATIO, detailImage, readVariants } from "@/lib/images/variants"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Flag, Heart, MessageCircle, Share2 } from "lucide-react"
+import { ArrowLeft, Flag, Heart, MessageCircle, MoreHorizontal, Pencil, Share2 } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -15,6 +15,7 @@ import { navigateBlended, signalArrival } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { claimSurface } from "@/lib/surface-bg"
 import { OfferSheet } from "@/components/product/offer-sheet"
+import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
@@ -115,6 +116,17 @@ export function ProductDetail({ product }: { product: any }) {
    * flow that dead-ends. The button is present, which is what consistency means;
    * it just tells you the truth when you press it.
    */
+  /** The ⋯ menu: edit, archive, delete. Only ever mounted for the owner. */
+  const [manageOpen, setManageOpen] = useState(false)
+  const openManage = useCallback(() => {
+    void triggerHaptic("light")
+    setManageOpen(true)
+  }, [])
+  const onEditListing = useCallback(() => {
+    void triggerHaptic("light")
+    router.push(`/products/new?edit=${encodeURIComponent(product.id)}`)
+  }, [router, product.id])
+
   const [ownNote, setOwnNote] = useState(false)
   const noteTimer = useRef(0)
   const sayOwn = useCallback(() => {
@@ -535,9 +547,25 @@ export function ProductDetail({ product }: { product: any }) {
               <ArrowLeft className="h-[22px] w-[22px]" strokeWidth={2.4} />
             </button>
             <div className="pointer-events-auto flex gap-2">
-              <button type="button" aria-label="Raportează" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-transform duration-200 active:scale-90">
-                <Flag className="h-[19px] w-[19px]" />
-              </button>
+              {/* The ⋯ is up here as well as in the bar, because the bar hides
+                  on scroll — and "take this down" is exactly the thing you go
+                  looking for after reading the listing you want to take down.
+                  Reporting is for other people's listings; on your own it is
+                  the one control that could not possibly apply. */}
+              {isOwn ? (
+                <button
+                  type="button"
+                  aria-label="Gestionează anunțul"
+                  onClick={openManage}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-transform duration-200 active:scale-90"
+                >
+                  <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
+                </button>
+              ) : (
+                <button type="button" aria-label="Raportează" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-transform duration-200 active:scale-90">
+                  <Flag className="h-[19px] w-[19px]" />
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="Distribuie"
@@ -624,7 +652,31 @@ export function ProductDetail({ product }: { product: any }) {
               and hidden at md, so without this the desktop page had no way to
               actually buy the thing it was showing. */}
           <div className="mt-5 hidden gap-2.5 md:flex">
-            {isSold ? (
+            {isOwn ? (
+              /* YOUR OWN LISTING. Buy and Make an offer were both here, doing
+                 nothing but printing "this is your listing" when pressed —
+                 two controls whose only function was to refuse. What you
+                 actually want on your own listing is to fix a typo or take it
+                 down, so that is what the bar offers. */
+              <>
+                <button
+                  type="button"
+                  onClick={onEditListing}
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-neutral-900 text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-neutral-800"
+                >
+                  <Pencil className="h-[17px] w-[17px]" strokeWidth={2.2} />
+                  Editează anunțul
+                </button>
+                <button
+                  type="button"
+                  onClick={openManage}
+                  aria-label="Gestionează anunțul"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-colors duration-150 active:bg-neutral-100"
+                >
+                  <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
+                </button>
+              </>
+            ) : isSold ? (
               <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
               Vândut
             </div>
@@ -744,7 +796,31 @@ export function ProductDetail({ product }: { product: any }) {
         }}
       >
         <div className="flex gap-2.5">
-            {isSold ? (
+            {isOwn ? (
+              /* YOUR OWN LISTING. Buy and Make an offer were both here, doing
+                 nothing but printing "this is your listing" when pressed —
+                 two controls whose only function was to refuse. What you
+                 actually want on your own listing is to fix a typo or take it
+                 down, so that is what the bar offers. */
+              <>
+                <button
+                  type="button"
+                  onClick={onEditListing}
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-neutral-900 text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-neutral-800"
+                >
+                  <Pencil className="h-[17px] w-[17px]" strokeWidth={2.2} />
+                  Editează anunțul
+                </button>
+                <button
+                  type="button"
+                  onClick={openManage}
+                  aria-label="Gestionează anunțul"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-colors duration-150 active:bg-neutral-100"
+                >
+                  <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
+                </button>
+              </>
+            ) : isSold ? (
               <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
               Vândut
             </div>
@@ -781,6 +857,16 @@ export function ProductDetail({ product }: { product: any }) {
           </div>,
           document.body,
         )}
+
+      {isOwn && (
+        <ManageListingSheet
+          open={manageOpen}
+          onClose={() => setManageOpen(false)}
+          listingId={product.id}
+          status={product.status ?? "published"}
+          title={product.title ?? ""}
+        />
+      )}
 
       <OfferSheet open={offerOpen} onClose={() => setOfferOpen(false)} listingId={product.id} priceCents={product.price_cents} />
 

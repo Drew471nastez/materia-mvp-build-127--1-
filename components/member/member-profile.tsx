@@ -52,6 +52,9 @@ export type MemberListing = {
   condition: string | null
   saves_count: number
   created_at: string | null
+  /** 'archived' only ever reaches your OWN profile — a visitor's query does not
+   *  ask for them. See lib/profile/listings.ts. */
+  status?: string | null
 }
 
 export type MemberSummary = {
@@ -720,15 +723,25 @@ export function MemberProfile({
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
             {listings.map((listing, i) => (
-              <ProductCard
-                key={listing.id}
-                product={listing}
-                origin="member"
-                // Every card here belongs to the seller named just above —
-                // repeating their name under each photo would only add noise.
-                showSeller={false}
-                priority={i < 4}
-              />
+              /* An archived listing is on YOUR shelf and nobody else's, and it
+                 has to say so — otherwise it sits in the grid looking exactly
+                 like the live ones, and the only clue that it is off the feed
+                 is that nobody ever buys it. */
+              <div key={listing.id} className="relative">
+                <ProductCard
+                  product={listing}
+                  origin="member"
+                  // Every card here belongs to the seller named just above —
+                  // repeating their name under each photo would only add noise.
+                  showSeller={false}
+                  priority={i < 4}
+                />
+                {listing.status === "archived" && (
+                  <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-neutral-900/85 px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.04em] text-white">
+                    Arhivat
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         )}

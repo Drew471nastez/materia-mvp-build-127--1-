@@ -528,7 +528,24 @@ export function NewListingForm() {
       return null
     }
   })
-  /** Filling in from a saved draft. Distinct from "no photos yet". */
+  /**
+   * EDITING SOMETHING ALREADY PUBLISHED.
+   *
+   * The same screen, the same fields, and the same slug — which is the point:
+   * a listing people have linked to must not change address because its owner
+   * fixed a typo in the title. It differs from a draft in exactly two ways, and
+   * both are one line each: where it loads from, and where it saves to.
+   */
+  const [editId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      return new URLSearchParams(window.location.search).get("edit")
+    } catch {
+      return null
+    }
+  })
+
+  /** Filling in from a saved draft or an existing listing. */
   const [loadingDraft, setLoadingDraft] = useState(false)
 
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -601,14 +618,18 @@ export function NewListingForm() {
    * for anyway.
    */
   useEffect(() => {
-    if (!draftId) return
+    const id = draftId ?? editId
+    if (!id) return
     let alive = true
     setLoadingDraft(true)
-    fetch(`/api/listings/drafts/${encodeURIComponent(draftId)}`, { credentials: "include" })
+    const url = editId
+      ? `/api/listings/${encodeURIComponent(editId)}`
+      : `/api/listings/drafts/${encodeURIComponent(draftId!)}`
+    fetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!alive || !d?.draft) return
-        const v = d.draft
+        const v = d?.draft ?? d?.listing
+        if (!alive || !v) return
         const urls: string[] = [v.thumbnail_url, ...(Array.isArray(v.gallery_urls) ? v.gallery_urls : [])].filter(
           (u: unknown): u is string => typeof u === "string" && !!u,
         )
@@ -645,7 +666,7 @@ export function NewListingForm() {
     return () => {
       alive = false
     }
-  }, [draftId])
+  }, [draftId, editId])
 
   // ---- photos ----
   const addFiles = useCallback(async (files: FileList | null) => {
@@ -1560,8 +1581,13 @@ export function NewListingForm() {
         // publishing would leave a live listing next to the draft it came
         // from, both of which are things somebody then has to tidy up by hand.
         // It also mints a fresh slug, breaking any link already shared.
-        const res = await fetch(draftId ? `/api/listings/drafts/${encodeURIComponent(draftId)}` : "/api/listings", {
-          method: draftId ? "PATCH" : "POST",
+        const target = editId
+          ? `/api/listings/${encodeURIComponent(editId)}`
+          : draftId
+            ? `/api/listings/drafts/${encodeURIComponent(draftId)}`
+            : "/api/listings"
+        const res = await fetch(target, {
+          method: editId || draftId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
@@ -1608,6 +1634,26 @@ export function NewListingForm() {
           setSaving(null)
           return
         }
+        /**
+         * EDITING IS NOT PUBLISHING, AND DOES NOT GET THE CONFIRMATION.
+         *
+         * The full-screen "anunțul tău e live" veil is for the moment a listing
+         * first exists. Playing it again because somebody fixed a typo says the
+         * wrong thing, and it takes over the whole screen to say it. An edit
+         * closes the sheet and puts you back on the listing, which is where you
+         * came from and the only place the change can be checked.
+         */
+        if (editId) {
+          setMotion("armed")
+          requestAnimationFrame(() => setMotion("leave"))
+          void triggerHaptic("light")
+          window.setTimeout(() => {
+            router.replace(data?.slug ? `/products/${data.slug}` : "/profile")
+            router.refresh()
+          }, 316)
+          return
+        }
+
         setPosted("in")
 
         /**
@@ -1685,7 +1731,7 @@ export function NewListingForm() {
         setSaving(null)
       }
     },
-    [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId],
+    [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId, editId],
   )
 
   // One definition rendered in two places — the phone's pinned bottom bar and
@@ -1695,29 +1741,41 @@ export function NewListingForm() {
     <>
       {/* A row, not a floating label. It shares the buttons' left edge exactly
           because it is in the same padded column, and it is 40px tall so it is
-          a target rather than a 16px box you have to aim at. */}
-      <label className="-mx-1 flex min-h-[40px] cursor-pointer items-center gap-2.5 rounded-xl px-1 text-[13.5px] font-medium text-neutral-600 active:bg-neutral-50">
-        <input
-          type="checkbox"
-          checked={postAnother}
-          onChange={(e) => setPostAnother(e.target.checked)}
-          className="h-[18px] w-[18px] shrink-0 accent-[#7c3aed]"
-        />
-        <span className="min-w-0">Publică și adaugă încă un articol</span>
-      </label>
+          a target rather than a 16px box you have to aim at.
+
+          Absent while editing: "publish and add another" is about the moment a
+          listing is created, and there is no second listing coming out of a
+          typo fix. */}
+      {!editId && (
+        <label className="-mx-1 flex min-h-[40px] cursor-pointer items-center gap-2.5 rounded-xl px-1 text-[13.5px] font-medium text-neutral-600 active:bg-neutral-50">
+          <input
+            type="checkbox"
+            checked={postAnother}
+            onChange={(e) => setPostAnother(e.target.checked)}
+            className="h-[18px] w-[18px] shrink-0 accent-[#7c3aed]"
+          />
+          <span className="min-w-0">Publică și adaugă încă un articol</span>
+        </label>
+      )}
 
       <div className="flex gap-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            void triggerHaptic("light")
-            void submit(true)
-          }}
-          disabled={saving !== null}
-          className="h-12 flex-1 rounded-lg bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-colors duration-150 active:bg-neutral-200 disabled:opacity-60"
-        >
-          Salvează
-        </button>
+        {/* No "Salvează" while editing. On a new listing it means "keep this as
+            a draft", and there is no such thing as turning something that is
+            already live back into one — the button would either lie or do
+            nothing. */}
+        {!editId && (
+          <button
+            type="button"
+            onClick={() => {
+              void triggerHaptic("light")
+              void submit(true)
+            }}
+            disabled={saving !== null}
+            className="h-12 flex-1 rounded-lg bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-colors duration-150 active:bg-neutral-200 disabled:opacity-60"
+          >
+            Salvează
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -1734,7 +1792,7 @@ export function NewListingForm() {
           className="flex h-12 flex-[2] items-center justify-center gap-2 rounded-lg bg-[#7c3aed] text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-[#6d28d9] disabled:opacity-60"
         >
           {saving === "post" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Publică anunțul
+          {editId ? "Salvează modificările" : "Publică anunțul"}
         </button>
       </div>
     </>
@@ -1824,7 +1882,7 @@ export function NewListingForm() {
             <X className="h-[23px] w-[23px]" strokeWidth={2.2} />
           </button>
           <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">
-            Vinde un articol
+            {editId ? "Editează anunțul" : "Vinde un articol"}
           </h1>
         </div>
       </header>
@@ -1846,7 +1904,7 @@ export function NewListingForm() {
       <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl md:px-6 lg:max-w-6xl lg:px-8">
       <header className="mb-6 hidden md:block lg:mb-8">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
-          Listează un articol
+          {editId ? "Editează anunțul" : "Listează un articol"}
         </h1>
         <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
           Completează detaliile și anunțul tău apare instant în feed.
@@ -1904,7 +1962,7 @@ export function NewListingForm() {
       >
         <SectionHeading
           trailing={
-            <span className="rounded-full border border-neutral-200/90 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold uppercase tracking-[0.02em] tabular-nums text-neutral-600 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_1px_1px_-0.5px_rgba(0,0,0,0.04)]">
+            <span className="rounded-full border border-neutral-200/90 bg-white px-2 py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.03em] tabular-nums text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_1px_1px_-0.5px_rgba(0,0,0,0.04)]">
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
