@@ -77,12 +77,17 @@ export async function POST(request: NextRequest) {
     const priceCents = Number.isFinite(body?.price_cents) ? Math.round(body.price_cents) : NaN
     const compareCents = Number.isFinite(body?.compare_at_cents) ? Math.round(body.compare_at_cents) : null
 
-    // A draft only has to be something. A published listing has to be complete.
+    // A draft only has to be SOMETHING — one thing is enough to make it worth
+    // keeping. It used to demand a photo AND a title, which is stricter than
+    // the sell form's own gate (title OR photo), so "write the title now,
+    // photograph it later" — the most ordinary way to start a draft — was
+    // refused by the server after the client had accepted it. A published
+    // listing has to be complete.
     const problems: string[] = []
-    if (photos.length < 1) problems.push("photos")
-    if (!title) problems.push("title")
-
-    if (!draft) {
+    if (draft) {
+      if (photos.length < 1 && !title) problems.push("empty")
+    } else {
+      if (!title) problems.push("title")
       if (photos.length < MIN_PHOTOS) problems.push("photos_min")
       if (description.length < 10) problems.push("description")
       if (!Number.isFinite(priceCents) || priceCents < 0) problems.push("price")
@@ -123,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     const row: Record<string, any> = {
       creator_id: creatorId,
-      title,
+      title: title || null,
       slug,
       description,
       price_cents: Number.isFinite(priceCents) ? priceCents : 0,

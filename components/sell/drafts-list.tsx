@@ -45,7 +45,14 @@ type Draft = {
   created_at: string
 }
 
-export function DraftsList() {
+export function DraftsList({ embedded = false }: {
+  /**
+   * Inside the profile's "Ciorne" tab, where the page already has its own
+   * heading, its own padding and its own "add" affordance — the standalone
+   * chrome would be a second header inside a screen that has one.
+   */
+  embedded?: boolean
+} = {}) {
   const { formatPrice } = useLocale()
   const router = useRouter()
   const [drafts, setDrafts] = useState<Draft[] | null>(null)
@@ -97,17 +104,19 @@ export function DraftsList() {
   )
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-32 pt-6">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-[24px] font-bold tracking-[-0.02em] text-neutral-900">Nepublicate</h1>
-        <Link
-          href="/products/new"
-          className="flex h-10 items-center gap-1.5 rounded-full bg-[#7c3aed] px-4 text-[14px] font-semibold text-white"
-        >
-          <Plus className="h-4 w-4" strokeWidth={3} />
-          Articol nou
-        </Link>
-      </div>
+    <div className={embedded ? "w-full" : "mx-auto w-full max-w-2xl px-4 pb-32 pt-6"}>
+      {!embedded && (
+        <div className="mb-5 flex items-center justify-between">
+          <h1 className="text-[24px] font-bold tracking-[-0.02em] text-neutral-900">Nepublicate</h1>
+          <Link
+            href="/products/new"
+            className="flex h-10 items-center gap-1.5 rounded-full bg-[#7c3aed] px-4 text-[14px] font-semibold text-white"
+          >
+            <Plus className="h-4 w-4" strokeWidth={3} />
+            Articol nou
+          </Link>
+        </div>
+      )}
 
       {drafts === null ? (
         <div className="space-y-3">
@@ -122,7 +131,7 @@ export function DraftsList() {
           ))}
         </div>
       ) : drafts.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-center">
+        <div className={embedded ? "flex flex-col items-center py-14 text-center" : "flex flex-col items-center py-20 text-center"}>
           <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
             <FileText className="h-7 w-7" />
           </span>

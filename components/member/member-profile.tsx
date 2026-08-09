@@ -11,6 +11,10 @@ import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
+import { DraftsList } from "@/components/sell/drafts-list"
+import { SellerReviewsList } from "@/components/member/seller-reviews-list"
+import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
+import { MoreHorizontal } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
@@ -203,6 +207,41 @@ function Stat({ value, label, lang }: { value: number; label: string; lang: stri
   )
 }
 
+/** One tab of the shelf. The underline is the state; the count is quiet. */
+function ShelfTab({
+  active,
+  onClick,
+  count,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  count: number | null
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-selected={active}
+      role="tab"
+      className={cn(
+        "relative -mb-px flex items-baseline gap-1.5 border-b-2 pb-2.5 pt-1 text-[15px] transition-colors duration-150",
+        active
+          ? "border-neutral-900 font-semibold text-neutral-900"
+          : "border-transparent font-medium text-neutral-400 active:text-neutral-600",
+      )}
+    >
+      {children}
+      {count !== null && (
+        <span className={cn("text-[12px] font-semibold tabular-nums", active ? "text-neutral-500" : "text-neutral-300")}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
 export function MemberProfile({
   member,
   listingsCount,
@@ -243,6 +282,24 @@ export function MemberProfile({
    * ends, so the `will-change: transform` layer would be held for the rest of
    * the session on precisely the machines that opted out of it.
    */
+  /**
+   * THE SHELF'S TABS — Anunțuri / Ciorne / Evaluări.
+   *
+   * The profile showed one thing: the listings grid. Drafts lived on a page
+   * reachable only through the account drawer, and the reviews behind the
+   * header's stars had no page at all. On a marketplace the profile IS the
+   * seller's desk, and everything on the desk belongs in one place with a
+   * switch between — which is how every app in this category lays it out.
+   *
+   * Ciorne exists only on your own profile: a visitor has no business with
+   * what you have not published, and the server never sends them archived
+   * listings either. Each tab's content is fetched when the tab is first
+   * opened, not with the page — the grid is what most visits are for.
+   */
+  const [shelfTab, setShelfTab] = useState<"listings" | "drafts" | "reviews">("listings")
+  /** The listing whose ⋯ sheet is open, when this is your own shelf. */
+  const [manageFor, setManageFor] = useState<MemberListing | null>(null)
+
   const [returning, setReturning] = useState(false)
   useLayoutEffect(() => {
     if (consumeNavHint() !== "back") return
@@ -651,24 +708,42 @@ export function MemberProfile({
             number the stats card states, but here it is doing a different job —
             it closes the heading row, so the grid below starts under a line
             that spans the measure instead of under a phrase that trails off. */}
-        <div className="flex h-[22px] items-baseline justify-between gap-3">
-          <h2 className="truncate text-[15px] font-semibold leading-[22px] tracking-[-0.01em] text-neutral-900">
-            {language === "ro"
-              ? isOwner
-                ? "Articolele mele"
-                : "Articolele lui " + name
-              : isOwner
-                ? "My listings"
-                : `${name}'s listings`}
-          </h2>
-          {listingsCount > 0 && (
-            <span className="shrink-0 text-[12.5px] font-medium leading-[22px] text-neutral-400 tabular-nums">
-              {listingsCount}
-            </span>
+        {/* The tab strip. Underline marks the current one — the same mark
+            every app in this category uses — and the listing count keeps its
+            place next to the word it counts. */}
+        <div className="flex items-center gap-6 border-b border-neutral-200/80">
+          <ShelfTab
+            active={shelfTab === "listings"}
+            onClick={() => setShelfTab("listings")}
+            count={listingsCount > 0 ? listingsCount : null}
+          >
+            {language === "ro" ? "Anunțuri" : "Listings"}
+          </ShelfTab>
+          {isOwner && (
+            <ShelfTab active={shelfTab === "drafts"} onClick={() => setShelfTab("drafts")} count={null}>
+              Ciorne
+            </ShelfTab>
           )}
+          <ShelfTab
+            active={shelfTab === "reviews"}
+            onClick={() => setShelfTab("reviews")}
+            count={reviews?.count ? reviews.count : null}
+          >
+            Evaluări
+          </ShelfTab>
         </div>
 
-        {listings.length === 0 ? (
+        {shelfTab === "drafts" && isOwner ? (
+          <div key="drafts" className="shelf-panel-in">
+            <div className="pt-4">
+              <DraftsList embedded />
+            </div>
+          </div>
+        ) : shelfTab === "reviews" ? (
+          <div key="reviews" className="shelf-panel-in">
+            <SellerReviewsList sellerUserId={member.id} isOwner={isOwner} />
+          </div>
+        ) : listings.length === 0 ? (
           // An empty shop is a normal state for a new member, not an error — so
           // it is drawn in the same language as the inbox's empty screens
           // (circle, one line, one sentence) rather than left as a stray
@@ -694,7 +769,7 @@ export function MemberProfile({
           // opinion about the same height — on a short screen it forced the
           // page taller than the window and gave a profile with nothing on it
           // something to scroll.
-          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+          <div key="empty" className="shelf-panel-in flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
             {/* Moving, and drawn rather than played from a file — see
                 components/member/empty-shelf.tsx. An empty state is the one
                 screen with nothing on it to hold anybody's attention, which is
@@ -721,7 +796,7 @@ export function MemberProfile({
             )}
           </div>
         ) : (
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
+          <div key="grid" className="shelf-panel-in mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
             {listings.map((listing, i) => (
               /* An archived listing is on YOUR shelf and nobody else's, and it
                  has to say so — otherwise it sits in the grid looking exactly
@@ -741,12 +816,36 @@ export function MemberProfile({
                     Arhivat
                   </span>
                 )}
+                {/* Manage, from the shelf itself. The listing page has the
+                    same ⋯, but "fix that title" starts HERE, looking at the
+                    grid — a trip through the listing page just to reach the
+                    same three actions is a corridor with nothing in it. */}
+                {isOwner && (
+                  <button
+                    type="button"
+                    aria-label={`Gestionează ${listing.title}`}
+                    onClick={() => setManageFor(listing)}
+                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white transition-transform duration-150 active:scale-90"
+                  >
+                    <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={2.2} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </section>
 
+
+      {isOwner && (
+        <ManageListingSheet
+          open={manageFor !== null}
+          onClose={() => setManageFor(null)}
+          listingId={manageFor?.id ?? ""}
+          status={manageFor?.status ?? "published"}
+          title={manageFor?.title ?? ""}
+        />
+      )}
 
       {avatarOpen && member.avatarUrl && (
         <ImageViewer src={member.avatarUrl} alt={name} onClose={() => setAvatarOpen(false)} />

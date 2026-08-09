@@ -292,6 +292,96 @@ check(
   })(),
 )
 
+console.log("\nThe profile is the seller's desk")
+
+check(
+  "the shelf has tabs: Anunțuri, Ciorne, Evaluări",
+  (() => {
+    // Drafts lived on a page reachable only through the account drawer, and
+    // the reviews behind the header's stars had no page at all.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /const \[shelfTab, setShelfTab\] = useState<"listings" \| "drafts" \| "reviews">\("listings"\)/.test(profile) &&
+      /function ShelfTab\(/.test(profile) &&
+      /Ciorne/.test(profile) &&
+      /Evaluări/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "Ciorne exists only on your own profile",
+  (() => {
+    // A visitor has no business with what you have not published.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return /\{isOwner && \(\s*\n\s*<ShelfTab active=\{shelfTab === "drafts"\}/.test(profile) &&
+      /shelfTab === "drafts" && isOwner \?/.test(profile)
+  })(),
+)
+
+check(
+  "each tab's content arrives when the tab is opened, not with the page",
+  (() => {
+    // The grid is what most visits are for; drafts and reviews are requests
+    // most visits never make.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const draftsList = strip(read("components/sell/drafts-list.tsx"))
+    const reviewsList = strip(read("components/member/seller-reviews-list.tsx"))
+    return (
+      /shelfTab === "drafts" && isOwner \? \(/.test(profile) &&
+      /fetch\("\/api\/listings\/drafts"/.test(draftsList) &&
+      /fetch\(`\/api\/reviews\?sellerUserId=/.test(reviewsList)
+    )
+  })(),
+)
+
+check(
+  "the reviews tab covers every creator row the account holds",
+  (() => {
+    // Reviews hang off creators rows, and one account can hold several — the
+    // same assumption that once made the profile show only some listings.
+    const api = strip(read("app/api/reviews/route.ts"))
+    return /sellerUserId/.test(api) && /\.in\("creator_id", creatorIds\)/.test(api)
+  })(),
+)
+
+check(
+  "the drafts list embeds without bringing its page chrome",
+  (() => {
+    // Inside the tab the page already has a heading and padding; a second
+    // header inside a screen that has one is scaffolding showing.
+    const draftsList = strip(read("components/sell/drafts-list.tsx"))
+    return /embedded = false/.test(draftsList) && /\{!embedded && \(/.test(draftsList)
+  })(),
+)
+
+check(
+  "your own cards carry the ⋯, and it opens the same manage sheet",
+  (() => {
+    // "Fix that title" starts at the grid, looking at the card — a trip
+    // through the listing page to reach the same three actions is a corridor
+    // with nothing in it.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /setManageFor\(listing\)/.test(profile) &&
+      /<ManageListingSheet/.test(profile) &&
+      /\{isOwner && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*aria-label=\{`Gestionează /.test(profile)
+    )
+  })(),
+)
+
+check(
+  "switching tabs animates, and respects reduced motion",
+  (() => {
+    const css = strip(read("app/globals.css"))
+    return (
+      /@keyframes shelf-panel-in/.test(css) &&
+      /\.shelf-panel-in \{[\s\S]{0,120}?animation: shelf-panel-in/.test(css) &&
+      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,120}?\.shelf-panel-in \{[\s\S]{0,60}?animation: none/.test(css)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

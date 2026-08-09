@@ -425,6 +425,30 @@ html.capacitor a.no-tap-fade:active {
   backface-visibility: hidden;
 }
 
+/* A shelf tab's content arriving. Keyed on the tab, so switching replaces the
+   node and the animation replays — the same trick as .picker-title, at panel
+   size. Rise-and-fade, not a slide: tabs sit side by side, but their panels
+   replace each other in place, and a sideways slide would promise a swipe
+   gesture that does not exist. */
+@keyframes shelf-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.shelf-panel-in {
+  animation: shelf-panel-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf-panel-in {
+    animation: none;
+  }
+}
+
 /* The picker's header, catching up with the list under it. Opacity and
    transform only, so it is composited alongside the two list layers rather
    than repainting the bar they sit under. */

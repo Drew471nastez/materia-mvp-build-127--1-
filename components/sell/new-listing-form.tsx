@@ -130,6 +130,32 @@ type GapKey =
   | "compare"
 
 /**
+ * The server's field names, translated to the controls they belong to.
+ *
+ * A 400 from /api/listings used to be printed verbatim at the bottom of the
+ * page — "Mai lipsește: photos, title." — raw English keys, in a sentence, in
+ * the one place that says nothing about where to go. The server and the form
+ * enforce the same rules, so a refusal can be walked back to its control and
+ * shown there, exactly like a local one.
+ */
+const SERVER_FIELD_TO_GAP: Record<string, GapKey> = {
+  photos: "photos",
+  photos_min: "photos",
+  empty: "title",
+  title: "title",
+  description: "description",
+  category: "category",
+  subcategory: "category",
+  brand: "brand",
+  condition: "condition",
+  size: "size",
+  colour: "colour",
+  price: "price",
+  preț: "price",
+  compare_at_too_low: "compare",
+}
+
+/**
  * The reason a control is holding up the publish, printed at the control.
  *
  * Amber rather than red. Nothing here is broken and nothing has been lost —
@@ -1565,6 +1591,17 @@ export function NewListingForm() {
    * A frame's delay so the notes have been laid out first — scrolling to an
    * element that is about to get 40px taller lands in the wrong place.
    */
+  /** The catch-all sentence, when it does appear, is scrolled to — a message
+   *  nobody sees is a save that looks like it did nothing. */
+  const errorRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    if (!error) return
+    const id = requestAnimationFrame(() => {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [error])
+
   const showFirstGap = useCallback((key: GapKey) => {
     requestAnimationFrame(() => {
       gapEls.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -1653,14 +1690,24 @@ export function NewListingForm() {
             router.push("/login?redirect=/products/new")
             return
           }
-          // Show what the server actually said. "Try again" told you nothing
-          // and repeating the same request would have failed the same way.
+          // A field refusal is walked back to its control and shown there,
+          // exactly like a local one — the server and the form enforce the
+          // same rules, so the mapping is total in practice. The sentence at
+          // the bottom is only for failures that have no control to stand at.
+          const mapped: GapKey[] = Array.isArray(data?.fields)
+            ? data.fields.map((f: string) => SERVER_FIELD_TO_GAP[f]).filter(Boolean)
+            : []
+          if (mapped.length) {
+            setShowGaps(true)
+            showFirstGap(mapped[0])
+            void triggerHaptic("medium")
+            setSaving(null)
+            return
+          }
           setError(
-            data?.fields?.length
-              ? `Mai lipsește: ${data.fields.join(", ")}.`
-              : data?.message
-                ? `Nu am putut publica anunțul: ${data.message}`
-                : "Nu am putut publica anunțul. Încearcă din nou.",
+            data?.message
+              ? `Nu am putut salva anunțul: ${data.message}`
+              : "Nu am putut salva anunțul. Încearcă din nou.",
           )
           setSaving(null)
           return
@@ -2262,7 +2309,9 @@ export function NewListingForm() {
       </section>
 
       {error && (
-        <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-[13.5px] text-rose-700 md:hidden">{error}</p>
+        <p ref={errorRef} className="rounded-xl bg-rose-50 px-3.5 py-3 text-[13.5px] font-medium text-rose-700 md:hidden">
+          {error}
+        </p>
       )}
 
       {/* ---- Actions (desktop) ---- */}

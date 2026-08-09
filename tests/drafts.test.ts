@@ -106,6 +106,44 @@ check(
   })(),
 )
 
+check(
+  "the server asks a draft for ONE thing, the same one the form asks for",
+  (() => {
+    // It demanded a photo AND a title, which is stricter than the sell form's
+    // own gate (title OR photo) — so "write the title now, photograph it
+    // later", the most ordinary way to start a draft, was accepted by the
+    // client and refused by the server. The refusal then surfaced as raw
+    // English field keys in a sentence at the bottom of the page.
+    const create = strip(read("app/api/listings/route.ts"))
+    return (
+      /if \(draft\) \{\s*\n\s*if \(photos\.length < 1 && !title\) problems\.push\("empty"\)/.test(create) &&
+      /title: title \|\| null,/.test(create)
+    )
+  })(),
+)
+
+check(
+  "a server refusal is walked back to its control, not printed at the bottom",
+  (() => {
+    // The server and the form enforce the same rules, so a 400's field list
+    // can be mapped to the same anchored notes a local refusal uses — same
+    // note, same place, same smooth scroll.
+    return (
+      /const SERVER_FIELD_TO_GAP: Record<string, GapKey>/.test(form) &&
+      /showFirstGap\(mapped\[0\]\)/.test(form) &&
+      !/\$\{data\.fields\.join/.test(form)
+    )
+  })(),
+)
+
+check(
+  "the catch-all sentence, when it does appear, is scrolled to",
+  (() => {
+    // A message nobody sees is a save that looks like it did nothing.
+    return /errorRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/.test(form)
+  })(),
+)
+
 console.log("\nWhose draft is it")
 
 check(
