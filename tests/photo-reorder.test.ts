@@ -559,6 +559,115 @@ check(
   })(),
 )
 
+console.log("\nBeing told what is missing, where it is missing from")
+
+check(
+  "a gap knows which control it belongs to",
+  (() => {
+    // It used to be one sentence — "Mai lipsește: titlu, brand, preț." —
+    // printed next to the Publish button at the bottom of a form four screens
+    // long. The message about the empty title was as far from the title as it
+    // is possible to be on that page.
+    return /type GapKey =/.test(form) && /const gaps = useMemo/.test(form) && /function GapNote\(/.test(form)
+  })(),
+)
+
+check(
+  "every requirement the publish enforces has an anchor and a note",
+  (() => {
+    const keys = ["photos", "title", "description", "category", "brand", "condition", "size", "colour", "price", "compare"]
+    return keys.every((k) => form.includes(`setGapEl("${k}"`) && form.includes(`gapFor("${k}")`))
+  })(),
+  "        A gap with no anchor is a gap the form cannot scroll to.",
+)
+
+check(
+  "a refused publish takes you to the first one",
+  (() => {
+    const submit = form.slice(form.indexOf("const submit = useCallback"), form.indexOf("const submit = useCallback") + 900)
+    return /setShowGaps\(true\)/.test(submit) && /showFirstGap\(gaps\[0\]\.key\)/.test(submit)
+  })(),
+)
+
+check(
+  "the scroll happens after the notes have been laid out",
+  (() => {
+    // Scrolling to an element that is about to get forty pixels taller lands in
+    // the wrong place.
+    const fn = form.slice(form.indexOf("const showFirstGap = useCallback"))
+    return /requestAnimationFrame\(\(\) => \{[\s\S]{0,160}?scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/.test(
+      fn.slice(0, 400),
+    )
+  })(),
+  "        And `center`, because a phone header or a sticky action card would\n" +
+    "        otherwise cover what it just scrolled to.",
+)
+
+check(
+  "nothing is marked until a publish has actually been refused",
+  (() => {
+    // A form that turns amber while you are still filling it in is telling you
+    // off for not having finished yet.
+    return /const \[showGaps, setShowGaps\] = useState\(false\)/.test(form) && /showGaps \? \(gaps\.find/.test(form)
+  })(),
+)
+
+check(
+  "and the CLIENT's one-line summary by the button is gone",
+  (() => {
+    // It was the whole of the feedback, and it was in the one place on the page
+    // that told you nothing about where to go. The server's own rejection still
+    // prints a sentence, because a server saying no is a different event from a
+    // form not being finished — and there is nothing on screen to anchor it to.
+    return !/\$\{missing\.join/.test(form) && !/const missing = useMemo/.test(form)
+  })(),
+)
+
+console.log("\nThings that had to be said, said properly")
+
+check(
+  "the comparison price explains itself on a tap, not on a hover",
+  (() => {
+    // It was a tooltip on `group-hover`, hidden below md — so on a phone,
+    // which is where almost every listing is written, the icon was a
+    // decoration you could press forever and learn nothing from.
+    return (
+      /setPriceInfo\(true\)/.test(form) &&
+      /<BottomSheet open=\{priceInfo\}/.test(form) &&
+      !/group-hover:opacity-100/.test(form)
+    )
+  })(),
+)
+
+check(
+  "the count badge is a black pill",
+  /rounded-full bg-neutral-900 px-2\.5 py-\[5px\][^"]*text-white/.test(form),
+)
+
+check(
+  "only the first empty slot is captioned",
+  (() => {
+    // Eight tiles each captioned "Adaugă" is one word printed eight times to
+    // say one thing, and the icon has already said it on the other seven.
+    const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
+    return /\{n === 0 && <span className="text-\[12\.5px\] font-semibold text-neutral-600">Adaugă<\/span>\}/.test(slots)
+  })(),
+)
+
+check(
+  "the quiet text on this form is not 400 weight",
+  (() => {
+    // Labels, hints, field values and input text were all at the browser
+    // default against semibold headings, which is a page that looks like it
+    // has been typed rather than set.
+    return (
+      (form.match(/font-medium/g) ?? []).length >= 12 &&
+      !/text-\[13px\] text-neutral-500">/.test(form) &&
+      !/py-3 text-\[15px\] outline-none/.test(form)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

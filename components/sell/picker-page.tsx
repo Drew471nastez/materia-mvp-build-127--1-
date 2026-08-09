@@ -112,12 +112,15 @@ const FLICK_VELOCITY = 0.45
 /* Matched to the panel's own out-and-in rather than shorter than both. A
    level that finishes moving before the header has caught up reads as two
    things happening, not one. */
-const LEVEL_MS = 340
+const LEVEL_MS = 360
 /** How far the outgoing list travels, and how far the incoming one comes from
  *  when going back. A quarter, not a whole screen: the layer underneath is
  *  meant to read as still being there. */
 const LEVEL_SHIFT = "25%"
-const LEVEL_DIM = "0.55"
+/* Raised from 0.55. A layer that dims almost to half reads as being taken
+   away rather than as stepping back, and the point of a push is that what you
+   came from is still there. */
+const LEVEL_DIM = "0.62"
 
 type Stage = "closed" | "arming" | "open" | "leaving"
 

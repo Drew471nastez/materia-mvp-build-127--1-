@@ -24,6 +24,7 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { PickerPage } from "@/components/sell/picker-page"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
 import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
@@ -114,20 +115,60 @@ function SectionHeading({
   )
 }
 
+/** Every requirement the publish button enforces, as something a control can
+ *  be tagged with. */
+type GapKey =
+  | "photos"
+  | "title"
+  | "description"
+  | "category"
+  | "brand"
+  | "condition"
+  | "size"
+  | "colour"
+  | "price"
+  | "compare"
+
+/**
+ * The reason a control is holding up the publish, printed at the control.
+ *
+ * Amber rather than red. Nothing here is broken and nothing has been lost —
+ * the form is simply not finished — and red is the colour of something having
+ * gone wrong, which is a different message and a worse one to be given eight
+ * times on the way to your first listing.
+ */
+function GapNote({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      role="alert"
+      className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-[13px] font-medium text-amber-900"
+    >
+      <Info className="mt-[1px] h-[15px] w-[15px] shrink-0" strokeWidth={2.4} />
+      <span>{children}</span>
+    </p>
+  )
+}
+
 /** A tappable row that shows what's chosen and opens its picker. */
 function Field({
   label,
   value,
   onClick,
   optional,
+  error,
+  anchor,
 }: {
   label: string
   value: string | null
   onClick: () => void
   /** The rare case, and therefore the one worth marking. */
   optional?: boolean
+  /** Printed under the row when a publish was refused because of it. */
+  error?: string | null
+  anchor?: (el: HTMLElement | null) => void
 }) {
   return (
+    <div ref={anchor}>
     <button
       type="button"
       onClick={() => {
@@ -136,7 +177,7 @@ function Field({
       }}
       className="-mx-1 flex w-full items-center justify-between gap-3 rounded-xl border-b border-neutral-100 px-1 py-3.5 text-left transition-colors duration-150 last:border-b-0 active:bg-neutral-50"
     >
-      <span className="shrink-0 text-[15px] text-neutral-900">{label}</span>
+      <span className="shrink-0 text-[15px] font-medium text-neutral-900">{label}</span>
       <span className="flex min-w-0 items-center gap-1.5">
         {/* A chosen value is the answer, so it is set in the same weight as the
             question; "Alege" is a prompt and stays quiet. */}
@@ -146,7 +187,7 @@ function Field({
           <span
             className={cn(
               "truncate text-[15px]",
-              value ? "font-semibold text-neutral-900" : "text-neutral-400",
+              value ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
             )}
           >
             {value || "Alege"}
@@ -155,6 +196,8 @@ function Field({
         <ChevronRight className="h-[17px] w-[17px] shrink-0 text-neutral-300" strokeWidth={2.4} />
       </span>
     </button>
+    {error && <GapNote>{error}</GapNote>}
+    </div>
   )
 }
 
@@ -216,12 +259,12 @@ function OptionRow({
           <span
             className={cn(
               "block truncate text-[16px]",
-              selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
+              selected ? "font-semibold text-[#7c3aed]" : "font-medium text-neutral-900",
             )}
           >
             {label}
           </span>
-          {hint && <span className="mt-0.5 block truncate text-[13px] text-neutral-400">{hint}</span>}
+          {hint && <span className="mt-0.5 block truncate text-[13px] font-medium text-neutral-400">{hint}</span>}
         </span>
         {/* A CIRCLE THAT FILLS, not a tick that blinks into the margin.
             A bare check appearing and disappearing gives the row nothing to
@@ -294,12 +337,12 @@ function DrillRow({
           <span
             className={cn(
               "block truncate text-[16px]",
-              selected ? "font-semibold text-[#7c3aed]" : "text-neutral-900",
+              selected ? "font-semibold text-[#7c3aed]" : "font-medium text-neutral-900",
             )}
           >
             {label}
           </span>
-          {hint && <span className="mt-0.5 block truncate text-[13px] text-neutral-400">{hint}</span>}
+          {hint && <span className="mt-0.5 block truncate text-[13px] font-medium text-neutral-400">{hint}</span>}
         </span>
         <ChevronRight className="h-[19px] w-[19px] shrink-0 text-neutral-400" strokeWidth={2.4} />
       </span>
@@ -407,7 +450,7 @@ function SheetSearch({
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
-          className="w-full rounded-[13px] bg-neutral-100 py-3.5 pl-12 pr-4 text-[16px] outline-none transition-shadow duration-150 placeholder:text-neutral-500 focus:ring-2 focus:ring-[#7c3aed]/25 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full rounded-[13px] bg-neutral-100 py-3.5 pl-12 pr-4 text-[16px] font-medium outline-none transition-shadow duration-150 placeholder:text-neutral-500 focus:ring-2 focus:ring-[#7c3aed]/25 [&::-webkit-search-cancel-button]:appearance-none"
         />
       </div>
     </div>
@@ -418,7 +461,7 @@ function SheetSearch({
  *  title itself — "Stil · alege până la 3" — where it competed with the name of
  *  the picker for the one line a phone sheet gives it. */
 function PickerNote({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 pb-1 pt-1 text-[13px] text-neutral-500">{children}</p>
+  return <p className="px-4 pb-1 pt-1 text-[13px] font-medium text-neutral-500">{children}</p>
 }
 
 /**
@@ -521,6 +564,8 @@ export function NewListingForm() {
    * group id and `products.subcategory` the leaf: the department is a route
    * through the picker, not a value.
    */
+  /** The comparison-price explainer. */
+  const [priceInfo, setPriceInfo] = useState(false)
   const [catDep, setCatDep] = useState<string | null>(null)
   const [catGroup, setCatGroup] = useState<string | null>(null)
   const [catQuery, setCatQuery] = useState("")
@@ -1414,27 +1459,93 @@ export function NewListingForm() {
   const priceCents = Math.round(parseFloat(price.replace(",", ".")) * 100)
   const compareCents = compareAt ? Math.round(parseFloat(compareAt.replace(",", ".")) * 100) : null
 
-  const missing = useMemo(() => {
-    const m: string[] = []
-    if (uploaded.length < MIN_PHOTOS) m.push(`cel puțin ${MIN_PHOTOS} fotografii`)
-    if (!title.trim()) m.push("titlu")
-    if (description.trim().length < 10) m.push("descriere")
-    if (!group || !item) m.push("categorie")
-    if (!brand) m.push("brand")
-    if (!condition) m.push("stare")
-    if (!colour) m.push("culoare")
-    if (!size) m.push("mărime")
-    if (!Number.isFinite(priceCents) || priceCents < 0) m.push("preț")
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  WHAT IS MISSING, AND WHERE IT IS MISSING FROM
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * It used to be one sentence — "Mai lipsește: titlu, brand, preț." — printed
+   * next to the Publish button, which is at the very bottom of a form four
+   * screens long. So the message about the empty title was as far from the
+   * title as it is possible to be on that page, and the only way to find out
+   * WHERE to type was to read a list of nouns and go hunting.
+   *
+   * Every gap now knows which control it belongs to. On a failed publish the
+   * form scrolls the first one into the middle of the screen and prints the
+   * reason directly under it. Fix it and the note goes, because the list is
+   * derived from the same state the form is.
+   *
+   * `label` is for the one-line summary; `message` is what gets printed at the
+   * control, and it is written as an instruction rather than as a complaint —
+   * "Adaugă un titlu" tells you what to do, "titlu" tells you what you failed
+   * to do.
+   */
+  const gaps = useMemo(() => {
+    const g: { key: GapKey; label: string; message: string }[] = []
+    if (uploaded.length < MIN_PHOTOS)
+      g.push({
+        key: "photos",
+        label: `cel puțin ${MIN_PHOTOS} fotografii`,
+        message: `Adaugă cel puțin ${MIN_PHOTOS} fotografii ca să poți publica.`,
+      })
+    if (!title.trim()) g.push({ key: "title", label: "titlu", message: "Adaugă un titlu." })
+    if (description.trim().length < 10)
+      g.push({ key: "description", label: "descriere", message: "Scrie o descriere de cel puțin 10 caractere." })
+    if (!group || !item) g.push({ key: "category", label: "categorie", message: "Alege o categorie." })
+    if (!brand) g.push({ key: "brand", label: "brand", message: "Alege un brand." })
+    if (!condition) g.push({ key: "condition", label: "stare", message: "Alege starea articolului." })
+    if (!size) g.push({ key: "size", label: "mărime", message: "Alege mărimea." })
+    if (!colour) g.push({ key: "colour", label: "culoare", message: "Alege culoarea." })
+    if (!Number.isFinite(priceCents) || priceCents < 0)
+      g.push({ key: "price", label: "preț", message: "Adaugă prețul." })
     if (compareCents !== null && Number.isFinite(priceCents) && compareCents <= priceCents)
-      m.push("prețul comparativ trebuie să fie mai mare decât prețul")
-    return m
+      g.push({
+        key: "compare",
+        label: "prețul comparativ",
+        message: "Prețul comparativ trebuie să fie mai mare decât prețul cerut.",
+      })
+    return g
   }, [uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents, compareCents])
+
+  /** Nothing is marked until a publish has actually been refused. A form that
+   *  turns red while you are still filling it in is telling you off for not
+   *  having finished yet. */
+  const [showGaps, setShowGaps] = useState(false)
+  const gapEls = useRef(new Map<GapKey, HTMLElement>())
+  const setGapEl = useCallback((key: GapKey, el: HTMLElement | null) => {
+    if (el) gapEls.current.set(key, el)
+    else gapEls.current.delete(key)
+  }, [])
+  const gapFor = useCallback(
+    (key: GapKey) => (showGaps ? (gaps.find((g) => g.key === key)?.message ?? null) : null),
+    [showGaps, gaps],
+  )
+
+  /**
+   * Take them to the first thing that is missing.
+   *
+   * `block: "center"` rather than "start": the form has a sticky header on a
+   * phone and a sticky action card on a desktop, and "start" puts the control
+   * underneath one of them often enough to be worse than not scrolling at all.
+   * A frame's delay so the notes have been laid out first — scrolling to an
+   * element that is about to get 40px taller lands in the wrong place.
+   */
+  const showFirstGap = useCallback((key: GapKey) => {
+    requestAnimationFrame(() => {
+      gapEls.current.get(key)?.scrollIntoView({ behavior: "smooth", block: "center" })
+    })
+  }, [])
 
   const submit = useCallback(
     async (draft: boolean) => {
       setError(null)
-      if (!draft && missing.length) {
-        setError(`Mai lipsește: ${missing.join(", ")}.`)
+      if (!draft && gaps.length) {
+        // The note goes AT the control, and the form goes to it. The one-line
+        // summary by the button is gone: it was the whole of the feedback, and
+        // it was as far from the empty title as it is possible to be.
+        setShowGaps(true)
+        showFirstGap(gaps[0].key)
+        void triggerHaptic("medium")
         return
       }
       setSaving(draft ? "draft" : "post")
@@ -1571,7 +1682,7 @@ export function NewListingForm() {
         setSaving(null)
       }
     },
-    [missing, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId],
+    [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId],
   )
 
   // One definition rendered in two places — the phone's pinned bottom bar and
@@ -1582,7 +1693,7 @@ export function NewListingForm() {
       {/* A row, not a floating label. It shares the buttons' left edge exactly
           because it is in the same padded column, and it is 40px tall so it is
           a target rather than a 16px box you have to aim at. */}
-      <label className="-mx-1 flex min-h-[40px] cursor-pointer items-center gap-2.5 rounded-xl px-1 text-[13.5px] text-neutral-600 active:bg-neutral-50">
+      <label className="-mx-1 flex min-h-[40px] cursor-pointer items-center gap-2.5 rounded-xl px-1 text-[13.5px] font-medium text-neutral-600 active:bg-neutral-50">
         <input
           type="checkbox"
           checked={postAnother}
@@ -1734,7 +1845,7 @@ export function NewListingForm() {
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
           Listează un articol
         </h1>
-        <p className="mt-1 text-[14.5px] text-neutral-500">
+        <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
           Completează detaliile și anunțul tău apare instant în feed.
         </p>
       </header>
@@ -1784,17 +1895,20 @@ export function NewListingForm() {
         * anything into the first slot makes it the cover — which is the whole
         * of what reordering is for here.
         */}
-      <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
+      <section
+        ref={(el) => setGapEl("photos", el)}
+        className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5"
+      >
         <SectionHeading
           trailing={
-            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-neutral-500">
+            <span className="rounded-full bg-neutral-900 px-2.5 py-[5px] text-[11.5px] font-semibold uppercase tracking-[0.02em] tabular-nums text-white">
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
         >
           Fotografii
         </SectionHeading>
-        <p className="mt-1.5 text-[13px] text-neutral-500">
+        <p className="mt-1.5 text-[13px] font-medium text-neutral-500">
           {photos.length === 0
             ? `Minimum ${MIN_PHOTOS}. Prima fotografie este coperta anunțului.`
             : "Ține apăsat pe o fotografie și trage ca să schimbi ordinea."}
@@ -1915,7 +2029,7 @@ export function NewListingForm() {
               }}
               aria-label="Adaugă fotografii"
               className={cn(
-                "flex aspect-[3/4] flex-col items-center justify-center gap-3 rounded-2xl border",
+                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl border",
                 "transition-[transform,background-color,border-color] duration-150 active:scale-[0.97]",
                 n === 0
                   ? "border-neutral-300 bg-neutral-50 active:border-neutral-400 active:bg-neutral-100"
@@ -1935,17 +2049,15 @@ export function NewListingForm() {
                   <Plus className="h-[23px] w-[23px]" strokeWidth={2} />
                 )}
               </span>
-              <span
-                className={cn(
-                  "text-[12.5px] font-semibold",
-                  n === 0 ? "text-neutral-600" : "text-neutral-400",
-                )}
-              >
-                Adaugă
-              </span>
+              {/* Only the first one says it. Eight tiles each captioned
+                  "Adaugă" is the same word printed eight times to say one
+                  thing, and the icon has already said it on the other seven. */}
+              {n === 0 && <span className="text-[12.5px] font-semibold text-neutral-600">Adaugă</span>}
             </button>
           ))}
         </div>
+
+        {gapFor("photos") && <GapNote>{gapFor("photos")}</GapNote>}
 
         {/* `capture` is deliberately absent: without it iOS offers the full
             sheet — camera, photo library, files — which is what people expect. */}
@@ -1964,27 +2076,33 @@ export function NewListingForm() {
 
       {/* ---- Title + description ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
+        <div ref={(el) => setGapEl("title", el)}>
         <label className="block text-[15px] font-semibold text-neutral-900">Titlu</label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
           placeholder="Adaugă un titlu"
-          className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+          className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
+        {gapFor("title") && <GapNote>{gapFor("title")}</GapNote>}
+        </div>
 
-        <label className="mt-6 block text-[15px] font-semibold text-neutral-900">Descriere</label>
+        <div ref={(el) => setGapEl("description", el)} className="mt-6">
+        <label className="block text-[15px] font-semibold text-neutral-900">Descriere</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={1500}
           placeholder="Adaugă o descriere"
-          className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+          className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
-        <p className="mt-1.5 text-[12.5px] text-neutral-400">
+        {gapFor("description") && <GapNote>{gapFor("description")}</GapNote>}
+        <p className="mt-1.5 text-[12.5px] font-medium text-neutral-400">
           Spune starea, materialul și cum vine pe corp. Anunțurile detaliate se vând mai repede.
         </p>
+        </div>
       </section>
       </div>
 
@@ -1993,46 +2111,58 @@ export function NewListingForm() {
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <SectionHeading>Preț</SectionHeading>
         <div className="mt-3 flex gap-3">
-          <div className="flex-1">
-            <label className="block text-[13px] text-neutral-500">Preț</label>
+          <div className="flex-1" ref={(el) => setGapEl("price", el)}>
+            <label className="block text-[13px] font-medium text-neutral-500">Preț</label>
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
               inputMode="decimal"
               placeholder="0"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
             />
           </div>
-          <div className="flex-1">
-            <label className="flex items-center gap-1 text-[13px] text-neutral-500">
+          <div className="flex-1" ref={(el) => setGapEl("compare", el)}>
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
               Preț comparativ
-              <span className="group relative inline-flex">
-                <Info className="h-3.5 w-3.5 text-neutral-400" />
-                <span className="pointer-events-none absolute bottom-full right-0 z-10 mb-1.5 hidden w-56 rounded-lg bg-neutral-800 px-2.5 py-2 text-[11.5px] leading-snug text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 md:block">
-                  Prețul de dinainte de reducere. Trebuie să fie mai mare decât prețul cerut — apare tăiat, cu o etichetă de reducere pe anunț.
-                </span>
-              </span>
+              {/* A TAP, NOT A HOVER. This was a tooltip that appeared on
+                  `group-hover` and was hidden below md — so on a phone, which
+                  is where almost every listing is written, the icon was a
+                  decoration you could press forever and learn nothing from.
+                  A sheet is the phone's own answer to "tell me more". */}
+              <button
+                type="button"
+                onClick={() => {
+                  void triggerHaptic("light")
+                  setPriceInfo(true)
+                }}
+                aria-label="Ce înseamnă prețul comparativ"
+                className="-m-2 flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 transition-colors duration-150 active:bg-neutral-100"
+              >
+                <Info className="h-[15px] w-[15px]" strokeWidth={2.4} />
+              </button>
             </label>
             <input
               value={compareAt}
               onChange={(e) => setCompareAt(e.target.value.replace(/[^0-9.,]/g, ""))}
               inputMode="decimal"
               placeholder="Opțional"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
             />
           </div>
         </div>
+        {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
+        {gapFor("compare") && <GapNote>{gapFor("compare")}</GapNote>}
       </section>
 
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <SectionHeading>Detalii</SectionHeading>
         <div className="mt-1">
-          <Field label="Categorie" value={categoryLabelFor(group, item)} onClick={openCategory} />
-          <Field label="Brand" value={brand} onClick={() => setSheet("brand")} />
-          <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} />
-          <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} />
-          <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} />
+          <Field label="Categorie" value={categoryLabelFor(group, item)} onClick={openCategory} error={gapFor("category")} anchor={(el) => setGapEl("category", el)} />
+          <Field label="Brand" value={brand} onClick={() => setSheet("brand")} error={gapFor("brand")} anchor={(el) => setGapEl("brand", el)} />
+          <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
+          <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} error={gapFor("size")} anchor={(el) => setGapEl("size", el)} />
+          <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} error={gapFor("colour")} anchor={(el) => setGapEl("colour", el)} />
           <Field label="Tip" optional value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
           <Field label="Epocă" optional value={label(ERAS, era)} onClick={() => setSheet("era")} />
           <Field label="Stil" optional value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
@@ -2145,7 +2275,7 @@ export function NewListingForm() {
               />
             ))}
             {catResults.length === 0 && (
-              <p className="px-4 py-10 text-center text-[14.5px] text-neutral-400">Nicio categorie găsită</p>
+              <p className="px-4 py-10 text-center text-[14.5px] font-medium text-neutral-400">Nicio categorie găsită</p>
             )}
           </div>
         ) : catItems ? (
@@ -2338,6 +2468,39 @@ export function NewListingForm() {
         </>
       )}
       </PickerPage>
+
+      {/* WHAT A COMPARISON PRICE IS, AS A SHEET.
+          Short enough to be read standing up, and it says the one thing that
+          actually stops people using it wrongly: it is what the item used to
+          cost, not what you think it is worth. */}
+      <BottomSheet open={priceInfo} onClose={() => setPriceInfo(false)} label="Preț comparativ">
+        <div className="px-5 pb-8 pt-1">
+          <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">Preț comparativ</h2>
+          <p className="mt-2.5 text-[15px] font-medium leading-relaxed text-neutral-600">
+            Este prețul de dinainte de reducere. Pe anunț apare tăiat, lângă prețul cerut, cu o etichetă
+            de reducere — așa cumpărătorii văd cât economisesc.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {[
+              "Trebuie să fie mai mare decât prețul cerut.",
+              "Este opțional — dacă îl lași gol, anunțul arată doar prețul cerut.",
+              "Folosește-l pentru prețul real de dinainte, nu pentru unul inventat: cumpărătorii compară.",
+            ].map((line) => (
+              <li key={line} className="flex gap-2.5 text-[14.5px] font-medium leading-relaxed text-neutral-600">
+                <span aria-hidden className="mt-[7px] h-[5px] w-[5px] shrink-0 rounded-full bg-neutral-300" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setPriceInfo(false)}
+            className="mt-6 h-12 w-full rounded-lg bg-neutral-900 text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-neutral-800"
+          >
+            Am înțeles
+          </button>
+        </div>
+      </BottomSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
           moment of its own before the redirect. It is `fixed`, so it covers the
