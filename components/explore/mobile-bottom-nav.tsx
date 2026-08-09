@@ -303,6 +303,22 @@ export function MobileBottomNav({
         // The screen starts leaving NOW, not when the route is ready. See
         // lib/tab-leave.ts — this is the first half of the switch, and the
         // reason a tab change no longer begins with a stationary screen.
+        //
+        // NOT FOR THE +, and that exception is the whole point of it.
+        //
+        // The dip exists because a tab change is a HANDOVER: the screen you are
+        // on is going away, so it starts moving under your finger and the new
+        // one takes over. Nothing about that is true of the sell sheet. It
+        // slides up OVER the screen you are on, that screen stays mounted, and
+        // you come back to it — so dipping it to 0.88 and releasing it on
+        // commit is the page behind dimming and brightening again while the
+        // sheet travels across it. Which is exactly the flash: the listings
+        // behind the rising sheet visibly changing brightness for no reason
+        // anybody could name.
+        //
+        // Keyed off the intent rather than the href, so it stays true if the
+        // sheet ever moves to a different path.
+        if (intent.key === "sell") return
         if (intent.href && intent.key !== nav.current.here) nav.current.beginTabLeave()
       },
       // The press turned out not to be a tap. Take the fill back at once

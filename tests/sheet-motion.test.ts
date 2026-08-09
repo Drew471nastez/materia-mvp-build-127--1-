@@ -52,6 +52,7 @@ const strip = (src: string) =>
 
 const css = strip(read("app/globals.css"))
 const form = strip(read("components/sell/new-listing-form.tsx"))
+const bar = strip(read("components/explore/mobile-bottom-nav.tsx"))
 
 console.log("\nThe sell sheet: what happens during the 400ms it is moving")
 
@@ -129,6 +130,45 @@ check(
 check(
   "none of this runs on a desktop, where it is a page rather than a sheet",
   /\.sell-sheet-enter,\s*\.sell-sheet-leave,\s*\.sell-sheet-armed \{ animation: none; will-change: auto; \}/.test(css),
+)
+
+check(
+  "the screen behind the sheet does not dip",
+  (() => {
+    const press = bar.slice(bar.indexOf("onPress: (intent)"), bar.indexOf("onAbandon:"))
+    // THE FLASH. The dip exists because a tab change is a HANDOVER — the screen
+    // you are on is going away, so it starts moving under your finger. None of
+    // that is true of the sell sheet: it slides up OVER a screen that stays
+    // mounted and that you come back to. Dipping it to 0.88 and releasing it on
+    // commit is the page behind visibly dimming and brightening again while the
+    // sheet travels across it.
+    return /if \(intent\.key === "sell"\) return/.test(press) &&
+      press.indexOf('intent.key === "sell"') < press.indexOf("beginTabLeave()")
+  })(),
+  "        Otherwise the listings behind the rising sheet change brightness\n" +
+    "        for a reason nobody can name.",
+)
+
+check(
+  "the dip is still armed for the four tabs that really do hand over",
+  /if \(intent\.href && intent\.key !== nav\.current\.here\) nav\.current\.beginTabLeave\(\)/.test(bar),
+)
+
+check(
+  "the sheet route is exempt from the tab fade as well",
+  // Two different animations, both of which would have played over the slide.
+  /pathname\.startsWith\("\/products\/new"\)\) return null/.test(
+    strip(read("components/marketing/tab-transition.tsx")),
+  ),
+)
+
+check(
+  "and the screen underneath is not scrolled to the top while it is covered",
+  // Closing the sheet would otherwise drop you at the top of a profile you had
+  // scrolled halfway down — a navigation you never made.
+  /pathname\?\.startsWith\("\/products\/new"\)\) return/.test(
+    strip(read("components/marketing/shell-scroll-reset.tsx")),
+  ),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
