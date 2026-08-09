@@ -23,7 +23,7 @@ import {
   type Option,
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
-import { DragSheet } from "@/components/ui/drag-sheet"
+import { PickerPage } from "@/components/sell/picker-page"
 import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
 import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
@@ -1868,11 +1868,15 @@ export function NewListingForm() {
           ))}
 
           {Array.from({ length: emptySlots }).map((_, n) => (
-            /* NO SCALE ON PRESS. A tile that shrinks and springs back under a
-               thumb is a bump, and on a target this size it reads as a misfire
-               rather than as feedback — the thing you were aiming at moved. The
-               feedback is the fill going violet, which happens where the finger
-               already is and does not move anything. */
+            /* Back to the dashed-free bordered tile with the violet first slot,
+               which is what this looked like before it was reworked into a
+               soft-shadowed square — that read as a different app's component
+               dropped into this grid.
+
+               The one thing NOT restored is the scale on press. A tile that
+               shrinks and springs back under a thumb reads as a misfire rather
+               than as feedback: the thing you were aiming at moved. The fill
+               going violet happens where the finger already is. */
             <button
               key={`slot-${n}`}
               type="button"
@@ -1882,33 +1886,26 @@ export function NewListingForm() {
               }}
               aria-label="Adaugă fotografii"
               className={cn(
-                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl border",
+                "flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-2xl border-2",
                 "transition-colors duration-150",
                 n === 0
-                  ? "border-neutral-200 bg-neutral-50 active:border-[#7c3aed]/40 active:bg-violet-50"
-                  : "border-neutral-200/80 bg-neutral-50/60 active:border-[#7c3aed]/40 active:bg-violet-50",
+                  ? "border-[#7c3aed]/35 bg-violet-50/70 text-[#7c3aed] active:bg-violet-100/70"
+                  : "border-neutral-200 bg-neutral-50/70 text-neutral-400 active:border-[#7c3aed]/35 active:text-[#7c3aed]",
               )}
             >
-              {/* The soft rounded square, not a circle: it is the shape of the
-                  thing it stands for. The white ring and the shadow under it
-                  are what stop a light grey icon on a light grey tile from
-                  disappearing. */}
               <span
                 className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-[15px] bg-neutral-100",
-                  "ring-[3px] ring-white shadow-[0_2px_8px_-1px_rgba(0,0,0,0.10)]",
-                  n === 0 ? "text-[#7c3aed]" : "text-neutral-400",
+                  "flex h-9 w-9 items-center justify-center rounded-full bg-white",
+                  n === 0 ? "shadow-[0_2px_8px_rgba(76,29,149,0.18)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
                 )}
               >
                 {n === 0 && photos.length === 0 ? (
-                  <Camera className="h-[21px] w-[21px]" strokeWidth={1.9} />
+                  <Camera className="h-[18px] w-[18px]" />
                 ) : (
-                  <Plus className="h-[21px] w-[21px]" strokeWidth={2.2} />
+                  <Plus className="h-[18px] w-[18px]" strokeWidth={2.6} />
                 )}
               </span>
-              <span className={cn("text-[12px] font-medium", n === 0 ? "text-neutral-600" : "text-neutral-400")}>
-                Adaugă
-              </span>
+              <span className="text-[11.5px] font-semibold">Adaugă</span>
             </button>
           ))}
         </div>
@@ -1935,7 +1932,7 @@ export function NewListingForm() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
-          placeholder="Titlu"
+          placeholder="Adaugă un titlu — ex.: Hanorac Nike verde"
           className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
 
@@ -1945,7 +1942,7 @@ export function NewListingForm() {
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={1500}
-          placeholder="Descriere"
+          placeholder="Adaugă o descriere — stare, material, cum vine pe corp"
           className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
         <p className="mt-1.5 text-[12.5px] text-neutral-400">
@@ -2082,7 +2079,7 @@ export function NewListingForm() {
           Search cuts across all of them — somebody who already knows the word
           should not have to walk the tree to reach it — so a query replaces the
           whole drill-down for as long as there is one. */}
-      <DragSheet
+      <PickerPage
         open={sheet === "category"}
         title={catQuery.trim() ? "Categorie" : categoryTitle}
         onClose={() => setSheet(null)}
@@ -2155,9 +2152,9 @@ export function NewListingForm() {
         )}
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
-      <DragSheet open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "brand"} title="Brand" onClose={() => setSheet(null)}>{() => (
         <>
         <SheetSearch value={brandQuery} onChange={setBrandQuery} placeholder="Caută brandul" />
         <div className="pb-6">
@@ -2202,13 +2199,13 @@ export function NewListingForm() {
         </div>
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
       {/* The condition ladder is the one picker whose choices need reading
           rather than recognising — "nou, fără etichetă" and "foarte bună" are
           a sentence apart, not a word — so it stays a list, and each rung says
           what it means. */}
-      <DragSheet open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>{() => (
         <>
         {CONDITIONS.map((c) => (
           <OptionRow
@@ -2221,9 +2218,9 @@ export function NewListingForm() {
         ))}
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
-      <DragSheet open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>{() => (
         <>
         <ChipField>
           {SIZES.map((c) => (
@@ -2237,9 +2234,9 @@ export function NewListingForm() {
         </ChipField>
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
-      <DragSheet open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "colour"} title="Culoare" onClose={() => setSheet(null)}>{() => (
         <>
         <ChipField>
           {COLOURS.map((c) => (
@@ -2254,9 +2251,9 @@ export function NewListingForm() {
         </ChipField>
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
-      <DragSheet open={sheet === "source"} title="Tip" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "source"} title="Tip" onClose={() => setSheet(null)}>{() => (
         <>
         <PickerNote>Alege până la 2</PickerNote>
         <ChipField>
@@ -2271,9 +2268,9 @@ export function NewListingForm() {
         </ChipField>
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
-      <DragSheet open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "era"} title="Epocă" onClose={() => setSheet(null)}>{() => (
         <>
         <ChipField>
           {ERAS.map((c) => (
@@ -2287,9 +2284,9 @@ export function NewListingForm() {
         </ChipField>
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
-      <DragSheet open={sheet === "style"} title="Stil" onClose={() => setSheet(null)}>{() => (
+      <PickerPage open={sheet === "style"} title="Stil" onClose={() => setSheet(null)}>{() => (
         <>
         <PickerNote>Alege până la 3</PickerNote>
         <ChipField>
@@ -2304,7 +2301,7 @@ export function NewListingForm() {
         </ChipField>
         </>
       )}
-      </DragSheet>
+      </PickerPage>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
           moment of its own before the redirect. It is `fixed`, so it covers the

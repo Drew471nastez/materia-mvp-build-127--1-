@@ -366,34 +366,57 @@ export const COLOURS: (Option & { hex: string })[] = [
   { id: "black", label: "Negru", hex: "#111111" },
   { id: "white", label: "Alb", hex: "#ffffff" },
   { id: "grey", label: "Gri", hex: "#9ca3af" },
+  { id: "charcoal", label: "Antracit", hex: "#3f3f46" },
   { id: "silver", label: "Argintiu", hex: "#c9ccd1" },
   { id: "gold", label: "Auriu", hex: "#d4af37" },
+  { id: "rose-gold", label: "Roz auriu", hex: "#e0a899" },
   { id: "brown", label: "Maro", hex: "#7b4b2a" },
+  { id: "chocolate", label: "Ciocolatiu", hex: "#4a2c17" },
   { id: "tan", label: "Bej", hex: "#d2b48c" },
   { id: "cream", label: "Crem", hex: "#f3e9d2" },
   { id: "red", label: "Roșu", hex: "#dc2626" },
   { id: "burgundy", label: "Bordo", hex: "#7f1d3a" },
+  { id: "coral", label: "Coral", hex: "#f9736b" },
   { id: "pink", label: "Roz", hex: "#ec4899" },
+  { id: "fuchsia", label: "Fucsia", hex: "#c026d3" },
+  { id: "peach", label: "Piersică", hex: "#ffb59a" },
   { id: "orange", label: "Portocaliu", hex: "#f97316" },
+  { id: "rust", label: "Ruginiu", hex: "#b45309" },
   { id: "yellow", label: "Galben", hex: "#eab308" },
+  { id: "mustard", label: "Muștar", hex: "#c99700" },
+  { id: "lime", label: "Verde lime", hex: "#a3e635" },
   { id: "green", label: "Verde", hex: "#16a34a" },
+  { id: "mint", label: "Verde mint", hex: "#7fe0c0" },
+  { id: "emerald", label: "Smarald", hex: "#047857" },
+  { id: "olive", label: "Oliv", hex: "#5c6b32" },
   { id: "khaki", label: "Kaki", hex: "#78716c" },
+  { id: "teal", label: "Turcoaz", hex: "#0d9488" },
+  { id: "sky", label: "Bleu", hex: "#7dd3fc" },
   { id: "blue", label: "Albastru", hex: "#2563eb" },
+  { id: "denim", label: "Denim", hex: "#4a6fa5" },
   { id: "navy", label: "Bleumarin", hex: "#1e293b" },
+  { id: "lavender", label: "Lavandă", hex: "#c4b5fd" },
+  { id: "lilac", label: "Lila", hex: "#b58ad6" },
   { id: "purple", label: "Mov", hex: "#7c3aed" },
   { id: "multi", label: "Multicolor", hex: "linear-gradient(135deg,#ef4444,#eab308,#22c55e,#3b82f6)" },
+  { id: "print", label: "Imprimeu", hex: "linear-gradient(135deg,#111111 25%,#ffffff 25% 50%,#111111 50% 75%,#ffffff 75%)" },
+  { id: "transparent", label: "Transparent", hex: "linear-gradient(135deg,#f5f5f5,#e5e5e5)" },
 ]
 
 /** Up to two. */
 export const SOURCES: Option[] = [
   { id: "vintage", label: "Vintage" },
   { id: "preloved", label: "Purtat" },
+  { id: "new", label: "Nou" },
   { id: "reworked", label: "Remodelat" },
   { id: "upcycled", label: "Upcycled" },
   { id: "custom", label: "Personalizat" },
   { id: "handmade", label: "Handmade" },
   { id: "deadstock", label: "Deadstock" },
   { id: "designer", label: "Designer" },
+  { id: "limited", label: "Ediție limitată" },
+  { id: "collab", label: "Colaborare" },
+  { id: "sample", label: "Sample" },
   { id: "repaired", label: "Reparat" },
 ]
 
@@ -405,6 +428,7 @@ export const ERAS: Option[] = [
   { id: "1970s", label: "Anii '70" },
   { id: "1960s", label: "Anii '60" },
   { id: "1950s", label: "Anii '50" },
+  { id: "1940s", label: "Anii '40" },
   { id: "antique", label: "Antic" },
 ]
 
@@ -443,6 +467,12 @@ export const STYLES: Option[] = [
   { id: "coquette", label: "Coquette" },
 ]
 
+/**
+ * One field for everything the marketplace sells, which is why shoe sizes say
+ * so on the label. Nine letter sizes was thin to the point of being wrong:
+ * "Blugi, M" is not what a pair of jeans is sold as anywhere, and there was no
+ * way at all to list a shoe.
+ */
 export const SIZES: Option[] = [
   { id: "one-size", label: "Mărime universală" },
   { id: "xxs", label: "XXS" },
@@ -453,6 +483,28 @@ export const SIZES: Option[] = [
   { id: "xl", label: "XL" },
   { id: "xxl", label: "XXL" },
   { id: "xxxl", label: "XXXL" },
+  { id: "eu-32", label: "32" },
+  { id: "eu-34", label: "34" },
+  { id: "eu-36", label: "36" },
+  { id: "eu-38", label: "38" },
+  { id: "eu-40", label: "40" },
+  { id: "eu-42", label: "42" },
+  { id: "eu-44", label: "44" },
+  { id: "eu-46", label: "46" },
+  { id: "eu-48", label: "48" },
+  { id: "eu-50", label: "50" },
+  { id: "shoe-35", label: "35 · încălțăminte" },
+  { id: "shoe-36", label: "36 · încălțăminte" },
+  { id: "shoe-37", label: "37 · încălțăminte" },
+  { id: "shoe-38", label: "38 · încălțăminte" },
+  { id: "shoe-39", label: "39 · încălțăminte" },
+  { id: "shoe-40", label: "40 · încălțăminte" },
+  { id: "shoe-41", label: "41 · încălțăminte" },
+  { id: "shoe-42", label: "42 · încălțăminte" },
+  { id: "shoe-43", label: "43 · încălțăminte" },
+  { id: "shoe-44", label: "44 · încălțăminte" },
+  { id: "shoe-45", label: "45 · încălțăminte" },
+  { id: "shoe-46", label: "46 · încălțăminte" },
 ]
 
 /** Photos: at least two, at most eight. */

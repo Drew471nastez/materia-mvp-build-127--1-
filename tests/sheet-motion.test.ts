@@ -28,7 +28,7 @@
  * Run with:  npm run test:push
  */
 
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 let passed = 0
@@ -62,7 +62,7 @@ const css = strip(read("app/globals.css"))
 const taxonomy = strip(read("lib/marketplace/listing-taxonomy.ts"))
 const form = strip(read("components/sell/new-listing-form.tsx"))
 const bar = strip(read("components/explore/mobile-bottom-nav.tsx"))
-const dragSheet = strip(read("components/ui/drag-sheet.tsx"))
+const page = strip(read("components/sell/picker-page.tsx"))
 
 console.log("\nThe sell sheet: what happens during the 400ms it is moving")
 
@@ -222,254 +222,202 @@ check(
   ),
 )
 
-console.log("\nA closed sheet paints nothing, and renders nothing")
+console.log("\nThe pickers are subpages now")
 
 check(
-  "what a sheet is doing is ONE variable, not three booleans in agreement",
+  "they arrive from the right, the way a deeper screen arrives",
+  (() => {
+    // A sheet is the right shape for a short, self-contained decision that
+    // belongs to the screen behind it, and none of these are that: category is
+    // three questions deep, brand means searching, and every one of them is a
+    // step IN the task rather than an aside from it.
+    return (
+      /translate3d\(100%, 0, 0\)/.test(page) &&
+      /transform \$\{up \? IN_MS : OUT_MS\}ms \$\{EASE\}/.test(page)
+    )
+  })(),
+)
+
+check(
+  "the direction and the curve are the checkout's, not a second grammar",
+  (() => {
+    // Two easings for "deeper into the same task" inside one app is precisely
+    // what reads as unfinished.
+    const checkout = strip(read("components/checkout/full-screen-sheet.tsx"))
+    const ease = /const EASE = "(cubic-bezier\([^"]+\))"/.exec(page)?.[1]
+    return !!ease && checkout.includes(ease)
+  })(),
+)
+
+check(
+  "what a panel is doing is ONE variable, not three booleans in agreement",
   (() => {
     // Painted-or-not, mounted-or-not and moving-or-not are the same question
-    // asked three ways, and they were answered separately — a delayed
-    // visibility transition, an always-mounted subtree, and `open`.
-    return /type Stage = "closed" \| "arming" \| "open" \| "leaving"/.test(dragSheet)
-  })(),
-)
-
-check(
-  "a parked picker does not cast its shadow back onto the screen",
-  (() => {
-    // THE BLACK FADE ALONG THE BOTTOM OF THE SELL FORM. DragSheet is never
-    // unmounted — it has to exist to be able to slide — and when closed it sits
-    // at translateY(100%), immediately below the viewport, carrying
-    // shadow-[0_-8px_40px_-8px_rgba(0,0,0,0.28)]. That shadow points UP, so it
-    // was cast back INTO the visible area for as long as the sheet was closed,
-    // which is almost always. The sell form renders EIGHT of them.
-    return /visibility: up \|\| stage === "leaving" \? "visible" : "hidden"/.test(dragSheet)
-  })(),
-)
-
-check(
-  "hiding waits for the slide to finish — and the wait IS the state",
-  (() => {
-    // `visibility` cannot be transitioned, and the old version delayed it by a
-    // hand-written 360ms that was only equal to the animation by coincidence.
-    // `leaving` is that interval, so the duration is stated once.
-    return (
-      /leaveTimer\.current = window\.setTimeout\(\(\) => setStage\("closed"\), SHEET_MS\)/.test(dragSheet) &&
-      /const SHEET_TRANSITION = `transform \$\{SHEET_MS\}ms \$\{SHEET_EASE\}`/.test(dragSheet)
-    )
+    // asked three ways.
+    return /type Stage = "closed" \| "arming" \| "open" \| "leaving"/.test(page)
   })(),
 )
 
 check(
   "the list is built in a frame where nothing is moving",
   (() => {
-    // Mounting a picker and starting its transform on the SAME frame spends the
-    // animation's first frames building DOM. `arming` is one frame in which the
-    // children mount against a parked panel, and the slide starts against a
-    // layout that has already settled.
-    const armed = dragSheet.slice(dragSheet.indexOf('if (stage !== "arming") return'))
+    // Mounting a hundred rows and starting a transform on the SAME frame spends
+    // the animation's opening on building DOM. offsetHeight is the forced
+    // flush: two style changes inside one frame collapse into one, and the
+    // panel appears in place instead of sliding.
+    const armed = page.slice(page.indexOf('if (stage !== "arming") return'))
     return (
-      /void sheetRef\.current\?\.offsetHeight/.test(armed.slice(0, 400)) &&
+      /void panelRef\.current\?\.offsetHeight/.test(armed.slice(0, 400)) &&
       /requestAnimationFrame\(\(\) => setStage\(\(s\) => \(s === "arming" \? "open" : s\)\)\)/.test(
         armed.slice(0, 400),
       )
     )
   })(),
-  "        offsetHeight is the forced flush: two style changes inside one frame\n" +
-    "        collapse into one, and the sheet appears in place instead of sliding.",
 )
 
 check(
-  "a closed picker's contents are not in the tree at all",
-  (() => {
-    // Eight pickers' worth of options — every category, every brand, thirty-one
-    // styles — were reconciled on every keystroke in the title field, and built
-    // during the sell form's own mount. That is why the first tap felt slow:
-    // the work was not being done lazily, it was being done constantly.
-    return /\{painted \? children\(\) : null\}/.test(dragSheet) && /children: \(\) => React\.ReactNode/.test(dragSheet)
-  })(),
+  "and `arming` is not painted, so nothing flashes at the margin",
+  /visibility: up \|\| stage === "leaving" \? "visible" : "hidden"/.test(page),
 )
 
 check(
-  "re-opening catches a sheet that is still on its way down",
+  "leaving is what keeps it painted for exactly as long as it moves",
   (() => {
-    // Its children are already mounted, so there is nothing to arm — and
-    // re-arming would blank it mid-slide, because `arming` is deliberately not
-    // painted.
-    return /if \(stageRef\.current === "leaving"\) setStage\("open"\)/.test(dragSheet)
-  })(),
-)
-
-check(
-  "the timer is set in an effect, not inside a state updater",
-  (() => {
-    // An updater is a function React is free to call twice; a setTimeout inside
-    // one leaks the first timer, and the leaked one is the untracked one.
-    const fx = dragSheet.slice(dragSheet.indexOf("window.clearTimeout(leaveTimer.current)"))
-    return !/setStage\(\(s\) => \{/.test(fx.slice(0, 600))
-  })(),
-)
-
-check(
-  "a flick-to-dismiss goes through the same state, not around it",
-  (() => {
-    // The drag handler used to write `visibility: hidden` straight onto the
-    // node, which meant the hiding rule existed in two places and only one of
-    // them was the one anybody read.
-    const end = dragSheet.slice(dragSheet.indexOf("const onTouchEnd"))
-    return !/el\.style\.visibility/.test(end) && /onClose\(\)/.test(end)
-  })(),
-)
-
-check(
-  "the drag and the transition share one easing string",
-  // React only rewrites a style property when its own value changes between
-  // renders, so a drag that left a different curve on the node would leak it
-  // into every open and close afterwards.
-  (() => {
-    const end = dragSheet.slice(dragSheet.indexOf("const onTouchEnd"))
-    return /el\.style\.transition = SHEET_TRANSITION/.test(end) && /transition: SHEET_TRANSITION/.test(dragSheet)
-  })(),
-)
-
-check(
-  "there is a grabber, and it is the thing you drag",
-  (() => {
-    // The pill was removed once for looking dated. It is the one shape every
-    // phone user already reads as "pull this down", and the sheets it was taken
-    // off are sheets you can in fact pull down — so its absence was not
-    // restraint, it was a gesture with no affordance.
-    const zone = dragSheet.slice(dragSheet.indexOf("onTouchStart={onTouchStart}"))
-    return /rounded-full bg-neutral-300/.test(zone.slice(0, 900))
-  })(),
-)
-
-check(
-  "only the header zone arms the drag",
-  (() => {
-    // A sheet that dismisses itself when somebody flings a long brand list
-    // towards the top is unusable.
-    const zone = dragSheet.slice(dragSheet.indexOf('className="shrink-0 touch-none select-none'))
-    return zone.indexOf("onTouchStart={onTouchStart}") < zone.indexOf("overflow-y-auto")
-  })(),
-)
-
-check(
-  "the animated layer is not asked to clip a scroller to a radius",
-  (() => {
-    // A composited layer with a border-radius clip around a scrollable area is
-    // a WebKit slow path: the clip cannot be applied by the compositor, so the
-    // layer is REPAINTED every frame rather than moved. Nothing needs it on a
-    // phone — the only thing at the top is the opaque header, which carries the
-    // radius itself, and the bottom edge is off the screen. Desktop keeps it,
-    // because there the panel floats and its list can reach the corners.
-    return (
-      /md:overflow-hidden md:rounded-\[22px\]/.test(dragSheet) &&
-      !/flex max-h-\[86dvh\] flex-col overflow-hidden/.test(dragSheet) &&
-      /rounded-t-\[28px\] bg-white md:rounded-none/.test(dragSheet)
-    )
-  })(),
-)
-
-check(
-  "the shadow is not a forty-pixel blur across the full width",
-  (() => {
-    // It has to be rasterised before the layer can be moved, and the scrim at
-    // 45% black is already doing everything it was being blurred for.
-    return !/shadow-\[0_-8px_40px/.test(dragSheet) && /shadow-\[0_-2px_14px/.test(dragSheet)
-  })(),
-)
-
-check(
-  "the sheet is portalled out of the form that declares it",
-  (() => {
-    // These live inside the sell form, which is itself a full-screen fixed
-    // panel that runs its own transform animation. A `position: fixed` child of
-    // a transformed element is positioned against THAT element, not the
-    // viewport, and joins its compositing and stacking context — a layer inside
-    // a layer, clipped by an ancestor's overflow.
-    return /createPortal\(/.test(dragSheet) && /document\.body,/.test(dragSheet)
-  })(),
-)
-
-check(
-  "a closed picker's contents are not even BUILT",
-  (() => {
-    // Gating with `{painted ? children : null}` stopped the reconciliation and
-    // none of the allocation: the caller still constructed a hundred and sixty
-    // React elements per keystroke, eight sheets over, to throw them away.
-    return (
-      /children: \(\) => React\.ReactNode/.test(dragSheet) &&
-      (form.match(/<DragSheet\b/g) ?? []).length === 8 &&
-      (form.match(/>\{\(\) => \(/g) ?? []).length === 8
-    )
+    // The alternative is a hand-written delay equal to the animation only by
+    // coincidence.
+    return /leaveTimer\.current = window\.setTimeout\(\(\) => setStage\("closed"\), OUT_MS\)/.test(page)
   })(),
 )
 
 check(
   "the close gets its own clean frame, the way the open does",
   (() => {
-    // Closing is always triggered by a state change in the caller, and a
-    // transition begins on the frame its starting value is computed — so
-    // starting the transform in that commit spends the animation's first frame
-    // on somebody else's reconciliation.
-    const fx = dragSheet.slice(dragSheet.indexOf('if (stageRef.current === "closed") return'))
+    // Closing is always triggered by a state change in the caller — picking a
+    // category re-renders the form — and a transition begins on the frame its
+    // starting value is computed.
+    const fx = page.slice(page.indexOf('if (stageRef.current === "closed") return'))
     return /requestAnimationFrame\(\(\) => \{\s*\n\s*setStage\("leaving"\)/.test(fx.slice(0, 700))
   })(),
 )
 
 check(
-  "the height is measured once, not on every touchmove",
+  "re-opening catches a panel that is still on its way out",
+  /if \(stageRef\.current === "leaving"\) setStage\("open"\)/.test(page),
+)
+
+check(
+  "it is portalled out of the form that declares it",
   (() => {
-    // Reading a layout property mid-gesture forces a synchronous layout flush,
-    // and it was being asked for once per touch event on a sheet holding a
-    // hundred and sixty rows. It cannot change while a finger is on the sheet.
-    const move = dragSheet.slice(dragSheet.indexOf("const onTouchMove"), dragSheet.indexOf("const onTouchEnd"))
-    return !/offsetHeight/.test(move) && /height: sheetRef\.current\?\.offsetHeight \|\| 1/.test(dragSheet)
+    // The sell form is itself a full-screen fixed panel that runs its own
+    // transform animation. A `fixed` child of a transformed element is
+    // positioned against THAT element and joins its compositing context.
+    return /createPortal\(/.test(page) && /document\.body,/.test(page)
   })(),
 )
 
 check(
-  "the drag paints once per frame, not once per event",
+  "a closed picker's contents are not even BUILT",
   (() => {
-    // Touch events outrun the compositor on a 120Hz screen, so the same two
-    // style writes were done several times for one visible frame.
-    const move = dragSheet.slice(dragSheet.indexOf("const onTouchMove"), dragSheet.indexOf("const onTouchEnd"))
+    // As a node, the caller constructs the whole picker on every one of its own
+    // renders — a hundred and sixty React elements per keystroke in the title
+    // field, eight panels over, thrown away unread.
+    return (
+      /children: \(\) => React\.ReactNode/.test(page) &&
+      /\{painted \? children\(\) : null\}/.test(page) &&
+      (form.match(/<PickerPage\b/g) ?? []).length === 8 &&
+      (form.match(/>\{\(\) => \(/g) ?? []).length === 8
+    )
+  })(),
+)
+
+check(
+  "the compositor layer is held only while the panel is on screen",
+  /willChange: painted \? "transform" : "auto"/.test(page),
+)
+
+check(
+  "there is a way back that is not a 40px arrow in the far corner",
+  (() => {
+    // The sheet this replaces could be pulled down. On a screen people hold in
+    // one hand, the top-left corner is the last place the thumb reaches — so
+    // the edge swipe the platform already trained them on has to work.
+    return /const EDGE_PX = \d+/.test(page) && /if \(t\.clientX > EDGE_PX\) return/.test(page)
+  })(),
+)
+
+check(
+  "the swipe paints once per frame, and measures once per gesture",
+  (() => {
+    // Touch events outrun the compositor, and reading a layout property
+    // mid-gesture forces a synchronous flush per event.
+    const move = page.slice(page.indexOf("const onTouchMove"), page.indexOf("const onTouchEnd"))
     return (
       /if \(!frameId\.current\) frameId\.current = requestAnimationFrame\(paint\)/.test(move) &&
-      !/el\.style\.transform/.test(move)
+      !/offsetWidth/.test(move) &&
+      /width: el\?\.offsetWidth \|\| 1/.test(page)
     )
   })(),
 )
 
 check(
-  "the scrim animates on its own layer, and in step with the sheet",
+  "a swipe that goes back does not unmount the panel under itself",
   (() => {
-    // A full-viewport opacity animation without a layer is a full-viewport
-    // repaint per frame, on the same frames the sheet is asking for. Matching
-    // the duration is why the screen finishes dimming as the panel lands.
+    const end = page.slice(page.indexOf("const onTouchEnd"))
+    return !/setStage/.test(end.slice(0, 900)) && /\(onBack \?\? onClose\)\(\)/.test(end.slice(0, 900))
+  })(),
+)
+
+check(
+  "the subpage wears the form's own chrome",
+  (() => {
+    // A subpage that restyles the header is a subpage that reads as a different
+    // app. Same 56px bar, same centred title, same status-bar inset.
+    return /env\(safe-area-inset-top, 0px\)/.test(page) && /h-14 items-center justify-center/.test(page)
+  })(),
+)
+
+check(
+  "a phone gets a subpage; a monitor gets a dialog",
+  (() => {
+    // Sliding a full-screen panel in from the right is the grammar of a device
+    // you hold in one hand and navigate a screen at a time. On a 27-inch
+    // monitor it is a whole desktop being replaced to pick a colour, with no
+    // back gesture to leave it by.
+    return /const \[isDesktop, setIsDesktop\] = useState\(false\)/.test(page) && /isDesktop\s*$/m.test(page.slice(page.indexOf("const panelStyle")))
+  })(),
+)
+
+check(
+  "the desktop centring is in the same declaration as the animation",
+  (() => {
+    // An inline transform replaces the class one outright, so a
+    // `-translate-x-1/2` in the className would simply be gone and the dialog
+    // would open in the bottom-right quadrant.
     return (
-      /willChange: painted \? "opacity" : "auto"/.test(dragSheet) &&
-      /transition: `opacity \$\{SHEET_MS\}ms \$\{SHEET_EASE\}`/.test(dragSheet)
+      /transform: up \? "translate\(-50%, -50%\)"/.test(page) &&
+      !/md:-translate-x-1\/2/.test(page)
     )
   })(),
 )
 
 check(
-  "a mobile sheet has no close button",
+  "the phone subpage has no scrim to composite",
   (() => {
-    // There were three ways out — pull it down, tap the dimmed screen, press
-    // the X — and the X was the only one that needed a control drawn for it and
-    // the only one that was not already a habit. Desktop keeps one, because
-    // none of the other three survive the trip to a mouse.
-    const at = dragSheet.indexOf('aria-label="Închide"')
-    return at > 0 && /hidden h-8 w-8 [^"]*md:flex/.test(dragSheet.slice(at, at + 420))
+    // It covers the screen completely, so there is nothing behind it to dim —
+    // and an invisible full-screen layer composited on every frame of the slide
+    // is the cost of forgetting that.
+    return /className="absolute inset-0 hidden bg-black\/45 md:block"/.test(page)
   })(),
 )
 
 check(
-  "the compositor layer is held only while the sheet is on screen",
-  /willChange: painted \? "transform" : "auto"/.test(dragSheet),
+  "the edge swipe does not arm for a mouse",
+  /const onTouchStart = \(e: React\.TouchEvent\) => \{\s*\n\s*if \(isDesktop\) return/.test(page),
+)
+
+check(
+  "the bottom sheet it replaces is gone, not left behind unused",
+  !existsSync(join(process.cwd(), "components/ui/drag-sheet.tsx")),
 )
 
 check(

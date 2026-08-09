@@ -411,18 +411,18 @@ check(
     // rather than as feedback: the thing you were aiming at moved. The fill
     // going violet happens where the finger already is and moves nothing.
     const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
-    return !/active:scale/.test(slots) && /active:bg-violet-50/.test(slots)
+    return !/active:scale/.test(slots) && /active:bg-violet-100\/70/.test(slots)
   })(),
 )
 
 check(
-  "the empty slot's icon is a soft rounded square, not a flat circle",
+  "the first empty slot is the one that reads as the invitation",
   (() => {
-    // A light grey glyph on a light grey tile disappears; the white ring and
-    // the shadow under it are what stop that, and the square is the shape of
-    // the thing it stands for.
+    // Eight identical grey squares say "eight things are missing"; one of them
+    // in the brand colour says "start here", which is the only thing an empty
+    // photo grid has to communicate.
     const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
-    return /rounded-\[15px\] bg-neutral-100/.test(slots) && /ring-\[3px\] ring-white/.test(slots)
+    return /border-\[#7c3aed\]\/35 bg-violet-50\/70/.test(slots) && /border-neutral-200 bg-neutral-50\/70/.test(slots)
   })(),
 )
 
@@ -509,13 +509,16 @@ check(
 )
 
 check(
-  "the placeholders name the field rather than writing the listing for you",
+  "the placeholders say what to do, and show one example of it",
   (() => {
     // A worked example in the box is a paragraph you have to read and delete
     // before you can type, and it makes an empty field look full.
     return (
-      /placeholder="Titlu"/.test(form) &&
-      /placeholder="Descriere"/.test(form) &&
+      // A one-word placeholder repeating the label above it is not a
+      // placeholder, it is the label written twice. It says what to do, and
+      // then shows one short example of what that looks like.
+      /placeholder="Adaugă un titlu — ex\.: Hanorac Nike verde"/.test(form) &&
+      /placeholder="Adaugă o descriere — stare, material, cum vine pe corp"/.test(form) &&
       !/DESCRIPTION_PLACEHOLDER/.test(form)
     )
   })(),
