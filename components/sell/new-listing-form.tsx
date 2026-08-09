@@ -202,6 +202,26 @@ function Field({
 }
 
 /**
+ * THE HAIRLINE BETWEEN TWO ROWS, AND WHY IT IS NOT A BORDER.
+ *
+ * It used to be `border-b` on an inner box that carried the row's padding,
+ * with the tint on the button around it. That leaves the tint reaching further
+ * than the content does — so a selected row was a violet band with a grey line
+ * drawn INSIDE it and a strip of untinted row below that line. The white gap
+ * along the bottom edge of a highlighted row was exactly this.
+ *
+ * Absolutely positioned, the divider is a hairline sitting ON the row rather
+ * than a part of its box: the tint fills the whole band, edge to edge, and the
+ * line can be removed for a selected row without changing its height by a
+ * pixel. A highlighted row with a separator cutting across it is not a thing
+ * any phone list does.
+ */
+function Divider({ hidden }: { hidden?: boolean }) {
+  if (hidden) return null
+  return <span aria-hidden className="absolute bottom-0 left-4 right-4 h-px bg-neutral-100" />
+}
+
+/**
  * One choice in a picker, as a ROW.
  *
  * Every sheet used to write its own: a rounded box with a hover tint, 14.5px
@@ -245,53 +265,38 @@ function OptionRow({
         onClick()
       }}
       className={cn(
-        "flex w-full items-center gap-3 pl-4 text-left transition-colors duration-150 active:bg-neutral-100",
-        selected && "bg-violet-50/70",
+        "relative flex min-h-[58px] w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150",
+        selected ? "bg-violet-50" : "active:bg-neutral-100",
       )}
-      style={{ minHeight: 58 }}
     >
-      {/* The hairline hangs off the CONTENT, not off the button, so it starts
-          where the words start and stops at the right padding — which is how a
-          phone's own lists are drawn, and the difference between a list and a
-          table. */}
-      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-neutral-100 py-3.5 pr-4">
-        <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "block truncate text-[16px]",
-              selected ? "font-semibold text-[#7c3aed]" : "font-medium text-neutral-900",
-            )}
-          >
-            {label}
-          </span>
-          {hint && <span className="mt-0.5 block truncate text-[13px] font-medium text-neutral-400">{hint}</span>}
-        </span>
-        {/* A CIRCLE THAT FILLS, not a tick that blinks into the margin.
-            A bare check appearing and disappearing gives the row nothing to
-            animate between — there is no unselected state to animate FROM, so
-            the mark can only pop. A ring is always there, so selecting it is a
-            colour and a check growing into a shape that already existed, and
-            every row carries a visible "not this one" as well.
-
-            The check is always in the DOM at scale 0, because a transition
-            needs something to transition from. */}
+      <span className="min-w-0 flex-1">
         <span
-          aria-hidden
           className={cn(
-            "flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full border-2",
-            "transition-[background-color,border-color] duration-200 ease-out",
-            selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300 bg-white text-transparent",
+            "block truncate text-[16px]",
+            selected ? "font-semibold text-[#7c3aed]" : "font-medium text-neutral-900",
           )}
         >
-          <Check
-            className={cn(
-              "h-[14px] w-[14px] transition-[transform,opacity] duration-200 ease-out",
-              selected ? "scale-100 opacity-100" : "scale-50 opacity-0",
-            )}
-            strokeWidth={3.2}
-          />
+          {label}
         </span>
+        {hint && <span className="mt-0.5 block truncate text-[13px] font-medium text-neutral-400">{hint}</span>}
       </span>
+      <span
+        aria-hidden
+        className={cn(
+          "flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full border-2",
+          "transition-[background-color,border-color] duration-200 ease-out",
+          selected ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-neutral-300 bg-white text-transparent",
+        )}
+      >
+        <Check
+          className={cn(
+            "h-[14px] w-[14px] transition-[transform,opacity] duration-200 ease-out",
+            selected ? "scale-100 opacity-100" : "scale-50 opacity-0",
+          )}
+          strokeWidth={3.2}
+        />
+      </span>
+      <Divider hidden={selected} />
     </button>
   )
 }
@@ -327,25 +332,23 @@ function DrillRow({
         onClick()
       }}
       className={cn(
-        "flex w-full items-center gap-3 pl-4 text-left transition-colors duration-150 active:bg-neutral-100",
-        selected && "bg-violet-50/70",
+        "relative flex min-h-[58px] w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150",
+        selected ? "bg-violet-50" : "active:bg-neutral-100",
       )}
-      style={{ minHeight: 58 }}
     >
-      <span className="flex min-w-0 flex-1 items-center gap-3 border-b border-neutral-100 py-3.5 pr-4">
-        <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              "block truncate text-[16px]",
-              selected ? "font-semibold text-[#7c3aed]" : "font-medium text-neutral-900",
-            )}
-          >
-            {label}
-          </span>
-          {hint && <span className="mt-0.5 block truncate text-[13px] font-medium text-neutral-400">{hint}</span>}
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "block truncate text-[16px]",
+            selected ? "font-semibold text-[#7c3aed]" : "font-medium text-neutral-900",
+          )}
+        >
+          {label}
         </span>
-        <ChevronRight className="h-[19px] w-[19px] shrink-0 text-neutral-400" strokeWidth={2.4} />
+        {hint && <span className="mt-0.5 block truncate text-[13px] font-medium text-neutral-400">{hint}</span>}
       </span>
+      <ChevronRight className="h-[19px] w-[19px] shrink-0 text-neutral-400" strokeWidth={2.4} />
+      <Divider hidden={selected} />
     </button>
   )
 }
@@ -1901,7 +1904,7 @@ export function NewListingForm() {
       >
         <SectionHeading
           trailing={
-            <span className="rounded-full bg-neutral-900 px-2.5 py-[5px] text-[11.5px] font-semibold uppercase tracking-[0.02em] tabular-nums text-white">
+            <span className="rounded-full border border-neutral-200/90 bg-white px-2.5 py-[5px] text-[11.5px] font-semibold uppercase tracking-[0.02em] tabular-nums text-neutral-600 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_1px_1px_-0.5px_rgba(0,0,0,0.04)]">
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }

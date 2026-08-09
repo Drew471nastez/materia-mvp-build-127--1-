@@ -836,6 +836,42 @@ check(
   })(),
 )
 
+check(
+  "a selected row is tinted edge to edge, with no line drawn through it",
+  (() => {
+    // The hairline used to be `border-b` on an inner box carrying the row's
+    // padding, with the tint on the button around it — so the tint reached
+    // further than the content did, and a selected row was a violet band with a
+    // grey line INSIDE it and a strip of untinted row below that line. That was
+    // the white gap along the bottom edge of a highlighted row.
+    return (
+      /function Divider\(\{ hidden \}: \{ hidden\?: boolean \}\)/.test(form) &&
+      /absolute bottom-0 left-4 right-4 h-px bg-neutral-100/.test(form) &&
+      (form.match(/<Divider hidden=\{selected\} \/>/g) ?? []).length === 2
+    )
+  })(),
+)
+
+check(
+  "the row's own padding is on the row, not on a box inside it",
+  (() => {
+    // Which is the whole reason the tint can reach the edges.
+    const row = form.slice(form.indexOf("function OptionRow("), form.indexOf("function OptionChip("))
+    return /relative flex min-h-\[58px\] w-full items-center gap-3 px-4 py-3\.5/.test(row) && !/border-b border-neutral-100/.test(row)
+  })(),
+)
+
+check(
+  "removing the line does not change the row's height",
+  (() => {
+    // A separator that is part of the box would take a pixel of height with it
+    // when it went, and the selected row would sit one pixel out of line with
+    // every other row in the list.
+    const div = form.slice(form.indexOf("function Divider("), form.indexOf("function Divider(") + 400)
+    return /absolute/.test(div) && !/border/.test(div)
+  })(),
+)
+
 console.log("\nHow fast a picker fills")
 
 check(

@@ -640,8 +640,17 @@ check(
 )
 
 check(
-  "the count badge is a black pill",
-  /rounded-full bg-neutral-900 px-2\.5 py-\[5px\][^"]*text-white/.test(form),
+  "the count badge is outlined, with just enough depth to sit on the card",
+  (() => {
+    // A solid black pill on a white card next to a grid of photographs is the
+    // heaviest thing in the section, and it is a counter. An outline with a
+    // one-pixel shadow reads as an object without competing to be looked at.
+    return (
+      /rounded-full border border-neutral-200\/90 bg-white/.test(form) &&
+      /shadow-\[0_1px_2px_rgba\(0,0,0,0\.05\)/.test(form) &&
+      !/bg-neutral-900 px-2\.5 py-\[5px\][^"]*text-white/.test(form)
+    )
+  })(),
 )
 
 check(
