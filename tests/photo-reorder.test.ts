@@ -405,13 +405,15 @@ check(
 console.log("\nThe picker, as an object on the page")
 
 check(
-  "pressing Adaugă does not make it jump",
+  "the empty slots are the ones that were there before, press animation included",
   (() => {
-    // A tile that shrinks and springs back under a thumb reads as a misfire
-    // rather than as feedback: the thing you were aiming at moved. The fill
-    // going violet happens where the finger already is and moves nothing.
+    // Reverted whole, on the third asking. The soft-shadowed square read as a
+    // different app's component dropped into this grid, and the scale on press
+    // is part of what was being asked back for — this file previously asserted
+    // its ABSENCE, which is exactly the kind of test that argues with the
+    // person it is written for.
     const slots = form.slice(form.indexOf("{Array.from({ length: emptySlots })"), form.indexOf("ref={fileRef}"))
-    return !/active:scale/.test(slots) && /active:bg-violet-100\/70/.test(slots)
+    return /active:scale-\[0\.97\]/.test(slots) && /rounded-full bg-white/.test(slots)
   })(),
 )
 
@@ -509,17 +511,17 @@ check(
 )
 
 check(
-  "the placeholders say what to do, and show one example of it",
+  "the placeholders say what to do, and stop there",
   (() => {
-    // A worked example in the box is a paragraph you have to read and delete
-    // before you can type, and it makes an empty field look full.
+    // "Titlu" was the label written twice; a worked example was a paragraph you
+    // have to read and then delete before you can type, and it makes an empty
+    // field look full. The instruction on its own is the whole of what a
+    // placeholder is for.
     return (
-      // A one-word placeholder repeating the label above it is not a
-      // placeholder, it is the label written twice. It says what to do, and
-      // then shows one short example of what that looks like.
-      /placeholder="Adaugă un titlu — ex\.: Hanorac Nike verde"/.test(form) &&
-      /placeholder="Adaugă o descriere — stare, material, cum vine pe corp"/.test(form) &&
-      !/DESCRIPTION_PLACEHOLDER/.test(form)
+      /placeholder="Adaugă un titlu"/.test(form) &&
+      /placeholder="Adaugă o descriere"/.test(form) &&
+      !/DESCRIPTION_PLACEHOLDER/.test(form) &&
+      !/placeholder="[^"]*ex\.:/.test(form)
     )
   })(),
 )

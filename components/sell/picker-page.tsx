@@ -65,8 +65,22 @@ import { triggerHaptic } from "@/lib/native-bridge"
  *              the main thread.
  */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const IN_MS = 340
-const OUT_MS = 280
+/**
+ * Longer than they were, and not equal to each other.
+ *
+ * 340/280 was the right curve at the wrong length: fast enough that the panel
+ * was simply THERE, which is the same information a hard cut carries. A push
+ * has to be long enough to be read as travel. Arriving gets the full glide;
+ * leaving is getting out of the way of a decision already made, so it is
+ * quicker — the asymmetry is what stops the back gesture feeling sluggish at a
+ * duration that is right for the way in.
+ *
+ * These are also the numbers `.sell-pushable` / `.sell-pushed` use in
+ * globals.css, because the form behind travels with the panel and two
+ * animations that are meant to be one movement have to end together.
+ */
+const IN_MS = 420
+const OUT_MS = 360
 
 /** How far in from the left edge a swipe-back may start. */
 const EDGE_PX = 28

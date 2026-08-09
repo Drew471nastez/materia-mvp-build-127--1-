@@ -1652,6 +1652,17 @@ export function NewListingForm() {
         // element already has rather than clearing them.
         MOTION_CLASS[motion.current],
         typing.current && "sell-typing",
+        // THE SCREEN BEHIND GIVES WAY. A subpage that slides in over a form
+        // sitting perfectly still is a rectangle appearing on top of another
+        // rectangle — the two frames are unrelated, which is why it read as
+        // abrupt however long the slide was. Moving the form a little to the
+        // left while the panel comes across is what turns those two rectangles
+        // into one navigation: the thing you were on goes away and the thing
+        // you asked for arrives. It is a transform, so it costs a layer and
+        // nothing else, and the panel is opaque — you only ever see it during
+        // the travel, which is the only place it does any work.
+        "sell-pushable",
+        sheet !== null && "sell-pushed",
       )}
     >
       {/* The header. An X and a title, like every sheet on a phone — and it
@@ -1868,15 +1879,9 @@ export function NewListingForm() {
           ))}
 
           {Array.from({ length: emptySlots }).map((_, n) => (
-            /* Back to the dashed-free bordered tile with the violet first slot,
-               which is what this looked like before it was reworked into a
-               soft-shadowed square — that read as a different app's component
-               dropped into this grid.
-
-               The one thing NOT restored is the scale on press. A tile that
-               shrinks and springs back under a thumb reads as a misfire rather
-               than as feedback: the thing you were aiming at moved. The fill
-               going violet happens where the finger already is. */
+            /* Exactly what this was before it was reworked into a soft-shadowed
+               square — bordered tile, violet first slot, and the press
+               animation back with it. */
             <button
               key={`slot-${n}`}
               type="button"
@@ -1887,7 +1892,7 @@ export function NewListingForm() {
               aria-label="Adaugă fotografii"
               className={cn(
                 "flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-2xl border-2",
-                "transition-colors duration-150",
+                "transition-[transform,background-color,border-color,color] duration-150 active:scale-[0.97]",
                 n === 0
                   ? "border-[#7c3aed]/35 bg-violet-50/70 text-[#7c3aed] active:bg-violet-100/70"
                   : "border-neutral-200 bg-neutral-50/70 text-neutral-400 active:border-[#7c3aed]/35 active:text-[#7c3aed]",
@@ -1932,7 +1937,7 @@ export function NewListingForm() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
-          placeholder="Adaugă un titlu — ex.: Hanorac Nike verde"
+          placeholder="Adaugă un titlu"
           className="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
 
@@ -1942,7 +1947,7 @@ export function NewListingForm() {
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
           maxLength={1500}
-          placeholder="Adaugă o descriere — stare, material, cum vine pe corp"
+          placeholder="Adaugă o descriere"
           className="mt-2 w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] leading-relaxed outline-none transition-all focus:border-[#7c3aed] focus:bg-white focus:ring-4 focus:ring-violet-100"
         />
         <p className="mt-1.5 text-[12.5px] text-neutral-400">
@@ -2102,8 +2107,6 @@ export function NewListingForm() {
                 onClick={() => {
                   setGroup(c.groupId)
                   setItem(c.item.id)
-                  setSheet(null)
-                  setCatQuery("")
                 }}
               />
             ))}
@@ -2121,7 +2124,6 @@ export function NewListingForm() {
                 onClick={() => {
                   setGroup(catItems.id)
                   setItem(it.id)
-                  setSheet(null)
                 }}
               />
             ))}
@@ -2176,10 +2178,7 @@ export function NewListingForm() {
               key={b.slug}
               label={b.name}
               selected={brand === b.name}
-              onClick={() => {
-                setBrand(b.name)
-                setSheet(null)
-              }}
+              onClick={() => setBrand(b.name)}
             />
           ))}
           {/* Always available, never a row in the table — a brand directory can
@@ -2189,7 +2188,6 @@ export function NewListingForm() {
             onClick={() => {
               void triggerHaptic("light")
               setBrand("Altele")
-              setSheet(null)
             }}
             className="mt-2 flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-4 text-left text-[15px] font-medium text-neutral-600 transition-colors duration-150 active:bg-neutral-100"
           >
@@ -2213,7 +2211,7 @@ export function NewListingForm() {
             label={c.label}
             hint={CONDITION_HINTS[c.id]}
             selected={condition === c.id}
-            onClick={() => { setCondition(c.id); setSheet(null) }}
+            onClick={() => setCondition(c.id)}
           />
         ))}
         </>
@@ -2228,7 +2226,7 @@ export function NewListingForm() {
               key={c.id}
               label={c.label}
               selected={size === c.id}
-              onClick={() => { setSize(c.id); setSheet(null) }}
+              onClick={() => setSize(c.id)}
             />
           ))}
         </ChipField>
@@ -2245,7 +2243,7 @@ export function NewListingForm() {
               label={c.label}
               swatch={c.hex}
               selected={colour === c.id}
-              onClick={() => { setColour(c.id); setSheet(null) }}
+              onClick={() => setColour(c.id)}
             />
           ))}
         </ChipField>
@@ -2278,7 +2276,7 @@ export function NewListingForm() {
               key={c.id}
               label={c.label}
               selected={era === c.id}
-              onClick={() => { setEra(c.id); setSheet(null) }}
+              onClick={() => setEra(c.id)}
             />
           ))}
         </ChipField>

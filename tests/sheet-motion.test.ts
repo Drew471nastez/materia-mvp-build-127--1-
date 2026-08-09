@@ -377,6 +377,93 @@ check(
 )
 
 check(
+  "choosing an option does not throw you out of the picker",
+  (() => {
+    // A tap that both records the answer AND slams the screen shut gives you
+    // no frame in which to see that it landed — and it makes changing your
+    // mind a second trip through the same three levels. The panel stays; the
+    // back arrow and the edge swipe are what leave it, which is the same way
+    // out you already had.
+    // `onClose` legitimately closes it; nothing else may.
+    const pickers = form.slice(form.indexOf("<PickerPage"))
+    return pickers
+      .split("\n")
+      .filter((l) => !l.includes("onClose="))
+      .every((l) => !l.includes("setSheet(null)"))
+  })(),
+  "        setSheet(null) inside an option handler is the auto-close.",
+)
+
+check(
+  "and the choice is visible on the row you just tapped",
+  (() => {
+    // The only reason auto-closing looked acceptable was that it doubled as
+    // the confirmation. Without it, the tick IS the confirmation.
+    const pickers = form.slice(form.indexOf("<PickerPage"))
+    return /selected=\{condition === c\.id\}/.test(pickers) && /selected=\{colour === c\.id\}/.test(pickers)
+  })(),
+)
+
+console.log("\nA push, not a rectangle over a rectangle")
+
+check(
+  "the screen behind travels while the panel comes across",
+  (() => {
+    // A subpage sliding in over a form sitting perfectly still is two
+    // unrelated frames, and no amount of extra duration fixes that — which is
+    // why it read as abrupt even when it was slow. What makes a push a push is
+    // that the thing you were on goes AWAY.
+    return (
+      /\.sell-sheet\.sell-pushed \{[\s\S]{0,120}?transform: translate3d\(-\d+%, 0, 0\)/.test(css) &&
+      /sheet !== null && "sell-pushed"/.test(form)
+    )
+  })(),
+)
+
+check(
+  "it moves on the compositor and nothing else moves at all",
+  (() => {
+    const rule = css.slice(css.indexOf(".sell-sheet.sell-pushable"), css.indexOf(".sell-sheet.sell-pushable") + 400)
+    return /transition: transform \d+ms/.test(rule) && !/(width|height|left|margin|opacity):/.test(rule)
+  })(),
+)
+
+check(
+  "the page and the panel end together, in both directions",
+  (() => {
+    // Two animations meant to be one movement have to share their numbers, and
+    // the asymmetry is deliberate: arriving gets the full glide, leaving is
+    // getting out of the way of a decision already made.
+    const inMs = /const IN_MS = (\d+)/.exec(page)?.[1]
+    const outMs = /const OUT_MS = (\d+)/.exec(page)?.[1]
+    const pushed = /\.sell-sheet\.sell-pushed \{[\s\S]{0,160}?transition-duration: (\d+)ms/.exec(css)?.[1]
+    const base = /\.sell-sheet\.sell-pushable \{[\s\S]{0,120}?transition: transform (\d+)ms/.exec(css)?.[1]
+    return !!inMs && inMs === pushed && !!outMs && outMs === base && Number(inMs) > Number(outMs)
+  })(),
+)
+
+check(
+  "the push is a phone thing only",
+  (() => {
+    // On a monitor the picker is a centred dialog over a dimmed page, and
+    // shoving the page sideways under it would be motion with nothing behind
+    // it.
+    const at = css.indexOf(".sell-sheet.sell-pushable")
+    return /@media \(width < 48rem\)/.test(css.slice(Math.max(0, at - 400), at))
+  })(),
+)
+
+check(
+  "the transition is long enough to be read as travel",
+  (() => {
+    // 340/280 was the right curve at the wrong length: fast enough that the
+    // panel was simply THERE, which is the same information a hard cut carries.
+    const inMs = Number(/const IN_MS = (\d+)/.exec(page)?.[1])
+    return inMs >= 400
+  })(),
+)
+
+check(
   "a phone gets a subpage; a monitor gets a dialog",
   (() => {
     // Sliding a full-screen panel in from the right is the grammar of a device

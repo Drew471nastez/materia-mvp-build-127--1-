@@ -425,6 +425,41 @@ html.capacitor a.no-tap-fade:active {
   backface-visibility: hidden;
 }
 
+/* ── THE SCREEN BEHIND A SUBPAGE GIVES WAY ──────────────────────────────────
+ *
+ * The detail pickers slide in from the right. Over a form sitting perfectly
+ * still that is a rectangle appearing on top of another rectangle: the two
+ * frames are unrelated, and no amount of extra duration fixes it — which is
+ * why the transition read as abrupt even when it was slow. What makes a push
+ * a push is that the thing you were on goes AWAY while the thing you asked
+ * for arrives.
+ *
+ * So the form travels a fifth of the screen to the left under the incoming
+ * panel and comes back when it leaves. Transform only, so it is one
+ * compositor layer and no layout, and the panel is opaque — the movement is
+ * only ever visible during the travel itself, which is the only place it is
+ * doing anything.
+ *
+ * The two durations are not the same, and they match the panel's exactly:
+ * arriving wants the full glide, leaving is getting out of the way of a
+ * decision already made. The class stays on for the whole gesture, so the
+ * base rule is the one that plays on the way back.
+ *
+ * Phones only. On a monitor the picker is a centred dialog over a dimmed
+ * page, and shoving the page sideways under it would be motion with nothing
+ * behind it.
+ */
+@media (width < 48rem) {
+  .sell-sheet.sell-pushable {
+    transition: transform 360ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .sell-sheet.sell-pushed {
+    transform: translate3d(-20%, 0, 0);
+    transition-duration: 420ms;
+    will-change: transform;
+  }
+}
+
 /* ── NO BLUR WHILE IT IS MOVING ─────────────────────────────────────────────
  *
  * THIS is what made the slide stutter, and it was never the animation.
