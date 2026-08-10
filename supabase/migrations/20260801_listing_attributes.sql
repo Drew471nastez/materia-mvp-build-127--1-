@@ -34,15 +34,27 @@ alter table public.products
 
 -- Guard rails that match the form. CHECKs (not enums) so the allowed set can
 -- grow without rewriting the table.
+--
+-- `not valid` on both, and the reason is a failure this file's sibling actually
+-- hit: a dropped-and-re-added constraint VALIDATES every existing row, so one
+-- listing that predates the cap does not merely fail to be fixed — it aborts
+-- the whole run and leaves every section after this one unapplied. The cap is
+-- enforced on every write from here on either way; what `not valid` gives up is
+-- only the retroactive scan, which was never going to repair anything.
+--
+-- Sweep the history once you know it is clean:
+--   alter table public.products validate constraint products_source_tags_max;
 alter table public.products drop constraint if exists products_source_tags_max;
 alter table public.products
   add constraint products_source_tags_max
-  check (source_tags is null or array_length(source_tags, 1) is null or array_length(source_tags, 1) <= 2);
+  check (source_tags is null or array_length(source_tags, 1) is null or array_length(source_tags, 1) <= 2)
+  not valid;
 
 alter table public.products drop constraint if exists products_style_tags_max;
 alter table public.products
   add constraint products_style_tags_max
-  check (style_tags is null or array_length(style_tags, 1) is null or array_length(style_tags, 1) <= 3);
+  check (style_tags is null or array_length(style_tags, 1) is null or array_length(style_tags, 1) <= 3)
+  not valid;
 
 -- Filter indexes. Partial on published: nobody filters over drafts, and it keeps
 -- the indexes to the rows the feed actually scans.
