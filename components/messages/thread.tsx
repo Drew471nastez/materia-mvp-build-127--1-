@@ -1028,7 +1028,32 @@ export function MessageThread({
   // pictures means what is uncovered is finished.
   const [dataReady, setDataReady] = useState(!fromCache)
   const [pixelsReady, setPixelsReady] = useState(false)
-  const covered = !dataReady || !pixelsReady
+  /**
+   * AND IT DOES NOT LIFT WHILE THE SCREEN IS STILL TRAVELLING.
+   *
+   * On a phone the conversation is pushed in over 420ms (`.thread-arrive` in
+   * globals.css). A cover that lifted at 150ms — a warm route, cached photos —
+   * revealed the messages while the screen was still sliding, so the content
+   * appeared to arrive separately from the thing carrying it. Two arrivals for
+   * one tap, which is the shape of every complaint on this screen.
+   *
+   * Held for the length of the push and no longer. It costs nothing: the cover
+   * is the same surface as what is underneath it, the spinner does not appear
+   * for another 420ms, and the screen is moving throughout.
+   *
+   * Phone only, because the push is phone only — on a desktop the conversation
+   * is a column in a split view that does not travel, and this would be a
+   * quarter of a second of nothing for no reason.
+   */
+  const [travelled, setTravelled] = useState(true)
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return
+    setTravelled(false)
+    const t = window.setTimeout(() => setTravelled(true), 420)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  const covered = !dataReady || !pixelsReady || !travelled
   coveredRef.current = covered
 
   // Wait one: the server's copy of this conversation.
@@ -2273,8 +2298,31 @@ export function MessageThread({
           // background as well as a reveal — a flat white panel dissolving into
           // a textured one, which is a flicker of exactly the kind this exists
           // to prevent.
-          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-[420ms] ease-[cubic-bezier(0.22,0.61,0.24,1)]"
-          style={{ opacity: covered ? 1 : 0, visibility: covered ? "visible" : "hidden" }}
+          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+          style={{
+            opacity: covered ? 1 : 0,
+            visibility: covered ? "visible" : "hidden",
+            /**
+             * THE FADE THAT WAS NEVER PLAYING.
+             *
+             * `visibility` was toggled but never transitioned, and an untransitioned
+             * property applies on the frame it changes — so the moment the cover
+             * lifted the element became `hidden`, instantly, and the 420ms opacity
+             * ramp beside it animated something nobody could see. What you got was
+             * the conversation appearing in one frame, which is exactly the
+             * "disappears too direct" of it.
+             *
+             * The fix is the standard pairing: visibility flips at 0s on the way IN,
+             * and is DELAYED by the length of the fade on the way out, so the element
+             * stays visible for precisely as long as it is still fading.
+             */
+            transitionProperty: "opacity, visibility",
+            transitionDuration: "560ms, 0s",
+            transitionDelay: covered ? "0s, 0s" : "0s, 560ms",
+            // Slower and almost all tail — the last of the reveal is the part
+            // the eye follows, so it is the part given the most time.
+            transitionTimingFunction: "cubic-bezier(0.22, 0.61, 0.24, 1)",
+          }}
         >
           {/* Held back nearly half a second, and that is now the ONLY spinner
               in the arrival.
@@ -2291,8 +2339,11 @@ export function MessageThread({
               appears and disappears inside 200ms is a blink, which is the
               flicker the cover exists to prevent. `both` keeps it invisible
               during the delay rather than merely un-animated. */}
-          <span className="animate-[fade-in_220ms_ease-out_440ms_both]">
-            <IosSpinner size={24} />
+          {/* Bigger, and it fades with the cover rather than being cut off by
+              it. 24px read as an afterthought on a screen that is otherwise
+              empty; 30 is the size iOS uses for a full-screen wait. */}
+          <span className="animate-[fade-in_260ms_ease-out_420ms_both]">
+            <IosSpinner size={30} />
           </span>
         </div>
       <div

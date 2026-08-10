@@ -413,13 +413,17 @@ check(
     const nav = read("components/explore/mobile-bottom-nav.tsx")
     const sell = /const onSell = useCallback\([\s\S]*?\n  \}, \[sheetOpen, router\]\)/.exec(nav)?.[0] ?? ""
     if (!sell) return false
-    // Being ON the right route may never escalate quickly — that case is a
-    // render in progress, and reloading throws the work away.
-    const patient = /onRoute && waited > 4000/.test(sell)
-    // The only fast escalation left is the one that is actually detectable:
-    // the URL never changed at all.
-    const detectable = /!onRoute && waited > 900/.test(sell)
-    return patient && detectable && !/waited > 700/.test(sell)
+    // ONE PRESS IS ONE PUSH. `router.push` is asynchronous, so a slow phone, a
+    // cold route and a genuinely dropped push are indistinguishable from here —
+    // every retry therefore fires on top of navigations that were working, and
+    // every version of this double-open has been the recovery rather than the
+    // press. There is exactly one push in the whole handler.
+    const pushes = [...sell.matchAll(/router\.push\(/g)].length
+    // The only terminal case left replaces the document, which cannot open
+    // anything twice, and is four seconds out so no working navigation reaches
+    // it.
+    const terminal = /waited < 4000/.test(sell) && /window\.location\.assign/.test(sell)
+    return pushes === 1 && terminal && !/waited > 700/.test(sell) && !/waited > 900/.test(sell)
   })(),
 )
 
@@ -578,6 +582,71 @@ check(
       // And it keeps the layer the shell used to claim for itself, or the
       // conversation silently re-orders against the header.
       /z-index: 45/.test(arrive)
+    )
+  })(),
+)
+
+check(
+  "the loading cover actually fades instead of being switched off",
+  (() => {
+    // `visibility` was toggled but never transitioned, and an untransitioned
+    // property applies on the frame it changes — so the cover became `hidden`
+    // instantly and the opacity ramp beside it animated something nobody could
+    // see. The conversation appeared in one frame.
+    const thread = read("components/messages/thread.tsx")
+    return (
+      /transitionProperty: "opacity, visibility"/.test(thread) &&
+      // Visibility flips at once on the way in and is DELAYED by the length of
+      // the fade on the way out, so the element outlives its own animation.
+      /transitionDelay: covered \? "0s, 0s" : "0s, 560ms"/.test(thread) &&
+      /transitionDuration: "560ms, 0s"/.test(thread)
+    )
+  })(),
+  "        components/messages/thread.tsx — an untransitioned visibility cancels\n" +
+    "        the opacity fade it is paired with.",
+)
+
+check(
+  "the content is not revealed while the screen is still travelling",
+  (() => {
+    // A cover that lifted at 150ms on a warm route revealed the messages
+    // mid-slide, so the content arrived separately from the thing carrying it.
+    const thread = read("components/messages/thread.tsx")
+    const css = read("app/globals.css")
+    const hold = Number(/setTravelled\(true\), (\d+)\)/.exec(thread)?.[1])
+    const push = Number(/animation: thread-push-in (\d+)ms/.exec(css)?.[1])
+    return (
+      /!dataReady \|\| !pixelsReady \|\| !travelled/.test(thread) &&
+      // Exactly the push, not a guessed number — and phone only, because the
+      // push is phone only.
+      hold === push &&
+      /window\.innerWidth >= 768/.test(thread)
+    )
+  })(),
+)
+
+check(
+  "opening a conversation does not buzz",
+  (() => {
+    // Haptics are for acts, not arrivals. This one also fired on every row
+    // touched while scrolling a list of them.
+    const inbox = read("components/messages/inbox.tsx")
+    const press = /onPress: \(id\) => \{[\s\S]*?\n      \},/.exec(inbox)?.[0] ?? ""
+    return press.length > 0 && !/triggerHaptic/.test(press)
+  })(),
+)
+
+check(
+  "back is the same movement wherever it is pressed",
+  (() => {
+    // Leaving a conversation slid the level above back into place and leaving a
+    // listing did not move at all — two answers to one gesture.
+    const css = read("app/globals.css")
+    return (
+      /html\.pop-return [^{]*> main > \* \{\s*\n\s*animation: pop-return-list 360ms/.test(css) &&
+      // And the fade under it is off, for the same reason it is off on the
+      // conversation: one movement on one set of pixels.
+      /html\.pop-return [^{]*> main \{\s*\n\s*opacity: 1;/.test(css)
     )
   })(),
 )

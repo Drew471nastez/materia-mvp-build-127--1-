@@ -300,30 +300,29 @@ export function MobileBottomNav({
         window.clearInterval(watch)
         return
       }
-      const onRoute = window.location.pathname.startsWith("/products/new")
       const waited = Date.now() - started
-      if (!onRoute && waited > 900) {
-        // The push never took. Ask once more, the cheap way — a client
-        // navigation, so a transient drop costs a beat and nothing else.
-        window.clearInterval(watch)
-        router.push("/products/new")
-        // AND A FLOOR UNDER THE RETRY. A router that drops every push would
-        // otherwise leave this with no terminal case: two client pushes, both
-        // lost, and the sheet never opens.
-        window.setTimeout(() => {
-          if (!open() && !window.location.pathname.startsWith("/products/new")) {
-            window.location.assign("/products/new")
-          }
-        }, 1200)
-        return
-      }
-      // On the right route and still nothing after a generous wait. Now it is
-      // worth a document load — but 4 seconds, not 0.7, because everything
-      // shorter than that was a phone rendering a form.
-      if (onRoute && waited > 4000) {
-        window.clearInterval(watch)
-        window.location.assign("/products/new")
-      }
+      if (waited < 4000) return
+      /**
+       * THE SECOND ROUTER.PUSH IS GONE, AND THAT IS THE WHOLE FIX.
+       *
+       * There used to be a retry here: if the URL had not changed within a
+       * short window, push again. But `router.push` is asynchronous — a slow
+       * phone, a cold route, a payload still in flight all look exactly like a
+       * push that was dropped, because from here the only evidence either way
+       * is a pathname that has not changed YET. So the retry fired on top of a
+       * navigation that was working, and the sell page opened twice. Every
+       * version of this double-open has been the recovery, never the press.
+       *
+       * There is no way to tell the two apart from out here, so this no longer
+       * tries. One press is one `router.push`, always, and the only thing left
+       * is a terminal case for the genuine dead end: after four seconds with
+       * neither the route nor the form, a document load. That CANNOT open
+       * anything twice — it replaces the page rather than adding to it — and
+       * four seconds is long enough that no working navigation has ever
+       * reached it.
+       */
+      window.clearInterval(watch)
+      if (!open()) window.location.assign("/products/new")
     }, 150)
     // Never left running: this bar is mounted on every screen for the whole
     // session, and an interval per press would accumulate one per tap.

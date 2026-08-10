@@ -919,7 +919,14 @@ function MessagesList({
   if (!rescue.current) {
     rescue.current = createTapRescue<string>({
       onPress: (id) => {
-        void triggerHaptic("light")
+        // NO BUZZ FOR OPENING A CONVERSATION.
+        //
+        // Haptics are for acts, not for arrivals — sending, saving, deleting,
+        // something committing. Opening a conversation is navigation, and the
+        // screen answering the finger IS the feedback; a buzz on top of it is
+        // the app congratulating you for tapping a row. It also fires on every
+        // row you touch while scrolling a list of them, which is where "the
+        // messages page feels cheap" comes from.
         setPressed(id)
         beginTabLeave()
       },

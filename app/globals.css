@@ -1459,6 +1459,37 @@ html.capacitor a.no-tap-fade:active {
     transition: none;
   }
 
+  /* ===================================================================
+     COMING BACK FROM A LISTING IS THE SAME GESTURE
+     ===================================================================
+     Going back from a product page used to be the generic <main> fade — the
+     screen brightening from 0.88, with nothing travelling. Which meant the
+     app had two different answers to one gesture: leaving a conversation
+     slid the level above back into place, and leaving a listing did not
+     move at all. Back is back; it should look the same wherever it is
+     pressed.
+
+     So every direct child of <main> gets the pop the inbox gets, and the
+     fade under it is switched off for the same reason it is switched off
+     there — the movement IS the transition, and an opacity ramp of a
+     different length on the same pixels is what the previous note calls a
+     transparency group being blended while a layer translates.
+
+     Direct children only. A descendant selector here would animate a
+     transform onto elements deep in a page, and any `position: fixed` under
+     one of them would start resolving against it instead of the viewport —
+     which is the bug that took three attempts to get right on the
+     conversation screen. The children of <main> are page roots, which do
+     not have that problem. */
+  html.pop-return .marketing-flex-wrapper > main > * {
+    animation: pop-return-list 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    backface-visibility: hidden;
+  }
+  html.pop-return .marketing-flex-wrapper > main {
+    opacity: 1;
+    transition: none;
+  }
+
   /* The same dip, for the navigations no finger on the bar started — a
      redirect, a back gesture, a push from somewhere else. Zero duration on
      purpose: tab-transition.tsx adds this, flushes style, and removes it again
