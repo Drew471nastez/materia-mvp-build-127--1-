@@ -38,20 +38,56 @@
 --
 --  Safe to run twice: the insert is a no-op the second time.
 
+--  ---------------------------------------------------------------------------
+--  THE COLUMN IS `note`, AND THE TABLE MAY ALREADY EXIST
+--  ---------------------------------------------------------------------------
+--  This file first shipped writing a column called `detail`, which does not
+--  exist. `create table if not exists` is a no-op against a table that is
+--  already there, so it silently did nothing and the insert then failed on a
+--  column name that had been invented rather than read.
+--
+--  The shape below is copied from RUN_CURRENCY_RON.sql, which is the only thing
+--  in this repository that creates this table — so on any database where that
+--  file has been opened, this is the shape that is really there.
+--
+--  ---------------------------------------------------------------------------
+--  BEFORE RUNNING THIS, CHECK WHETHER THE CONVERSION ALREADY HAPPENED
+--  ---------------------------------------------------------------------------
+--  The existence of the table means RUN_CURRENCY_RON.sql has been executed at
+--  least as far as its first statement. Whether its conversion APPLIED is a
+--  different question, answered by the marker row:
+--
+--    select key, applied_at, note from public.platform_migrations;
+--
+--  If `currency_ron_2026` is there, prices have already been multiplied by 4.6
+--  and the premise of this file is wrong — stop, and work out which rows are in
+--  which unit before writing anything. If it is not there, the conversion never
+--  applied and the catalogue is native lei, which is what this records.
+
 create table if not exists public.platform_migrations (
-  key         text primary key,
-  detail      text,
-  applied_at  timestamptz not null default now()
+  key text primary key,
+  applied_at timestamptz not null default now(),
+  note text
 );
 
-insert into public.platform_migrations (key, detail)
-values (
-  'currency_ron_native',
-  'products.price_cents has always held bani: written by the sell form as seller-typed lei x 100. No conversion performed or needed.'
-)
-on conflict (key) do nothing;
+-- Refuses to make the claim if the conversion marker is present, rather than
+-- recording two contradictory statements about the same catalogue.
+do $$
+begin
+  if exists (select 1 from public.platform_migrations where key = 'currency_ron_2026') then
+    raise exception
+      'currency_ron_2026 is present: prices were converted from USD at 4.6. This file claims the opposite and must not run. Check which unit the rows are actually in.';
+  end if;
 
--- What you should see: one row, and no price anywhere changed.
-select key, detail, applied_at
+  insert into public.platform_migrations (key, note)
+  values (
+    'currency_ron_native',
+    'products.price_cents has always held bani: written by the sell form as seller-typed lei x 100. No conversion performed or needed.'
+  )
+  on conflict (key) do nothing;
+end $$;
+
+-- What you should see: one row, currency_ron_native, and no price changed.
+select key, applied_at, note
   from public.platform_migrations
  where key in ('currency_ron_native', 'currency_ron_2026');
