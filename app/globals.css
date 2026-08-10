@@ -1324,7 +1324,10 @@ html.capacitor a.no-tap-fade:active {
        exactly as the picker's pop does. A scale-and-fade here would mean the
        screen left one way and returned another. */
     animation: pop-return-list 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
-    will-change: transform;
+    /* No `will-change`, same reason as .thread-arrive: the keyframes are
+       translate3d, so the layer exists for the animation and is given back
+       afterwards — and this element is the inbox, which is a long scrolling
+       list that has to stay cheap once it has arrived. */
     backface-visibility: hidden;
   }
   /* 25%, the same parallax distance the picker shifts a covered level by:
@@ -1387,22 +1390,73 @@ html.capacitor a.no-tap-fade:active {
   .thread-arrive {
     position: fixed;
     inset: 0;
-    /* The same layer .thread-shell claims, since this now stands in front of
-       it as the element that actually moves. */
+    /* EXACTLY the layer .thread-shell used to claim for itself, and that is
+       the point rather than a detail. A transform creates a stacking context,
+       so the shell's own `z-index: 45` is now resolved INSIDE this element
+       instead of against the page — leaving this at `auto` would silently
+       re-order the conversation against the sticky web header it has always
+       been painted over. Same number, same result. */
     z-index: 45;
-    /* White, because the shell inside is narrower than the screen for one
-       frame at the start of the push and the strip beside it must not be a
-       window onto the page being left. */
-    background: #ffffff;
+    /* NO BACKGROUND, and no swallowing of taps.
+
+       A white fill here would paint over the whole viewport including the
+       mobile web header, which sits above this screen rather than inside it —
+       and it is not needed: .thread-shell is `left: 0; right: 0` on a phone, so
+       it fills this box completely and there is no strip beside it to cover.
+       Transparent, though, this is still a full-screen fixed element, and one
+       that intercepts pointer events over everything it covers. So it passes
+       them through and the shell inside takes them back. */
+    pointer-events: none;
     animation: thread-push-in 420ms cubic-bezier(0.32, 0.72, 0, 1) both;
-    /* Promoted before the first frame rather than at it — the same argument as
-       .plus-turn, and it matters more here because this layer is the whole
-       screen. */
-    will-change: transform;
+    /* NO `will-change` HERE, deliberately.
+
+       The translate3d in the keyframes already promotes this to its own layer
+       for the duration of the animation, and then RELEASES it. `will-change`
+       would hold a full-screen compositor layer for the entire visit to the
+       conversation — through every message you scroll, on top of the fixed
+       .thread-shell layer inside it — to buy one frame of promotion at the
+       start that the transform is doing anyway. On a phone that is memory
+       spent on nothing, and it is the sort of thing that makes a long thread
+       scroll worse the longer you stay. */
     backface-visibility: hidden;
   }
   @media (prefers-reduced-motion: reduce) {
     .thread-arrive { animation: none; }
+  }
+
+  /* ===================================================================
+     ONE MOVEMENT AT A TIME ON THESE PIXELS
+     ===================================================================
+     This is what was left of "not smooth", and it was never the push.
+
+     <main> fades 0.88 → 1 over 240ms on every arrival. The conversation
+     slides in over 420ms. Both are correct on their own and together they
+     are two animations of different lengths, on different curves, on the
+     same pixels — and an opacity below 1 on an ancestor forces the whole
+     subtree into a transparency group, so for those 240ms the compositor is
+     blending an entire screen WHILE translating a full-screen layer inside
+     it. That is the frame cost, and the visible result is a slide that
+     changes brightness partway through, which reads as a stutter rather
+     than as a fade.
+
+     The push is the transition. Where it is running, the fade has nothing
+     left to say, so it is switched off rather than tuned to match — matching
+     was the previous approach and it is why there were two of these.
+
+     `:has()` rather than a class on <html>: the fade must be suppressed only
+     where the slide actually is, and the element that slides is the one that
+     knows. A browser too old for `:has()` ignores the rule and gets exactly
+     what it gets today. */
+  .marketing-flex-wrapper > main:has(> .thread-arrive),
+  html.tab-arriving .marketing-flex-wrapper > main:has(> .thread-arrive),
+  html.tab-leaving .marketing-flex-wrapper > main:has(> .thread-arrive) {
+    opacity: 1;
+    transition: none;
+  }
+  /* And the same on the way back, where the list is the thing that travels. */
+  html.pop-return .marketing-flex-wrapper > main:has(> [data-primary="list"]) {
+    opacity: 1;
+    transition: none;
   }
 
   /* The same dip, for the navigations no finger on the bar started — a
@@ -3173,6 +3227,10 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
     height: calc(var(--vv-h, 100dvh) - var(--thread-top, 0px));
     z-index: 45;
     background: #ffffff;
+    /* Taken back from the wrapper that passes them through — see
+       `.thread-arrive`. Everything interactive on this screen is inside here,
+       so this one declaration restores the whole of it. */
+    pointer-events: auto;
   }
   html:not(.capacitor) .thread-shell {
     --thread-top: var(--web-header-h, 0px);

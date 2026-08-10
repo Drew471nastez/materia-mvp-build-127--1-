@@ -512,6 +512,76 @@ check(
   })(),
 )
 
+check(
+  "nothing else animates the same pixels while a conversation pushes in",
+  (() => {
+    // <main> fades 0.88 -> 1 over 240ms on every arrival, and the push runs
+    // 420ms. Both correct alone; together they are two animations of different
+    // lengths on different curves on the same pixels — and an opacity below 1
+    // on an ancestor forces the whole subtree into a transparency group, so the
+    // compositor blends an entire screen WHILE translating a full-screen layer
+    // inside it. That is the frame cost, and it looks like a stutter.
+    const css = read("app/globals.css")
+    return (
+      /main:has\(> \.thread-arrive\)/.test(css) &&
+      /html\.tab-arriving [^{]*main:has\(> \.thread-arrive\)/.test(css) &&
+      /html\.pop-return [^{]*main:has\(> \[data-primary="list"\]\)/.test(css)
+    )
+  })(),
+  "        app/globals.css — the push is the transition; the fade underneath it\n" +
+    "        has to be switched off, not matched to it.",
+)
+
+check(
+  "neither travelling layer is held on the GPU after it has stopped",
+  (() => {
+    // `will-change` on these would hold a full-screen compositor layer for the
+    // whole visit — through every message scrolled, on top of the fixed shell
+    // inside it — to buy one frame the translate3d already buys.
+    const css = read("app/globals.css")
+    // Declarations only. An absence assertion has to read CSS and not prose —
+    // this first failed on the comment explaining why the property was removed,
+    // which is a test marking its own fix as the bug. Second time; hence the
+    // helper rather than another one-off.
+    const decls = (block: string) => block.replace(/\/\*[\s\S]*?\*\//g, "")
+    const arrive = decls(/\.thread-arrive \{[\s\S]*?\n  \}/.exec(css)?.[0] ?? "")
+    const list = decls(/html\.pop-return [^{]*\[data-primary="list"\] \{[\s\S]*?\n  \}/.exec(css)?.[0] ?? "")
+    return (
+      arrive.length > 0 &&
+      list.length > 0 &&
+      !/will-change/.test(arrive) &&
+      !/will-change/.test(list) &&
+      // The promotion still happens, from the keyframes themselves.
+      /translate3d/.test(css)
+    )
+  })(),
+)
+
+check(
+  "the full-screen layer does not cover the header or swallow taps",
+  (() => {
+    // It spans the viewport so the fixed shell inside resolves to the same
+    // pixels — which also means it spans the mobile web header, which sits
+    // above this screen rather than inside it. A background would paint over
+    // it; a transparent one still eats every tap on it.
+    const css = read("app/globals.css")
+    // Comments stripped for the same reason as the check above: the block
+    // explains in prose why it has no background, and this asserts it has none.
+    const strip = (b: string) => b.replace(/\/\*[\s\S]*?\*\//g, "")
+    const arrive = strip(/\.thread-arrive \{[\s\S]*?\n  \}/.exec(css)?.[0] ?? "")
+    const shell = strip(/@media \(width < 48rem\) \{\s*\.thread-shell \{[\s\S]*?\n  \}/.exec(css)?.[0] ?? "")
+    return (
+      /pointer-events: none/.test(arrive) &&
+      !/background/.test(arrive) &&
+      // Given back by the one element that holds everything interactive.
+      /pointer-events: auto/.test(shell) &&
+      // And it keeps the layer the shell used to claim for itself, or the
+      // conversation silently re-orders against the header.
+      /z-index: 45/.test(arrive)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
