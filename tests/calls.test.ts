@@ -475,6 +475,75 @@ check(
   })(),
 )
 
+// ── AN INVITE THAT ARRIVES, RATHER THAN ONE THAT WAS SENT ───────────────────
+
+check(
+  "the invite is repeated until something answers it",
+  (() => {
+    // A broadcast reaches whoever is joined AT THAT MOMENT. The other device
+    // may be a few hundred milliseconds from finishing its own join — just
+    // opened, just back from the background, socket just reconnected — and a
+    // single packet sent into that window is gone with nothing to report it.
+    // The caller hears ringback for thirty-five seconds and the callee's phone
+    // never rings.
+    return (
+      /retry\.current = window\.setInterval\(/.test(host) &&
+      /phaseRef\.current !== "dialling"/.test(host) &&
+      // Stopped by every path out of dialling, not only by success.
+      /window\.clearInterval\(retry\.current\)/.test(host)
+    )
+  })(),
+  "        components/calls/call-host.tsx — there is no delivery receipt to wait\n" +
+    "        for, so the invite has to be repeated instead.",
+)
+
+check(
+  "and a repeat does not make the ringing phone decline its own call",
+  (() => {
+    // The repeats land in the same handler as a second CALLER would, and the
+    // busy branch answers with a decline. Without this the retry above turns a
+    // ringing phone into one that hangs up on the person calling it — a fix
+    // that breaks the thing it fixes.
+    const invite = /if \(s\.t === "invite"\) \{[\s\S]{0,600}?if \(callId\.current \|\|/.exec(host)?.[0] ?? ""
+    return /if \(s\.callId === callId\.current\) return/.test(invite)
+  })(),
+)
+
+check(
+  "a channel that has gone deaf rejoins",
+  (() => {
+    // `subscribe()` with no callback is a join that is never checked again. A
+    // phone that loses signal in a lift, or is backgrounded long enough for the
+    // socket to be torn down, comes back with a channel that reports nothing
+    // and delivers nothing — and the only symptom is calls that never arrive on
+    // a device that looks perfectly fine.
+    return (
+      /CHANNEL_ERROR|TIMED_OUT|CLOSED/.test(host) &&
+      /setRejoinTick/.test(host) &&
+      // A backgrounded socket usually dies without reporting anything at all,
+      // so being looked at again is its own trigger.
+      /visibilitychange/.test(host) &&
+      /\}, \[me, rejoinTick,/.test(host)
+    )
+  })(),
+)
+
+check(
+  "the conversation never uncovers onto its own skeleton",
+  (() => {
+    // The cover's three conditions could all be satisfied while `thread` was
+    // still null: dataReady starts true when nothing came from the cache,
+    // pixelsReady turns true immediately with no images to wait for, and
+    // travelled expires on a timer regardless. So on a cold open the cover
+    // lifted onto the placeholder, and the placeholder was then replaced by the
+    // messages — two arrivals for one tap, the least informative one first.
+    const thread = read("components/messages/thread.tsx")
+    return /const covered = thread === null \|\| !dataReady/.test(thread)
+  })(),
+  "        components/messages/thread.tsx — the skeleton is the last resort\n" +
+    "        BEHIND the cover, not a state anybody is shown.",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

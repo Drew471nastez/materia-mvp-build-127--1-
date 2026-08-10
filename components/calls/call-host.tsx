@@ -89,9 +89,13 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
   const queued = useRef<CallSignal[]>([])
   const ringer = useRef<{ stop(): void } | null>(null)
   const ringTimer = useRef(0)
+  /** Repeats of the outgoing invite. Cleared by every path out of dialling. */
+  const retry = useRef(0)
   const connectedAt = useRef(0)
   /** Set the moment a call ends, so late signals cannot resurrect it. */
   const done = useRef(false)
+  /** Bumped to tear down and rejoin the listening channel. See the effect. */
+  const [rejoinTick, setRejoinTick] = useState(0)
   /**
    * The phase, readable from inside the socket callback.
    *
@@ -185,6 +189,8 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
 
       const ms = connectedAt.current ? Date.now() - connectedAt.current : 0
       window.clearTimeout(ringTimer.current)
+      window.clearInterval(retry.current)
+      retry.current = 0
       ringer.current?.stop()
       ringer.current = null
 
@@ -288,6 +294,7 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
   // ── RECEIVING ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!me) return
+    let rejoin = 0
     const client = createClient()
     const channel = client
       .channel(callChannelFor(me), { config: { broadcast: { self: false } } })
@@ -299,6 +306,14 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
         // Everything else naming a call this device is not in is from a call
         // that has already ended, and acting on it would disturb the next one.
         if (s.t === "invite") {
+          // A REPEAT OF THE CALL ALREADY RINGING IS NOT A SECOND CALLER.
+          //
+          // The caller re-sends its invite until something answers — see
+          // `start` — because one broadcast that arrives a moment before this
+          // device finished joining its channel is a phone that never rings.
+          // Without this line the repeats land in the branch below and the
+          // ringing phone declines its own call.
+          if (s.callId === callId.current) return
           if (callId.current || phaseRef.current !== "idle") {
             // Already busy. Told rather than ignored, so the caller sees
             // "unavailable" instead of ringing at nobody for 35 seconds.
@@ -372,9 +387,38 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
             return
         }
       })
-      .subscribe()
+      /**
+       * A CHANNEL THAT HAS GONE DEAF HAS TO REJOIN.
+       *
+       * `subscribe()` with no callback is a join that is never checked again.
+       * A phone that loses signal in a lift, or is backgrounded long enough for
+       * the socket to be torn down, comes back with a channel that reports
+       * nothing and delivers nothing — and the only symptom is calls that never
+       * arrive, on a device that looks perfectly fine.
+       *
+       * Rejoining on a bad status is most of it; rejoining when the screen is
+       * looked at again is the rest, because a backgrounded socket usually dies
+       * without ever reporting anything at all.
+       */
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          window.clearTimeout(rejoin)
+          rejoin = window.setTimeout(() => setRejoinTick((n) => n + 1), 1200)
+        }
+      })
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return
+      // Cheap: a channel that is already joined answers SUBSCRIBED again and
+      // nothing else happens. The cost of being wrong the other way is a phone
+      // that cannot be called until the app is restarted.
+      setRejoinTick((n) => n + 1)
+    }
+    document.addEventListener("visibilitychange", onVisible)
 
     return () => {
+      window.clearTimeout(rejoin)
+      document.removeEventListener("visibilitychange", onVisible)
       void client.removeChannel(channel)
     }
     // ONLY `me`.
@@ -385,7 +429,7 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
     // causes. The caller's offer arrives milliseconds later, straight into that
     // gap, and the call connects only if the rejoin happens to win the race. A
     // ref answers the busy question without the subscription depending on it.
-  }, [me, buildPeer, finish, openTo, send])
+  }, [me, rejoinTick, buildPeer, finish, openTo, send])
 
   // Leaving the page mid-call tells the other end rather than leaving them
   // listening to nothing until the ICE timeout.
@@ -414,14 +458,6 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
       // Raised immediately and HELD until the channel has joined — see openTo.
       // A broadcast on a channel that has not finished joining is dropped
       // silently, which is a call that never rings with no error anywhere.
-      send({
-        t: "invite",
-        callId: id,
-        conversationId: convo,
-        from: me ?? "",
-        fromName: snap?.displayName || snap?.username || "Cineva",
-        fromAvatar: snap?.avatarUrl ?? null,
-      })
 
       // The socket only reaches an app that is open. This is the half that
       // reaches a phone in a pocket — see app/api/calls/ring.
@@ -432,6 +468,42 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
         body: JSON.stringify({ conversationId: convo, callId: id, stage: "ring" }),
       }).catch(() => {})
 
+      /**
+       * THE INVITE IS REPEATED, NOT SENT ONCE.
+       *
+       * A broadcast reaches whoever is joined to the channel AT THAT MOMENT.
+       * The other device may be a few hundred milliseconds from finishing its
+       * own join — it has just been opened, it has just come back from the
+       * background, its socket has just reconnected — and a single packet sent
+       * into that window is simply gone. Nothing reports it: the caller hears
+       * ringback for thirty-five seconds and the callee's phone never rings,
+       * which is exactly "it does not really work that well".
+       *
+       * There is no delivery receipt to wait for, so it is repeated instead,
+       * every 1.2s until something answers. The callee ignores repeats of a
+       * call it is already ringing (see the invite handler), so arriving five
+       * times rings once — and it stops the moment the call leaves `dialling`,
+       * which every path out of it does.
+       */
+      const invite: CallSignal = {
+        t: "invite",
+        callId: id,
+        conversationId: convo,
+        from: me ?? "",
+        fromName: snap?.displayName || snap?.username || "Cineva",
+        fromAvatar: snap?.avatarUrl ?? null,
+      }
+      window.clearInterval(retry.current)
+      retry.current = window.setInterval(() => {
+        if (done.current || callId.current !== id || phaseRef.current !== "dialling") {
+          window.clearInterval(retry.current)
+          retry.current = 0
+          return
+        }
+        send(invite)
+      }, 1200)
+
+      send(invite)
       ringer.current = playRingback()
       window.clearTimeout(ringTimer.current)
       ringTimer.current = window.setTimeout(() => finish("missed"), RING_MS)

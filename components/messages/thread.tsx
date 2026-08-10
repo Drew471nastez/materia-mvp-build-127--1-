@@ -1053,7 +1053,24 @@ export function MessageThread({
     return () => window.clearTimeout(t)
   }, [])
 
-  const covered = !dataReady || !pixelsReady || !travelled
+  /**
+   * AND IT NEVER UNCOVERS ONTO A SKELETON.
+   *
+   * This is the rare one: the conversation showing its grey bubbles for a beat
+   * before the real messages. `thread === null` is the state where there is no
+   * conversation to draw at all, and the skeleton below is what stands in — but
+   * the cover's three conditions could all be satisfied while it was still null.
+   * `dataReady` starts true when nothing came from the cache, `pixelsReady`
+   * turns true immediately when there are no images to wait for, and `travelled`
+   * expires on a timer regardless. All three, on a cold open, can be true before
+   * the payload has landed.
+   *
+   * So the cover lifted onto the placeholder, and the placeholder was then
+   * replaced by the messages: two arrivals for one tap, with the least
+   * informative one first. The skeleton exists to be the LAST RESORT behind the
+   * cover, not a thing anybody is shown.
+   */
+  const covered = thread === null || !dataReady || !pixelsReady || !travelled
   coveredRef.current = covered
 
   // Wait one: the server's copy of this conversation.
