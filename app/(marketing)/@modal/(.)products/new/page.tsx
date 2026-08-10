@@ -1,4 +1,5 @@
 import { NewListingForm } from "@/components/sell/new-listing-form"
+import { InterceptedOnly } from "@/components/sell/intercepted-only"
 
 /**
  * The sell sheet, OVER the screen you were on.
@@ -50,5 +51,13 @@ export default async function InterceptedNewListing({
   // an effect afterwards — so a draft opened from the drafts list arrived at a
   // blank form. Same fault, same fix, as the edit route beside this one.
   const { draft } = await searchParams
-  return <NewListingForm draftId={draft ?? null} />
+  // Guarded, because a parallel slot does not clear itself on a soft
+  // navigation — see components/sell/intercepted-only. Without this the slot
+  // goes on drawing whatever it last matched, which is how opening "add a
+  // listing" could show the edit form for another product.
+  return (
+    <InterceptedOnly path="/products/new">
+      <NewListingForm draftId={draft ?? null} />
+    </InterceptedOnly>
+  )
 }

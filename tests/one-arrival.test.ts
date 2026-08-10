@@ -74,6 +74,17 @@ function check(name: string, ok: boolean, detail?: string) {
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
+/**
+ * Source with the prose taken out.
+ *
+ * Any assertion that something is ABSENT has to read code and not comments.
+ * This has now been walked into four separate times in this repository's
+ * suites — a check satisfied by the very sentence explaining why the forbidden
+ * thing is not there, and in one case by a fix that had been commented out to
+ * verify the check would catch it. Use this for every negative test.
+ */
+const code = (p: string) =>
+  read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(join(root, dir))) {
@@ -246,6 +257,50 @@ check(
     // plays exactly once across both.
     const layout = read("app/(marketing)/messages/[id]/layout.tsx")
     return /thread-arrive/.test(layout) && oneShot.has("thread-arrive")
+  })(),
+)
+
+// ── AND ONE SLOT SHOWS ONE THING ────────────────────────────────────────────
+//
+// The same family as the checks above — what a route slot is allowed to draw —
+// and the other half of it. Those are about a slot drawing the right thing
+// twice; this is about it drawing the WRONG thing at all.
+//
+// A parallel slot does not clear itself on a soft navigation. `@modal` keeps
+// rendering whatever it last matched, and `default.tsx` — the file that renders
+// nothing — is only consulted on a hard one. So after editing a listing the slot
+// still holds the edit route, and pushing /products/new draws that listing's
+// form until the router resolves the new match: "I opened add a listing and it
+// showed the editing of another product".
+
+check(
+  "every intercepted modal renders only on the URL it intercepts",
+  (() => {
+    const modals = walk("app").filter((f) => /@modal\/.*\/page\.tsx$/.test(f))
+    if (modals.length === 0) return false
+    const guilty = modals.filter((f) => !/<InterceptedOnly\s+path=/.test(read(f)))
+    if (guilty.length) console.log(`        ${guilty.join("\n        ")}`)
+    return guilty.length === 0
+  })(),
+  "        components/sell/intercepted-only.tsx — a slot that outlives its URL\n" +
+    "        draws the last modal it matched over the one being asked for.",
+)
+
+check(
+  "and the guard fails closed",
+  (() => {
+    // A slot rendering nothing is a screen with no sheet on it, which the next
+    // press fixes. A slot rendering the wrong listing is somebody editing a
+    // thing they did not open, and the first they know of it is what they saved.
+    const guard = code("components/sell/intercepted-only.tsx")
+    return (
+      /if \(pathname !== path\) return null/.test(guard) &&
+      // Against the ROUTER's pathname, not the document's: window.location is
+      // written by a pushState in an effect afterwards and would be the previous
+      // page's on the first render, which would hide the correct modal.
+      /usePathname\(\)/.test(guard) &&
+      !/window\.location/.test(guard)
+    )
   })(),
 )
 

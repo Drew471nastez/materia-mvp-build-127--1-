@@ -1,4 +1,5 @@
 import { NewListingForm } from "@/components/sell/new-listing-form"
+import { InterceptedOnly } from "@/components/sell/intercepted-only"
 import { loadOwnedListing } from "@/lib/marketplace/owned-listing"
 
 /**
@@ -74,5 +75,12 @@ export default async function InterceptedEditListing({
    * than an error page — the same thing the client path always did.
    */
   const listing = await loadOwnedListing(id)
-  return <NewListingForm editId={id} initialListing={listing} />
+  // Same guard as the twin route, and this is the side that was being SHOWN
+  // when it should not have been: the slot kept this modal after the edit was
+  // over, so the next push of /products/new drew this listing's form.
+  return (
+    <InterceptedOnly path={`/products/edit/${id}`}>
+      <NewListingForm editId={id} initialListing={listing} />
+    </InterceptedOnly>
+  )
 }
