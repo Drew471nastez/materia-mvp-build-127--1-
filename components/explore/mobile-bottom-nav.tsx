@@ -268,27 +268,66 @@ export function MobileBottomNav({
     const open = () =>
       window.location.pathname.startsWith("/products/new") && !!document.querySelector(".sell-sheet")
 
-    window.setTimeout(() => {
-      if (typeof document === "undefined" || open()) return
-      if (!window.location.pathname.startsWith("/products/new")) {
-        // The push never took. Ask once more, the cheap way — a client
-        // navigation, so a transient drop costs a beat and nothing else.
-        router.push("/products/new")
-        // AND A FLOOR UNDER THE RETRY. Modelling this against a router that
-        // drops every push showed the retry branch had no terminal case: two
-        // client pushes, both lost, and the sheet never opens. Escalating means
-        // there is exactly one outcome — the form is on screen — however many
-        // ways the client navigation finds to fail.
-        window.setTimeout(() => {
-          if (!open()) window.location.assign("/products/new")
-        }, 700)
+    /**
+     * THE WATCHDOG THAT WAS CAUSING THE THING IT EXISTED TO PREVENT.
+     *
+     * It gave the navigation 700ms and then, if `.sell-sheet` was not in the
+     * document, called `window.location.assign` — a full document load. But
+     * 700ms is not a timeout for "the push was dropped", it is a timeout for
+     * "this phone has not finished rendering a long form yet", and on a cold
+     * route those are indistinguishable from here. So a navigation that was
+     * working perfectly well got a hard reload dropped on top of it, and what
+     * you saw was the sell page appearing, and then appearing again. It opened
+     * twice because this opened it twice.
+     *
+     * Two changes, and they follow from what the two failures actually look
+     * like:
+     *
+     *   THE ROUTE IS RIGHT, THE FORM IS NOT PAINTED YET. Not a failure at all —
+     *   it is a render in progress. Waiting costs nothing and reloading throws
+     *   away the work and shows the arrival a second time. So this case no
+     *   longer escalates, ever; it just keeps looking.
+     *
+     *   THE ROUTE NEVER CHANGED. That is the real dropped push, it is
+     *   detectable without guessing, and it is the only thing worth acting on.
+     *
+     * Polled rather than a single deadline, so a fast phone stops looking
+     * almost immediately and a slow one is given the time it needs.
+     */
+    const started = Date.now()
+    const watch = window.setInterval(() => {
+      if (typeof document === "undefined" || open()) {
+        window.clearInterval(watch)
         return
       }
-      // On the route with nothing rendered into the slot. A second client
-      // navigation cannot fix that; a document load renders the page route,
-      // which always works.
-      window.location.assign("/products/new")
-    }, 700)
+      const onRoute = window.location.pathname.startsWith("/products/new")
+      const waited = Date.now() - started
+      if (!onRoute && waited > 900) {
+        // The push never took. Ask once more, the cheap way — a client
+        // navigation, so a transient drop costs a beat and nothing else.
+        window.clearInterval(watch)
+        router.push("/products/new")
+        // AND A FLOOR UNDER THE RETRY. A router that drops every push would
+        // otherwise leave this with no terminal case: two client pushes, both
+        // lost, and the sheet never opens.
+        window.setTimeout(() => {
+          if (!open() && !window.location.pathname.startsWith("/products/new")) {
+            window.location.assign("/products/new")
+          }
+        }, 1200)
+        return
+      }
+      // On the right route and still nothing after a generous wait. Now it is
+      // worth a document load — but 4 seconds, not 0.7, because everything
+      // shorter than that was a phone rendering a form.
+      if (onRoute && waited > 4000) {
+        window.clearInterval(watch)
+        window.location.assign("/products/new")
+      }
+    }, 150)
+    // Never left running: this bar is mounted on every screen for the whole
+    // session, and an interval per press would accumulate one per tap.
+    window.setTimeout(() => window.clearInterval(watch), 6000)
   }, [sheetOpen, router])
 
   // Every tab answers the finger before the route does.
@@ -536,11 +575,21 @@ export function MobileBottomNav({
                 a turn that began behind the thing hiding it. `plusOpen` is true
                 from the press, which is the only version of this you can
                 actually watch. The curve and its length are in globals.css. */}
-            <Plus
-              className="plus-turn h-6 w-6"
-              strokeWidth={2.6}
+            {/* THE TURN IS ON A SPAN, NOT ON THE ICON.
+
+                `data-open` was set on <Plus>, which is a component, not an
+                element — whether it reaches the DOM at all depends on that
+                library forwarding unknown props to its <svg>. When it does not,
+                the attribute never lands, the selector never matches, and the
+                rotation does not happen: no error, no warning, and CSS that
+                reads exactly right. This is a plain HTML element, so the
+                attribute is on it because it was written on it. */}
+            <span
+              className="plus-turn flex h-6 w-6 items-center justify-center"
               data-open={plusOpen ? "true" : "false"}
-            />
+            >
+              <Plus className="h-6 w-6" strokeWidth={2.6} />
+            </span>
           </span>
         </button>
 

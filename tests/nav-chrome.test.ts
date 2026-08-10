@@ -382,6 +382,136 @@ check(
   })(),
 )
 
+// ── THE + THAT DID NOT TURN ─────────────────────────────────────────────────
+
+check(
+  "the rotation is driven by an attribute on a real element",
+  (() => {
+    // `data-open` was on <Plus>, which is a COMPONENT. Whether an unknown prop
+    // reaches the DOM at all is that library's decision — and when it does not,
+    // the selector never matches, the icon never turns, and the CSS reads
+    // perfectly correct. No error, no warning, nothing to find.
+    const nav = read("components/explore/mobile-bottom-nav.tsx")
+    return (
+      /<span\s+className="plus-turn[^"]*"\s+data-open=\{plusOpen \? "true" : "false"\}/.test(nav) &&
+      // And nothing may put it back on the icon.
+      !/<Plus[^>]*data-open/.test(nav)
+    )
+  })(),
+  "        components/explore/mobile-bottom-nav.tsx — data-open has to sit on an\n" +
+    "        element, not on a component that may or may not forward it.",
+)
+
+check(
+  "a sell navigation that is merely slow is not reloaded on top of",
+  (() => {
+    // THE DOUBLE OPEN. The watchdog gave the route 700ms and then called
+    // location.assign — but 700ms is a timeout for "this phone has not finished
+    // rendering a long form", not for "the push was dropped", and from here the
+    // two look identical. A working navigation got a full document load dropped
+    // on it, and the page opened twice because this opened it twice.
+    const nav = read("components/explore/mobile-bottom-nav.tsx")
+    const sell = /const onSell = useCallback\([\s\S]*?\n  \}, \[sheetOpen, router\]\)/.exec(nav)?.[0] ?? ""
+    if (!sell) return false
+    // Being ON the right route may never escalate quickly — that case is a
+    // render in progress, and reloading throws the work away.
+    const patient = /onRoute && waited > 4000/.test(sell)
+    // The only fast escalation left is the one that is actually detectable:
+    // the URL never changed at all.
+    const detectable = /!onRoute && waited > 900/.test(sell)
+    return patient && detectable && !/waited > 700/.test(sell)
+  })(),
+)
+
+check(
+  "and the watchdog cannot outlive the press that started it",
+  (() => {
+    // This bar is mounted on every screen for the whole session; an interval
+    // per press would accumulate one per tap.
+    const nav = read("components/explore/mobile-bottom-nav.tsx")
+    return (
+      /window\.clearInterval\(watch\)/.test(nav) &&
+      /setTimeout\(\(\) => window\.clearInterval\(watch\), 6000\)/.test(nav)
+    )
+  })(),
+)
+
+// ── OPENING A CONVERSATION ──────────────────────────────────────────────────
+
+check(
+  "a conversation is pushed in, not faded in",
+  (() => {
+    // A fade IS the flash: nothing travels, so the only signal is brightness
+    // changing on a screen whose content has just been replaced.
+    const css = read("app/globals.css")
+    return (
+      /@keyframes thread-push-in/.test(css) &&
+      /translate3d\(100%, 0, 0\)/.test(css) &&
+      !/@keyframes thread-arrive/.test(css)
+    )
+  })(),
+)
+
+check(
+  "and it travels on the same curve as the picker levels it was copied from",
+  (() => {
+    // components/sell/picker-page.tsx — choosing a brand pushes a panel in over
+    // the level above it. Same easing, same distance, same duration, or the app
+    // has two different ideas of what "one level deeper" looks like.
+    const css = read("app/globals.css")
+    const picker = read("components/sell/picker-page.tsx")
+    const ease = /const EASE = "([^"]+)"/.exec(picker)?.[1]
+    const inMs = /const IN_MS = (\d+)/.exec(picker)?.[1]
+    const arrive = /\.thread-arrive \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    return (
+      !!ease && !!inMs && arrive.includes(ease) && arrive.includes(`${inMs}ms`)
+    )
+  })(),
+)
+
+check(
+  "the transformed ancestor is the viewport rectangle, or the screen jumps",
+  (() => {
+    // A transform makes this element the containing block for the fixed
+    // .thread-shell inside it — which is why every earlier attempt at this
+    // jumped. `inset: 0` makes that containing block exactly the viewport, so
+    // the shell resolves to the identical pixels.
+    const css = read("app/globals.css")
+    const arrive = /\.thread-arrive \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    return /position: fixed/.test(arrive) && /inset: 0/.test(arrive)
+  })(),
+)
+
+check(
+  "going back is the same movement in reverse, not its own idea",
+  (() => {
+    // A scale-and-fade on the way back would mean the screen left one way and
+    // returned another.
+    const css = read("app/globals.css")
+    return (
+      /@keyframes pop-return-list/.test(css) &&
+      /translate3d\(-25%, 0, 0\)/.test(css) &&
+      /animation: pop-return-list 360ms cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(css)
+    )
+  })(),
+)
+
+check(
+  "the profile header arrives at a lower peak speed than it did",
+  (() => {
+    // "Too fast" on a strip this size is peak velocity, not duration: a short
+    // animation on a decisive curve covers most of its distance in the first
+    // third and reads as being flung into place.
+    const css = read("app/globals.css")
+    const shown = /\.profile-pinned\[data-shown="true"\] \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    const ms = Number(/transform (\d+)ms/.exec(shown)?.[1])
+    const fade = Number(/opacity (\d+)ms/.exec(shown)?.[1])
+    // The fade still trails the travel, which is what makes it land as one
+    // movement rather than two things happening.
+    return Number.isFinite(ms) && ms >= 420 && Number.isFinite(fade) && fade < ms
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

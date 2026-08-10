@@ -566,13 +566,26 @@ html.capacitor a.no-tap-fade:active {
    solid white strip sliding — the most visible part of the animation was also
    the least informative. Held back, the fade finishes as the bar lands, and
    what you see is one movement settling instead of two things happening. */
+/* SLOWER AGAIN, and the reason is peak velocity rather than duration.
+
+   320ms was still arriving and stopping. What the eye reads as "too fast" on a
+   strip this size is not how long it takes but how quickly it is moving at its
+   quickest — a short animation on a decisive curve spends most of its distance
+   in the first third, so the bar appears to be flung into place and caught.
+   440ms over the same distance is a lower peak speed throughout, and the curve
+   spends its whole second half decelerating, so the last few pixels are the
+   slowest rather than the same speed as the first.
+
+   The fade still trails the travel and still lands with it: 360 against 440
+   keeps the same ratio the note above describes, so the bar is not fully opaque
+   until it has almost stopped. */
 .profile-pinned[data-shown="true"] {
   transform: translate3d(0, 0, 0);
   opacity: 1;
   pointer-events: auto;
   transition:
-    transform 320ms cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform 440ms cubic-bezier(0.22, 0.61, 0.16, 1),
+    opacity 360ms cubic-bezier(0.22, 0.61, 0.16, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .profile-pinned {
@@ -1304,9 +1317,21 @@ html.capacitor a.no-tap-fade:active {
        the list does not arrive and stop, it stops arriving. A shorter
        animation with a harder curve has higher peak velocity, and peak
        velocity is what the eye reads as abrupt. */
-    animation: pop-return 420ms cubic-bezier(0.16, 0.84, 0.3, 1) both;
-    transform-origin: 50% 42%;
-    will-change: transform, opacity;
+    /* THE OTHER HALF OF THE PUSH, and it has to be the other half rather than
+       its own idea. A conversation now slides in from the right, so coming
+       back is the level above being uncovered — which travels a short way
+       from the LEFT, on the same curve and slightly quicker than the push,
+       exactly as the picker's pop does. A scale-and-fade here would mean the
+       screen left one way and returned another. */
+    animation: pop-return-list 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  /* 25%, the same parallax distance the picker shifts a covered level by:
+     the list was never fully off screen, so it does not come fully back on. */
+  @keyframes pop-return-list {
+    from { transform: translate3d(-25%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
     /* Chrome fades with the page but does not travel with it. */
@@ -1332,20 +1357,52 @@ html.capacitor a.no-tap-fade:active {
    * 0.86, which is visible without being a page-load dim, over 320ms whose
    * tail is most of it — the conversation eases the last few percent into
    * place instead of arriving and stopping. */
-  @keyframes thread-arrive {
-    from { opacity: 0.9; }
-    to   { opacity: 1; }
+  /* A CONVERSATION IS PUSHED ON, NOT FADED IN.
+     ---------------------------------------------------------------------
+     This was two opacity ramps composed together — <main> rising 0.88 → 1
+     and this rising 0.9 → 1 inside it — and however carefully they were
+     matched, a fade is what the flash was. Nothing travels, so the only
+     thing the eye has to go on is brightness changing on a screen whose
+     content has just been replaced, which reads as a flicker rather than as
+     a movement. Opening a conversation is going one level deeper into
+     something, and the app already has a motion that means exactly that:
+     components/sell/picker-page.tsx, where choosing a brand pushes a panel
+     in from the right over the level above it. Same easing, same distance,
+     same duration — 420ms in, 360ms back, cubic-bezier(0.32, 0.72, 0, 1).
+
+     WHY THE ANCESTOR MAY NOW BE TRANSFORMED, when the note above says it
+     may not: a transform makes this element the containing block for the
+     `position: fixed` .thread-shell inside it, which is why every earlier
+     attempt at this jumped. `inset: 0` makes that containing block exactly
+     the viewport rectangle — so the shell's `top` and `height` resolve to
+     the identical pixels they resolved to before, and the only thing the
+     transform changes is that the whole screen travels together. It is
+     scoped to this media query because .thread-shell is only fixed here;
+     on a desktop the conversation is a column in a split view and must
+     stay in the flow. */
+  @keyframes thread-push-in {
+    from { transform: translate3d(100%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
   }
   .thread-arrive {
-    /* THE SAME CURVE AND THE SAME LENGTH AS THE DIP ABOVE IT, and that is the
-       whole point rather than a coincidence.
-       <main> rises 0.88 → 1 over 240ms when the route commits. This element is
-       INSIDE it, so the two opacities MULTIPLY — and two ramps of different
-       lengths on different curves multiply into a fade that visibly changes
-       pace partway through. That kink is what was left of "not smooth" on the
-       way in: not either animation, but the beat between them.
-       Matched, they compose into a single smooth ramp from 0.88 x 0.9 to 1. */
-    animation: thread-arrive 240ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+    position: fixed;
+    inset: 0;
+    /* The same layer .thread-shell claims, since this now stands in front of
+       it as the element that actually moves. */
+    z-index: 45;
+    /* White, because the shell inside is narrower than the screen for one
+       frame at the start of the push and the strip beside it must not be a
+       window onto the page being left. */
+    background: #ffffff;
+    animation: thread-push-in 420ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    /* Promoted before the first frame rather than at it — the same argument as
+       .plus-turn, and it matters more here because this layer is the whole
+       screen. */
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thread-arrive { animation: none; }
   }
 
   /* The same dip, for the navigations no finger on the bar started — a
