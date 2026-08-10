@@ -937,13 +937,34 @@ html.capacitor a.no-tap-fade:active {
  * declaration and reverses from wherever it currently is, so open-then-close is
  * one continuous movement rather than two events.
  *
- * The curve carries slightly past its target and settles back — 1.5 on the
- * third control point. That overshoot is the whole difference between a thing
- * being turned and a value being assigned, and on a 24px icon it costs nothing:
- * a rotate is composited, so this is one layer moving on the GPU, at whatever
- * rate the display runs. */
+ * NO OVERSHOOT, and the curve is the sheet's own.
+ *
+ * This was `cubic-bezier(0.34, 1.5, 0.64, 1)` — 1.5 on the third control point,
+ * which carries the icon past 135° and lets it fall back. On a large, slow,
+ * heavy element that reads as weight. On a 24px glyph turning in under half a
+ * second it is a twitch at the end of the movement: the + arrives, jerks, and
+ * settles, and it arrives at the same instant the rising sheet reaches it, so
+ * the last thing you see of the icon is the wobble. That is the cheap part, and
+ * no duration fixes it because the bounce is in the curve.
+ *
+ * `cubic-bezier(0.32, 0.72, 0, 1)` is what the sell sheet itself rises on — see
+ * `.sell-sheet-enter`. Using it here is not tidiness: the + and the sheet are
+ * one movement seen in two places, and two easings for one movement is exactly
+ * what reads as unfinished. It leaves immediately with the finger, then decays
+ * for a long time into its endpoint, which is what makes a turn feel slow while
+ * still answering the press on the first frame.
+ *
+ * 520ms against the sheet's 420. The icon is the slowest thing in the gesture
+ * on purpose — it is still easing when the sheet passes over it, so the turn is
+ * covered mid-movement rather than caught stopping. A rotation you never see
+ * end never reads as having stopped short.
+ *
+ * `will-change` is permanent here rather than armed per-press, and it is worth
+ * the one small layer: a press can come at any moment, so there is no frame in
+ * which to build the layer beforehand, and building it on the first frame of
+ * the turn is a hitch at exactly the start — which is the part being fixed. */
 .plus-turn {
-  transition: transform 440ms cubic-bezier(0.34, 1.5, 0.64, 1);
+  transition: transform 520ms cubic-bezier(0.32, 0.72, 0, 1);
   transform: rotate(0deg);
   will-change: transform;
 }

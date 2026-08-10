@@ -663,14 +663,95 @@ check(
 check(
   "and the strip is brought to the top before the panel changes",
   (() => {
-    // Otherwise the browser is left scrolled past the end of a document that
-    // just shrank: it paints nothing, then clamps. That is the second of empty
-    // page followed by a jump.
+    // THE INVARIANT, unchanged: the swap must never happen while the page is
+    // still scrolled past where the shorter panel will end. Otherwise the
+    // browser is left beyond the end of a document that just shrank — it paints
+    // nothing, then clamps, which is the second of empty page followed by a
+    // jump.
+    //
+    // WHAT CHANGED is how the strip gets there. It used to be an instant
+    // `scrollBy` fired on the same tick as the swap, and two thousand pixels
+    // erased between one frame and the next is not a transition anybody can
+    // follow — press Evaluări and the screen you were reading is simply gone.
+    // The travel is animated now and the swap waits for it, which satisfies this
+    // invariant more strictly than the jump did rather than less: `commit` is
+    // the ONLY thing that moves the panels, and on the animated path it is
+    // reachable only from the end of the scroll.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const panelIn ="))
+    return (
+      go.length > 200 &&
+      // One place changes the panel, and it is the one the scroll calls.
+      (go.match(/setShelfTab\(/g) ?? []).length === 1 &&
+      /const commit = \(\) => \{[\s\S]{0,200}?setShelfTab\(/.test(go) &&
+      // The animated branch never commits inline — only `stop()` does, and
+      // `stop()` is what the final frame runs.
+      /if \(t < 1\) \{\s*\n\s*requestAnimationFrame\(step\)\s*\n\s*return\s*\n\s*\}\s*\n\s*stop\(\)/.test(go) &&
+      /const stop = \(\) => \{[\s\S]{0,320}?commit\(\)/.test(go)
+    )
+  })(),
+)
+
+check(
+  "a page already at the strip does not travel, and neither does a reduced-motion one",
+  (() => {
+    // Switching while you can still see the strip must not move the page at all,
+    // and somebody who has asked for less motion gets the old instant behaviour
+    // rather than a 380ms glide they opted out of. Both fall through to the same
+    // immediate commit.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /const top = el\.getBoundingClientRect\(\)\.top/.test(profile) &&
+      /\(prefers-reduced-motion: reduce\)/.test(profile) &&
+      /if \(top >= -1 \|\| reduced\) \{[\s\S]{0,220}?commit\(\)\s*\n\s*return/.test(profile) &&
       /if \(top < 0\) window\.scrollBy\(\{ top, behavior: "auto" \}\)/.test(profile)
     )
+  })(),
+)
+
+check(
+  "the tab answers the finger, and the panel answers the scroll",
+  (() => {
+    // A 380ms glide with the underline still sitting on the tab you left is a
+    // tap that did nothing for a third of a second. The strip is optimistic —
+    // it draws `pending` — while the panels wait for the travel to finish.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /const shownTab = pending \?\? shelfTab/.test(profile) &&
+      /active=\{shownTab === "listings"\}/.test(profile) &&
+      /active=\{shownTab === "reviews"\}/.test(profile) &&
+      // The panels are the slow half, and must NOT read the optimistic value.
+      /shelf-panel", shelfTab === "reviews"/.test(profile) &&
+      /shelf-panel", shelfTab === "listings"/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "a finger on the screen wins the scroll back",
+  (() => {
+    // A page that keeps gliding somewhere while you are trying to scroll it
+    // yourself is worse than the jump this replaces. Either input cancels the
+    // run and commits where it stands.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /addEventListener\("touchstart", stop, \{ passive: true, once: true \}\)/.test(profile) &&
+      /addEventListener\("wheel", stop, \{ passive: true, once: true \}\)/.test(profile) &&
+      // And a run that outlives its component stops driving a page that is gone.
+      /useEffect\(\(\) => \(\) => void scrollRun\.current\+\+, \[\]\)/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "the reviews request starts on the tap, not on the arrival",
+  (() => {
+    // The panel is `hidden` either way, so mounting it early costs no layout —
+    // and its round trip then runs during the glide instead of on the frame it
+    // appears. The tab lands populated rather than landing and then filling in.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const panelIn ="))
+    const commitEnd = go.indexOf("setPending(null)")
+    return commitEnd > 0 && go.indexOf('if (next === "reviews") setReviewsSeen(true)') > commitEnd
   })(),
 )
 
@@ -758,9 +839,12 @@ check(
     // The one thing a tab strip has to communicate is that these are the same
     // control in two positions, and a border that simply becomes black
     // somewhere else says the opposite. One bar, moved by transform.
+    // `shownTab`, not `shelfTab`: the bar belongs to the strip, which answers
+    // the finger immediately, rather than to the panels, which wait for the
+    // scroll to finish. It still travels by transform and it is still one bar.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /transform: `translate3d\(\$\{shelfTab === "reviews" \? 100 : 0\}%, 0, 0\)`/.test(profile) &&
+      /transform: `translate3d\(\$\{shownTab === "reviews" \? 100 : 0\}%, 0, 0\)`/.test(profile) &&
       /absolute -bottom-px left-0 h-\[2px\] w-1\/2/.test(profile)
     )
   })(),
@@ -1113,6 +1197,122 @@ check(
 check(
   "and it is solid black, so it is the same black on every photograph",
   !/bg-neutral-900\/85/.test(profileSrc),
+)
+
+console.log("\nEditing a listing actually lands on the form")
+
+check(
+  "the sheet closes on its way to the sell form",
+  (() => {
+    // IT DID NOT. `onEdit` was a haptic and a `router.push`, with no `onClose()`
+    // anywhere — so the sheet stayed open over the form it had just opened, and
+    // both sit at z-95, so which one won was decided by DOM order.
+    const edit = sheet.slice(sheet.indexOf("const onEdit = useCallback"), sheet.indexOf("const act = useCallback"))
+    return edit.length > 80 && /onClose\(\)/.test(edit)
+  })(),
+)
+
+check(
+  "and the page it lands on is not still locked",
+  (() => {
+    // THE REAL DAMAGE, and the reason this reads as "the form comes up empty".
+    // BottomSheet holds lockScroll() for as long as it is MOUNTED. A sheet that
+    // never closes never unmounts, so the lock was never released — and the sell
+    // form is a scrolling column of fields. Everything below the fold was loaded
+    // and unreachable, which looks exactly like nothing having been populated.
+    return (
+      /if \(!mounted\) return\s*\n\s*return lockScroll\(\)/.test(bottomSheet) &&
+      /const onEdit = useCallback\([\s\S]{0,400}?onClose\(\)/.test(sheet)
+    )
+  })(),
+)
+
+check(
+  "the navigation waits for the sheet to leave, rather than racing it",
+  (() => {
+    // Two panels of different weights moving at once. The status actions already
+    // defer their refresh by exactly this constant for exactly this reason.
+    const edit = sheet.slice(sheet.indexOf("const onEdit = useCallback"), sheet.indexOf("const act = useCallback"))
+    return /setTimeout\(\(\) => router\.push\(editHref\), AFTER_EXIT_MS\)/.test(edit)
+  })(),
+)
+
+check(
+  "and the route is warmed while the sheet is still up, so the wait buys something",
+  // Otherwise the sheet finishes leaving and only THEN does the form start
+  // fetching — the pause this sequence exists to remove, moved later.
+  /if \(open\) router\.prefetch\(editHref\)/.test(sheet),
+)
+
+check(
+  "a draft still resumes through the drafts route",
+  // The two routes are not interchangeable: only the drafts one knows how to
+  // publish from a draft. Rewriting onEdit must not have flattened them.
+  /isDraft\s*\n?\s*\? `\/products\/new\?draft=\$\{encodeURIComponent\(listingId\)\}`/.test(sheet) &&
+    /: `\/products\/new\?edit=\$\{encodeURIComponent\(listingId\)\}`/.test(sheet),
+)
+
+check(
+  "the verbs are not boxed inside the sheet that already contains them",
+  (() => {
+    // `rounded-2xl border border-neutral-200/80` around the rows, drawn inside a
+    // sheet that is itself a rounded white panel over a scrim: a card in a card,
+    // two corner radii a few pixels apart, and a hairline tracing the outline of
+    // the thing it was already inside. It read as a second modal nested in the
+    // first.
+    return !/rounded-2xl border border-neutral-200\/80/.test(sheet) && /-mx-2 pb-4 pt-1/.test(sheet)
+  })(),
+)
+
+console.log("\nWhat a missing photograph draws")
+
+check(
+  "an empty card is not an emoji",
+  (() => {
+    // It was a 👜 at text-4xl. An emoji is drawn by the OS, so the same listing
+    // was a flat handbag on one phone, a glossy one on another, and a hollow
+    // rectangle on a device with no font for it — at whatever size and colour
+    // the vendor picked, in a grid tuned to neutrals.
+    const card = strip(read("components/explore/product-card.tsx"))
+    return (
+      !/👜/.test(card) &&
+      !/text-4xl/.test(card) &&
+      /<ImageOff className="h-8 w-8 text-neutral-300"/.test(card)
+    )
+  })(),
+)
+
+check(
+  "and neither is an empty avatar in the pinned bar",
+  (() => {
+    // The same trap one size down, on the element added right next to it: a
+    // silhouette emoji beside a real photograph in the same 28px circle is the
+    // loudest mismatch in the bar. The initial is the app's own type in the
+    // app's own grey, and it is what the full-size avatar above already does.
+    return (
+      /name\.trim\(\)\.charAt\(0\)\.toUpperCase\(\)/.test(pinnedSrc) &&
+      /object-cover/.test(pinnedSrc)
+    )
+  })(),
+)
+
+check(
+  "the bar carries the face as well as the name",
+  (() => {
+    // A name alone is the weakest of the identifiers the bar stands in for:
+    // display names repeat, they truncate at this width, and the thing the eye
+    // recognises forty cards down a grid is the picture. To the RIGHT of the
+    // name, so a long name is shortened rather than the face being dropped.
+    const at = pinnedSrc.indexOf("{name}")
+    return (
+      at > 0 &&
+      /<PinnedAvatar name=\{name\} url=\{avatarUrl\} \/>/.test(pinnedSrc) &&
+      pinnedSrc.indexOf("<PinnedAvatar") > at &&
+      pinnedSrc.indexOf("<PinnedAvatar") < pinnedSrc.indexOf('label="Distribuie"') &&
+      // And the caller actually hands it one.
+      /avatarUrl=\{member\.avatarUrl\}/.test(profileSrc)
+    )
+  })(),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

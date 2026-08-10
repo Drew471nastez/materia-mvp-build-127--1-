@@ -44,11 +44,15 @@ import { beginTabLeave } from "@/lib/tab-leave"
  */
 export function ProfilePinnedHeader({
   name,
+  avatarUrl,
   visible,
   isOwner,
   onShare,
 }: {
   name: string
+  /** The same picture the header above uses. `null` for a member who has not
+   *  uploaded one — see the fallback in `PinnedAvatar`. */
+  avatarUrl: string | null
   visible: boolean
   isOwner: boolean
   onShare: () => void
@@ -69,6 +73,24 @@ export function ProfilePinnedHeader({
           {name}
         </span>
 
+        {/* THE FACE, TO THE RIGHT OF THE NAME.
+
+            The bar exists because everything identifying the profile has
+            scrolled away, and it was replacing only half of it. A name on its
+            own is the weakest of the identifiers it stood in for: display names
+            repeat, they truncate at this width, and the thing the eye actually
+            recognises forty cards down a grid is the picture.
+
+            To the RIGHT of the name rather than in front of it, which is the
+            unusual choice and the deliberate one. The name takes the whole
+            measure and truncates; putting the avatar first would give a fixed
+            28px to the picture and take it from the one element here that
+            already has too little. On the right it sits against the controls,
+            so the bar reads left-to-right as "who this is" then "what you can
+            do", and a long name is shortened rather than the face being
+            dropped. */}
+        <PinnedAvatar name={name} url={avatarUrl} />
+
         <div className="flex shrink-0 items-center gap-0.5">
           <PinnedButton label="Distribuie" onClick={onShare}>
             <Share2 className="h-[18px] w-[18px]" />
@@ -87,6 +109,42 @@ export function ProfilePinnedHeader({
       </div>
     </div>,
     document.body,
+  )
+}
+
+/**
+ * 28px of face, and a LETTER when there is no face.
+ *
+ * NOT AN EMOJI, and that is worth stating because it is the obvious shortcut for
+ * an empty avatar and it is wrong in a way that only shows up on other people's
+ * phones. An emoji is drawn by the operating system: the same profile would be a
+ * flat grey bust on one Android, a blue-and-white one on an iPhone, and on a
+ * device with no font covering that codepoint a hollow rectangle. It arrives at
+ * whatever size and colour the vendor chose, so it cannot be made to match the
+ * neutral it sits in, and next to a real photograph in the same 28px circle the
+ * mismatch is the loudest thing in the bar.
+ *
+ * The initial is none of that. It is the app's own typeface at the app's own
+ * weight in the app's own grey, it is identifying rather than decorative — a C
+ * for Corina says more than a generic silhouette does — and it is exactly what
+ * the full-size avatar above already falls back to, so the two agree instead of
+ * the bar inventing a second answer to the same question.
+ */
+function PinnedAvatar({ name, url }: { name: string; url: string | null }) {
+  return (
+    <span
+      aria-hidden
+      className="block h-7 w-7 shrink-0 overflow-hidden rounded-full bg-neutral-100 ring-1 ring-neutral-200/80"
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-neutral-400">
+          {name.trim().charAt(0).toUpperCase()}
+        </span>
+      )}
+    </span>
   )
 }
 

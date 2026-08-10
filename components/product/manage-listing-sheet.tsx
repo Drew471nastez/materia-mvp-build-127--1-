@@ -127,17 +127,51 @@ export function ManageListingSheet({
     [listingId],
   )
 
+  // A draft resumes through the drafts route, which is the one scoped to drafts
+  // and the one that knows how to publish from there. A live listing goes
+  // through the edit route. Same screen either way.
+  const editHref = isDraft
+    ? `/products/new?draft=${encodeURIComponent(listingId)}`
+    : `/products/new?edit=${encodeURIComponent(listingId)}`
+
+  // Warmed while the sheet is up, so the wait below is the animation and not the
+  // route. Without it the sheet finishes leaving and THEN the form starts
+  // fetching, which is the pause this whole sequence exists to remove.
+  useEffect(() => {
+    if (open) router.prefetch(editHref)
+  }, [open, router, editHref])
+
+  /**
+   * THE SHEET LEAVES FIRST. IT USED NOT TO LEAVE AT ALL.
+   *
+   * This was `triggerHaptic` and `router.push`, and nothing else — no
+   * `onClose()`. So pressing Editează anunțul navigated with the sheet still
+   * open, and three things went wrong at once:
+   *
+   *   The panel stayed on screen. `open` was still true, so the sheet sat there
+   *   over the form it had just opened.
+   *
+   *   THE PAGE STAYED LOCKED. BottomSheet holds `lockScroll()` for as long as it
+   *   is mounted (see components/ui/bottom-sheet.tsx). A sheet that never closes
+   *   never unmounts, so the lock was never released — and the sell form is a
+   *   scrolling column of fields. It came up unscrollable. That is the whole of
+   *   "the inputs and images are not populated": they were loaded and they were
+   *   there, below a fold nothing could reach.
+   *
+   *   And both panels are z-95. A sheet and the form share one stacking level,
+   *   so which of them wins is decided by DOM order rather than by intent.
+   *
+   * So: close, let the 300ms exit run, then navigate. Sequential rather than
+   * simultaneous, which is what every sheet-to-screen handover on a phone does —
+   * and the same AFTER_EXIT_MS the status actions already use to keep a refresh
+   * off the frames the animation needs.
+   */
   const onEdit = useCallback(() => {
     void triggerHaptic("light")
-    // A draft resumes through the drafts route, which is the one scoped to
-    // drafts and the one that knows how to publish from there. A live listing
-    // goes through the edit route. Same screen either way.
-    router.push(
-      isDraft
-        ? `/products/new?draft=${encodeURIComponent(listingId)}`
-        : `/products/new?edit=${encodeURIComponent(listingId)}`,
-    )
-  }, [router, listingId, isDraft])
+    onClose()
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => router.push(editHref), AFTER_EXIT_MS)
+  }, [router, onClose, editHref])
 
   /** Every status move goes through here, so they cannot drift apart. */
   const act = useCallback(
@@ -182,19 +216,25 @@ export function ManageListingSheet({
   return (
     <>
       <BottomSheet open={open} onClose={onClose} label={`Gestionează ${title || "anunțul"}`}>
-        {/* NO CARD INSIDE THE SHEET.
-            
-            The rows were in a rounded, bordered box floating on a rounded sheet
-            — a panel inside a panel, two radii and two edges deep, for a list of
-            five things. A sheet IS the container; drawing another one inside it
-            says its contents belong to something else that happens to be in
-            here. They sit on the surface now, full width, separated by the one
-            line that is actually doing work.
-            
-            `-mx-2` cancels the body's own gutter so the press highlight runs to
-            both edges, which is what makes a row read as a row OF the sheet
-            rather than as a button placed on it. */}
-        <div className="-mx-2 pb-4 pt-2">
+        {/* NO BOX AROUND THE VERBS.
+
+            They were wrapped in `rounded-2xl border border-neutral-200/80`, and
+            a bordered, rounded, inset panel is the shape of a DIALOG. Drawn
+            inside a sheet that is itself a rounded white panel over a scrim, it
+            read as a second modal nested in the first — a card floating in a
+            card, for no reason anybody could name, with two different corner
+            radii a few pixels apart and a hairline tracing the outline of the
+            thing it was already inside.
+
+            A sheet's contents do not need to be framed by the sheet. What
+            separates one verb from the next is the hairline BETWEEN them, which
+            each Row already draws, and the rows now run the full width so a
+            press lights the whole strip rather than a rectangle inset from the
+            panel's own edge. One surface, five verbs on it. */}
+        {/* `-mx-2` cancels the padding BottomSheet's scroller puts on its
+            children, so a pressed row's tint runs to the panel's own edges
+            instead of stopping two pixels short of them on both sides. */}
+        <div className="-mx-2 pb-4 pt-1">
           <div>
             {/* Not for a sold listing: the server refuses to change one, because
                 editing it would rewrite what somebody already bought. */}

@@ -111,6 +111,50 @@ export function MobileBottomNav({
     return () => window.clearTimeout(give)
   }, [pressed, active, profileActive])
 
+  /**
+   * The + is turning because a FINGER said so, not because a route arrived.
+   *
+   * This is the whole of "the plus does not visibly rotate". The turn was
+   * driven by `sheetOpen` alone — which is the URL — so it could not start
+   * until the navigation committed, and the sheet starts rising on that same
+   * commit. The bar is at the very bottom of the screen and the sheet climbs
+   * from below it, so it covers the + within about two frames of the rise:
+   * the rotation began at the exact moment the thing that hides it did. What
+   * you saw was a + that sat still and then was gone, and the 440ms of easing
+   * underneath it was played entirely behind the sheet.
+   *
+   * So the turn is started by the press, on pointerdown, and the whole gap
+   * that used to be dead — finger down, router push, route commit, sheet rise
+   * — is now the window it plays in. Same movement, moved to where it can be
+   * seen.
+   *
+   * OPTIMISTIC, AND NEVER A GUARD. There used to be a `launching` boolean here
+   * that the press READ, and it is documented above as the reason + sometimes
+   * did nothing: any moment where the flag disagreed with the route was a
+   * press that returned at the guard. This one is written by the press and
+   * read only by the icon's transform. Nothing branches on it, so no value it
+   * can hold will ever cost you a tap — the worst it can do is turn an icon.
+   */
+  const [turning, setTurning] = useState(false)
+  useEffect(() => {
+    if (!turning) return
+    // The route caught up. `sheetOpen` is the truth again and holds the × on
+    // its own, so the optimistic flag can go without the icon moving a degree.
+    if (sheetOpen) {
+      setTurning(false)
+      return
+    }
+    // The sheet never arrived — a cancelled tap, a push that was dropped. Turn
+    // back rather than leaving an × sitting over a screen that has no sheet on
+    // it. Same 2.4s as the tab fill above, and for the same reason: long enough
+    // to cover a cold route on a bad connection.
+    const give = window.setTimeout(() => setTurning(false), 2400)
+    return () => window.clearTimeout(give)
+  }, [turning, sheetOpen])
+
+  /** What the + SHOWS: the press if there is one, the route otherwise. */
+  const plusOpen = sheetOpen || turning
+
   /** The tab the app is actually ON, whatever the bar may currently be showing. */
   const here = profileActive ? "profile" : active
 
@@ -300,6 +344,13 @@ export function MobileBottomNav({
       onPress: (intent) => {
         void triggerHaptic("light")
         setPressed(intent.key)
+        // THE TURN STARTS HERE, on the frame the finger lands, so it plays
+        // across the navigation instead of behind the sheet that navigation
+        // raises. Deliberately a separate statement from the `return` below:
+        // that one is about the page BEHIND not dipping, this one is about the
+        // icon in front turning, and folding them together would tie two
+        // unrelated decisions to one line.
+        if (intent.key === "sell") setTurning(true)
         // The screen starts leaving NOW, not when the route is ready. See
         // lib/tab-leave.ts — this is the first half of the switch, and the
         // reason a tab change no longer begins with a stationary screen.
@@ -326,6 +377,9 @@ export function MobileBottomNav({
       // let the screen come back up.
       onAbandon: () => {
         setPressed(null)
+        // The press turned out to be a drag. Turn the + back at once — the same
+        // promise the tab fill makes, kept by the one icon that is not a fill.
+        setTurning(false)
         nav.current.endTabLeave()
       },
       // The click was swallowed. Do what it would have done.
@@ -403,13 +457,34 @@ export function MobileBottomNav({
           type="button"
           {...handlers({ key: "sell", href: "/products/new", run: onSell })}
           aria-label={t("mfeed.sell")}
-          className="group flex min-h-[54px] flex-1 flex-col items-center justify-center"
+          // The same target every other tab gets, including the two utilities
+          // this button was missing: `[-webkit-tap-highlight-color:transparent]`
+          // and `touch-manipulation`. Their absence is half of the "cheap"
+          // press — a WebView paints its own grey plate over an untreated
+          // button the moment it is touched, so the purple circle went dull
+          // under the finger and lit again on release. That flash is the
+          // platform's, it is not on any curve, and it cannot be tuned; it can
+          // only be turned off.
+          className={TAB}
         >
           <span
-            className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform duration-200",
-              !sheetOpen && "group-active:scale-95",
-            )}
+            // NO SCALE ON PRESS, and no transition left to carry one. This was
+            // `group-active:scale-95` over `transition-transform duration-200`,
+            // and it is the bump.
+            //
+            // A 5% shrink on a 48px circle is two and a half pixels, taken and
+            // given back on a curve nobody chose, and it fires on `:active` —
+            // which the browser sets and clears on ITS schedule, not the
+            // gesture's. So it landed a beat late, ran across the rotation, and
+            // on a cancelled press snapped back with no easing at all. Two
+            // transforms of different lengths on nested elements, started by
+            // different events, is the whole recipe for cheap.
+            //
+            // The press is already answered twice, and better: a haptic on the
+            // frame the finger lands, and the turn starting on that same frame.
+            // A squash is a third answer to a question asked once. `item()`
+            // above makes exactly this argument about exactly this scale.
+            className="flex h-12 w-12 items-center justify-center rounded-full text-white"
             style={{
               background: "linear-gradient(150deg, #8b5cf6 0%, #7c3aed 100%)",
               boxShadow: "0 6px 18px -4px rgba(124, 58, 237, 0.55), 0 2px 6px -1px rgba(124, 58, 237, 0.35)",
@@ -424,13 +499,18 @@ export function MobileBottomNav({
                 before setting off.
                 A transition has neither problem. It runs both ways for free and
                 reverses from wherever it has got to, so a tap and an immediate
-                close is one continuous movement. The curve overshoots slightly
-                past 135° and settles back, which is the part that makes it feel
-                like a thing being turned rather than a value being set. */}
+                close is one continuous movement.
+
+                Driven by `plusOpen`, NOT by `sheetOpen`. The route commits and
+                the sheet starts climbing on the same tick, and this bar is the
+                first thing the sheet covers — so a turn keyed to the route was
+                a turn that began behind the thing hiding it. `plusOpen` is true
+                from the press, which is the only version of this you can
+                actually watch. The curve and its length are in globals.css. */}
             <Plus
               className="plus-turn h-6 w-6"
               strokeWidth={2.6}
-              data-open={sheetOpen ? "true" : "false"}
+              data-open={plusOpen ? "true" : "false"}
             />
           </span>
         </button>

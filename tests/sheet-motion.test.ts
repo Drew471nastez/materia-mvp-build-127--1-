@@ -205,6 +205,138 @@ check(
   /if \(intent\.href && intent\.key !== nav\.current\.here\) nav\.current\.beginTabLeave\(\)/.test(bar),
 )
 
+console.log("\nThe + turning, where somebody can actually see it")
+
+check(
+  "the turn starts on the FINGER, not on the route",
+  (() => {
+    // THE BUG. The rotation was keyed to `sheetOpen`, which is the URL — so it
+    // could not begin until the navigation committed, and the sheet starts
+    // climbing on that same commit. This bar is at the bottom of the screen and
+    // the sheet rises from below it, so it covers the + within a frame or two
+    // of starting. The turn was played, in full, behind the thing hiding it.
+    // What you saw was a + that sat still and then was gone.
+    const press = bar.slice(bar.indexOf("onPress: (intent)"), bar.indexOf("onAbandon:"))
+    return /if \(intent\.key === "sell"\) setTurning\(true\)/.test(press)
+  })(),
+  "        A turn keyed to the route is a turn nobody sees.",
+)
+
+check(
+  "the icon reads the press, and the press falls back to the route",
+  (() => {
+    // Optimistic first, truth behind it — the same shape as `pressed` for the
+    // tab fills, and for the same reason.
+    return (
+      /const plusOpen = sheetOpen \|\| turning/.test(bar) &&
+      /data-open=\{plusOpen \? "true" : "false"\}/.test(bar)
+    )
+  })(),
+)
+
+check(
+  "the optimistic flag is never READ by the press it belongs to",
+  (() => {
+    // The whole reason the + used to go dead was a `launching` boolean that the
+    // press branched on: any moment it disagreed with the route was a tap that
+    // returned at the guard and opened nothing. This flag is written by the
+    // press and read only by a transform. Nothing branches on it, so no value it
+    // can hold costs you a tap — the worst it can do is turn an icon.
+    const sell = bar.slice(bar.indexOf("const onSell = useCallback"), bar.indexOf("}, [sheetOpen, router])"))
+    return sell.length > 100 && !/turning/.test(sell)
+  })(),
+  "        An optimistic flag that a guard reads is the dead-+ bug coming back.",
+)
+
+check(
+  "a turn that the sheet never justifies takes itself back",
+  (() => {
+    // A cancelled tap, or a push that was dropped. Both would otherwise leave an
+    // × sitting over a screen with no sheet on it, for the rest of the session.
+    const abandon = bar.slice(bar.indexOf("onAbandon:"), bar.indexOf("onRescue:"))
+    return (
+      /setTurning\(false\)/.test(abandon) &&
+      /const give = window\.setTimeout\(\(\) => setTurning\(false\), 2400\)/.test(bar)
+    )
+  })(),
+)
+
+check(
+  "there is no bounce at the end of it",
+  (() => {
+    // `cubic-bezier(0.34, 1.5, 0.64, 1)` — 1.5 on a control point carries the
+    // icon past 135° and lets it fall back. On a 24px glyph turning in half a
+    // second that is not weight, it is a twitch, and it lands at the exact
+    // moment the rising sheet reaches the icon. A transition overshoots when a
+    // control point's y leaves the 0..1 range; neither of these may.
+    const pts = /\.plus-turn \{[\s\S]{0,120}?cubic-bezier\(([^)]+)\)/
+      .exec(css)?.[1]
+      .split(",")
+      .map((n) => Number(n.trim()))
+    return !!pts && pts.length === 4 && pts[1] <= 1 && pts[3] <= 1
+  })(),
+  "        The bounce is in the curve, so no duration can fix it.",
+)
+
+check(
+  "the + and the sheet move on ONE curve, not two",
+  (() => {
+    // They are one movement seen in two places. Two easings for one movement is
+    // the same mistake the pickers are checked for above.
+    const plus = /\.plus-turn \{[\s\S]{0,120}?transition: transform \d+ms (cubic-bezier\([^)]+\))/.exec(css)?.[1]
+    const sheet = /\.sell-sheet-enter \{ animation: sell-sheet-enter \d+ms (cubic-bezier\([^)]+\))/.exec(css)?.[1]
+    return !!plus && plus === sheet
+  })(),
+)
+
+check(
+  "the icon is the slowest thing in the gesture, on purpose",
+  (() => {
+    // It is still easing when the sheet passes over it, so the turn is covered
+    // mid-movement rather than caught stopping. A rotation you never see end
+    // never reads as having stopped short.
+    const plus = Number(/\.plus-turn \{[\s\S]{0,120}?transition: transform (\d+)ms/.exec(css)?.[1])
+    const sheet = Number(/\.sell-sheet-enter \{ animation: sell-sheet-enter (\d+)ms/.exec(css)?.[1])
+    return plus > sheet && plus >= 480
+  })(),
+)
+
+check(
+  "nothing about the purple circle scales under a finger",
+  (() => {
+    // `group-active:scale-95` on a 200ms transform: two and a half pixels of
+    // squash on a 48px circle, fired by `:active` — which the browser sets and
+    // clears on its own schedule, not the gesture's. So it arrived a beat late,
+    // ran across the rotation, and snapped back with no easing at all on a
+    // cancelled press. Two transforms of different lengths on nested elements,
+    // started by different events, is the whole recipe for cheap.
+    const sell = bar.slice(bar.indexOf('key: "sell", href:'), bar.indexOf('href="/messages"'))
+    return sell.length > 100 && !/scale-/.test(sell) && !/group-active:/.test(sell)
+  })(),
+  "        The press is already answered by a haptic and a rotation, both on\n" +
+    "        the frame the finger lands. A squash is a third answer.",
+)
+
+check(
+  "and the platform cannot paint its own grey plate over it either",
+  (() => {
+    // The other half of "cheap", and it is not on any curve: a WebView flashes
+    // its tap highlight over an untreated button, so the purple circle went dull
+    // under the finger and lit again on release. The sell button was the one tab
+    // in this bar not carrying the suppression the other four share.
+    const sell = bar.slice(bar.indexOf('key: "sell", href:'), bar.indexOf('href="/messages"'))
+    return (
+      /className=\{TAB\}/.test(sell) &&
+      /const TAB =[\s\S]{0,40}"[^"]*\[-webkit-tap-highlight-color:transparent\][^"]*touch-manipulation/.test(bar)
+    )
+  })(),
+)
+
+check(
+  "somebody who has asked for less motion gets none of it",
+  /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,60}?\.plus-turn \{ transition: none; \}/.test(css),
+)
+
 check(
   "the sheet route is exempt from the tab fade as well",
   // Two different animations, both of which would have played over the slide.
