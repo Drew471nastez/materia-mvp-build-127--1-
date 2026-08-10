@@ -69,24 +69,28 @@ export function ProfilePinnedHeader({
             again. It takes the whole measure it can and truncates, because the
             controls have a fixed width and a long display name must never push
             them off the edge. */}
-        {/* THE NAME AND THE FACE ARE ONE OBJECT.
+        {/* THE FACE AND THE NAME ARE ONE OBJECT.
 
             The avatar was pushed to the far end of the bar, against the
             controls — so the two halves of "whose profile is this" sat at
             opposite edges with a void between them, and the picture read as a
-            fourth button rather than as part of the identity. Beside the name
-            it is what it is: a face with a name next to it.
+            fourth button rather than as part of the identity.
 
-            To the RIGHT of the name rather than in front of it. The name takes
-            whatever measure is left and truncates; putting a fixed 28px ahead
-            of it would take that width from the one element here that already
-            has too little. `min-w-0` on the group is what lets the name shorten
-            instead of shoving the controls off the edge. */}
+            The face comes FIRST, which is the order the header below it uses —
+            avatar, then name — and the order every profile anywhere uses. The
+            bar is standing in for that header, so reversing its two elements
+            made it read as a different thing that happened to contain the same
+            two.
+            
+            It costs the name 28px and a gap, and the name can afford it:
+            `min-w-0` on the group with `truncate` on the text means a long
+            display name shortens rather than shoving the controls off the
+            edge, which is the only failure mode that would actually matter. */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          <PinnedAvatar name={name} url={avatarUrl} />
           <span className="min-w-0 truncate text-[16px] font-bold tracking-[-0.01em] text-neutral-900">
             {name}
           </span>
-          <PinnedAvatar name={name} url={avatarUrl} />
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">

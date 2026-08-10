@@ -532,9 +532,17 @@ html.capacitor a.no-tap-fade:active {
   right: 0;
   z-index: 60;
   padding-top: env(safe-area-inset-top, 0px);
-  background: rgba(255, 255, 255, 0.82);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
-  backdrop-filter: saturate(180%) blur(16px);
+  /* SOLID WHITE, not frosted.
+     
+     A blur is a real cost and it was buying nothing here. The bar only exists
+     while a grid of photographs is scrolling underneath it, so the thing
+     showing through the glass was a stream of different colours moving at
+     speed — which makes the name and the icons on it change contrast
+     continuously, and asks the compositor to re-blur a full-width strip on
+     every frame of the scroll it is sitting over. Opaque, the text is one
+     colour on one ground, and the strip is a static layer the scroll passes
+     behind. */
+  background: #fff;
   border-bottom: 1px solid rgba(23, 23, 23, 0.07);
   transform: translate3d(0, -100%, 0);
   opacity: 0;
