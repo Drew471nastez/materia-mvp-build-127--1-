@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Mic, Trash2 } from "lucide-react"
+import { Lock, Mic, Send, Trash2 } from "lucide-react"
 
 import { triggerHaptic } from "@/lib/native-bridge"
 import { formatVoiceDuration, MAX_PEAKS } from "@/lib/messages/voice-message"
@@ -53,8 +53,22 @@ const MIN_MS = 700
 const MAX_MS = 5 * 60_000
 /** How far left the finger has to travel before the recording is being thrown away. */
 const CANCEL_PX = 90
+/**
+ * How far UP before the recording keeps itself.
+ *
+ * Hold-to-talk is right for the short reply that is most voice notes, and wrong
+ * for the long one: a minute of speaking with a thumb pinned to the screen is
+ * uncomfortable, and a hand that slips sends whatever was said so far. Locking
+ * is what every messenger grew for exactly that, and it costs one more direction
+ * on a gesture the finger is already making.
+ *
+ * Shorter than the cancel distance on purpose. Up is the safe direction — the
+ * worst case is a recording you then have to decide about — and left destroys
+ * something, so it should take more deliberate travel to reach.
+ */
+const LOCK_PX = 64
 
-type Phase = "idle" | "recording" | "denied"
+type Phase = "idle" | "recording" | "locked" | "denied"
 
 export function VoiceRecorder({
   disabled,
@@ -69,6 +83,8 @@ export function VoiceRecorder({
   const [phase, setPhase] = useState<Phase>("idle")
   const [ms, setMs] = useState(0)
   const [slide, setSlide] = useState(0)
+  /** How far up the finger has travelled. Only meaningful while holding. */
+  const [lift, setLift] = useState(0)
   /** Live bars, newest last. Trimmed to what the strip can show. */
   const [live, setLive] = useState<number[]>([])
 
@@ -81,10 +97,17 @@ export function VoiceRecorder({
   const peaks = useRef<number[]>([])
   const cancelled = useRef(false)
   const startX = useRef(0)
+  const startY = useRef(0)
   /** Set while a start is in flight, so a second pointerdown cannot open two. */
   const arming = useRef(false)
 
-  const cancelling = slide >= CANCEL_PX
+  const recording = phase === "recording"
+  const locked = phase === "locked"
+  // Cancelling only while a finger is on it: once locked there is a bin button,
+  // and a stray horizontal drag must not throw away a recording nobody is
+  // holding any more.
+  const cancelling = recording && slide >= CANCEL_PX
+  const arming2Lock = recording && lift >= LOCK_PX * 0.45 && !cancelling
 
   /** Everything the recorder holds open. Idempotent — every exit path calls it. */
   const teardown = useCallback(() => {
@@ -102,12 +125,14 @@ export function VoiceRecorder({
   useEffect(() => () => teardown(), [teardown])
 
   const start = useCallback(
-    async (clientX: number) => {
+    async (clientX: number, clientY: number) => {
       if (disabled || arming.current || rec.current) return
       arming.current = true
       cancelled.current = false
       startX.current = clientX
+      startY.current = clientY
       setSlide(0)
+      setLift(0)
       setMs(0)
       setLive([])
       peaks.current = []
@@ -250,6 +275,7 @@ export function VoiceRecorder({
         teardown()
         setPhase("idle")
         setSlide(0)
+        setLift(0)
         setLive([])
         if (!send || elapsed < MIN_MS || parts.length === 0) return
         const blob = new Blob(parts, { type: parts[0]?.type || "audio/webm" })
@@ -268,8 +294,6 @@ export function VoiceRecorder({
   )
   stopRef.current = stop
 
-  const recording = phase === "recording"
-
   return (
     <>
       {/* THE STRIP REPLACES THE COMPOSER WHILE YOU SPEAK.
@@ -279,11 +303,14 @@ export function VoiceRecorder({
           nothing below reflows when the recording starts or ends, and the
           thread does not jump under your thumb at the exact moment you are
           concentrating on speaking. */}
-      {recording && (
+      {(recording || locked) && (
         <div
           className={cn(
-            "pointer-events-none absolute inset-0 z-20 flex items-center gap-3 rounded-2xl bg-white px-3",
+            "absolute inset-0 z-20 flex items-center gap-3 rounded-2xl bg-white px-3",
             "transition-colors duration-200",
+            // Only the held state is inert. Locked, the bin and the send button
+            // inside it are the whole point.
+            !locked && "pointer-events-none",
             cancelling && "bg-rose-50",
           )}
         >
@@ -312,15 +339,43 @@ export function VoiceRecorder({
             ))}
           </span>
 
-          <span
-            className={cn(
-              "flex shrink-0 items-center gap-1.5 text-[13px] font-medium transition-colors",
-              cancelling ? "text-rose-600" : "text-neutral-400",
-            )}
-          >
-            <Trash2 className="h-4 w-4" />
-            {cancelling ? "Eliberează" : "Glisează"}
-          </span>
+          {locked ? (
+            /* TWO EXPLICIT CONTROLS, once nobody is holding it.
+            
+               A locked recording has no gesture left to end it — the finger is
+               gone — so the two things you might want have to be visible and
+               separate. The bin is quiet and the send is the brand colour,
+               because one of them is destructive and the other is the ordinary
+               ending. */
+            <span className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                aria-label="Șterge înregistrarea"
+                onClick={() => stop(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100 active:text-rose-600"
+              >
+                <Trash2 className="h-[19px] w-[19px]" />
+              </button>
+              <button
+                type="button"
+                aria-label="Trimite înregistrarea"
+                onClick={() => stop(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[#7c3aed] text-white [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:duration-0 active:bg-[#6d28d9]"
+              >
+                <Send className="h-[17px] w-[17px]" />
+              </button>
+            </span>
+          ) : (
+            <span
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 text-[13px] font-medium transition-colors",
+                cancelling ? "text-rose-600" : "text-neutral-400",
+              )}
+            >
+              <Trash2 className="h-4 w-4" />
+              {cancelling ? "Eliberează" : "Glisează"}
+            </span>
+          )}
         </div>
       )}
 
@@ -330,43 +385,85 @@ export function VoiceRecorder({
         </div>
       )}
 
+      {/* THE ONE THING A HOLD GESTURE CANNOT SAY BY ITSELF: that there is
+          somewhere else to take it. Shown only while holding, right where the
+          finger would travel, and it fills as the threshold approaches so the
+          lock does not simply happen without warning. */}
+      {recording && !cancelling && (
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute bottom-[52px] right-2 z-30 flex h-9 w-9 items-center justify-center rounded-full",
+            "bg-neutral-900/85 text-white transition-transform duration-150",
+            arming2Lock && "scale-110",
+          )}
+          style={{ transform: `translateY(${-Math.min(lift, LOCK_PX) * 0.35}px)` }}
+        >
+          <Lock className="h-[15px] w-[15px]" />
+        </span>
+      )}
+
       <button
         type="button"
-        aria-label="Ține apăsat ca să înregistrezi"
+        aria-label={locked ? "Se înregistrează" : "Ține apăsat ca să înregistrezi"}
         disabled={disabled}
         onContextMenu={(e) => e.preventDefault()}
         onPointerDown={(e) => {
           // Only the primary contact. A second finger landing mid-recording must
-          // not start a second one.
-          if (!e.isPrimary) return
+          // not start a second one. And a press while LOCKED is not a new
+          // recording — the buttons beside it are what act now.
+          if (!e.isPrimary || locked) return
           e.currentTarget.setPointerCapture?.(e.pointerId)
-          void start(e.clientX)
+          void start(e.clientX, e.clientY)
         }}
         onPointerMove={(e) => {
           if (!recording) return
-          setSlide(Math.max(0, startX.current - e.clientX))
+          const up = Math.max(0, startY.current - e.clientY)
+          const left = Math.max(0, startX.current - e.clientX)
+          setLift(up)
+          setSlide(left)
+          // UP WINS, and only past the threshold. Both axes move on any real
+          // gesture, so whichever is further is the one being made — without
+          // that, a diagonal drag toward the bin could lock instead of cancel.
+          if (up >= LOCK_PX && up > left) {
+            e.currentTarget.releasePointerCapture?.(e.pointerId)
+            void triggerHaptic("medium")
+            setPhase("locked")
+            setSlide(0)
+            setLift(0)
+          }
         }}
         onPointerUp={() => {
+          // Locked already: the finger lifting is just the finger lifting.
+          if (locked) return
           if (!recording && !arming.current) return
           stop(!cancelling)
         }}
         // The system took the gesture — a notification, the app switcher, a
-        // second finger. Never a send: nobody decided to send this.
-        onPointerCancel={() => stop(false)}
+        // second finger. Never a send: nobody decided to send this. Locked, it
+        // is not even about this recording any more.
+        onPointerCancel={() => {
+          if (locked) return
+          stop(false)
+        }}
         className={cn(
           "relative z-30 flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
           "[-webkit-tap-highlight-color:transparent] touch-manipulation select-none",
           "transition-colors duration-200 ease-out active:duration-0 disabled:opacity-40",
-          recording
+          recording || locked
             ? cancelling
               ? "bg-rose-500 text-white"
               : "bg-[#7c3aed] text-white"
             : "text-neutral-500 active:bg-neutral-100",
+          // Nothing to press while locked — the bin and the send in the strip
+          // are the controls now, and a live-looking button beside them would be
+          // a third answer to a question with two.
+          locked && "pointer-events-none opacity-0",
           className,
         )}
         style={{ touchAction: "none" }}
       >
-        <Mic className={cn("h-[21px] w-[21px]", recording && "scale-110")} />
+        <Mic className={cn("h-[21px] w-[21px]", (recording || locked) && "scale-110")} />
       </button>
     </>
   )

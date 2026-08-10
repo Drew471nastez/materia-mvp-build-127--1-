@@ -1144,16 +1144,49 @@ check(
     // Tied to the sheet's own 380ms, the page behind was still fully legible
     // when the panel was halfway up — two things arriving at once, and the eye
     // reads the whole screen going dark as the slower of the two.
-    return /const SCRIM_IN = "opacity 240ms/.test(bottomSheet) && /const SPRING_IN = "transform 380ms/.test(bottomSheet)
+    // The invariant is that the dim LEADS the travel, not a particular number:
+    // 240 was reached by shortening it, which fixed the ordering and made the
+    // fade itself read as a cut. See the easing check below.
+    const scrimIn = Number(bottomSheet.match(/SCRIM_IN = `opacity (\d+)ms/)?.[1])
+    const springIn = Number(bottomSheet.match(/SPRING_IN = "transform (\d+)ms/)?.[1])
+    return scrimIn > 0 && springIn > 0 && scrimIn < springIn
   })(),
 )
 
 check(
   "and clears before it has finished leaving",
   (() => {
-    const scrimOut = Number(bottomSheet.match(/SCRIM_OUT = "opacity (\d+)ms/)?.[1])
+    const scrimOut = Number(bottomSheet.match(/SCRIM_OUT = `opacity (\d+)ms/)?.[1])
     const springOut = Number(bottomSheet.match(/SPRING_OUT = "transform (\d+)ms/)?.[1])
     return scrimOut > 0 && springOut > 0 && scrimOut < springOut
+  })(),
+)
+
+check(
+  "the dimming is an EVEN fade, not the sheet's spring borrowed",
+  (() => {
+    // `cubic-bezier(0.32, 0.72, 0, 1)` is the sheet's own curve and handing it to
+    // an opacity is a category error dressed as consistency. It is violently
+    // front-loaded, which is exactly right for TRAVEL — a sheet that leaves fast
+    // and settles slowly reads as an object with momentum — and an opacity has
+    // no momentum to read. It reaches ~62% in the first quarter of its duration,
+    // so at 240ms the screen was fully dimmed in about sixty milliseconds and
+    // spent the rest on rounding. A cut with a tail on it, which is what read as
+    // cheap.
+    const ease = /const SCRIM_EASE = "(cubic-bezier\([^"]+\))"/.exec(bottomSheet)?.[1]
+    if (!ease) return false
+    const pts = ease.replace(/[^0-9.,]/g, "").split(",").map(Number)
+    return (
+      // Both control points inside 0..1 — no overshoot, no spring.
+      pts.length === 4 &&
+      pts.every((n) => n >= 0 && n <= 1) &&
+      // Symmetric: what it does on the way in it does in reverse on the way out.
+      Math.abs(pts[1] - (1 - pts[3])) < 0.01 &&
+      // And it is NOT the sheet's, which keeps its spring because the sheet is
+      // the thing that actually moves.
+      !/SCRIM_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(bottomSheet) &&
+      /const SPRING_IN = "transform \d+ms cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(bottomSheet)
+    )
   })(),
 )
 

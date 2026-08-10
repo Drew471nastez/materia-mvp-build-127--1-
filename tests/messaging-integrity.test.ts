@@ -256,10 +256,58 @@ check(
     // recording of a room.
     const rec = read(("components/messages/voice-recorder.tsx"))
     return (
-      /onPointerCancel=\{\(\) => stop\(false\)\}/.test(rec) &&
-      /onPointerUp=\{\(\) => \{[\s\S]{0,160}?stop\(!cancelling\)/.test(rec) &&
+      // Locked, a cancel is not about this recording any more — but while a
+      // finger is on it, the system taking the gesture still discards.
+      /onPointerCancel=\{\(\) => \{\s*\n\s*if \(locked\) return\s*\n\s*stop\(false\)/.test(rec) &&
+      /stop\(!cancelling\)/.test(rec) &&
       /elapsed < MIN_MS/.test(rec)
     )
+  })(),
+)
+
+check(
+  "and it can be locked, so a long note does not need a thumb pinned to the glass",
+  (() => {
+    // Hold-to-talk is right for the short reply that is most voice notes and
+    // wrong for the long one: a minute of speaking with a thumb pinned down is
+    // uncomfortable, and a hand that slips sends whatever was said so far.
+    const rec = read("components/messages/voice-recorder.tsx")
+    return (
+      /const LOCK_PX = \d+/.test(rec) &&
+      /if \(up >= LOCK_PX && up > left\)/.test(rec) &&
+      /setPhase\("locked"\)/.test(rec)
+    )
+  })(),
+)
+
+check(
+  "up wins over left only past the threshold, so a diagonal drag cannot lock instead of cancel",
+  (() => {
+    // Both axes move on any real gesture, so whichever is further is the one
+    // being made.
+    const rec = read("components/messages/voice-recorder.tsx")
+    return /up > left/.test(rec) && /const CANCEL_PX = \d+/.test(rec)
+  })(),
+)
+
+check(
+  "a locked recording gets two explicit controls, because it has no gesture left",
+  (() => {
+    // The finger is gone, so the two things you might want have to be visible
+    // and separate — and one of them destroys something.
+    const rec = read("components/messages/voice-recorder.tsx")
+    return (
+      /aria-label="Șterge înregistrarea"[\s\S]{0,200}?onClick=\{\(\) => stop\(false\)\}/.test(rec) &&
+      /aria-label="Trimite înregistrarea"[\s\S]{0,200}?onClick=\{\(\) => stop\(true\)\}/.test(rec)
+    )
+  })(),
+)
+
+check(
+  "and a press on the mic while locked starts nothing new",
+  (() => {
+    const rec = read("components/messages/voice-recorder.tsx")
+    return /if \(!e\.isPrimary \|\| locked\) return/.test(rec)
   })(),
 )
 
