@@ -461,24 +461,34 @@ export const ProductCard = memo(function ProductCard({
             </span>
           </SmartLink>
         )}
-        <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url} className="flex flex-col gap-0.5">
+        <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url}>
           <h3 className="line-clamp-1 text-[13px] leading-snug text-foreground">{product.title}</h3>
-          {/* THE PRICE A BUYER WILL ACTUALLY BE ASKED FOR.
-              
-              Not the seller's asking price: that number went up by 5% and 4 lei
-              at the checkout, so every figure in this grid was wrong in the same
-              direction and only stopped being wrong once somebody had committed.
-              The mark beside it says why it is what it is — inert here, because
-              a nested button inside the card's own link is a hit target fighting
-              the one around it, and sixty subpages would be mounted to serve one
-              tap. It is pressable on the listing page. */}
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-[17px] font-bold leading-none tracking-[-0.01em] text-foreground">
-              {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
-            </span>
-            {product.price_cents > 0 && <ProtectionMark className="self-center" />}
-          </div>
         </SmartLink>
+
+        {/* THE PRICE A BUYER WILL ACTUALLY BE ASKED FOR, and a shield that
+            opens the explanation.
+            
+            Not the seller's asking price: that number went up by 5% and 4 lei
+            at the checkout, so every figure in this grid was wrong in the same
+            direction and only stopped being wrong once somebody had committed.
+            
+            OUTSIDE the link, deliberately. The mark is a button, and a button
+            inside an anchor is invalid nesting — the browser is entitled to
+            take the tap for the link, which is exactly what it did. The
+            photograph and the title are still the way into the listing; this
+            row is a statement about the price, and one part of it is pressable. */}
+        <div className="mt-0.5 flex items-baseline gap-2">
+          <SmartLink
+            href={productUrl}
+            useClientNav={clientNav}
+            blend
+            warmImage={product.thumbnail_url}
+            className="text-[17px] font-bold leading-none tracking-[-0.01em] text-foreground"
+          >
+            {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
+          </SmartLink>
+          {product.price_cents > 0 && <ProtectionMark className="self-center" />}
+        </div>
 
         {(sizeLabel || detailLine) && (
           <div className="mt-1.5 flex items-center gap-1.5">

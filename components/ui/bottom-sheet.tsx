@@ -48,12 +48,20 @@ import { cn } from "@/lib/utils"
  */
 const SPRING_IN = "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)"
 const SPRING_OUT = "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)"
-const SCRIM_IN = "opacity 380ms cubic-bezier(0.32, 0.72, 0, 1)"
-/* The scrim clears FASTER than the sheet slides. It is the thing making the
-   page behind it unreadable, so the screen you are going back to is bright
-   again while the sheet is still on its way down — which reads as the sheet
-   leaving rather than as the app waiting for it. */
-const SCRIM_OUT = "opacity 220ms cubic-bezier(0.32, 0.72, 0, 1)"
+/* The scrim SETS THE STAGE, on the way in as well as out.
+   
+   It was tied to the sheet's own 380ms, so the page behind was still fully
+   legible when the panel was already halfway up — two things arriving at once,
+   and the eye reads the page-going-dark as the slower of the two because it
+   covers the whole screen. Landing the dim at 240 means the sheet arrives onto
+   a stage that has already been set, which is the difference between a panel
+   appearing over a page and a panel replacing it. */
+const SCRIM_IN = "opacity 240ms cubic-bezier(0.32, 0.72, 0, 1)"
+/* And it clears FASTER than the sheet slides, for the mirror of that reason:
+   the screen you are going back to is bright again while the sheet is still on
+   its way down, which reads as the sheet leaving rather than as the app waiting
+   for it. */
+const SCRIM_OUT = "opacity 200ms cubic-bezier(0.32, 0.72, 0, 1)"
 const OUT_MS = 310
 /** Past this share of its own height, letting go throws it away. */
 const DISMISS_RATIO = 0.28

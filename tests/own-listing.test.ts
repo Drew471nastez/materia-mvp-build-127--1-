@@ -931,6 +931,47 @@ check(
   })(),
 )
 
+check(
+  "there is no card drawn inside the sheet",
+  (() => {
+    // A panel inside a panel, two radii and two edges deep, for a list of five
+    // things. The sheet IS the container; a second one inside it says its
+    // contents belong to something else that happens to be in here.
+    const body = sheet.slice(sheet.indexOf("<BottomSheet"), sheet.indexOf("</BottomSheet>"))
+    return !/rounded-2xl border border-neutral/.test(body) && /-mx-2/.test(body)
+  })(),
+)
+
+check(
+  "the rows run to both edges, and the rule does not cut the icon off",
+  (() => {
+    // A press highlight that stops short of the edge reads as a button placed
+    // on the sheet rather than as a row of it; a full-width rule separates the
+    // icon column from the text it belongs to.
+    const row = sheet.slice(sheet.indexOf("function Row("))
+    return /w-full items-center gap-4 px-5/.test(row) && /left-\[56px\] right-0 h-px/.test(row)
+  })(),
+)
+
+check(
+  "the scrim sets the stage before the sheet lands on it",
+  (() => {
+    // Tied to the sheet's own 380ms, the page behind was still fully legible
+    // when the panel was halfway up — two things arriving at once, and the eye
+    // reads the whole screen going dark as the slower of the two.
+    return /const SCRIM_IN = "opacity 240ms/.test(bottomSheet) && /const SPRING_IN = "transform 380ms/.test(bottomSheet)
+  })(),
+)
+
+check(
+  "and clears before it has finished leaving",
+  (() => {
+    const scrimOut = Number(bottomSheet.match(/SCRIM_OUT = "opacity (\d+)ms/)?.[1])
+    const springOut = Number(bottomSheet.match(/SPRING_OUT = "transform (\d+)ms/)?.[1])
+    return scrimOut > 0 && springOut > 0 && scrimOut < springOut
+  })(),
+)
+
 console.log("\nSwitching tabs says which way you went")
 
 check(

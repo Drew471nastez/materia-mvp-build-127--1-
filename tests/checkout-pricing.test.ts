@@ -459,16 +459,69 @@ check(
     // An inclusive number with no explanation is the same lie in the other
     // direction: a seller asking 130 whose listing reads 141 looks like a
     // marketplace adding a mystery margin.
-    return /<ProtectionMark/.test(cardSrc) && /<ProtectionMarkWithPage/.test(detailSrc)
+    return (
+      /<ProtectionMark/.test(cardSrc) &&
+      /<ProtectionMark/.test(detailSrc) &&
+      /<ProtectionMark tone="onPhoto"/.test(read("components/explore/mobile-listing-card.tsx")) &&
+      /<ProtectionMark/.test(read("components/wishlist/wishlist-content.tsx"))
+    )
   })(),
 )
 
 check(
-  "the mark is inert on a grid card and pressable on the listing page",
+  "the mark is pressable everywhere, including on a grid card",
   (() => {
-    // A nested button inside the card's own link is a hit target fighting the
-    // one around it, and sixty subpages would be mounted to serve one tap.
-    return /if \(!onClick\) \{/.test(protectionSrc) && /export function ProtectionMarkWithPage/.test(protectionSrc)
+    // It was inert on cards to avoid mounting sixty subpages for one tap. But a
+    // shield that does nothing where people actually meet the price is a
+    // promise the feed does not keep — the feed IS where somebody first wonders
+    // why the number is what it is.
+    return /<button/.test(protectionSrc) && /onClick=\{onClick\}/.test(protectionSrc)
+  })(),
+)
+
+check(
+  "and there is exactly ONE subpage for the whole application",
+  (() => {
+    // Sixty cards must not mean sixty stage machines and sixty matchMedia
+    // listeners. A store rather than a context, so opening the panel re-renders
+    // the panel and not every card that could have opened it.
+    const layout = read("app/layout.tsx")
+    return (
+      /<BuyerProtectionHost \/>/.test(layout) &&
+      /useSyncExternalStore/.test(protectionSrc) &&
+      !/createContext/.test(protectionSrc)
+    )
+  })(),
+)
+
+check(
+  "the mark is not nested inside the card's own link",
+  (() => {
+    // A button inside an anchor is invalid nesting and the browser is entitled
+    // to take the tap for the link — which is exactly what it did.
+    const meta = cardSrc.slice(cardSrc.indexOf("{/* THE PRICE A BUYER WILL"), cardSrc.indexOf("{(sizeLabel || detailLine)"))
+    const markAt = meta.indexOf("<ProtectionMark")
+    const linkCloses = meta.indexOf("</SmartLink>")
+    return markAt > 0 && linkCloses > 0 && markAt > linkCloses
+  })(),
+)
+
+check(
+  "it is a footnote, not a grey chip",
+  (() => {
+    // A filled pill beside every price turned the grid into two columns of
+    // badges, and grey is the colour this interface uses for things that are
+    // switched off.
+    return /text-\[#7c3aed\]/.test(protectionSrc) && !/bg-neutral-100/.test(protectionSrc)
+  })(),
+)
+
+check(
+  "and its hit area is bigger than the mark",
+  (() => {
+    // At 11px the glyph and the word are about forty by twelve pixels, which is
+    // half of what a thumb needs.
+    return /after:-inset-x-2 after:-inset-y-2\.5/.test(protectionSrc)
   })(),
 )
 

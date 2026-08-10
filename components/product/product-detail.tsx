@@ -16,7 +16,7 @@ import { triggerHaptic } from "@/lib/native-bridge"
 import { claimSurface } from "@/lib/surface-bg"
 import { OfferSheet } from "@/components/product/offer-sheet"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
-import { ProtectionMarkWithPage } from "@/components/marketplace/buyer-protection"
+import { ProtectionMark } from "@/components/marketplace/buyer-protection"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
@@ -697,7 +697,7 @@ export function ProductDetail({ product }: { product: any }) {
             <span className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900">
               {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
             </span>
-            {product.price_cents > 0 && <ProtectionMarkWithPage />}
+            {product.price_cents > 0 && <ProtectionMark />}
           </div>
 
           {/* Desktop buy row — the mobile bar is fixed to the viewport bottom
