@@ -15,6 +15,12 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import {
+  MESSAGE_MEDIA_TYPES,
+  isMimeRefusal,
+  uploadMessageMedia,
+} from "@/lib/messages/media-bucket"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -153,10 +159,19 @@ check(
     // A recording of somebody's actual voice in a two-person conversation. What
     // is stored on the message is the object PATH; the link is minted per read
     // for whichever party is asking.
+    //
+    // Asserted on the shared uploader rather than on the route, because that is
+    // where the bucket is now declared — and asserted on EVERY place it is
+    // declared, since a bucket that is created private and later widened back
+    // to public would be private only until the first repair.
     const route = read(("app/api/messages/[id]/voice/route.ts"))
+    const bucket = read(("lib/messages/media-bucket.ts"))
+    const publicFlags = bucket.match(/public: (true|false)/g) ?? []
     return (
-      /from\("messages"\)\s*\n?\s*\.upload\(path/.test(route) &&
-      /public: false/.test(route) &&
+      /\.from\(MESSAGES_BUCKET\)\s*\n?\s*\.upload\(path/.test(bucket) &&
+      publicFlags.length >= 2 &&
+      publicFlags.every((f) => f === "public: false") &&
+      !/getPublicUrl/.test(bucket) &&
       !/getPublicUrl/.test(route)
     )
   })(),
@@ -366,6 +381,224 @@ check(
     // A lock-screen banner is read by whoever is holding the phone.
     const push = read(("lib/push/message-notification.ts"))
     return /if \(kind === "voice"\) return "Ți-a trimis un mesaj vocal"/.test(push)
+  })(),
+)
+
+// ── THE BUCKET THAT REFUSED THE VOICE NOTES ─────────────────────────────────
+//
+// Sending one failed with `mime type audio/webm is not supported`, and nothing
+// in the voice route was wrong. The `messages` bucket is created on first use
+// by whichever route gets there first, that was the PHOTO route, and it
+// declared an image-only `allowedMimeTypes`. Storage enforces that list, so
+// audio was refused by the bucket itself before a line of app code ran.
+//
+// These are DRIVEN rather than grepped. The failure was a recovery path that
+// existed and never fired — `createBucket` on "bucket not found", against a
+// bucket that was found — and reading the source would have shown a bucket
+// fallback right there and looked fine. So a fake storage client answers the
+// way the real one did, and the assertions are about what actually happens.
+
+type Call = { name: string; args: any[] }
+
+function fakeAdmin(uploadAnswers: Array<{ message: string } | null>) {
+  const calls: Call[] = []
+  let n = 0
+  return {
+    calls,
+    admin: {
+      storage: {
+        from: () => ({
+          upload: async (...args: any[]) => {
+            calls.push({ name: "upload", args })
+            return { error: uploadAnswers[n++] ?? null }
+          },
+        }),
+        createBucket: async (...args: any[]) => {
+          calls.push({ name: "createBucket", args })
+          return { error: null }
+        },
+        updateBucket: async (...args: any[]) => {
+          calls.push({ name: "updateBucket", args })
+          return { error: null }
+        },
+      },
+    } as any,
+  }
+}
+
+const REFUSAL = { message: "mime type audio/webm is not supported" }
+
+check(
+  "a bucket that refuses audio/webm is widened and the upload retried",
+  await (async () => {
+    // The actual reported failure, end to end: the bucket exists, it is narrow,
+    // and the recovery has to be a WIDENING rather than a creation.
+    const { admin, calls } = fakeAdmin([REFUSAL, null])
+    const { error } = await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
+    const widen = calls.find((c) => c.name === "updateBucket")
+    return (
+      error === null &&
+      !!widen &&
+      calls.filter((c) => c.name === "upload").length === 2 &&
+      // Not createBucket. That is the path the old code had, and it is exactly
+      // why the bug survived: the bucket was never missing.
+      !calls.some((c) => c.name === "createBucket") &&
+      widen.args[1]?.allowedMimeTypes?.includes("audio/webm") === true
+    )
+  })(),
+  "        lib/messages/media-bucket.ts — the bucket is what refused it, so the\n" +
+    "        bucket is what has to change. No code-only fix reaches it.",
+)
+
+check(
+  "widening keeps photographs working, because it is additive",
+  await (async () => {
+    // A repair that fixed voice notes by breaking every photo would be a worse
+    // bug than the one it closed, and it would ship silently.
+    const { admin, calls } = fakeAdmin([REFUSAL, null])
+    await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
+    const list: string[] = calls.find((c) => c.name === "updateBucket")?.args[1]?.allowedMimeTypes
+    return (
+      Array.isArray(list) &&
+      list.includes("image/jpeg") &&
+      list.includes("image/png") &&
+      list.includes("image/heic") &&
+      // And what a browser actually records into, with the codec parameter as
+      // MediaRecorder writes it — storage matches these literally.
+      list.includes("audio/webm;codecs=opus") &&
+      list.includes("audio/mp4")
+    )
+  })(),
+)
+
+check(
+  "an upload that succeeds does not touch the bucket configuration at all",
+  await (async () => {
+    // The repair must be a response to a refusal, not a thing every upload does.
+    // Rewriting the bucket on every message would be a write per photo.
+    const { admin, calls } = fakeAdmin([null])
+    const { error } = await uploadMessageMedia(admin, "u/1/a.jpg", new Blob(["x"]), "image/jpeg")
+    return error === null && calls.length === 1 && calls[0].name === "upload"
+  })(),
+)
+
+check(
+  "a missing bucket is still created, with the full list rather than half of it",
+  await (async () => {
+    const { admin, calls } = fakeAdmin([{ message: "Bucket not found" }, null])
+    const { error } = await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
+    const made = calls.find((c) => c.name === "createBucket")
+    return (
+      error === null &&
+      !!made &&
+      made.args[1]?.allowedMimeTypes?.includes("audio/webm") === true &&
+      made.args[1]?.allowedMimeTypes?.includes("image/jpeg") === true &&
+      made.args[1]?.public === false
+    )
+  })(),
+)
+
+check(
+  "and any other failure is handed back unchanged instead of guessed at",
+  await (async () => {
+    // Retrying a quota error against a rewritten bucket would turn one clear
+    // failure into two unclear ones.
+    const { admin, calls } = fakeAdmin([{ message: "Payload too large" }])
+    const { error } = await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
+    return (
+      error?.message === "Payload too large" &&
+      calls.length === 1 &&
+      !calls.some((c) => c.name === "createBucket" || c.name === "updateBucket")
+    )
+  })(),
+)
+
+check(
+  "the refusal is recognised by what storage says, not by what was uploaded",
+  isMimeRefusal("mime type audio/webm is not supported") &&
+    isMimeRefusal("MIME type image/heic is not supported") &&
+    !isMimeRefusal("Bucket not found") &&
+    !isMimeRefusal(null),
+)
+
+check(
+  "one allowlist, imported by both routes",
+  (() => {
+    // Two routes each declaring what one shared bucket accepts is a definition
+    // that agrees with itself only by luck. It did not — and the way it
+    // disagreed was silent until somebody sent the other kind of file.
+    const voice = read(("app/api/messages/[id]/voice/route.ts"))
+    return (
+      /uploadMessageMedia\(admin, path, file/.test(image) &&
+      /uploadMessageMedia\(admin, path, file/.test(voice) &&
+      // Neither route may keep its own copy of the list or its own recovery.
+      !/allowedMimeTypes/.test(image) &&
+      !/allowedMimeTypes/.test(voice) &&
+      !/createBucket/.test(image) &&
+      !/createBucket/.test(voice) &&
+      MESSAGE_MEDIA_TYPES.length > 0
+    )
+  })(),
+)
+
+// ── THE RECORDING STRIP, AND THE CONTROLS IT USED TO SIT ON TOP OF ──────────
+//
+// While recording, the strip covers the whole composer row — and the mic stays
+// visible and pressable on top of it, because the mic is the gesture. So the
+// strip's contents have to START after the mic. They did not: it was `px-3`
+// across the full row, so the timer and the waveform were drawn underneath the
+// photo button and the mic. Two sets of controls in the same pixels.
+
+check(
+  "the recording strip leaves room for the button that is drawn on top of it",
+  (() => {
+    const rec = read("components/messages/voice-recorder.tsx")
+    const pad = Number(/pl-\[(\d+)px\]/.exec(rec)?.[1])
+    // The mic is `h-11 w-11` — 44px in Tailwind's scale — and the composer row
+    // gaps at 8px. Anything less than the button's own width puts the strip's
+    // first element underneath it.
+    const micIsW11 = /h-11 w-11 shrink-0/.test(rec)
+    return micIsW11 && Number.isFinite(pad) && pad >= 44
+  })(),
+  "        components/messages/voice-recorder.tsx — the strip's left padding has\n" +
+    "        to clear the mic, or the timer and waveform are drawn under it.",
+)
+
+check(
+  "and it takes that room back once locked, because the mic is gone by then",
+  (() => {
+    // Locked, there is nothing left to hold: the button hides itself, and a
+    // strip that kept the gap would leave a hole where a control used to be.
+    const rec = read("components/messages/voice-recorder.tsx")
+    return (
+      /locked \? "pl-3" : "pl-\[\d+px\]"/.test(rec) &&
+      /locked && "pointer-events-none opacity-0"/.test(rec) &&
+      // Moved rather than snapped, or the whole row jumps at the lock.
+      /transition-\[background-color,padding\]/.test(rec)
+    )
+  })(),
+)
+
+check(
+  "the mic sits at one end of the composer, which is what makes the strip possible",
+  (() => {
+    // A strip cannot leave a hole in its MIDDLE for a button sitting in the way
+    // of its own contents — so the button it has to clear must be at an edge.
+    // This is the layout invariant the overlap violated.
+    const t = read("components/messages/thread.tsx")
+    const mic = t.indexOf("<VoiceRecorder")
+    const photo = t.indexOf("<ImagePlus")
+    return mic > -1 && photo > -1 && mic < photo
+  })(),
+)
+
+check(
+  "the lock affordance is above the finger rather than at the far end of the row",
+  (() => {
+    // It describes the mic, so it has to be over the mic. Pinned right, it was
+    // at the opposite end of the row from the button it was telling you about.
+    const rec = read("components/messages/voice-recorder.tsx")
+    return /absolute bottom-\[\d+px\] left-1 z-30/.test(rec)
   })(),
 )
 

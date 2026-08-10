@@ -5,6 +5,7 @@ import { runMessagePush } from "@/lib/push/message-db"
 import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { encodeVoiceBody, MAX_PEAKS } from "@/lib/messages/voice-message"
+import { uploadMessageMedia } from "@/lib/messages/media-bucket"
 
 /**
  * POST /api/messages/:id/voice  (multipart: file, ms, peaks)  → { message }
@@ -48,15 +49,6 @@ const MAX_BYTES = 8 * 1024 * 1024
 const MAX_MS = 5 * 60_000
 /** Shorter than this is a mis-tap, and sending it helps nobody. */
 const MIN_MS = 700
-
-const ALLOWED = [
-  "audio/webm",
-  "audio/ogg",
-  "audio/mp4",
-  "audio/mpeg",
-  "audio/aac",
-  "audio/wav",
-]
 
 /**
  * What the bytes actually are, rather than what the upload claims.
@@ -163,21 +155,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const admin = createAdminClient()
   const path = `${user.id}/${id}/${crypto.randomUUID()}.${extensionFor(sniffed)}`
 
-  const put = () =>
-    admin.storage
-      .from("messages")
-      .upload(path, file as File, { contentType: sniffed, cacheControl: "31536000", upsert: false })
-
-  let { error: upErr } = await put()
-
-  // The bucket makes itself — same reasoning as the photo route. A bucket is
-  // not schema: there is no data in it to migrate and nothing to get wrong, so
-  // a missing one is a dead end rather than a decision. The SQL remains the
-  // source of truth for the storage POLICIES.
-  if (upErr && /bucket.*not.*found/i.test(upErr.message || "")) {
-    await admin.storage.createBucket("messages", { public: false, fileSizeLimit: MAX_BYTES })
-    ;({ error: upErr } = await put())
-  }
+  // Uploaded through the shared helper, which owns what the bucket accepts and
+  // repairs it if it is narrower than that. See lib/messages/media-bucket.ts:
+  // the bucket is created on first use by whichever route gets there first, and
+  // that was the PHOTO route, with an image-only allowlist — so every voice note
+  // was refused by the bucket itself with "mime type audio/webm is not
+  // supported", before a line of this route's own logic ran.
+  const { error: upErr } = await uploadMessageMedia(admin, path, file, sniffed)
 
   if (upErr) {
     console.error("[messages/voice] upload failed:", upErr)

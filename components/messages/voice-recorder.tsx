@@ -306,8 +306,20 @@ export function VoiceRecorder({
       {(recording || locked) && (
         <div
           className={cn(
-            "absolute inset-0 z-20 flex items-center gap-3 rounded-2xl bg-white px-3",
-            "transition-colors duration-200",
+            "absolute inset-0 z-20 flex items-center gap-2.5 rounded-2xl bg-white pr-3",
+            "transition-[background-color,padding] duration-200",
+            /* THE STRIP STARTS AFTER THE MIC, WHICH IS WHY THE MIC IS FIRST.
+            
+               It used to be `px-3` across the whole row with the button sitting
+               on top at z-30 — so the recording dot, the timer and the waveform
+               were drawn underneath the photo button and the mic, and the mic
+               punched through the middle of them. Two sets of controls in the
+               same pixels, which is the cheap-looking part.
+            
+               44px of button plus the row's 8px gap. While LOCKED the mic is
+               gone (there is nothing left to hold) so the strip takes the space
+               back rather than leaving a hole where it used to be. */
+            locked ? "pl-3" : "pl-[52px]",
             // Only the held state is inert. Locked, the bin and the send button
             // inside it are the whole point.
             !locked && "pointer-events-none",
@@ -320,7 +332,7 @@ export function VoiceRecorder({
               cancelling ? "bg-rose-500" : "voice-rec-dot bg-rose-500",
             )}
           />
-          <span className="w-[44px] shrink-0 text-[13px] font-semibold tabular-nums text-neutral-700">
+          <span className="w-[40px] shrink-0 text-[13px] font-semibold tabular-nums text-neutral-700">
             {formatVoiceDuration(ms)}
           </span>
 
@@ -393,7 +405,10 @@ export function VoiceRecorder({
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute bottom-[52px] right-2 z-30 flex h-9 w-9 items-center justify-center rounded-full",
+            // Above the mic, which is where the finger is and where it has to
+            // travel. It was pinned to the right, which is the opposite end of
+            // the row from the button it describes.
+            "pointer-events-none absolute bottom-[52px] left-1 z-30 flex h-9 w-9 items-center justify-center rounded-full",
             "bg-neutral-900/85 text-white transition-transform duration-150",
             arming2Lock && "scale-110",
           )}

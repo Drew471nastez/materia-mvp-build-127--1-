@@ -2654,6 +2654,14 @@ export function MessageThread({
               button can look like the rest of the composer instead of like a
               browser's file control. Reset to "" after every pick, or choosing
               the same photo twice in a row fires no change event at all. */}
+          {/* FIRST IN THE ROW, and that is a layout decision rather than a
+              preference. Its recording strip covers this whole row, and the mic
+              has to stay visible and pressable on top of it — so the mic must be
+              at one END, or the strip has to leave a hole in its middle for a
+              button sitting in the way of its own contents. That hole is what
+              the overlap was: the timer and the waveform ran underneath the
+              photo and mic buttons. */}
+          <VoiceRecorder disabled={uploading} onRecorded={(blob, ms, peaks) => void sendVoice(blob, ms, peaks)} />
           <input
             ref={fileRef}
             type="file"
@@ -2678,10 +2686,6 @@ export function MessageThread({
           >
             <ImagePlus className="h-[21px] w-[21px]" />
           </button>
-          {/* Beside the photo button, because they are the same kind of thing:
-              two ways to say something that is not typing. Its recording strip
-              covers the whole row — see the component. */}
-          <VoiceRecorder disabled={uploading} onRecorded={(blob, ms, peaks) => void sendVoice(blob, ms, peaks)} />
           {/* THE FIELD AND THE SEND BUTTON ARE ONE CONTROL.
               The button used to be a third disc outside the input, permanently
               on screen and permanently disabled — a control that is visible
