@@ -1185,14 +1185,28 @@ check(
 )
 
 check(
-  "the name and the face are one object, not two ends of the bar",
+  "the face comes first, then the name, as everywhere else",
   (() => {
     // The avatar sat against the controls, so the two halves of "whose profile
     // is this" were at opposite edges and the picture read as a fourth button.
+    // Grouped, and in the header's own order — reversing them made the bar read
+    // as a different thing that happened to contain the same two elements.
     const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
-    const nameAt = group.indexOf("{name}")
     const faceAt = group.indexOf("<PinnedAvatar")
-    return nameAt > 0 && faceAt > nameAt
+    const nameAt = group.indexOf("{name}\n")
+    return faceAt > 0 && nameAt > faceAt
+  })(),
+)
+
+check(
+  "the bar is opaque, not frosted",
+  (() => {
+    // A blur was buying nothing: the bar only exists while a grid of
+    // photographs scrolls under it, so what showed through was a stream of
+    // colours moving at speed — the text changing contrast continuously, and a
+    // full-width strip re-blurred on every frame of the scroll it sits over.
+    const rule = css.slice(css.indexOf(".profile-pinned {"), css.indexOf('.profile-pinned[data-shown="true"]'))
+    return /background: #fff;/.test(rule) && !/backdrop-filter/.test(rule)
   })(),
 )
 
@@ -1359,13 +1373,9 @@ check(
   (() => {
     // A name alone is the weakest of the identifiers the bar stands in for:
     // display names repeat, they truncate at this width, and the thing the eye
-    // recognises forty cards down a grid is the picture. To the RIGHT of the
-    // name, so a long name is shortened rather than the face being dropped.
-    const at = pinnedSrc.indexOf("{name}")
+    // recognises forty cards down a grid is the picture.
     return (
-      at > 0 &&
       /<PinnedAvatar name=\{name\} url=\{avatarUrl\} \/>/.test(pinnedSrc) &&
-      pinnedSrc.indexOf("<PinnedAvatar") > at &&
       pinnedSrc.indexOf("<PinnedAvatar") < pinnedSrc.indexOf('label="Distribuie"') &&
       // And the caller actually hands it one.
       /avatarUrl=\{member\.avatarUrl\}/.test(profileSrc)
