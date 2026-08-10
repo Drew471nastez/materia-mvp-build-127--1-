@@ -11,6 +11,8 @@ import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
+import { usePinnedBar } from "@/lib/marketplace/use-pinned-bar"
+import { ListingPinnedHeader } from "@/components/product/listing-pinned-header"
 import { navigateBlended, signalArrival } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { claimSurface } from "@/lib/surface-bg"
@@ -264,6 +266,23 @@ export function ProductDetail({ product }: { product: any }) {
   // `origin` is the fallback for a cold arrival (a shared link, a new tab),
   // where there is no history to return to.
   // The navigation on its own, with nothing animating around it.
+  /**
+   * THE BAR THAT ARRIVES WHEN THE PHOTOGRAPH LEAVES.
+   *
+   * Scroll a listing on a phone and everything identifying it goes at once: the
+   * photograph, the title, and the three controls that were sitting on top of
+   * the photograph in white — back, manage-or-report, and share. Below that you
+   * are reading a description with no way out except the OS gesture and nothing
+   * on screen saying what you are looking at.
+   *
+   * The profile solved this already, and this is deliberately the SAME bar
+   * rather than a second one that looks like it: same 52px, same white, same
+   * arrival, same dead band, from lib/marketplace/use-pinned-bar.ts. Two
+   * near-identical bars is how one of them ends up 4px taller with a different
+   * curve, and on the two screens people move between most.
+   */
+  const { sentinel: titleEndRef, pinned } = usePinnedBar<HTMLSpanElement>()
+
   const goBack = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back()
     else router.push(backHrefFor(origin))
@@ -442,6 +461,20 @@ export function ProductDetail({ product }: { product: any }) {
 
   return (
     <div ref={rootRef} className="min-h-screen bg-white pb-28 md:pb-0">
+      {/* Phone only: on a monitor the photograph never leaves the screen, so
+          there is nothing for a stand-in to stand in for. */}
+      <ListingPinnedHeader
+        title={product.title ?? ""}
+        visible={pinned}
+        isOwn={isOwn}
+        onBack={onBack}
+        onManage={openManage}
+        onShare={() => {
+          if (typeof navigator !== "undefined" && navigator.share) {
+            void navigator.share({ title: product.title, url: window.location.href })
+          }
+        }}
+      />
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">
@@ -669,6 +702,10 @@ export function ProductDetail({ product }: { product: any }) {
           <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] text-neutral-900 md:text-[26px]">
             {product.title}
           </h1>
+          {/* Where the title stops being on the page and starts being in the
+              bar. Zero height and nothing drawn — the observer watching it is
+              the entire point. */}
+          <span ref={titleEndRef} aria-hidden className="block h-0 w-full" />
 
           <p className="mt-1.5 text-[14.5px] text-neutral-500">
             {summary}

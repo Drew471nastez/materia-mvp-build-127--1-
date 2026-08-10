@@ -1056,6 +1056,8 @@ check(
 
 const profileSrc = strip(read("components/member/member-profile.tsx"))
 const pinnedSrc = strip(read("components/member/profile-pinned-header.tsx"))
+const pinHook = strip(read("lib/marketplace/use-pinned-bar.ts"))
+const listingPinned = strip(read("components/product/listing-pinned-header.tsx"))
 const lockSrc = strip(read("lib/scroll-lock.ts"))
 const bottomSheet = strip(read("components/ui/bottom-sheet.tsx"))
 const dialog = strip(read("components/ui/confirm-dialog.tsx"))
@@ -1196,7 +1198,12 @@ check(
   (() => {
     // Scrolling it to y=0 puts it under frosted glass, which reads as having
     // scrolled too far.
-    return /getBoundingClientRect\(\)\.top - pinnedOffset\(\)/.test(profileSrc) && /profile-pinned\[data-shown="true"\]/.test(profileSrc)
+    // `pinnedOffset` lives in lib/marketplace/use-pinned-bar.ts now, beside the
+    // observer pair, because the listing page needs the same measurement.
+    return (
+      /getBoundingClientRect\(\)\.top - pinnedOffset\(\)/.test(profileSrc) &&
+      /profile-pinned\[data-shown="true"\]/.test(pinHook)
+    )
   })(),
 )
 
@@ -1230,16 +1237,19 @@ check(
     // running every frame to compute a boolean that changes twice a session is
     // main-thread work paid for continuously and used almost never.
     return (
-      /new IntersectionObserver/.test(profileSrc) &&
-      !/addEventListener\("scroll"/.test(profileSrc) &&
-      !/addEventListener\("scroll"/.test(pinnedSrc)
+      /new IntersectionObserver/.test(pinHook) &&
+      !/addEventListener\("scroll"/.test(pinHook) &&
+      !/addEventListener\("scroll"/.test(pinnedSrc) &&
+      // And the profile reaches it through the shared hook rather than keeping
+      // its own copy, so the two screens cannot drift.
+      /usePinnedBar<HTMLSpanElement>\(\)/.test(profileSrc)
     )
   })(),
 )
 
 check(
   "it appears when the name goes ABOVE, not before it is reached",
-  /entry\.boundingClientRect\.top < 0/.test(profileSrc),
+  /entry\.boundingClientRect\.top < 0/.test(pinHook),
 )
 
 check(
@@ -1397,7 +1407,12 @@ check(
     // Two panels of different weights moving at once. The status actions already
     // defer their refresh by exactly this constant for exactly this reason.
     const edit = sheet.slice(sheet.indexOf("const onEdit = useCallback"), sheet.indexOf("const act = useCallback"))
-    return /setTimeout\(\(\) => router\.push\(editHref\), AFTER_EXIT_MS\)/.test(edit)
+    // Through `navigateBlended`, which is also what puts the progress bar up
+    // during the wait — see "the wait is narrated, but only when there is one".
+    return (
+      /AFTER_EXIT_MS\)/.test(edit) &&
+      /navigateBlended\("enter", \(\) => router\.push\(editHref\)\)/.test(edit)
+    )
   })(),
 )
 
@@ -1669,6 +1684,122 @@ check(
   })(),
 )
 
+console.log("\nThe listing page grows the same bar the profile has")
+
+check(
+  "it is the SAME bar, not a second one that looks like it",
+  (() => {
+    // Two near-identical bars is how one of them ends up 4px taller with a
+    // different curve, on the two screens people move between most.
+    return (
+      /className="profile-pinned md:hidden"/.test(listingPinned) &&
+      /usePinnedBar<HTMLSpanElement>\(\)/.test(detail) &&
+      /<ListingPinnedHeader/.test(detail)
+    )
+  })(),
+)
+
+check(
+  "it carries the way back, the title, and the controls that were on the photo",
+  (() => {
+    // Exactly what scrolled away, and nothing new: a bar that grows a control
+    // the screen did not have is a bar that has to be learned.
+    return (
+      /label="Înapoi"/.test(listingPinned) &&
+      /label="Distribuie"/.test(listingPinned) &&
+      /label="Gestionează anunțul"/.test(listingPinned) &&
+      /\{title\}/.test(listingPinned) &&
+      /title=\{product\.title \?\? ""\}/.test(detail)
+    )
+  })(),
+)
+
+check(
+  "a long title truncates instead of pushing the controls off the screen",
+  (() => {
+    // Listing titles are written by sellers and are frequently a paragraph. The
+    // controls beside them have a fixed width, so without this a long one shoves
+    // back, manage and share off the right-hand edge.
+    return /min-w-0 flex-1 truncate/.test(listingPinned) && /shrink-0/.test(listingPinned)
+  })(),
+)
+
+check(
+  "and it is a phone thing, because a monitor never loses the photograph",
+  /md:hidden/.test(listingPinned),
+)
+
+console.log("\nOpening the edit screen says something is happening")
+
+check(
+  "the wait is narrated, but only when there is one",
+  (() => {
+    // Removing the loading shell is what stopped the sheet arriving twice, and
+    // the cost of it is a silent gap: the sheet has gone, the screen behind is
+    // sitting there, nothing says a screen is coming. `navigateBlended` puts the
+    // progress bar up — after 180ms, so a warm prefetched route still shows
+    // nothing at all. Fast is silent, slow is narrated.
+    return (
+      /navigateBlended\("enter"/.test(sheet) &&
+      /const BAR_DELAY_MS = \d+/.test(strip(read("lib/screen-transition.ts")))
+    )
+  })(),
+)
+
+console.log("\nA photograph that has not arrived is a shimmer, not a hole")
+
+check(
+  "the edit grid draws a skeleton until the browser reports the image decoded",
+  (() => {
+    // Eight full-size photographs load off storage when an edit screen opens,
+    // and they arrive neither together nor in order — so each tile snapped from
+    // an empty grey box to a picture at its own unpredictable moment.
+    return (
+      /\{!loadedPhotos\[p\.id\] && !p\.uploading && \(/.test(form) &&
+      /className="photo-skeleton absolute inset-0"/.test(form) &&
+      /onLoad=\{\(\) => markPhotoLoaded\(p\.id\)\}/.test(form)
+    )
+  })(),
+)
+
+check(
+  "a photograph that will never arrive settles instead of shimmering forever",
+  // onError clears it too, or a dead URL shimmers for the rest of the session.
+  /onError=\{\(\) => markPhotoLoaded\(p\.id\)\}/.test(form),
+)
+
+check(
+  "it is keyed by photo id, not by position",
+  (() => {
+    // The grid is reorderable. Keyed by index, dragging a tile hands its
+    // "loaded" flag to whatever moves into that slot — a picture already on
+    // screen flashing back to a skeleton because something else was dropped in
+    // front of it.
+    return /useState<Record<string, true>>\(\{\}\)/.test(form) && /prev\[id\] \? prev : \{ \.\.\.prev, \[id\]: true \}/.test(form)
+  })(),
+)
+
+check(
+  "and the skeleton changes no layout, so nothing moves when the picture lands",
+  (() => {
+    // A placeholder that resizes the box it stands in for is worse than none.
+    const css2 = strip(read("app/globals.css"))
+    const rule = css2.slice(css2.indexOf(".photo-skeleton {"), css2.indexOf(".photo-skeleton {") + 400)
+    return (
+      /background-position/.test(css2.slice(css2.indexOf("@keyframes photo-skeleton"), css2.indexOf("@keyframes photo-skeleton") + 200)) &&
+      !/(width|height|margin|padding):/.test(rule) &&
+      /transition-opacity duration-300/.test(form)
+    )
+  })(),
+)
+
+check(
+  "somebody who has asked for less motion gets a flat placeholder",
+  /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}?\.photo-skeleton \{ animation: none; \}/.test(
+    strip(read("app/globals.css")),
+  ),
+)
+
 console.log("\nComing back to where you were")
 
 check(
@@ -1784,13 +1915,21 @@ check(
     // crossing starts a 320ms slide the next one reverses partway through. The
     // judder was several animations over each other, none finishing.
     return (
-      /rootMargin: "-56px 0px 0px 0px"/.test(profileSrc) &&
-      /rootMargin: "-8px 0px 0px 0px"/.test(profileSrc) &&
+      // POSITIVE. Negative shrinks the root and moves the line DOWN into the
+      // viewport, so `show` fired at a sentinel top of about +56 while its own
+      // test asks for `top < 0` — and an observer only calls back on a crossing,
+      // so once that one had passed nothing fired again however far you
+      // scrolled. The bar could not appear at all. Positive grows the root
+      // upward, which is where "the name has gone past" actually lives.
+      /const SHOW_AT = 56/.test(pinHook) &&
+      /const HIDE_AT = 8/.test(pinHook) &&
+      /rootMargin: `\$\{SHOW_AT\}px 0px 0px 0px`/.test(pinHook) &&
+      /rootMargin: `\$\{HIDE_AT\}px 0px 0px 0px`/.test(pinHook) &&
       // Two observers, because a threshold is about how MUCH of an element is
       // visible and this is about where it is — a zero-height element is never
       // partly visible.
-      /show\.observe\(el\)/.test(profileSrc) &&
-      /hide\.observe\(el\)/.test(profileSrc)
+      /show\.observe\(el\)/.test(pinHook) &&
+      /hide\.observe\(el\)/.test(pinHook)
     )
   })(),
 )

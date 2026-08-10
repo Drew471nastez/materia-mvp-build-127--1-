@@ -678,6 +678,18 @@ export function NewListingForm({
   const [formReady, setFormReady] = useState(!!seed)
 
   const [photos, setPhotos] = useState<Photo[]>(seed?.photos ?? [])
+  /**
+   * Which photographs the browser has actually decoded.
+   *
+   * Keyed by photo id rather than by index, because the grid is reorderable and
+   * an index would mean dragging a tile hands its "loaded" flag to whatever
+   * moves into that slot — a picture already on screen flashing back to a
+   * skeleton because something else was dropped in front of it.
+   */
+  const [loadedPhotos, setLoadedPhotos] = useState<Record<string, true>>({})
+  const markPhotoLoaded = useCallback((id: string) => {
+    setLoadedPhotos((prev) => (prev[id] ? prev : { ...prev, [id]: true }))
+  }, [])
   const [title, setTitle] = useState(seed?.title ?? "")
   const [description, setDescription] = useState(seed?.description ?? "")
   const [group, setGroup] = useState<string | null>(seed?.group ?? null)
@@ -2310,12 +2322,40 @@ export function NewListingForm({
                     "z-10 scale-[1.06] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.45)] ring-[2.5px] ring-neutral-900 will-change-transform",
                 )}
               >
+                {/* A PHOTOGRAPH THAT IS NOT HERE YET IS A SHIMMER, NOT A HOLE.
+                
+                    Opening an edit screen loads eight full-size photographs off
+                    storage, and they do not arrive together or in order — so the
+                    grid filled in one tile at a time, each one snapping from an
+                    empty grey box to a picture. Eight hard cuts at eight
+                    unpredictable moments, which is the popping.
+                    
+                    The well underneath carries the skeleton, and the image fades
+                    over it once the browser has actually decoded it. `onLoad`
+                    rather than a timer, because the honest moment is the one the
+                    browser reports; `onError` clears it too, so a photograph
+                    that will never arrive settles instead of shimmering for the
+                    rest of the session.
+                    
+                    Opacity only — the tile is already the right size and the
+                    right shape from the first frame, so nothing moves and no
+                    layout is touched. A skeleton that changes the box it is
+                    standing in for is worse than none. */}
+                {!loadedPhotos[p.id] && !p.uploading && (
+                  <span aria-hidden className="photo-skeleton absolute inset-0" />
+                )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.url || p.localUrl}
                   alt=""
                   draggable={false}
-                  className="pointer-events-none h-full w-full select-none object-cover"
+                  onLoad={() => markPhotoLoaded(p.id)}
+                  onError={() => markPhotoLoaded(p.id)}
+                  className={cn(
+                    "pointer-events-none h-full w-full select-none object-cover",
+                    "transition-opacity duration-300 ease-out",
+                    loadedPhotos[p.id] ? "opacity-100" : "opacity-0",
+                  )}
                 />
 
                 {p.uploading && (
@@ -2490,14 +2530,35 @@ export function NewListingForm({
             types 130, opens the feed and finds their listing at 141 with no
             explanation. */}
         <div className="mt-3" ref={(el) => setGapEl("price", el)}>
-          <label className="block text-[13px] font-medium text-neutral-500">Preț</label>
-          <input
-            value={price}
-            onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
-            inputMode="decimal"
-            placeholder="0"
-            className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
-          />
+          {/* THE FIELD SAYS WHAT UNIT IT IS IN.
+          
+              It said "Preț" and took a bare number. On a marketplace whose
+              couriers bill in lei, whose sellers are paid in lei and whose every
+              displayed price carries "RON", a seller typing 360 into an
+              unlabelled box is entitled to believe they have priced the item at
+              360 lei — and nothing on the screen either confirmed or denied it.
+              
+              The unit belongs ON the input rather than in a hint below it: a
+              caption is read once and the field is used every time. */}
+          <label htmlFor="listing-price" className="block text-[13px] font-medium text-neutral-500">
+            Preț (RON)
+          </label>
+          <div className="relative mt-1.5">
+            <input
+              id="listing-price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
+              inputMode="decimal"
+              placeholder="0"
+              className="w-full rounded-xl border border-neutral-200 bg-neutral-50/70 py-3 pl-3.5 pr-14 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[14px] font-semibold text-neutral-400"
+            >
+              RON
+            </span>
+          </div>
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
         {Number.isFinite(priceCents) && priceCents > 0 && (

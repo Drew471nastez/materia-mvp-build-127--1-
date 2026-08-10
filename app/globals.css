@@ -985,6 +985,43 @@ html.capacitor a.no-tap-fade:active {
  * the one small layer: a press can come at any moment, so there is no frame in
  * which to build the layer beforehand, and building it on the first frame of
  * the turn is a hitch at exactly the start — which is the part being fixed. */
+/* A PHOTOGRAPH ON ITS WAY, IN THE SELL FORM'S GRID.
+ *
+ * Eight full-size images load off storage when an edit screen opens, and they
+ * arrive neither together nor in order — so each tile snapped from an empty grey
+ * box to a picture at its own unpredictable moment. Eight hard cuts is the
+ * popping; this is the thing that stands in the gap.
+ *
+ * A moving highlight rather than a pulsing block: a pulse says "waiting", a
+ * sweep says "arriving", and the second one is true. `background-position` on a
+ * gradient rather than a transformed child, so there is nothing to clip against
+ * the tile's rounded corners and no second layer to composite over an image that
+ * is about to replace it anyway.
+ *
+ * It stops existing the moment the browser reports the image decoded, so this
+ * animation never runs alongside a picture — see `loadedPhotos` in
+ * components/sell/new-listing-form.tsx. */
+@keyframes photo-skeleton {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.photo-skeleton {
+  background-image: linear-gradient(
+    100deg,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.045) 50%,
+    rgba(0, 0, 0, 0) 70%
+  );
+  background-size: 200% 100%;
+  background-color: #f0f0f1;
+  animation: photo-skeleton 1.35s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The well stays, the sweep goes. A flat placeholder still says "not yet". */
+  .photo-skeleton { animation: none; }
+}
+
+
 .plus-turn {
   transition: transform 520ms cubic-bezier(0.32, 0.72, 0, 1);
   transform: rotate(0deg);
