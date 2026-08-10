@@ -268,10 +268,13 @@ check(
     })(),
   )
   check(
-    "it defaults to the historical value until the migration has run",
-    /=== "ron" \? "ron" : "usd"/.test(cur),
-    "        A deployment that has not migrated must not start quoting lei\n" +
-      "        against dollar-denominated rows.",
+    "it defaults to LEI, because the catalogue was never in dollars",
+    /=== "usd" \? "usd" : "ron"/.test(cur),
+    "        `price_cents` is written by one screen — the sell form — which\n" +
+      "        multiplies a seller-typed number by 100. A seller typing 360\n" +
+      "        means 360 lei. Defaulting to usd quoted every price 4.6x high\n" +
+      "        and charged the raw number in dollars. The env var still\n" +
+      "        overrides for a deployment that really does hold USD rows.",
   )
   check(
     "the fixed fee follows the currency being charged",
@@ -563,12 +566,55 @@ check(
 check(
   "formatting follows the same switch that tells Stripe what to charge",
   (() => {
-    // price_cents means USD cents before the migration and bani after it.
-    // Converting at 4.6 in the second world quotes every listing at 4.6x.
+    // It read the environment variable directly and inverted the default the
+    // charge side used, so the two halves of "what does price_cents mean" were
+    // separate expressions kept in agreement by hand — and they were not:
+    // display multiplied by 4.6 while the card was charged the raw number in
+    // dollars. One listing typed at 360 lei was quoted at ~1656 and billed $360.
+    //
+    // Reading PLATFORM_CURRENCY is the fix, and it is stronger than agreeing:
+    // there is now no second expression that CAN disagree.
     return (
-      /NEXT_PUBLIC_PLATFORM_CURRENCY === "ron"/.test(currencySrc) &&
+      /const storedIsLei = PLATFORM_CURRENCY === "ron"/.test(currencySrc) &&
+      !/NEXT_PUBLIC_PLATFORM_CURRENCY/.test(currencySrc) &&
       /storedIsLei \? 1 : USD_RATES\.RON/.test(currencySrc) &&
       /formatPlatformMoney\(cents\)/.test(localeSrc)
+    )
+  })(),
+)
+
+check(
+  "the guard accepts both honest routes into lei",
+  (() => {
+    // It was written assuming the only road to lei was a conversion, and that is
+    // not the road this product took. Demanding the conversion marker demands a
+    // migration that must never run here — RUN_CURRENCY_RON.sql multiplies by
+    // 4.6, which against a catalogue already in bani is the display bug made
+    // permanent and written to the data.
+    const guard = read("lib/checkout/currency-guard.ts")
+    return (
+      /\.in\("key", \["currency_ron_2026", "currency_ron_native"\]\)/.test(guard) &&
+      // And it still refuses when NEITHER has been stated.
+      /if \(error \|\| !data\) \{/.test(guard) &&
+      /if \(PLATFORM_CURRENCY !== "ron"\) return \{ ok: true \}/.test(guard)
+    )
+  })(),
+)
+
+check(
+  "and the native marker changes no prices at all",
+  (() => {
+    // Its entire job is to state the unit. A file called RUN_CURRENCY_* that
+    // quietly repriced a catalogue would be the most dangerous thing in the
+    // repository.
+    const sql = read("supabase/sql/RUN_CURRENCY_RON_NATIVE.sql")
+    return (
+      /currency_ron_native/.test(sql) &&
+      /on conflict \(key\) do nothing/.test(sql) &&
+      !/update\s+public\.products/i.test(sql) &&
+      !/\*\s*4\.6/.test(sql) &&
+      // And it says, in the file, not to run the other one.
+      /DO NOT RUN RUN_CURRENCY_RON\.sql/.test(sql)
     )
   })(),
 )

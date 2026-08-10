@@ -38,13 +38,42 @@ export type PlatformCurrency = "usd" | "ron"
 /**
  * What the card is charged in.
  *
- * Env-driven so the switch is a deployment decision taken at the same moment as
- * the data migration, rather than a code change that has to race it. Defaults
- * to the historical value: a deployment that has not migrated must not
- * accidentally start quoting lei against dollar-denominated rows.
+ * ---------------------------------------------------------------------------
+ * THE DEFAULT IS NOW LEI, AND HERE IS THE EVIDENCE FOR THAT
+ * ---------------------------------------------------------------------------
+ * It defaulted to "usd", on the reasoning that a deployment which has not run
+ * the migration must not quote lei against dollar-denominated rows. That
+ * reasoning is sound and the default was still wrong, because it assumed the
+ * stored numbers began life as dollars. They did not.
+ *
+ * `products.price_cents` is written by exactly one screen — the sell form — and
+ * that form takes a number typed by a Romanian seller and multiplies it by 100.
+ * A seller who types 360 means 360 lei. The row holds 36000 bani and always has.
+ * Nothing in this product has ever asked anybody for a price in dollars.
+ *
+ * The observable proof: a listing was created at 360 and displayed at ~1656,
+ * which is 360 × 4.6 — the display conversion applied to a number that was
+ * already lei. The catalogue was never USD-denominated; the READER was wrong
+ * about what it was reading.
+ *
+ * So the historical default was not a safe fallback, it was a standing bug:
+ * every price on the site quoted 4.6× high, and every card charged in dollars
+ * against a lei number.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THIS DOES NOT MEAN
+ * ---------------------------------------------------------------------------
+ * It does NOT mean supabase/sql/RUN_CURRENCY_RON.sql should now be run. That
+ * migration multiplies every stored amount by 4.6 to convert genuine USD cents
+ * into bani. Run against a catalogue that is already in bani it does exactly
+ * what the bug did, permanently and to the data rather than to the display.
+ *
+ * The env var still overrides, so a deployment that really does hold USD rows
+ * can set NEXT_PUBLIC_PLATFORM_CURRENCY=usd and keep the old behaviour while it
+ * migrates.
  */
 export const PLATFORM_CURRENCY: PlatformCurrency =
-  process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "ron" ? "ron" : "usd"
+  process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "usd" ? "usd" : "ron"
 
 /** Both RON and USD are two-decimal currencies, so the minor unit is 1/100 in
  *  either case and no zero-decimal special case is needed. */
