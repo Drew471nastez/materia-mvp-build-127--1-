@@ -117,19 +117,51 @@ check(
 )
 
 check(
-  "delete asks first, and names what it is deleting",
+  "delete asks first, in an alert rather than by growing the sheet",
   (() => {
     // A single-tap bin is how somebody loses a listing with eight photographs
     // to a thumb that landed a centimetre off, and there is nowhere for a
     // deleted one to go. The second tap is a different button in a different
     // place, so it cannot be the tail of the same gesture.
-    return /setConfirming/.test(sheet) && /Ștergi „\{title \|\| "Fără titlu"\}”\?/.test(sheet)
+    //
+    // It used to be a red panel that EXPANDED inside the sheet, and expanding a
+    // panel anchored to the bottom of the screen re-lays-out and re-rasterises
+    // the whole thing on every frame of the expansion. The question is a
+    // platform alert now: it costs no layout, and it is the shape people
+    // already read as "this one is not reversible".
+    return (
+      /<ConfirmDialog/.test(sheet) &&
+      /open=\{confirming\}/.test(sheet) &&
+      /Nu se poate anula/.test(sheet) &&
+      !/gridTemplateRows/.test(sheet)
+    )
+  })(),
+)
+
+check(
+  "the sheet does not repeat the name of the listing back at you",
+  (() => {
+    // You arrived here by pressing ⋯ on one specific card. You are looking at
+    // the photograph of the thing you mean, and being told its name again is
+    // the interface repeating what your own thumb just said. It survives in
+    // the accessible name, where naming the subject is the entire job.
+    return (
+      /label=\{`Gestionează \$\{title \|\| "anunțul"\}`\}/.test(sheet) &&
+      !/Anunțul tău/.test(sheet) &&
+      !/\{title \|\| "Fără titlu"\}/.test(sheet)
+    )
   })(),
 )
 
 check(
   "archiving is offered as the thing that was probably meant",
-  /Arhivarea îl scoate din feed fără să îl ștergi/.test(sheet),
+  (() => {
+    // The three lines of explanation in the sheet are gone — read once, skipped
+    // forever after. The advice that mattered is the one given at the moment it
+    // applies: when the server refuses a delete because somebody has bought it.
+    const route = strip(read("app/api/listings/[id]/route.ts"))
+    return /nu poate fi șters\. Îl poți arhiva\./.test(route)
+  })(),
 )
 
 check(
@@ -373,10 +405,10 @@ check(
     // card was still expanded when the sheet reopened on another — one tap
     // from destroying the wrong listing.
     const profile = strip(read("components/member/member-profile.tsx"))
-    return (
-      /if \(open\) return\s*\n\s*setConfirming\(false\)/.test(sheet) &&
-      /key=\{shown\.id\}/.test(profile)
-    )
+    // The reset-on-close is gone, because closing the sheet is now HOW the
+    // confirmation opens. What discards it is the parent keying the whole
+    // component on the listing's id, so a change of subject cannot inherit it.
+    return /key=\{shown\.id\}/.test(profile) && !/if \(open\) return\s*\n\s*setConfirming\(false\)/.test(sheet)
   })(),
 )
 
@@ -682,7 +714,7 @@ check(
     // That page IS the row. Once it is gone there is nothing there to refresh.
     return (
       /onDeleted=\{\(\) => \{\s*\n\s*router\.replace\("\/profile"\)/.test(detail) &&
-      /if \(onDeleted\) onDeleted\(\)\s*\n\s*else router\.refresh\(\)/.test(sheet)
+      /if \(onDeleted\) \{\s*\n\s*onDeleted\(\)\s*\n\s*return\s*\n\s*\}/.test(sheet)
     )
   })(),
 )
@@ -824,6 +856,222 @@ check(
 check(
   "signed-out visitors are sent to login, and back here after",
   /redirect\("\/login\?redirect=\/settings"\)/.test(strip(read("app/(marketing)/settings/page.tsx"))),
+)
+
+
+/* ===========================================================================
+ *  THE PANEL, THE BAR AND THE BADGE
+ * ===========================================================================
+ *
+ * Four complaints, and only one of them was about something being slow.
+ *
+ *   the sheet is laggy and clicky   it was doing layout work per frame
+ *   switching tabs is not smooth    it said a change happened, not which way
+ *   scrolling loses the profile     forty cards down, nothing said whose shop
+ *   the draft badge is orange       amber is a warning; a draft is not one
+ */
+
+const profileSrc = strip(read("components/member/member-profile.tsx"))
+const pinnedSrc = strip(read("components/member/profile-pinned-header.tsx"))
+const lockSrc = strip(read("lib/scroll-lock.ts"))
+const bottomSheet = strip(read("components/ui/bottom-sheet.tsx"))
+const dialog = strip(read("components/ui/confirm-dialog.tsx"))
+const css = read("app/globals.css")
+
+console.log("\nThe sheet stops fighting the page")
+
+check(
+  "the page behind a sheet holds still",
+  (() => {
+    // A thumb landing slightly off the sheet, or on it but past the end of its
+    // list, used to move the whole profile. Nothing breaks; it just reads as a
+    // panel sitting on a web page, which is most of what "laggy" meant here.
+    return /lockScroll/.test(bottomSheet) && /if \(!mounted\) return\s*\n\s*return lockScroll\(\)/.test(bottomSheet)
+  })(),
+)
+
+check(
+  "and two overlapping overlays cannot leave it locked",
+  (() => {
+    // The delete confirmation opens as the sheet that raised it is still
+    // closing. Save-and-restore means whichever effect ran last decides whether
+    // the page scrolls — including the case where it stays locked with nothing
+    // on screen to unlock it. Counted instead.
+    return (
+      /let depth = 0/.test(lockSrc) &&
+      /if \(depth === 0\)/.test(lockSrc) &&
+      /depth = Math\.max\(0, depth - 1\)/.test(lockSrc) &&
+      /lockScroll/.test(dialog) &&
+      !/document\.body\.style\.overflow = "hidden"/.test(dialog)
+    )
+  })(),
+)
+
+check(
+  "a sheet on its way out stops taking taps",
+  (() => {
+    // It is still on screen for a third of a second after the decision was
+    // made, and a row pressed in that window fires an action against a panel
+    // that has already been dismissed.
+    return /sheet\.style\.pointerEvents = dead/.test(bottomSheet) && /scrim\.style\.pointerEvents = dead/.test(bottomSheet)
+  })(),
+)
+
+check(
+  "the refresh waits for the animation instead of racing it",
+  (() => {
+    // router.refresh() re-renders the profile — sixty cards — on the frames the
+    // sheet is using to slide away. The exit stuttered every single time, and
+    // the sheet was never the cause.
+    return (
+      /const AFTER_EXIT_MS = 330/.test(sheet) &&
+      /setTimeout\(\(\) => router\.refresh\(\), AFTER_EXIT_MS\)/.test(sheet) &&
+      !/onClose\(\)\s*\n\s*router\.refresh\(\)/.test(sheet)
+    )
+  })(),
+)
+
+console.log("\nSwitching tabs says which way you went")
+
+check(
+  "the incoming panel arrives from the side its tab is on",
+  (() => {
+    return (
+      /setDir\(next === "reviews" \? "right" : "left"\)/.test(profileSrc) &&
+      /shelf-panel-in-right/.test(css) &&
+      /shelf-panel-in-left/.test(css)
+    )
+  })(),
+)
+
+check(
+  "and nothing animates on arrival, when nothing has changed",
+  (() => {
+    // `dir` is null until the first switch: the listings panel is what the page
+    // opens on, and animating it in is motion announcing something that did not
+    // happen.
+    return /shelfTab !== tab \|\| !dir \? undefined/.test(profileSrc)
+  })(),
+)
+
+check(
+  "both tabs replay their animation, not just one of them",
+  (() => {
+    // The reviews panel had the class written straight on it, so it played once
+    // — on the mount — and every switch back to it after that was a cut, while
+    // listings animated every time.
+    return (
+      (profileSrc.match(/panelIn\("(listings|reviews)"\)/g) ?? []).length === 2 &&
+      !/className="shelf-panel-in"/.test(profileSrc)
+    )
+  })(),
+)
+
+check(
+  "the strip lands below the pinned bar, not underneath it",
+  (() => {
+    // Scrolling it to y=0 puts it under frosted glass, which reads as having
+    // scrolled too far.
+    return /getBoundingClientRect\(\)\.top - pinnedOffset\(\)/.test(profileSrc) && /profile-pinned\[data-shown="true"\]/.test(profileSrc)
+  })(),
+)
+
+console.log("\nThe bar that arrives when the name leaves")
+
+check(
+  "it carries the name",
+  /\{name\}/.test(pinnedSrc) && /name=\{name\}/.test(profileSrc),
+)
+
+check(
+  "and the controls that were on the cover — but not the pencil",
+  (() => {
+    // There is a full "Editează profilul" button in the header. An icon meaning
+    // the same thing is the same door twice, and it is the one of the four
+    // whose glyph says least.
+    return (
+      /Distribuie/.test(pinnedSrc) &&
+      /href="\/wishlist"/.test(pinnedSrc) &&
+      /href="\/settings"/.test(pinnedSrc) &&
+      !/Pencil/.test(pinnedSrc) &&
+      !/Pencil/.test(profileSrc)
+    )
+  })(),
+)
+
+check(
+  "it is not driven by a scroll handler",
+  (() => {
+    // This page is a grid of photographs being flicked through. A handler
+    // running every frame to compute a boolean that changes twice a session is
+    // main-thread work paid for continuously and used almost never.
+    return (
+      /new IntersectionObserver/.test(profileSrc) &&
+      !/addEventListener\("scroll"/.test(profileSrc) &&
+      !/addEventListener\("scroll"/.test(pinnedSrc)
+    )
+  })(),
+)
+
+check(
+  "it appears when the name goes ABOVE, not before it is reached",
+  /entry\.boundingClientRect\.top < 0/.test(profileSrc),
+)
+
+check(
+  "it moves on the compositor and never on layout",
+  (() => {
+    const rule = css.slice(css.indexOf(".profile-pinned {"), css.indexOf(".profile-pinned[data-shown"))
+    return /transform: translate3d\(0, -100%, 0\)/.test(rule) && /opacity: 0/.test(rule) && !/height:/.test(rule)
+  })(),
+)
+
+check(
+  "it leaves the notch alone and sits under everything modal",
+  (() => {
+    const rule = css.slice(css.indexOf(".profile-pinned {"), css.indexOf(".profile-pinned[data-shown"))
+    // A sheet is 95 and an alert is 130; a bar that outranked either would sit
+    // on top of the thing it is meant to be behind.
+    return /padding-top: env\(safe-area-inset-top, 0px\)/.test(rule) && /z-index: 60/.test(rule)
+  })(),
+)
+
+check(
+  "it escapes the transform the profile animates under",
+  // `position: fixed` inside a transformed ancestor is fixed to THAT, which
+  // would park the bar somewhere down the page.
+  /createPortal\(/.test(pinnedSrc) && /document\.body,/.test(pinnedSrc),
+)
+
+console.log("\nThe last of the bumps, and the badge")
+
+check(
+  "Editează profilul does not flinch when you press it",
+  (() => {
+    // It shrank to 0.94 and sprang back, on a control that then leaves the
+    // screen anyway — a second animation competing with the one that matters.
+    const btn = profileSrc.slice(profileSrc.indexOf('href="/profile/edit"'), profileSrc.indexOf("Editează profilul"))
+    return !/active:scale/.test(btn) && /active:bg-neutral-100/.test(btn)
+  })(),
+)
+
+check(
+  "a draft is marked in black, not in amber",
+  (() => {
+    // Amber on a draft read as a warning about a listing that has never been
+    // anywhere and cannot have gone wrong — and three of them on one grid is an
+    // alarm about the ordinary case.
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
+    return (
+      /case "draft":\s*\n\s*return \{ label: "Ciornă", tone: "neutral" \}/.test(statuses) &&
+      /badge\.tone === "neutral" && "bg-neutral-900"/.test(profileSrc)
+    )
+  })(),
+)
+
+check(
+  "and it is solid black, so it is the same black on every photograph",
+  !/bg-neutral-900\/85/.test(profileSrc),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

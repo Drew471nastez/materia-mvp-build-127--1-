@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Archive, CheckCircle2, Clock, Loader2, Pencil, Trash2, Undo2 } from "lucide-react"
 
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -18,27 +19,41 @@ import { cn } from "@/lib/utils"
  * in a title was permanent, and taking something off the marketplace because
  * you had sold it at a car boot sale was impossible.
  *
- * Three actions, in the order of how often they are wanted and how hard they
- * are to undo:
+ * ---------------------------------------------------------------------------
+ * IT IS A LIST OF VERBS AND NOTHING ELSE
+ * ---------------------------------------------------------------------------
+ * It used to open with an eyebrow, the listing's title, and close with three
+ * lines explaining what archiving means — and then GREW a red confirmation
+ * panel in the middle of itself when you reached for delete.
  *
- *   Edit      the common one, and completely reversible
- *   Archive   off the feed, still yours, one tap to put back. This is what
- *             most people mean when they reach for delete
- *   Delete    gone, and it says so before it does it
+ * All of that was answering questions nobody had. You arrived here by pressing
+ * ⋯ on a specific card: you are looking at the photograph of the thing you
+ * mean, and being told its name again is the interface repeating what your own
+ * thumb just said. The paragraph was read once and skipped forever after. And
+ * the growing panel was the worst of the three, because expanding a sheet
+ * anchored to the bottom of the screen re-lays-out and re-rasterises the whole
+ * panel on every frame of the expansion — the "clicky" part, and the one thing
+ * on this component that was genuinely slow rather than merely wordy.
+ *
+ * What is left is five verbs. Delete asks its question in the platform's own
+ * alert, over the top, which costs no layout at all and is the shape people
+ * already know means "this one is not reversible".
  *
  * ---------------------------------------------------------------------------
- * DELETE ASKS, AND NAMES WHAT IT IS DELETING
+ * AND THE REFRESH WAITS FOR THE ANIMATION
  * ---------------------------------------------------------------------------
- * A single-tap bin on a sheet is how somebody loses a listing with eight
- * photographs to a thumb that landed a centimetre off, and there is nowhere for
- * a deleted one to go. The second tap is a different button in a different
- * place, so it cannot be the tail of the same gesture.
- *
- * And a listing somebody has BOUGHT cannot be deleted at all — it is a row in
- * their order history and a link in their receipt. The server refuses; this
- * says so and offers archiving, which does the thing that was actually wanted.
+ * Every action ended with `router.refresh()` fired in the same breath as the
+ * close. A refresh re-renders the profile — sixty cards — ON THE FRAMES the
+ * sheet is using to slide away, so the exit stuttered every single time and the
+ * cause was never the sheet. It is deferred by the length of that animation
+ * now: the sheet leaves cleanly, and the new data lands on a screen that has
+ * stopped moving.
  */
 type Busy = null | "archive" | "reserve" | "sold" | "delete"
+
+/** BottomSheet's own exit, plus a frame. Anything scheduled inside this window
+ *  competes with the animation for the same frames. */
+const AFTER_EXIT_MS = 330
 
 export function ManageListingSheet({
   open,
@@ -52,6 +67,9 @@ export function ManageListingSheet({
   onClose: () => void
   listingId: string
   status: string
+  /** Not drawn — you are looking at the card. Kept for the confirmation's
+   *  accessible name and for the aria label, where naming the subject is the
+   *  whole job. */
   title: string
   /**
    * What to do once the row is gone.
@@ -67,6 +85,9 @@ export function ManageListingSheet({
   const [busy, setBusy] = useState<Busy>(null)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const timer = useRef(0)
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
 
   /**
    * THE SHEET IS ONE INSTANCE FOR A WHOLE GRID.
@@ -76,12 +97,16 @@ export function ManageListingSheet({
    * that have never met. An armed delete confirmation on one card was still
    * expanded when the sheet reopened on another, one tap from destroying the
    * wrong listing.
+   *
+   * `confirming` is deliberately NOT reset here any more: closing the sheet is
+   * how the confirmation gets opened. The parent keys this component on the
+   * listing's id, so a change of subject still discards it.
    */
   useEffect(() => {
-    if (open) return
-    setConfirming(false)
-    setError(null)
-    setBusy(null)
+    if (open) {
+      setError(null)
+      setBusy(null)
+    }
   }, [open])
 
   const archived = status === "archived"
@@ -127,9 +152,10 @@ export function ManageListingSheet({
       }
       void triggerHaptic("light")
       onClose()
-      // Not a push: the page you are on is the page that changed, and its own
-      // data is what is now stale.
-      router.refresh()
+      // AFTER the sheet has gone. Not a push: the page you are on is the page
+      // that changed, and its own data is what is now stale.
+      window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => router.refresh(), AFTER_EXIT_MS)
     },
     [call, onClose, router],
   )
@@ -139,139 +165,116 @@ export function ManageListingSheet({
     setBusy("delete")
     const { ok, data } = await call({ method: "DELETE" })
     setBusy(null)
+    setConfirming(false)
     if (!ok) {
       setError(data?.message ?? "Nu am putut șterge anunțul.")
-      setConfirming(false)
       return
     }
     void triggerHaptic("medium")
-    onClose()
-    if (onDeleted) onDeleted()
-    else router.refresh()
-  }, [call, onClose, router, onDeleted])
+    if (onDeleted) {
+      onDeleted()
+      return
+    }
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => router.refresh(), AFTER_EXIT_MS)
+  }, [call, router, onDeleted])
 
   return (
-    <BottomSheet open={open} onClose={onClose} label="Gestionează anunțul">
-      <div className="px-4 pb-8 pt-1">
-        <p className="px-1 pb-3 text-[13px] font-medium text-neutral-400">
-          {isDraft ? "Ciorna ta" : "Anunțul tău"}
-        </p>
-        <p className="mb-4 truncate px-1 text-[17px] font-semibold tracking-[-0.015em] text-neutral-900">
-          {title || "Fără titlu"}
-        </p>
+    <>
+      <BottomSheet open={open} onClose={onClose} label={`Gestionează ${title || "anunțul"}`}>
+        <div className="px-2 pb-6 pt-3">
+          <div className="overflow-hidden rounded-2xl border border-neutral-200/80">
+            {/* Not for a sold listing: the server refuses to change one, because
+                editing it would rewrite what somebody already bought. */}
+            {!sold && (
+              <Row icon={<Pencil className="h-[19px] w-[19px]" />} onClick={onEdit}>
+                {isDraft ? "Continuă ciorna" : "Editează anunțul"}
+              </Row>
+            )}
 
-        <div className="overflow-hidden rounded-2xl border border-neutral-200/80">
-          {/* Not for a sold listing: the server refuses to change one, because
-              editing it would rewrite what somebody already bought. */}
-          {!sold && (
-            <Row icon={<Pencil className="h-[19px] w-[19px]" />} onClick={onEdit}>
-              {isDraft ? "Continuă ciorna" : "Editează anunțul"}
-            </Row>
-          )}
+            {/* A DRAFT gets neither of the middle two. It has never been on the
+                feed, so there is nothing to reserve and nothing to take down —
+                its only moves are finishing it and throwing it away. */}
+            {!isDraft && !sold && (
+              <Row
+                icon={reserved ? <Undo2 className="h-[19px] w-[19px]" /> : <Clock className="h-[19px] w-[19px]" />}
+                onClick={() => void act(reserved ? "unreserve" : "reserve", "reserve")}
+                busy={busy === "reserve"}
+              >
+                {reserved ? "Anulează rezervarea" : "Marchează ca rezervat"}
+              </Row>
+            )}
 
-          {/* A DRAFT gets neither of the middle two. It has never been on the
-              feed, so there is nothing to reserve and nothing to take down —
-              its only moves are finishing it and throwing it away. */}
-          {!isDraft && !sold && (
+            {!isDraft && !sold && (
+              <Row
+                icon={<CheckCircle2 className="h-[19px] w-[19px]" />}
+                onClick={() => void act("sold", "sold")}
+                busy={busy === "sold"}
+              >
+                Marchează ca vândut
+              </Row>
+            )}
+
+            {/* Not for a sold listing either: `sold` is outside EDITABLE, so the
+                server refuses it — and the delete refusal used to point straight
+                at this row, which is a dead end recommending a dead end. */}
+            {!isDraft && !sold && (
+              <Row
+                icon={archived ? <Undo2 className="h-[19px] w-[19px]" /> : <Archive className="h-[19px] w-[19px]" />}
+                onClick={() => void act(archived ? "publish" : "archive", "archive")}
+                busy={busy === "archive"}
+              >
+                {archived ? "Publică din nou" : "Arhivează anunțul"}
+              </Row>
+            )}
+
             <Row
-              icon={reserved ? <Undo2 className="h-[19px] w-[19px]" /> : <Clock className="h-[19px] w-[19px]" />}
-              onClick={() => void act(reserved ? "unreserve" : "reserve", "reserve")}
-              busy={busy === "reserve"}
+              icon={<Trash2 className="h-[19px] w-[19px]" />}
+              onClick={() => {
+                void triggerHaptic("light")
+                // The sheet leaves and the question arrives in front of the
+                // screen. Two panels of different weights, one at a time —
+                // rather than one panel growing a red box inside itself.
+                onClose()
+                setConfirming(true)
+              }}
+              danger
+              last
             >
-              {reserved ? "Anulează rezervarea" : "Marchează ca rezervat"}
+              {isDraft ? "Șterge ciorna" : "Șterge anunțul"}
             </Row>
-          )}
-
-          {!isDraft && !sold && (
-            <Row
-              icon={<CheckCircle2 className="h-[19px] w-[19px]" />}
-              onClick={() => void act("sold", "sold")}
-              busy={busy === "sold"}
-            >
-              Marchează ca vândut
-            </Row>
-          )}
-
-          {/* Not for a sold listing either: `sold` is outside EDITABLE, so the
-              server refuses it — and the delete refusal used to point straight
-              at this row, which is a dead end recommending a dead end. */}
-          {!isDraft && !sold && (
-            <Row
-              icon={archived ? <Undo2 className="h-[19px] w-[19px]" /> : <Archive className="h-[19px] w-[19px]" />}
-              onClick={() => void act(archived ? "publish" : "archive", "archive")}
-              busy={busy === "archive"}
-            >
-              {archived ? "Publică din nou" : "Arhivează anunțul"}
-            </Row>
-          )}
-
-          <Row
-            icon={<Trash2 className="h-[19px] w-[19px]" />}
-            onClick={() => {
-              void triggerHaptic("light")
-              setConfirming((c) => !c)
-            }}
-            danger
-            last
-          >
-            {isDraft ? "Șterge ciorna" : "Șterge anunțul"}
-          </Row>
-        </div>
-
-        <p className="mt-2.5 px-1 text-[12.5px] font-medium leading-relaxed text-neutral-400">
-          {isDraft
-            ? "O ciornă nu apare în feed. Continuă de unde ai rămas și publică oricând."
-            : sold
-              ? "Anunțul este marcat ca vândut. Rămâne vizibil pentru cumpărător și în istoricul tău."
-              : reserved
-                ? "Rezervat înseamnă că îl ții pentru cineva: nu apare în feed, dar linkul funcționează."
-                : archived
-                  ? "Un anunț arhivat nu apare în feed, dar rămâne al tău."
-                  : "Arhivarea îl scoate din feed fără să îl ștergi. Îl poți publica oricând la loc."}
-        </p>
-
-        {/* Expands in place, and names the thing. `grid-template-rows` is the
-            one way to animate to a height nobody has measured — a pixel value
-            would clip the question the moment a long title wraps. */}
-        <div
-          className="grid transition-[grid-template-rows] duration-200 ease-out"
-          style={{ gridTemplateRows: confirming ? "1fr" : "0fr" }}
-        >
-          <div className="overflow-hidden">
-            <div className="mt-4 rounded-2xl bg-rose-50 p-3.5">
-              <p className="text-[14px] font-semibold text-rose-900">Ștergi „{title || "Fără titlu"}”?</p>
-              <p className="mt-1 text-[13px] font-medium leading-relaxed text-rose-800/80">
-                Anunțul și fotografiile lui dispar definitiv. Nu se poate anula.
-              </p>
-              <div className="mt-3 flex gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  className="h-11 flex-1 rounded-lg bg-white text-[14.5px] font-semibold text-neutral-700"
-                >
-                  Renunță
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onDelete()}
-                  disabled={busy === "delete"}
-                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 text-[14.5px] font-semibold text-white disabled:opacity-60"
-                >
-                  {busy === "delete" && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Șterge
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
 
-        {error && (
-          <p role="alert" className="mt-3 rounded-xl bg-amber-50 px-3.5 py-3 text-[13.5px] font-medium text-amber-900">
-            {error}
-          </p>
-        )}
-      </div>
-    </BottomSheet>
+          {error && (
+            <p
+              role="alert"
+              className="mt-3 rounded-xl bg-amber-50 px-3.5 py-3 text-[13.5px] font-medium text-amber-900"
+            >
+              {error}
+            </p>
+          )}
+        </div>
+      </BottomSheet>
+
+      {/* Outside the sheet, so it survives the sheet closing — and above it, so
+          the two can overlap for the third of a second the sheet takes to go. */}
+      <ConfirmDialog
+        open={confirming}
+        title={isDraft ? "Ștergi ciorna?" : "Ștergi anunțul?"}
+        body="Anunțul și fotografiile lui dispar definitiv. Nu se poate anula."
+        onDismiss={() => setConfirming(false)}
+        actions={[
+          {
+            label: "Șterge",
+            danger: true,
+            primary: true,
+            busy: busy === "delete",
+            onClick: () => void onDelete(),
+          },
+          { label: "Renunță", onClick: () => setConfirming(false) },
+        ]}
+      />
+    </>
   )
 }
 
@@ -296,7 +299,11 @@ function Row({
       onClick={onClick}
       disabled={busy}
       className={cn(
-        "relative flex min-h-[56px] w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors duration-150 active:bg-neutral-100 disabled:opacity-60",
+        // The highlight arrives instantly and fades out. A press that has to
+        // animate IN is a press that feels late — this is the one place a
+        // transition is deliberately one-directional.
+        "relative flex min-h-[54px] w-full items-center gap-3.5 px-4 py-3 text-left",
+        "transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100 disabled:opacity-60",
         danger ? "text-rose-600" : "text-neutral-900",
       )}
     >

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
-import { Bookmark, Pencil, Settings, Share2, Star } from "lucide-react"
+import { Bookmark, Settings, Share2, Star } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
@@ -13,6 +13,7 @@ import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ownerListingHref, ownerStatusBadge } from "@/lib/marketplace/listing-status"
 import { SellerReviewsList } from "@/components/member/seller-reviews-list"
+import { ProfilePinnedHeader } from "@/components/member/profile-pinned-header"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { MoreHorizontal } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -100,6 +101,19 @@ function reviewsLabel(count: number, language: string): string {
     return count < 20 ? `${count} recenzii` : `${count} de recenzii`
   }
   return count === 1 ? "1 review" : `${count} reviews`
+}
+
+/**
+ * How much of the top of the screen the pinned bar is currently covering.
+ *
+ * Measured rather than stated, because its height is 52px plus whatever the
+ * device's status-bar inset happens to be — a number that only CSS knows. Zero
+ * when the bar is not up, which is the case where scrolling to y=0 is correct.
+ */
+function pinnedOffset(): number {
+  if (typeof document === "undefined") return 0
+  const bar = document.querySelector<HTMLElement>('.profile-pinned[data-shown="true"]')
+  return bar ? bar.getBoundingClientRect().height : 0
 }
 
 export type ReviewsSummary = { average: number; count: number }
@@ -339,19 +353,76 @@ export function MemberProfile({
    *  the second switch and every one after it costs nothing at all. */
   const [reviewsSeen, setReviewsSeen] = useState(false)
 
+  /**
+   * WHICH WAY THE SWITCH WENT.
+   *
+   * Both panels rose in place before, which said a change had happened but not
+   * which of the two you had landed on — so the strip read as one panel being
+   * redrawn rather than as two things side by side. The incoming panel now
+   * comes from the side its tab is on, in the same direction the underline is
+   * travelling on that frame.
+   *
+   * `null` until the first switch, on purpose: the listings panel is what the
+   * page opens on, and animating it in on arrival is motion announcing
+   * something that did not happen.
+   */
+  const [dir, setDir] = useState<null | "left" | "right">(null)
+
   const goToTab = useCallback((next: "listings" | "reviews") => {
     void triggerHaptic("light")
+    setShelfTab((current) => {
+      if (current === next) return current
+      setDir(next === "reviews" ? "right" : "left")
+      return next
+    })
     if (next === "reviews") setReviewsSeen(true)
     // Instant, and BEFORE the panel changes: a smooth scroll here would race
     // the swap, and the two together read as two things happening. Only when
     // the strip has actually gone off the top — switching while you can still
     // see it should not move the page at all.
+    //
+    // The pinned bar is over the top of the viewport by then, so the strip is
+    // brought to just below it rather than to y=0, where it would sit under
+    // frosted glass and read as having scrolled too far.
     const el = shelfRef.current
     if (el) {
-      const top = el.getBoundingClientRect().top
+      const top = el.getBoundingClientRect().top - pinnedOffset()
       if (top < 0) window.scrollBy({ top, behavior: "auto" })
     }
-    setShelfTab(next)
+  }, [])
+
+  /** The class that plays on whichever panel is arriving. Removed from the
+   *  inactive one, which is what lets the animation replay on every switch
+   *  rather than only on the mount that first added it. */
+  const panelIn = (tab: "listings" | "reviews") =>
+    shelfTab !== tab || !dir ? undefined : dir === "right" ? "shelf-panel-in-right" : "shelf-panel-in-left"
+
+  /**
+   * THE BAR AT THE TOP, ONCE THE NAME HAS GONE.
+   *
+   * An IntersectionObserver on a zero-height sentinel under the name rather
+   * than a scroll listener: this page is a grid of photographs being flicked
+   * through, and a handler that runs on every frame of that to compute a
+   * boolean which changes twice a session is main-thread work paid for
+   * continuously and used almost never. The observer fires exactly on the
+   * crossings.
+   */
+  const nameEndRef = useRef<HTMLSpanElement>(null)
+  const [pinned, setPinned] = useState(false)
+  useEffect(() => {
+    const el = nameEndRef.current
+    if (!el || typeof IntersectionObserver === "undefined") return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        // Above the viewport, not below it. Without the second test the bar
+        // also appears when the sentinel has not been reached yet — which on a
+        // short profile is most of the time.
+        setPinned(!entry.isIntersecting && entry.boundingClientRect.top < 0)
+      },
+      { threshold: 0 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
   }, [])
   /**
    * The listing whose ⋯ sheet is open, when this is your own shelf.
@@ -493,6 +564,9 @@ export function MemberProfile({
           A backdrop must be the colour of the page, not the colour of the thing
           drawn on it. */}
       <SurfaceClaim colour="#ffffff" />
+
+      {/* Everything the cover was carrying, once the cover has gone. */}
+      <ProfilePinnedHeader name={name} visible={pinned} isOwner={isOwner} onShare={() => void share()} />
       {/* THE COVER, and everything that sits on it.
           
           A profile without one is a name floating on white, which is the state
@@ -581,13 +655,14 @@ export function MemberProfile({
           <CoverButton label="Distribuie" onClick={share}>
             <Share2 className="h-[17px] w-[17px]" />
           </CoverButton>
+          {/* THREE, not four. The pencil is gone: "Editează profilul" is a
+              full labelled button one row below, and an icon meaning the same
+              thing a centimetre away from it is the same door twice — while
+              being, of the four, the one whose glyph says least. */}
           {isOwner && (
             <>
               <CoverButton label="Salvate" href="/wishlist">
                 <Bookmark className="h-[17px] w-[17px]" />
-              </CoverButton>
-              <CoverButton label="Editează profilul" href="/profile/edit">
-                <Pencil className="h-[17px] w-[17px]" />
               </CoverButton>
               <CoverButton label="Setări" href="/settings">
                 <Settings className="h-[17px] w-[17px]" />
@@ -681,7 +756,12 @@ export function MemberProfile({
               className={cn(
                 "no-tap-fade relative inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800",
                 "after:absolute after:-inset-x-3 after:-inset-y-2.5 after:content-['']",
-                "transition-transform active:scale-[0.94]",
+                // NO PRESS-SCALE. It shrank to 0.94 and sprang back — a bump
+                // big enough to read as the button flinching, on a control that
+                // then leaves the screen anyway. The screen transition is
+                // already the feedback; a zoom in front of it is a second
+                // animation competing with the one that matters.
+                "transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100",
               )}
             >
               Editează profilul
@@ -709,6 +789,10 @@ export function MemberProfile({
       <p className="truncate text-[13.5px] leading-[18px] text-neutral-500 md:text-[15px] md:leading-[20px]">
         @{member.username}
       </p>
+      {/* Where the identity stops being on the page and starts being in the
+          bar. Zero height and nothing drawn — the observer watching it is the
+          entire point. */}
+      <span ref={nameEndRef} aria-hidden className="block h-0 w-full" />
 
       {/* Reviews strip — appears only once the seller has at least one
           review, so a new seller isn't introduced by an empty zero. */}
@@ -821,9 +905,16 @@ export function MemberProfile({
             waiting. */}
         <div className={cn("shelf-panel", shelfTab === "reviews" ? "block" : "hidden")}>
           {/* Mounted on first visit and never unmounted after: the second
-              switch and every one after it costs nothing at all. */}
+              switch and every one after it costs nothing at all.
+
+              The animation class is CONDITIONAL rather than fixed. It used to
+              be written straight on here, which meant it played once — on the
+              mount — and every switch back to this tab after that was a cut,
+              while the listings panel (whose class was already conditional)
+              animated every time. Two tabs behaving differently is worse than
+              neither animating. */}
           {reviewsSeen && (
-            <div key="reviews" className="shelf-panel-in">
+            <div key="reviews" className={panelIn("reviews")}>
               <SellerReviewsList
                 sellerUserId={member.id}
                 isOwner={isOwner}
@@ -837,7 +928,7 @@ export function MemberProfile({
         </div>
 
         <div className={cn("shelf-panel", shelfTab === "listings" ? "block" : "hidden")}>
-        <div key="listings" className={shelfTab === "listings" ? "shelf-panel-in" : undefined}>
+        <div key="listings" className={panelIn("listings")}>
         {listings.length === 0 ? (
           // An empty shop is a normal state for a new member, not an error — so
           // it is drawn in the same language as the inbox's empty screens
@@ -917,7 +1008,10 @@ export function MemberProfile({
                           "pointer-events-none absolute left-2 top-2 rounded-full px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.04em] text-white",
                           badge.tone === "warning" && "bg-amber-500",
                           badge.tone === "muted" && "bg-neutral-500/90",
-                          badge.tone === "neutral" && "bg-neutral-900/85",
+                          // Solid, not 85%. A translucent black over a
+                          // photograph is a different black on every card, and
+                          // the one that landed on a pale garment read as grey.
+                          badge.tone === "neutral" && "bg-neutral-900",
                         )}
                       >
                         {badge.label}
