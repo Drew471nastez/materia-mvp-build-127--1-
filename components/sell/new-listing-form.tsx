@@ -533,28 +533,61 @@ const MOTION_CLASS: Record<SheetMotion, string> = {
   idle: "",
 }
 
-export function NewListingForm() {
+export function NewListingForm({
+  /**
+   * Handed down by the route, which is the only place that knows them at the
+   * moment this renders. See the note on `draftId` below for why they cannot be
+   * read off `window.location` here.
+   */
+  draftId: initialDraftId,
+  editId: initialEditId,
+}: {
+  draftId?: string | null
+  editId?: string | null
+} = {}) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   /** The sheet's one scroller — sent back to the top when a second listing starts. */
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   /**
-   * The draft being finished, if this is one.
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  WHICH LISTING THIS IS, AND WHY IT CANNOT BE READ FROM window.location
+   * ═══════════════════════════════════════════════════════════════════════════
    *
-   * Read once at first client render from the URL, not with `useSearchParams`:
-   * that hook forces a Suspense boundary around this component, so the sheet
-   * would mount, suspend and mount AGAIN — playing its slide twice. The same
-   * reasoning, and the same fix, as the listing page's `origin` breadcrumb.
+   * THE BUG: pressing "Editează anunțul" opened a form headed "Vinde un
+   * articol" with every field blank. Nothing was wrong with the loading — the
+   * effect below fetches correctly and the API returns the row — because the
+   * effect never ran. `editId` was null.
+   *
+   * It was read here, in a `useState` initialiser, from
+   * `new URLSearchParams(window.location.search)`. That is a read of the
+   * BROWSER'S CURRENT URL, and on a client navigation the browser's URL is not
+   * the URL being rendered. The App Router computes the new tree and commits it,
+   * and `history.pushState` runs in an effect AFTERWARDS — so on the first
+   * render of this component `window.location.search` is still the search string
+   * of the page you came FROM. From a profile that is the empty string.
+   *
+   * Which is why this looked so much like a loading problem and was not: type
+   * the URL by hand or reload the page and it works perfectly, because then the
+   * browser really is at that address before React renders. It only failed on
+   * the one path anybody actually uses.
+   *
+   * THE FIX is to stop asking the browser and take it from the route. The page
+   * components are server components, they are handed `params`/`searchParams`
+   * for the URL being rendered, and they pass the answer down as a prop. That is
+   * correct on every path — intercepted or not, client navigation or cold load —
+   * and it needs no `useSearchParams`, so the Suspense boundary that would make
+   * this sheet mount, suspend and mount again (playing its slide twice) is still
+   * avoided. The reason the old comment gave for not using that hook was sound;
+   * the conclusion it drew, to read `window.location` instead, was not.
+   *
+   * NO FALLBACK TO THE URL. A stale read is not "better than nothing" here: it
+   * would mean opening + for a fresh listing straight after editing one loads
+   * the listing you just left, which is worse than an empty form by some
+   * distance.
    */
-  const [draftId, setDraftId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null
-    try {
-      return new URLSearchParams(window.location.search).get("draft")
-    } catch {
-      return null
-    }
-  })
+  const [draftId, setDraftId] = useState<string | null>(initialDraftId ?? null)
   /**
    * EDITING SOMETHING ALREADY PUBLISHED.
    *
@@ -563,14 +596,7 @@ export function NewListingForm() {
    * fixed a typo in the title. It differs from a draft in exactly two ways, and
    * both are one line each: where it loads from, and where it saves to.
    */
-  const [editId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null
-    try {
-      return new URLSearchParams(window.location.search).get("edit")
-    } catch {
-      return null
-    }
-  })
+  const editId = initialEditId ?? null
 
   /** Filling in from a saved draft or an existing listing. */
   const [loadingDraft, setLoadingDraft] = useState(false)
@@ -2087,8 +2113,22 @@ export function NewListingForm() {
           >
             <X className="h-[23px] w-[23px]" strokeWidth={2.2} />
           </button>
-          <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">
-            {editId ? "Editează anunțul" : "Vinde un articol"}
+          {/* THE NAME OF THE THING YOU ARE EDITING, not the word "edit".
+              
+              A form headed "Editează anunțul" tells you what you are doing,
+              which you already know — you pressed the button that says it. What
+              it does not tell you is WHICH listing, and this sheet is reached
+              from a grid where every card looks like every other card at 88px.
+              The title is the one piece of information that makes the screen
+              answerable at a glance.
+              
+              `truncate` and a bounded width because a listing title has no
+              length limit worth relying on, and the X sits over the left of this
+              row — a long name must shorten rather than run underneath it. It
+              falls back to the verb for the frame before the row has arrived,
+              and for a listing whose title is genuinely empty. */}
+          <h1 className="max-w-[62%] truncate text-[17px] font-semibold tracking-[-0.01em] text-neutral-900">
+            {editId ? title.trim() || "Editează anunțul" : "Vinde un articol"}
           </h1>
         </div>
       </header>
@@ -2110,10 +2150,12 @@ export function NewListingForm() {
       <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl md:px-6 lg:max-w-6xl lg:px-8">
       <header className="mb-6 hidden md:block lg:mb-8">
         <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
-          {editId ? "Editează anunțul" : "Listează un articol"}
+          {editId ? title.trim() || "Editează anunțul" : "Listează un articol"}
         </h1>
         <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
-          Completează detaliile și anunțul tău apare instant în feed.
+          {editId
+            ? "Modifică ce vrei și salvează — anunțul rămâne la aceeași adresă."
+            : "Completează detaliile și anunțul tău apare instant în feed."}
         </p>
       </header>
 

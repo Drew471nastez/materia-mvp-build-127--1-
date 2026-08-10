@@ -321,11 +321,66 @@ console.log("\nEditing uses the screen that already exists")
 check(
   "the sell form fills itself in from a listing as well as from a draft",
   (() => {
+    // THE ID COMES FROM THE ROUTE, NOT FROM window.location.
+    //
+    // It used to be read in a `useState` initialiser from
+    // `new URLSearchParams(window.location.search)`, and that is a read of the
+    // BROWSER'S URL rather than the one being rendered. On a client navigation
+    // the App Router commits the new tree first and calls `history.pushState` in
+    // an effect afterwards, so on the form's first render the search string is
+    // still the page you came FROM — empty, from a profile. `editId` was null,
+    // the loading effect never ran, and pressing "Editează anunțul" opened a
+    // blank form headed "Vinde un articol".
+    //
+    // Which is exactly why it looked like a loading fault and was not: reload
+    // the URL by hand and it worked perfectly, because then the browser really
+    // was at that address first. It failed only on the path anybody uses.
+    //
+    // A prop from a server component has no such timing. And there is
+    // deliberately NO fallback to the URL: a stale read would mean opening + for
+    // a fresh listing right after editing one loads the listing you just left,
+    // which is worse than a blank form.
     return (
-      /const \[editId\] = useState<string \| null>/.test(form) &&
-      /new URLSearchParams\(window\.location\.search\)\.get\("edit"\)/.test(form) &&
+      /const editId = initialEditId \?\? null/.test(form) &&
+      // The exact pattern that was the bug. (A later `window.location.search`
+      // survives on purpose — it strips `?draft=` off the URL after publishing a
+      // resumed draft, which is a write, not a read of route state.)
+      !/new URLSearchParams\(window\.location\.search\)\.get\(/.test(form) &&
       /const v = d\?\.draft \?\? d\?\.listing/.test(form)
     )
+  })(),
+)
+
+check(
+  "and every route that renders the form hands it one",
+  (() => {
+    // A prop nobody passes is the same blank form with extra steps.
+    const editModal = strip(read("app/(marketing)/@modal/(.)products/edit/[id]/page.tsx"))
+    const editPage = strip(read("app/(marketing)/products/edit/[id]/page.tsx"))
+    const newModal = strip(read("app/(marketing)/@modal/(.)products/new/page.tsx"))
+    const newPage = strip(read("app/(marketing)/products/new/page.tsx"))
+    return (
+      /const \{ id \} = await params/.test(editModal) &&
+      /<NewListingForm editId=\{id\} \/>/.test(editModal) &&
+      /const \{ id \} = await params/.test(editPage) &&
+      /<NewListingForm editId=\{id\} \/>/.test(editPage) &&
+      /const \{ draft \} = await searchParams/.test(newModal) &&
+      /draftId=\{draft \?\? null\}/.test(newModal) &&
+      /const \{ draft \} = await searchParams/.test(newPage) &&
+      /draftId=\{draft \?\? null\}/.test(newPage)
+    )
+  })(),
+)
+
+check(
+  "the intercepted edit route has its own loading shell",
+  (() => {
+    // A Suspense fallback resolves to the nearest loading.tsx up the tree, which
+    // without this is the FULL-PAGE shell — a centred column of grey blocks with
+    // no sheet. Tapping Editează would show a page-shaped skeleton in place and
+    // then the real sheet sliding up over it: two arrivals, which is the flash
+    // the interception exists to prevent.
+    return existsSync(join(process.cwd(), "app/(marketing)/@modal/(.)products/edit/[id]/loading.tsx"))
   })(),
 )
 
@@ -365,8 +420,20 @@ check(
 )
 
 check(
-  "and the screen says which one you are on",
-  /\{editId \? "Editează anunțul" : "Vinde un articol"\}/.test(form),
+  "and the screen says WHICH listing you are on, by name",
+  (() => {
+    // "Editează anunțul" tells you what you are doing, which you already know —
+    // you pressed the button that says it. It does not tell you which listing,
+    // and this sheet is reached from a grid where every card is 88px of
+    // photograph. The title is the thing that makes the screen answerable at a
+    // glance; the verb is the fallback for the frame before the row lands.
+    return (
+      (form.match(/\{editId \? title\.trim\(\) \|\| "Editează anunțul" : "(Vinde|Listează) un articol"\}/g) ?? [])
+        .length === 2 &&
+      // And it must not run under the X that sits over the left of that row.
+      /max-w-\[62%\] truncate/.test(form)
+    )
+  })(),
 )
 
 console.log("\nThe things a review found")
@@ -1205,10 +1272,52 @@ check(
 
 check(
   "a draft still resumes through the drafts route",
-  // The two routes are not interchangeable: only the drafts one knows how to
-  // publish from a draft. Rewriting onEdit must not have flattened them.
-  /isDraft\s*\n?\s*\? `\/products\/new\?draft=\$\{encodeURIComponent\(listingId\)\}`/.test(sheet) &&
-    /: `\/products\/new\?edit=\$\{encodeURIComponent\(listingId\)\}`/.test(sheet),
+  (() => {
+    // The two are not interchangeable: only the drafts route knows how to
+    // publish from a draft, and a draft has never been live, so /edit would say
+    // it was. Both hrefs are built by lib/marketplace/sell-route.ts now.
+    const routes = strip(read("lib/marketplace/sell-route.ts"))
+    return (
+      /const editHref = isDraft \? sellDraftHref\(listingId\) : sellEditHref\(listingId\)/.test(sheet) &&
+      /return `\/products\/edit\/\$\{encodeURIComponent\(listingId\)\}`/.test(routes) &&
+      /return `\$\{SELL_NEW\}\?draft=\$\{encodeURIComponent\(draftId\)\}`/.test(routes)
+    )
+  })(),
+)
+
+check(
+  "the URL says edit, because the URL is the one part of a screen you can read",
+  (() => {
+    // `/products/new?edit=…` says "new" to somebody who is editing.
+    return !/products\/new\?edit=/.test(sheet) && !/products\/new\?edit=/.test(detail)
+  })(),
+)
+
+check(
+  "and every screen that hides itself for the sell form knows about BOTH routes",
+  (() => {
+    // Eight components asked `pathname.startsWith("/products/new")` by hand to
+    // mean "the form is on screen". Adding a second address to eight string
+    // comparisons is how seven get updated and the eighth quietly treats the
+    // edit screen as an ordinary listing page — which for `isListing` in the
+    // global nav means hiding the tab bar under the sheet and reflowing the
+    // profile behind it, the exact flash that file's note exists to explain.
+    const files = [
+      "components/marketing/global-mobile-nav.tsx",
+      "components/marketing/global-mobile-topbar.tsx",
+      "components/marketing/tab-transition.tsx",
+      "components/marketing/conditional-footer.tsx",
+      "components/marketing/shell-scroll-reset.tsx",
+      "components/explore/mobile-bottom-nav.tsx",
+    ]
+    // `[^.]` so this does not trip on `window.location.pathname.startsWith`,
+    // which the tab bar uses in its tap rescue to check where the + actually
+    // landed. That one is about the new-listing route specifically and is right.
+    return files.every((f) => {
+      const src = strip(read(f))
+      return /isSellFormRoute/.test(src) && !/[^.]pathname\.startsWith\("\/products\/new"\)/.test(src)
+    })
+  })(),
 )
 
 check(

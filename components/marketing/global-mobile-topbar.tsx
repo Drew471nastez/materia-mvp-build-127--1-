@@ -7,6 +7,7 @@ import { useLocale } from "@/components/locale-provider"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { CategoryPillRail, SearchTrigger } from "@/components/marketplace/search-row"
 import { claimSurface } from "@/lib/surface-bg"
+import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 /**
  * The marketplace's top bar — search plus the category rail — on every mobile
@@ -51,7 +52,7 @@ export function GlobalMobileTopBar() {
   // where the search should be.
   const isListingPage =
     pathname.startsWith("/products/") &&
-    !pathname.startsWith("/products/new") &&
+    !isSellFormRoute(pathname) &&
     !pathname.startsWith("/products/drafts")
 
   // Pages with no chrome of their own. They dropped the strip because a listings
@@ -72,7 +73,7 @@ export function GlobalMobileTopBar() {
     // The sell sheet. It must reserve exactly what the screen it opened OVER
     // reserved, and every screen you can press + from — profile, inbox,
     // settings, orders — is on this list. See the note beside it in `hidden`.
-    pathname.startsWith("/products/new")
+    isSellFormRoute(pathname)
 
   const hidden =
     pathname === "/" || // the feed renders its own, with tabs
@@ -117,7 +118,7 @@ export function GlobalMobileTopBar() {
      * nothing moves. From the feed the question does not arise: that screen is
      * `fixed inset-0` and this strip cannot move it either way.
      */
-    pathname.startsWith("/products/new") ||
+    isSellFormRoute(pathname) ||
     isListingPage
 
   if (hidden) {

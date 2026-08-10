@@ -10,6 +10,7 @@ import { triggerHaptic, warmHaptics } from "@/lib/native-bridge"
 import { beginTabLeave, endTabLeave } from "@/lib/tab-leave"
 import { createTapRescue, type TapRescue } from "@/lib/tap-rescue"
 import { cn } from "@/lib/utils"
+import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 // Module-scoped so sixty page navigations do not mean sixty counts: every
 // mounted bar shares one number and one in-flight request, refreshed on mount
@@ -66,7 +67,7 @@ export function MobileBottomNav({
    * image viewer's close latch and the sheet's own launch flag, and the same
    * lesson — if the truth is already somewhere, do not keep a copy of it.
    */
-  const sheetOpen = pathname?.startsWith("/products/new") ?? false
+  const sheetOpen = isSellFormRoute(pathname)
 
   // The Profile tab points at /profile now, but the callers that compute
   // `active` still only know about /settings, so the tab would sit unlit on the

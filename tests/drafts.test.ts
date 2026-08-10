@@ -84,8 +84,19 @@ check(
 
 check(
   "a row opens the form filled in from that draft",
-  /router\.push\(`\/products\/new\?draft=\$\{encodeURIComponent\(id\)\}`\)/.test(list) &&
-    /new URLSearchParams\(window\.location\.search\)\.get\("draft"\)/.test(form),
+  (() => {
+    // The id reaches the form as a PROP from the route, not by reading
+    // window.location inside a useState initialiser. That read was of the
+    // browser's URL rather than the one being rendered: on a client navigation
+    // the App Router commits the tree first and calls pushState in an effect
+    // afterwards, so the form saw the search string of the page it came from and
+    // opened blank. It worked on a reload, which is why it survived so long.
+    return (
+      /router\.push\(`\/products\/new\?draft=\$\{encodeURIComponent\(id\)\}`\)/.test(list) &&
+      /const \[draftId, setDraftId\] = useState<string \| null>\(initialDraftId \?\? null\)/.test(form) &&
+      !/new URLSearchParams\(window\.location\.search\)\.get\(/.test(form)
+    )
+  })(),
 )
 
 check(

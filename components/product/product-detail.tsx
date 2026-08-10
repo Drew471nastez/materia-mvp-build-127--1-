@@ -32,6 +32,7 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { cn } from "@/lib/utils"
+import { sellEditHref } from "@/lib/marketplace/sell-route"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
 
@@ -166,7 +167,7 @@ export function ProductDetail({ product }: { product: any }) {
   }, [])
   const onEditListing = useCallback(() => {
     void triggerHaptic("light")
-    router.push(`/products/new?edit=${encodeURIComponent(product.id)}`)
+    router.push(sellEditHref(product.id))
   }, [router, product.id])
 
   const [ownNote, setOwnNote] = useState(false)
