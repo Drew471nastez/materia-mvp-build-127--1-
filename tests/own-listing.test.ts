@@ -54,7 +54,8 @@ check(
     // Both bars go through isOwn BEFORE they reach isSold, and neither
     // branch that renders Cumpără is reachable when it is your own listing.
     return (
-      (detail.match(/\) : isSold \? \(/g) ?? []).length === 2 &&
+      (detail.match(/\) : unavailable \? \(/g) ?? []).length === 2 &&
+      (detail.match(/isOwn && !unavailable \? \(/g) ?? []).length === 2 &&
       (detail.match(/Editează anunțul/g) ?? []).length >= 2 &&
       (detail.match(/Cumpără/g) ?? []).length === 2
     )
@@ -77,7 +78,11 @@ check(
     // The bar hides on scroll, and "take this down" is exactly the thing you
     // go looking for after reading the listing you want to take down.
     return (
-      (detail.match(/aria-label="Gestionează anunțul"/g) ?? []).length === 3 &&
+      // Four now: the header, both bars' owner branch, and the pill row that
+      // stands in for them when the listing is sold or reserved — because a
+      // listing you can no longer sell is one you still have to be able to
+      // manage.
+      (detail.match(/aria-label="Gestionează anunțul"/g) ?? []).length === 5 &&
       /openManage/.test(detail)
     )
   })(),
@@ -147,9 +152,11 @@ check(
     // It has never been on the feed, so there is nothing to reserve, nothing to
     // take down and nothing to mark sold. Finish it, or throw it away.
     return (
+      // Reserve, mark-sold and archive are all `!isDraft && !sold`: a draft has
+      // never been on the feed, and a sold row is outside EDITABLE so every one
+      // of them would 409.
       /\{isDraft \? "Continuă ciorna" : "Editează anunțul"\}/.test(sheet) &&
-      (sheet.match(/\{!isDraft && !sold && \(/g) ?? []).length === 2 &&
-      /\{!isDraft && \(/.test(sheet)
+      (sheet.match(/\{!isDraft && !sold && \(/g) ?? []).length === 3
     )
   })(),
 )
@@ -211,7 +218,7 @@ check(
     // dangerous direction: it would re-list something a buyer has paid for.
     return (
       /sold: "sold"/.test(route) &&
-      /if \(next === "published" && \(await hasOrder\(admin, id\)\)\)/.test(route) &&
+      /if \(await hasOrder\(admin, id\)\) \{/.test(route) &&
       /nu poate fi repus la vânzare/.test(route)
     )
   })(),
@@ -241,11 +248,12 @@ check(
   (() => {
     // A draft is allowed to be half-written; something on the feed is not, and
     // the rules have to be on the server because a client can be bypassed.
-    const block = route.slice(
-      route.indexOf('if (row.status === "published" || row.status === "reserved") {'),
-      route.indexOf("const patch"),
-    )
-    return /MIN_PHOTOS/.test(block) && /missing\.push\("titlu"\)/.test(block) && /status: 400/.test(block)
+    // EVERY non-draft state, not just published and reserved: `archived` was a
+    // hole straight through validation, because an archived row could be
+    // blanked by an unvalidated edit and then pushed onto the feed by the
+    // `publish` action, which carries no fields and checked nothing.
+    const block = route.slice(route.indexOf('if (row.status !== "draft") {'), route.indexOf("const patch"))
+    return /publishProblems\(\{/.test(block) && /status: 400/.test(block)
   })(),
 )
 
@@ -300,8 +308,17 @@ check(
     // That veil is for the moment a listing first exists. Playing it again
     // because somebody fixed a typo says the wrong thing, and takes over the
     // whole screen to say it.
+    // And it only sends you to the LISTING if the listing is one the route
+    // will render: an archived row stays archived through an edit, and
+    // /products/<slug> calls notFound() for it. The server returns the status
+    // so the client does not have to guess.
     const submit = form.slice(form.indexOf("if (editId) {"))
-    return /router\.replace\(data\?\.slug \? `\/products\/\$\{data\.slug\}` : "\/profile"\)/.test(submit.slice(0, 600))
+    return (
+      /const live = data\?\.status === "published" \|\| data\?\.status === "reserved" \|\| data\?\.status === "sold"/.test(
+        submit.slice(0, 1200),
+      ) &&
+      /router\.replace\(live && data\?\.slug \? `\/products\/\$\{data\.slug\}` : "\/profile"\)/.test(submit.slice(0, 1400))
+    )
   })(),
 )
 
@@ -318,6 +335,162 @@ check(
 check(
   "and the screen says which one you are on",
   /\{editId \? "Editează anunțul" : "Vinde un articol"\}/.test(form),
+)
+
+console.log("\nThe things a review found")
+
+check(
+  "a reserved listing does not draw a buy bar over routes that all refuse it",
+  (() => {
+    // `reserved` was added so the page stays reachable for the buyer it is
+    // being held for, but the availability model here was binary. Buying 404'd
+    // at the checkout page, the offer sheet answered "try again" for a
+    // permanent condition, and the message button silently did nothing.
+    return (
+      /const unavailable = !PUBLIC_FEED\.includes\(product\.status\)/.test(detail) &&
+      /const unavailableLabel = isSold \? "Vândut" : "Rezervat"/.test(detail) &&
+      (detail.match(/if \(unavailable\) return/g) ?? []).length === 2 &&
+      /\{!isOwn && !unavailable && \(/.test(detail)
+    )
+  })(),
+)
+
+check(
+  "an archived card does not link to a page that 404s",
+  (() => {
+    // Only "draft" was diverted, and PUBLIC_PAGE excludes archived too — so
+    // every archived card on the one shelf that exists to make archived
+    // listings reachable again pointed at notFound().
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
+    return /if \(PUBLIC_PAGE\.includes\(listing\.status as ListingStatus\)\) return `\/products\/\$\{listing\.slug\}`/.test(statuses)
+  })(),
+)
+
+check(
+  "an armed delete does not carry over to a different listing",
+  (() => {
+    // One sheet instance serves the whole grid. A confirmation armed on one
+    // card was still expanded when the sheet reopened on another — one tap
+    // from destroying the wrong listing.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /if \(open\) return\s*\n\s*setConfirming\(false\)/.test(sheet) &&
+      /key=\{shown\.id\}/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "and the sheet does not rewrite itself while it is sliding away",
+  (() => {
+    // BottomSheet keeps its children mounted for the exit animation, so props
+    // read straight from the nulled selection turned it into a generic,
+    // titleless listing for 310ms.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return /if \(manageFor\) setShown\(manageFor\)/.test(profile) && /\{isOwner && shown && \(/.test(profile)
+  })(),
+)
+
+check(
+  "deleting cannot destroy a refunded or disputed order",
+  (() => {
+    // orders.product_id is ON DELETE CASCADE, so the guard has to be an
+    // allowlist of order states that are SAFE TO ERASE — not a list of the
+    // three that happen to mean "paid". A refunded order is the buyer's
+    // receipt, the refund record and the seller's revenue history.
+    return (
+      /const DELETABLE_ORDER_STATES = \["pending", "failed", "cancelled", "canceled", "abandoned"\]/.test(route) &&
+      /\.not\("status", "in", `\(\$\{DELETABLE_ORDER_STATES\.join\(","\)\}\)`\)/.test(route)
+    )
+  })(),
+)
+
+check(
+  "an inherited Object key is not a status action",
+  (() => {
+    // "__proto__", "toString" and "constructor" all return a truthy value from
+    // a bare index into an object literal, so a request naming one was handled
+    // as a status change.
+    return (
+      /Object\.prototype\.hasOwnProperty\.call\(ACTION_TO_STATUS, action\)/.test(route) &&
+      /if \(action !== null && !known\)/.test(route)
+    )
+  })(),
+)
+
+check(
+  "publishing re-validates the STORED row, not the request",
+  (() => {
+    // `publish` and `unreserve` carry no fields, so nothing in the body could
+    // be validated even in principle — and they are the two ways onto the feed
+    // that do not go through an edit.
+    const block = route.slice(route.indexOf('if (next === "published") {'))
+    return /const \{ data: full \} = await admin/.test(block.slice(0, 1800)) && /publishProblems\(\{/.test(block.slice(0, 2600))
+  })(),
+)
+
+check(
+  "the delete refusal does not recommend a control the server refuses",
+  (() => {
+    // "Îl poți arhiva" is true for a published listing with an order against
+    // it and false for one whose status is already sold — `sold` is outside
+    // EDITABLE, so archive 409s.
+    return /row\.status === "sold"\s*\n?\s*\? "Anunțul a fost vândut\./.test(route)
+  })(),
+)
+
+check(
+  "a resumed draft published with 'and another' does not lock the form",
+  (() => {
+    // draftId picks the save target on every submit and the post-another
+    // branch empties the form in place — so every later save PATCHed a drafts
+    // endpoint scoped `.eq("status","draft")` against a row that had just
+    // become published.
+    return (
+      /const \[draftId, setDraftId\] = useState<string \| null>/.test(form) &&
+      /setDraftId\(null\)/.test(form) &&
+      /window\.history\.replaceState\(null, "", "\/products\/new"\)/.test(form) &&
+      /baseline\.current = null/.test(form)
+    )
+  })(),
+)
+
+check(
+  "saving does not quietly drop a photo that is still uploading",
+  (() => {
+    // `uploaded` is the photos whose upload has returned a URL, and that
+    // filtered list is what gets sent. On the exit that exists to KEEP your
+    // work, silently storing three of five photographs is the one thing it
+    // must not do.
+    return (
+      /if \(photos\.some\(\(p\) => p\.uploading\)\) \{/.test(form) &&
+      /Așteaptă să se încarce fotografiile\./.test(form)
+    )
+  })(),
+)
+
+check(
+  "a saved listing that is no longer for sale is not a wishlist card",
+  (() => {
+    // The embed neither filtered nor selected status, so a wishlist kept
+    // drawing buyable cards for listings that had since been sold, archived or
+    // reverted to a draft — and the client could not tell, because the field
+    // never reached it.
+    const wl = strip(read("app/api/wishlist/route.ts"))
+    return /if \(!PUBLIC_FEED\.includes\(\(item\.products as any\)\.status\)\) continue/.test(wl)
+  })(),
+)
+
+check(
+  "POST caps the photos it is handed",
+  (() => {
+    // cleanVariants is told to build `photos.length` entries while
+    // thumbnail_url and gallery_urls keep only MAX_PHOTOS — so an uncapped
+    // list broke the positional alignment those columns depend on AND wrote an
+    // unbounded jsonb column from an untrusted body.
+    const create = strip(read("app/api/listings/route.ts"))
+    return /\)\.slice\(0, MAX_PHOTOS\)/.test(create)
+  })(),
 )
 
 console.log("\nEvery state you have ever put a listing into")
@@ -373,7 +546,13 @@ check(
     const profile = strip(read("components/member/member-profile.tsx"))
     const card = strip(read("components/explore/product-card.tsx"))
     return (
-      /status === "draft"\s*\n?\s*\? `\/products\/new\?draft=/.test(statuses) &&
+      // Keyed off PUBLIC_PAGE, so `archived` is covered too — it had exactly
+      // the same problem and only "draft" was handled, which sent every
+      // archived card on the owner shelf to a 404.
+      /if \(PUBLIC_PAGE\.includes\(listing\.status as ListingStatus\)\) return `\/products\/\$\{listing\.slug\}`/.test(
+        statuses,
+      ) &&
+      /const key = listing\.status === "draft" \? "draft" : "edit"/.test(statuses) &&
       /hrefOverride=\{isOwner \? ownerListingHref\(listing\) : undefined\}/.test(profile) &&
       /const productUrl = hrefOverride \?\? getListingUrl/.test(card)
     )
@@ -413,24 +592,52 @@ check(
     // The strip is the one control on this screen you press without looking
     // at it.
     const profile = strip(read("components/member/member-profile.tsx"))
+    const go = profile.slice(profile.indexOf("const goToTab = useCallback"))
     const tab = profile.slice(profile.indexOf("function ShelfTab("))
-    return /triggerHaptic\("light"\)/.test(tab.slice(0, 900)) && /active:scale-\[0\.97\]/.test(tab.slice(0, 1400))
+    return /triggerHaptic\("light"\)/.test(go.slice(0, 400)) && /active:scale-\[0\.97\]/.test(tab.slice(0, 1400))
   })(),
 )
 
 check(
-  "switching panels is the feed's own move: depth, with a snapshot leaving",
+  "switching panels re-mounts nothing",
   (() => {
-    // One switch grammar per app. The outgoing panel is a snapshot so it can
-    // keep painting a list for a state that has already moved on; both layers
-    // are transform and opacity only, and hand their layers back.
-    const swap = strip(read("components/ui/depth-swap.tsx"))
+    // A depth crossfade needs both layers in the DOM, so leaving the grid meant
+    // mounting sixty ProductCards a second time — sixty next/image elements,
+    // decoded again — on the one frame the animation had to start on. That is
+    // the right trade for the feed, which crossfades two full-screen
+    // photographs; it is the wrong one for a grid. Both panels stay mounted and
+    // the inactive one is display:none, so a switch is a class change.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /<DepthSwap id=\{shelfTab\}>/.test(profile) &&
-      /setOut\(\{ key: idRef\.current, node: lastNode\.current \}\)/.test(swap) &&
-      /void i\.offsetHeight/.test(swap) &&
-      /willChange = "transform, opacity"/.test(swap)
+      /shelfTab === "reviews" \? "block" : "hidden"/.test(profile) &&
+      /shelfTab === "listings" \? "block" : "hidden"/.test(profile) &&
+      /\{reviewsSeen && \(/.test(profile) &&
+      !/DepthSwap/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "an inactive panel adds no height to the page",
+  (() => {
+    // Forty percent down a grid of sixty cards is three thousand pixels of
+    // scroll; the reviews panel is three hundred. `hidden` is display:none, so
+    // the page is never taller than what is on it.
+    const sheetCss = strip(read("app/globals.css"))
+    return /\.shelf-panel \{[\s\S]{0,90}?contain: layout paint style/.test(sheetCss)
+  })(),
+)
+
+check(
+  "and the strip is brought to the top before the panel changes",
+  (() => {
+    // Otherwise the browser is left scrolled past the end of a document that
+    // just shrank: it paints nothing, then clamps. That is the second of empty
+    // page followed by a jump.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /const top = el\.getBoundingClientRect\(\)\.top/.test(profile) &&
+      /if \(top < 0\) window\.scrollBy\(\{ top, behavior: "auto" \}\)/.test(profile)
     )
   })(),
 )
@@ -514,19 +721,41 @@ check(
 )
 
 check(
-  "switching panels is the feed's own move: depth, with a snapshot leaving",
+  "the underline travels rather than two borders swapping colour",
   (() => {
-    // One switch grammar per app. The outgoing panel is a snapshot so it can
-    // keep painting a list for a state that has already moved on; both layers
-    // are transform and opacity only, and hand their layers back.
-    const swap = strip(read("components/ui/depth-swap.tsx"))
+    // The one thing a tab strip has to communicate is that these are the same
+    // control in two positions, and a border that simply becomes black
+    // somewhere else says the opposite. One bar, moved by transform.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /<DepthSwap id=\{shelfTab\}>/.test(profile) &&
-      /setOut\(\{ key: idRef\.current, node: lastNode\.current \}\)/.test(swap) &&
-      /void i\.offsetHeight/.test(swap) &&
-      /willChange = "transform, opacity"/.test(swap)
+      /transform: `translate3d\(\$\{shelfTab === "reviews" \? 100 : 0\}%, 0, 0\)`/.test(profile) &&
+      /absolute -bottom-px left-0 h-\[2px\] w-1\/2/.test(profile)
     )
+  })(),
+)
+
+check(
+  "an empty seller pays for no round trip at all",
+  (() => {
+    // The count is already known from the server render, so zero reviews draws
+    // the empty state on the FIRST frame instead of three skeletons and a
+    // second layout a second later. That was the glitch.
+    const list = strip(read("components/member/seller-reviews-list.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /const empty = knownCount === 0/.test(list) &&
+      /useState<Review\[\] \| null>\(empty \? \[\] : null\)/.test(list) &&
+      /if \(empty\) return/.test(list) &&
+      /knownCount=\{reviews === undefined \? undefined : \(reviews\?\.count \?\? 0\)\}/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "and a non-empty one gets a skeleton the shape of the answer",
+  (() => {
+    const list = strip(read("components/member/seller-reviews-list.tsx"))
+    return /const rows = Math\.min\(Math\.max\(knownCount \?\? 3, 1\), 6\)/.test(list)
   })(),
 )
 

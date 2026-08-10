@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
+import { MAX_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
+import { publishProblems } from "@/lib/marketplace/listing-completeness"
 import { EDITABLE_STATUSES } from "@/lib/marketplace/listing-status"
 
 /**
@@ -70,14 +71,28 @@ async function callerCreatorId(): Promise<string | null> {
 
 const NOT_FOUND = () => NextResponse.json({ error: "not_found" }, { status: 404 })
 
-/** Has anybody actually bought this? Fails CLOSED — if the check itself errors
- *  we treat the listing as sold rather than risk deleting a paid-for row. */
+/**
+ * Has money ever moved for this listing?
+ *
+ * The list is of statuses that are SAFE TO ERASE, not of statuses worth
+ * keeping — because orders.product_id is `ON DELETE CASCADE` (see
+ * scripts/004_create_orders_entitlements.sql), so deleting the listing deletes
+ * the order row with it. A refunded or disputed order is precisely the kind
+ * nobody can afford to lose: it is the buyer's receipt, the refund record and
+ * the seller's revenue history, and the old allowlist of completed/paid/
+ * succeeded let all three be destroyed by one tap on Șterge.
+ *
+ * Fails CLOSED: if the check itself errors we treat the listing as sold rather
+ * than risk deleting a paid-for row.
+ */
+const DELETABLE_ORDER_STATES = ["pending", "failed", "cancelled", "canceled", "abandoned"]
+
 async function hasOrder(admin: ReturnType<typeof createAdminClient>, productId: string): Promise<boolean> {
   const { data, error } = await admin
     .from("orders")
     .select("id")
     .eq("product_id", productId)
-    .in("status", ["completed", "paid", "succeeded"])
+    .not("status", "in", `(${DELETABLE_ORDER_STATES.join(",")})`)
     .limit(1)
     .maybeSingle()
   if (error) {
@@ -119,11 +134,22 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   if (!row) return NOT_FOUND()
 
   if (row.status === "sold" || (await hasOrder(admin, id))) {
-    // Somebody's order history points at this row. Archiving does everything
-    // deleting was going to do — it comes off the feed — without breaking a
-    // receipt.
+    // Somebody's order history points at this row, and orders.product_id
+    // cascades — deleting the listing would take the receipt with it.
+    //
+    // The two branches get DIFFERENT copy, because only one of them can act on
+    // the advice. A listing that is still published with an order against it
+    // can be archived. One whose status is already `sold` cannot: `sold` is
+    // outside EDITABLE, so telling its owner to archive it was pointing at a
+    // control the server refuses.
     return NextResponse.json(
-      { error: "sold", message: "Anunțul a fost cumpărat și nu poate fi șters. Îl poți arhiva." },
+      {
+        error: "sold",
+        message:
+          row.status === "sold"
+            ? "Anunțul a fost vândut. Rămâne în istoricul tău și nu poate fi șters."
+            : "Anunțul a fost cumpărat și nu poate fi șters. Îl poți arhiva.",
+      },
       { status: 409 },
     )
   }
@@ -181,7 +207,16 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     unreserve: "published",
     sold: "sold",
   }
-  const next = typeof body?.action === "string" ? ACTION_TO_STATUS[body.action] : undefined
+  // hasOwnProperty, not a bare index: "__proto__", "toString" and "constructor"
+  // all return a truthy INHERITED value from an object literal, so a request
+  // naming one of them was handled as a status change and would have written a
+  // function into products.status.
+  const action = typeof body?.action === "string" ? body.action : null
+  const known = action !== null && Object.prototype.hasOwnProperty.call(ACTION_TO_STATUS, action)
+  if (action !== null && !known) {
+    return NextResponse.json({ error: "bad_request", message: "Acțiune necunoscută." }, { status: 400 })
+  }
+  const next = known ? ACTION_TO_STATUS[action] : undefined
   if (next) {
     if (row.status === "draft") {
       return NextResponse.json(
@@ -189,11 +224,49 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
         { status: 409 },
       )
     }
-    if (next === "published" && (await hasOrder(admin, id))) {
-      return NextResponse.json(
-        { error: "sold", message: "Anunțul a fost cumpărat și nu poate fi repus la vânzare." },
-        { status: 409 },
-      )
+    if (next === "published") {
+      if (await hasOrder(admin, id)) {
+        return NextResponse.json(
+          { error: "sold", message: "Anunțul a fost cumpărat și nu poate fi repus la vânzare." },
+          { status: 409 },
+        )
+      }
+      /**
+       * The row itself is checked, not the request.
+       *
+       * `publish` and `unreserve` carry no fields, so nothing in the body could
+       * be validated even in principle — and they are the two ways onto the
+       * feed that do not go through an edit. Without this, a listing that was
+       * archived while incomplete (or archived long before a field became
+       * required) goes live unchecked.
+       */
+      const { data: full } = await admin
+        .from("products")
+        .select(FULL_SELECT)
+        .eq("id", id)
+        .eq("creator_id", creatorId)
+        .maybeSingle()
+      const stored: any = full
+      if (stored) {
+        const storedPhotos = [stored.thumbnail_url, ...(Array.isArray(stored.gallery_urls) ? stored.gallery_urls : [])]
+          .filter((u: unknown): u is string => typeof u === "string" && !!u)
+        const problems = publishProblems({
+          photos: storedPhotos,
+          title: String(stored.title ?? ""),
+          description: String(stored.description ?? ""),
+          priceCents: Number(stored.price_cents),
+          compareCents: stored.compare_at_cents ?? null,
+          category: stored.category,
+          subcategory: stored.subcategory,
+          brand: stored.brand,
+          condition: stored.condition,
+          colour: stored.colour,
+          size: stored.size,
+        })
+        if (problems.length) {
+          return NextResponse.json({ error: "incomplete", fields: problems }, { status: 400 })
+        }
+      }
     }
     const { error } = await admin
       .from("products")
@@ -211,17 +284,35 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   const description = String(body?.description ?? "").trim()
   const priceCents = Number(body?.price_cents)
 
-  // A listing that is live has to STAY complete. The rules are the same ones
-  // POST /api/listings applies, and they live on the server because a client
-  // can be bypassed.
-  if (row.status === "published" || row.status === "reserved") {
-    const missing: string[] = []
-    if (photos.length < MIN_PHOTOS) missing.push(`cel puțin ${MIN_PHOTOS} fotografii`)
-    if (title.length < 3) missing.push("titlu")
-    if (!body?.category) missing.push("categorie")
-    if (!body?.condition) missing.push("stare")
-    if (!Number.isFinite(priceCents) || priceCents <= 0) missing.push("preț")
-    if (missing.length) return NextResponse.json({ error: "incomplete", fields: missing }, { status: 400 })
+  /**
+   * A listing that is live has to STAY complete — and so does one that is about
+   * to be.
+   *
+   * This ran for `published` and `reserved` only, which left `archived` as a
+   * hole straight through the validation: an archived row could be blanked by
+   * an unvalidated edit and then pushed onto the feed by the `publish` action,
+   * which performs no checks of its own. Anything that is not a draft is held
+   * to the same standard, because anything that is not a draft can be on the
+   * feed one request later.
+   */
+  if (row.status !== "draft") {
+    const problems = publishProblems({
+      photos,
+      title,
+      description,
+      priceCents,
+      compareCents:
+        Number.isFinite(Number(body?.compare_at_cents)) && Number(body.compare_at_cents) > 0
+          ? Math.round(Number(body.compare_at_cents))
+          : null,
+      category: body?.category,
+      subcategory: body?.subcategory,
+      brand: body?.brand,
+      condition: body?.condition,
+      colour: body?.colour,
+      size: body?.size,
+    })
+    if (problems.length) return NextResponse.json({ error: "incomplete", fields: problems }, { status: 400 })
   }
 
   // `slug` is deliberately absent: it was minted when the listing was created,
@@ -255,7 +346,7 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     .eq("id", id)
     .eq("creator_id", creatorId)
     .in("status", EDITABLE)
-    .select("id, slug")
+    .select("id, slug, status")
     .maybeSingle()
 
   if (error) {
@@ -272,12 +363,15 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
       .eq("id", id)
       .eq("creator_id", creatorId)
       .in("status", EDITABLE)
-      .select("id, slug")
+      .select("id, slug, status")
       .maybeSingle()
     if (retry.error || !retry.data) return NOT_FOUND()
-    return NextResponse.json({ id: retry.data.id, slug: retry.data.slug })
+    return NextResponse.json({ id: retry.data.id, slug: retry.data.slug, status: retry.data.status })
   }
 
   if (!data) return NOT_FOUND()
-  return NextResponse.json({ id: data.id, slug: data.slug })
+  // The status travels with the answer: an archived listing stays archived
+  // after an edit, and /products/<slug> refuses to render one — so the client
+  // needs to know before it decides where to send you.
+  return NextResponse.json({ id: data.id, slug: data.slug, status: data.status })
 }

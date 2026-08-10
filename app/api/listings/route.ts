@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MIN_PHOTOS, MAX_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
+import { draftProblems, publishProblems } from "@/lib/marketplace/listing-completeness"
 
 /**
  * POST /api/listings — create a listing, published or draft.
@@ -71,38 +72,39 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const draft = body?.draft === true
 
-    const photos: string[] = Array.isArray(body?.photos) ? body.photos.filter((u: any) => typeof u === "string" && u) : []
+    // Sliced HERE, not at the two places that store it. cleanVariants() is
+    // told to build `photos.length` entries, so an uncapped list wrote an
+    // unbounded jsonb column from an untrusted body while thumbnail_url and
+    // gallery_urls quietly kept only the first MAX_PHOTOS — the positional
+    // alignment those two columns depend on, broken by the one line that was
+    // supposed to guarantee it.
+    const photos: string[] = (
+      Array.isArray(body?.photos) ? body.photos.filter((u: any) => typeof u === "string" && u) : []
+    ).slice(0, MAX_PHOTOS)
     const title = typeof body?.title === "string" ? body.title.trim() : ""
     const description = typeof body?.description === "string" ? body.description.trim() : ""
     const priceCents = Number.isFinite(body?.price_cents) ? Math.round(body.price_cents) : NaN
     const compareCents = Number.isFinite(body?.compare_at_cents) ? Math.round(body.compare_at_cents) : null
 
-    // A draft only has to be SOMETHING — one thing is enough to make it worth
-    // keeping. It used to demand a photo AND a title, which is stricter than
-    // the sell form's own gate (title OR photo), so "write the title now,
-    // photograph it later" — the most ordinary way to start a draft — was
-    // refused by the server after the client had accepted it. A published
-    // listing has to be complete.
-    const problems: string[] = []
-    if (draft) {
-      if (photos.length < 1 && !title) problems.push("empty")
-    } else {
-      if (!title) problems.push("title")
-      if (photos.length < MIN_PHOTOS) problems.push("photos_min")
-      if (description.length < 10) problems.push("description")
-      if (!Number.isFinite(priceCents) || priceCents < 0) problems.push("price")
-      if (!body?.category) problems.push("category")
-      if (!body?.subcategory) problems.push("subcategory")
-      if (!body?.brand) problems.push("brand")
-      if (!body?.condition) problems.push("condition")
-      if (!body?.colour) problems.push("colour")
-      if (!body?.size) problems.push("size")
-      // compare_at is optional, but if given it has to actually be a higher
-      // "was" price or the discount badge is a lie.
-      if (compareCents !== null && Number.isFinite(priceCents) && compareCents <= priceCents) {
-        problems.push("compare_at_too_low")
-      }
-    }
+    // One checklist, in lib/marketplace/listing-completeness.ts, shared with
+    // both PATCH routes — they used to have their own and it was shorter, so a
+    // listing published through a draft reached the feed missing four fields
+    // this door refuses to create it without.
+    const problems = draft
+      ? draftProblems({ photos, title })
+      : publishProblems({
+          photos,
+          title,
+          description,
+          priceCents,
+          compareCents,
+          category: body?.category,
+          subcategory: body?.subcategory,
+          brand: body?.brand,
+          condition: body?.condition,
+          colour: body?.colour,
+          size: body?.size,
+        })
     if (problems.length) return NextResponse.json({ error: "invalid", fields: problems }, { status: 400 })
 
     const admin = createAdminClient()

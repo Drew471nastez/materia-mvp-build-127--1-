@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Archive, CheckCircle2, Clock, Loader2, Pencil, Trash2, Undo2 } from "lucide-react"
 
@@ -67,6 +67,22 @@ export function ManageListingSheet({
   const [busy, setBusy] = useState<Busy>(null)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * THE SHEET IS ONE INSTANCE FOR A WHOLE GRID.
+   *
+   * The owner's profile renders a single ManageListingSheet and points it at
+   * whichever card's ⋯ was pressed — so its state is shared between listings
+   * that have never met. An armed delete confirmation on one card was still
+   * expanded when the sheet reopened on another, one tap from destroying the
+   * wrong listing.
+   */
+  useEffect(() => {
+    if (open) return
+    setConfirming(false)
+    setError(null)
+    setBusy(null)
+  }, [open])
 
   const archived = status === "archived"
   const reserved = status === "reserved"
@@ -176,7 +192,10 @@ export function ManageListingSheet({
             </Row>
           )}
 
-          {!isDraft && (
+          {/* Not for a sold listing either: `sold` is outside EDITABLE, so the
+              server refuses it — and the delete refusal used to point straight
+              at this row, which is a dead end recommending a dead end. */}
+          {!isDraft && !sold && (
             <Row
               icon={archived ? <Undo2 className="h-[19px] w-[19px]" /> : <Archive className="h-[19px] w-[19px]" />}
               onClick={() => void act(archived ? "publish" : "archive", "archive")}

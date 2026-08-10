@@ -1,7 +1,7 @@
 "use client"
 
 import { SurfaceClaim } from "@/components/surface-claim"
-import { useCallback, useEffect, useLayoutEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
@@ -11,7 +11,6 @@ import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
-import { DepthSwap } from "@/components/ui/depth-swap"
 import { ownerListingHref, ownerStatusBadge } from "@/lib/marketplace/listing-status"
 import { SellerReviewsList } from "@/components/member/seller-reviews-list"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
@@ -208,7 +207,14 @@ function Stat({ value, label, lang }: { value: number; label: string; lang: stri
   )
 }
 
-/** One tab of the shelf. The underline is the state; the count is quiet. */
+/**
+ * One tab of the shelf.
+ *
+ * The underline is NOT on the button. It is a single bar under the strip that
+ * TRAVELS, because two borders swapping which one is black is a cut, and the
+ * one thing a tab strip has to communicate is that these two are the same
+ * control in two positions. It costs one transform.
+ */
 function ShelfTab({
   active,
   onClick,
@@ -223,23 +229,16 @@ function ShelfTab({
   return (
     <button
       type="button"
-      onClick={() => {
-        // The strip is the one control on this screen you press without
-        // looking at, so it answers in the hand as well as on the screen.
-        void triggerHaptic("light")
-        onClick()
-      }}
+      onClick={onClick}
       aria-selected={active}
       role="tab"
       className={cn(
-        // flex-1 and centred: three names sharing the full measure, the way
-        // the feed's own Pentru tine / Urmărești / Salvate strip does — not a
+        // flex-1 and centred: the names share the full measure, the way the
+        // feed's own Pentru tine / Urmărești / Salvate strip does — not a
         // cluster parked at one end of the line.
-        "relative -mb-px flex flex-1 items-baseline justify-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[15px]",
-        "transition-[color,border-color,transform] duration-150 active:scale-[0.97]",
-        active
-          ? "border-neutral-900 font-semibold text-neutral-900"
-          : "border-transparent font-medium text-neutral-400 active:text-neutral-600",
+        "relative flex flex-1 items-baseline justify-center gap-1.5 pb-2.5 pt-1 text-[15px]",
+        "transition-[color,transform] duration-150 active:scale-[0.97]",
+        active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400 active:text-neutral-600",
       )}
     >
       {children}
@@ -305,8 +304,72 @@ export function MemberProfile({
    * Two tabs left: what you are selling, and what people said about you.
    */
   const [shelfTab, setShelfTab] = useState<"listings" | "reviews">("listings")
-  /** The listing whose ⋯ sheet is open, when this is your own shelf. */
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  WHY SWITCHING TABS GLITCHED, AND WHY IT IS INSTANT NOW
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * Three separate faults stacked, and the visible one — a second of empty
+   * page, then a collapse — was all three at once.
+   *
+   *  1. THE PAGE WAS TALLER THAN ITS NEW CONTENTS. Forty percent down a grid of
+   *     sixty cards is three thousand pixels of scroll. The reviews panel is
+   *     three hundred. Switching left the browser scrolled past the end of a
+   *     document that had just shrunk, so it painted nothing and then clamped —
+   *     which is exactly "empty space, then it jumps back". The strip is
+   *     brought to the top of the viewport BEFORE the swap now, which is what
+   *     every app in this category does and the only thing that removes the
+   *     clamp rather than hiding it.
+   *
+   *  2. THE OUTGOING PANEL WAS RE-MOUNTED TO ANIMATE IT AWAY. A depth crossfade
+   *     needs both layers in the DOM, so leaving the grid meant mounting sixty
+   *     ProductCards a second time — sixty next/image elements, decoded again —
+   *     on the one frame the animation had to start on. That is the right trade
+   *     for the feed, which crossfades two full-screen photographs. It is the
+   *     wrong one for a grid. Both panels stay mounted here and the inactive
+   *     one is `hidden`, so a switch is a class change and nothing else.
+   *
+   *  3. AN EMPTY SELLER STILL PAID FOR A ROUND TRIP. See the note on
+   *     `knownCount` in seller-reviews-list: the count is already known from
+   *     the server render, so zero reviews now draws the empty state on the
+   *     first frame instead of three skeletons and a second layout.
+   */
+  const shelfRef = useRef<HTMLElement>(null)
+  /** The reviews panel is mounted on first visit and never unmounted after —
+   *  the second switch and every one after it costs nothing at all. */
+  const [reviewsSeen, setReviewsSeen] = useState(false)
+
+  const goToTab = useCallback((next: "listings" | "reviews") => {
+    void triggerHaptic("light")
+    if (next === "reviews") setReviewsSeen(true)
+    // Instant, and BEFORE the panel changes: a smooth scroll here would race
+    // the swap, and the two together read as two things happening. Only when
+    // the strip has actually gone off the top — switching while you can still
+    // see it should not move the page at all.
+    const el = shelfRef.current
+    if (el) {
+      const top = el.getBoundingClientRect().top
+      if (top < 0) window.scrollBy({ top, behavior: "auto" })
+    }
+    setShelfTab(next)
+  }, [])
+  /**
+   * The listing whose ⋯ sheet is open, when this is your own shelf.
+   *
+   * `shown` lags it by one close, and both are needed. BottomSheet keeps its
+   * children mounted for the length of the exit animation, so feeding the sheet
+   * straight from `manageFor` meant it rewrote itself into a generic, titleless
+   * listing for the 310ms it spent sliding away. `shown` holds the last real
+   * one until the sheet is gone, and keying the sheet on its id also discards
+   * an armed delete confirmation with the listing it belonged to — one
+   * instance serves the whole grid, and that state must not survive a change
+   * of subject.
+   */
   const [manageFor, setManageFor] = useState<MemberListing | null>(null)
+  const [shown, setShown] = useState<MemberListing | null>(null)
+  useEffect(() => {
+    if (manageFor) setShown(manageFor)
+  }, [manageFor])
 
   const [returning, setReturning] = useState(false)
   useLayoutEffect(() => {
@@ -707,7 +770,7 @@ export function MemberProfile({
           empty profile had nothing at all between the stats row and blank
           space — which is most of why the screen read as failing to load
           rather than as a shop with nothing in it yet. */}
-      <section className="mt-6 flex min-h-0 flex-1 flex-col md:mt-8">
+      <section ref={shelfRef} className="mt-6 flex min-h-0 flex-1 flex-col md:mt-8">
         {/* Not simply "Articole": the stats row directly above already carries
             that word, and the same label twice in ten vertical pixels reads as
             a template that was never finished.
@@ -719,29 +782,63 @@ export function MemberProfile({
         {/* The tab strip. Underline marks the current one — the same mark
             every app in this category uses — and the listing count keeps its
             place next to the word it counts. */}
-        <div className="flex items-stretch border-b border-neutral-200/80">
+        <div className="relative flex items-stretch border-b border-neutral-200/80">
           <ShelfTab
             active={shelfTab === "listings"}
-            onClick={() => setShelfTab("listings")}
+            onClick={() => goToTab("listings")}
             count={listingsCount > 0 ? listingsCount : null}
           >
             {language === "ro" ? "Anunțuri" : "Listings"}
           </ShelfTab>
           <ShelfTab
             active={shelfTab === "reviews"}
-            onClick={() => setShelfTab("reviews")}
+            onClick={() => goToTab("reviews")}
             count={reviews?.count ? reviews.count : null}
           >
             Evaluări
           </ShelfTab>
+          {/* ONE BAR THAT TRAVELS, not two borders swapping which is black.
+              Half the strip wide, moved by its own width — so it lands exactly
+              under either tab whatever the measure is — and moved by transform,
+              so it is the compositor's problem and not the layout's. */}
+          <span
+            aria-hidden
+            className="absolute -bottom-px left-0 h-[2px] w-1/2 rounded-full bg-neutral-900 transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+            style={{ transform: `translate3d(${shelfTab === "reviews" ? 100 : 0}%, 0, 0)` }}
+          />
         </div>
 
-        {/* One switch grammar per app: the panels trade places along Z, the
-            same move the feed's Pentru tine / Urmărești / Salvate makes. */}
-        <DepthSwap id={shelfTab}>
-        {shelfTab === "reviews" ? (
-          <SellerReviewsList sellerUserId={member.id} isOwner={isOwner} />
-        ) : listings.length === 0 ? (
+        {/* BOTH PANELS, ONE HIDDEN. `hidden` is display:none, so the inactive
+            panel costs no layout and adds no height — which is what stops the
+            page being taller than what is on it. And nothing is re-mounted, so
+            the switch is a class change: no images decoded twice, no work at
+            all on the frame it happens.
+
+            The active one replays a short rise-and-fade, keyed on the tab, so
+            the change is READ as a change without anything having to travel
+            across the screen. 180ms, because the panel is already there —
+            there is nothing to wait for and a longer curve would only be
+            waiting. */}
+        <div className={cn("shelf-panel", shelfTab === "reviews" ? "block" : "hidden")}>
+          {/* Mounted on first visit and never unmounted after: the second
+              switch and every one after it costs nothing at all. */}
+          {reviewsSeen && (
+            <div key="reviews" className="shelf-panel-in">
+              <SellerReviewsList
+                sellerUserId={member.id}
+                isOwner={isOwner}
+                // Counted on the server for the header's stars. Zero means the
+                // empty state is drawn on the first frame — no request, no
+                // skeleton, no second layout a second later.
+                knownCount={reviews === undefined ? undefined : (reviews?.count ?? 0)}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className={cn("shelf-panel", shelfTab === "listings" ? "block" : "hidden")}>
+        <div key="listings" className={shelfTab === "listings" ? "shelf-panel-in" : undefined}>
+        {listings.length === 0 ? (
           // An empty shop is a normal state for a new member, not an error — so
           // it is drawn in the same language as the inbox's empty screens
           // (circle, one line, one sentence) rather than left as a stray
@@ -856,17 +953,19 @@ export function MemberProfile({
             })}
           </div>
         )}
-        </DepthSwap>
+        </div>
+        </div>
       </section>
 
 
-      {isOwner && (
+      {isOwner && shown && (
         <ManageListingSheet
+          key={shown.id}
           open={manageFor !== null}
           onClose={() => setManageFor(null)}
-          listingId={manageFor?.id ?? ""}
-          status={manageFor?.status ?? "published"}
-          title={manageFor?.title ?? ""}
+          listingId={shown.id}
+          status={shown.status ?? "published"}
+          title={shown.title}
         />
       )}
 

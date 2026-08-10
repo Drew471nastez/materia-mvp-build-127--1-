@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import { recordListingLike } from "@/lib/push/activity-db"
+import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
 import { isOwnProduct, SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
 
 const GUEST_ID_COOKIE = "materia_guest_id"
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
           compare_at_cents,
           thumbnail_url,
           type,
+          status,
           creator_id,
           creators (
             id,
@@ -124,6 +126,21 @@ export async function GET(request: NextRequest) {
 
     for (const item of items) {
       if (!item.products) continue
+      /**
+       * A SAVED LISTING THAT IS NO LONGER FOR SALE IS NOT A CARD.
+       *
+       * The embed neither filtered nor selected `status`, so a wishlist kept
+       * drawing ordinary buyable cards for listings that had since been sold,
+       * archived, reserved or reverted to a draft — and the client could not
+       * tell, because the field never reached it. Tapping one led to a 404 or
+       * a checkout that refuses.
+       *
+       * Filtered here rather than in the query: PostgREST cannot filter on an
+       * embedded table without turning the join into an inner one, which would
+       * silently drop rows for a different reason. The saved ROW stays either
+       * way — un-archiving puts the card back.
+       */
+      if (!PUBLIC_FEED.includes((item.products as any).status)) continue
 
       let creatorInfo = null
       if (item.products.creators?.user_id) {

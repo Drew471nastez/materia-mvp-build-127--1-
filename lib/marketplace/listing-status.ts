@@ -63,10 +63,22 @@ export function ownerStatusBadge(status: string | null | undefined): StatusBadge
   }
 }
 
-/** A draft has no listing page — it was never published — so its card opens the
- *  form it was left in rather than a URL that would 404. */
+/**
+ * Where an owner's card goes.
+ *
+ * Keyed off PUBLIC_PAGE rather than off the single string "draft", because
+ * `archived` has exactly the same problem and only one of the two was handled:
+ * the listing route calls notFound() for ANY status it will not render, so an
+ * archived card — on the one shelf that exists to make archived listings
+ * reachable again — linked straight to a 404.
+ *
+ * Anything the page refuses opens the form instead, which is the screen that
+ * can actually do something about it. Drafts go through the drafts route,
+ * because that is the one scoped to drafts and the one that knows how to
+ * publish from there.
+ */
 export function ownerListingHref(listing: { slug: string; id: string; status?: string | null }): string {
-  return listing.status === "draft"
-    ? `/products/new?draft=${encodeURIComponent(listing.id)}`
-    : `/products/${listing.slug}`
+  if (PUBLIC_PAGE.includes(listing.status as ListingStatus)) return `/products/${listing.slug}`
+  const key = listing.status === "draft" ? "draft" : "edit"
+  return `/products/new?${key}=${encodeURIComponent(listing.id)}`
 }

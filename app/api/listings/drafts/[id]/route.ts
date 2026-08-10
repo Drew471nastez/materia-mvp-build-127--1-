@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
+import { MAX_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
+import { publishProblems } from "@/lib/marketplace/listing-completeness"
 
 /**
  * ===========================================================================
@@ -122,14 +123,29 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   const priceCents = Number(body?.price_cents)
 
   if (publish) {
-    const missing: string[] = []
-    if (photos.length < MIN_PHOTOS) missing.push(`cel puțin ${MIN_PHOTOS} fotografii`)
-    if (title.length < 3) missing.push("titlu")
-    if (!body?.category) missing.push("categorie")
-    if (!body?.condition) missing.push("stare")
-    if (!Number.isFinite(priceCents) || priceCents <= 0) missing.push("preț")
-    if (missing.length) {
-      return NextResponse.json({ error: "incomplete", fields: missing }, { status: 400 })
+    // The SAME checklist POST applies — this route's own copy was shorter, so
+    // publishing through a draft reached the feed without a brand, a size, a
+    // colour or a description, which POST refuses to create. It also rejected a
+    // price of 0, which POST allows, and reported it as a Romanian label the
+    // client could not print a message for.
+    const problems = publishProblems({
+      photos,
+      title,
+      description,
+      priceCents,
+      compareCents:
+        Number.isFinite(Number(body?.compare_at_cents)) && Number(body.compare_at_cents) > 0
+          ? Math.round(Number(body.compare_at_cents))
+          : null,
+      category: body?.category,
+      subcategory: body?.subcategory,
+      brand: body?.brand,
+      condition: body?.condition,
+      colour: body?.colour,
+      size: body?.size,
+    })
+    if (problems.length) {
+      return NextResponse.json({ error: "incomplete", fields: problems }, { status: 400 })
     }
   }
 

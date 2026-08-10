@@ -113,10 +113,10 @@ check(
 )
 
 check(
-  "the draft id is in the submit callback's dependencies",
+  "the draft id — and the photos — are in the submit callback's dependencies",
   // Without it, `submit` closes over whatever the id was on first render — so
   // the first save of a resumed draft would go to the wrong endpoint.
-  /setMotion, draftId, editId\]/.test(form),
+  /setMotion, draftId, editId, photos\]/.test(form),
 )
 
 check(
@@ -147,8 +147,10 @@ check(
     // client and refused by the server. The refusal then surfaced as raw
     // English field keys in a sentence at the bottom of the page.
     const create = strip(read("app/api/listings/route.ts"))
+    const shared = strip(read("lib/marketplace/listing-completeness.ts"))
     return (
-      /if \(draft\) \{\s*\n\s*if \(photos\.length < 1 && !title\) problems\.push\("empty"\)/.test(create) &&
+      /return v\.photos\.length < 1 && !v\.title\.trim\(\) \? \["empty"\] : \[\]/.test(shared) &&
+      /draftProblems\(\{ photos, title \}\)/.test(create) &&
       /title: title \|\| null,/.test(create)
     )
   })(),
@@ -201,15 +203,34 @@ check(
 check(
   "publishing from a draft applies the same completeness rules as creating",
   (() => {
-    // A draft is allowed to be half-written. A listing on the feed is not, and
-    // the rules have to be on the server because a client can be bypassed.
+    // It claimed to and did not. This route's own list was five fields; POST's
+    // is eleven — so a listing published through a draft reached the feed with
+    // no brand, no size, no colour and no description. It also refused a price
+    // of 0, which POST allows, and reported it as a Romanian display label the
+    // client had no message to print for.
+    //
+    // One list, in one file, called by all three doors onto the feed.
+    const create = strip(read("app/api/listings/route.ts"))
+    const live = strip(read("app/api/listings/[id]/route.ts"))
     const block = route.slice(route.indexOf("if (publish) {"), route.indexOf("const patch"))
     return (
-      /MIN_PHOTOS/.test(block) &&
-      /missing\.push\("titlu"\)/.test(block) &&
-      /missing\.push\("preț"\)/.test(block) &&
-      /status: 400/.test(block)
+      /publishProblems\(\{/.test(block) &&
+      /status: 400/.test(block) &&
+      /publishProblems\(\{/.test(create) &&
+      /publishProblems\(\{/.test(live) &&
+      !/missing\.push\("preț"\)/.test(route)
     )
+  })(),
+)
+
+check(
+  "and 0 is a price, not a missing one",
+  (() => {
+    // "Free" is a real listing and the sell form offers it. Both PATCH routes
+    // rejected `<= 0`, so publishing a free draft failed — and failed silently,
+    // because the refusal came back as a label with no gap message behind it.
+    const shared = strip(read("lib/marketplace/listing-completeness.ts"))
+    return /if \(!Number\.isFinite\(v\.priceCents\) \|\| v\.priceCents < 0\) problems\.push\("price"\)/.test(shared)
   })(),
 )
 

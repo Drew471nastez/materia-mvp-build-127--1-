@@ -17,6 +17,7 @@ import { claimSurface } from "@/lib/surface-bg"
 import { OfferSheet } from "@/components/product/offer-sheet"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
@@ -87,7 +88,23 @@ export function ProductDetail({ product }: { product: any }) {
   // Sold. One physical object, so once it has gone there is nothing on this
   // page left to do — no buying, no offering, and no messaging about a price.
   // The listing stays visible because the link is in somebody's receipt.
+  /**
+   * UNAVAILABLE, not just sold.
+   *
+   * `reserved` was added so the page stays reachable for the buyer it is being
+   * held for — but the availability model here was binary, so a reserved
+   * listing drew the full purple Cumpără / Fă o ofertă bar while every server
+   * route behind those buttons still requires `published`. Buying 404'd at the
+   * checkout page; the offer sheet came back with a generic "try again" for a
+   * permanent condition; the message button silently did nothing.
+   *
+   * PUBLIC_FEED is the one list that means "you can act on this", so it is what
+   * the bar reads. Each state still says which it is — sold and reserved are
+   * different news.
+   */
   const isSold = product.status === "sold"
+  const unavailable = !PUBLIC_FEED.includes(product.status)
+  const unavailableLabel = isSold ? "Vândut" : "Rezervat"
   const sellerUserId = product.creator?.user_id ?? null
   // Own listing? Then neither button makes sense.
   //
@@ -162,15 +179,17 @@ export function ProductDetail({ product }: { product: any }) {
 
   const onBuy = useCallback(() => {
     if (isOwn) return sayOwn()
+    if (unavailable) return
     void triggerHaptic("light")
     router.push(`/checkout?productId=${product.id}`)
-  }, [router, product.id, isOwn, sayOwn])
+  }, [router, product.id, isOwn, unavailable, sayOwn])
 
   const onOffer = useCallback(() => {
     if (isOwn) return sayOwn()
+    if (unavailable) return
     void triggerHaptic("light")
     setOfferOpen(true)
-  }, [isOwn, sayOwn])
+  }, [isOwn, unavailable, sayOwn])
 
   // "Ask the seller", which on a marketplace is not a nicety — it is how half of
   // everything gets sold. Is it still available, does it run small, can you send
@@ -680,7 +699,7 @@ export function ProductDetail({ product }: { product: any }) {
               and hidden at md, so without this the desktop page had no way to
               actually buy the thing it was showing. */}
           <div className="mt-5 hidden gap-2.5 md:flex">
-            {isOwn ? (
+            {isOwn && !unavailable ? (
               /* YOUR OWN LISTING. Buy and Make an offer were both here, doing
                  nothing but printing "this is your listing" when pressed —
                  two controls whose only function was to refuse. What you
@@ -704,10 +723,26 @@ export function ProductDetail({ product }: { product: any }) {
                   <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
                 </button>
               </>
-            ) : isSold ? (
-              <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
-              Vândut
-            </div>
+            ) : unavailable ? (
+              /* One pill, and the ⋯ beside it when it is yours — a sold or
+                 reserved listing of your own still has to be manageable, and
+                 the edit button is not the control to offer because the server
+                 refuses to change a sold row. */
+              <>
+                <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
+                  {unavailableLabel}
+                </div>
+                {isOwn && (
+                  <button
+                    type="button"
+                    onClick={openManage}
+                    aria-label="Gestionează anunțul"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-colors duration-150 active:bg-neutral-100"
+                  >
+                    <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <button
@@ -757,7 +792,7 @@ export function ProductDetail({ product }: { product: any }) {
               addressed to a person, not to the item, and putting a third button
               beside "buy" and "offer" would turn a two-choice decision into a
               menu. Hidden on your own listing, where there is nobody to ask. */}
-          {!isOwn && (
+          {!isOwn && !unavailable && (
             <button
               type="button"
               onClick={() => void onMessage()}
@@ -826,7 +861,7 @@ export function ProductDetail({ product }: { product: any }) {
         }}
       >
         <div className="flex gap-2.5">
-            {isOwn ? (
+            {isOwn && !unavailable ? (
               /* YOUR OWN LISTING. Buy and Make an offer were both here, doing
                  nothing but printing "this is your listing" when pressed —
                  two controls whose only function was to refuse. What you
@@ -850,10 +885,26 @@ export function ProductDetail({ product }: { product: any }) {
                   <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
                 </button>
               </>
-            ) : isSold ? (
-              <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
-              Vândut
-            </div>
+            ) : unavailable ? (
+              /* One pill, and the ⋯ beside it when it is yours — a sold or
+                 reserved listing of your own still has to be manageable, and
+                 the edit button is not the control to offer because the server
+                 refuses to change a sold row. */
+              <>
+                <div className="flex h-12 flex-1 items-center justify-center rounded-full bg-neutral-100 text-[15px] font-semibold text-neutral-500">
+                  {unavailableLabel}
+                </div>
+                {isOwn && (
+                  <button
+                    type="button"
+                    onClick={openManage}
+                    aria-label="Gestionează anunțul"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-colors duration-150 active:bg-neutral-100"
+                  >
+                    <MoreHorizontal className="h-[21px] w-[21px]" strokeWidth={2.2} />
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <button

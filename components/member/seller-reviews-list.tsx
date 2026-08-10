@@ -50,10 +50,37 @@ function Stars({ n }: { n: number }) {
   )
 }
 
-export function SellerReviewsList({ sellerUserId, isOwner }: { sellerUserId: string; isOwner: boolean }) {
-  const [reviews, setReviews] = useState<Review[] | null>(null)
+export function SellerReviewsList({
+  sellerUserId,
+  isOwner,
+  knownCount,
+}: {
+  sellerUserId: string
+  isOwner: boolean
+  /**
+   * HOW MANY THERE ARE, COUNTED ON THE SERVER, BEFORE THIS EVER RENDERS.
+   *
+   * The page already knows — it counts them for the stars in the header — and
+   * knowing changes everything about how this panel behaves:
+   *
+   *   0   there is nothing to fetch. The empty state is the FIRST thing drawn,
+   *       with no request, no skeleton, and no second layout when the request
+   *       comes back saying what we already knew. That was the glitch: an empty
+   *       seller still paid for a round trip and still drew three skeleton
+   *       cards, then collapsed to a shorter empty state a second later.
+   *
+   *   n   the skeleton is n rows tall, capped, so the box the list lands in is
+   *       the box that was already there.
+   *
+   * `undefined` means nobody said, and it behaves as it did before.
+   */
+  knownCount?: number | null
+}) {
+  const empty = knownCount === 0
+  const [reviews, setReviews] = useState<Review[] | null>(empty ? [] : null)
 
   useEffect(() => {
+    if (empty) return
     let alive = true
     fetch(`/api/reviews?sellerUserId=${encodeURIComponent(sellerUserId)}&limit=50`)
       .then((r) => (r.ok ? r.json() : { reviews: [] }))
@@ -66,15 +93,24 @@ export function SellerReviewsList({ sellerUserId, isOwner }: { sellerUserId: str
     return () => {
       alive = false
     }
-  }, [sellerUserId])
+  }, [sellerUserId, empty])
 
   if (reviews === null) {
+    // As many rows as there are reviews, so the skeleton is the shape of the
+    // answer rather than a guess that has to resize when it arrives.
+    const rows = Math.min(Math.max(knownCount ?? 3, 1), 6)
     return (
       <div className="space-y-3 pt-4">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="animate-pulse rounded-2xl border border-neutral-200/70 p-4">
-            <div className="h-3 w-1/3 rounded bg-neutral-100" />
-            <div className="mt-2.5 h-3 w-3/4 rounded bg-neutral-100" />
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 shrink-0 rounded-full bg-neutral-100" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 rounded bg-neutral-100" />
+                <div className="h-3 w-1/5 rounded bg-neutral-100" />
+              </div>
+            </div>
+            <div className="mt-3 h-3 w-3/4 rounded bg-neutral-100" />
           </div>
         ))}
       </div>

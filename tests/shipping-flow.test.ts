@@ -2782,8 +2782,14 @@ check(
       (() => {
         const detail = stripComments(read("components/product/product-detail.tsx"))
         // Both bars — the desktop pair and the mobile one — or the phone still
-        // sells a jacket that is already in the post.
-        return (detail.match(/isSold \? \(/g) ?? []).length >= 2
+        // sells a jacket that is already in the post. The gate is UNAVAILABLE
+        // rather than sold: `reserved` is off the feed too, and it used to draw
+        // the full purple buy bar over routes that all refuse it.
+        return (
+          (detail.match(/\) : unavailable \? \(/g) ?? []).length >= 2 &&
+          /const unavailable = !PUBLIC_FEED\.includes\(product\.status\)/.test(detail) &&
+          /if \(unavailable\) return/.test(detail)
+        )
       })(),
     )
     check(

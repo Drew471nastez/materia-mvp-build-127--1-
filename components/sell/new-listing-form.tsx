@@ -547,7 +547,7 @@ export function NewListingForm() {
    * would mount, suspend and mount AGAIN — playing its slide twice. The same
    * reasoning, and the same fix, as the listing page's `origin` breadcrumb.
    */
-  const [draftId] = useState<string | null>(() => {
+  const [draftId, setDraftId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
     try {
       return new URLSearchParams(window.location.search).get("draft")
@@ -1675,14 +1675,16 @@ export function NewListingForm() {
    * which is the publish checklist. It replaces the title's message rather
    * than adding a second note under the same field.
    */
+  const uploading = photos.some((p) => p.uploading)
   const emptyDraft = showGaps && !title.trim() && uploaded.length === 0
   const gapFor = useCallback(
     (key: GapKey) => {
       if (!showGaps) return null
+      if (key === "photos" && uploading) return "Așteaptă să se încarce fotografiile."
       if (key === "title" && emptyDraft) return "Adaugă un titlu sau o fotografie ca să poți salva ciorna."
       return gaps.find((g) => g.key === key)?.message ?? null
     },
-    [showGaps, gaps, emptyDraft],
+    [showGaps, gaps, emptyDraft, uploading],
   )
 
   /**
@@ -1728,6 +1730,21 @@ export function NewListingForm() {
        * a half-written listing, it is an empty one, and it says so at the title
        * — the same note in the same place the publish gaps use.
        */
+      /**
+       * NOT WHILE A PHOTO IS STILL ON ITS WAY UP.
+       *
+       * `uploaded` is the photos whose upload has returned a URL, and that
+       * filtered list is what gets sent — so saving mid-upload quietly stored a
+       * listing with three of its five photographs. On the exit that exists to
+       * KEEP your work, silently dropping part of it is the one thing it must
+       * not do.
+       */
+      if (photos.some((p) => p.uploading)) {
+        setShowGaps(true)
+        showFirstGap("photos")
+        void triggerHaptic("medium")
+        return
+      }
       if (draft && !title.trim() && uploaded.length === 0) {
         setShowGaps(true)
         showFirstGap("title")
@@ -1829,7 +1846,11 @@ export function NewListingForm() {
           requestAnimationFrame(() => setMotion("leave"))
           void triggerHaptic("light")
           window.setTimeout(() => {
-            router.replace(data?.slug ? `/products/${data.slug}` : "/profile")
+            // An ARCHIVED listing stays archived through an edit, and
+            // /products/<slug> refuses to render one — so the only safe
+            // destination is the shelf it lives on. The server tells us which.
+            const live = data?.status === "published" || data?.status === "reserved" || data?.status === "sold"
+            router.replace(live && data?.slug ? `/products/${data.slug}` : "/profile")
             router.refresh()
           }, 316)
           return
@@ -1881,6 +1902,26 @@ export function NewListingForm() {
             setCompareAt("")
             setError(null)
             setSaving(null)
+            setShowGaps(false)
+            /**
+             * THE ID HAS TO GO WITH THE FIELDS.
+             *
+             * `draftId` picks the save target on every submit, and this branch
+             * empties the form IN PLACE without navigating — so after
+             * publishing a resumed draft the next save still PATCHed
+             * /api/listings/drafts/<id>, an endpoint scoped `.eq("status",
+             * "draft")` against a row that had just become published. Every
+             * later save 404'd, and the form had no way out of it.
+             *
+             * The URL goes too, or a reload puts it straight back.
+             */
+            setDraftId(null)
+            if (typeof window !== "undefined" && window.location.search) {
+              window.history.replaceState(null, "", "/products/new")
+            }
+            // And the baseline, or the emptied form compares unequal to the
+            // draft it was loaded from and reads as unsaved changes.
+            baseline.current = null
             // INSTANT, and while the veil still covers everything.
             //
             // It was a SMOOTH scroll, fired on the same tick the veil was
@@ -1912,7 +1953,7 @@ export function NewListingForm() {
         setSaving(null)
       }
     },
-    [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId, editId],
+    [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId, editId, photos],
   )
   // The close path needs `submit` and is declared far above it, closing over
   // half the form. A ref reaches it without hoisting either.
@@ -2799,7 +2840,7 @@ export function NewListingForm() {
             </p>
             <p className="text-[13.5px] text-neutral-500">
               {saving === "draft"
-                ? "Te ducem la ciornele tale…"
+                ? "Te ducem la profilul tău…"
                 : postAnother
                   ? "Poți adăuga următorul articol."
                   : "Te ducem la anunțul tău…"}
