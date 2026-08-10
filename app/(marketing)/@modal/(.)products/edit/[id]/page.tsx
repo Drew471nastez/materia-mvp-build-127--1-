@@ -1,4 +1,5 @@
 import { NewListingForm } from "@/components/sell/new-listing-form"
+import { loadOwnedListing } from "@/lib/marketplace/owned-listing"
 
 /**
  * EDITING A LISTING, AS A SHEET OVER THE SCREEN YOU WERE ON.
@@ -31,5 +32,19 @@ export default async function InterceptedEditListing({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  return <NewListingForm editId={id} />
+  /**
+   * READ HERE, SO THE FORM ARRIVES FILLED IN.
+   *
+   * The form used to fetch this itself: the sheet mounted empty, slid up, and
+   * the row landed a few hundred milliseconds later — so every field, every chip
+   * and eight photographs appeared at once, AFTER the slide had finished. Two
+   * arrivals for one tap, and the second one cannot be part of the transition
+   * because the transition is already over.
+   *
+   * A route that knows which listing it is can read the row while it renders.
+   * Null when it is not yours or not there, which renders an empty form rather
+   * than an error page — the same thing the client path always did.
+   */
+  const listing = await loadOwnedListing(id)
+  return <NewListingForm editId={id} initialListing={listing} />
 }

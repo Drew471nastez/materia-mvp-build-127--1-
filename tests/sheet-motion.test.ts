@@ -352,7 +352,11 @@ check(
   "and the screen underneath is not scrolled to the top while it is covered",
   // Closing the sheet would otherwise drop you at the top of a profile you had
   // scrolled halfway down — a navigation you never made.
-  /if \(isSellFormRoute\(pathname\)\) return/.test(
+  // The guard reads `path` and opens a block now, because skipping the reset is
+  // only half the job — the position also has to be captured on the way in and
+  // put back on the way out. See "closing the sheet does not drop you at the top
+  // of the profile" in tests/own-listing.test.ts.
+  /if \(isSellFormRoute\(path\)\) \{/.test(
     strip(read("components/marketing/shell-scroll-reset.tsx")),
   ),
 )

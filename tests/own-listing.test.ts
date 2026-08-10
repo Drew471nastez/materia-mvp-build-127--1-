@@ -361,9 +361,9 @@ check(
     const newPage = strip(read("app/(marketing)/products/new/page.tsx"))
     return (
       /const \{ id \} = await params/.test(editModal) &&
-      /<NewListingForm editId=\{id\} \/>/.test(editModal) &&
+      /<NewListingForm editId=\{id\} initialListing=\{listing\} \/>/.test(editModal) &&
       /const \{ id \} = await params/.test(editPage) &&
-      /<NewListingForm editId=\{id\} \/>/.test(editPage) &&
+      /<NewListingForm editId=\{id\} initialListing=\{listing\} \/>/.test(editPage) &&
       /const \{ draft \} = await searchParams/.test(newModal) &&
       /draftId=\{draft \?\? null\}/.test(newModal) &&
       /const \{ draft \} = await searchParams/.test(newPage) &&
@@ -651,7 +651,9 @@ check(
       /if \(PUBLIC_PAGE\.includes\(listing\.status as ListingStatus\)\) return `\/products\/\$\{listing\.slug\}`/.test(
         statuses,
       ) &&
-      /const key = listing\.status === "draft" \? "draft" : "edit"/.test(statuses) &&
+      // The two hrefs are built by sell-route.ts now rather than spelled out
+      // here — see "archived and draft cards no longer point at a dead address".
+      /sellDraftHref\(listing\.id\) : sellEditHref\(listing\.id\)/.test(statuses) &&
       /hrefOverride=\{isOwner \? ownerListingHref\(listing\) : undefined\}/.test(profile) &&
       /const productUrl = hrefOverride \?\? getListingUrl/.test(card)
     )
@@ -1428,6 +1430,159 @@ check(
     // the thing it was already inside. It read as a second modal nested in the
     // first.
     return !/rounded-2xl border border-neutral-200\/80/.test(sheet) && /-mx-2 pb-4 pt-1/.test(sheet)
+  })(),
+)
+
+console.log("\nThe edit screen arrives already filled in")
+
+check(
+  "the route reads the row, so there is no second arrival to watch",
+  (() => {
+    // The form used to fetch this itself: the sheet mounted empty, slid up, and
+    // the row landed a few hundred milliseconds later — every field, every chip
+    // and eight photographs appearing at once, AFTER the slide had finished. Two
+    // arrivals for one tap, and the second cannot be part of the transition
+    // because the transition is over by then.
+    const modal = strip(read("app/(marketing)/@modal/(.)products/edit/[id]/page.tsx"))
+    const page = strip(read("app/(marketing)/products/edit/[id]/page.tsx"))
+    return (
+      /const listing = await loadOwnedListing\(id\)/.test(modal) &&
+      /initialListing=\{listing\}/.test(modal) &&
+      /const listing = await loadOwnedListing\(id\)/.test(page) &&
+      /initialListing=\{listing\}/.test(page)
+    )
+  })(),
+)
+
+check(
+  "every field is seeded on the first render rather than set by an effect",
+  (() => {
+    // A `useState` initialiser runs before the first paint. `setTitle` in an
+    // effect is a second render, which is the pop.
+    return (
+      /const seed = useRef\(initialListing \? fieldsFromRow\(initialListing\) : null\)\.current/.test(form) &&
+      /useState<Photo\[\]>\(seed\?\.photos \?\? \[\]\)/.test(form) &&
+      /useState\(seed\?\.title \?\? ""\)/.test(form) &&
+      /useState\(seed\?\.price \?\? ""\)/.test(form)
+    )
+  })(),
+)
+
+check(
+  "and the form does not then fetch the row it was just handed",
+  (() => {
+    // The answer would be identical to what is on screen, and applying it would
+    // overwrite anything typed while it was in flight.
+    return /if \(seed\) return\s*\n\s*const id = draftId \?\? editId/.test(form)
+  })(),
+)
+
+check(
+  "'unchanged' is measured from the seeded values, not from an empty form",
+  (() => {
+    // `formReady` is what decides when the baseline for `dirty` is taken. Left
+    // false on a seeded form, the baseline would be taken later and the fields
+    // would compare unequal to an empty form — every edit screen opening as
+    // though somebody had already typed in it, and closing would ask whether to
+    // discard changes nobody made.
+    return /const \[formReady, setFormReady\] = useState\(!!seed\)/.test(form)
+  })(),
+)
+
+check(
+  "one mapping from row to fields, shared by both paths",
+  (() => {
+    // The seeded path and the draft path both turn a row into field values. Two
+    // copies is two places for "the era chip does not come back" to live.
+    return (
+      /function fieldsFromRow\(/.test(form) &&
+      /const next = fieldsFromRow\(v\)/.test(form) &&
+      (form.match(/thumbnail_url, \.\.\.\(Array\.isArray/g) ?? []).length === 1
+    )
+  })(),
+)
+
+check(
+  "the server read is ownership-scoped in the query itself",
+  (() => {
+    // The id is a uuid anybody can read off a listing page. Fetched by id AND by
+    // the caller's creator id in one statement — not fetched and then compared,
+    // which leaks a row's existence through timing and through which error comes
+    // back.
+    const owned = strip(read("lib/marketplace/owned-listing.ts"))
+    return (
+      /\.eq\("id", id\)\s*\n\s*\.eq\("creator_id", creatorId\)/.test(owned) &&
+      /import "server-only"/.test(owned)
+    )
+  })(),
+)
+
+console.log("\nAn archived card opens the screen that can do something about it")
+
+check(
+  "archived and draft cards no longer point at a dead address",
+  (() => {
+    // REGRESSION, caught twice in the same function. It wrote
+    // `/products/new?edit=<id>` by hand and was left pointing there after the
+    // edit screen moved to its own route — so tapping an archived card, on the
+    // one shelf that exists to make archived listings reachable again, opened a
+    // blank NEW-listing form. The comment above it already records this function
+    // linking to a 404 once before, for the same reason: an address written out
+    // in a file that does not own addresses.
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
+    return (
+      !/products\/new\?edit=/.test(statuses) &&
+      /return listing\.status === "draft" \? sellDraftHref\(listing\.id\) : sellEditHref\(listing\.id\)/.test(
+        statuses,
+      )
+    )
+  })(),
+)
+
+check(
+  "a published card still opens the listing, not the form",
+  /if \(PUBLIC_PAGE\.includes\(listing\.status as ListingStatus\)\) return `\/products\/\$\{listing\.slug\}`/.test(
+    strip(read("lib/marketplace/listing-status.ts")),
+  ),
+)
+
+console.log("\nComing back to where you were")
+
+check(
+  "closing the sheet does not drop you at the top of the profile",
+  (() => {
+    // Skipping the reset while the sheet is UP was only half of it. The reset
+    // fires on the navigation BACK, when the pathname is /profile again and the
+    // guard no longer applies — so the position was thrown away one step after
+    // the guard stopped watching.
+    const reset = strip(read("components/marketing/shell-scroll-reset.tsx"))
+    return (
+      /cameFrom\.current = \{ path: previous \?\? "", top: el\?\.scrollTop \?\? 0 \}/.test(reset) &&
+      /if \(back && back\.path === path\)/.test(reset) &&
+      /el\.scrollTop = back\.top/.test(reset)
+    )
+  })(),
+)
+
+check(
+  "the position is captured on the way IN, once",
+  (() => {
+    // While the sheet is up this effect can run again for a search-param change,
+    // and re-reading then captures the covered page's scrollTop after something
+    // else has touched it.
+    const reset = strip(read("components/marketing/shell-scroll-reset.tsx"))
+    return /if \(!previous \|\| !isSellFormRoute\(previous\)\)/.test(reset)
+  })(),
+)
+
+check(
+  "and a DIFFERENT screen still arrives at its top",
+  (() => {
+    // Publishing an edit ends on /products/<slug>, which is not where you came
+    // from and must not inherit its scroll position.
+    const reset = strip(read("components/marketing/shell-scroll-reset.tsx"))
+    const tail = reset.slice(reset.indexOf("if (back && back.path === path)"))
+    return /if \(el && el\.scrollTop !== 0\) el\.scrollTop = 0/.test(tail)
   })(),
 )
 

@@ -133,8 +133,12 @@ check(
 check(
   "photos already in storage are not uploaded a second time",
   (() => {
-    const loader = form.slice(form.indexOf("const url = editId"))
-    return /uploading: false/.test(loader.slice(0, 1800))
+    // The row-to-fields mapping lives in `fieldsFromRow` now, shared by the
+    // client fetch and by the server-seeded edit screen — so this claim is
+    // checked where the mapping actually is rather than in the effect that used
+    // to hold a copy of it.
+    const mapper = form.slice(form.indexOf("function fieldsFromRow("))
+    return /uploading: false as const/.test(mapper.slice(0, 1200))
   })(),
 )
 

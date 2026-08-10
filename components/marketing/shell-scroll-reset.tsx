@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
@@ -29,13 +29,58 @@ export function ShellScrollReset() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
+  /**
+   * WHERE THE SHEET WAS OPENED FROM, AND HOW FAR DOWN.
+   *
+   * Skipping the reset while the sheet is UP was only half the job, and it is
+   * the half nobody notices is missing. The sequence that went wrong:
+   *
+   *   1. You are forty cards down your profile. `pathname` is /profile.
+   *   2. You tap ⋯ → Editează. `pathname` becomes /products/edit/<id>, this
+   *      effect runs, sees a sell-form route and correctly does nothing.
+   *   3. You close the sheet. `pathname` is /profile again — and now the guard
+   *      does NOT apply, so the effect fires and sets scrollTop to 0.
+   *
+   * So closing the sheet dropped you at the top of the profile you had scrolled
+   * halfway down: exactly the "navigation you never made" the guard exists to
+   * prevent, one step later than the guard was watching.
+   *
+   * The position is captured on the way IN and put back on the way OUT, and put
+   * back only when the path is the same one it was taken from. That last part is
+   * what keeps publishing an edit correct: that path ends on /products/<slug>,
+   * a different screen, which must arrive at its top like anything else.
+   */
+  const cameFrom = useRef<{ path: string; top: number } | null>(null)
+  const prevPath = useRef<string | null>(null)
+
   useLayoutEffect(() => {
-    // An intercepted route does not replace the page, it covers it. The screen
-    // underneath is still mounted and still where you left it, and scrolling it
-    // to the top would mean closing the sell sheet dropped you at the top of a
-    // profile you had scrolled halfway down — a navigation you never made.
-    if (isSellFormRoute(pathname)) return
     const el = document.querySelector<HTMLElement>(".marketing-flex-wrapper")
+    const path = pathname ?? ""
+    const previous = prevPath.current
+    prevPath.current = path
+
+    // An intercepted route does not replace the page, it covers it. The screen
+    // underneath is still mounted and still where you left it.
+    if (isSellFormRoute(path)) {
+      // Only on the way in. While the sheet is up this effect can run again for
+      // a search-param change, and re-reading then would capture the covered
+      // page's scrollTop after something else had touched it.
+      if (!previous || !isSellFormRoute(previous)) {
+        cameFrom.current = { path: previous ?? "", top: el?.scrollTop ?? 0 }
+      }
+      return
+    }
+
+    const back = cameFrom.current
+    cameFrom.current = null
+    if (back && back.path === path) {
+      // Back where you started. The wrapper never unmounted, so this is usually
+      // already true — writing it is what makes it true in the cases where
+      // something else has since scrolled it.
+      if (el && el.scrollTop !== back.top) el.scrollTop = back.top
+      return
+    }
+
     if (el && el.scrollTop !== 0) el.scrollTop = 0
   }, [pathname, searchParams])
 
