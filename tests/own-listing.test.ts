@@ -1720,7 +1720,31 @@ check(
     // Listing titles are written by sellers and are frequently a paragraph. The
     // controls beside them have a fixed width, so without this a long one shoves
     // back, manage and share off the right-hand edge.
-    return /min-w-0 flex-1 truncate/.test(listingPinned) && /shrink-0/.test(listingPinned)
+    // Absolutely positioned and centred across the whole bar now, so the
+    // truncation is bounded by a max-width that reserves the wider side at both
+    // ends rather than by flex leftovers.
+    return (
+      /absolute inset-x-0 mx-auto max-w-\[calc\(100%-180px\)\] truncate text-center/.test(listingPinned) &&
+      /shrink-0/.test(listingPinned)
+    )
+  })(),
+)
+
+check(
+  "the title is centred against the SCREEN, not against the leftover space",
+  (() => {
+    // As a flex child between the back arrow and the controls it was centred in
+    // what remained — and the two sides are not the same width, one button
+    // against two, so it sat visibly left of centre and read as hanging off the
+    // back arrow rather than titling the screen.
+    return (
+      /text-center/.test(listingPinned) &&
+      !/min-w-0 flex-1/.test(listingPinned) &&
+      // It overlays the controls' row now, so it must not swallow their taps.
+      /pointer-events-none absolute inset-x-0/.test(listingPinned) &&
+      // And the controls are pushed right by the layout rather than by the title.
+      /ml-auto flex shrink-0/.test(listingPinned)
+    )
   })(),
 )
 
@@ -1745,9 +1769,12 @@ check(
     return (
       at > 0 &&
       at < h1 &&
-      /top-\[90px\]/.test(detail) &&
-      // Positioned, so it costs no layout and moves no pixel.
-      /absolute left-0 top-\[90px\] h-0 w-full/.test(detail)
+      // Below where the photo's controls finish leaving (~90px), not at it: at
+      // 90 the bar arrived ~146px in and read as chasing them off, and a short
+      // flick was enough to summon it. Tuned HERE and not in the hook, because
+      // SHOW_AT is shared with the profile's bar.
+      /absolute left-0 top-\[130px\] h-0 w-full/.test(detail) &&
+      /const SHOW_AT = 56/.test(pinHook)
     )
   })(),
 )

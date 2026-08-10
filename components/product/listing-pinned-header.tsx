@@ -59,19 +59,34 @@ export function ListingPinnedHeader({
 
   return createPortal(
     <div className="profile-pinned md:hidden" data-shown={visible ? "true" : "false"} aria-hidden={!visible}>
-      <div className="mx-auto flex h-[52px] w-full max-w-[1100px] items-center gap-1.5 px-2">
+      <div className="relative mx-auto flex h-[52px] w-full max-w-[1100px] items-center px-2">
         <PinnedButton label="Înapoi" onClick={onBack}>
           <ArrowLeft className="h-[21px] w-[21px]" strokeWidth={2.2} />
         </PinnedButton>
 
-        {/* The title, at the size a title bar uses rather than the size the
-            heading below uses — this is a label saying what you are reading
-            about, not the heading a second time. */}
-        <span className="min-w-0 flex-1 truncate px-0.5 text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">
+        {/* CENTRED IN THE BAR, NOT IN WHAT IS LEFT OF IT.
+
+            It was a flex child between the back arrow and the controls, which
+            centres it in the leftover space — and the two sides are not the same
+            width (one button on the left, two on the right), so the title sat
+            visibly left of centre and read as hanging off the back arrow rather
+            than titling the screen.
+
+            Absolutely positioned across the full bar and centred there, which is
+            the only way a title is centred against the SCREEN while the things
+            beside it are different widths. `max-w` reserves the wider of the two
+            sides at both ends — two 36px controls, their gap and the bar's
+            padding — so a long title truncates before it can reach either, and
+            the centring never has to fight them.
+
+            `pointer-events-none` because it now overlays the controls' row: a
+            transparent strip across the middle of a bar is otherwise a strip
+            that swallows taps aimed at the buttons underneath it. */}
+        <span className="pointer-events-none absolute inset-x-0 mx-auto max-w-[calc(100%-180px)] truncate text-center text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">
           {title}
         </span>
 
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {isOwn ? (
             <PinnedButton label="Gestionează anunțul" onClick={onManage}>
               <MoreHorizontal className="h-[20px] w-[20px]" strokeWidth={2.2} />

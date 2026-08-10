@@ -673,16 +673,26 @@ export function ProductDetail({ product }: { product: any }) {
               What it is standing in for is the row of white controls on the
               photograph, so the honest moment to hand over is when THOSE leave.
               They sit at the status-bar inset plus 10px and are 40px tall, so
-              they are gone by about 90px of scroll — which is where this sits.
-              With the hook's 56px dead band the bar appears at roughly 146px:
-              a deliberate scroll, and nowhere near the bottom of the gallery.
+              they are gone by about 90px of scroll.
+
+              THIS SITS BELOW THAT ON PURPOSE. At 90 the bar arrived at ~146px
+              once the hook's 56px dead band is added, and that was too eager:
+              the controls had only just cleared the top, so the handover read as
+              the bar chasing them off rather than replacing them, and a short
+              flick you did not mean as a scroll was enough to summon it. 130
+              puts it at ~186px — still a fraction of the gallery, still nowhere
+              near the title, but unmistakably a scroll you meant.
+
+              TUNED HERE RATHER THAN IN THE HOOK. `SHOW_AT` is shared with the
+              profile's bar, and this screen wanting a later handover is not a
+              reason to make the profile's later too. One number, on one screen.
 
               `absolute` inside the photo block so it costs no layout and moves
               no pixel; it is a position in the page and nothing else. */}
           <span
             ref={titleEndRef}
             aria-hidden
-            className="pointer-events-none absolute left-0 top-[90px] h-0 w-full md:hidden"
+            className="pointer-events-none absolute left-0 top-[130px] h-0 w-full md:hidden"
           />
 
           {/* NOT ON YOUR OWN LISTING. Saving your own thing to your own
