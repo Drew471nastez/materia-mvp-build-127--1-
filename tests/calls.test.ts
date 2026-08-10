@@ -250,16 +250,71 @@ check(
   "a second caller is told, rather than left ringing at nobody",
   (() => {
     // Silence for 35 seconds is indistinguishable from a phone in a pocket.
-    return /if \(callId\.current \|\| phase !== "idle"\)[\s\S]{0,600}?"decline"/.test(host)
+    return /if \(callId\.current \|\| phaseRef\.current !== "idle"\)[\s\S]{0,700}?"decline"/.test(host)
+  })(),
+)
+
+// ── THE CALL THAT RANG AND SHOWED NOBODY ANYTHING ───────────────────────────
+//
+// The push rang the phone and no answer screen ever appeared, because the
+// invite was never broadcast at all. Three separate ways a signal could go
+// missing, all of them silent, and the push is an ordinary HTTP request that
+// knows about none of them — so the symptom was a ringing notification for a
+// call the other device had never been told about.
+
+check(
+  "a channel is subscribed exactly once",
+  (() => {
+    // THE ONE THAT CAUSED IT. supabase-js refuses a second `.subscribe()` on a
+    // live channel, so the callback passed to it never ran — and that callback
+    // was what sent the invite. Nothing threw and nothing logged.
+    const opens = /const openTo = useCallback\([\s\S]*?\n  \}, \[\]\)/.exec(host)?.[0] ?? ""
+    const startFn = /const start = useCallback\([\s\S]*?\n  \)\n/.exec(host)?.[0] ?? ""
+    return (
+      [...opens.matchAll(/\.subscribe\(/g)].length === 1 &&
+      // `start` must not subscribe again to the channel openTo just opened.
+      !/\.subscribe\(/.test(startFn)
+    )
+  })(),
+  "        components/calls/call-host.tsx — a second subscribe on a live channel\n" +
+    "        is refused, and its callback silently never runs.",
+)
+
+check(
+  "a signal raised before the channel joined is held, not dropped",
+  (() => {
+    // The invite is raised in the same tick the channel is opened, so it is
+    // ALWAYS early. Dropping early sends is the same missing call by a
+    // different route.
+    return (
+      /queued\.current\.push\(signal\)/.test(host) &&
+      /outboundReady\.current = true/.test(host) &&
+      /for \(const s of pending\)/.test(host)
+    )
   })(),
 )
 
 check(
-  "the invite is sent only once the channel has actually joined",
+  "the receiving channel is not rebuilt when the call changes state",
   (() => {
-    // A broadcast on a channel that has not finished subscribing is dropped
-    // silently — a call that simply never rings, with no error anywhere.
-    return /subscribe\(\(state: string\) => \{[\s\S]{0,200}?if \(state !== "SUBSCRIBED"\) return/.test(host)
+    // `phase` in the dependency array tore this channel down and rebuilt it on
+    // every state change — including the one that answering an invite causes.
+    // The caller's offer arrives milliseconds later, into that gap, and the
+    // call connects only if the rejoin wins the race.
+    const deps = /\}, \[me, [^\]]*\]\)/.exec(host)?.[0] ?? ""
+    return deps.length > 0 && !/\bphase\b/.test(deps) && /phaseRef\.current/.test(host)
+  })(),
+  "        components/calls/call-host.tsx — the listening channel must not depend\n" +
+    "        on call state, or signals land in the gap while it rejoins.",
+)
+
+check(
+  "a device with no cached identity still subscribes",
+  (() => {
+    // The snapshot can be absent on a cold start in the native shell, and a
+    // null id here means this device is never reachable — it simply cannot be
+    // called, with nothing on screen to say so.
+    return /readAuthSnapshot\(\)/.test(host) && /auth\.getUser\(\)/.test(host)
   })(),
 )
 

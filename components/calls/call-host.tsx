@@ -83,15 +83,47 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
   const role = useRef<"caller" | "callee">("caller")
   const peer = useRef<CallPeer | null>(null)
   const outbound = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null)
+  /** Whether `outbound` has finished joining. See openTo. */
+  const outboundReady = useRef(false)
+  /** Signals raised before the join finished. Flushed, never dropped. */
+  const queued = useRef<CallSignal[]>([])
   const ringer = useRef<{ stop(): void } | null>(null)
   const ringTimer = useRef(0)
   const connectedAt = useRef(0)
   /** Set the moment a call ends, so late signals cannot resurrect it. */
   const done = useRef(false)
+  /**
+   * The phase, readable from inside the socket callback.
+   *
+   * The callback is created once and closes over whatever `phase` was then, so
+   * reading the state variable there answers a question about the past. It is
+   * only used for "am I already busy", and being wrong about that means either
+   * two calls at once or a caller told to go away for no reason.
+   */
+  const phaseRef = useRef<Phase>("idle")
+  phaseRef.current = phase
 
   useEffect(() => {
+    // The snapshot is local and instant, which is why it is first. It can also
+    // be absent — a cold start in the native shell writes it after the first
+    // paint — and a null id here means this device never subscribes and can
+    // never be called at all. So the session is the fallback, and the
+    // subscription follows whichever answers.
     const snap = readAuthSnapshot()
-    if (snap?.signedIn && snap.userId) setMe(snap.userId)
+    if (snap?.signedIn && snap.userId) {
+      setMe(snap.userId)
+      return
+    }
+    let alive = true
+    void createClient()
+      .auth.getUser()
+      .then(({ data }: { data: { user: { id: string } | null } }) => {
+        if (alive && data.user) setMe(data.user.id)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
   }, [])
 
   // ── SENDING ───────────────────────────────────────────────────────────────
@@ -99,18 +131,44 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
   // A channel to the other person, opened when a call starts and closed when it
   // ends. Supabase requires a subscription before a broadcast, so this is a
   // subscribe-to-send: nothing is ever received on it.
+  //
+  // SUBSCRIBED EXACTLY ONCE, AND SENDS WAIT FOR IT.
+  //
+  // This is the bug that made a call ring and then show nobody anything.
+  // `openTo` subscribed, and the caller then called `.subscribe(cb)` again on
+  // the same channel to learn when it was ready — and a second subscribe on a
+  // live channel is refused by supabase-js, so the callback never ran and the
+  // invite was never broadcast. The push still rang the phone, because that is
+  // an ordinary HTTP request and knows nothing about any of this: a ringing
+  // notification for a call the other device had never been told about.
+  //
+  // So the readiness is tracked here, once, and anything sent before the join
+  // completes is held and flushed after it. A signal cannot be dropped for
+  // being early, which was the whole failure.
   const openTo = useCallback((peerId: string) => {
     const ch = createClient().channel(callChannelFor(peerId), {
       config: { broadcast: { self: false, ack: false } },
     })
-    ch.subscribe()
     outbound.current = ch
+    outboundReady.current = false
+    queued.current = []
+    ch.subscribe((state: string) => {
+      if (state !== "SUBSCRIBED" || outbound.current !== ch) return
+      outboundReady.current = true
+      const pending = queued.current
+      queued.current = []
+      for (const s of pending) void ch.send({ type: "broadcast", event: "call", payload: s })
+    })
     return ch
   }, [])
 
   const send = useCallback((signal: CallSignal) => {
     const ch = outbound.current
     if (!ch) return
+    if (!outboundReady.current) {
+      queued.current.push(signal)
+      return
+    }
     void ch.send({ type: "broadcast", event: "call", payload: signal })
   }, [])
 
@@ -241,7 +299,7 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
         // Everything else naming a call this device is not in is from a call
         // that has already ended, and acting on it would disturb the next one.
         if (s.t === "invite") {
-          if (callId.current || phase !== "idle") {
+          if (callId.current || phaseRef.current !== "idle") {
             // Already busy. Told rather than ignored, so the caller sees
             // "unavailable" instead of ringing at nobody for 35 seconds.
             const ch = client.channel(callChannelFor(s.from), {
@@ -319,9 +377,15 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
     return () => {
       void client.removeChannel(channel)
     }
-    // `phase` is read for the busy check; re-subscribing on it is cheap and
-    // keeps the closure from deciding with a stale one.
-  }, [me, phase, buildPeer, finish, openTo, send])
+    // ONLY `me`.
+    //
+    // `phase` was in here, to keep the busy check from reading a stale value —
+    // and it meant this channel was torn down and rebuilt on every state
+    // change, including the `setPhase("ringing")` that answering an invite
+    // causes. The caller's offer arrives milliseconds later, straight into that
+    // gap, and the call connects only if the rejoin happens to win the race. A
+    // ref answers the busy question without the subscription depending on it.
+  }, [me, buildPeer, finish, openTo, send])
 
   // Leaving the page mid-call tells the other end rather than leaving them
   // listening to nothing until the ICE timeout.
@@ -336,7 +400,7 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
   // ── ACTIONS ───────────────────────────────────────────────────────────────
   const start = useCallback(
     (other: Party, convo: string) => {
-      if (callId.current || phase !== "idle") return
+      if (callId.current || phaseRef.current !== "idle") return
       done.current = false
       role.current = "caller"
       const id = newCallId()
@@ -346,24 +410,17 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
       setPhase("dialling")
 
       const snap = readAuthSnapshot()
-      const ch = openTo(other.id)
-      // Sent on SUBSCRIBED rather than immediately: a broadcast on a channel
-      // that has not finished joining is dropped silently, which is a call that
-      // simply never rings and no error anywhere.
-      ch.subscribe((state: string) => {
-        if (state !== "SUBSCRIBED") return
-        void ch.send({
-          type: "broadcast",
-          event: "call",
-          payload: {
-            t: "invite",
-            callId: id,
-            conversationId: convo,
-            from: me ?? "",
-            fromName: snap?.displayName || snap?.username || "Cineva",
-            fromAvatar: snap?.avatarUrl ?? null,
-          } satisfies CallSignal,
-        })
+      openTo(other.id)
+      // Raised immediately and HELD until the channel has joined — see openTo.
+      // A broadcast on a channel that has not finished joining is dropped
+      // silently, which is a call that never rings with no error anywhere.
+      send({
+        t: "invite",
+        callId: id,
+        conversationId: convo,
+        from: me ?? "",
+        fromName: snap?.displayName || snap?.username || "Cineva",
+        fromAvatar: snap?.avatarUrl ?? null,
       })
 
       // The socket only reaches an app that is open. This is the half that
@@ -379,7 +436,7 @@ export function CallHost({ children }: { children?: React.ReactNode }) {
       window.clearTimeout(ringTimer.current)
       ringTimer.current = window.setTimeout(() => finish("missed"), RING_MS)
     },
-    [finish, me, openTo, phase],
+    [finish, me, openTo, send],
   )
 
   const answer = useCallback(async () => {
