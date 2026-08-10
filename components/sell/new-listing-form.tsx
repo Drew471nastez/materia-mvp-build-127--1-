@@ -2031,6 +2031,28 @@ export function NewListingForm({
             if (draft) router.replace("/profile")
             else if (data?.slug) router.replace(`/products/${data.slug}`)
             else router.replace("/")
+            /**
+             * AND THE REFRESH, WHICH THE EDIT PATH ABOVE ALREADY HAD.
+             *
+             * This form is reached through an INTERCEPTED route — see
+             * app/(marketing)/@modal/(.)products/new. Leaving one with `replace`
+             * rewrites the history entry while the router still holds the tree
+             * in which that interception is the thing being shown. The screen
+             * you land on is correct, so nothing looks wrong; what is left
+             * behind is a @modal slot the router considers already resolved.
+             *
+             * The next press of + pushes /products/new, the router matches it
+             * against a tree that already contains it, and renders nothing. The
+             * + is then dead for the rest of the session — reported as "I
+             * published a listing, it took me back to the product page, and now
+             * the plus does not open at all".
+             *
+             * `refresh` re-resolves the tree from the server, which clears that
+             * slot. The edit branch has had this since it was written and the
+             * publish branch never did, which is the whole of why one of them
+             * leaves the button working and the other does not.
+             */
+            router.refresh()
           }, 316)
         }, 1100)
       } catch {

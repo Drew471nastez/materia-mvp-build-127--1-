@@ -63,6 +63,7 @@ const strip = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
 import { createTapRescue } from "../lib/tap-rescue"
+import { isSellFormRoute } from "../lib/marketplace/sell-route"
 
 const nav = strip(read("lib/screen-transition.ts"))
 const header = strip(read("components/marketing/mobile-web-header.tsx"))
@@ -747,6 +748,73 @@ check(
     const scroller = /ref=\{scrollerRef\}[\s\S]*?className="thread-surface[^"]*"/.exec(thread)?.[0] ?? ""
     return scroller.length > 0 && !/thread-reveal/.test(scroller)
   })(),
+)
+
+// ── THE + THAT STOPPED OPENING ANYTHING ─────────────────────────────────────
+
+check(
+  "a listing whose slug begins with new is not mistaken for the sell form",
+  (() => {
+    // DRIVEN, because this one is a pure function and there is no excuse not to.
+    // `sheetOpen` is what the + checks before it opens anything, so an unbounded
+    // prefix match means the button silently refuses every press on any listing
+    // called "New Balance…", for as long as that page is open, with nothing
+    // anywhere to suggest why.
+    return (
+      isSellFormRoute("/products/new") &&
+      isSellFormRoute("/products/new/") &&
+      isSellFormRoute("/products/edit/abc") &&
+      !isSellFormRoute("/products/newbalance-97") &&
+      !isSellFormRoute("/products/new-era-cap") &&
+      // The note in that file already made this argument about `edit` — it just
+      // was not applied to `new`.
+      !isSellFormRoute("/products/editorial-picks") &&
+      !isSellFormRoute("/products/eu-2") &&
+      !isSellFormRoute(null)
+    )
+  })(),
+  "        lib/marketplace/sell-route.ts — an unbounded prefix disables the +\n" +
+    "        on every listing whose slug starts with the route name.",
+)
+
+check(
+  "both ways of leaving the sell form re-resolve the route tree",
+  (() => {
+    // The form is reached through an INTERCEPTED route, and leaving one with
+    // `replace` rewrites the history entry while the router still holds the tree
+    // in which that interception is what is being shown. The screen you land on
+    // is correct, so nothing looks wrong — what is left behind is a @modal slot
+    // the router considers already resolved, and the next push of the same URL
+    // matches a tree that already contains it and renders nothing.
+    //
+    // The edit branch has had the refresh since it was written and the publish
+    // branch never did, which is the whole of why one leaves the + working and
+    // the other kills it.
+    const form = read("components/sell/new-listing-form.tsx")
+    // Split on the timeout each exit ends with, and look at the block before
+    // each one. Matching the whole block with a bounded regex failed on the
+    // edit branch, whose explanatory comment is longer than any window worth
+    // writing — and a length-limited pattern that silently stops matching is
+    // the exact failure mode these checks exist to avoid.
+    // Each exit is a `window.setTimeout(() => { … }, 316)`. Split on the tail,
+    // then take everything after the LAST timeout opened in each piece — that
+    // is the body of the exit, however long the reasoning inside it grows.
+    // A fixed-width window was tried first and failed the moment a comment
+    // outgrew it, which is the failure mode these checks exist to avoid.
+    // COMMENTS STRIPPED FIRST, and this is not a detail: verifying this check
+    // by commenting the call out left `// router.refresh()` in the file, which
+    // the pattern matched happily. A test that a commented-out fix satisfies is
+    // a test of nothing at all — the third time this exact trap has been walked
+    // into in this file, hence `strip`, which is defined at the top for it.
+    const bodies = strip(form)
+      .split("}, 316)")
+      .slice(0, -1)
+      .map((b) => b.slice(b.lastIndexOf("window.setTimeout(")))
+    const exits = bodies.filter((b) => /router\.replace\(/.test(b))
+    return exits.length >= 2 && exits.every((b) => /router\.refresh\(\)/.test(b))
+  })(),
+  "        components/sell/new-listing-form.tsx — a replace out of an intercepted\n" +
+    "        route leaves the slot resolved unless the tree is refreshed.",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
