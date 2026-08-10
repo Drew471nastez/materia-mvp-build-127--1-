@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { dictionaries, type LocaleCode } from "@/lib/i18n/dictionaries"
-import { formatMoney, type CurrencyCode } from "@/lib/i18n/currency"
+import { formatPlatformMoney, type CurrencyCode } from "@/lib/i18n/currency"
 
 export type SupportedLanguage = LocaleCode
 export type SupportedCurrency = CurrencyCode
@@ -127,7 +127,19 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     [language],
   )
 
-  const formatPrice = useCallback((usdCents: number) => formatMoney(usdCents, currency), [currency])
+  /**
+   * ALWAYS LEI, whatever `currency` says.
+   *
+   * The selected currency used to relabel the number against a static rate
+   * table while the card was charged in one currency regardless — so a shopper
+   * who chose GBP read pounds on every page and got a lei charge. A control
+   * that changes the label and not the transaction is worse than no control.
+   *
+   * `currency` survives as state because the modal still reads it, and because
+   * ripping it out of the context would touch every consumer for no gain; what
+   * it no longer does is decide what anybody is quoted.
+   */
+  const formatPrice = useCallback((cents: number) => formatPlatformMoney(cents), [])
 
   const currencySymbol = useMemo(() => CURRENCIES.find((c) => c.code === currency)?.symbol ?? "$", [currency])
   const languageShort = useMemo(() => LANGUAGES.find((l) => l.code === language)?.short ?? "EN", [language])

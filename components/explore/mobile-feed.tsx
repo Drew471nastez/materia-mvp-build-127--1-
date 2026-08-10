@@ -1345,7 +1345,6 @@ function mapWishlistItem(item: any) {
     title: p.title,
     slug: p.slug,
     price_cents: p.price_cents,
-    compare_at_cents: p.compare_at_cents ?? null,
     thumbnail_url: p.thumbnail_url ?? null,
     gallery_urls: p.gallery_urls ?? null,
     type: p.type,

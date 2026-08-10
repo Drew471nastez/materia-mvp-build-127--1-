@@ -133,10 +133,6 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
       title,
       description,
       priceCents,
-      compareCents:
-        Number.isFinite(Number(body?.compare_at_cents)) && Number(body.compare_at_cents) > 0
-          ? Math.round(Number(body.compare_at_cents))
-          : null,
       category: body?.category,
       subcategory: body?.subcategory,
       brand: body?.brand,

@@ -23,6 +23,8 @@ import {
   type Option,
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { buyerPaysCents } from "@/lib/marketplace/display-price"
+import { formatPlatformMoney } from "@/lib/i18n/currency"
 import { PickerPage } from "@/components/sell/picker-page"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -128,7 +130,6 @@ type GapKey =
   | "size"
   | "colour"
   | "price"
-  | "compare"
 
 /**
  * The server's field names, translated to the controls they belong to.
@@ -153,7 +154,6 @@ const SERVER_FIELD_TO_GAP: Record<string, GapKey> = {
   colour: "colour",
   price: "price",
   preț: "price",
-  compare_at_too_low: "compare",
 }
 
 /**
@@ -597,7 +597,6 @@ export function NewListingForm() {
   const [sources, setSources] = useState<string[]>([])
   const [styles, setStyles] = useState<string[]>([])
   const [price, setPrice] = useState("")
-  const [compareAt, setCompareAt] = useState("")
   const [postAnother, setPostAnother] = useState(false)
 
   const [sheet, setSheet] = useState<null | "category" | "brand" | "condition" | "colour" | "size" | "era" | "source" | "style">(null)
@@ -621,7 +620,6 @@ export function NewListingForm() {
    * through the picker, not a value.
    */
   /** The comparison-price explainer. */
-  const [priceInfo, setPriceInfo] = useState(false)
   const [catDep, setCatDep] = useState<string | null>(null)
   const [catGroup, setCatGroup] = useState<string | null>(null)
   const [catQuery, setCatQuery] = useState("")
@@ -696,7 +694,6 @@ export function NewListingForm() {
         // Minor units back to what somebody typed. 0 is "no price yet" on a
         // draft, and must not come back as the string "0".
         setPrice(v.price_cents > 0 ? String(v.price_cents / 100) : "")
-        setCompareAt(v.compare_at_cents > 0 ? String(v.compare_at_cents / 100) : "")
       })
       .catch(() => undefined)
       .finally(() => {
@@ -1397,9 +1394,8 @@ export function NewListingForm() {
         sources,
         styles,
         price.trim(),
-        compareAt.trim(),
       ]),
-    [photos, title, description, group, item, brand, condition, colour, size, era, sources, styles, price, compareAt],
+    [photos, title, description, group, item, brand, condition, colour, size, era, sources, styles, price],
   )
   const baseline = useRef<string | null>(null)
   useEffect(() => {
@@ -1610,7 +1606,6 @@ export function NewListingForm() {
   )
 
   const priceCents = Math.round(parseFloat(price.replace(",", ".")) * 100)
-  const compareCents = compareAt ? Math.round(parseFloat(compareAt.replace(",", ".")) * 100) : null
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
@@ -1651,14 +1646,8 @@ export function NewListingForm() {
     if (!colour) g.push({ key: "colour", label: "culoare", message: "Alege culoarea." })
     if (!Number.isFinite(priceCents) || priceCents < 0)
       g.push({ key: "price", label: "preț", message: "Adaugă prețul." })
-    if (compareCents !== null && Number.isFinite(priceCents) && compareCents <= priceCents)
-      g.push({
-        key: "compare",
-        label: "prețul comparativ",
-        message: "Prețul comparativ trebuie să fie mai mare decât prețul cerut.",
-      })
     return g
-  }, [uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents, compareCents])
+  }, [uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents])
 
   /** Nothing is marked until a publish has actually been refused. A form that
    *  turns red while you are still filling it in is telling you off for not
@@ -1792,7 +1781,6 @@ export function NewListingForm() {
             title: title.trim(),
             description: description.trim(),
             price_cents: Number.isFinite(priceCents) ? priceCents : 0,
-            compare_at_cents: compareCents,
             category: group,
             subcategory: item,
             brand,
@@ -1899,7 +1887,6 @@ export function NewListingForm() {
             setSources([])
             setStyles([])
             setPrice("")
-            setCompareAt("")
             setError(null)
             setSaving(null)
             setShowGaps(false)
@@ -1953,7 +1940,7 @@ export function NewListingForm() {
         setSaving(null)
       }
     },
-    [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId, editId, photos],
+    [gaps, showFirstGap, uploaded, title, description, priceCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId, editId, photos],
   )
   // The close path needs `submit` and is declared far above it, closing over
   // half the form. A ref reaches it without hoisting either.
@@ -2390,48 +2377,34 @@ export function NewListingForm() {
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <SectionHeading>Preț</SectionHeading>
-        <div className="mt-3 flex gap-3">
-          <div className="flex-1" ref={(el) => setGapEl("price", el)}>
-            <label className="block text-[13px] font-medium text-neutral-500">Preț</label>
-            <input
-              value={price}
-              onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
-              inputMode="decimal"
-              placeholder="0"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
-            />
-          </div>
-          <div className="flex-1" ref={(el) => setGapEl("compare", el)}>
-            <label className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
-              Preț comparativ
-              {/* A TAP, NOT A HOVER. This was a tooltip that appeared on
-                  `group-hover` and was hidden below md — so on a phone, which
-                  is where almost every listing is written, the icon was a
-                  decoration you could press forever and learn nothing from.
-                  A sheet is the phone's own answer to "tell me more". */}
-              <button
-                type="button"
-                onClick={() => {
-                  void triggerHaptic("light")
-                  setPriceInfo(true)
-                }}
-                aria-label="Ce înseamnă prețul comparativ"
-                className="-m-2 flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 transition-colors duration-150 active:bg-neutral-100"
-              >
-                <Info className="h-[15px] w-[15px]" strokeWidth={2.4} />
-              </button>
-            </label>
-            <input
-              value={compareAt}
-              onChange={(e) => setCompareAt(e.target.value.replace(/[^0-9.,]/g, ""))}
-              inputMode="decimal"
-              placeholder="Opțional"
-              className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
-            />
-          </div>
+        {/* ONE FIELD. The comparison price is gone from the whole app — a
+            second-hand marketplace has no list price to discount FROM, so the
+            "was" figure was another number the same seller typed and the
+            percentage next to it was a saving nobody had ever been offered.
+            
+            What sits in the space it left is worth far more: what the buyer is
+            actually going to see. Prices are quoted inclusive of the protection
+            fee everywhere a buyer reads them, so without this line a seller
+            types 130, opens the feed and finds their listing at 141 with no
+            explanation. */}
+        <div className="mt-3" ref={(el) => setGapEl("price", el)}>
+          <label className="block text-[13px] font-medium text-neutral-500">Preț</label>
+          <input
+            value={price}
+            onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
+            inputMode="decimal"
+            placeholder="0"
+            className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
+          />
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
-        {gapFor("compare") && <GapNote>{gapFor("compare")}</GapNote>}
+        {Number.isFinite(priceCents) && priceCents > 0 && (
+          <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-neutral-400">
+            Cumpărătorii văd{" "}
+            <span className="font-semibold text-neutral-600">{formatPlatformMoney(buyerPaysCents(priceCents))}</span> —
+            prețul tău plus taxa de protecție. Tu primești în continuare {formatPlatformMoney(priceCents)}.
+          </p>
+        )}
       </section>
 
       {/* ---- Details ---- */}
@@ -2772,38 +2745,6 @@ export function NewListingForm() {
         ]}
       />
 
-      {/* WHAT A COMPARISON PRICE IS, AS A SHEET.
-          Short enough to be read standing up, and it says the one thing that
-          actually stops people using it wrongly: it is what the item used to
-          cost, not what you think it is worth. */}
-      <BottomSheet open={priceInfo} onClose={() => setPriceInfo(false)} label="Preț comparativ">
-        <div className="px-5 pb-8 pt-5">
-          <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">Preț comparativ</h2>
-          <p className="mt-2.5 text-[15px] font-medium leading-relaxed text-neutral-600">
-            Este prețul de dinainte de reducere. Pe anunț apare tăiat, lângă prețul cerut, cu o etichetă
-            de reducere — așa cumpărătorii văd cât economisesc.
-          </p>
-          <ul className="mt-4 space-y-3">
-            {[
-              "Trebuie să fie mai mare decât prețul cerut.",
-              "Este opțional — dacă îl lași gol, anunțul arată doar prețul cerut.",
-              "Folosește-l pentru prețul real de dinainte, nu pentru unul inventat: cumpărătorii compară.",
-            ].map((line) => (
-              <li key={line} className="flex gap-2.5 text-[14.5px] font-medium leading-relaxed text-neutral-600">
-                <span aria-hidden className="mt-[7px] h-[5px] w-[5px] shrink-0 rounded-full bg-neutral-300" />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={() => setPriceInfo(false)}
-            className="mt-6 h-12 w-full rounded-lg bg-neutral-900 text-[15.5px] font-semibold text-white transition-colors duration-150 active:bg-neutral-800"
-          >
-            Am înțeles
-          </button>
-        </div>
-      </BottomSheet>
 
       {/* Posted confirmation — the only signal the listing is live, so it gets a
           moment of its own before the redirect. It is `fixed`, so it covers the

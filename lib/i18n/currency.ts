@@ -55,3 +55,43 @@ export function formatMoney(usdCents: number, currency: CurrencyCode): string {
     return `${amount.toFixed(2)} ${currency}`
   }
 }
+
+/**
+ * ===========================================================================
+ *  THE MARKETPLACE IS IN LEI, AND ONLY IN LEI
+ * ===========================================================================
+ *
+ * The switcher above offered six currencies against a static rate table, on a
+ * Romanian marketplace where the couriers bill in lei, the sellers are paid in
+ * lei and the card is charged in one currency regardless of which flag you
+ * picked. Choosing GBP changed the label on the number and nothing about the
+ * transaction — a shopper who set it and then read a bank statement was
+ * misled by a control that looked like it was doing something.
+ *
+ * ---------------------------------------------------------------------------
+ * THE ONE THING THIS HAS TO GET RIGHT
+ * ---------------------------------------------------------------------------
+ * `price_cents` does not always mean the same thing. Before
+ * supabase/sql/RUN_CURRENCY_RON.sql it holds USD cents and the display converts
+ * at 4.6; after it, it holds bani and converting again would quote every
+ * listing at 4.6× its price.
+ *
+ * So the rate is not a constant — it is 4.6 or 1 depending on what the stored
+ * unit currently IS, and the same environment variable that tells Stripe what
+ * to charge is what tells this what it is reading. One switch, both ends: the
+ * moment the platform charges in lei, the numbers stop being converted, and
+ * there is no window where the two disagree.
+ */
+export function formatPlatformMoney(cents: number): string {
+  const storedIsLei = process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "ron"
+  const amount = ((cents || 0) / 100) * (storedIsLei ? 1 : USD_RATES.RON)
+  try {
+    return new Intl.NumberFormat("ro-RO", {
+      style: "currency",
+      currency: "RON",
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return `${Math.round(amount)} RON`
+  }
+}

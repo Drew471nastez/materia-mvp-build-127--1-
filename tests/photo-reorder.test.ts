@@ -575,7 +575,8 @@ check(
 check(
   "every requirement the publish enforces has an anchor and a note",
   (() => {
-    const keys = ["photos", "title", "description", "category", "brand", "condition", "size", "colour", "price", "compare"]
+    // "compare" is gone with the comparison price itself — see below.
+    const keys = ["photos", "title", "description", "category", "brand", "condition", "size", "colour", "price"]
     return keys.every((k) => form.includes(`setGapEl("${k}"`) && form.includes(`gapFor("${k}")`))
   })(),
   "        A gap with no anchor is a gap the form cannot scroll to.",
@@ -663,15 +664,34 @@ check(
 console.log("\nThings that had to be said, said properly")
 
 check(
-  "the comparison price explains itself on a tap, not on a hover",
+  "the comparison price is gone, and so is everything that explained it",
   (() => {
-    // It was a tooltip on `group-hover`, hidden below md — so on a phone,
-    // which is where almost every listing is written, the icon was a
-    // decoration you could press forever and learn nothing from.
+    // A second-hand marketplace has no list price to discount FROM: the "was"
+    // figure was another number the same seller typed, and the percentage next
+    // to it on the card was a saving nobody had ever been offered. The field,
+    // its validation, its info sheet and its gap key all go together — half a
+    // removal is a form that can still be refused for a rule with no control
+    // left to fix it at.
     return (
-      /setPriceInfo\(true\)/.test(form) &&
-      /<BottomSheet open=\{priceInfo\}/.test(form) &&
-      !/group-hover:opacity-100/.test(form)
+      !/compareAt/.test(form) &&
+      !/compareCents/.test(form) &&
+      !/priceInfo/.test(form) &&
+      !/Preț comparativ/.test(form) &&
+      !/compare_at_cents/.test(form)
+    )
+  })(),
+)
+
+check(
+  "and the space it left says what the buyer will actually see",
+  (() => {
+    // Prices are quoted inclusive of the protection fee everywhere a buyer
+    // reads them, so without this a seller types 130, opens the feed, and finds
+    // their own listing at 141 with no explanation anywhere.
+    return (
+      /buyerPaysCents\(priceCents\)/.test(form) &&
+      /Cumpărătorii văd/.test(form) &&
+      /Tu primești în continuare/.test(form)
     )
   })(),
 )

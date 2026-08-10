@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { BUYER_PROTECTION_FIXED_BY_CURRENCY } from "../lib/checkout/currency"
+import { buyerPaysCents } from "../lib/marketplace/display-price"
 import {
   BUYER_PROTECTION_FIXED,
   BUYER_PROTECTION_PERCENT,
@@ -383,6 +384,232 @@ check(
     })(),
   )
 }
+
+
+/* ===========================================================================
+ *  THE NUMBER ON THE CARD IS THE NUMBER YOU PAY
+ * ===========================================================================
+ *
+ * A listing priced at 130 cost 141 at the till. Every price in the catalogue
+ * was wrong in the same direction, and only stopped being wrong once somebody
+ * had committed to it — which is the single worst place for a price to change.
+ */
+
+const cardSrc = read("components/explore/product-card.tsx")
+const detailSrc = read("components/product/product-detail.tsx")
+const displaySrc = read("lib/marketplace/display-price.ts")
+const protectionSrc = read("components/marketplace/buyer-protection.tsx")
+const currencySrc = read("lib/i18n/currency.ts")
+const localeSrc = read("components/locale-provider.tsx")
+const guardSrc = read("lib/checkout/currency-guard.ts")
+const stripeRoute = read("app/api/checkout/stripe-session/route.ts")
+
+console.log("\nPrices are quoted inclusive")
+
+check(
+  "the display price is the checkout's own arithmetic, not a second copy",
+  (() => {
+    // Two copies of "5% and 4 lei" is one bug away from the card showing one
+    // total and the bank taking another — which is exactly what quoting
+    // inclusively is meant to close, reintroduced from the other end.
+    return /import \{ buyerProtectionFee \} from "@\/lib\/checkout\/pricing"/.test(displaySrc)
+  })(),
+)
+
+check(
+  "a 130-lei listing is quoted at what it actually costs",
+  (() => {
+    // 13000 * 0.05 = 650, + the flat part. The assertion is written against
+    // the same constants the checkout uses so it survives the currency switch.
+    const item = 13000
+    const expected = item + Math.round(item * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED)
+    return buyerPaysCents(item) === expected && expected > item
+  })(),
+)
+
+check(
+  "free is still free, and a nonsense price does not become 4 lei",
+  buyerPaysCents(0) === 0 && buyerPaysCents(-5) === 0 && buyerPaysCents(NaN) === 0,
+)
+
+check(
+  "shipping is deliberately not in it",
+  (() => {
+    // It depends on a courier and a locker nobody has chosen yet. Protection is
+    // knowable from the price alone, which is why hiding THAT was indefensible.
+    return !/shipping/i.test(displaySrc.replace(/\*[\s\S]*?\*\//g, "")) 
+  })(),
+)
+
+check(
+  "the feed, the listing page and the saved list all quote the same way",
+  (() => {
+    return (
+      /formatPrice\(buyerPaysCents\(product\.price_cents\)\)/.test(cardSrc) &&
+      /formatPrice\(buyerPaysCents\(product\.price_cents\)\)/.test(detailSrc) &&
+      /buyerPaysCents\(product\.price_cents\)/.test(read("components/wishlist/wishlist-content.tsx")) &&
+      /buyerPaysCents\(product\.price_cents\)/.test(read("components/explore/mobile-listing-card.tsx"))
+    )
+  })(),
+)
+
+check(
+  "and every one of them carries the mark that says why",
+  (() => {
+    // An inclusive number with no explanation is the same lie in the other
+    // direction: a seller asking 130 whose listing reads 141 looks like a
+    // marketplace adding a mystery margin.
+    return /<ProtectionMark/.test(cardSrc) && /<ProtectionMarkWithPage/.test(detailSrc)
+  })(),
+)
+
+check(
+  "the mark is inert on a grid card and pressable on the listing page",
+  (() => {
+    // A nested button inside the card's own link is a hit target fighting the
+    // one around it, and sixty subpages would be mounted to serve one tap.
+    return /if \(!onClick\) \{/.test(protectionSrc) && /export function ProtectionMarkWithPage/.test(protectionSrc)
+  })(),
+)
+
+check(
+  "what it opens is the app's existing subpage, not a second one",
+  (() => {
+    // Two grammars for "a screen deeper into the same task" inside one app is
+    // precisely what reads as unfinished.
+    return /<PickerPage/.test(protectionSrc) && /Am înțeles/.test(protectionSrc)
+  })(),
+)
+
+check(
+  "the seller is shown their own number, not the buyer's",
+  (() => {
+    // The price field is what the SELLER is asking and what their payout is
+    // computed from. Showing them the inclusive figure would tell somebody
+    // typing 130 that they are earning 141.
+    const form = read("components/sell/new-listing-form.tsx")
+    return /Tu primești în continuare \{formatPlatformMoney\(priceCents\)\}/.test(form)
+  })(),
+)
+
+console.log("\nThe platform quotes in one currency")
+
+check(
+  "the six-currency switcher is gone",
+  (() => {
+    // It relabelled every price against a static rate table while the card was
+    // charged in one currency regardless — so a shopper who chose GBP read
+    // pounds everywhere and got a lei charge. A control that moves the label
+    // and not the money is worse than no control.
+    const modal = read("components/platform/language-currency-modal.tsx")
+    return !/setCurrency/.test(modal) && !/currencies\.map/.test(modal)
+  })(),
+)
+
+check(
+  "formatting follows the same switch that tells Stripe what to charge",
+  (() => {
+    // price_cents means USD cents before the migration and bani after it.
+    // Converting at 4.6 in the second world quotes every listing at 4.6x.
+    return (
+      /NEXT_PUBLIC_PLATFORM_CURRENCY === "ron"/.test(currencySrc) &&
+      /storedIsLei \? 1 : USD_RATES\.RON/.test(currencySrc) &&
+      /formatPlatformMoney\(cents\)/.test(localeSrc)
+    )
+  })(),
+)
+
+check(
+  "the wishlist stopped formatting in dollars",
+  (() => {
+    // Hard-coded en-US/USD, on a Romanian marketplace, on the one screen a
+    // buyer keeps things they intend to buy.
+    const wish = read("components/wishlist/wishlist-content.tsx")
+    return !/currency: "USD"/.test(wish) && /formatPlatformMoney/.test(wish)
+  })(),
+)
+
+console.log("\nFlipping the currency in the wrong order is refused, not charged")
+
+check(
+  "checkout will not charge lei against un-migrated prices",
+  (() => {
+    // Flag first, migration later: a $100 item sells for 100 lei, a 78%
+    // discount applied silently, and nothing errors because both halves work
+    // exactly as written. A comment in a SQL file is not a safeguard.
+    return (
+      /platform_migrations/.test(guardSrc) &&
+      /currency_ron_2026/.test(guardSrc) &&
+      /assertChargeCurrencyReady/.test(stripeRoute)
+    )
+  })(),
+)
+
+check(
+  "and it refuses BEFORE the PaymentIntent is built",
+  (() => {
+    const at = stripeRoute.indexOf("assertChargeCurrencyReady()")
+    const intent = stripeRoute.indexOf("currency: PLATFORM_CURRENCY")
+    return at > 0 && intent > at
+  })(),
+)
+
+check(
+  "it costs nothing while the platform is still in dollars",
+  /if \(PLATFORM_CURRENCY !== "ron"\) return \{ ok: true \}/.test(guardSrc),
+)
+
+check(
+  "a confirmed migration is cached; a missing one is not",
+  (() => {
+    // The marker can only go from absent to present, so `true` is safe to keep.
+    // `false` is the state somebody is actively fixing, and caching it would
+    // mean the fix does not take effect until the next deployment.
+    const fn = guardSrc.slice(guardSrc.indexOf("export async function assertChargeCurrencyReady"))
+    return (fn.match(/migrationConfirmed = true/g) ?? []).length === 1 && !/migrationConfirmed = false/.test(fn)
+  })(),
+)
+
+console.log("\nThe comparison price is gone from the marketplace")
+
+check(
+  "no strikethrough, no percentage badge, no field",
+  (() => {
+    return (
+      !/compare_at/.test(cardSrc) &&
+      !/compare_at/.test(detailSrc) &&
+      !/line-through/.test(cardSrc) &&
+      !/compareCents/.test(read("lib/marketplace/listing-completeness.ts"))
+    )
+  })(),
+)
+
+check(
+  "and no listing can be refused for a rule with no control left",
+  (() => {
+    // A stored listing with a compare-at below its price would have been
+    // unpublishable, permanently, over a number nobody can see any more.
+    const completeness = read("lib/marketplace/listing-completeness.ts")
+    return !/compare_at_too_low/.test(completeness)
+  })(),
+)
+
+console.log("\nYou are not offered your own listing")
+
+check(
+  "the save control is not drawn on your own card",
+  /\{cornerAction \?\? \(mine \? null : <WishlistHeartButton/.test(cardSrc),
+)
+
+check(
+  "and it is answered from a localStorage read, not a request per card",
+  (() => {
+    // The feed is cached and auth-free on purpose; a grid card deciding whether
+    // to draw a heart must not cost a round trip sixty times.
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return /readAuthSnapshot/.test(hook) && !/fetch\(/.test(hook) && !/getSession/.test(hook)
+  })(),
+)
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {

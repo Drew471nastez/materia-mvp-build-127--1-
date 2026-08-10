@@ -11,6 +11,7 @@ import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 import { priceCheckout } from "@/lib/checkout/pricing"
 import { minimumChargeCents } from "@/lib/checkout/currency"
+import { assertChargeCurrencyReady } from "@/lib/checkout/currency-guard"
 import { isShippable } from "@/lib/marketplace/product-kind"
 import { buyerKeyFor, claimReservation } from "@/lib/marketplace/reservation"
 import { SELF_ACTION_CODE, SELF_ACTION_MESSAGE } from "@/lib/marketplace/self-action"
@@ -345,6 +346,19 @@ export async function POST(request: Request) {
   // meant 50 BANI once the platform moved to lei — half a leu, roughly a tenth
   // of the real minimum, so a charge under it would have been built here and
   // rejected by Stripe with a message nobody could act on.
+  // THE ONE CHECK THAT CANNOT BE DONE AFTERWARDS.
+  //
+  // If the currency flag has been flipped to lei but the migration that
+  // rewrites price_cents has not run, every amount built below is a dollar
+  // figure about to be charged as lei — a 78% discount on the whole catalogue,
+  // with no error anywhere because both halves work exactly as written. See
+  // lib/checkout/currency-guard.ts.
+  const currencyReady = await assertChargeCurrencyReady()
+  if (!currencyReady.ok) {
+    console.error("[checkout] refusing to charge:", currencyReady.message)
+    return NextResponse.json({ error: currencyReady.message, code: "currency_not_migrated" }, { status: 503 })
+  }
+
   const minimum = minimumChargeCents()
   if (totalAmount < minimum) {
     return NextResponse.json(

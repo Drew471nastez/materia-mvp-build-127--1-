@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback, useEffect } from "react"
 import Image from "next/image"
-import { Heart, Send, BadgeCheck, ChevronLeft } from "lucide-react"
+import { Heart, Send, BadgeCheck, ChevronLeft, ShieldCheck } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -11,6 +11,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 // dropped buyers into the wrong product universe.
 import { getListingUrl } from "@/lib/marketplace/listing-url"
 import { conditionLabel } from "@/lib/marketplace/categories"
+import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { FollowButton } from "@/components/explore/follow-button"
 import { cn } from "@/lib/utils"
 
@@ -37,7 +38,6 @@ export interface MobileListingProduct {
   title: string
   slug: string
   price_cents: number
-  compare_at_cents?: number | null
   thumbnail_url?: string | null
   gallery_urls?: string[] | null
   size?: string | null
@@ -281,9 +281,17 @@ export const MobileListingCard = memo(function MobileListingCard({
       <SmartLink href={productUrl} blend className="absolute inset-x-0 bottom-0 block p-4 pb-14 pr-20 text-white">
         <h3 className="text-[19px] font-semibold leading-tight">{product.title}</h3>
         <div className="mt-1.5 flex items-baseline gap-2">
-          <span className="text-[22px] font-bold">{product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}</span>
-          {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-            <span className="text-[13px] text-white/70 line-through">{formatPrice(product.compare_at_cents)}</span>
+          {/* Inclusive of buyer protection, like every other price on the site.
+              The mark is white-on-dark here because this card is drawn over a
+              photograph. */}
+          <span className="text-[22px] font-bold">
+            {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
+          </span>
+          {product.price_cents > 0 && (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/20 px-1.5 py-[3px] text-[11px] font-semibold text-white/90 backdrop-blur-sm">
+              <ShieldCheck className="h-[13px] w-[13px] shrink-0" strokeWidth={2.4} />
+              incl.
+            </span>
           )}
         </div>
         {(product.size || cond) && (
