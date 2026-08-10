@@ -11,7 +11,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { useLocale } from "@/components/locale-provider"
 import { CONDITIONS } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
-import { Heart } from "lucide-react"
+import { Heart, ImageOff } from "lucide-react"
 
 // Portrait grid: 2 columns on mobile, 3 on tablet, 4 on desktop (container max-w-[1400px]).
 const GRID_IMAGE_SIZES = "(max-width: 639px) 47vw, (max-width: 1023px) 31vw, (max-width: 1400px) 23vw, 336px"
@@ -396,8 +396,21 @@ export const ProductCard = memo(function ProductCard({
               loading={priority ? undefined : "lazy"}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <span className="text-4xl">👜</span>
+            /* NOT AN EMOJI. This was a 👜 at text-4xl, and an emoji is the one
+               thing that can never be part of a design system: it is drawn by
+               the OS, so the same listing showed a flat Android handbag, a
+               glossy Apple one, and on a machine with no font for it a hollow
+               rectangle. It carried its own colours into a grid tuned to
+               neutrals, sat at whatever weight the vendor chose, and read as a
+               character somebody had typed into the page — which is what makes
+               a missing photo look like a mistake rather than a blank.
+
+               A drawn mark instead, in the same neutral as every other empty
+               state here, at the stroke width the card's own icons use. It says
+               "no photograph" rather than "handbag", which is the honest
+               subject: this well is empty for a listing of any kind. */
+            <div aria-hidden className="flex h-full items-center justify-center">
+              <ImageOff className="h-8 w-8 text-neutral-300" strokeWidth={1.5} />
             </div>
           )}
           {/* Second photo, fading in on top on hover — the plain crossfade every

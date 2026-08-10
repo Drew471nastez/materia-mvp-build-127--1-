@@ -368,28 +368,126 @@ export function MemberProfile({
    */
   const [dir, setDir] = useState<null | "left" | "right">(null)
 
-  const goToTab = useCallback((next: "listings" | "reviews") => {
-    void triggerHaptic("light")
-    setShelfTab((current) => {
-      if (current === next) return current
-      setDir(next === "reviews" ? "right" : "left")
-      return next
-    })
-    if (next === "reviews") setReviewsSeen(true)
-    // Instant, and BEFORE the panel changes: a smooth scroll here would race
-    // the swap, and the two together read as two things happening. Only when
-    // the strip has actually gone off the top — switching while you can still
-    // see it should not move the page at all.
-    //
-    // The pinned bar is over the top of the viewport by then, so the strip is
-    // brought to just below it rather than to y=0, where it would sit under
-    // frosted glass and read as having scrolled too far.
-    const el = shelfRef.current
-    if (el) {
-      const top = el.getBoundingClientRect().top - pinnedOffset()
-      if (top < 0) window.scrollBy({ top, behavior: "auto" })
-    }
-  }, [])
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  THE PAGE GLIDES UP, AND THE PANEL CHANGES WHEN IT GETS THERE
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * It used to be `behavior: "auto"` — a hard jump — fired on the same tick as
+   * the swap. The note that replaced a smooth scroll with that jump was half
+   * right: a smooth scroll running AT THE SAME TIME as the panel change really
+   * is two things happening at once, and it really does read as a glitch,
+   * because the document shrinks by three thousand pixels underneath a scroll
+   * animation that was aimed at the old height.
+   *
+   * The wrong conclusion was that the scroll had to be instant. What it had to
+   * be was FIRST. Two thousand pixels of travel erased between one frame and the
+   * next is not a transition anybody can follow — you press Evaluări and the
+   * screen you were reading is simply gone, which is the blink.
+   *
+   * So the two are sequenced rather than merged:
+   *
+   *   1. The underline moves NOW. `pending` is what the tab strip draws, so the
+   *      tap is answered on the frame it lands and nothing waits on the scroll.
+   *   2. The page glides to the strip over ~380ms, with both panels still
+   *      exactly as they were — so the document keeps the height the animation
+   *      was aimed at and nothing can clamp.
+   *   3. The panel swaps on arrival, with its own slide, onto a page that has
+   *      stopped moving.
+   *
+   * Written as a rAF loop rather than `behavior: "smooth"` because the swap has
+   * to happen when the scroll ENDS and there is no reliable way to be told that:
+   * `scrollend` is not on Safari, and a timer next to a native smooth scroll is
+   * a guess at a duration the browser chooses. Driving it here means the end is
+   * a fact rather than an estimate.
+   *
+   * A finger on the screen cancels it and commits immediately — a page that
+   * keeps gliding somewhere while you are trying to scroll it yourself is the
+   * one thing worse than the jump this replaces.
+   */
+  const SCROLL_MS = 380
+  const scrollRun = useRef(0)
+
+  /** What the STRIP shows. The panels follow `shelfTab`, which lands later. */
+  const [pending, setPending] = useState<null | "listings" | "reviews">(null)
+  const shownTab = pending ?? shelfTab
+
+  const goToTab = useCallback(
+    (next: "listings" | "reviews") => {
+      void triggerHaptic("light")
+      // Re-tapping the tab you are on, or the one already on its way in.
+      if (next === (pending ?? shelfTab)) return
+
+      const commit = () => {
+        setShelfTab((current) => {
+          if (current === next) return current
+          setDir(next === "reviews" ? "right" : "left")
+          return next
+        })
+        setPending(null)
+      }
+
+      setPending(next)
+      // Mounted at the TAP, not at the swap. The panel is `hidden` either way so
+      // it costs no layout and adds no height — but its reviews request is a
+      // round trip, and starting it here means it runs during the 380ms glide
+      // instead of on the frame the panel appears. The tab lands populated
+      // rather than landing and then filling in.
+      if (next === "reviews") setReviewsSeen(true)
+
+      const el = shelfRef.current
+      const top = el ? el.getBoundingClientRect().top - pinnedOffset() : 0
+      const reduced =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+
+      // Already in view, or somebody has asked for less motion: there is nothing
+      // to travel, so the swap is the whole interaction and waiting for an
+      // animation that is not going to run would only be a delay.
+      if (top >= -1 || reduced) {
+        if (top < 0) window.scrollBy({ top, behavior: "auto" })
+        commit()
+        return
+      }
+
+      const from = window.scrollY
+      const distance = top // negative: we are going up
+      const started = performance.now()
+      const run = ++scrollRun.current
+
+      // The curve the whole app arrives on. A scroll that eases out for most of
+      // its length is one you can follow to its destination, which is the entire
+      // difference between being taken somewhere and being put there.
+      const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+
+      const stop = () => {
+        if (run !== scrollRun.current) return
+        scrollRun.current++
+        window.removeEventListener("touchstart", stop)
+        window.removeEventListener("wheel", stop)
+        commit()
+      }
+      window.addEventListener("touchstart", stop, { passive: true, once: true })
+      window.addEventListener("wheel", stop, { passive: true, once: true })
+
+      const step = (now: number) => {
+        if (run !== scrollRun.current) return
+        const t = Math.min(1, (now - started) / SCROLL_MS)
+        window.scrollTo(0, from + distance * ease(t))
+        if (t < 1) {
+          requestAnimationFrame(step)
+          return
+        }
+        stop()
+      }
+      requestAnimationFrame(step)
+    },
+    [pending, shelfTab],
+  )
+
+  // A tab strip left mid-flight by an unmount would otherwise keep scrolling a
+  // page that is no longer here.
+  useEffect(() => () => void scrollRun.current++, [])
 
   /** The class that plays on whichever panel is arriving. Removed from the
    *  inactive one, which is what lets the animation replay on every switch
@@ -566,7 +664,13 @@ export function MemberProfile({
       <SurfaceClaim colour="#ffffff" />
 
       {/* Everything the cover was carrying, once the cover has gone. */}
-      <ProfilePinnedHeader name={name} visible={pinned} isOwner={isOwner} onShare={() => void share()} />
+      <ProfilePinnedHeader
+        name={name}
+        avatarUrl={member.avatarUrl}
+        visible={pinned}
+        isOwner={isOwner}
+        onShare={() => void share()}
+      />
       {/* THE COVER, and everything that sits on it.
           
           A profile without one is a name floating on white, which is the state
@@ -868,14 +972,14 @@ export function MemberProfile({
             place next to the word it counts. */}
         <div className="relative flex items-stretch border-b border-neutral-200/80">
           <ShelfTab
-            active={shelfTab === "listings"}
+            active={shownTab === "listings"}
             onClick={() => goToTab("listings")}
             count={listingsCount > 0 ? listingsCount : null}
           >
             {language === "ro" ? "Anunțuri" : "Listings"}
           </ShelfTab>
           <ShelfTab
-            active={shelfTab === "reviews"}
+            active={shownTab === "reviews"}
             onClick={() => goToTab("reviews")}
             count={reviews?.count ? reviews.count : null}
           >
@@ -888,7 +992,7 @@ export function MemberProfile({
           <span
             aria-hidden
             className="absolute -bottom-px left-0 h-[2px] w-1/2 rounded-full bg-neutral-900 transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-            style={{ transform: `translate3d(${shelfTab === "reviews" ? 100 : 0}%, 0, 0)` }}
+            style={{ transform: `translate3d(${shownTab === "reviews" ? 100 : 0}%, 0, 0)` }}
           />
         </div>
 

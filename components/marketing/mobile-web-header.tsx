@@ -83,6 +83,57 @@ function isCompactHeader(pathname: string): boolean {
   )
 }
 
+/**
+ * THE ROUND ICON BUTTONS IN THIS BAR, AND WHY NONE OF THEM SCALES.
+ *
+ * Every one of them was `transition-transform active:scale-[0.97]`, and that is
+ * the bump. Three percent of a 44px button is a pixel and a third — too small to
+ * read as a deliberate movement and too large to be nothing, so what it looks
+ * like is the icon wobbling. It is also the wrong shape of feedback for a
+ * TARGET: the hit area is 44px, the glyph inside it is 23, and shrinking the
+ * whole box means the thing that moves is mostly empty space around a mark that
+ * barely moves at all.
+ *
+ * Worse, it is driven by `:active`, which the browser sets when it has decided
+ * the touch is a press and clears on its own schedule — so on a scroll that
+ * starts over a button the scale flickers on and off under a finger that was
+ * never pressing anything.
+ *
+ * A tint has none of those problems. It fills the target rather than resizing
+ * it, so the 44px circle is what lights up; it arrives instantly
+ * (`active:duration-0`) and fades out over 200ms, which is the asymmetry a
+ * physical button has; and a colour that is briefly wrong is invisible next to a
+ * shape that is briefly the wrong size. It is the same rule the profile's pinned
+ * bar and the manage sheet's rows already state, and this bar was the last place
+ * still doing it the other way.
+ *
+ * The pills get the same treatment for the same reason — see below.
+ */
+const PRESS =
+  "[-webkit-tap-highlight-color:transparent] touch-manipulation " +
+  "transition-colors duration-200 ease-out active:duration-0"
+
+const ICON_BTN =
+  `flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 ${PRESS} active:bg-neutral-100`
+
+/**
+ * THE PILLS, WHICH HAD THE SAME BUMP AND NEEDED A DIFFERENT ANSWER.
+ *
+ * Leaving these on `active:scale-[0.97]` while the six icons beside them moved
+ * to a tint would have been worse than the bump: one row, two grammars, and the
+ * signup pill sitting immediately next to a cart icon that now behaves
+ * differently. A press treatment is a rule about the surface, not about one
+ * control.
+ *
+ * A filled pill cannot borrow the icons' `active:bg-neutral-100` — grey over
+ * brand purple is a different button, not a pressed one. It darkens to #6d28d9
+ * instead, which is not a new colour: it is the last stop of the gradient the
+ * app already paints the sell button with, so the pressed state is a shade the
+ * product already owns.
+ */
+const PILL_FILLED = `flex items-center rounded-full bg-[#7c3aed] font-semibold text-white ${PRESS} active:bg-[#6d28d9]`
+const PILL_QUIET = `flex items-center rounded-full font-semibold ${PRESS} active:bg-neutral-100`
+
 export function MobileWebHeader() {
   const router = useRouter()
   const pathname = usePathname()
@@ -306,7 +357,7 @@ export function MobileWebHeader() {
               aria-label="Meniu"
               aria-haspopup="dialog"
               aria-expanded={menuOpen}
-              className="-ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+              className={`-ml-1 shrink-0 ${ICON_BTN}`}
             >
               <Menu className="h-[23px] w-[23px]" strokeWidth={2.2} />
             </button>
@@ -323,7 +374,7 @@ export function MobileWebHeader() {
                   type="button"
                   onClick={() => setSearchOpen(true)}
                   aria-label="Caută"
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+                  className={ICON_BTN}
                 >
                   <Search className="h-[22px] w-[22px]" strokeWidth={2.1} />
                 </button>
@@ -333,14 +384,14 @@ export function MobileWebHeader() {
                   <Link
                     href="/messages"
                     aria-label="Mesaje"
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+                    className={ICON_BTN}
                   >
                     <MessageCircle className="h-[22px] w-[22px]" />
                   </Link>
                   <Link
                     href="/wishlist"
                     aria-label="Favorite"
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+                    className={ICON_BTN}
                   >
                     <Heart className="h-[22px] w-[22px]" />
                   </Link>
@@ -350,7 +401,7 @@ export function MobileWebHeader() {
                     aria-label="Contul meu"
                     aria-haspopup="dialog"
                     aria-expanded={accountOpen}
-                    className="ml-0.5 flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-[0.97]"
+                    className={`ml-0.5 ${ICON_BTN}`}
                   >
                     <Avatar className="h-9 w-9 border border-neutral-200">
                       <AvatarImage src={auth.avatarUrl || undefined} alt="" />
@@ -365,13 +416,13 @@ export function MobileWebHeader() {
                   <Link
                     href="/cart"
                     aria-label="Coș"
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
+                    className={ICON_BTN}
                   >
                     <ShoppingBag className="h-[22px] w-[22px]" />
                   </Link>
                   <Link
                     href="/signup"
-                    className="ml-1 flex h-9 items-center rounded-full bg-[#7c3aed] px-4 text-[13.5px] font-semibold text-white transition-transform active:scale-[0.97]"
+                    className={`ml-1 px-4 text-[13.5px] ${PILL_FILLED}`}
                   >
                     Înregistrează-te
                   </Link>
@@ -405,21 +456,21 @@ export function MobileWebHeader() {
               href="/signup"
               onClick={closeMenu}
               data-drawer-autofocus
-              className="flex h-12 items-center justify-center rounded-full bg-[#7c3aed] text-[15px] font-semibold text-white transition-transform active:scale-[0.97]"
+              className={`h-12 justify-center text-[15px] ${PILL_FILLED}`}
             >
               Vinde acum
             </Link>
             <Link
               href="/signup"
               onClick={closeMenu}
-              className="flex h-12 items-center justify-center rounded-full border border-neutral-900 text-[15px] font-semibold text-neutral-900 transition-transform active:scale-[0.97]"
+              className={`h-12 justify-center border border-neutral-900 text-[15px] text-neutral-900 ${PILL_QUIET}`}
             >
               Înregistrează-te
             </Link>
             <Link
               href="/login"
               onClick={closeMenu}
-              className="flex h-12 items-center justify-center rounded-full text-[15px] font-semibold text-neutral-700 transition-[background-color,transform] duration-150 active:scale-[0.97] active:bg-neutral-100"
+              className={`h-12 justify-center text-[15px] text-neutral-700 ${PILL_QUIET}`}
             >
               Autentificare
             </Link>
