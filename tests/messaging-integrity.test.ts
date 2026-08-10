@@ -15,11 +15,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import {
-  MESSAGE_MEDIA_TYPES,
-  isMimeRefusal,
-  uploadMessageMedia,
-} from "@/lib/messages/media-bucket"
+import { isMimeRefusal, uploadMessageMedia } from "@/lib/messages/media-bucket"
 
 let passed = 0
 let failed = 0
@@ -161,18 +157,22 @@ check(
     // for whichever party is asking.
     //
     // Asserted on the shared uploader rather than on the route, because that is
-    // where the bucket is now declared — and asserted on EVERY place it is
-    // declared, since a bucket that is created private and later widened back
-    // to public would be private only until the first repair.
+    // where the bucket is now configured — and there is exactly ONE such
+    // configuration, used by both the create and the repair, so a bucket cannot
+    // be made private and then handed back public by whichever path ran second.
     const route = read(("app/api/messages/[id]/voice/route.ts"))
     const bucket = read(("lib/messages/media-bucket.ts"))
     const publicFlags = bucket.match(/public: (true|false)/g) ?? []
     return (
       /\.from\(MESSAGES_BUCKET\)\s*\n?\s*\.upload\(path/.test(bucket) &&
-      publicFlags.length >= 2 &&
-      publicFlags.every((f) => f === "public: false") &&
+      publicFlags.length === 1 &&
+      publicFlags[0] === "public: false" &&
+      /createBucket\(MESSAGES_BUCKET, BUCKET_CONFIG\)/.test(bucket) &&
+      /updateBucket\(MESSAGES_BUCKET, BUCKET_CONFIG\)/.test(bucket) &&
       !/getPublicUrl/.test(bucket) &&
-      !/getPublicUrl/.test(route)
+      !/getPublicUrl/.test(route) &&
+      // And the SQL that declares it says the same thing.
+      /'messages',\s*\n\s*'messages',\s*\n\s*false,/.test(sql)
     )
   })(),
 )
@@ -387,22 +387,54 @@ check(
 // ── THE BUCKET THAT REFUSED THE VOICE NOTES ─────────────────────────────────
 //
 // Sending one failed with `mime type audio/webm is not supported`, and nothing
-// in the voice route was wrong. The `messages` bucket is created on first use
-// by whichever route gets there first, that was the PHOTO route, and it
-// declared an image-only `allowedMimeTypes`. Storage enforces that list, so
-// audio was refused by the bucket itself before a line of app code ran.
+// in the voice route was wrong. The `messages` bucket is declared in SQL, with
+// an image-only `allowed_mime_types` written when photographs were the only
+// attachment — so storage refused every voice note before a line of app code
+// ran, and `on conflict do update` means re-running that SQL re-imposes it.
 //
-// These are DRIVEN rather than grepped. The failure was a recovery path that
-// existed and never fired — `createBucket` on "bucket not found", against a
-// bucket that was found — and reading the source would have shown a bucket
-// fallback right there and looked fine. So a fake storage client answers the
-// way the real one did, and the assertions are about what actually happens.
+// The SQL is therefore the fix, and these assertions guard it in both places it
+// can regress: the declaration, and the runtime repair for databases the new
+// declaration has not been run against yet.
+
+check(
+  "the messages bucket does not gate on a type list the next attachment kind will fail",
+  (() => {
+    // An image-only array is what refused audio. A longer array would refuse
+    // whatever comes third, in a place nobody looks, with an error that blames
+    // the upload — and it would have to be kept in step with the app's own
+    // sniffing, which is the check that actually looks at the bytes.
+    const decl = /insert into storage\.buckets[\s\S]*?'messages',[\s\S]*?\n\)/.exec(sql)?.[0] ?? ""
+    return (
+      decl.length > 0 &&
+      !/array\[[^\]]*image\//.test(decl) &&
+      // NULL is how storage spells "no restriction". Written explicitly, so the
+      // column is CLEARED on re-run rather than left at whatever is there.
+      /\n\s*null\n\)/.test(decl) &&
+      /allowed_mime_types = excluded\.allowed_mime_types/.test(sql)
+    )
+  })(),
+  "        supabase/sql/RUN_MESSAGING_ALL.sql — the bucket's own list is what\n" +
+    "        refused audio/webm, and re-running this file re-imposes it.",
+)
+
+// The rest are DRIVEN rather than grepped. The first attempt at this fix failed
+// as a recovery path that existed and did not work, and reading the source
+// showed a bucket repair sitting right there looking correct. So a fake storage
+// client answers the way the real one did, and the assertions are about what
+// actually happens when it does.
 
 type Call = { name: string; args: any[] }
 
-function fakeAdmin(uploadAnswers: Array<{ message: string } | null>) {
+function fakeAdmin(
+  uploadAnswers: Array<{ message: string } | null>,
+  repairError?: { message: string },
+) {
   const calls: Call[] = []
   let n = 0
+  const bucketOp = (name: string) => async (...args: any[]) => {
+    calls.push({ name, args })
+    return { error: repairError ?? null }
+  }
   return {
     calls,
     admin: {
@@ -413,14 +445,8 @@ function fakeAdmin(uploadAnswers: Array<{ message: string } | null>) {
             return { error: uploadAnswers[n++] ?? null }
           },
         }),
-        createBucket: async (...args: any[]) => {
-          calls.push({ name: "createBucket", args })
-          return { error: null }
-        },
-        updateBucket: async (...args: any[]) => {
-          calls.push({ name: "updateBucket", args })
-          return { error: null }
-        },
+        createBucket: bucketOp("createBucket"),
+        updateBucket: bucketOp("updateBucket"),
       },
     } as any,
   }
@@ -429,21 +455,24 @@ function fakeAdmin(uploadAnswers: Array<{ message: string } | null>) {
 const REFUSAL = { message: "mime type audio/webm is not supported" }
 
 check(
-  "a bucket that refuses audio/webm is widened and the upload retried",
+  "a bucket that refuses audio/webm has its list cleared and the upload retried",
   await (async () => {
-    // The actual reported failure, end to end: the bucket exists, it is narrow,
-    // and the recovery has to be a WIDENING rather than a creation.
+    // The actual reported failure, end to end: the bucket exists, its list is
+    // narrow, and the recovery has to be an UPDATE rather than a creation.
     const { admin, calls } = fakeAdmin([REFUSAL, null])
     const { error } = await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
-    const widen = calls.find((c) => c.name === "updateBucket")
+    const fix = calls.find((c) => c.name === "updateBucket")
     return (
       error === null &&
-      !!widen &&
+      !!fix &&
       calls.filter((c) => c.name === "upload").length === 2 &&
-      // Not createBucket. That is the path the old code had, and it is exactly
-      // why the bug survived: the bucket was never missing.
+      // Not createBucket: the bucket was never missing, which is why the
+      // original "bucket makes itself" fallback never fired.
       !calls.some((c) => c.name === "createBucket") &&
-      widen.args[1]?.allowedMimeTypes?.includes("audio/webm") === true
+      // Cleared, not lengthened. A longer list is the same trap one attachment
+      // kind further on.
+      fix.args[1]?.allowedMimeTypes === null &&
+      fix.args[1]?.public === false
     )
   })(),
   "        lib/messages/media-bucket.ts — the bucket is what refused it, so the\n" +
@@ -451,22 +480,21 @@ check(
 )
 
 check(
-  "widening keeps photographs working, because it is additive",
+  "a repair that itself fails is reported as a repair that failed",
   await (async () => {
-    // A repair that fixed voice notes by breaking every photo would be a worse
-    // bug than the one it closed, and it would ship silently.
-    const { admin, calls } = fakeAdmin([REFUSAL, null])
-    await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
-    const list: string[] = calls.find((c) => c.name === "updateBucket")?.args[1]?.allowedMimeTypes
+    // THE DEFECT IN THE FIRST ATTEMPT AT THIS FIX. It ignored what the repair
+    // returned, so a repair that could not run came back as the upload's own
+    // refusal — the identical sentence, sending somebody looking in the identical
+    // wrong place, with a fix in the tree that appeared to have done nothing.
+    const { admin } = fakeAdmin([REFUSAL, REFUSAL], { message: "insufficient privileges" })
+    const { error } = await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
     return (
-      Array.isArray(list) &&
-      list.includes("image/jpeg") &&
-      list.includes("image/png") &&
-      list.includes("image/heic") &&
-      // And what a browser actually records into, with the codec parameter as
-      // MediaRecorder writes it — storage matches these literally.
-      list.includes("audio/webm;codecs=opus") &&
-      list.includes("audio/mp4")
+      !!error &&
+      error.message !== REFUSAL.message &&
+      error.message.includes("insufficient privileges") &&
+      // And it names what to do about it, since nobody reading a toast can
+      // guess that the answer is in a .sql file.
+      error.message.includes("RUN_MESSAGING_ALL.sql")
     )
   })(),
 )
@@ -475,7 +503,7 @@ check(
   "an upload that succeeds does not touch the bucket configuration at all",
   await (async () => {
     // The repair must be a response to a refusal, not a thing every upload does.
-    // Rewriting the bucket on every message would be a write per photo.
+    // Rewriting the bucket on every message would be a write per photograph.
     const { admin, calls } = fakeAdmin([null])
     const { error } = await uploadMessageMedia(admin, "u/1/a.jpg", new Blob(["x"]), "image/jpeg")
     return error === null && calls.length === 1 && calls[0].name === "upload"
@@ -483,16 +511,18 @@ check(
 )
 
 check(
-  "a missing bucket is still created, with the full list rather than half of it",
+  "a missing bucket is still created, and created private and ungated",
   await (async () => {
+    // Same configuration as the SQL declares, or the bucket a fresh deployment
+    // makes for itself differs from the bucket the SQL makes, and only one of
+    // them gets tested.
     const { admin, calls } = fakeAdmin([{ message: "Bucket not found" }, null])
     const { error } = await uploadMessageMedia(admin, "u/1/a.webm", new Blob(["x"]), "audio/webm")
     const made = calls.find((c) => c.name === "createBucket")
     return (
       error === null &&
       !!made &&
-      made.args[1]?.allowedMimeTypes?.includes("audio/webm") === true &&
-      made.args[1]?.allowedMimeTypes?.includes("image/jpeg") === true &&
+      made.args[1]?.allowedMimeTypes === null &&
       made.args[1]?.public === false
     )
   })(),
@@ -522,21 +552,22 @@ check(
 )
 
 check(
-  "one allowlist, imported by both routes",
+  "one uploader, and neither route configures the shared bucket itself",
   (() => {
-    // Two routes each declaring what one shared bucket accepts is a definition
-    // that agrees with itself only by luck. It did not — and the way it
-    // disagreed was silent until somebody sent the other kind of file.
+    // Two routes each deciding what one shared bucket accepts is a definition
+    // that agrees with itself only by luck. The bytes are still checked per
+    // route — that is the gate that reads the file rather than its label.
     const voice = read(("app/api/messages/[id]/voice/route.ts"))
     return (
       /uploadMessageMedia\(admin, path, file/.test(image) &&
       /uploadMessageMedia\(admin, path, file/.test(voice) &&
-      // Neither route may keep its own copy of the list or its own recovery.
       !/allowedMimeTypes/.test(image) &&
       !/allowedMimeTypes/.test(voice) &&
       !/createBucket/.test(image) &&
       !/createBucket/.test(voice) &&
-      MESSAGE_MEDIA_TYPES.length > 0
+      // The real gate, still in both: what the bytes are, not what was claimed.
+      /function sniff\(/.test(image) &&
+      /function sniff\(/.test(voice)
     )
   })(),
 )
