@@ -43,6 +43,22 @@ export const EDITABLE_STATUSES: ListingStatus[] = ["published", "draft", "archiv
 export type StatusBadge = { label: string; tone: "neutral" | "warning" | "muted" }
 
 /**
+ * Four states, three weights, and the choice of which gets which is about
+ * urgency rather than variety.
+ *
+ *   neutral   black. A statement of fact about a listing that is not for sale:
+ *             a draft you have not finished, an item that is gone.
+ *   warning   amber. Something is being HELD and will need a decision — the one
+ *             state with a clock on it.
+ *   muted     grey. You put it away on purpose; nothing is waiting on you.
+ *
+ * Ciornă was amber and is black. Amber on a draft was reading as a warning
+ * about a listing that has never been anywhere and cannot have gone wrong —
+ * and on a grid where two or three cards are drafts, three orange flags is an
+ * alarm about the ordinary case.
+ */
+
+/**
  * The mark on an owner's card, or null when there is nothing to say.
  *
  * `published` gets nothing: it is the ordinary case, and a badge on every card
@@ -51,7 +67,7 @@ export type StatusBadge = { label: string; tone: "neutral" | "warning" | "muted"
 export function ownerStatusBadge(status: string | null | undefined): StatusBadge | null {
   switch (status) {
     case "draft":
-      return { label: "Ciornă", tone: "warning" }
+      return { label: "Ciornă", tone: "neutral" }
     case "reserved":
       return { label: "Rezervat", tone: "warning" }
     case "archived":

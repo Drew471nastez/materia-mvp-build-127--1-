@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
 import { triggerHaptic } from "@/lib/native-bridge"
+import { lockScroll } from "@/lib/scroll-lock"
 import { cn } from "@/lib/utils"
 
 /**
@@ -87,14 +88,17 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    // Counted, not saved-and-restored: this dialog opens as the sheet that
+    // raised it is still closing, so the two overlap and whichever effect ran
+    // last used to decide whether the page could scroll — including the case
+    // where it stayed locked with nothing on screen to unlock it.
+    const release = lockScroll()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onDismiss?.()
     }
     window.addEventListener("keydown", onKey)
     return () => {
-      document.body.style.overflow = prev
+      release()
       window.removeEventListener("keydown", onKey)
     }
   }, [open, onDismiss])

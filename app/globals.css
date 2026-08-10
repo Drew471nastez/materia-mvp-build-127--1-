@@ -452,14 +452,109 @@ html.capacitor a.no-tap-fade:active {
 .shelf-panel-in {
   animation: shelf-panel-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+
+/* …and the same thing, but it knows which way you went.
+ *
+ * The note above says a sideways slide would promise a swipe that does not
+ * exist. That was right when both panels rose in place and there was nothing to
+ * tell you WHICH of the two you had landed on — but it also made the two tabs
+ * feel like one panel being redrawn rather than like two things side by side,
+ * which is the thing a tab strip exists to say.
+ *
+ * 12px, which is short enough that it reads as the panel catching up with the
+ * underline rather than as travel across the screen, and it is the same
+ * direction the underline itself is moving in on that frame. Going right (to
+ * Evaluări) the new panel comes from the right; going back, from the left.
+ *
+ * 200ms against the underline's 240: the contents arrive fractionally before
+ * the bar lands, so the movement resolves on the mark rather than on the text.
+ */
+@keyframes shelf-panel-in-right {
+  from {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes shelf-panel-in-left {
+  from {
+    opacity: 0;
+    transform: translate3d(-12px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.shelf-panel-in-right {
+  animation: shelf-panel-in-right 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.shelf-panel-in-left {
+  animation: shelf-panel-in-left 200ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
 /* Paint-contained: the grid is sixty cards, and a panel coming back into view
    should not invite the browser to re-lay-out anything outside its own box. */
 .shelf-panel {
   contain: layout paint style;
 }
 @media (prefers-reduced-motion: reduce) {
-  .shelf-panel-in {
+  .shelf-panel-in,
+  .shelf-panel-in-right,
+  .shelf-panel-in-left {
     animation: none;
+  }
+}
+
+/* ===========================================================================
+ *  THE PROFILE'S PINNED HEADER
+ * ===========================================================================
+ *
+ * Off-screen and transparent until the name scrolls away. Both properties are
+ * composited, so its arrival never touches layout on a page that is scrolling a
+ * grid of photographs at the time.
+ *
+ * `padding-top` rather than `top`: on a phone the bar's BACKGROUND has to reach
+ * the top of the screen and run up under the clock — a translucent strip with a
+ * gap of page above it is worse than no bar — while its contents sit below the
+ * inset. On the web the inset is 0 and this is simply a 52px bar.
+ *
+ * z-60 puts it over the page and under everything modal: a sheet is at 95 and an
+ * alert at 130, and a bar that outranked either would sit on top of the thing
+ * it is meant to be behind.
+ */
+.profile-pinned {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid rgba(23, 23, 23, 0.07);
+  transform: translate3d(0, -100%, 0);
+  opacity: 0;
+  /* Out is faster than in, and the opacity is faster than the travel both ways:
+     the bar is gone visually before it has finished getting out of the way,
+     which is what stops a dismissal reading as a wait. */
+  transition:
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+.profile-pinned[data-shown="true"] {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-pinned {
+    transition: none;
   }
 }
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { lockScroll } from "@/lib/scroll-lock"
 import { cn } from "@/lib/utils"
 
 /**
@@ -89,6 +90,13 @@ export function BottomSheet({
     scrim.style.transition = to === "open" ? SCRIM_IN : SCRIM_OUT
     sheet.style.transform = to === "open" ? "translate3d(0, 0, 0)" : "translate3d(0, 100%, 0)"
     scrim.style.opacity = to === "open" ? "1" : "0"
+    // A sheet on its way out stops taking taps. It is still on screen for a
+    // third of a second after the decision was made, and a row pressed in that
+    // window fires an action against a panel the person has already dismissed —
+    // which is where "I tapped once and it did it twice" comes from.
+    const dead = to === "open" ? "" : "none"
+    sheet.style.pointerEvents = dead
+    scrim.style.pointerEvents = dead
   }, [])
 
   const dismiss = useCallback(() => {
@@ -108,6 +116,24 @@ export function BottomSheet({
     const t = window.setTimeout(() => setMounted(false), OUT_MS)
     return () => window.clearTimeout(t)
   }, [open, mounted, settle])
+
+  /**
+   * THE PAGE BEHIND HOLDS STILL.
+   *
+   * Without this the profile scrolls under the sheet — a thumb that lands
+   * slightly off it, or on it but past the end of its list, moves the whole
+   * page. Nothing breaks; it just reads as a panel sitting on a web page rather
+   * than as part of the app, and it is the single loudest source of "this feels
+   * laggy" on a screen where nothing is actually slow.
+   *
+   * Held for as long as the sheet is MOUNTED rather than open, so the page is
+   * still still while the sheet is on its way down. Counted, because the delete
+   * confirmation opens over this one and the two overlap — see lib/scroll-lock.
+   */
+  useEffect(() => {
+    if (!mounted) return
+    return lockScroll()
+  }, [mounted])
 
   // Start below the frame, then spring up on the NEXT frame. Rendering it
   // already in place can only ever pop; two separate style commits are what give
