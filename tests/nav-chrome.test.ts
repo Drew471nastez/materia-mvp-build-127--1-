@@ -40,7 +40,7 @@
  * Run with:  npm run test:push
  */
 
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 let passed = 0
@@ -637,18 +637,38 @@ check(
 )
 
 check(
-  "back is the same movement wherever it is pressed",
+  "an entrance is never declared on whatever happens to be in <main>",
   (() => {
-    // Leaving a conversation slid the level above back into place and leaving a
-    // listing did not move at all — two answers to one gesture.
+    // A route with a loading boundary paints TWO elements into that slot, one
+    // after the other: the Suspense shell, then the real page. An entrance
+    // declared on `main > *` is therefore declared on both and plays twice —
+    // the screen slides in, is replaced, and slides in again. That is the
+    // "doubles on back" exactly, and app/(marketing)/messages/loading.tsx
+    // carries no `data-primary` specifically so the narrow rule cannot match
+    // it. The shells are indistinguishable from the pages they stand in for,
+    // so this must always be opt-in.
     const css = read("app/globals.css")
-    return (
-      /html\.pop-return [^{]*> main > \*:not\(\.thread-arrive\) \{\s*\n\s*animation: pop-return-list 360ms/.test(css) &&
-      // And the fade under it is off, for the same reason it is off on the
-      // conversation: one movement on one set of pixels.
-      /html\.pop-return [^{]*> main \{\s*\n\s*opacity: 1;/.test(css)
-    )
+    const rules = [...css.matchAll(/html\.pop-return[^{]*\{[^}]*animation:[^}]*\}/g)].map((m) => m[0])
+    return rules.length > 0 && rules.every((r) => !/> main > \*\s*(:not\([^)]*\))?\s*\{/.test(r))
   })(),
+  "        app/globals.css — a wildcard here animates the loading shell AND the\n" +
+    "        page that replaces it.",
+)
+
+check(
+  "and only one element carries the sell sheet's entrance",
+  (() => {
+    // The intercepted route had a loading shell with `sell-sheet-enter` on it
+    // and the form applies the same class on mount — two elements, two slides,
+    // one press. Its own header claimed "one arrival instead of two", which was
+    // true only if the form did not re-animate, and the form does.
+    const shells = [
+      "app/(marketing)/@modal/(.)products/new/loading.tsx",
+      "app/(marketing)/products/new/loading.tsx",
+    ].filter((f) => existsSync(join(process.cwd(), f)))
+    return shells.every((f) => !/sell-sheet-enter/.test(read(f)))
+  })(),
+  "        A Suspense shell that animates in is a second opening of the sheet.",
 )
 
 check(
