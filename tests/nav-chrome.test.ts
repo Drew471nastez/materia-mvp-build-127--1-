@@ -643,7 +643,7 @@ check(
     // listing did not move at all — two answers to one gesture.
     const css = read("app/globals.css")
     return (
-      /html\.pop-return [^{]*> main > \* \{\s*\n\s*animation: pop-return-list 360ms/.test(css) &&
+      /html\.pop-return [^{]*> main > \*:not\(\.thread-arrive\) \{\s*\n\s*animation: pop-return-list 360ms/.test(css) &&
       // And the fade under it is off, for the same reason it is off on the
       // conversation: one movement on one set of pixels.
       /html\.pop-return [^{]*> main \{\s*\n\s*opacity: 1;/.test(css)

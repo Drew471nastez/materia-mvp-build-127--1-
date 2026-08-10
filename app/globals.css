@@ -1041,7 +1041,22 @@ html.capacitor a.no-tap-fade:active {
      animation back onto the main thread, where it competes with the route this
      press just started loading — which is exactly the frame budget it cannot
      afford. Rotation alone is a compositor job. */
-  transition: transform 480ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* 240ms, DOWN from 480, and the duration is the bug rather than a taste.
+
+     The turn starts on pointerdown and the sell sheet climbs from below this
+     bar the moment the route commits — which on a warm route is 150-250ms
+     later. At 480ms the rotation was barely a third done when the sheet passed
+     over it, so what reached the eye was a + tilting slightly and then being
+     covered. It has been "not rotating" that whole time because the part worth
+     seeing was always played behind something. Finished inside the window it
+     actually has, the whole 135° lands before anything covers it.
+
+     The curve is unchanged and stays the sheet's, because the + and the sheet
+     are one movement seen in two places. Speed is what was missing, not a
+     bounce: an overshoot here lands within a few frames of the sheet passing
+     over the icon, which is the twitch that was deliberately removed once
+     already. */
+  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
   /* The translateZ is not decoration. It puts this glyph on its own GPU layer
      BEFORE the press rather than at the first frame of the turn, so the layer
      is created while nothing is moving instead of during the animation — which
@@ -1503,7 +1518,17 @@ html.capacitor a.no-tap-fade:active {
      which is the bug that took three attempts to get right on the
      conversation screen. The children of <main> are page roots, which do
      not have that problem. */
-  html.pop-return .marketing-flex-wrapper > main > * {
+  /* NOT the conversation, and this exclusion is load-bearing.
+
+     `.thread-arrive` already owns an entrance — the push, above — and this
+     selector matches it too, because it is also a direct child of <main>. Two
+     animations declared for one element means the later rule wins outright, so
+     a conversation opened while `pop-return` was still on <html> came in with
+     the LIST's motion instead of its own, and a back-then-forward in quick
+     succession showed the screen animating twice. Whichever won, one of the two
+     was wrong. The conversation states its own arrival; everything else takes
+     the default. */
+  html.pop-return .marketing-flex-wrapper > main > *:not(.thread-arrive) {
     animation: pop-return-list 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
     backface-visibility: hidden;
   }

@@ -269,7 +269,7 @@ check(
     // second that is not weight, it is a twitch, and it lands at the exact
     // moment the rising sheet reaches the icon. A transition overshoots when a
     // control point's y leaves the 0..1 range; neither of these may.
-    const pts = /\.plus-turn \{[\s\S]{0,120}?cubic-bezier\(([^)]+)\)/
+    const pts = /\.plus-turn \{[\s\S]{0,400}?transition: transform \d+ms cubic-bezier\(([^)]+)\)/
       .exec(css)?.[1]
       .split(",")
       .map((n) => Number(n.trim()))
@@ -283,22 +283,38 @@ check(
   (() => {
     // They are one movement seen in two places. Two easings for one movement is
     // the same mistake the pickers are checked for above.
-    const plus = /\.plus-turn \{[\s\S]{0,120}?transition: transform \d+ms (cubic-bezier\([^)]+\))/.exec(css)?.[1]
+    const plus = /\.plus-turn \{[\s\S]{0,400}?transition: transform \d+ms (cubic-bezier\([^)]+\))/.exec(css)?.[1]
     const sheet = /\.sell-sheet-enter \{ animation: sell-sheet-enter \d+ms (cubic-bezier\([^)]+\))/.exec(css)?.[1]
     return !!plus && plus === sheet
   })(),
 )
 
 check(
-  "the icon is the slowest thing in the gesture, on purpose",
+  "the turn FINISHES before anything can cover it",
   (() => {
-    // It is still easing when the sheet passes over it, so the turn is covered
-    // mid-movement rather than caught stopping. A rotation you never see end
-    // never reads as having stopped short.
-    const plus = Number(/\.plus-turn \{[\s\S]{0,120}?transition: transform (\d+)ms/.exec(css)?.[1])
+    // THIS CHECK USED TO ASSERT THE OPPOSITE, and the reversal is the fix
+    // rather than a change of taste.
+    //
+    // It read: "the icon is the slowest thing in the gesture, on purpose — it
+    // is still easing when the sheet passes over it, so the turn is covered
+    // mid-movement rather than caught stopping." The argument is sound and the
+    // outcome was not. The + is at the very bottom of the screen and the sheet
+    // climbs from below it, so a rotation deliberately longer than the sheet is
+    // a rotation deliberately never seen to finish — and on a warm route, where
+    // the sheet arrives within about 200ms of the press, what actually reached
+    // the eye was a glyph tilting maybe forty degrees and then being covered.
+    // Reported, repeatedly, as "the plus does not rotate at all". It was
+    // rotating the whole time, behind something.
+    //
+    // So it is now short enough to complete inside the window it really has.
+    // The old worry — a turn "caught stopping" — needs the icon to still be
+    // visible when it stops, and at this length it has stopped well before the
+    // sheet is anywhere near it.
+    const plus = Number(/\.plus-turn \{[\s\S]{0,400}?transition: transform (\d+)ms/.exec(css)?.[1])
     const sheet = Number(/\.sell-sheet-enter \{ animation: sell-sheet-enter (\d+)ms/.exec(css)?.[1])
-    return plus > sheet && plus >= 480
+    return Number.isFinite(plus) && Number.isFinite(sheet) && plus < sheet && plus <= 300
   })(),
+  "        A rotation nobody can see finish is a rotation nobody can see.",
 )
 
 check(
