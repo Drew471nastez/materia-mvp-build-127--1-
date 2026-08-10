@@ -11,7 +11,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function NewListingPage() {
+export default async function NewListingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ draft?: string }>
+}) {
+  const { draft } = await searchParams
   // The canvas colour and the minimum height are for DESKTOP only now. On a
   // phone the form is a `fixed inset-0` sheet, so it owns the whole screen and
   // a box behind it can only be one of two things: invisible, or — if the
@@ -19,7 +24,7 @@ export default function NewListingPage() {
   // `md:` on both, so there is nothing behind the sheet at all.
   return (
     <div className="md:min-h-[calc(100svh-56px)] md:bg-[#f6f6f7]">
-      <NewListingForm />
+      <NewListingForm draftId={draft ?? null} />
     </div>
   )
 }

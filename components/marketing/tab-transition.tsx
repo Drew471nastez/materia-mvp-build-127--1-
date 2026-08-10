@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { markNavigated } from "@/lib/session-nav"
 import { endTabLeave, isTabLeaving } from "@/lib/tab-leave"
+import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 /**
  * One arrival, played the same way every time you change tab.
@@ -73,7 +74,7 @@ function tabOf(pathname: string): string | null {
   // whatever you were on, and it plays that entrance itself — returning "sell"
   // here would fade <main> underneath the slide, which is two arrivals for one
   // tap. The BAR still lights the + for it; this only decides the animation.
-  if (pathname.startsWith("/products/new")) return null
+  if (isSellFormRoute(pathname)) return null
   if (pathname === "/messages") return "inbox"
   if (pathname.startsWith("/profile") || pathname.startsWith("/settings")) return "profile"
   return null

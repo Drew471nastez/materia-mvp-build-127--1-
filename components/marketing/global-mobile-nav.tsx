@@ -6,6 +6,7 @@ import { MobileBottomNav } from "@/components/explore/mobile-bottom-nav"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { isNativeApp } from "@/lib/native-bridge"
+import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 /**
  * The bottom navigation. ONE of them, for the whole app.
@@ -65,7 +66,7 @@ function isConversation(pathname: string): boolean {
 function isListing(pathname: string): boolean {
   return (
     pathname.startsWith("/products/") &&
-    !pathname.startsWith("/products/new") &&
+    !isSellFormRoute(pathname) &&
     !pathname.startsWith("/products/drafts")
   )
 }
@@ -160,7 +161,7 @@ export function GlobalMobileNav() {
     : suppressed(pathname)
   if (hideBar) return null
 
-  const active = pathname.startsWith("/products/new")
+  const active = isSellFormRoute(pathname)
     ? "sell"
     : pathname.startsWith("/messages")
       ? "inbox"

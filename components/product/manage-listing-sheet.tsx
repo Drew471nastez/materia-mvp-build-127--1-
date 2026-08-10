@@ -7,6 +7,7 @@ import { Archive, CheckCircle2, Clock, Loader2, Pencil, Trash2, Undo2 } from "lu
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { triggerHaptic } from "@/lib/native-bridge"
+import { sellDraftHref, sellEditHref } from "@/lib/marketplace/sell-route"
 import { cn } from "@/lib/utils"
 
 /**
@@ -130,9 +131,7 @@ export function ManageListingSheet({
   // A draft resumes through the drafts route, which is the one scoped to drafts
   // and the one that knows how to publish from there. A live listing goes
   // through the edit route. Same screen either way.
-  const editHref = isDraft
-    ? `/products/new?draft=${encodeURIComponent(listingId)}`
-    : `/products/new?edit=${encodeURIComponent(listingId)}`
+  const editHref = isDraft ? sellDraftHref(listingId) : sellEditHref(listingId)
 
   // Warmed while the sheet is up, so the wait below is the animation and not the
   // route. Without it the sheet finishes leaving and THEN the form starts

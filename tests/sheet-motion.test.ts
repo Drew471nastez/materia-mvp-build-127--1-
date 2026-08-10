@@ -340,7 +340,10 @@ check(
 check(
   "the sheet route is exempt from the tab fade as well",
   // Two different animations, both of which would have played over the slide.
-  /pathname\.startsWith\("\/products\/new"\)\) return null/.test(
+  // Asked through isSellFormRoute now, because the form has two addresses —
+  // /products/new and /products/edit/<id> — and a hand-written comparison here
+  // would have exempted one of them and played a screen fade under the other.
+  /if \(isSellFormRoute\(pathname\)\) return null/.test(
     strip(read("components/marketing/tab-transition.tsx")),
   ),
 )
@@ -349,7 +352,7 @@ check(
   "and the screen underneath is not scrolled to the top while it is covered",
   // Closing the sheet would otherwise drop you at the top of a profile you had
   // scrolled halfway down — a navigation you never made.
-  /pathname\?\.startsWith\("\/products\/new"\)\) return/.test(
+  /if \(isSellFormRoute\(pathname\)\) return/.test(
     strip(read("components/marketing/shell-scroll-reset.tsx")),
   ),
 )

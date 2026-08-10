@@ -2,6 +2,7 @@
 
 import { useLayoutEffect } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
+import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 /**
  * Puts the shell back at the top on every navigation.
@@ -33,7 +34,7 @@ export function ShellScrollReset() {
     // underneath is still mounted and still where you left it, and scrolling it
     // to the top would mean closing the sell sheet dropped you at the top of a
     // profile you had scrolled halfway down — a navigation you never made.
-    if (pathname?.startsWith("/products/new")) return
+    if (isSellFormRoute(pathname)) return
     const el = document.querySelector<HTMLElement>(".marketing-flex-wrapper")
     if (el && el.scrollTop !== 0) el.scrollTop = 0
   }, [pathname, searchParams])

@@ -6,6 +6,7 @@ import { MarketingFooter } from "@/components/marketing/footer"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
+import { isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 export function ConditionalFooter() {
   // No footer on the listing form. It's a long, focused task and ending it in a
@@ -86,7 +87,7 @@ export function ConditionalFooter() {
   // Surfaces that are a task, not a destination: a sitemap under them just
   // invites you to abandon what you were doing.
   const noFooter =
-    pathname.startsWith("/products/new") ||
+    isSellFormRoute(pathname) ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/messages") ||
     pathname.startsWith("/cart") ||

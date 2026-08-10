@@ -39,6 +39,16 @@ import { NewListingForm } from "@/components/sell/new-listing-form"
  * what happens is the full-page route — which is precisely how this behaved
  * before this file was added, rather than anything broken.
  */
-export default function InterceptedNewListing() {
-  return <NewListingForm />
+export default async function InterceptedNewListing({
+  searchParams,
+}: {
+  searchParams: Promise<{ draft?: string }>
+}) {
+  // `?draft=` is read HERE rather than off `window.location` inside the form.
+  // On a client navigation the browser's URL is still the previous page's when
+  // the form first renders — the router commits the tree and calls pushState in
+  // an effect afterwards — so a draft opened from the drafts list arrived at a
+  // blank form. Same fault, same fix, as the edit route beside this one.
+  const { draft } = await searchParams
+  return <NewListingForm draftId={draft ?? null} />
 }
