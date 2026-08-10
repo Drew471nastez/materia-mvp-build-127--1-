@@ -33,13 +33,14 @@ import { cn } from "@/lib/utils"
  * three lines because that is all the state is: a boolean nobody owns.
  *
  * ---------------------------------------------------------------------------
- * AND IT IS NOT A GREY PILL
+ * AND IT IS NOT A CHIP, OR A CALL TO ACTION
  * ---------------------------------------------------------------------------
- * A filled chip beside every price turned the grid into two columns of badges,
- * and grey is the colour this interface uses for things that are switched off.
- * The shield carries the brand's purple and the word sits in plain text next to
- * it — at 11px, next to a bold price, that is a footnote rather than a second
- * object competing with the number it qualifies.
+ * A filled grey pill beside every price turned the grid into two columns of
+ * badges. Colouring the shield purple instead was worse in the other direction:
+ * purple is what this interface uses for the thing it wants you to press, and
+ * sixty of them down a feed is sixty calls to action drowning the numbers they
+ * qualify. Shield and word in one quiet grey, at 11px, next to a bold price —
+ * a footnote you notice exactly when you are already asking what it means.
  */
 
 /* ── One subpage, one boolean, no provider ─────────────────────────────────
@@ -90,10 +91,10 @@ export function BuyerProtectionHost() {
 }
 
 /**
- * The shield and the word.
+ * The shield and the word, in one colour.
  *
- * `tone` exists for the one surface that is drawn over a photograph, where the
- * brand purple is not legible and white is.
+ * `tone` exists for the one surface that is drawn over a photograph, where a
+ * mid grey disappears and white does not.
  */
 export function ProtectionMark({
   className,
@@ -127,10 +128,15 @@ export function ProtectionMark({
         className,
       )}
     >
-      <ShieldCheck
-        className={cn("h-[13px] w-[13px] shrink-0", tone === "onPhoto" ? "text-white" : "text-[#7c3aed]")}
-        strokeWidth={2.5}
-      />
+      {/* THE SAME GREY AS THE WORD, not the brand purple.
+          
+          Purple is what this interface uses for the thing it wants you to press
+          — the compose button, Publish. On a footnote beside a price, repeated
+          on every card in a grid, it reads as sixty calls to action, and the
+          eye goes to them instead of to the numbers they qualify. A footnote
+          should be quiet enough that you only notice it when you are already
+          asking the question it answers. */}
+      <ShieldCheck className="h-[13px] w-[13px] shrink-0" strokeWidth={2.5} />
       incl.
     </button>
   )
@@ -157,8 +163,15 @@ export function BuyerProtectionPage({ open, onClose }: { open: boolean; onClose:
     <PickerPage open={open} title="Protecția cumpărătorului" onClose={onClose}>
       {() => (
         <div className="px-5 pb-10 pt-1">
-          <div className="flex flex-col items-center pb-6 pt-2 text-center">
-            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#7c3aed] text-white">
+          {/* AIR ABOVE THE MARK.
+              
+              It sat two pixels under the title bar's hairline, so the badge read
+              as attached to the chrome rather than as the first thing on the
+              screen. A subpage whose content starts immediately under its own
+              header has nothing separating what you navigated FROM from what
+              you navigated TO. */}
+          <div className="flex flex-col items-center pb-6 pt-8 text-center">
+            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white">
               <ShieldCheck className="h-7 w-7" strokeWidth={2.2} />
             </span>
             <p className="text-[19px] font-bold tracking-[-0.015em] text-neutral-900">

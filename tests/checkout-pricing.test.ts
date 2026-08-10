@@ -507,12 +507,13 @@ check(
 )
 
 check(
-  "it is a footnote, not a grey chip",
+  "it is a footnote: no chip, and no call to action either",
   (() => {
     // A filled pill beside every price turned the grid into two columns of
-    // badges, and grey is the colour this interface uses for things that are
-    // switched off.
-    return /text-\[#7c3aed\]/.test(protectionSrc) && !/bg-neutral-100/.test(protectionSrc)
+    // badges. Colouring the shield purple instead was worse the other way:
+    // purple is what this interface uses for the thing it wants you to press,
+    // and sixty of them down a feed drowns the numbers they qualify.
+    return !/bg-neutral-100/.test(protectionSrc) && !/#7c3aed/.test(protectionSrc)
   })(),
 )
 
