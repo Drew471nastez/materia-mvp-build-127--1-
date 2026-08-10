@@ -62,6 +62,8 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const strip = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
+import { createTapRescue } from "../lib/tap-rescue"
+
 const nav = strip(read("lib/screen-transition.ts"))
 const header = strip(read("components/marketing/mobile-web-header.tsx"))
 
@@ -150,6 +152,155 @@ check(
   // The screen is already in the client router cache; there is no load to
   // report, and a bar over it can only be a line appearing and vanishing.
   /if \(kind === "pop"\) \{\s*\n\s*go\(\)\s*\n\s*return\s*\n\s*\}/.test(nav),
+)
+
+console.log("\nOne press opens the sell sheet once")
+
+/**
+ * DRIVEN, NOT GREPPED.
+ *
+ * tap-rescue takes its timers by injection precisely so its behaviour can be
+ * exercised without a router, a renderer or a real bottom bar — and the last
+ * two bugs of this kind were both missed by checks that asserted the wiring
+ * looked right rather than that the thing did the right thing. These run it.
+ */
+function harness() {
+  const timers = new Map<number, () => void>()
+  let next = 1
+  const ran: string[] = []
+  const r = createTapRescue<string>({
+    onPress: () => undefined,
+    onAbandon: () => undefined,
+    onRescue: (t) => ran.push(`rescue:${t}`),
+    setTimer: (fn) => {
+      const id = next++
+      timers.set(id, fn)
+      return id
+    },
+    clearTimer: (id) => void timers.delete(id),
+  })
+  /** Fire every timer that is still armed, as the grace period expiring would. */
+  const elapse = () => {
+    const due = [...timers.values()]
+    timers.clear()
+    due.forEach((fn) => fn())
+  }
+  /** What the bottom bar's onClick does with the answer. */
+  const click = (t: string) => {
+    if (r.click() === false) return
+    ran.push(`click:${t}`)
+  }
+  return { r, ran, elapse, click }
+}
+
+check(
+  "the ordinary path acts once, through the click",
+  (() => {
+    const h = harness()
+    h.r.down("sell", 0, 0)
+    h.r.up()
+    h.click("sell") // click arrives inside the grace period
+    h.elapse() // …and the timer, had it not been cleared, would fire here
+    return h.ran.length === 1 && h.ran[0] === "click:sell"
+  })(),
+)
+
+check(
+  "a swallowed click acts once, through the rescue",
+  (() => {
+    const h = harness()
+    h.r.down("sell", 0, 0)
+    h.r.up()
+    h.elapse() // grace expires with no click
+    return h.ran.length === 1 && h.ran[0] === "rescue:sell"
+  })(),
+)
+
+check(
+  "and a click arriving AFTER the rescue does not open it a second time",
+  (() => {
+    // THE DOUBLE-OPEN. The grace period is 220ms and a synthesised click can
+    // arrive later than that on a busy frame — a scroll settling, a route
+    // committing. The rescue had already run the action; the late click found no
+    // live gesture to disarm, returned silently, and the caller ran it again.
+    // Two pushes, two history entries, and a visible glitch as the second landed
+    // on the first.
+    const h = harness()
+    h.r.down("sell", 0, 0)
+    h.r.up()
+    h.elapse() // rescue fires
+    h.click("sell") // …and the real click turns up late
+    return h.ran.length === 1 && h.ran[0] === "rescue:sell"
+  })(),
+)
+
+check(
+  "the memory of that is consumed, not left to swallow the next press",
+  (() => {
+    // A guard that suppressed every later click would be a worse bug than the
+    // one it fixed: the button would work once and then stop.
+    const h = harness()
+    h.r.down("sell", 0, 0)
+    h.r.up()
+    h.elapse() // rescue #1
+    h.click("sell") // suppressed
+    h.r.down("sell", 0, 0) // a NEW press
+    h.r.up()
+    h.click("sell") // must act
+    return h.ran.length === 2 && h.ran[1] === "click:sell"
+  })(),
+)
+
+check(
+  "a press that never got a click, then a new press, still acts exactly once each",
+  (() => {
+    const h = harness()
+    h.r.down("home", 0, 0)
+    h.r.up()
+    h.elapse()
+    h.r.down("inbox", 0, 0)
+    h.r.up()
+    h.elapse()
+    return h.ran.length === 2 && h.ran[0] === "rescue:home" && h.ran[1] === "rescue:inbox"
+  })(),
+)
+
+check(
+  "a drag is not a tap and opens nothing",
+  (() => {
+    const h = harness()
+    h.r.down("sell", 0, 0)
+    h.r.move(0, 40) // past the slop
+    h.r.up()
+    h.elapse()
+    return h.ran.length === 0
+  })(),
+)
+
+check(
+  "and the bar honours the answer rather than calling run() regardless",
+  (() => {
+    // The machine can only report; the caller is what acts.
+    const bar = strip(read("components/explore/mobile-bottom-nav.tsx"))
+    return /if \(rescue\.current\?\.click\(\) === false\) return/.test(bar)
+  })(),
+)
+
+check(
+  "with a floor under it that expires rather than latches",
+  (() => {
+    // The note in that file records why a `launching` boolean had to be deleted:
+    // set on press, cleared on a route change, so any moment the two disagreed
+    // left it stuck true and the + dead for the session. A timestamp cannot
+    // stick — it expires by wall clock whatever else goes wrong.
+    const bar = strip(read("components/explore/mobile-bottom-nav.tsx"))
+    return (
+      /const now = Date\.now\(\)/.test(bar) &&
+      /if \(now - lastSell\.current < 700\) return/.test(bar) &&
+      /lastSell\.current = now/.test(bar) &&
+      !/const \[launching/.test(bar)
+    )
+  })(),
 )
 
 console.log("\nThe round icon buttons in the mobile web header")

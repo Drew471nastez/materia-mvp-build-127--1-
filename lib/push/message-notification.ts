@@ -29,7 +29,7 @@
 
 import "server-only"
 
-export type MessageKind = "text" | "image" | "offer"
+export type MessageKind = "text" | "image" | "offer" | "voice"
 
 /** Only what a decision needs. Deliberately not the message row. */
 export interface NewMessageInput {
@@ -83,6 +83,10 @@ export const PREVIEW_MAX = 90
  */
 export function previewFor(kind: MessageKind, body?: string | null, offerCents?: number | null): string {
   if (kind === "image") return "Ți-a trimis o fotografie"
+  // Named, never played back or transcribed. A lock-screen banner is read by
+  // whoever is holding the phone, and a voice note is the one message type whose
+  // contents nobody has chosen to make legible at a glance.
+  if (kind === "voice") return "Ți-a trimis un mesaj vocal"
   if (kind === "offer") {
     const amount = typeof offerCents === "number" && Number.isFinite(offerCents)
       ? Math.round(offerCents / 100)

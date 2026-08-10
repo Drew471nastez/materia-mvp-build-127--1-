@@ -37,7 +37,7 @@ export type Row = {
   official?: boolean
   lastMessage: {
     sender_id: string
-    kind: "text" | "offer" | "image"
+    kind: "text" | "offer" | "image" | "voice" | "voice"
     body: string | null
     offer_cents: number | null
     offer_status: "pending" | "accepted" | "declined" | null
@@ -986,7 +986,14 @@ function MessagesList({
       {rows.map((r) => {
         const name = r.other?.display_name || r.other?.username || "Utilizator"
         const preview =
-          r.lastMessage?.kind === "image"
+          // No emoji, for the reason the card placeholder states: an emoji is
+          // drawn by the OS, so it is a different glyph on every device and a
+          // hollow rectangle on one that lacks the font. The existing camera one
+          // is left alone rather than changed under a feature that is not about
+          // it — but a new line does not get to add a second.
+          r.lastMessage?.kind === "voice"
+            ? "Mesaj vocal"
+            : r.lastMessage?.kind === "image"
             ? r.lastMessage.body || "📷 Fotografie"
             : r.lastMessage?.kind === "offer"
             ? `Ofertă: ${formatPrice(r.lastMessage.offer_cents ?? 0)}${

@@ -230,10 +230,34 @@ export function MobileBottomNav({
    * fallback is a hesitation rather than a second attempt you have given up on.
    * In the ordinary case this timer fires, finds the sheet, and returns.
    */
+  /** When the sell sheet was last asked for. See the guard inside. */
+  const lastSell = useRef(0)
+
   const onSell = useCallback(() => {
     // Already open — the only case worth declining, and it is asked of the
     // route rather than of a flag that remembers having asked.
     if (sheetOpen) return
+    /**
+     * AND NOT TWICE INSIDE ONE PRESS.
+     *
+     * `sheetOpen` is derived from the pathname, which is the right source and
+     * the wrong speed: a second call arriving milliseconds after the first sees
+     * a URL that has not changed yet and pushes again. The gesture machine is
+     * where that second call was coming from and it has been fixed there — this
+     * is the floor under it, because "open the sell sheet twice" is worth
+     * refusing from every direction, including ones nobody has found yet.
+     *
+     * A TIMESTAMP RATHER THAN A FLAG, and the difference is the whole reason
+     * this is acceptable. The note above records why a `launching` boolean had
+     * to be deleted: it was set on press and cleared on a route change, so any
+     * moment the two disagreed left it stuck true and the + dead for the rest of
+     * the session. This cannot stick — it expires by wall clock whatever else
+     * goes wrong, and the worst case is one ignored press within 700ms of
+     * another, which is not a press anybody makes on purpose.
+     */
+    const now = Date.now()
+    if (now - lastSell.current < 700) return
+    lastSell.current = now
     // The buzz already fired on pointerdown, with the finger rather than after
     // it — see the gesture machine below.
     router.push("/products/new")
@@ -415,7 +439,11 @@ export function MobileBottomNav({
     // starts the spin — put that work in the intent, so the click path and the
     // rescue path run exactly the same thing rather than two copies of it.
     onClick: () => {
-      rescue.current?.click()
+      // FALSE MEANS THE RESCUE ALREADY DID THIS. The grace period is 220ms and a
+      // synthesised click can arrive later than that on a busy frame — in which
+      // case the rescue has already run `intent.run` and running it again is one
+      // press opening two sheets. See the note on `spent` in lib/tap-rescue.ts.
+      if (rescue.current?.click() === false) return
       intent.run?.()
     },
   })

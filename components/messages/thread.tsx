@@ -15,6 +15,9 @@ import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
+import { isEncodedVoice } from "@/lib/messages/voice-message"
+import { VoiceRecorder } from "@/components/messages/voice-recorder"
+import { VoiceBubble } from "@/components/messages/voice-bubble"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
@@ -25,7 +28,7 @@ import { cn } from "@/lib/utils"
 type Msg = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image"
+  kind: "text" | "offer" | "image" | "voice"
   body: string | null
   /** Signed and short-lived by the time it reaches here — what is stored is an
    *  object path in a private bucket. On an optimistic bubble it is a local
@@ -1327,7 +1330,7 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
+      if (row.kind === "image" || isEncodedImage(row.body) || isEncodedVoice(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
@@ -1566,6 +1569,82 @@ export function MessageThread({
   // link for it — the two are swapped and the object URL is revoked, because a
   // blob held past its usefulness is the file kept in memory for the life of
   // the tab.
+  /**
+   * A finished recording, on its way.
+   *
+   * The optimistic bubble is drawn from the LOCAL blob, so it is playable before
+   * the upload finishes — the same principle the photo path follows, and it
+   * matters more here: a voice note you cannot hear back until the network says
+   * so is one you cannot check you did not fumble.
+   *
+   * The peaks travel with it, so the bubble that goes up is the bubble that
+   * stays: no waveform appearing a moment later, nothing changing shape when the
+   * server's copy replaces the local one.
+   */
+  const sendVoice = useCallback(
+    async (blob: Blob, ms: number, peaks: number[]) => {
+      if (uploading) return
+      const tempId = nextTempId()
+      const localUrl = URL.createObjectURL(blob)
+      setUploading(true)
+      stickBottom.current = true
+      setImageError(null)
+      setThread((t) =>
+        t
+          ? {
+              ...t,
+              messages: [
+                ...t.messages,
+                {
+                  id: tempId,
+                  sender_id: t.me,
+                  kind: "voice",
+                  body: null,
+                  image_url: null,
+                  voice: { path: localUrl, ms, peaks },
+                  offer_cents: null,
+                  offer_status: null,
+                  created_at: new Date().toISOString(),
+                  read_at: null,
+                  pending: true,
+                  localKey: tempId,
+                } as any,
+              ],
+            }
+          : t,
+      )
+      try {
+        const form = new FormData()
+        // A name with an extension, because some servers and some browsers
+        // decide the type from it when the blob's own is empty.
+        form.append("file", blob, "voice.webm")
+        form.append("ms", String(Math.round(ms)))
+        form.append("peaks", peaks.map((p) => String(Math.max(0, Math.min(9, Math.round(p))))).join(""))
+        const res = await fetch(`/api/messages/${id}/voice`, {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) {
+          setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+          setImageError(data?.error || "Nu am putut trimite înregistrarea.")
+          return
+        }
+        // The reload replaces the optimistic row with the stored one, whose URL
+        // is signed and whose id is real. Until it lands the local blob is what
+        // is playing, which is why the object URL is not revoked here.
+        await load()
+      } catch {
+        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+        setImageError("Nu am putut trimite înregistrarea.")
+      } finally {
+        setUploading(false)
+      }
+    },
+    [id, load, uploading],
+  )
+
   const sendImage = useCallback(
     async (file: File) => {
       if (!file || uploading) return
@@ -2315,6 +2394,25 @@ export function MessageThread({
                         onAnswer={answer}
                         formatPrice={formatPrice}
                       />
+                    ) : m.kind === "voice" ? (
+                      // Long-press still reaches the action sheet, exactly as it
+                      // does on a photograph — the bubble's own controls are
+                      // taps and drags, so a press that becomes neither is still
+                      // free to mean "do something to this message".
+                      <div
+                        onPointerDown={(e) => beginPress(m, e)}
+                        onPointerMove={movePress}
+                        onPointerUp={cancelPress}
+                        onPointerCancel={cancelPress}
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <VoiceBubble
+                          src={(m as any).voice?.path ?? ""}
+                          ms={(m as any).voice?.ms ?? 0}
+                          peaks={(m as any).voice?.peaks ?? []}
+                          mine={mine}
+                        />
+                      </div>
                     ) : m.kind === "image" ? (
                       <div
                         onPointerDown={(e) => beginPress(m, e)}
@@ -2547,7 +2645,11 @@ export function MessageThread({
         {imageError && (
           <p className="pb-2 text-center text-[13px] text-red-600">{imageError}</p>
         )}
-        <div className="flex items-end gap-2">
+        {/* `relative`, so the recording strip can cover this row rather than
+            replacing it. Swapping the composer out would change its height and
+            reflow the thread at the exact moment somebody is concentrating on
+            speaking — see components/messages/voice-recorder.tsx. */}
+        <div className="relative flex items-end gap-2">
           {/* The picker is a hidden input driven by the button beside it, so the
               button can look like the rest of the composer instead of like a
               browser's file control. Reset to "" after every pick, or choosing
@@ -2576,6 +2678,10 @@ export function MessageThread({
           >
             <ImagePlus className="h-[21px] w-[21px]" />
           </button>
+          {/* Beside the photo button, because they are the same kind of thing:
+              two ways to say something that is not typing. Its recording strip
+              covers the whole row — see the component. */}
+          <VoiceRecorder disabled={uploading} onRecorded={(blob, ms, peaks) => void sendVoice(blob, ms, peaks)} />
           {/* THE FIELD AND THE SEND BUTTON ARE ONE CONTROL.
               The button used to be a third disc outside the input, permanently
               on screen and permanently disabled — a control that is visible
