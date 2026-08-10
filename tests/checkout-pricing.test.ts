@@ -698,7 +698,7 @@ console.log("\nYou are not offered your own listing")
 
 check(
   "the save control is not drawn on your own card",
-  /\{cornerAction \?\? \(mine \? null : <WishlistHeartButton/.test(cardSrc),
+  /\{cornerAction \?\?\s*\n\s*\(known && !mine \? \(/.test(cardSrc),
 )
 
 check(
@@ -706,8 +706,22 @@ check(
   (() => {
     // The feed is cached and auth-free on purpose; a grid card deciding whether
     // to draw a heart must not cost a round trip sixty times.
+    //
+    // `getSession` was once banned here outright. It is now the fallback for a
+    // route where nothing writes a snapshot — but it reads the session already
+    // persisted on the device rather than asking the auth server, it is guarded
+    // to run at most once per page however many cards mount, and the snapshot is
+    // still what answers whenever there is one. What the ban was protecting
+    // against was a request PER CARD, and that is still what is asserted.
     const hook = read("lib/marketplace/use-my-username.ts")
-    return /readAuthSnapshot/.test(hook) && !/fetch\(/.test(hook) && !/getSession/.test(hook)
+    return (
+      /readAuthSnapshot/.test(hook) &&
+      !/fetch\(/.test(hook) &&
+      // Never the auth server, and never more than once.
+      !/auth\.getUser\(\)/.test(hook) &&
+      [...hook.matchAll(/auth\.getSession\(\)/g)].length === 1 &&
+      /if \(sessionChecked \|\| asking\) return/.test(hook)
+    )
   })(),
 )
 

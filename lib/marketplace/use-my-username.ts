@@ -50,9 +50,23 @@ export function useMyUsername(): string | null {
  * seller's — `_explore-feed.tsx` selects `id, user_id, slug` off creators and
  * hangs it on each product — so nothing new has to be fetched to use it.
  */
-type Identity = { userId: string | null; username: string | null }
+type Identity = {
+  userId: string | null
+  username: string | null
+  /**
+   * Whether the answer above is an ANSWER.
+   *
+   * Without this there is no difference between "nobody is signed in" and "we
+   * have not found out yet", and the two want opposite behaviour on a card:
+   * one should draw the save control, the other must draw nothing at all.
+   * Collapsing them is why the heart still appeared for a frame on your own
+   * listing and then vanished — the card was told "not yours" before anybody
+   * had looked.
+   */
+  known: boolean
+}
 
-const NOBODY: Identity = { userId: null, username: null }
+const NOBODY: Identity = { userId: null, username: null, known: false }
 
 /**
  * Resolved from the session when there is no snapshot to read.
@@ -62,6 +76,9 @@ const NOBODY: Identity = { userId: null, username: null }
  * would be a worse bug than the one it fixes.
  */
 let fromSession: Identity | null = null
+/** Set once the session has been consulted, whatever it said. Signed OUT is an
+ *  answer, and a visitor who is not signed in must not lose the control. */
+let sessionChecked = false
 let asking: Promise<unknown> | null = null
 /** Every mounted card, so one answer reaches all of them. */
 const watchers = new Set<() => void>()
@@ -69,22 +86,32 @@ const watchers = new Set<() => void>()
 function currentIdentity(): Identity {
   const snap = readAuthSnapshot()
   if (snap?.signedIn && (snap.userId || snap.username)) {
-    return { userId: snap.userId ?? null, username: snap.username ?? null }
+    return { userId: snap.userId ?? null, username: snap.username ?? null, known: true }
   }
-  return fromSession ?? NOBODY
+  if (fromSession) return fromSession
+  return { userId: null, username: null, known: sessionChecked }
 }
 
 function askSessionOnce(): void {
-  if (fromSession || asking) return
+  if (sessionChecked || asking) return
   const snap = readAuthSnapshot()
   if (snap?.signedIn && snap.userId) return
   asking = createClient()
-    .auth.getUser()
-    .then(({ data }: { data: { user: { id: string } | null } }) => {
-      if (!data.user) return
+    // getSession, not getUser: this reads the session already persisted on the
+    // device, where getUser asks the auth server. The question here is only
+    // "which account is this browser", the server re-decides everything that
+    // matters anyway, and a network round trip is exactly the delay that leaves
+    // a card guessing.
+    .auth.getSession()
+    .then(({ data }: { data: { session: { user: { id: string } } | null } }) => {
       // No username from a session — the id is the identifier that always
       // exists, and it is the one that decides ownership anyway.
-      fromSession = { userId: data.user.id, username: null }
+      fromSession = data.session
+        ? { userId: data.session.user.id, username: null, known: true }
+        : null
+      // Signed out is an answer too, and the one that lets a visitor have the
+      // save control at all.
+      sessionChecked = true
       for (const w of watchers) w()
     })
     .catch(() => undefined)
@@ -130,7 +157,11 @@ function useMyIdentity(): Identity {
       // Compared by value — the identity is re-read on every announcement and
       // most announcements do not change it.
       setMe((prev) =>
-        prev.userId === next.userId && prev.username === next.username ? prev : next,
+        prev.userId === next.userId &&
+        prev.username === next.username &&
+        prev.known === next.known
+          ? prev
+          : next,
       )
     }
     read()
@@ -158,7 +189,29 @@ export function useIsMyListing(
   sellerUsername: string | null | undefined,
   sellerUserId?: string | null,
 ): boolean {
+  return useListingOwnership(sellerUsername, sellerUserId).mine
+}
+
+/**
+ * The same question, with the third possible answer kept.
+ *
+ * `mine` alone cannot express "nobody has looked yet", so a card that trusted
+ * it drew the save control on the first frame of its own listing and took it
+ * away once the identity landed. A flash of the wrong control is still the
+ * wrong control; it is just harder to complain about.
+ *
+ * So the control waits for `known`. The cost is that somebody else's listing is
+ * one frame late getting its heart, which is the right way round: a heart
+ * missing for a moment on a stranger's card is invisible, and a heart present
+ * for a moment on your own is the bug.
+ */
+export function useListingOwnership(
+  sellerUsername: string | null | undefined,
+  sellerUserId?: string | null,
+): { mine: boolean; known: boolean } {
   const me = useMyIdentity()
-  if (me.userId && sellerUserId && me.userId === sellerUserId) return true
-  return !!me.username && !!sellerUsername && me.username === sellerUsername
+  if (!me.known) return { mine: false, known: false }
+  const byId = !!me.userId && !!sellerUserId && me.userId === sellerUserId
+  const byName = !!me.username && !!sellerUsername && me.username === sellerUsername
+  return { mine: byId || byName, known: true }
 }

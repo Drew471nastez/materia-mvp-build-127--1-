@@ -894,7 +894,7 @@ check(
     return (
       /cornerAction=\{\s*\n?\s*isOwner \? \(/.test(profile) &&
       /setManageFor\(listing\)/.test(profile) &&
-      /\{cornerAction \?\? \(mine \? null : <WishlistHeartButton/.test(card)
+      /\{cornerAction \?\?\s*\n\s*\(known && !mine \? \(/.test(card)
     )
   })(),
 )
@@ -1675,8 +1675,8 @@ check(
     // is putting something you already own on a list of things to acquire.
     const card = strip(read("components/explore/product-card.tsx"))
     return (
-      /const mine = useIsMyListing\(/.test(card) &&
-      /mine \? null : <WishlistHeartButton/.test(card)
+      /const \{ mine, known \} = useListingOwnership\(/.test(card) &&
+      /known && !mine \? \(\s*\n\s*<WishlistHeartButton/.test(card)
     )
   })(),
 )
@@ -1689,8 +1689,8 @@ check(
     // the two being broken.
     const reel = strip(read("components/explore/mobile-listing-card.tsx"))
     return (
-      /const mine = useIsMyListing\(username, product\.creator\?\.user_id\)/.test(reel) &&
-      /\{!mine && \(\s*\n\s*<button type="button" onClick=\{onLike\}/.test(reel)
+      /const \{ mine, known \} = useListingOwnership\(username, product\.creator\?\.user_id\)/.test(reel) &&
+      /\{known && !mine && \(\s*\n\s*<button type="button" onClick=\{onLike\}/.test(reel)
     )
   })(),
 )
@@ -1859,9 +1859,9 @@ check(
     const hook = strip(read("lib/marketplace/use-my-username.ts"))
     return (
       /sellerUserId\?: string \| null/.test(hook) &&
-      /if \(me\.userId && sellerUserId && me\.userId === sellerUserId\) return true/.test(hook) &&
+      /const byId = !!me\.userId && !!sellerUserId && me\.userId === sellerUserId/.test(hook) &&
       // The username still works for callers that only have that.
-      /return !!me\.username && !!sellerUsername && me\.username === sellerUsername/.test(hook)
+      /const byName = !!me\.username && !!sellerUsername && me\.username === sellerUsername/.test(hook)
     )
   })(),
 )
@@ -1874,8 +1874,8 @@ check(
     const card = strip(read("components/explore/product-card.tsx"))
     const reel = strip(read("components/explore/mobile-listing-card.tsx"))
     return (
-      /useIsMyListing\(product\?\.creator\?\.profile\?\.username, product\?\.creator\?\.user_id\)/.test(card) &&
-      /useIsMyListing\(username, product\.creator\?\.user_id\)/.test(reel) &&
+      /useListingOwnership\(product\?\.creator\?\.profile\?\.username, product\?\.creator\?\.user_id\)/.test(card) &&
+      /useListingOwnership\(username, product\.creator\?\.user_id\)/.test(reel) &&
       // And the card's own prop type admits the field, or it never arrives.
       /user_id\?: string \| null/.test(card)
     )
@@ -2234,8 +2234,8 @@ check(
     const hook = read("lib/marketplace/use-my-username.ts")
     return (
       /^let fromSession/m.test(hook) &&
-      /if \(fromSession \|\| asking\) return/.test(hook) &&
-      [...hook.matchAll(/auth\.getUser\(\)/g)].length === 1
+      /if \(sessionChecked \|\| asking\) return/.test(hook) &&
+      [...hook.matchAll(/auth\.getSession\(\)/g)].length === 1
     )
   })(),
 )
@@ -2273,6 +2273,46 @@ check(
     const nav = read("components/explore/mobile-bottom-nav.tsx")
     const btn = /className="flex h-12 w-12 items-center justify-center rounded-full text-white"/.exec(nav)
     return !!btn && !/active:scale-\d+[\s\S]{0,80}?plus-turn/.test(nav)
+  })(),
+)
+
+check(
+  "the save control does not exist until the question has an answer",
+  (() => {
+    // THE FLASH. `mine` alone cannot say "nobody has looked yet", so a card
+    // that trusted it drew the heart on the first frame of your own listing and
+    // took it away once the identity landed. A frame of the wrong control is
+    // still the wrong control.
+    const card = read("components/explore/product-card.tsx")
+    const reel = read("components/explore/mobile-listing-card.tsx")
+    return (
+      /known && !mine \? \(/.test(card) &&
+      /\{known && !mine && \(/.test(reel) &&
+      // And nothing may go back to deciding on `mine` by itself.
+      !/mine \? null : <WishlistHeartButton/.test(card)
+    )
+  })(),
+  "        components/explore — the heart waits for `known`. A heart missing for\n" +
+    "        a moment on a stranger's card is invisible; one present for a moment\n" +
+    "        on your own is the bug.",
+)
+
+check(
+  "signed OUT is an answer, so a visitor still gets the control",
+  (() => {
+    // The obvious way to write the above is "hide it until we know it is not
+    // yours", which for somebody who is not signed in never resolves — and the
+    // save control disappears from the whole app for every logged-out visitor,
+    // which is a far bigger bug than the one being fixed.
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return (
+      /sessionChecked = true/.test(hook) &&
+      /known: sessionChecked/.test(hook) &&
+      // Read from the device, not asked over the network — the delay is the
+      // whole problem here.
+      /auth\.getSession\(\)/.test(hook) &&
+      !/auth\.getUser\(\)/.test(hook)
+    )
   })(),
 )
 

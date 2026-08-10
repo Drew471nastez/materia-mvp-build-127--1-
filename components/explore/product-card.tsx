@@ -11,7 +11,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { useLocale } from "@/components/locale-provider"
 import { ProtectionMark } from "@/components/marketplace/buyer-protection"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
-import { useIsMyListing } from "@/lib/marketplace/use-my-username"
+import { useListingOwnership } from "@/lib/marketplace/use-my-username"
 import { CONDITIONS } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 import { Heart, ImageOff } from "lucide-react"
@@ -265,7 +265,9 @@ export const ProductCard = memo(function ProductCard({
   // Before the `if (!product) return null` below, so it is unconditional — and
   // therefore optional all the way down, because at this point there may be no
   // product at all.
-  const mine = useIsMyListing(product?.creator?.profile?.username, product?.creator?.user_id)
+  // `known` as well as `mine`: the heart must not exist for the frame before
+  // anybody has looked. See useListingOwnership.
+  const { mine, known } = useListingOwnership(product?.creator?.profile?.username, product?.creator?.user_id)
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0
@@ -458,7 +460,10 @@ export const ProductCard = memo(function ProductCard({
             does nothing anybody wants, and a heart on it is the interface
             offering you a thing it will then have to refuse. `cornerAction`
             still wins where a caller has one — the profile puts its ⋯ here. */}
-        {cornerAction ?? (mine ? null : <WishlistHeartButton productId={product.id} savesCount={savesCount} />)}
+        {cornerAction ??
+          (known && !mine ? (
+            <WishlistHeartButton productId={product.id} savesCount={savesCount} />
+          ) : null)}
       </div>
 
       {/* Meta — no card chrome, the photo carries the card */}
