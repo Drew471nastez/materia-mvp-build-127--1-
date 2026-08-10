@@ -777,7 +777,42 @@ export function MobileFeed({
       tabSettled.current = true
       return
     }
-    scrollRef.current?.scrollTo({ top: tabScroll.current[tab] ?? 0, behavior: "auto" })
+    const top = tabScroll.current[tab] ?? 0
+    /**
+     * ═════════════════════════════════════════════════════════════════════════
+     *  WHY THE PILL BAR FLICKED AWAY COMING BACK TO FOR YOU
+     * ═════════════════════════════════════════════════════════════════════════
+     *
+     * The bar hides on scroll-down and reveals on scroll-up, and it decides
+     * which by comparing this scroll position against `lastScrollY`. Two effects
+     * run on a tab change, in this order:
+     *
+     *   1. The reset above sets the bar visible and `lastScrollY` to 0, because
+     *      a tab you have just arrived at must not start with the bar tucked
+     *      away where nothing would bring it back.
+     *   2. This one restores the tab's remembered offset — say 1500px.
+     *
+     * That restore fires a scroll event, and the handler reads it as a scroll
+     * from 0 to 1500: a downward movement of fifteen hundred pixels, which is
+     * emphatically "hide the bar". So the bar rendered, was visible for a frame
+     * or two, and then slid up and faded out on its own — with nothing having
+     * been scrolled by hand at all. Exactly the glitch, and exactly on the
+     * transition that restores a position: Following and Saved are always at
+     * their top, so coming back to For You is the only time there is anything to
+     * restore.
+     *
+     * Seeding `lastScrollY` with the position we are jumping TO is the whole
+     * fix. The programmatic jump then reads as no movement, which is the truth —
+     * the person did not scroll, the tab changed — and the first real flick
+     * afterwards is measured from where the feed actually is.
+     *
+     * Set BEFORE the scroll rather than after: the event is asynchronous, so
+     * writing it afterwards is a race with the handler it exists to inform, and
+     * it is also correct if the event never arrives (restoring to 0 from 0 fires
+     * nothing at all).
+     */
+    lastScrollY.current = top
+    scrollRef.current?.scrollTo({ top, behavior: "auto" })
   }, [tab])
 
   // Warm the saved-listings cache up front so opening the Saved tab is instant.

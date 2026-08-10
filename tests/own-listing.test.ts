@@ -373,14 +373,44 @@ check(
 )
 
 check(
-  "the intercepted edit route has its own loading shell",
+  "the intercepted edit route has NO loading shell, so it arrives once",
   (() => {
-    // A Suspense fallback resolves to the nearest loading.tsx up the tree, which
-    // without this is the FULL-PAGE shell — a centred column of grey blocks with
-    // no sheet. Tapping Editează would show a page-shaped skeleton in place and
-    // then the real sheet sliding up over it: two arrivals, which is the flash
-    // the interception exists to prevent.
-    return existsSync(join(process.cwd(), "app/(marketing)/@modal/(.)products/edit/[id]/loading.tsx"))
+    // It had one, and adding the server read is what made it wrong. A
+    // `loading.tsx` IS a Suspense boundary: Next shows the fallback immediately
+    // and swaps the real thing in when it resolves. While the page was
+    // synchronous that fallback almost never appeared; the moment it started
+    // awaiting a database read it appeared every time — a sheet-shaped skeleton
+    // sliding up, then the real sheet replacing it. Two arrivals for one tap,
+    // which is the exact fault the server read was added to remove.
+    //
+    // With no boundary here, and none around `{modal}` in the layout either, the
+    // navigation waits: the screen you are on stays put, then the sheet mounts
+    // once, already full. The prefetch in the manage sheet is what pays for the
+    // wait.
+    const layout = strip(read("app/(marketing)/layout.tsx"))
+    return (
+      !existsSync(join(process.cwd(), "app/(marketing)/@modal/(.)products/edit/[id]/loading.tsx")) &&
+      // If the layout ever wraps the slot in Suspense, this all comes back.
+      !/<Suspense[^>]*>\s*\{modal\}/.test(layout) &&
+      /\{modal\}/.test(layout)
+    )
+  })(),
+)
+
+check(
+  "but the full-page one keeps its shell, because a cold load has nothing to hold",
+  // Not an inconsistency: with no previous screen the choice there is a shell or
+  // a blank document.
+  existsSync(join(process.cwd(), "app/(marketing)/products/edit/[id]/loading.tsx")),
+)
+
+check(
+  "and the route is warmed from the profile grid too, not only from the sheet",
+  (() => {
+    // Archived and draft cards reach the edit screen through SmartLink, which is
+    // the other way in and the one with no explicit prefetch beside it.
+    const link = strip(read("components/smart-link.tsx"))
+    return /router\.prefetch\(resolvedHref\)/.test(link)
   })(),
 )
 
@@ -1553,6 +1583,92 @@ check(
   ),
 )
 
+console.log("\nYou cannot save your own listing")
+
+check(
+  "the grid card hides the heart on your own listing",
+  (() => {
+    // A wishlist is a list of things you might buy, and the checkout refuses your
+    // own item — the listing page has already replaced Buy and Make an offer for
+    // exactly that reason. A heart there is a control whose only honest outcome
+    // is putting something you already own on a list of things to acquire.
+    const card = strip(read("components/explore/product-card.tsx"))
+    return (
+      /const mine = useIsMyListing\(/.test(card) &&
+      /mine \? null : <WishlistHeartButton/.test(card)
+    )
+  })(),
+)
+
+check(
+  "and so does the full-screen one in For You",
+  (() => {
+    // It did not, so the SAME listing offered a save on the grid and not in the
+    // reel — which is worse than either answer alone, because it reads as one of
+    // the two being broken.
+    const reel = strip(read("components/explore/mobile-listing-card.tsx"))
+    return (
+      /const mine = useIsMyListing\(username\)/.test(reel) &&
+      /\{!mine && \(\s*\n\s*<button type="button" onClick=\{onLike\}/.test(reel)
+    )
+  })(),
+)
+
+check(
+  "the control is removed, not disabled",
+  (() => {
+    // A greyed-out heart still asks to be pressed, and the answer would be a
+    // refusal.
+    const reel = strip(read("components/explore/mobile-listing-card.tsx"))
+    return !/disabled=\{mine\}/.test(reel) && !/opacity-\d+.*mine/.test(reel)
+  })(),
+)
+
+check(
+  "and it is decided from the snapshot, not from a request per card",
+  (() => {
+    // The feed is cached and auth-free on purpose — that is most of why it opens
+    // instantly — so this cannot become sixty ownership lookups.
+    const hook = strip(read("lib/marketplace/use-my-username.ts"))
+    return /readAuthSnapshot\(\)/.test(hook) && !/fetch\(/.test(hook)
+  })(),
+)
+
+console.log("\nThe category rail does not flinch on the way back to For You")
+
+check(
+  "restoring a tab's scroll position is not read as a scroll DOWN",
+  (() => {
+    // The bar hides on scroll-down and reveals on scroll-up, by comparing
+    // against `lastScrollY`. On a tab change the reset sets that to 0 and the
+    // restore then jumps to the remembered offset — say 1500px — which the
+    // handler reads as a fifteen-hundred-pixel downward scroll. So the bar
+    // rendered, was visible for a frame, and slid away on its own with nothing
+    // having been scrolled by hand. Only For You has a position to restore,
+    // which is why it was that transition and no other.
+    const feed = strip(read("components/explore/mobile-feed.tsx"))
+    const fx = feed.slice(feed.indexOf("if (!tabSettled.current)"))
+    return (
+      /const top = tabScroll\.current\[tab\] \?\? 0/.test(fx.slice(0, 400)) &&
+      /lastScrollY\.current = top/.test(fx.slice(0, 900))
+    )
+  })(),
+)
+
+check(
+  "and the seed is written BEFORE the scroll it describes",
+  (() => {
+    // The scroll event is asynchronous, so writing it afterwards races the
+    // handler it exists to inform — and it is also correct when the event never
+    // fires at all, which is what restoring 0 from 0 does.
+    const feed = strip(read("components/explore/mobile-feed.tsx"))
+    const fx = feed.slice(feed.indexOf("if (!tabSettled.current)"))
+    const seed = fx.indexOf("lastScrollY.current = top")
+    const scroll = fx.indexOf("scrollTo({ top, behavior: \"auto\" })")
+    return seed > 0 && scroll > seed
+  })(),
+)
+
 console.log("\nComing back to where you were")
 
 check(
@@ -1641,21 +1757,41 @@ check(
 )
 
 check(
-  "and the face is AFTER the name, which is what was asked for",
+  "and the face LEADS the name, which is what was asked for",
   (() => {
-    // This has been written both ways twice. The case for leading with the face
-    // is real — it is the order the header below uses — but it is an aesthetic
-    // preference, and it loses to an explicit instruction: "the header has the
-    // name but also renders the circle of the profile avatar to the right of the
-    // name", in those words, from the person whose product this is.
+    // Written name-then-face, then face-then-name, then back, then here. The
+    // record is worth keeping because the deciding argument was never an
+    // aesthetic one: it was asked for, then the opposite was asked for, and this
+    // is the current ask — "the profile avatar circle needs to be on the other
+    // side of the username".
     //
     // Asserted rather than left to a comment precisely because a comment did not
-    // hold it. If this is to change again it should change because the same
-    // person asks, and then this check changes with it.
+    // hold it. If it changes again it should change because the same person asks
+    // again, and then this check changes with it.
     const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
     const name = group.indexOf("{name}")
     const face = group.indexOf("<PinnedAvatar")
-    return name > 0 && face > name
+    return face > 0 && name > face
+  })(),
+)
+
+check(
+  "the bar does not flip state while a finger is holding still on the line",
+  (() => {
+    // One zero-height sentinel and one threshold means the state flips the
+    // instant that line crosses the top of the viewport — so a slow drag, the
+    // tail of a flick or an overscroll settle crosses it repeatedly, and each
+    // crossing starts a 320ms slide the next one reverses partway through. The
+    // judder was several animations over each other, none finishing.
+    return (
+      /rootMargin: "-56px 0px 0px 0px"/.test(profileSrc) &&
+      /rootMargin: "-8px 0px 0px 0px"/.test(profileSrc) &&
+      // Two observers, because a threshold is about how MUCH of an element is
+      // visible and this is about where it is — a zero-height element is never
+      // partly visible.
+      /show\.observe\(el\)/.test(profileSrc) &&
+      /hide\.observe\(el\)/.test(profileSrc)
+    )
   })(),
 )
 

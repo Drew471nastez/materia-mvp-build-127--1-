@@ -25,6 +25,34 @@ import { loadOwnedListing } from "@/lib/marketplace/owned-listing"
  * A route parameter has no such problem. It is part of the tree being rendered,
  * it is resolved on the server, and it arrives as a prop before the component's
  * first render rather than one effect later.
+ *
+ * ---------------------------------------------------------------------------
+ * AND THERE IS DELIBERATELY NO loading.tsx BESIDE THIS FILE
+ * ---------------------------------------------------------------------------
+ * There was one, and adding the server read below is what made it wrong.
+ *
+ * A `loading.tsx` is a Suspense boundary, and a Suspense boundary means Next
+ * shows the fallback IMMEDIATELY and swaps the real thing in when it resolves.
+ * While this page was synchronous that fallback almost never appeared. The
+ * moment it started awaiting a database read it appeared every time — so the tap
+ * produced a sheet-shaped skeleton sliding up, and then the real sheet replacing
+ * it a moment later. Two arrivals for one tap, which is the exact fault the
+ * server read was added to remove, reintroduced one layer out.
+ *
+ * With no boundary here — and the layout does not wrap `{modal}` in one either —
+ * the navigation simply waits. The screen you are on stays put and stays
+ * interactive, and then the sheet mounts once, already carrying its title, its
+ * price and its photographs, and slides up. One arrival.
+ *
+ * What pays for the wait is the prefetch: components/product/manage-listing-sheet
+ * warms this route while its own sheet is still open, and SmartLink warms it for
+ * the archived and draft cards on the profile grid. By the time the push happens
+ * the payload — including this server read — is usually already in the client
+ * cache, so "waiting" is a frame.
+ *
+ * The non-intercepted route KEEPS its loading.tsx, and the difference is not an
+ * inconsistency: a cold load has no previous screen to hold, so there the choice
+ * is a shell or a blank document.
  */
 export default async function InterceptedEditListing({
   params,

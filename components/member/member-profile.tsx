@@ -511,17 +511,51 @@ export function MemberProfile({
   useEffect(() => {
     const el = nameEndRef.current
     if (!el || typeof IntersectionObserver === "undefined") return
-    const io = new IntersectionObserver(
+    /**
+     * A DEAD BAND, AND IT IS WHY THE BAR USED TO STUTTER.
+     *
+     * The sentinel is a single zero-height element and the test was a single
+     * threshold, so the bar's state flipped the instant that one line crossed
+     * the top of the viewport. Anything that leaves you sitting ON that line —
+     * a slow drag, the tail of a flick, the rubber-band settle at the end of an
+     * overscroll — crosses it repeatedly, and each crossing starts a 320ms
+     * slide that the next crossing reverses partway through. That is the
+     * juddering: not one animation played badly, but several played over each
+     * other, none of them finishing.
+     *
+     * `rootMargin` moves the line the observer watches without moving anything
+     * on the page. Showing at −56 and hiding at −8 puts 48px between the two
+     * decisions, so the scroll has to genuinely change its mind before the bar
+     * does, and a hand held still can no longer sit on the boundary.
+     *
+     * Two observers rather than one with two thresholds, because a threshold is
+     * about how much of the element is visible and this is about WHERE it is —
+     * a zero-height element is never partly visible, so thresholds cannot
+     * express it at all.
+     */
+    const show = new IntersectionObserver(
       ([entry]) => {
-        // Above the viewport, not below it. Without the second test the bar
-        // also appears when the sentinel has not been reached yet — which on a
-        // short profile is most of the time.
-        setPinned(!entry.isIntersecting && entry.boundingClientRect.top < 0)
+        // Gone past, and well past. `boundingClientRect.top` is still the test
+        // for direction: without it the bar also appears when the sentinel has
+        // not been reached yet, which on a short profile is most of the time.
+        if (!entry.isIntersecting && entry.boundingClientRect.top < 0) setPinned(true)
       },
-      { threshold: 0 },
+      { threshold: 0, rootMargin: "-56px 0px 0px 0px" },
     )
-    io.observe(el)
-    return () => io.disconnect()
+    const hide = new IntersectionObserver(
+      ([entry]) => {
+        // Back in view near the top: the real name is about to be readable
+        // again, so the stand-in should be gone before it is.
+        if (entry.isIntersecting || entry.boundingClientRect.top >= 0) setPinned(false)
+      },
+      { threshold: 0, rootMargin: "-8px 0px 0px 0px" },
+    )
+    show.observe(el)
+    hide.observe(el)
+    return () => {
+      show.disconnect()
+      hide.disconnect()
+    }
   }, [])
 
   /**
