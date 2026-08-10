@@ -69,28 +69,36 @@ export function ProfilePinnedHeader({
             again. It takes the whole measure it can and truncates, because the
             controls have a fixed width and a long display name must never push
             them off the edge. */}
-        {/* THE FACE AND THE NAME ARE ONE OBJECT.
+        {/* THE FACE AND THE NAME ARE ONE OBJECT, AND THE FACE GOES SECOND.
 
-            The avatar was pushed to the far end of the bar, against the
+            The avatar was once pushed to the far end of the bar, against the
             controls — so the two halves of "whose profile is this" sat at
             opposite edges with a void between them, and the picture read as a
-            fourth button rather than as part of the identity.
+            fourth button rather than as part of the identity. Grouping them
+            fixed that and is not in question.
 
-            The face comes FIRST, which is the order the header below it uses —
-            avatar, then name — and the order every profile anywhere uses. The
-            bar is standing in for that header, so reversing its two elements
-            made it read as a different thing that happened to contain the same
-            two.
-            
-            It costs the name 28px and a gap, and the name can afford it:
-            `min-w-0` on the group with `truncate` on the text means a long
-            display name shortens rather than shoving the controls off the
-            edge, which is the only failure mode that would actually matter. */}
+            THE ORDER IS. This has now been written both ways twice, so it is
+            worth stating plainly rather than leaving to whoever edits it next:
+            AVATAR AFTER NAME IS WHAT WAS ASKED FOR, by the person whose product
+            this is, in those words — "the header has the name but also renders
+            the circle of the profile avatar to the right of the name".
+
+            The case for leading with the face is real and was made here: it is
+            the order the header below uses and the order most profiles use. It
+            is also an aesthetic preference, and it loses to an explicit
+            instruction. If it is to change again it should change because the
+            same person asks for it, not because it reads better to whoever is
+            in this file.
+
+            The layout is unchanged either way: `min-w-0` on the group with
+            `truncate` on the text means a long display name shortens rather
+            than shoving the controls off the edge, which is the only failure
+            mode that actually matters. */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <PinnedAvatar name={name} url={avatarUrl} />
           <span className="min-w-0 truncate text-[16px] font-bold tracking-[-0.01em] text-neutral-900">
             {name}
           </span>
+          <PinnedAvatar name={name} url={avatarUrl} />
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">

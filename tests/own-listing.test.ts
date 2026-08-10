@@ -1253,19 +1253,12 @@ check(
   })(),
 )
 
-check(
-  "the face comes first, then the name, as everywhere else",
-  (() => {
-    // The avatar sat against the controls, so the two halves of "whose profile
-    // is this" were at opposite edges and the picture read as a fourth button.
-    // Grouped, and in the header's own order — reversing them made the bar read
-    // as a different thing that happened to contain the same two elements.
-    const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
-    const faceAt = group.indexOf("<PinnedAvatar")
-    const nameAt = group.indexOf("{name}\n")
-    return faceAt > 0 && nameAt > faceAt
-  })(),
-)
+// The ordering of the face and the name is asserted ONCE, further down, under
+// "and the face is AFTER the name, which is what was asked for". A check
+// enforcing the opposite order stood here and has been removed rather than
+// loosened: two checks disagreeing about the same two elements is how the bar
+// came to be written both ways twice. The reasoning for each side is recorded at
+// the surviving check and in the component.
 
 check(
   "the bar is opaque, not frosted",
@@ -1644,6 +1637,25 @@ check(
       // And the caller actually hands it one.
       /avatarUrl=\{member\.avatarUrl\}/.test(profileSrc)
     )
+  })(),
+)
+
+check(
+  "and the face is AFTER the name, which is what was asked for",
+  (() => {
+    // This has been written both ways twice. The case for leading with the face
+    // is real — it is the order the header below uses — but it is an aesthetic
+    // preference, and it loses to an explicit instruction: "the header has the
+    // name but also renders the circle of the profile avatar to the right of the
+    // name", in those words, from the person whose product this is.
+    //
+    // Asserted rather than left to a comment precisely because a comment did not
+    // hold it. If this is to change again it should change because the same
+    // person asks, and then this check changes with it.
+    const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
+    const name = group.indexOf("{name}")
+    const face = group.indexOf("<PinnedAvatar")
+    return name > 0 && face > name
   })(),
 )
 
