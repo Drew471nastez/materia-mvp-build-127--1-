@@ -2117,10 +2117,13 @@ export function MessageThread({
             // A pop, announced as one: the hint on <html> is what tells the
             // inbox it is being returned to rather than opened, so it arrives
             // travelling back from the left instead of simply being there.
-            onClick={() => {
-              void triggerHaptic("light")
-              closeThread()
-            }}
+            // NO BUZZ. Leaving a screen is navigation, not an act — the same
+            // reasoning as the conversation rows in the inbox, which lost
+            // theirs for the same reason. A buzz here also fires on the one
+            // control people press most often on this screen, and on the exact
+            // frame the pop animation starts, so it reads as the transition
+            // stuttering rather than as feedback.
+            onClick={() => closeThread()}
             className="tap-fade flex h-10 w-10 items-center justify-center rounded-full"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />

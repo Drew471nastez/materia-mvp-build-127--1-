@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { sendPushToUser } from "@/lib/push/sender"
+import { CALL_SENTINEL } from "@/lib/messages/call-message"
 
 /**
  * POST /api/calls/ring  { conversationId, callId, stage }  → { ok }
@@ -84,6 +86,63 @@ export async function POST(req: NextRequest) {
   const recipient = convo.buyer_id === user.id ? convo.seller_id : convo.buyer_id
   if (!recipient || recipient === user.id) {
     return NextResponse.json({ error: "No recipient" }, { status: 400 })
+  }
+
+  /**
+   * A BLOCK HAS TO STOP A CALL, and more firmly than it stops a message.
+   *
+   * This was missing, and it is the more serious of the two omissions here: a
+   * message from somebody you have blocked sits unread in a list, while a call
+   * makes the phone in your pocket ring. Blocking is most often used by exactly
+   * the people for whom being reachable at all is the problem, so the one
+   * channel that demands immediate attention cannot be the one it does not
+   * cover.
+   *
+   * One direction only, and the refusal says nothing, both matching
+   * app/api/messages/[id]/route.ts: if THEY blocked YOU, you are refused; if you
+   * blocked them, your own call still goes. "You have been blocked" is
+   * information the blocked party is not owed, so this answers exactly as a
+   * conversation that does not exist would.
+   */
+  const admin = createAdminClient()
+  const { data: blockedBy } = await admin
+    .from("user_blocks")
+    .select("blocker_id")
+    .eq("blocker_id", recipient)
+    .eq("blocked_id", user.id)
+    .maybeSingle()
+  if (blockedBy) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  /**
+   * AND A CEILING ON HOW OFTEN ONE PERSON CAN MAKE ANOTHER PHONE RING.
+   *
+   * Every other write in messaging has one; this had none, and it is the worst
+   * place to leave one out. A loop against this endpoint is not spam sitting in
+   * a list, it is a phone ringing over and over on a lock screen at whatever
+   * hour it happens to be, and each ring costs the caller one request.
+   *
+   * Counted from the rows a call leaves behind rather than in memory, for the
+   * reason the text route states: serverless instances do not share memory, so
+   * an in-process counter is a limit that resets whenever the platform scales.
+   * Six in five minutes is far above anyone redialling somebody who did not
+   * hear the first one, and far below what a script does.
+   */
+  const since = new Date(Date.now() - 5 * 60_000).toISOString()
+  const { count: recent } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", conversationId)
+    .eq("sender_id", user.id)
+    .eq("kind", "text")
+    .gte("created_at", since)
+    .like("body", `${CALL_SENTINEL}%`)
+  if ((recent ?? 0) >= 6) {
+    return NextResponse.json(
+      { error: "Prea multe apeluri. Așteaptă câteva minute." },
+      { status: 429 },
+    )
   }
 
   // The caller's own name, so the notification says who is ringing rather than

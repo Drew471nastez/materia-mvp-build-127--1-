@@ -22,7 +22,13 @@
 
 import type { CallEnding } from "@/lib/calls/protocol"
 
-const SENTINEL = "storelib:call"
+/**
+ * Exported because the ring route counts recent calls by matching this
+ * prefix. A rate limit that spelled the sentinel out as a literal would be a
+ * second copy of this encoding, silently wrong the day the sentinel changes.
+ */
+export const CALL_SENTINEL = "storelib:call"
+const SENTINEL = CALL_SENTINEL
 const SEP = ""
 
 export interface CallRecord {

@@ -81,7 +81,10 @@ check(
     const call = read("lib/messages/call-message.ts")
     const voice = read("lib/messages/voice-message.ts")
     const image = read("lib/messages/image-fallback.ts")
-    const of = (s: string) => /const SENTINEL = "([^"]+)"/.exec(s)?.[1]
+    // The call sentinel is now declared as an exported constant, because the
+    // ring route's rate limit has to name it rather than copy it.
+    const of = (s: string) =>
+      /const (?:CALL_)?SENTINEL = "([^"]+)"/.exec(s)?.[1]
     const [c, v, i] = [of(call), of(voice), of(image)]
     return !!c && !!v && !!i && c !== v && c !== i && v !== i
   })(),
@@ -382,6 +385,93 @@ check(
     // two lines. The caller is the end that knows every ending.
     const record = read("app/api/calls/record/route.ts")
     return /wasCaller && convo/.test(host) && /ONLY THE CALLER WRITES IT/.test(record)
+  })(),
+)
+
+// ── WHAT A CALL CAN DO TO SOMEBODY WHO DOES NOT WANT IT ─────────────────────
+
+check(
+  "a block stops a call, not only a message",
+  (() => {
+    // The more serious of the two omissions here. A message from somebody you
+    // have blocked sits unread in a list; a call makes the phone in your pocket
+    // ring. Blocking is most often used by exactly the people for whom being
+    // reachable at all is the problem, so the one channel that demands
+    // immediate attention cannot be the one it does not cover.
+    const route = read("app/api/calls/ring/route.ts")
+    const blockAt = route.indexOf('.from("user_blocks")')
+    const sendAt = route.indexOf("await sendPushToUser(")
+    return (
+      blockAt > 0 &&
+      sendAt > blockAt &&
+      // Checked in the direction that matters: THEY blocked YOU.
+      /\.eq\("blocker_id", recipient\)[\s\S]{0,80}?\.eq\("blocked_id", user\.id\)/.test(route)
+    )
+  })(),
+  "        app/api/calls/ring — without this, blocking somebody stops their\n" +
+    "        messages and leaves them able to ring you.",
+)
+
+check(
+  "and the refusal does not disclose that a block exists",
+  (() => {
+    // "You have been blocked" is information the blocked party is not owed, so
+    // it answers exactly as a conversation that does not exist would — the same
+    // rule the text route follows.
+    const route = read("app/api/calls/ring/route.ts")
+    // Only the STRING that is sent back — `blockedBy` is the variable being
+    // tested and naturally contains "blocked", which an unscoped search reads
+    // as a disclosure.
+    const after = route.slice(route.indexOf("if (blockedBy)"), route.indexOf("if (blockedBy)") + 200)
+    const sent = /NextResponse\.json\(\{ error: "([^"]*)" \}/.exec(after)?.[1] ?? ""
+    return sent === "Not found" && /404/.test(after) && !/blocat|blocked/i.test(sent)
+  })(),
+)
+
+check(
+  "there is a ceiling on how often one person can make another phone ring",
+  (() => {
+    // Every other write in messaging has one and this had none, which is the
+    // worst place to leave it out: a loop here is not spam sitting in a list,
+    // it is a phone ringing over and over on a lock screen.
+    const route = read("app/api/calls/ring/route.ts")
+    return (
+      /count: "exact", head: true/.test(route) &&
+      /status: 429/.test(route) &&
+      // From the rows a call leaves behind, not from memory — serverless
+      // instances do not share memory, so an in-process counter resets whenever
+      // the platform scales.
+      /CALL_SENTINEL/.test(route)
+    )
+  })(),
+)
+
+check(
+  "and the limit names the encoding rather than copying it",
+  (() => {
+    // A rate limit that spelled the sentinel out as a literal would be a second
+    // copy of the encoding, silently wrong the day the sentinel changes — and
+    // wrong in the direction that stops counting calls at all.
+    const enc = read("lib/messages/call-message.ts")
+    const route = read("app/api/calls/ring/route.ts")
+    return (
+      /export const CALL_SENTINEL/.test(enc) &&
+      /const SENTINEL = CALL_SENTINEL/.test(enc) &&
+      /import \{ CALL_SENTINEL \} from "@\/lib\/messages\/call-message"/.test(route)
+    )
+  })(),
+)
+
+check(
+  "leaving a conversation does not buzz either",
+  (() => {
+    // Same reasoning as the inbox rows: leaving a screen is navigation, not an
+    // act. It also fires on the control pressed most often on this screen, on
+    // the exact frame the pop animation starts.
+    const thread = read("components/messages/thread.tsx")
+    const back = /onClick=\{\(\) => closeThread\(\)\}/.test(thread)
+    const buzzed = /void triggerHaptic\("light"\)\s*\n\s*closeThread\(\)/.test(thread)
+    return back && !buzzed
   })(),
 )
 
