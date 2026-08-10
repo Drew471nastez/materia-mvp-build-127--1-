@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 
 /**
  * ===========================================================================
@@ -57,6 +58,47 @@ export function usePinnedBar<T extends HTMLElement>() {
   const sentinel = useRef<T>(null)
   const [pinned, setPinned] = useState(false)
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  A BAR NEVER SURVIVES A SCREEN OPENING OVER ITS PAGE
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * The sell form opened with the listing page's bar across the top of it: a
+   * back arrow, a ⋯, a share button and the words "Eu 2" — the title of the
+   * listing behind — sitting above a form for editing that same listing, with
+   * its own Renunță and Actualizează at the bottom. Two screens' chrome, one
+   * screen.
+   *
+   * WHY IT IS NOT A Z-INDEX PROBLEM, THOUGH IT LOOKS EXACTLY LIKE ONE. The bar
+   * is z-60 and the sheet is z-95, so the sheet ought to win and does not. The
+   * bar is portalled to <body>, while the sheet renders inside the marketing
+   * layout — and an ancestor of the sheet establishes a stacking context, so its
+   * 95 is only compared with its siblings INSIDE that context. Against a
+   * body-level element the whole wrapper competes as one, and loses. Raising
+   * numbers is chasing that around rather than answering it.
+   *
+   * THE HONEST TEST IS THE URL. `/products/new` and `/products/edit/<id>` are
+   * intercepted routes: they render into the layout's @modal slot while the page
+   * underneath stays mounted, which is exactly why its bar goes on being drawn.
+   * When the modal is open the URL is the modal's, so a page whose pathname is
+   * no longer the current one is a page that is UNDERNEATH something.
+   *
+   * WHY IT LIVES HERE. The profile solved this for itself with
+   * `pathname === "/profile" || pathname.startsWith("/member/")` — a hand-written
+   * list of the paths that bar belongs to. It was correct and it did not
+   * generalise: the listing page grew a bar, did not copy the list, and the bug
+   * came straight back on a different screen. A rule each caller has to remember
+   * is a rule that is one new caller away from being broken.
+   *
+   * Captured at mount rather than listed, so there is nothing to keep in step:
+   * whatever path the page was on when its bar was created is the path that bar
+   * belongs to, and any other current path means something is in front of it.
+   */
+  const pathname = usePathname()
+  const ownPath = useRef<string | null>(null)
+  if (ownPath.current === null) ownPath.current = pathname ?? ""
+  const onOwnScreen = (pathname ?? "") === ownPath.current
+
   useEffect(() => {
     const el = sentinel.current
     if (!el || typeof IntersectionObserver === "undefined") return
@@ -88,7 +130,10 @@ export function usePinnedBar<T extends HTMLElement>() {
     }
   }, [])
 
-  return { sentinel, pinned }
+  // `pinned` is what the SCROLL says; `onOwnScreen` is whether this page is the
+  // one in front. Both have to be true, and the second is not the caller's
+  // business to remember.
+  return { sentinel, pinned: pinned && onOwnScreen }
 }
 
 /**

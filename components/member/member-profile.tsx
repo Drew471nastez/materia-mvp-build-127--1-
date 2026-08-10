@@ -507,28 +507,20 @@ export function MemberProfile({
   const { sentinel: nameEndRef, pinned } = usePinnedBar<HTMLSpanElement>()
 
   /**
-   * ═══════════════════════════════════════════════════════════════════════════
-   *  AND IT MUST NOT SURVIVE A MODAL OPENING OVER THE PAGE
-   * ═══════════════════════════════════════════════════════════════════════════
+   * NOT GUARDED HERE ANY MORE.
    *
-   * "Vinde un articol" appeared with this profile's bar across the top of it —
-   * somebody else's name, a share button and a settings gear, over a form for
-   * listing a jumper.
+   * This screen used to hide its own bar while a modal was over it, with a
+   * hand-written list of the paths the bar belongs to — `/profile` and
+   * `/member/…`. It was correct and it did not generalise: the listing page grew
+   * the same bar, did not copy the list, and the sell form opened with somebody
+   * else's chrome across the top of it.
    *
-   * /products/new is an INTERCEPTED route (app/(marketing)/@modal/(.)products/
-   * new), which is what makes the sell sheet open over whatever you were
-   * looking at without losing it. The consequence is that this component is not
-   * unmounted while that sheet is open — so its bar, portalled to <body> and
-   * fixed to the viewport, went on being drawn over a screen it has nothing to
-   * do with.
-   *
-   * The pathname is the honest test: when the modal is open the URL is the
-   * modal's, and this page is underneath rather than in front. Not a z-index
-   * fight — a bar belonging to the page BEHIND must not be visible over the one
-   * in front no matter which of them stacks higher.
+   * `usePinnedBar` captures the path its page was mounted on and reports
+   * `pinned` as false whenever the current path is something else, so every bar
+   * built on it is covered without its caller having to remember. See the note
+   * there for why this is a URL test rather than a z-index one.
    */
   const pathname = usePathname()
-  const onScreen = pathname === "/profile" || !!pathname?.startsWith("/member/")
   /**
    * The listing whose ⋯ sheet is open, when this is your own shelf.
    *
@@ -674,7 +666,7 @@ export function MemberProfile({
       <ProfilePinnedHeader
         name={name}
         avatarUrl={member.avatarUrl}
-        visible={pinned && onScreen}
+        visible={pinned}
         isOwner={isOwner}
         onShare={() => void share()}
       />

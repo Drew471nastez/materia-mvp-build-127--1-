@@ -1278,17 +1278,31 @@ check(
 )
 
 check(
-  "the bar does not survive a modal opening over the page",
+  "NO bar survives a modal opening over its page — and not by a per-screen list",
   (() => {
-    // "Vinde un articol" appeared with this profile's bar across the top of it.
-    // /products/new is an INTERCEPTED route, which is what lets the sell sheet
-    // open without losing the page behind — so this component is not unmounted,
-    // and its bar, portalled to <body> and fixed to the viewport, went on being
-    // drawn over a screen it has nothing to do with.
+    // "Vinde un articol" appeared with the profile's bar across the top of it,
+    // and later the sell form opened with the LISTING page's bar — back arrow,
+    // ⋯, share and the product's title — over a form for editing that same
+    // product. Intercepted routes render into the @modal slot while the page
+    // underneath stays mounted, so its bar, portalled to <body> and fixed to the
+    // viewport, goes on being drawn.
+    //
+    // It looks exactly like a z-index problem and is not: the bar is z-60 and
+    // the sheet z-95, but the bar is a body child while the sheet sits inside a
+    // wrapper that establishes a stacking context, so the sheet's 95 never
+    // competes with the bar at all. Raising numbers chases that around.
+    //
+    // The profile fixed it for itself with a hand-written list of its own paths.
+    // That did not generalise — the listing page grew a bar, did not copy the
+    // list, and the bug came back on a different screen. So the rule is in the
+    // hook, captured at mount, and no caller has to remember it.
     return (
-      /usePathname/.test(profileSrc) &&
-      /pathname === "\/profile" \|\| !!pathname\?\.startsWith\("\/member\/"\)/.test(profileSrc) &&
-      /visible=\{pinned && onScreen\}/.test(profileSrc)
+      /const pathname = usePathname\(\)/.test(pinHook) &&
+      /if \(ownPath\.current === null\) ownPath\.current = pathname \?\? ""/.test(pinHook) &&
+      /return \{ sentinel, pinned: pinned && onOwnScreen \}/.test(pinHook) &&
+      // And the per-screen allowlist is gone rather than left beside it.
+      !/pathname === "\/profile" \|\| !!pathname\?\.startsWith\("\/member\/"\)/.test(profileSrc) &&
+      /visible=\{pinned\}/.test(profileSrc)
     )
   })(),
 )
@@ -1812,6 +1826,21 @@ check(
       /useIsMyListing\(username, product\.creator\?\.user_id\)/.test(reel) &&
       // And the card's own prop type admits the field, or it never arrives.
       /user_id\?: string \| null/.test(card)
+    )
+  })(),
+)
+
+check(
+  "and the listing page's bar is covered by the same rule, without opting in",
+  (() => {
+    // The whole point of moving it into the hook: this screen does nothing to
+    // earn the guard, and cannot forget it.
+    return (
+      /usePinnedBar<HTMLSpanElement>\(\)/.test(detail) &&
+      /visible=\{pinned\}/.test(detail) &&
+      !/usePathname/.test(listingPinned) &&
+      // The bar component itself stays dumb — it draws what it is told.
+      /data-shown=\{visible \? "true" : "false"\}/.test(listingPinned)
     )
   })(),
 )
