@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { announceThread } from "@/lib/messages/announce"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
 import { decodeVoiceBody } from "@/lib/messages/voice-message"
+import { decodeCallBody, type CallRecord } from "@/lib/messages/call-message"
 import {
   STORELIB_AVATAR_URL,
   fetchProfilesWithOfficial,
@@ -48,7 +49,7 @@ function optionalAdminClient(): SupabaseClient | null {
 export type ThreadMessage = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image" | "voice"
+  kind: "text" | "offer" | "image" | "voice" | "call"
   body: string | null
   /**
    * A voice note, decoded out of the body. `path` is a signed, short-lived URL
@@ -57,6 +58,8 @@ export type ThreadMessage = {
    * lib/messages/voice-message.ts.
    */
   voice?: { path: string; ms: number; peaks: number[] } | null
+  /** A finished call, decoded out of the body. See lib/messages/call-message. */
+  call?: CallRecord | null
   /** Unsent by its author. The row survives so the conversation keeps its shape;
    *  its contents do not. */
   deleted_at?: string | null
@@ -270,6 +273,13 @@ export async function readThread({
     const voice = m.kind === "text" ? decodeVoiceBody(m.body) : null
     if (voice) {
       return { ...m, kind: "voice" as const, body: null, image_url: null, voice }
+    }
+    // A third sentinel, and the same argument as the other two: a call record is
+    // not a new `kind` in the database, so nothing downstream has to be taught
+    // that one exists.
+    const call = m.kind === "text" ? decodeCallBody(m.body) : null
+    if (call) {
+      return { ...m, kind: "call" as const, body: null, image_url: null, call }
     }
     const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
     if (encoded) {

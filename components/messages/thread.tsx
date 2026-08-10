@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, RotateCw, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Phone, PhoneMissed, RotateCw, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
@@ -16,6 +16,9 @@ import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
 import { isEncodedVoice } from "@/lib/messages/voice-message"
+import { callSummary, type CallRecord } from "@/lib/messages/call-message"
+import { formatCallDuration } from "@/lib/calls/protocol"
+import { useCall } from "@/components/calls/call-host"
 import { VoiceRecorder } from "@/components/messages/voice-recorder"
 import { VoiceBubble } from "@/components/messages/voice-bubble"
 import { shrinkImage } from "@/lib/messages/shrink-image"
@@ -28,7 +31,7 @@ import { cn } from "@/lib/utils"
 type Msg = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image" | "voice"
+  kind: "text" | "offer" | "image" | "voice" | "call"
   body: string | null
   /** Signed and short-lived by the time it reaches here — what is stored is an
    *  object path in a private bucket. On an optimistic bubble it is a local
@@ -1991,6 +1994,10 @@ export function MessageThread({
   }
 
   const name = thread?.other?.display_name || thread?.other?.username || "Utilizator"
+  // The call machinery lives above every screen — see components/calls/call-host.
+  // Null only if this tree is somehow mounted outside it, which the button
+  // treats as "cannot call" rather than crashing a conversation over it.
+  const call = useCall()
   // A minute hand for the presence line.
   //
   // `presenceOf` turns a timestamp into "activ acum 3 min" at RENDER time, and
@@ -2130,6 +2137,35 @@ export function MessageThread({
               )}
             </span>
           </PartyLink>
+          {/* CALLING THEM.
+
+              In the header rather than the action sheet, because it is the one
+              thing here somebody reaches for in a hurry — a buyer standing
+              outside the door, a seller about to leave. Everything behind the
+              ⋯ is deliberate and can afford a second tap; this cannot.
+
+              Never for Storelib: a platform account has no phone to ring, and
+              a button that always fails is worse than no button. */}
+          {!thread?.official && thread?.other?.id && (
+            <button
+              type="button"
+              aria-label={`Sună pe ${name}`}
+              disabled={!call || call.busy}
+              onClick={() =>
+                call?.start(
+                  {
+                    id: thread.other!.id,
+                    name: thread.other!.display_name || thread.other!.username || "Utilizator",
+                    avatar: thread.other!.avatar_url ?? null,
+                  },
+                  thread.id,
+                )
+              }
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100 active:text-[#7c3aed] disabled:opacity-40"
+            >
+              <Phone className="h-[19px] w-[19px]" />
+            </button>
+          )}
           {/* Everything you might want to DO about this conversation, behind one
               button, because none of it belongs in the header itself: a row of
               icons for report and block turns a conversation with a person into
@@ -2434,6 +2470,38 @@ export function MessageThread({
                         onAnswer={answer}
                         formatPrice={formatPrice}
                       />
+                    ) : m.kind === "call" ? (
+                      // A CALL IS A RECORD, NOT A REMARK.
+                      //
+                      // Drawn as a quiet chip rather than a bubble on either
+                      // side, because it is the one entry in a conversation
+                      // nobody wrote. Giving it the sender's colour would make
+                      // "you called and they did not answer" look like
+                      // something somebody said.
+                      <div
+                        className={cn(
+                          "flex max-w-[82%] items-center gap-2 rounded-full border px-3 py-1.5",
+                          (m as any).call?.ending === "missed" ||
+                            (m as any).call?.ending === "declined" ||
+                            (m as any).call?.ending === "failed"
+                            ? "border-rose-100 bg-rose-50/70 text-rose-600"
+                            : "border-neutral-150 bg-neutral-50 text-neutral-500",
+                        )}
+                      >
+                        {(m as any).call?.ending === "ended" ? (
+                          <Phone className="h-[15px] w-[15px] shrink-0" />
+                        ) : (
+                          <PhoneMissed className="h-[15px] w-[15px] shrink-0" />
+                        )}
+                        <span className="truncate text-[13.5px] font-medium">
+                          {callSummary((m as any).call as CallRecord, mine)}
+                        </span>
+                        {(m as any).call?.ms > 0 && (
+                          <span className="shrink-0 text-[13px] tabular-nums opacity-70">
+                            {formatCallDuration((m as any).call.ms)}
+                          </span>
+                        )}
+                      </div>
                     ) : m.kind === "voice" ? (
                       // Long-press still reaches the action sheet, exactly as it
                       // does on a photograph — the bubble's own controls are

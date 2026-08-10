@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
 import { isEncodedVoice } from "@/lib/messages/voice-message"
+import { callPreview, decodeCallBody } from "@/lib/messages/call-message"
 import {
   ensureSystemConversation,
   fetchProfilesWithOfficial,
@@ -45,7 +46,7 @@ export type InboxListing = {
 
 export type InboxLastMessage = {
   sender_id: string
-  kind: "text" | "offer" | "image" | "voice"
+  kind: "text" | "offer" | "image" | "voice" | "call"
   body: string | null
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
@@ -304,6 +305,14 @@ export async function listConversations({
       // itself, the way it already does for a photograph.
       if (m.kind === "text" && isEncodedVoice(m.body)) {
         last.set(m.conversation_id, { ...m, kind: "voice", body: null } as any)
+        continue
+      }
+      // And a third: a call leaves a row in the thread like everything else, so
+      // it can be the newest thing in a conversation and would print its own
+      // sentinel down the inbox exactly as the other two would have.
+      const call = m.kind === "text" ? decodeCallBody(m.body) : null
+      if (call) {
+        last.set(m.conversation_id, { ...m, kind: "call", body: callPreview(call) } as any)
         continue
       }
       const encoded = m.kind === "text" ? decodeImageBody(m.body) : null

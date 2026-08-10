@@ -4545,3 +4545,76 @@ html:not(.capacitor):has(.web-only-header) .native-only-topbar {
 html.capacitor.native-feed-bg:not(.app-layout) body {
   background-color: inherit;
 }
+
+/* ===========================================================================
+   A CALL ARRIVING
+   ===========================================================================
+   Three motions, and each of them is doing a job rather than decorating one.
+
+   call-screen-in   The screen covers everything, so it must not simply BE
+                    there — an interface that replaces itself in one frame
+                    reads as a glitch. It rises and fades, quickly, on the
+                    same front-loaded curve as every other travelling surface
+                    in this app.
+
+   call-pulse       The ring, on the caller's face, while the phone is ringing.
+                    A ringing screen with nothing moving on it looks frozen,
+                    and the one thing a person needs to know at that moment is
+                    that this is happening NOW.
+
+   call-answer-pulse  Only the answer button breathes. It is the one thing
+                    somebody woken by a ringtone is looking for.
+
+   All three stop under prefers-reduced-motion. A pulsing screen is exactly
+   the kind of motion that setting exists for, and the call is entirely
+   usable without any of it.                                                  */
+@keyframes call-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.call-screen-in {
+  animation: call-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes call-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.28);
+  }
+  70% {
+    box-shadow: 0 0 0 22px rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+.call-pulse {
+  border-radius: 9999px;
+  animation: call-pulse 1900ms ease-out infinite;
+}
+
+@keyframes call-answer-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.075);
+  }
+}
+.call-answer-pulse {
+  animation: call-answer-pulse 1500ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-screen-in,
+  .call-pulse,
+  .call-answer-pulse {
+    animation: none;
+  }
+}
