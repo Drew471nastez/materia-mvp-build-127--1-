@@ -651,6 +651,84 @@ check(
   })(),
 )
 
+check(
+  "the keyboard closing is carried rather than stepped",
+  (() => {
+    // iOS animates the keyboard down over ~250ms and reports the new viewport
+    // ONCE, at the end. Everything sized from --vv-h is correct, then correct at
+    // a different size, with nothing in between. The layout is never wrong; it
+    // arrives in one frame, and that is the bump.
+    const vars = read("components/viewport-vars.tsx")
+    const css = read("app/globals.css")
+    return (
+      /Math\.abs\(h - lastH\) > 80/.test(vars) &&
+      /classList\.add\("vv-settling"\)/.test(vars) &&
+      /html\.vv-settling \.thread-shell/.test(css)
+    )
+  })(),
+  "        components/viewport-vars.tsx — the intermediate sizes are never\n" +
+    "        reported, so CSS has to carry the one step that is.",
+)
+
+check(
+  "and the transition is in effect before the value it transitions changes",
+  (() => {
+    // A transition only runs if the property was already in effect at the
+    // previous style resolution. Set the class and the variable in the same
+    // frame and the browser has nothing to interpolate from — the value snaps
+    // and the class does nothing at all, which looks exactly like not having
+    // written this.
+    const vars = read("components/viewport-vars.tsx")
+    const addAt = vars.indexOf('classList.add("vv-settling")')
+    const flushAt = vars.indexOf("void root.offsetHeight")
+    const setAt = vars.indexOf('root.style.setProperty("--vv-h"')
+    return addAt > 0 && flushAt > addAt && setAt > flushAt
+  })(),
+)
+
+check(
+  "a toolbar or a dragged page is NOT transitioned",
+  (() => {
+    // Those change the same variables continuously, and transitioning them
+    // would make the screen lag a finger actively moving it — a worse fault
+    // than the one being fixed.
+    const vars = read("components/viewport-vars.tsx")
+    // The settle is reached only through the jump test, never unconditionally.
+    return /if \(lastH >= 0 && Math\.abs\(h - lastH\) > 80\) settle\(\)/.test(vars)
+  })(),
+)
+
+check(
+  "what the cover uncovers has moved, not just brightened",
+  (() => {
+    // A fade is a change in opacity and nothing else, so a correctly fading
+    // cover can still leave the conversation feeling switched on. The travel is
+    // the other half — and it is a TRANSFORM against the cover's opacity, since
+    // two opacity ramps on nested elements multiply into a fade that changes
+    // pace partway through.
+    const thread = read("components/messages/thread.tsx")
+    const css = read("app/globals.css")
+    return (
+      /!covered && "thread-reveal"/.test(thread) &&
+      /@keyframes thread-reveal/.test(css) &&
+      /translate3d\(0, 10px, 0\)/.test(css) &&
+      !/opacity/.test(/\.thread-reveal \{[\s\S]*?\n  \}/.exec(css)?.[0] ?? "opacity")
+    )
+  })(),
+)
+
+check(
+  "and it rides on the message column, not on the scroll container",
+  (() => {
+    // A transform on the scroller would make it the containing block for
+    // anything fixed inside it and would move its scrollbar; on the column it
+    // changes no layout at all.
+    const thread = read("components/messages/thread.tsx")
+    const scroller = /ref=\{scrollerRef\}[\s\S]*?className="thread-surface[^"]*"/.exec(thread)?.[0] ?? ""
+    return scroller.length > 0 && !/thread-reveal/.test(scroller)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

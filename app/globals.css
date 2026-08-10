@@ -1424,6 +1424,28 @@ html.capacitor a.no-tap-fade:active {
     .thread-arrive { animation: none; }
   }
 
+  /* THE MESSAGES SETTLING IN, rather than being switched on.
+     The cover fading is a change in OPACITY and nothing else, so what it
+     uncovers has not moved — which is why a correctly fading cover can still
+     leave the conversation feeling like it appeared. This is the other half:
+     the exchange rises the last few pixels as the cover goes.
+
+     A transform against the cover's opacity on purpose. Two opacity ramps on
+     nested elements multiply into a fade that changes pace partway through —
+     the fault this file has now been through twice — where a fade and a
+     travel are different properties and compose into one arrival. */
+  @keyframes thread-reveal {
+    from { transform: translate3d(0, 10px, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+  }
+  .thread-reveal {
+    animation: thread-reveal 520ms cubic-bezier(0.22, 0.61, 0.24, 1) both;
+    backface-visibility: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thread-reveal { animation: none; }
+  }
+
   /* ===================================================================
      ONE MOVEMENT AT A TIME ON THESE PIXELS
      ===================================================================
@@ -3263,6 +3285,26 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
        so this one declaration restores the whole of it. */
     pointer-events: auto;
   }
+  /* THE KEYBOARD CLOSING, CARRIED RATHER THAN STEPPED.
+     Only while <html> says a jump is settling — see components/viewport-vars.
+     A toolbar collapsing or a page dragged under an open keyboard changes the
+     same variables continuously, and transitioning those would make the screen
+     lag the finger moving it. 300ms against the ~250ms iOS spends animating the
+     keyboard itself, so the composer lands just after the key it was following.
+
+     `top` and `height` are layout properties and this is the one place in the
+     app that animates them on purpose: there is no transform that expresses
+     "the visible viewport is now a different size", and it is bounded to a
+     third of a second on a single element, twice per keyboard. */
+  html.vv-settling .thread-shell {
+    transition:
+      top 300ms cubic-bezier(0.22, 0.61, 0.24, 1),
+      height 300ms cubic-bezier(0.22, 0.61, 0.24, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.vv-settling .thread-shell { transition: none; }
+  }
+
   html:not(.capacitor) .thread-shell {
     --thread-top: var(--web-header-h, 0px);
   }

@@ -2380,7 +2380,16 @@ export function MessageThread({
             No entrance on the column: the two are now the same box, sized from
             the same viewport numbers, so the handover is already invisible and
             an animation over an invisible swap is just a visible animation. */}
-        <div className="flex min-h-full flex-col justify-end">
+        {/* The reveal rides on the CONTENT, not on the scroller.
+
+            A transform on the scroll container itself would make it the
+            containing block for anything fixed inside and would move the
+            scrollbar with it; this is the column of messages, and translating
+            it changes no layout at all — only where it is drawn for half a
+            second. It starts the moment the cover begins to fade, so the fade
+            and the travel are one arrival rather than a reveal followed by a
+            settle. */}
+        <div className={cn("flex min-h-full flex-col justify-end", !covered && "thread-reveal")}>
         {thread === null ? (
           // The last resort, and it is now shaped like the conversation it is
           // standing in for rather than like three grey bars: alternating sides,
