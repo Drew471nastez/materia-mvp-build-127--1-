@@ -1626,15 +1626,55 @@ export function MessageThread({
           body: form,
         })
         const data = await res.json().catch(() => null)
-        if (!res.ok) {
+        if (!res.ok || !data?.message) {
           setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
           setImageError(data?.error || "Nu am putut trimite înregistrarea.")
           return
         }
-        // The reload replaces the optimistic row with the stored one, whose URL
-        // is signed and whose id is real. Until it lands the local blob is what
-        // is playing, which is why the object URL is not revoked here.
-        await load()
+        const message = data.message
+        // SWAPPED IN PLACE, NOT RELOADED.
+        //
+        // This called `load()` and let the refetch replace the optimistic row.
+        // It cannot: `load` deliberately KEEPS every pending row, because a poll
+        // that landed mid-send would otherwise eat a message still in flight —
+        // so the temp row was re-appended by the very call that was supposed to
+        // retire it, and sat at "Se trimite…" for ever with the real message
+        // beside it. Two bubbles for one recording, one of them permanently
+        // sending. The swap has to be done here, by the only code that knows
+        // this particular send is over — exactly as sendImage does it.
+        seen.current?.add(message.id)
+        stickBottom.current = true
+        setThread((t) =>
+          t
+            ? {
+                ...t,
+                messages: t.messages.map((m) =>
+                  m.id === tempId
+                    ? {
+                        // The stored row's body is the encoded sentinel and its
+                        // kind is "text" — the decode into a voice note happens
+                        // server-side on READ (lib/messages/thread.ts), and this
+                        // is a write's answer. So it is decoded here instead,
+                        // into what is already on screen.
+                        ...message,
+                        kind: "voice" as const,
+                        body: null,
+                        image_url: null,
+                        // The local recording keeps playing. It is the same
+                        // audio as the signed URL, already in memory, and the
+                        // next read replaces it with the signed one anyway.
+                        voice: { path: localUrl, ms, peaks },
+                        localKey: tempId,
+                      }
+                    : m,
+                ),
+              }
+            : t,
+        )
+        // Revoked when the screen goes, not here: this URL is the src the
+        // bubble has just committed to.
+        blobs.current.push(localUrl)
+        announce("msg")
       } catch {
         setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
         setImageError("Nu am putut trimite înregistrarea.")
@@ -1642,7 +1682,7 @@ export function MessageThread({
         setUploading(false)
       }
     },
-    [id, load, uploading],
+    [announce, id, uploading],
   )
 
   const sendImage = useCallback(
@@ -2405,6 +2445,22 @@ export function MessageThread({
                         onPointerUp={cancelPress}
                         onPointerCancel={cancelPress}
                         onContextMenu={(e) => e.preventDefault()}
+                        className={cn(
+                          // THE BUBBLE THE VOICE NOTE IS DRAWN ON.
+                          //
+                          // It had none — just a bare wrapper — and VoiceBubble
+                          // draws itself for a coloured ground: white play
+                          // button, white bars, white text when the message is
+                          // yours. On no ground at all that is white on white,
+                          // so a sent voice note was completely invisible and
+                          // the row showed nothing but its timestamp. Same
+                          // corners, same colours and the same `msg-bubble` as
+                          // every other kind of message, because it is one.
+                          "msg-bubble max-w-[82%] rounded-[20px] px-3 py-2",
+                          mine
+                            ? "rounded-br-md bg-[#7c3aed] text-white"
+                            : "rounded-bl-md bg-neutral-100 text-neutral-900",
+                        )}
                       >
                         <VoiceBubble
                           src={(m as any).voice?.path ?? ""}

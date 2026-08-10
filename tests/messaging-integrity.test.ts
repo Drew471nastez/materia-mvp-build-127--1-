@@ -572,6 +572,88 @@ check(
   })(),
 )
 
+// ── A SENT VOICE NOTE HAS TO BE VISIBLE, AND HAS TO STOP SENDING ────────────
+//
+// Both of these shipped broken together, and the screenshot of them was a row
+// with a timestamp and nothing above it, reading "Se trimite…" for ever.
+
+const threadTsx = read("components/messages/thread.tsx")
+
+/** The `m.kind === "voice"` arm of the render chain, and nothing else. */
+const voiceArm = /m\.kind === "voice" \? \([\s\S]*?\) : m\.kind === "image" \?/.exec(threadTsx)?.[0] ?? ""
+/** The body of sendVoice, so a match cannot come from sendImage next door. */
+const sendVoiceFn =
+  /const sendVoice = useCallback\([\s\S]*?\n  const sendImage = useCallback\(/.exec(threadTsx)?.[0] ?? ""
+/**
+ * The same, with the prose taken out.
+ *
+ * An assertion that something is ABSENT has to read code and not comments —
+ * this one first failed on the comment explaining why the thing it forbids was
+ * removed, which is a test marking its own fix as the bug.
+ */
+const sendVoiceCode = sendVoiceFn.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")
+
+check(
+  "a voice note is drawn on a bubble, like every other kind of message",
+  (() => {
+    // VoiceBubble draws itself for a COLOURED ground — white play button, white
+    // bars, white text when the message is yours. The arm rendering it had no
+    // ground at all, so a sent voice note was white on white: the row showed a
+    // timestamp and nothing above it.
+    return (
+      voiceArm.length > 0 &&
+      /msg-bubble/.test(voiceArm) &&
+      /bg-\[#7c3aed\]/.test(voiceArm) &&
+      /bg-neutral-100/.test(voiceArm)
+    )
+  })(),
+  "        components/messages/thread.tsx — the voice arm needs the same bubble\n" +
+    "        ground as text and images, or `mine` renders white on white.",
+)
+
+check(
+  "the send swaps its own optimistic row rather than leaving it to a refetch",
+  (() => {
+    // `load` KEEPS every pending row on purpose — a poll that landed mid-send
+    // would otherwise eat a message still in flight. So a sender that hands its
+    // temp row to `load()` to retire has handed it to the one function that
+    // cannot: the row is re-appended by the call meant to remove it and sits at
+    // "Se trimite…" for ever, with the real message beside it.
+    return (
+      sendVoiceCode.length > 0 &&
+      /m\.id === tempId/.test(sendVoiceCode) &&
+      /kind: "voice" as const/.test(sendVoiceCode) &&
+      !/\bload\(\)/.test(sendVoiceCode)
+    )
+  })(),
+  "        components/messages/thread.tsx — sendVoice must replace tempId with\n" +
+    "        the server's row itself, exactly as sendImage does.",
+)
+
+check(
+  "and the recording that is already on screen keeps playing after the swap",
+  (() => {
+    // The stored row's URL is signed and behind a network fetch; the blob is in
+    // memory. Revoking it at the swap would break the src just committed to.
+    return (
+      /blobs\.current\.push\(localUrl\)/.test(sendVoiceFn) &&
+      /voice: \{ path: localUrl, ms, peaks \}/.test(sendVoiceFn) &&
+      // Recorded as seen in the same breath, or the bubble plays its entrance a
+      // second time for one send.
+      /seen\.current\?\.add\(message\.id\)/.test(sendVoiceFn)
+    )
+  })(),
+)
+
+check(
+  "an answer with no message in it is a failure, not a bubble stuck half-sent",
+  (() => {
+    // A 200 with an unexpected body would otherwise swap `undefined` into the
+    // row and leave something unreadable on screen.
+    return /if \(!res\.ok \|\| !data\?\.message\)/.test(sendVoiceFn)
+  })(),
+)
+
 // ── THE RECORDING STRIP, AND THE CONTROLS IT USED TO SIT ON TOP OF ──────────
 //
 // While recording, the strip covers the whole composer row — and the mic stays
