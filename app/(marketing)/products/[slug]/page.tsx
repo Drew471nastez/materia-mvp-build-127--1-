@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ProductDetail } from "@/components/product/product-detail"
+import { PUBLIC_PAGE } from "@/lib/marketplace/listing-status"
 
 // NOT force-dynamic, and it deliberately does not read searchParams.
 //
@@ -153,7 +154,7 @@ export default async function ProductPage({
   // broke the link in the buyer's own receipt and messages, broke the seller's
   // page, and broke every link anyone had shared. It is not missing — it is
   // sold, and the page says so. Only drafts and removed listings are gone.
-  if (!product || (product.status !== "published" && product.status !== "sold")) notFound()
+  if (!product || !PUBLIC_PAGE.includes(product.status)) notFound()
   // `origin` is read on the client, from window.location — see ProductDetail.
   // Reading it here would opt the whole page back into dynamic rendering for the
   // sake of one analytics breadcrumb, and reading it with useSearchParams would

@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
+import { EDITABLE_STATUSES } from "@/lib/marketplace/listing-status"
 
 /**
  * ===========================================================================
@@ -53,8 +54,9 @@ const FULL_SELECT =
   "image_variants, category, subcategory, brand, condition, colour, size, era, source_tags, " +
   "style_tags, status, created_at"
 
-/** The states this route is allowed to act on. `sold` is not one of them. */
-const EDITABLE = ["published", "draft", "archived"]
+/** The states this route is allowed to act on. `sold` is not one of them —
+ *  see lib/marketplace/listing-status.ts. */
+const EDITABLE = EDITABLE_STATUSES as string[]
 
 async function callerCreatorId(): Promise<string | null> {
   const supabase = await createClient()
@@ -158,9 +160,41 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     )
   }
 
-  // ---- status-only actions -------------------------------------------------
-  if (body?.action === "archive" || body?.action === "publish") {
-    const next = body.action === "archive" ? "archived" : "published"
+  /**
+   * ---- status-only actions -------------------------------------------------
+   *
+   * Four moves between the states an owner controls, and one rule underneath
+   * all of them: a listing that has actually been BOUGHT does not move again.
+   * `sold` is reachable by hand — plenty of things are sold face to face, and a
+   * marketplace that cannot be told so fills up with listings nobody can buy —
+   * but coming back FROM sold is only allowed while no order exists, because
+   * otherwise it re-lists something a buyer has already paid for.
+   *
+   * A draft is deliberately excluded from all of them: it has never been on the
+   * feed, so there is nothing to reserve, archive or sell. Its only moves are
+   * "finish it" and "throw it away".
+   */
+  const ACTION_TO_STATUS: Record<string, string> = {
+    archive: "archived",
+    publish: "published",
+    reserve: "reserved",
+    unreserve: "published",
+    sold: "sold",
+  }
+  const next = typeof body?.action === "string" ? ACTION_TO_STATUS[body.action] : undefined
+  if (next) {
+    if (row.status === "draft") {
+      return NextResponse.json(
+        { error: "draft", message: "Ciorna nu este publicată încă." },
+        { status: 409 },
+      )
+    }
+    if (next === "published" && (await hasOrder(admin, id))) {
+      return NextResponse.json(
+        { error: "sold", message: "Anunțul a fost cumpărat și nu poate fi repus la vânzare." },
+        { status: 409 },
+      )
+    }
     const { error } = await admin
       .from("products")
       .update({ status: next })
@@ -180,7 +214,7 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   // A listing that is live has to STAY complete. The rules are the same ones
   // POST /api/listings applies, and they live on the server because a client
   // can be bypassed.
-  if (row.status === "published") {
+  if (row.status === "published" || row.status === "reserved") {
     const missing: string[] = []
     if (photos.length < MIN_PHOTOS) missing.push(`cel puțin ${MIN_PHOTOS} fotografii`)
     if (title.length < 3) missing.push("titlu")

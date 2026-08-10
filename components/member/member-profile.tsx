@@ -11,8 +11,8 @@ import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
-import { DraftsGrid } from "@/components/member/drafts-grid"
 import { DepthSwap } from "@/components/ui/depth-swap"
+import { ownerListingHref, ownerStatusBadge } from "@/lib/marketplace/listing-status"
 import { SellerReviewsList } from "@/components/member/seller-reviews-list"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { MoreHorizontal } from "lucide-react"
@@ -223,14 +223,20 @@ function ShelfTab({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        // The strip is the one control on this screen you press without
+        // looking at, so it answers in the hand as well as on the screen.
+        void triggerHaptic("light")
+        onClick()
+      }}
       aria-selected={active}
       role="tab"
       className={cn(
         // flex-1 and centred: three names sharing the full measure, the way
         // the feed's own Pentru tine / Urmărești / Salvate strip does — not a
         // cluster parked at one end of the line.
-        "relative -mb-px flex flex-1 items-baseline justify-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[15px] transition-colors duration-150",
+        "relative -mb-px flex flex-1 items-baseline justify-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[15px]",
+        "transition-[color,border-color,transform] duration-150 active:scale-[0.97]",
         active
           ? "border-neutral-900 font-semibold text-neutral-900"
           : "border-transparent font-medium text-neutral-400 active:text-neutral-600",
@@ -287,20 +293,18 @@ export function MemberProfile({
    * the session on precisely the machines that opted out of it.
    */
   /**
-   * THE SHELF'S TABS — Anunțuri / Ciorne / Evaluări.
+   * THE SHELF'S TWO TABS — Anunțuri and Evaluări.
    *
-   * The profile showed one thing: the listings grid. Drafts lived on a page
-   * reachable only through the account drawer, and the reviews behind the
-   * header's stars had no page at all. On a marketplace the profile IS the
-   * seller's desk, and everything on the desk belongs in one place with a
-   * switch between — which is how every app in this category lays it out.
+   * Ciorne was a third, and it was the wrong shape for what a draft is. A draft
+   * is not a different KIND of thing needing its own room; it is one of your
+   * listings, in a state. Behind a tab it made the shelf disagree with itself
+   * about how many listings you had, and a draft started yesterday was
+   * somewhere you had to remember to go and look. It sits in the grid now with
+   * a Ciornă badge, and tapping it reopens the form exactly where you left it.
    *
-   * Ciorne exists only on your own profile: a visitor has no business with
-   * what you have not published, and the server never sends them archived
-   * listings either. Each tab's content is fetched when the tab is first
-   * opened, not with the page — the grid is what most visits are for.
+   * Two tabs left: what you are selling, and what people said about you.
    */
-  const [shelfTab, setShelfTab] = useState<"listings" | "drafts" | "reviews">("listings")
+  const [shelfTab, setShelfTab] = useState<"listings" | "reviews">("listings")
   /** The listing whose ⋯ sheet is open, when this is your own shelf. */
   const [manageFor, setManageFor] = useState<MemberListing | null>(null)
 
@@ -723,11 +727,6 @@ export function MemberProfile({
           >
             {language === "ro" ? "Anunțuri" : "Listings"}
           </ShelfTab>
-          {isOwner && (
-            <ShelfTab active={shelfTab === "drafts"} onClick={() => setShelfTab("drafts")} count={null}>
-              Ciorne
-            </ShelfTab>
-          )}
           <ShelfTab
             active={shelfTab === "reviews"}
             onClick={() => setShelfTab("reviews")}
@@ -740,9 +739,7 @@ export function MemberProfile({
         {/* One switch grammar per app: the panels trade places along Z, the
             same move the feed's Pentru tine / Urmărești / Salvate makes. */}
         <DepthSwap id={shelfTab}>
-        {shelfTab === "drafts" && isOwner ? (
-          <DraftsGrid />
-        ) : shelfTab === "reviews" ? (
+        {shelfTab === "reviews" ? (
           <SellerReviewsList sellerUserId={member.id} isOwner={isOwner} />
         ) : listings.length === 0 ? (
           // An empty shop is a normal state for a new member, not an error — so
@@ -798,41 +795,65 @@ export function MemberProfile({
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
-            {listings.map((listing, i) => (
-              /* An archived listing is on YOUR shelf and nobody else's, and it
-                 has to say so — otherwise it sits in the grid looking exactly
-                 like the live ones, and the only clue that it is off the feed
-                 is that nobody ever buys it. */
-              <div key={listing.id} className="relative">
+            {listings.map((listing, i) => {
+              /* A state mark on YOUR shelf and nobody else's. Without it a
+                 draft, an archived listing and a live one are the same card,
+                 and the only clue that two of them are off the feed is that
+                 nobody ever buys them. */
+              const badge = isOwner ? ownerStatusBadge(listing.status) : null
+              return (
                 <ProductCard
+                  key={listing.id}
                   product={listing}
                   origin="member"
                   // Every card here belongs to the seller named just above —
                   // repeating their name under each photo would only add noise.
                   showSeller={false}
                   priority={i < 4}
+                  // A draft has no listing page — the route 404s for anything
+                  // unpublished — so its card reopens the form it was left in.
+                  hrefOverride={isOwner ? ownerListingHref(listing) : undefined}
+                  statusBadge={
+                    badge ? (
+                      <span
+                        className={cn(
+                          "pointer-events-none absolute left-2 top-2 rounded-full px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.04em] text-white",
+                          badge.tone === "warning" && "bg-amber-500",
+                          badge.tone === "muted" && "bg-neutral-500/90",
+                          badge.tone === "neutral" && "bg-neutral-900/85",
+                        )}
+                      >
+                        {badge.label}
+                      </span>
+                    ) : undefined
+                  }
+                  cornerAction={
+                    isOwner ? (
+                      /* THE HEART IS THE WRONG CONTROL ON YOUR OWN CARD, twice
+                         over: saving your own listing does nothing anybody
+                         wants, and this corner is the only place on a grid card
+                         where a per-item menu can live. "Fix that title" starts
+                         HERE, looking at the grid — a trip through the listing
+                         page to reach the same actions is a corridor with
+                         nothing in it. */
+                      <button
+                        type="button"
+                        aria-label={`Gestionează ${listing.title}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          void triggerHaptic("light")
+                          setManageFor(listing)
+                        }}
+                        className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/92 text-neutral-800 shadow-[0_1px_5px_rgba(0,0,0,0.2)] transition-transform duration-150 active:scale-90"
+                      >
+                        <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={2.4} />
+                      </button>
+                    ) : undefined
+                  }
                 />
-                {listing.status === "archived" && (
-                  <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-neutral-900/85 px-2 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.04em] text-white">
-                    Arhivat
-                  </span>
-                )}
-                {/* Manage, from the shelf itself. The listing page has the
-                    same ⋯, but "fix that title" starts HERE, looking at the
-                    grid — a trip through the listing page just to reach the
-                    same three actions is a corridor with nothing in it. */}
-                {isOwner && (
-                  <button
-                    type="button"
-                    aria-label={`Gestionează ${listing.title}`}
-                    onClick={() => setManageFor(listing)}
-                    className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white transition-transform duration-150 active:scale-90"
-                  >
-                    <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={2.2} />
-                  </button>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
         </DepthSwap>

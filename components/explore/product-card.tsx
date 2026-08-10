@@ -219,9 +219,37 @@ interface ProductCardProps {
   clientNav?: boolean
   /** Hide the seller row in dense carousels */
   showSeller?: boolean
+  /**
+   * Where the card goes, when it is not /products/<slug>.
+   *
+   * A DRAFT has no listing page — it was never published, and the route 404s
+   * for anything that is not — so its card opens the form it was left in
+   * instead of a URL that cannot resolve.
+   */
+  hrefOverride?: string
+  /**
+   * Replaces the wishlist heart in the corner.
+   *
+   * On your OWN card the heart is the wrong control twice over: saving your own
+   * listing does nothing anybody wants, and the corner is the only spot on a
+   * grid card where a per-item menu can live. The owner grid passes a ⋯ here.
+   */
+  cornerAction?: React.ReactNode
+  /** A state mark — Ciornă, Rezervat, Arhivat, Vândut — over the photo. */
+  statusBadge?: React.ReactNode
 }
 
-export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false, clientNav = true, showSeller = true, origin = "feed" }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({
+  product,
+  srcParam = "",
+  priority = false,
+  clientNav = true,
+  showSeller = true,
+  origin = "feed",
+  hrefOverride,
+  cornerAction,
+  statusBadge,
+}: ProductCardProps) {
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const touchStartY = useRef(0)
@@ -260,7 +288,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   const creatorUsername = product.creator?.profile?.username || ""
   // Relative /products/<slug>, so the tap is a client navigation rather than a
   // document load — that is most of why opening a listing now feels instant.
-  const productUrl = getListingUrl(product.slug || "", origin)
+  const productUrl = hrefOverride ?? getListingUrl(product.slug || "", origin)
   // "#" when username is unknown so the creator link is a safe no-op.
   // The marketplace member page, not the creator storefront — a listing's
   // seller is a person with more listings, and that is what this shows.
@@ -399,12 +427,17 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             />
           )}
         </SmartLink>
-        {hasDiscount && (
-          <Badge variant="destructive" className="pointer-events-none absolute left-2 top-2 px-1.5 py-0 text-[10px]">
-            {Math.round((1 - product.price_cents / compareAtCents) * 100)}% OFF
-          </Badge>
-        )}
-        <WishlistHeartButton productId={product.id} savesCount={savesCount} />
+        {/* The state mark sits where the discount badge sits, and takes its
+            place when both apply: "Ciornă" and "50% OFF" on one corner is two
+            badges arguing, and the state is the one that changes what the card
+            IS rather than what it costs. */}
+        {statusBadge ??
+          (hasDiscount && (
+            <Badge variant="destructive" className="pointer-events-none absolute left-2 top-2 px-1.5 py-0 text-[10px]">
+              {Math.round((1 - product.price_cents / compareAtCents) * 100)}% OFF
+            </Badge>
+          ))}
+        {cornerAction ?? <WishlistHeartButton productId={product.id} savesCount={savesCount} />}
       </div>
 
       {/* Meta — no card chrome, the photo carries the card */}

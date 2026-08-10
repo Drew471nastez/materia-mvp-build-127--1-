@@ -2768,7 +2768,10 @@ check(
         // The link is in the buyer's receipt and in their messages. It is not
         // missing — it is sold, and the page says so instead of vanishing.
         return (
-          /product\.status !== "published" && product\.status !== "sold"/.test(page) &&
+          /!PUBLIC_PAGE\.includes\(product\.status\)/.test(page) &&
+          /PUBLIC_PAGE: ListingStatus\[\] = \["published", "sold", "reserved"\]/.test(
+            stripComments(read("lib/marketplace/listing-status.ts")),
+          ) &&
           /const isSold = product\.status === "sold"/.test(detail) &&
           /Vândut/.test(detail)
         )

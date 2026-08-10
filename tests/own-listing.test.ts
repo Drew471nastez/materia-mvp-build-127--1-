@@ -17,7 +17,7 @@
  * Run with:  npm run test:push
  */
 
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 let passed = 0
@@ -128,9 +128,40 @@ check(
 )
 
 check(
-  "an archived listing can be put back",
-  /archived \? "Publică din nou" : "Arhivează anunțul"/.test(sheet) &&
-    /action: archived \? "publish" : "archive"/.test(sheet),
+  "an archived listing can be put back, and a reserved one released",
+  (() => {
+    // Both are toggles, because both are states you enter on purpose and leave
+    // on purpose — an archive you cannot undo is a delete with a nicer name.
+    return (
+      /archived \? "Publică din nou" : "Arhivează anunțul"/.test(sheet) &&
+      /act\(archived \? "publish" : "archive", "archive"\)/.test(sheet) &&
+      /reserved \? "Anulează rezervarea" : "Marchează ca rezervat"/.test(sheet) &&
+      /act\(reserved \? "unreserve" : "reserve", "reserve"\)/.test(sheet)
+    )
+  })(),
+)
+
+check(
+  "a draft is offered only the two moves it has",
+  (() => {
+    // It has never been on the feed, so there is nothing to reserve, nothing to
+    // take down and nothing to mark sold. Finish it, or throw it away.
+    return (
+      /\{isDraft \? "Continuă ciorna" : "Editează anunțul"\}/.test(sheet) &&
+      (sheet.match(/\{!isDraft && !sold && \(/g) ?? []).length === 2 &&
+      /\{!isDraft && \(/.test(sheet)
+    )
+  })(),
+)
+
+check(
+  "a sold listing is not offered an edit",
+  (() => {
+    // The server refuses it, because editing a sold listing rewrites what
+    // somebody already bought — so the row would be a control that only ever
+    // returns an error.
+    return /\{!sold && \(\s*\n\s*<Row icon=\{<Pencil/.test(sheet)
+  })(),
 )
 
 console.log("\nWhat the server will and will not do")
@@ -173,11 +204,35 @@ check(
 )
 
 check(
-  "sold is never written or cleared here",
+  "sold can be set by hand, but only left while nobody has bought it",
   (() => {
-    // Republishing a sold item would put one physical object back on the
-    // market twice.
-    return /const EDITABLE = \["published", "draft", "archived"\]/.test(route) && !/status: "sold"/.test(route)
+    // Plenty of things are sold face to face, and a marketplace that cannot be
+    // told so fills with listings nobody can buy. Coming back FROM sold is the
+    // dangerous direction: it would re-list something a buyer has paid for.
+    return (
+      /sold: "sold"/.test(route) &&
+      /if \(next === "published" && \(await hasOrder\(admin, id\)\)\)/.test(route) &&
+      /nu poate fi repus la vânzare/.test(route)
+    )
+  })(),
+)
+
+check(
+  "a draft cannot be reserved, archived or marked sold",
+  (() => {
+    // It has never been on the feed. There is nothing to take down.
+    return /if \(row\.status === "draft"\) \{[\s\S]{0,220}?status: 409/.test(route)
+  })(),
+)
+
+check(
+  "the editable set is stated once, where the states are defined",
+  (() => {
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
+    return (
+      /const EDITABLE = EDITABLE_STATUSES as string\[\]/.test(route) &&
+      /EDITABLE_STATUSES: ListingStatus\[\] = \["published", "draft", "archived", "reserved"\]/.test(statuses)
+    )
   })(),
 )
 
@@ -186,7 +241,10 @@ check(
   (() => {
     // A draft is allowed to be half-written; something on the feed is not, and
     // the rules have to be on the server because a client can be bypassed.
-    const block = route.slice(route.indexOf('if (row.status === "published") {'), route.indexOf("const patch"))
+    const block = route.slice(
+      route.indexOf('if (row.status === "published" || row.status === "reserved") {'),
+      route.indexOf("const patch"),
+    )
     return /MIN_PHOTOS/.test(block) && /missing\.push\("titlu"\)/.test(block) && /status: 400/.test(block)
   })(),
 )
@@ -262,75 +320,117 @@ check(
   /\{editId \? "Editează anunțul" : "Vinde un articol"\}/.test(form),
 )
 
-console.log("\nAn archived listing is not a lost one")
+console.log("\nEvery state you have ever put a listing into")
 
 check(
-  "your own profile still shows it; a visitor's does not",
+  "your own shelf shows all of them; a visitor's shows one",
   (() => {
-    // Archiving takes a listing off the feed, and the profile is the only place
-    // left that could show it to you. Without this, archiving something is
-    // losing it: no screen anywhere lists it, and the only control that could
-    // put it back lives on a page you can no longer reach.
+    // Archiving takes a listing off the feed and the profile is the only place
+    // left that could show it to you — without this, archiving something is
+    // LOSING it. Drafts had the same problem in reverse: they existed only
+    // behind a link in the account drawer, which is not where anybody looks
+    // for a listing they started yesterday.
     const lib = strip(read("lib/profile/listings.ts"))
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
     const own = strip(read("app/(marketing)/profile/page.tsx"))
     const other = strip(read("app/(marketing)/member/[username]/page.tsx"))
     return (
-      /\.in\("status", includeArchived \? \["published", "archived"\] : \["published"\]\)/.test(lib) &&
-      /includeArchived: true/.test(own) &&
-      !/includeArchived/.test(other)
+      /\.in\("status", ownerView \? OWNER_SHELF : PUBLIC_FEED\)/.test(lib) &&
+      /OWNER_SHELF: ListingStatus\[\] = \["published", "reserved", "archived", "draft", "sold"\]/.test(statuses) &&
+      /PUBLIC_FEED: ListingStatus\[\] = \["published"\]/.test(statuses) &&
+      /ownerView: true/.test(own) &&
+      !/ownerView/.test(other)
     )
   })(),
 )
 
 check(
-  "and it says it is archived rather than sitting there looking live",
+  "and each one says what it is, instead of sitting there looking live",
   (() => {
-    // Otherwise the only clue that it is off the feed is that nobody ever
-    // buys it.
+    // A draft, an archived listing and a live one were the same card, and the
+    // only clue that two of them were off the feed was that nobody ever bought
+    // them. `published` deliberately gets no badge: a mark on every card is a
+    // mark on none of them.
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
     const profile = strip(read("components/member/member-profile.tsx"))
-    return /listing\.status === "archived" &&/.test(profile) && /Arhivat/.test(profile)
+    return (
+      /label: "Ciornă"/.test(statuses) &&
+      /label: "Rezervat"/.test(statuses) &&
+      /label: "Arhivat"/.test(statuses) &&
+      /label: "Vândut"/.test(statuses) &&
+      /default:\s*\n\s*return null/.test(statuses) &&
+      /const badge = isOwner \? ownerStatusBadge\(listing\.status\) : null/.test(profile)
+    )
+  })(),
+)
+
+check(
+  "a draft's card opens the form, not a URL that 404s",
+  (() => {
+    // The listing route refuses anything unpublished, so a draft card linking
+    // to /products/<slug> is a card that cannot be opened.
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const card = strip(read("components/explore/product-card.tsx"))
+    return (
+      /status === "draft"\s*\n?\s*\? `\/products\/new\?draft=/.test(statuses) &&
+      /hrefOverride=\{isOwner \? ownerListingHref\(listing\) : undefined\}/.test(profile) &&
+      /const productUrl = hrefOverride \?\? getListingUrl/.test(card)
+    )
   })(),
 )
 
 console.log("\nThe profile is the seller's desk")
 
 check(
-  "the shelf has tabs: Anunțuri, Ciorne, Evaluări",
+  "two tabs, not three: what you are selling, and what people said about you",
   (() => {
-    // Drafts lived on a page reachable only through the account drawer, and
-    // the reviews behind the header's stars had no page at all.
+    // Ciorne was the wrong shape for what a draft is. A draft is not a
+    // different KIND of thing needing its own room; it is one of your
+    // listings, in a state — and behind a tab it made the shelf disagree with
+    // itself about how many listings you had.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /const \[shelfTab, setShelfTab\] = useState<"listings" \| "drafts" \| "reviews">\("listings"\)/.test(profile) &&
+      /const \[shelfTab, setShelfTab\] = useState<"listings" \| "reviews">\("listings"\)/.test(profile) &&
+      !/Ciorne/.test(profile) &&
       /function ShelfTab\(/.test(profile) &&
-      /Ciorne/.test(profile) &&
       /Evaluări/.test(profile)
     )
   })(),
 )
 
 check(
-  "Ciorne exists only on your own profile",
+  "the tabs share the full measure, centred",
   (() => {
-    // A visitor has no business with what you have not published.
     const profile = strip(read("components/member/member-profile.tsx"))
-    return /\{isOwner && \(\s*\n\s*<ShelfTab active=\{shelfTab === "drafts"\}/.test(profile) &&
-      /shelfTab === "drafts" && isOwner \?/.test(profile)
+    return /flex flex-1 items-baseline justify-center/.test(profile)
   })(),
 )
 
 check(
-  "each tab's content arrives when the tab is opened, not with the page",
+  "and they answer in the hand as well as on the screen",
   (() => {
-    // The grid is what most visits are for; drafts and reviews are requests
-    // most visits never make.
+    // The strip is the one control on this screen you press without looking
+    // at it.
     const profile = strip(read("components/member/member-profile.tsx"))
-    const draftsList = strip(read("components/sell/drafts-list.tsx"))
-    const reviewsList = strip(read("components/member/seller-reviews-list.tsx"))
+    const tab = profile.slice(profile.indexOf("function ShelfTab("))
+    return /triggerHaptic\("light"\)/.test(tab.slice(0, 900)) && /active:scale-\[0\.97\]/.test(tab.slice(0, 1400))
+  })(),
+)
+
+check(
+  "switching panels is the feed's own move: depth, with a snapshot leaving",
+  (() => {
+    // One switch grammar per app. The outgoing panel is a snapshot so it can
+    // keep painting a list for a state that has already moved on; both layers
+    // are transform and opacity only, and hand their layers back.
+    const swap = strip(read("components/ui/depth-swap.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /shelfTab === "drafts" && isOwner \? \(/.test(profile) &&
-      /fetch\("\/api\/listings\/drafts"/.test(draftsList) &&
-      /fetch\(`\/api\/reviews\?sellerUserId=/.test(reviewsList)
+      /<DepthSwap id=\{shelfTab\}>/.test(profile) &&
+      /setOut\(\{ key: idRef\.current, node: lastNode\.current \}\)/.test(swap) &&
+      /void i\.offsetHeight/.test(swap) &&
+      /willChange = "transform, opacity"/.test(swap)
     )
   })(),
 )
@@ -346,38 +446,36 @@ check(
 )
 
 check(
-  "the drafts list embeds without bringing its page chrome",
+  "your own card carries a ⋯ where the heart was",
   (() => {
-    // Inside the tab the page already has a heading and padding; a second
-    // header inside a screen that has one is scaffolding showing.
-    const draftsList = strip(read("components/sell/drafts-list.tsx"))
-    return /embedded = false/.test(draftsList) && /\{!embedded && \(/.test(draftsList)
-  })(),
-)
-
-check(
-  "your own cards carry the ⋯, and it opens the same manage sheet",
-  (() => {
-    // "Fix that title" starts at the grid, looking at the card — a trip
-    // through the listing page to reach the same three actions is a corridor
-    // with nothing in it.
+    // Saving your own listing to your own wishlist does nothing anybody wants,
+    // and that corner is the only place on a grid card where a per-item menu
+    // can live.
     const profile = strip(read("components/member/member-profile.tsx"))
+    const card = strip(read("components/explore/product-card.tsx"))
     return (
+      /cornerAction=\{\s*\n?\s*isOwner \? \(/.test(profile) &&
       /setManageFor\(listing\)/.test(profile) &&
-      /<ManageListingSheet/.test(profile) &&
-      /\{isOwner && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*aria-label=\{`Gestionează /.test(profile)
+      /\{cornerAction \?\? <WishlistHeartButton/.test(card)
     )
   })(),
 )
 
 check(
-  "switching tabs animates, and respects reduced motion",
+  "the heart is gone from your own listing PAGE too",
   (() => {
-    const css = strip(read("app/globals.css"))
+    // It was the last self-directed control left on it.
+    return /\{!isOwn && \(\s*\n\s*<button\s*\n\s*type="button"\s*\n\s*onClick=\{onLike\}/.test(detail)
+  })(),
+)
+
+check(
+  "deleting from the listing page leaves; deleting from the grid refreshes",
+  (() => {
+    // That page IS the row. Once it is gone there is nothing there to refresh.
     return (
-      /@keyframes shelf-panel-in/.test(css) &&
-      /\.shelf-panel-in \{[\s\S]{0,120}?animation: shelf-panel-in/.test(css) &&
-      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,120}?\.shelf-panel-in \{[\s\S]{0,60}?animation: none/.test(css)
+      /onDeleted=\{\(\) => \{\s*\n\s*router\.replace\("\/profile"\)/.test(detail) &&
+      /if \(onDeleted\) onDeleted\(\)\s*\n\s*else router\.refresh\(\)/.test(sheet)
     )
   })(),
 )
@@ -433,28 +531,12 @@ check(
 )
 
 check(
-  "drafts are drawn the way listings are drawn",
+  "the drafts list keeps its own page, and no longer duplicates the grid",
   (() => {
-    // A draft IS a listing that is not finished, so it wears the same clothes:
-    // the same card grid, with the difference said once in a corner badge —
-    // not a different species of list.
-    const grid = strip(read("components/member/drafts-grid.tsx"))
-    const profile = strip(read("components/member/member-profile.tsx"))
-    return (
-      /<DraftsGrid \/>/.test(profile) &&
-      /grid grid-cols-2 gap-x-3/.test(grid) &&
-      /Ciornă/.test(grid) &&
-      /\/products\/new\?draft=/.test(grid)
-    )
-  })(),
-)
-
-check(
-  "deleting a draft from the grid asks in place, and waits for the server",
-  (() => {
-    const grid = strip(read("components/member/drafts-grid.tsx"))
-    const fn = grid.slice(grid.indexOf("const remove ="))
-    return /confirming === d\.id \? "Șterg\?"/.test(grid) && fn.indexOf("if (!res.ok) return") < fn.indexOf("setDrafts((list)")
+    // /products/drafts still resolves — it is a real deep link and the account
+    // drawer points at it — but the profile grid is where drafts now live, so
+    // there is no second grid component to keep in step with the first.
+    return !existsSync(join(process.cwd(), "components/member/drafts-grid.tsx"))
   })(),
 )
 

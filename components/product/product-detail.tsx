@@ -606,6 +606,10 @@ export function ProductDetail({ product }: { product: any }) {
               without dimming the product itself. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent md:hidden" />
 
+          {/* NOT ON YOUR OWN LISTING. Saving your own thing to your own
+              wishlist is the same non-action as buying it from yourself, and
+              the heart was the last one of those still on this page. */}
+          {!isOwn && (
           <button
             type="button"
             onClick={onLike}
@@ -622,6 +626,7 @@ export function ProductDetail({ product }: { product: any }) {
               )}
             />
           </button>
+          )}
 
           {images.length > 1 && (
             <div className="pointer-events-none absolute inset-x-0 bottom-5 z-10 flex justify-center gap-1.5">
@@ -890,6 +895,12 @@ export function ProductDetail({ product }: { product: any }) {
           listingId={product.id}
           status={product.status ?? "published"}
           title={product.title ?? ""}
+          // This page IS the row. Once it is gone there is nothing here to
+          // refresh — the route 404s — so leave for somewhere that still exists.
+          onDeleted={() => {
+            router.replace("/profile")
+            router.refresh()
+          }}
         />
       )}
 

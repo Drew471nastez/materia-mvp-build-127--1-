@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Archive, Loader2, Pencil, Trash2, Undo2 } from "lucide-react"
+import { Archive, CheckCircle2, Clock, Loader2, Pencil, Trash2, Undo2 } from "lucide-react"
 
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -38,25 +38,40 @@ import { cn } from "@/lib/utils"
  * their order history and a link in their receipt. The server refuses; this
  * says so and offers archiving, which does the thing that was actually wanted.
  */
+type Busy = null | "archive" | "reserve" | "sold" | "delete"
+
 export function ManageListingSheet({
   open,
   onClose,
   listingId,
   status,
   title,
+  onDeleted,
 }: {
   open: boolean
   onClose: () => void
   listingId: string
   status: string
   title: string
+  /**
+   * What to do once the row is gone.
+   *
+   * On the profile a refresh is right — the grid it was in is still the screen
+   * you are looking at. On the listing's OWN page it is not: that page is a 404
+   * the moment the row goes, so the caller sends you somewhere that still
+   * exists.
+   */
+  onDeleted?: () => void
 }) {
   const router = useRouter()
-  const [busy, setBusy] = useState<null | "archive" | "delete">(null)
+  const [busy, setBusy] = useState<Busy>(null)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const archived = status === "archived"
+  const reserved = status === "reserved"
+  const isDraft = status === "draft"
+  const sold = status === "sold"
 
   const call = useCallback(
     async (init: RequestInit) => {
@@ -73,27 +88,35 @@ export function ManageListingSheet({
 
   const onEdit = useCallback(() => {
     void triggerHaptic("light")
-    router.push(`/products/new?edit=${encodeURIComponent(listingId)}`)
-  }, [router, listingId])
+    // A draft resumes through the drafts route, which is the one scoped to
+    // drafts and the one that knows how to publish from there. A live listing
+    // goes through the edit route. Same screen either way.
+    router.push(
+      isDraft
+        ? `/products/new?draft=${encodeURIComponent(listingId)}`
+        : `/products/new?edit=${encodeURIComponent(listingId)}`,
+    )
+  }, [router, listingId, isDraft])
 
-  const onArchive = useCallback(async () => {
-    setError(null)
-    setBusy("archive")
-    const { ok, data } = await call({
-      method: "PATCH",
-      body: JSON.stringify({ action: archived ? "publish" : "archive" }),
-    })
-    setBusy(null)
-    if (!ok) {
-      setError(data?.message ?? "Nu am putut actualiza anunțul.")
-      return
-    }
-    void triggerHaptic("light")
-    onClose()
-    // Not a push: the page you are on is the page that changed, and its own
-    // data is what is now stale.
-    router.refresh()
-  }, [call, archived, onClose, router])
+  /** Every status move goes through here, so they cannot drift apart. */
+  const act = useCallback(
+    async (action: "archive" | "publish" | "reserve" | "unreserve" | "sold", key: Busy) => {
+      setError(null)
+      setBusy(key)
+      const { ok, data } = await call({ method: "PATCH", body: JSON.stringify({ action }) })
+      setBusy(null)
+      if (!ok) {
+        setError(data?.message ?? "Nu am putut actualiza anunțul.")
+        return
+      }
+      void triggerHaptic("light")
+      onClose()
+      // Not a push: the page you are on is the page that changed, and its own
+      // data is what is now stale.
+      router.refresh()
+    },
+    [call, onClose, router],
+  )
 
   const onDelete = useCallback(async () => {
     setError(null)
@@ -107,31 +130,62 @@ export function ManageListingSheet({
     }
     void triggerHaptic("medium")
     onClose()
-    // The listing is gone, so this page is a 404 now. Somewhere that still
-    // exists, and a refresh so the profile it lands on has lost the row too.
-    router.replace("/profile")
-    router.refresh()
-  }, [call, onClose, router])
+    if (onDeleted) onDeleted()
+    else router.refresh()
+  }, [call, onClose, router, onDeleted])
 
   return (
     <BottomSheet open={open} onClose={onClose} label="Gestionează anunțul">
       <div className="px-4 pb-8 pt-1">
-        <p className="px-1 pb-3 text-[13px] font-medium text-neutral-400">Anunțul tău</p>
+        <p className="px-1 pb-3 text-[13px] font-medium text-neutral-400">
+          {isDraft ? "Ciorna ta" : "Anunțul tău"}
+        </p>
         <p className="mb-4 truncate px-1 text-[17px] font-semibold tracking-[-0.015em] text-neutral-900">
           {title || "Fără titlu"}
         </p>
 
         <div className="overflow-hidden rounded-2xl border border-neutral-200/80">
-          <Row icon={<Pencil className="h-[19px] w-[19px]" />} onClick={onEdit}>
-            Editează anunțul
-          </Row>
-          <Row
-            icon={archived ? <Undo2 className="h-[19px] w-[19px]" /> : <Archive className="h-[19px] w-[19px]" />}
-            onClick={() => void onArchive()}
-            busy={busy === "archive"}
-          >
-            {archived ? "Publică din nou" : "Arhivează anunțul"}
-          </Row>
+          {/* Not for a sold listing: the server refuses to change one, because
+              editing it would rewrite what somebody already bought. */}
+          {!sold && (
+            <Row icon={<Pencil className="h-[19px] w-[19px]" />} onClick={onEdit}>
+              {isDraft ? "Continuă ciorna" : "Editează anunțul"}
+            </Row>
+          )}
+
+          {/* A DRAFT gets neither of the middle two. It has never been on the
+              feed, so there is nothing to reserve and nothing to take down —
+              its only moves are finishing it and throwing it away. */}
+          {!isDraft && !sold && (
+            <Row
+              icon={reserved ? <Undo2 className="h-[19px] w-[19px]" /> : <Clock className="h-[19px] w-[19px]" />}
+              onClick={() => void act(reserved ? "unreserve" : "reserve", "reserve")}
+              busy={busy === "reserve"}
+            >
+              {reserved ? "Anulează rezervarea" : "Marchează ca rezervat"}
+            </Row>
+          )}
+
+          {!isDraft && !sold && (
+            <Row
+              icon={<CheckCircle2 className="h-[19px] w-[19px]" />}
+              onClick={() => void act("sold", "sold")}
+              busy={busy === "sold"}
+            >
+              Marchează ca vândut
+            </Row>
+          )}
+
+          {!isDraft && (
+            <Row
+              icon={archived ? <Undo2 className="h-[19px] w-[19px]" /> : <Archive className="h-[19px] w-[19px]" />}
+              onClick={() => void act(archived ? "publish" : "archive", "archive")}
+              busy={busy === "archive"}
+            >
+              {archived ? "Publică din nou" : "Arhivează anunțul"}
+            </Row>
+          )}
+
           <Row
             icon={<Trash2 className="h-[19px] w-[19px]" />}
             onClick={() => {
@@ -141,14 +195,20 @@ export function ManageListingSheet({
             danger
             last
           >
-            Șterge anunțul
+            {isDraft ? "Șterge ciorna" : "Șterge anunțul"}
           </Row>
         </div>
 
         <p className="mt-2.5 px-1 text-[12.5px] font-medium leading-relaxed text-neutral-400">
-          {archived
-            ? "Un anunț arhivat nu apare în feed, dar rămâne al tău."
-            : "Arhivarea îl scoate din feed fără să îl ștergi. Îl poți publica oricând la loc."}
+          {isDraft
+            ? "O ciornă nu apare în feed. Continuă de unde ai rămas și publică oricând."
+            : sold
+              ? "Anunțul este marcat ca vândut. Rămâne vizibil pentru cumpărător și în istoricul tău."
+              : reserved
+                ? "Rezervat înseamnă că îl ții pentru cineva: nu apare în feed, dar linkul funcționează."
+                : archived
+                  ? "Un anunț arhivat nu apare în feed, dar rămâne al tău."
+                  : "Arhivarea îl scoate din feed fără să îl ștergi. Îl poți publica oricând la loc."}
         </p>
 
         {/* Expands in place, and names the thing. `grid-template-rows` is the

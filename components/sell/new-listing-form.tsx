@@ -25,6 +25,7 @@ import {
 import { triggerHaptic } from "@/lib/native-bridge"
 import { PickerPage } from "@/components/sell/picker-page"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
 import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
@@ -573,6 +574,15 @@ export function NewListingForm() {
 
   /** Filling in from a saved draft or an existing listing. */
   const [loadingDraft, setLoadingDraft] = useState(false)
+  /**
+   * True once the form holds whatever it is starting FROM.
+   *
+   * A blank form is ready on the first frame. One resuming a draft is not ready
+   * until the row has arrived, and the difference matters because that is the
+   * moment "unchanged" is defined — take the baseline a render too early and
+   * the draft loading into the fields reads as edits the user never made.
+   */
+  const [formReady, setFormReady] = useState(false)
 
   const [photos, setPhotos] = useState<Photo[]>([])
   const [title, setTitle] = useState("")
@@ -645,7 +655,10 @@ export function NewListingForm() {
    */
   useEffect(() => {
     const id = draftId ?? editId
-    if (!id) return
+    if (!id) {
+      setFormReady(true)
+      return
+    }
     let alive = true
     setLoadingDraft(true)
     const url = editId
@@ -687,7 +700,12 @@ export function NewListingForm() {
       })
       .catch(() => undefined)
       .finally(() => {
-        if (alive) setLoadingDraft(false)
+        if (!alive) return
+        setLoadingDraft(false)
+        // A separate microtask from the .then above, so the fields it filled in
+        // have already been committed by the time this render lands — which is
+        // exactly what the baseline needs to see.
+        setFormReady(true)
       })
     return () => {
       alive = false
@@ -1335,6 +1353,65 @@ export function NewListingForm() {
     [setMotion],
   )
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  CLOSING A FORM YOU HAVE WRITTEN IN
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * The X threw everything away without a word. Three photographs, a title and
+   * a price, gone to a tap in the corner — and the only thing that could have
+   * saved them was a "Salvează" button sharing the bottom bar with Publish,
+   * where it read as a second, lesser way to finish rather than as the thing it
+   * was: the exit that keeps your work.
+   *
+   * So the button is gone from the bar and the question moved to where the work
+   * is actually at risk. Leaving with something written asks once, in the
+   * middle of the screen, with the two answers it has: keep it as a draft, or
+   * discard it. Leaving an untouched form asks nothing, because there is
+   * nothing to lose and a dialog with no stakes is a dialog people learn to
+   * dismiss without reading.
+   */
+  /**
+   * DIRTY IS "DIFFERENT FROM WHAT I OPENED", not "has anything in it".
+   *
+   * A count of filled fields is the obvious version and it is wrong the moment
+   * the form can be RESUMED: opening a draft fills every field from the server,
+   * so looking at one and leaving would ask whether to save changes you never
+   * made. The baseline is taken once the form has whatever it is starting from
+   * — nothing, or a loaded draft — and everything after that is compared
+   * against it.
+   */
+  const snapshot = useMemo(
+    () =>
+      JSON.stringify([
+        photos.map((p) => p.url ?? p.localUrl),
+        title.trim(),
+        description.trim(),
+        group,
+        item,
+        brand,
+        condition,
+        colour,
+        size,
+        era,
+        sources,
+        styles,
+        price.trim(),
+        compareAt.trim(),
+      ]),
+    [photos, title, description, group, item, brand, condition, colour, size, era, sources, styles, price, compareAt],
+  )
+  const baseline = useRef<string | null>(null)
+  useEffect(() => {
+    if (formReady && baseline.current === null) baseline.current = snapshot
+  }, [formReady, snapshot])
+  const dirty = baseline.current !== null && snapshot !== baseline.current
+
+  const [askOnClose, setAskOnClose] = useState(false)
+  /** `submit` is declared far below this point and closes over half the form;
+   *  a ref is how the close path reaches it without hoisting either. */
+  const submitRef = useRef<((draft: boolean) => Promise<void>) | null>(null)
+
   const closing = useRef(false)
   const close = useCallback(() => {
     if (closing.current) return
@@ -1377,6 +1454,32 @@ export function NewListingForm() {
       else router.push("/")
     }, 296)
   }, [router, setMotion])
+
+  /**
+   * The X, "Renunță", and Escape all come through here.
+   *
+   * An untouched form closes immediately: a dialog with nothing at stake is one
+   * people learn to dismiss without reading, and then the one that mattered
+   * gets dismissed too. An EDIT is also allowed straight out — its work is
+   * already saved on the server, and "keep this as a draft" is not a thing you
+   * can do to something that is already published.
+   */
+  const requestClose = useCallback(() => {
+    if (!dirty || editId) {
+      close()
+      return
+    }
+    void triggerHaptic("light")
+    setAskOnClose(true)
+  }, [dirty, editId, close])
+
+  /** "Salvează" in that dialog: the draft save, from the one place it now
+   *  lives. The dialog closes first so the sheet's slide is not competing with
+   *  a dialog fading out on top of it. */
+  const saveAndClose = useCallback(() => {
+    setAskOnClose(false)
+    void submitRef.current?.(true)
+  }, [])
 
   // ---- brand search ----
   /**
@@ -1799,7 +1902,7 @@ export function NewListingForm() {
           setMotion("armed")
           requestAnimationFrame(() => setMotion("leave"))
           window.setTimeout(() => {
-            if (draft) router.replace("/products/drafts")
+            if (draft) router.replace("/profile")
             else if (data?.slug) router.replace(`/products/${data.slug}`)
             else router.replace("/")
           }, 316)
@@ -1811,6 +1914,9 @@ export function NewListingForm() {
     },
     [gaps, showFirstGap, uploaded, title, description, priceCents, compareCents, group, item, brand, condition, colour, size, era, sources, styles, postAnother, router, setMotion, draftId, editId],
   )
+  // The close path needs `submit` and is declared far above it, closing over
+  // half the form. A ref reaches it without hoisting either.
+  submitRef.current = submit
 
   // One definition rendered in two places — the phone's pinned bottom bar and
   // the desktop sticky card — so the two sets of controls can never drift
@@ -1837,23 +1943,20 @@ export function NewListingForm() {
       )}
 
       <div className="flex gap-2.5">
-        {/* No "Salvează" while editing. On a new listing it means "keep this as
-            a draft", and there is no such thing as turning something that is
-            already live back into one — the button would either lie or do
-            nothing. */}
-        {!editId && (
-          <button
-            type="button"
-            onClick={() => {
-              void triggerHaptic("light")
-              void submit(true)
-            }}
-            disabled={saving !== null}
-            className="h-12 flex-1 rounded-lg bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-colors duration-150 active:bg-neutral-200 disabled:opacity-60"
-          >
-            Salvează
-          </button>
-        )}
+        {/* NOT "Salvează".
+            It sat here reading as a second, lesser way to FINISH — and it was
+            not: it was the exit that keeps your work, which is a different verb
+            entirely and belongs on the way out rather than beside Publish.
+            Leaving is what this button does now, and leaving is what asks
+            whether to keep the draft. */}
+        <button
+          type="button"
+          onClick={requestClose}
+          disabled={saving !== null}
+          className="h-12 flex-1 rounded-lg bg-neutral-100 text-[15px] font-semibold text-neutral-700 transition-colors duration-150 active:bg-neutral-200 disabled:opacity-60"
+        >
+          Renunță
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -1950,10 +2053,7 @@ export function NewListingForm() {
         <div className="relative flex h-14 items-center justify-center px-2">
           <button
             type="button"
-            onClick={() => {
-              void triggerHaptic("light")
-              close()
-            }}
+            onClick={requestClose}
             aria-label="Închide"
             className="absolute left-1 flex h-11 w-11 items-center justify-center rounded-full text-neutral-900 transition-transform active:scale-[0.97]"
           >
@@ -2609,6 +2709,27 @@ export function NewListingForm() {
         </>
       )}
       </PickerPage>
+
+      {/* LEAVING WITH SOMETHING WRITTEN. Two answers, and the scrim is not one
+          of them — see components/ui/confirm-dialog.tsx for why this is a
+          centred alert rather than a sheet. */}
+      <ConfirmDialog
+        open={askOnClose}
+        title="Salvezi schimbările înainte de a închide?"
+        body="O poți continua oricând din profilul tău, unde apare cu eticheta Ciornă."
+        onDismiss={() => setAskOnClose(false)}
+        actions={[
+          { label: "Salvează ciorna", onClick: saveAndClose, primary: true, busy: saving !== null },
+          {
+            label: "Renunță la modificări",
+            danger: true,
+            onClick: () => {
+              setAskOnClose(false)
+              close()
+            },
+          },
+        ]}
+      />
 
       {/* WHAT A COMPARISON PRICE IS, AS A SHEET.
           Short enough to be read standing up, and it says the one thing that

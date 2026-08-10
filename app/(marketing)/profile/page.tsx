@@ -61,7 +61,7 @@ export default async function ProfilePage() {
     // whichever creator row it hangs off. Both of those used to be assumptions
     // this page made silently, and one of them was why a listing that had been
     // posted did not appear here at all — see lib/profile/listings.ts.
-    readSellerListings({ admin, userId: user.id, limit: MAX_LISTINGS, includeArchived: true }),
+    readSellerListings({ admin, userId: user.id, limit: MAX_LISTINGS, ownerView: true }),
   ])
   const rows = shelf.rows
   const listingsCount = shelf.count

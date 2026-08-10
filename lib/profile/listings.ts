@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { createAdminClient } from "@/lib/supabase/admin"
+import { OWNER_SHELF, PUBLIC_FEED } from "@/lib/marketplace/listing-status"
 
 /**
  * What somebody has for sale, for the two pages that show a seller's shelf.
@@ -78,7 +79,7 @@ export async function readSellerListings({
   admin,
   userId,
   limit,
-  includeArchived = false,
+  ownerView = false,
 }: {
   admin: Admin
   /** The auth user whose shelf this is — NOT a creators id. */
@@ -87,13 +88,17 @@ export async function readSellerListings({
   /**
    * Your OWN profile, and nowhere else.
    *
-   * Archiving takes a listing off the feed, and the profile is the only place
-   * left that could show it to you — so without this, archiving something is
-   * losing it: no screen anywhere lists it, and the only control that could
-   * put it back lives on a page you can no longer reach. A visitor still sees
-   * published listings and nothing else.
+   * Every state you have ever put a listing into — drafts, reserved, archived,
+   * sold — because the shelf is the only screen that could show them to you.
+   * Without it, archiving something is LOSING it: no screen lists it and the
+   * control that would put it back lives on a page you can no longer reach.
+   * Drafts had the same problem in reverse — they existed only behind a link
+   * in the account drawer, which is not where anybody looks for a listing they
+   * started yesterday.
+   *
+   * A visitor's query is unchanged: PUBLIC_FEED, one entry.
    */
-  includeArchived?: boolean
+  ownerView?: boolean
 }): Promise<{ rows: SellerListingRow[]; count: number }> {
   // Every creator row this account holds, not "the" one. See above.
   const { data: creators } = await admin.from("creators").select("id").eq("user_id", userId)
@@ -105,7 +110,7 @@ export async function readSellerListings({
       .from("products")
       .select(cols, { count: "exact" })
       .in("creator_id", creatorIds)
-      .in("status", includeArchived ? ["published", "archived"] : ["published"])
+      .in("status", ownerView ? OWNER_SHELF : PUBLIC_FEED)
       .order("created_at", { ascending: false })
       .limit(limit)
 

@@ -43,11 +43,43 @@ const form = strip(read("components/sell/new-listing-form.tsx"))
 console.log("\nDrafts: saved, findable, and finishable")
 
 check(
-  "a draft has somewhere to be, and saving takes you there",
-  /router\.replace\("\/products\/drafts"\)/.test(form) &&
-    /\{ label: "CIORNE", href: "\/products\/drafts" \}/.test(read("components/marketing/account-drawer.tsx")),
-  "        Saving into a place with no route to it is a button things\n" +
-    "        disappear into.",
+  "a saved draft lands you where the draft now IS",
+  (() => {
+    // It used to go to /products/drafts, a page reachable only through the
+    // account drawer. Drafts live in the profile grid now, with a Ciornă badge
+    // on the card — so saving one takes you to the shelf it just joined, where
+    // you can see the thing you saved rather than take somebody's word for it.
+    return (
+      /router\.replace\("\/profile"\)/.test(form) &&
+      /case "draft":\s*\n\s*return \{ label: "Ciornă"/.test(
+        strip(read("lib/marketplace/listing-status.ts")),
+      )
+    )
+  })(),
+)
+
+check(
+  "and the way OUT of the form is what offers to save it",
+  (() => {
+    // "Salvează" sat in the bottom bar beside Publish, reading as a second,
+    // lesser way to finish — which it was not: it was the exit that keeps your
+    // work. The X threw everything away without a word.
+    return (
+      /onClick=\{requestClose\}/.test(form) &&
+      /\n\s*Renunță\n/.test(form) &&
+      /<ConfirmDialog/.test(form) &&
+      /title="Salvezi schimbările înainte de a închide\?"/.test(form)
+    )
+  })(),
+)
+
+check(
+  "an untouched form closes without asking",
+  (() => {
+    // A dialog with nothing at stake is one people learn to dismiss without
+    // reading, and then the one that mattered gets dismissed too.
+    return /if \(!dirty \|\| editId\) \{\s*\n\s*close\(\)/.test(form)
+  })(),
 )
 
 check(
