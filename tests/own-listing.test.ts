@@ -20,6 +20,25 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
+// Set up a browser BEFORE the module under test is used. auth-snapshot only
+// touches `window` inside its functions, never at load, so a static import is
+// safe as long as nothing is CALLED before this runs.
+const store = new Map<string, string>()
+;(globalThis as any).localStorage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, v),
+  removeItem: (k: string) => void store.delete(k),
+}
+;(globalThis as any).window = new EventTarget()
+
+import {
+  AUTH_SNAPSHOT_EVENT,
+  clearAuthSnapshot,
+  readAuthSnapshot,
+  subscribeAuthSnapshot,
+  writeAuthSnapshot,
+} from "@/lib/auth/auth-snapshot"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -2080,6 +2099,180 @@ check(
       /show\.observe\(el\)/.test(pinHook) &&
       /hide\.observe\(el\)/.test(pinHook)
     )
+  })(),
+)
+
+// ── THE HEART THAT WOULD NOT GO AWAY, THIRD TIME ────────────────────────────
+//
+// Twice this was fixed by making the comparison right, and twice it stayed on
+// screen — because the comparison was never what was wrong the second time.
+// The card asked "who am I" in a mount effect with an empty dependency array,
+// which is a question asked exactly once, at the one moment the answer is not
+// yet known: the snapshot is written by the header AFTER a session check and a
+// profile query, and every card in the feed has mounted long before that lands.
+//
+// Each card read "signed out", correctly, and then never found out otherwise.
+// No error, nothing in a log, and a card that renders exactly as it would for a
+// stranger's listing.
+//
+// These are driven against the real module with a real EventTarget, because
+// this is precisely the failure that a test asserting the guard is WIRED cannot
+// see — the guard was wired every time.
+
+const SNAPSHOT = {
+  signedIn: true,
+  userId: "user-abc",
+  avatarUrl: null,
+  displayName: "Cineva",
+  username: null,
+  isSeller: false,
+}
+
+check(
+  "a reader that asked before sign-in landed is told when it does",
+  (() => {
+    // THE BUG, exactly: subscribe while signed out, then let the header write.
+    store.clear()
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    const before = readAuthSnapshot()
+    writeAuthSnapshot(SNAPSHOT)
+    const after = readAuthSnapshot()
+    stop()
+    return before === null && told === 1 && after?.userId === "user-abc"
+  })(),
+  "        lib/auth/auth-snapshot.ts — the snapshot is written after two network\n" +
+    "        round trips, so nothing on the first screen can read it in time.",
+)
+
+check(
+  "and a username that is null does not make the identity unusable",
+  (() => {
+    // The FIRST version of this bug. `profiles.username` is nullable, and an
+    // account without one compared null against a name on every card it owned.
+    store.clear()
+    writeAuthSnapshot(SNAPSHOT)
+    const snap = readAuthSnapshot()
+    return snap?.username === null && snap?.userId === "user-abc"
+  })(),
+)
+
+check(
+  "signing out reaches the same readers signing in did",
+  (() => {
+    // Otherwise a control hidden because a listing was yours stays hidden for
+    // whoever uses the phone next.
+    store.clear()
+    writeAuthSnapshot(SNAPSHOT)
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    clearAuthSnapshot()
+    const after = readAuthSnapshot()
+    stop()
+    return told === 1 && after === null
+  })(),
+)
+
+check(
+  "another tab signing in counts too",
+  (() => {
+    // `storage` fires only in OTHER tabs, which is why the in-tab event exists
+    // at all — but the cross-tab case is still a real one and must not be lost
+    // by adding the in-tab one.
+    store.clear()
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    const e = new Event("storage") as Event & { key: string | null }
+    e.key = "_sl_auth_v1"
+    ;(globalThis as any).window.dispatchEvent(e)
+    stop()
+    return told === 1
+  })(),
+)
+
+check(
+  "a reader that has gone away stops being told",
+  (() => {
+    store.clear()
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    stop()
+    writeAuthSnapshot(SNAPSHOT)
+    ;(globalThis as any).window.dispatchEvent(new Event(AUTH_SNAPSHOT_EVENT))
+    return told === 0
+  })(),
+)
+
+check(
+  "the identity is re-read on every change, not once on mount",
+  (() => {
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return (
+      /subscribeAuthSnapshot\(read\)/.test(hook) &&
+      /watchers\.add\(read\)/.test(hook) &&
+      // And the listener is removed, or every card that ever scrolled past
+      // stays subscribed for the life of the page.
+      /watchers\.delete\(read\)/.test(hook) &&
+      /stop\(\)/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "sixty cards asking who I am produce at most one request",
+  (() => {
+    // A feed is sixty cards and each one calls this hook. Sixty round trips to
+    // answer one question would be a worse bug than the one being fixed.
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return (
+      /^let fromSession/m.test(hook) &&
+      /if \(fromSession \|\| asking\) return/.test(hook) &&
+      [...hook.matchAll(/auth\.getUser\(\)/g)].length === 1
+    )
+  })(),
+)
+
+// ── THE + THAT TURNS ────────────────────────────────────────────────────────
+
+check(
+  "the turning + is a compositor job and nothing else",
+  (() => {
+    const css = read("app/globals.css")
+    const rule = /\.plus-turn \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    const open = /\.plus-turn\[data-open="true"\] \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    return (
+      // Transform alone. A transition list naming a colour or a filter drags
+      // the whole animation onto the main thread — which is busy loading the
+      // route this very press started.
+      /transition: transform /.test(rule) &&
+      !/transition:[^;]*(color|background|box-shadow|filter|opacity)/.test(rule) &&
+      // Promoted BEFORE the press, not at the first frame of the turn.
+      /transform: translateZ\(0\) rotate\(0deg\)/.test(rule) &&
+      /transform: translateZ\(0\) rotate\(135deg\)/.test(open) &&
+      /backface-visibility: hidden/.test(rule) &&
+      /transform-origin: 50% 50%/.test(rule)
+    )
+  })(),
+  "        app/globals.css — the promotion has to be in BOTH states, or the\n" +
+    "        layer is torn down and rebuilt every time it turns back.",
+)
+
+check(
+  "and the circle it sits in does not animate with it",
+  (() => {
+    // Two transitions on nested elements is the "cheap bump" that was removed
+    // from this button once already.
+    const nav = read("components/explore/mobile-bottom-nav.tsx")
+    const btn = /className="flex h-12 w-12 items-center justify-center rounded-full text-white"/.exec(nav)
+    return !!btn && !/active:scale-\d+[\s\S]{0,80}?plus-turn/.test(nav)
   })(),
 )
 

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 
-import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { createClient } from "@/lib/supabase/client"
 
 /**
  * ===========================================================================
@@ -49,16 +50,100 @@ export function useMyUsername(): string | null {
  * seller's — `_explore-feed.tsx` selects `id, user_id, slug` off creators and
  * hangs it on each product — so nothing new has to be fetched to use it.
  */
-function useMyIdentity(): { userId: string | null; username: string | null } {
-  const [me, setMe] = useState<{ userId: string | null; username: string | null }>({
-    userId: null,
-    username: null,
-  })
+type Identity = { userId: string | null; username: string | null }
+
+const NOBODY: Identity = { userId: null, username: null }
+
+/**
+ * Resolved from the session when there is no snapshot to read.
+ *
+ * Module-level, and asked at most once, because a feed is sixty cards and each
+ * of them calls this hook — sixty network round trips to answer one question
+ * would be a worse bug than the one it fixes.
+ */
+let fromSession: Identity | null = null
+let asking: Promise<unknown> | null = null
+/** Every mounted card, so one answer reaches all of them. */
+const watchers = new Set<() => void>()
+
+function currentIdentity(): Identity {
+  const snap = readAuthSnapshot()
+  if (snap?.signedIn && (snap.userId || snap.username)) {
+    return { userId: snap.userId ?? null, username: snap.username ?? null }
+  }
+  return fromSession ?? NOBODY
+}
+
+function askSessionOnce(): void {
+  if (fromSession || asking) return
+  const snap = readAuthSnapshot()
+  if (snap?.signedIn && snap.userId) return
+  asking = createClient()
+    .auth.getUser()
+    .then(({ data }: { data: { user: { id: string } | null } }) => {
+      if (!data.user) return
+      // No username from a session — the id is the identifier that always
+      // exists, and it is the one that decides ownership anyway.
+      fromSession = { userId: data.user.id, username: null }
+      for (const w of watchers) w()
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      asking = null
+    })
+}
+
+/**
+ * ===========================================================================
+ *  IT HAS TO KEEP ASKING, NOT ASK ONCE
+ * ===========================================================================
+ *
+ * This read the snapshot in a mount effect and never looked again, and that is
+ * why the heart was STILL on your own listings after the identifier was fixed.
+ *
+ * The snapshot is written by the header, after a session check and a profile
+ * query — two network round trips. Every card in the feed mounts long before
+ * that lands. They each read "signed out", correctly, and then never found out
+ * they were wrong: one `useEffect` with an empty dependency array is a question
+ * asked exactly once, at the worst possible moment.
+ *
+ * There is no error in that, and nothing to see in a log. The card renders
+ * precisely as it would for a stranger's listing, which is the failure the
+ * previous two attempts at this both produced by different routes.
+ *
+ * So: read on mount, and re-read whenever the snapshot changes — in this tab
+ * via the event `writeAuthSnapshot` fires, and in another via `storage`. And if
+ * nothing ever writes one on this route, ask the session directly, once, for
+ * the whole page.
+ */
+function useMyIdentity(): Identity {
+  // Deliberately not a lazy initialiser reading localStorage: the server has no
+  // localStorage, and a first client render that disagrees with the HTML is a
+  // hydration mismatch.
+  const [me, setMe] = useState<Identity>(NOBODY)
+
   useEffect(() => {
-    const snap = readAuthSnapshot()
-    if (!snap?.signedIn) return
-    setMe({ userId: snap.userId ?? null, username: snap.username ?? null })
+    let alive = true
+    const read = () => {
+      if (!alive) return
+      const next = currentIdentity()
+      // Compared by value — the identity is re-read on every announcement and
+      // most announcements do not change it.
+      setMe((prev) =>
+        prev.userId === next.userId && prev.username === next.username ? prev : next,
+      )
+    }
+    read()
+    watchers.add(read)
+    const stop = subscribeAuthSnapshot(read)
+    askSessionOnce()
+    return () => {
+      alive = false
+      watchers.delete(read)
+      stop()
+    }
   }, [])
+
   return me
 }
 

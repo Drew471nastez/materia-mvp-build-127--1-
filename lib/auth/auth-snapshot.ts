@@ -47,6 +47,47 @@ export function readAuthSnapshot(): AuthSnapshot | null {
   }
 }
 
+/**
+ * Fired whenever the snapshot changes IN THIS TAB.
+ *
+ * The browser's own `storage` event is only sent to OTHER tabs, so a component
+ * that read the snapshot before the header had finished verifying the session
+ * has no way of learning that it has since arrived. That is not a corner case:
+ * the snapshot is written after a network round trip, and everything on the
+ * first screen renders before it. Anything that read "signed out" then would
+ * keep believing it for the rest of the visit.
+ */
+export const AUTH_SNAPSHOT_EVENT = "storelib:auth-snapshot"
+
+function announce(): void {
+  if (typeof window === "undefined") return
+  try {
+    window.dispatchEvent(new Event(AUTH_SNAPSHOT_EVENT))
+  } catch {
+    /* an environment without CustomEvent is one with nobody listening */
+  }
+}
+
+/**
+ * Both directions: this tab, and any other tab of the same account.
+ *
+ * Returns its own unsubscribe, so a caller cannot leak a listener by forgetting
+ * which of the two it added.
+ */
+export function subscribeAuthSnapshot(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {}
+  const onStorage = (e: StorageEvent) => {
+    // A null key is `localStorage.clear()`, which is also a change to this.
+    if (!e.key || e.key === KEY) onChange()
+  }
+  window.addEventListener(AUTH_SNAPSHOT_EVENT, onChange)
+  window.addEventListener("storage", onStorage)
+  return () => {
+    window.removeEventListener(AUTH_SNAPSHOT_EVENT, onChange)
+    window.removeEventListener("storage", onStorage)
+  }
+}
+
 export function writeAuthSnapshot(snapshot: AuthSnapshot): void {
   if (typeof window === "undefined") return
   try {
@@ -54,6 +95,9 @@ export function writeAuthSnapshot(snapshot: AuthSnapshot): void {
   } catch {
     /* storage unavailable / full */
   }
+  // Outside the try: a write that succeeded must be announced, and a write that
+  // failed has left readers with a stale value they should re-check anyway.
+  announce()
 }
 
 /** Signed out. Written eagerly so the next load doesn't flash a stale avatar. */
@@ -74,4 +118,7 @@ export function clearAuthSnapshot(): void {
   } catch {
     /* ignore */
   }
+  // Signing out has to reach the same readers signing in does, or a control
+  // hidden because a listing was yours stays hidden for the next person.
+  announce()
 }

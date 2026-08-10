@@ -1023,12 +1023,31 @@ html.capacitor a.no-tap-fade:active {
 
 
 .plus-turn {
-  transition: transform 520ms cubic-bezier(0.32, 0.72, 0, 1);
-  transform: rotate(0deg);
+  /* ONLY transform, and the same property in both states.
+     A transition list that also names a colour or a filter drags the whole
+     animation back onto the main thread, where it competes with the route this
+     press just started loading — which is exactly the frame budget it cannot
+     afford. Rotation alone is a compositor job. */
+  transition: transform 480ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* The translateZ is not decoration. It puts this glyph on its own GPU layer
+     BEFORE the press rather than at the first frame of the turn, so the layer
+     is created while nothing is moving instead of during the animation — which
+     is what a promotion mid-turn costs you, one dropped frame at the start,
+     precisely where it is most visible. `will-change` asks for the same thing
+     and browsers are free to ignore it; this is not a request. */
+  transform: translateZ(0) rotate(0deg);
   will-change: transform;
+  /* A rotating SVG stroke re-rasterises at every angle unless the layer is
+     kept flat, and the symptom is a faint shimmer on the diagonals rather than
+     anything as obvious as a stutter. */
+  backface-visibility: hidden;
+  /* Stated rather than inherited: a glyph whose box is a fraction off centre
+     orbits instead of spinning, and 24px is small enough that a half-pixel
+     offset reads as a wobble. */
+  transform-origin: 50% 50%;
 }
 .plus-turn[data-open="true"] {
-  transform: rotate(135deg);
+  transform: translateZ(0) rotate(135deg);
 }
 @media (prefers-reduced-motion: reduce) {
   .plus-turn { transition: none; }
