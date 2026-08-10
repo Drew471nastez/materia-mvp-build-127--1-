@@ -295,8 +295,35 @@ export function MobileBottomNav({
      * almost immediately and a slow one is given the time it needs.
      */
     const started = Date.now()
+    /** The URL the press happened on. The only baseline that means anything. */
+    const from = typeof window === "undefined" ? "" : window.location.pathname
     const watch = window.setInterval(() => {
       if (typeof document === "undefined" || open()) {
+        window.clearInterval(watch)
+        return
+      }
+      /**
+       * THE NAVIGATION HAPPENED. STOP LOOKING.
+       *
+       * This is the third distinct way this watchdog has produced the bug it
+       * exists to prevent, and the pattern is always the same: it treats "the
+       * sheet is not on screen right now" as "the sheet never opened".
+       *
+       * Those are different states, and the gap between them is everything the
+       * user does in the four seconds after pressing +. Open the sheet and close
+       * it again because you changed your mind; open it and publish something
+       * short; open it, go back, and look at the listing behind it. In every one
+       * of those the sheet opened perfectly and is legitimately gone by the
+       * deadline — and the escalation below then hard-loads /products/new on top
+       * of whatever screen you had settled on. The sell page appearing out of
+       * nowhere seconds after you dismissed it is "it appears, then closes, then
+       * appears randomly".
+       *
+       * A pathname that has MOVED is proof the push was delivered, whatever is
+       * on screen now. Only a URL that never changed at all is evidence of the
+       * dead end this was written for.
+       */
+      if (window.location.pathname !== from) {
         window.clearInterval(watch)
         return
       }
@@ -322,7 +349,11 @@ export function MobileBottomNav({
        * reached it.
        */
       window.clearInterval(watch)
-      if (!open()) window.location.assign("/products/new")
+      // Re-checked rather than assumed: four seconds is a long time and the
+      // route may have arrived between the test above and this line.
+      if (!open() && window.location.pathname === from) {
+        window.location.assign("/products/new")
+      }
     }, 150)
     // Never left running: this bar is mounted on every screen for the whole
     // session, and an interval per press would accumulate one per tap.

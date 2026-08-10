@@ -817,6 +817,35 @@ check(
     "        route leaves the slot resolved unless the tree is refreshed.",
 )
 
+check(
+  "the watchdog stops the moment the navigation is proven, not when the sheet is gone",
+  (() => {
+    // THE THIRD DISTINCT WAY THIS WATCHDOG HAS PRODUCED THE BUG IT PREVENTS,
+    // and the pattern is always the same: it reads "the sheet is not on screen
+    // right now" as "the sheet never opened". Those are different states, and
+    // the gap between them is everything a person does in the four seconds
+    // after pressing + — open it and change their mind, open it and publish,
+    // open it and go back. In all of those the sheet opened perfectly and is
+    // legitimately gone by the deadline, and the escalation then hard-loads
+    // /products/new on top of whatever screen they had settled on. The sell
+    // page appearing out of nowhere seconds after being dismissed is exactly
+    // "it appears, then closes, then appears randomly".
+    const nav = read("components/explore/mobile-bottom-nav.tsx")
+    const sell = strip(nav).slice(strip(nav).indexOf("const onSell = useCallback("))
+    const body = sell.slice(0, sell.indexOf("}, [sheetOpen, router])"))
+    return (
+      // A baseline to compare against at all.
+      /const from = /.test(body) &&
+      // Moved at all -> delivered, whatever is on screen now.
+      /window\.location\.pathname !== from/.test(body) &&
+      // And the escalation re-checks rather than trusting a four-second-old test.
+      /!open\(\) && window\.location\.pathname === from/.test(body)
+    )
+  })(),
+  "        components/explore/mobile-bottom-nav.tsx — a pathname that MOVED is\n" +
+    "        proof the push landed. Only one that never changed is a dead end.",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
