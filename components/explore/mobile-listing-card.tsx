@@ -135,7 +135,7 @@ export const MobileListingCard = memo(function MobileListingCard({
    * for the first frame, so the control exists for one frame on your own card
    * and nobody else ever sees it.
    */
-  const mine = useIsMyListing(username)
+  const mine = useIsMyListing(username, product.creator?.user_id)
   const cond = conditionLabel(product.condition)
   // A follow points at the person, so it needs the seller's profile id — the
   // creator row is only how their listings hang off them.

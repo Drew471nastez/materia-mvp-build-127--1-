@@ -1623,7 +1623,7 @@ check(
     // the two being broken.
     const reel = strip(read("components/explore/mobile-listing-card.tsx"))
     return (
-      /const mine = useIsMyListing\(username\)/.test(reel) &&
+      /const mine = useIsMyListing\(username, product\.creator\?\.user_id\)/.test(reel) &&
       /\{!mine && \(\s*\n\s*<button type="button" onClick=\{onLike\}/.test(reel)
     )
   })(),
@@ -1727,6 +1727,66 @@ check(
 check(
   "and it is a phone thing, because a monitor never loses the photograph",
   /md:hidden/.test(listingPinned),
+)
+
+check(
+  "the bar takes over from the controls on the photograph, not from the title",
+  (() => {
+    // The sentinel sat under the <h1>, so the bar did not arrive until the whole
+    // photograph AND the title had gone past the top — six hundred pixels or
+    // more on a phone, most of it spent with no way back on screen. It was
+    // correct and arrived long after it was needed.
+    //
+    // What it stands in for is the row of white controls on the photograph, so
+    // the moment to hand over is when THOSE leave: they sit at the status-bar
+    // inset plus 10px and are 40px tall, so they are gone by ~90px of scroll.
+    const at = detail.indexOf('ref={titleEndRef}')
+    const h1 = detail.indexOf("<h1")
+    return (
+      at > 0 &&
+      at < h1 &&
+      /top-\[90px\]/.test(detail) &&
+      // Positioned, so it costs no layout and moves no pixel.
+      /absolute left-0 top-\[90px\] h-0 w-full/.test(detail)
+    )
+  })(),
+)
+
+console.log("\nYour own card does not offer to save itself, whoever you are")
+
+check(
+  "ownership is decided by user id, not only by username",
+  (() => {
+    // THE HEART WAS STILL THERE. `profiles.username` is nullable and the auth
+    // snapshot copies it as `profile?.username ?? null`, so an account without
+    // one compared `null === "loudliba"` — false — on every card it owns. The
+    // control rendered exactly as if the listing belonged to somebody else, and
+    // nothing raised an error, because a false answer to "is this mine" is a
+    // perfectly ordinary thing for that function to return.
+    const hook = strip(read("lib/marketplace/use-my-username.ts"))
+    return (
+      /sellerUserId\?: string \| null/.test(hook) &&
+      /if \(me\.userId && sellerUserId && me\.userId === sellerUserId\) return true/.test(hook) &&
+      // The username still works for callers that only have that.
+      /return !!me\.username && !!sellerUsername && me\.username === sellerUsername/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "and both feed cards actually pass the id they already have",
+  (() => {
+    // The feed selects `id, user_id, slug` off creators and hangs it on every
+    // product, so nothing new has to be fetched to use it.
+    const card = strip(read("components/explore/product-card.tsx"))
+    const reel = strip(read("components/explore/mobile-listing-card.tsx"))
+    return (
+      /useIsMyListing\(product\?\.creator\?\.profile\?\.username, product\?\.creator\?\.user_id\)/.test(card) &&
+      /useIsMyListing\(username, product\.creator\?\.user_id\)/.test(reel) &&
+      // And the card's own prop type admits the field, or it never arrives.
+      /user_id\?: string \| null/.test(card)
+    )
+  })(),
 )
 
 console.log("\nOpening the edit screen says something is happening")

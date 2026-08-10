@@ -660,6 +660,31 @@ export function ProductDetail({ product }: { product: any }) {
               without dimming the product itself. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent md:hidden" />
 
+          {/* ═══════════════════════════════════════════════════════════════════
+              WHERE THE BAR TAKES OVER, AND WHY IT IS UP HERE
+              ═══════════════════════════════════════════════════════════════════
+
+              This sentinel used to sit under the <h1>, which meant the bar did
+              not arrive until the ENTIRE photograph and the title had gone past
+              the top of the screen — six hundred pixels or more of scrolling on
+              a phone, most of it spent with no way back on screen at all. The
+              bar was correct and arrived long after it was needed.
+
+              What it is standing in for is the row of white controls on the
+              photograph, so the honest moment to hand over is when THOSE leave.
+              They sit at the status-bar inset plus 10px and are 40px tall, so
+              they are gone by about 90px of scroll — which is where this sits.
+              With the hook's 56px dead band the bar appears at roughly 146px:
+              a deliberate scroll, and nowhere near the bottom of the gallery.
+
+              `absolute` inside the photo block so it costs no layout and moves
+              no pixel; it is a position in the page and nothing else. */}
+          <span
+            ref={titleEndRef}
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-[90px] h-0 w-full md:hidden"
+          />
+
           {/* NOT ON YOUR OWN LISTING. Saving your own thing to your own
               wishlist is the same non-action as buying it from yourself, and
               the heart was the last one of those still on this page. */}
@@ -702,11 +727,6 @@ export function ProductDetail({ product }: { product: any }) {
           <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] text-neutral-900 md:text-[26px]">
             {product.title}
           </h1>
-          {/* Where the title stops being on the page and starts being in the
-              bar. Zero height and nothing drawn — the observer watching it is
-              the entire point. */}
-          <span ref={titleEndRef} aria-hidden className="block h-0 w-full" />
-
           <p className="mt-1.5 text-[14.5px] text-neutral-500">
             {summary}
             {summary && product.brand ? " · " : ""}

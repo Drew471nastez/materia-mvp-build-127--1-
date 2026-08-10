@@ -34,8 +34,46 @@ export function useMyUsername(): string | null {
   return username
 }
 
-/** True when this listing's seller is the person reading. */
-export function useIsMyListing(sellerUsername: string | null | undefined): boolean {
-  const mine = useMyUsername()
-  return !!mine && !!sellerUsername && mine === sellerUsername
+/**
+ * Who you are, by both names the snapshot knows.
+ *
+ * The username alone was not enough, and that is why the heart was still on
+ * your own cards after it had supposedly been removed: `profiles.username` is
+ * nullable, the snapshot copies it as `profile?.username ?? null`, and an
+ * account without one compares `null === "loudliba"` — false — on every card it
+ * owns. The control then rendered exactly as if the listing belonged to
+ * somebody else, and no error was raised anywhere, because a false answer to
+ * "is this mine" is a perfectly ordinary thing for that function to return.
+ *
+ * `userId` is the identifier that always exists. The feed already carries the
+ * seller's — `_explore-feed.tsx` selects `id, user_id, slug` off creators and
+ * hangs it on each product — so nothing new has to be fetched to use it.
+ */
+function useMyIdentity(): { userId: string | null; username: string | null } {
+  const [me, setMe] = useState<{ userId: string | null; username: string | null }>({
+    userId: null,
+    username: null,
+  })
+  useEffect(() => {
+    const snap = readAuthSnapshot()
+    if (!snap?.signedIn) return
+    setMe({ userId: snap.userId ?? null, username: snap.username ?? null })
+  }, [])
+  return me
+}
+
+/**
+ * True when this listing's seller is the person reading.
+ *
+ * Either identifier is sufficient and the id is preferred, because it cannot be
+ * absent for a signed-in account the way a username can. Callers that have only
+ * one may pass only that one.
+ */
+export function useIsMyListing(
+  sellerUsername: string | null | undefined,
+  sellerUserId?: string | null,
+): boolean {
+  const me = useMyIdentity()
+  if (me.userId && sellerUserId && me.userId === sellerUserId) return true
+  return !!me.username && !!sellerUsername && me.username === sellerUsername
 }

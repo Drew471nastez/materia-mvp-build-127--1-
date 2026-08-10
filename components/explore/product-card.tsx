@@ -180,6 +180,10 @@ interface ProductCardProps {
     }[]
     creator?: {
       id?: string
+      /** The seller's auth user id. Already selected by the feed alongside the
+       *  creators row, and the only identifier that cannot be null for a
+       *  signed-in account — see useIsMyListing. */
+      user_id?: string | null
       slug?: string
       niche_tags?: string[]
       profile?: {
@@ -261,7 +265,7 @@ export const ProductCard = memo(function ProductCard({
   // Before the `if (!product) return null` below, so it is unconditional — and
   // therefore optional all the way down, because at this point there may be no
   // product at all.
-  const mine = useIsMyListing(product?.creator?.profile?.username)
+  const mine = useIsMyListing(product?.creator?.profile?.username, product?.creator?.user_id)
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0
