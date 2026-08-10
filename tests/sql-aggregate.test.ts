@@ -150,6 +150,72 @@ check(
   })(),
 )
 
+/**
+ * ===========================================================================
+ *  A RE-RUN MUST NOT ABORT ON A ROW THAT PREDATES THE RULE
+ * ===========================================================================
+ *
+ * The aggregate promises it can be run again. That promise died on a real
+ * database with
+ *
+ *   ERROR: 23514: check constraint "messages_shape" of relation "messages"
+ *          is violated by some row
+ *
+ * because ADD CONSTRAINT validates every existing row, and a soft-deleted
+ * message is `kind = 'text'` with a NULL body — which the constraint being
+ * added did not allow, because the column that excuses it (`deleted_at`) was
+ * created eighty lines further down the same file. So the first run worked, the
+ * second run died at section 4, and the seven sections after it never ran.
+ *
+ * Two properties fix it, and both are checked here because both are easy to
+ * lose in an edit that only looks at one of them.
+ */
+const messaging = read("supabase/sql/RUN_MESSAGING_ALL.sql")
+
+check(
+  "deleted_at exists before anything constrains around it",
+  messaging.indexOf("add column if not exists deleted_at") <
+    messaging.indexOf("add constraint messages_shape"),
+)
+
+check(
+  "every re-added messages_shape excuses a deleted row",
+  (() => {
+    // The one inside CREATE TABLE is exempt: a table being created has no rows
+    // to validate, and deleted_at does not exist yet at that point.
+    const adds = messaging.split("add constraint messages_shape").slice(1)
+    return adds.length >= 1 && adds.every((tail) => tail.slice(0, 400).includes("deleted_at is not null"))
+  })(),
+)
+
+check(
+  "and none of them re-validates history",
+  (() => {
+    const adds = messaging.split("add constraint messages_shape").slice(1)
+    return adds.every((tail) => /\)\s*not valid;/.test(tail.slice(0, 500)))
+  })(),
+)
+
+check(
+  "a non-conforming row is reported rather than swallowed",
+  /do not match the shape constraint/.test(messaging),
+)
+
+/**
+ * The same class of abort, in the file that adds the tag caps. Nothing has hit
+ * it yet; the cost of the guard is one keyword and the cost of not having it is
+ * every section after it.
+ */
+const listingAttrs = read("supabase/migrations/20260801_listing_attributes.sql")
+
+check(
+  "the tag caps do not re-validate history either",
+  (() => {
+    const adds = listingAttrs.split(/add constraint products_(?:source|style)_tags_max/).slice(1)
+    return adds.length === 2 && adds.every((tail) => /not valid;/.test(tail.slice(0, 400)))
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

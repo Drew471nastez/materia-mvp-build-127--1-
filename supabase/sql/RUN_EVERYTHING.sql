@@ -366,15 +366,27 @@ alter table public.products
 
 -- Guard rails that match the form. CHECKs (not enums) so the allowed set can
 -- grow without rewriting the table.
+--
+-- `not valid` on both, and the reason is a failure this file's sibling actually
+-- hit: a dropped-and-re-added constraint VALIDATES every existing row, so one
+-- listing that predates the cap does not merely fail to be fixed — it aborts
+-- the whole run and leaves every section after this one unapplied. The cap is
+-- enforced on every write from here on either way; what `not valid` gives up is
+-- only the retroactive scan, which was never going to repair anything.
+--
+-- Sweep the history once you know it is clean:
+--   alter table public.products validate constraint products_source_tags_max;
 alter table public.products drop constraint if exists products_source_tags_max;
 alter table public.products
   add constraint products_source_tags_max
-  check (source_tags is null or array_length(source_tags, 1) is null or array_length(source_tags, 1) <= 2);
+  check (source_tags is null or array_length(source_tags, 1) is null or array_length(source_tags, 1) <= 2)
+  not valid;
 
 alter table public.products drop constraint if exists products_style_tags_max;
 alter table public.products
   add constraint products_style_tags_max
-  check (style_tags is null or array_length(style_tags, 1) is null or array_length(style_tags, 1) <= 3);
+  check (style_tags is null or array_length(style_tags, 1) is null or array_length(style_tags, 1) <= 3)
+  not valid;
 
 -- Filter indexes. Partial on published: nobody filters over drafts, and it keeps
 -- the indexes to the rows the feed actually scans.
@@ -1319,6 +1331,23 @@ end $$;
 -- link pasted into a text message, which is not an answer.
 alter table public.messages add column if not exists image_url text;
 
+-- Unsending, brought forward from the end of this file.
+--
+-- IT HAS TO BE HERE, and the reason is a real failure rather than tidiness. The
+-- shape constraint below is dropped and re-added; re-adding it VALIDATES every
+-- existing row. A soft-deleted message has kind = 'text' and body = NULL, which
+-- the shape written below does not allow — so on any database where somebody
+-- has ever unsent a message, a SECOND run of this file died on
+--
+--   ERROR: 23514: check constraint "messages_shape" of relation "messages"
+--          is violated by some row
+--
+-- and took every section after it down with it. The column has to exist before
+-- the constraint can mention it, so it is created here and the constraint below
+-- allows for it from the start. (Repeated at the end of the file, where it
+-- belongs narratively; `if not exists` makes the second one a no-op.)
+alter table public.messages add column if not exists deleted_at timestamptz;
+
 -- The kind and shape constraints are replaced rather than added to, because a
 -- check constraint cannot be extended in place. Dropping first means this is
 -- safe to run over the old schema or the new one.
@@ -1331,13 +1360,45 @@ alter table public.messages
 
 alter table public.messages
   add constraint messages_shape check (
-    (kind = 'text'  and body is not null and offer_cents is null)
-    or
-    (kind = 'offer' and offer_cents is not null and offer_status is not null)
-    or
+    -- A deleted message keeps its `kind` — the conversation still knows a photo
+    -- was there — but loses its body and its image.
+    deleted_at is not null
+    or (kind = 'text'  and body is not null and offer_cents is null)
+    or (kind = 'offer' and offer_cents is not null and offer_status is not null)
     -- A caption is optional. A photo is not.
-    (kind = 'image' and image_url is not null and offer_cents is null)
-  );
+    or (kind = 'image' and image_url is not null and offer_cents is null)
+  ) not valid;
+
+-- `not valid` means: enforce this on every write from now on, but do not scan
+-- the rows that are already here.
+--
+-- That is the correct trade for a file whose entire promise is that it can be
+-- re-run. History cannot be fixed by refusing to add a constraint to it — the
+-- malformed row is already stored, and aborting the migration leaves the ten
+-- sections after this one unapplied to punish it. Every future insert and
+-- update is checked exactly as it would be otherwise.
+--
+-- Sweep the old rows too, once you know they are clean:
+--   alter table public.messages validate constraint messages_shape;
+-- The query in the block below is what tells you whether they are.
+
+do $$
+declare
+  bad int;
+begin
+  select count(*) into bad
+    from public.messages
+   where deleted_at is null
+     and not (
+       (kind = 'text'  and body is not null and offer_cents is null)
+       or (kind = 'offer' and offer_cents is not null and offer_status is not null)
+       or (kind = 'image' and image_url is not null and offer_cents is null)
+     );
+
+  if bad > 0 then
+    raise notice '% message row(s) do not match the shape constraint. They are left alone and every new write is still checked; see messages_shape.', bad;
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 2. The bucket those photos live in
@@ -1579,6 +1640,12 @@ alter table public.messages add column if not exists deleted_at timestamptz;
 -- and its image, and both of those are `not null` for their kind under the
 -- constraint written above. Without this, the delete fails with a check
 -- violation and the message stays on screen.
+--
+-- Already spelled exactly this way further up, where the column is created. It
+-- is repeated rather than removed because this is where the rule belongs in the
+-- story of the file, and re-adding an identical constraint costs one statement.
+-- `not valid` for the same reason it is up there: a re-run must not abort on a
+-- row that predates the rule.
 alter table public.messages drop constraint if exists messages_shape;
 alter table public.messages
   add constraint messages_shape check (
@@ -1586,7 +1653,7 @@ alter table public.messages
     or (kind = 'text'  and body is not null and offer_cents is null)
     or (kind = 'offer' and offer_cents is not null and offer_status is not null)
     or (kind = 'image' and image_url is not null and offer_cents is null)
-  );
+  ) not valid;
 
 -- No new RLS policy, deliberately. `messages_update` requires
 -- `sender_id <> auth.uid()` — it exists so the OTHER party can mark things read
