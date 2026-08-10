@@ -2,16 +2,27 @@
 
 import * as React from "react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { useLocale } from "@/components/locale-provider"
 
+/**
+ * LANGUAGE ONLY. The currency tab is gone.
+ *
+ * It offered six currencies against a static rate table on a marketplace that
+ * charges in one currency regardless of which you picked — so choosing GBP
+ * relabelled every price on the site and changed nothing about the transaction,
+ * and the bank statement was the first place anybody found out. A control that
+ * moves the label and not the money is worse than no control at all.
+ *
+ * Storelib quotes in lei, is paid in lei and pays its couriers in lei. One
+ * currency is not a limitation here; it is what the platform actually does.
+ */
 type Props = {
   trigger: React.ReactNode
 }
 
 export function LanguageCurrencyModal({ trigger }: Props) {
-  const { language, currency, languages, currencies, setLanguage, setCurrency, t } = useLocale()
+  const { language, languages, setLanguage, t } = useLocale()
   const [open, setOpen] = React.useState(false)
 
   return (
@@ -23,68 +34,32 @@ export function LanguageCurrencyModal({ trigger }: Props) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[92vw] max-w-[560px] rounded-2xl p-0 overflow-hidden">
           <div className="px-6 pt-5">
-            <Tabs defaultValue="language" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="language">{t("language")}</TabsTrigger>
-                <TabsTrigger value="currency">{t("currency")}</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="language" className="mt-5">
-                <div className="space-y-1 pb-6">
-                  {languages.map((l) => (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => {
-                        setLanguage(l.code)
-                        setOpen(false)
-                      }}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-base",
-                        "hover:bg-muted/60",
-                      )}
-                    >
-                      <span>{l.label}</span>
-                      <span
-                        className={cn(
-                          "h-5 w-5 rounded-full border border-border",
-                          language === l.code && "bg-foreground",
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                  ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="currency" className="mt-5">
-                <div className="space-y-1 pb-6">
-                  {currencies.map((c) => (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() => {
-                        setCurrency(c.code)
-                        setOpen(false)
-                      }}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-base",
-                        "hover:bg-muted/60",
-                      )}
-                    >
-                      <span>{c.label}</span>
-                      <span
-                        className={cn(
-                          "h-5 w-5 rounded-full border border-border",
-                          currency === c.code && "bg-foreground",
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                  ))}
-                </div>
-              </TabsContent>
-            </Tabs>
+            <p className="pb-1 text-[15px] font-semibold text-foreground">{t("language")}</p>
+            <div className="space-y-1 pb-6">
+              {languages.map((l) => (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => {
+                    setLanguage(l.code)
+                    setOpen(false)
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-base",
+                    "hover:bg-muted/60",
+                  )}
+                >
+                  <span>{l.label}</span>
+                  <span
+                    className={cn(
+                      "h-5 w-5 rounded-full border border-border",
+                      language === l.code && "bg-foreground",
+                    )}
+                    aria-hidden
+                  />
+                </button>
+              ))}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

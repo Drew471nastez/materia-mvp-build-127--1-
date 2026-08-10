@@ -16,6 +16,8 @@ import { triggerHaptic } from "@/lib/native-bridge"
 import { claimSurface } from "@/lib/surface-bg"
 import { OfferSheet } from "@/components/product/offer-sheet"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
+import { ProtectionMarkWithPage } from "@/components/marketplace/buyer-protection"
+import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
@@ -432,7 +434,6 @@ export function ProductDetail({ product }: { product: any }) {
   const category = categoryLabelFor(product.category, product.subcategory)
   const sourceLabels = (product.source_tags || []).map((s: string) => labelOf(SOURCES, s)).filter(Boolean)
   const styleLabels = (product.style_tags || []).map((s: string) => labelOf(STYLES, s)).filter(Boolean)
-  const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents
 
   // The line under the title, exactly like the reference: size · condition ·
   // brand · when. Everything that decides "is this the one" in one glance.
@@ -679,20 +680,24 @@ export function ProductDetail({ product }: { product: any }) {
             {since(product.created_at) ? ` · ${since(product.created_at)}` : ""}
           </p>
 
-          <div className="mt-4 flex items-baseline gap-2.5">
+          {/* THE PRICE, INCLUSIVE, AND A MARK THAT EXPLAINS ITSELF.
+              
+              This used to be the seller's asking figure, and the checkout then
+              added 5% and 4 lei to it — so the one number on the page that
+              somebody makes a decision on was the one number that changed after
+              they made it. The mark opens a subpage saying what the difference
+              buys; it is a button here, unlike on a grid card, because there is
+              exactly one price on this screen and it is the thing being read.
+              
+              The compare-at strikethrough and its red percentage are gone. A
+              second-hand marketplace has no list price to discount FROM: the
+              "was" figure was another number the same seller typed, and a
+              saving nobody was ever offered is an invention. */}
+          <div className="mt-4 flex items-center gap-2.5">
             <span className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900">
-              {product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}
+              {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
             </span>
-            {hasDiscount && (
-              <>
-                <span className="text-[15px] text-neutral-400 line-through">
-                  {formatPrice(product.compare_at_cents)}
-                </span>
-                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[12px] font-semibold text-rose-600">
-                  -{Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}%
-                </span>
-              </>
-            )}
+            {product.price_cents > 0 && <ProtectionMarkWithPage />}
           </div>
 
           {/* Desktop buy row — the mobile bar is fixed to the viewport bottom

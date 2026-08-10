@@ -6,6 +6,9 @@ import Link from "next/link"
 import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { ProtectionMark } from "@/components/marketplace/buyer-protection"
+import { buyerPaysCents } from "@/lib/marketplace/display-price"
+import { formatPlatformMoney } from "@/lib/i18n/currency"
 
 interface WishlistItem {
   id: string
@@ -16,7 +19,6 @@ interface WishlistItem {
     title: string
     slug: string
     price_cents: number
-    compare_at_cents: number | null
     thumbnail_url: string | null
     type: string
     creator_id: string
@@ -122,12 +124,11 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
     }
   }
 
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(cents / 100)
-  }
+  /* IT WAS FORMATTING IN DOLLARS. Hard-coded en-US/USD, on a Romanian
+     marketplace, on the one screen a buyer keeps things they intend to buy —
+     so a saved listing read "$28.00" and the same listing in the feed one tap
+     away read "141 RON". Same helper as everywhere else now. */
+  const formatPrice = (cents: number) => formatPlatformMoney(cents)
 
   if (isLoading) {
     return (
@@ -244,13 +245,9 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                 <div className="flex items-center justify-between mt-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-neutral-900 text-sm">
-                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                      {product.price_cents === 0 ? "Gratuit" : formatPrice(buyerPaysCents(product.price_cents))}
                     </span>
-                    {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-                      <span className="text-xs text-neutral-400 line-through">
-                        {formatPrice(product.compare_at_cents)}
-                      </span>
-                    )}
+                    {product.price_cents > 0 && <ProtectionMark />}
                   </div>
                   <SmartLink
                     href={productUrl}

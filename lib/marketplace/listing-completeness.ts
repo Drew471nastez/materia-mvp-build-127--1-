@@ -11,7 +11,7 @@ import { MIN_PHOTOS } from "@/lib/marketplace/listing-taxonomy"
  * feed's entry requirements depended on which door you came through:
  *
  *   POST      photos, title, description, price, category, subcategory, brand,
- *             condition, colour, size, and a compare-at that is actually higher
+ *             condition, colour and size
  *   the two   photos, title, category, condition, price
  *   PATCHes
  *
@@ -33,7 +33,6 @@ export type ListingDraft = {
   title: string
   description: string
   priceCents: number
-  compareCents: number | null
   category?: unknown
   subcategory?: unknown
   brand?: unknown
@@ -63,11 +62,10 @@ export function publishProblems(v: ListingDraft): string[] {
   if (!v.condition) problems.push("condition")
   if (!v.colour) problems.push("colour")
   if (!v.size) problems.push("size")
-  // Optional, but if given it has to be a genuinely higher "was" price or the
-  // discount badge on the card is a lie.
-  if (v.compareCents !== null && Number.isFinite(v.priceCents) && v.compareCents <= v.priceCents) {
-    problems.push("compare_at_too_low")
-  }
+  // NO compare-at rule any more, and its removal is not only tidying. The
+  // field is gone from the sell form, so a listing stored with a compare-at
+  // below its price would have been refused for a reason with no control left
+  // to fix it at — unpublishable, permanently, over a number nobody can see.
   return problems
 }
 

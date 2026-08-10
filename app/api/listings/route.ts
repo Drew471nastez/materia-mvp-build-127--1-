@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
     const title = typeof body?.title === "string" ? body.title.trim() : ""
     const description = typeof body?.description === "string" ? body.description.trim() : ""
     const priceCents = Number.isFinite(body?.price_cents) ? Math.round(body.price_cents) : NaN
-    const compareCents = Number.isFinite(body?.compare_at_cents) ? Math.round(body.compare_at_cents) : null
 
     // One checklist, in lib/marketplace/listing-completeness.ts, shared with
     // both PATCH routes — they used to have their own and it was shorter, so a
@@ -97,7 +96,6 @@ export async function POST(request: NextRequest) {
           title,
           description,
           priceCents,
-          compareCents,
           category: body?.category,
           subcategory: body?.subcategory,
           brand: body?.brand,
@@ -134,7 +132,6 @@ export async function POST(request: NextRequest) {
       slug,
       description,
       price_cents: Number.isFinite(priceCents) ? priceCents : 0,
-      compare_at_cents: compareCents,
       thumbnail_url: photos[0] ?? null,
       gallery_urls: photos.slice(1, MAX_PHOTOS),
       // The optimised pair per photo, POSITIONALLY ALIGNED with

@@ -9,6 +9,9 @@ import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url
 import { SmartLink } from "@/components/smart-link"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { useLocale } from "@/components/locale-provider"
+import { ProtectionMark } from "@/components/marketplace/buyer-protection"
+import { buyerPaysCents } from "@/lib/marketplace/display-price"
+import { useIsMyListing } from "@/lib/marketplace/use-my-username"
 import { CONDITIONS } from "@/lib/marketplace/categories"
 import { cn } from "@/lib/utils"
 import { Heart, ImageOff } from "lucide-react"
@@ -150,7 +153,6 @@ interface ProductCardProps {
     slug: string
     description?: string | null
     price_cents: number
-    compare_at_cents?: number | null
     thumbnail_url?: string | null
     /** jsonb string[] — the second real photo drives the hover swap. May hold YouTube posters. */
     gallery_urls?: string[] | null
@@ -256,6 +258,10 @@ export const ProductCard = memo(function ProductCard({
   const touchStartX = useRef(0)
   const didScroll = useRef(false)
   const { t, formatPrice } = useLocale()
+  // Before the `if (!product) return null` below, so it is unconditional — and
+  // therefore optional all the way down, because at this point there may be no
+  // product at all.
+  const mine = useIsMyListing(product?.creator?.profile?.username)
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0]?.clientY ?? 0
@@ -296,8 +302,6 @@ export const ProductCard = memo(function ProductCard({
 
   const savesCount = product.saves_count ?? 0
 
-  const compareAtCents = product.compare_at_cents ?? 0
-  const hasDiscount = compareAtCents > product.price_cents
 
   /**
    * THE CARD IMAGE — a thumbnail if there is one, the original if not.
@@ -440,17 +444,17 @@ export const ProductCard = memo(function ProductCard({
             />
           )}
         </SmartLink>
-        {/* The state mark sits where the discount badge sits, and takes its
-            place when both apply: "Ciornă" and "50% OFF" on one corner is two
-            badges arguing, and the state is the one that changes what the card
-            IS rather than what it costs. */}
-        {statusBadge ??
-          (hasDiscount && (
-            <Badge variant="destructive" className="pointer-events-none absolute left-2 top-2 px-1.5 py-0 text-[10px]">
-              {Math.round((1 - product.price_cents / compareAtCents) * 100)}% OFF
-            </Badge>
-          ))}
-        {cornerAction ?? <WishlistHeartButton productId={product.id} savesCount={savesCount} />}
+        {/* The state mark — Ciornă, Rezervat, Arhivat, Vândut. The discount
+            badge that used to share this corner is gone with compare-at
+            pricing: a second-hand marketplace has no list price to be a
+            discount FROM, and "50% OFF" against a number the seller typed is a
+            saving nobody was ever offered. */}
+        {statusBadge}
+        {/* NOT ON YOUR OWN LISTING. Saving your own item to your own wishlist
+            does nothing anybody wants, and a heart on it is the interface
+            offering you a thing it will then have to refuse. `cornerAction`
+            still wins where a caller has one — the profile puts its ⋯ here. */}
+        {cornerAction ?? (mine ? null : <WishlistHeartButton productId={product.id} savesCount={savesCount} />)}
       </div>
 
       {/* Meta — no card chrome, the photo carries the card */}
@@ -472,15 +476,20 @@ export const ProductCard = memo(function ProductCard({
         )}
         <SmartLink href={productUrl} useClientNav={clientNav} blend warmImage={product.thumbnail_url} className="flex flex-col gap-0.5">
           <h3 className="line-clamp-1 text-[13px] leading-snug text-foreground">{product.title}</h3>
+          {/* THE PRICE A BUYER WILL ACTUALLY BE ASKED FOR.
+              
+              Not the seller's asking price: that number went up by 5% and 4 lei
+              at the checkout, so every figure in this grid was wrong in the same
+              direction and only stopped being wrong once somebody had committed.
+              The mark beside it says why it is what it is — inert here, because
+              a nested button inside the card's own link is a hit target fighting
+              the one around it, and sixty subpages would be mounted to serve one
+              tap. It is pressable on the listing page. */}
           <div className="flex items-baseline gap-1.5">
             <span className="text-[17px] font-bold leading-none tracking-[-0.01em] text-foreground">
-              {product.price_cents === 0 ? t("product.free") : formatPrice(product.price_cents)}
+              {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
             </span>
-            {hasDiscount && (
-              <span className="text-[12px] leading-none text-muted-foreground line-through">
-                {formatPrice(compareAtCents)}
-              </span>
-            )}
+            {product.price_cents > 0 && <ProtectionMark className="self-center" />}
           </div>
         </SmartLink>
 

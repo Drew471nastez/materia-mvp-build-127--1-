@@ -776,7 +776,7 @@ check(
     return (
       /cornerAction=\{\s*\n?\s*isOwner \? \(/.test(profile) &&
       /setManageFor\(listing\)/.test(profile) &&
-      /\{cornerAction \?\? <WishlistHeartButton/.test(card)
+      /\{cornerAction \?\? \(mine \? null : <WishlistHeartButton/.test(card)
     )
   })(),
 )
