@@ -2,7 +2,7 @@
 
 import { memo, useState, useCallback, useEffect } from "react"
 import Image from "next/image"
-import { Heart, Send, BadgeCheck, ChevronLeft, ShieldCheck } from "lucide-react"
+import { Heart, Send, BadgeCheck, ChevronLeft } from "lucide-react"
 import { SmartLink } from "@/components/smart-link"
 import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
@@ -12,6 +12,7 @@ import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlis
 import { getListingUrl } from "@/lib/marketplace/listing-url"
 import { conditionLabel } from "@/lib/marketplace/categories"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
+import { ProtectionMark } from "@/components/marketplace/buyer-protection"
 import { FollowButton } from "@/components/explore/follow-button"
 import { cn } from "@/lib/utils"
 
@@ -287,12 +288,7 @@ export const MobileListingCard = memo(function MobileListingCard({
           <span className="text-[22px] font-bold">
             {product.price_cents === 0 ? t("product.free") : formatPrice(buyerPaysCents(product.price_cents))}
           </span>
-          {product.price_cents > 0 && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/20 px-1.5 py-[3px] text-[11px] font-semibold text-white/90 backdrop-blur-sm">
-              <ShieldCheck className="h-[13px] w-[13px] shrink-0" strokeWidth={2.4} />
-              incl.
-            </span>
-          )}
+          {product.price_cents > 0 && <ProtectionMark tone="onPhoto" className="self-center" />}
         </div>
         {(product.size || cond) && (
           <p className="mt-1 text-[13px] text-white/85">

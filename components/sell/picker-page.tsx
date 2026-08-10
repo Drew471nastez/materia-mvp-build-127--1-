@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { ChevronLeft } from "lucide-react"
 
 import { triggerHaptic } from "@/lib/native-bridge"
+import { lockScroll } from "@/lib/scroll-lock"
 
 /**
  * ===========================================================================
@@ -203,18 +204,33 @@ export function PickerPage({
     return () => cancelAnimationFrame(id)
   }, [stage])
 
+  /**
+   * THE PAGE BEHIND IS HELD UNTIL THE PANEL HAS ACTUALLY GONE.
+   *
+   * This was keyed on `open`, so the lock was released the instant the caller
+   * flipped the flag — a third of a second BEFORE the panel finished sliding
+   * off it. On iOS, restoring `overflow` re-establishes the document scroller
+   * and snaps it back to where it was, which happens in full view through the
+   * space the panel is vacating: the page behind visibly jumps while the
+   * subpage is still travelling over it. Nothing about the transform was wrong;
+   * what read as an unclean close was the scroller underneath it.
+   *
+   * Keyed on the STAGE instead, which stays non-closed for exactly as long as
+   * the panel is on screen. Counted, because a sheet or an alert can be open
+   * over this one — see lib/scroll-lock.
+   */
+  useEffect(() => {
+    if (stage === "closed") return
+    return lockScroll()
+  }, [stage])
+
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") (onBack ?? onClose)()
     }
     window.addEventListener("keydown", onKey)
-    return () => {
-      document.body.style.overflow = prev
-      window.removeEventListener("keydown", onKey)
-    }
+    return () => window.removeEventListener("keydown", onKey)
   }, [open, onBack, onClose])
 
   /**

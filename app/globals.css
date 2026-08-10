@@ -538,19 +538,33 @@ html.capacitor a.no-tap-fade:active {
   border-bottom: 1px solid rgba(23, 23, 23, 0.07);
   transform: translate3d(0, -100%, 0);
   opacity: 0;
-  /* Out is faster than in, and the opacity is faster than the travel both ways:
-     the bar is gone visually before it has finished getting out of the way,
-     which is what stops a dismissal reading as a wait. */
+  /* LEAVING is the default state, and it is the quicker of the two.
+     
+     A bar getting out of the way is answering a scroll you have already made,
+     so it goes at 200 and the fade leads the travel — it is visually gone
+     before it has finished moving, which is what stops a dismissal reading as a
+     wait. */
   transition:
-    transform 280ms cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 130ms linear;
   will-change: transform, opacity;
   pointer-events: none;
 }
+/* ARRIVING is slower, and the fade TRAILS the travel rather than leading it.
+   
+   Both were 280/200 with the same curve in both directions, which is why it
+   read as switching on rather than arriving: the bar reached full opacity a
+   third of the way through its own movement, so the last two thirds were a
+   solid white strip sliding — the most visible part of the animation was also
+   the least informative. Held back, the fade finishes as the bar lands, and
+   what you see is one movement settling instead of two things happening. */
 .profile-pinned[data-shown="true"] {
   transform: translate3d(0, 0, 0);
   opacity: 1;
   pointer-events: auto;
+  transition:
+    transform 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .profile-pinned {

@@ -69,27 +69,25 @@ export function ProfilePinnedHeader({
             again. It takes the whole measure it can and truncates, because the
             controls have a fixed width and a long display name must never push
             them off the edge. */}
-        <span className="min-w-0 flex-1 truncate text-[16px] font-bold tracking-[-0.01em] text-neutral-900">
-          {name}
-        </span>
+        {/* THE NAME AND THE FACE ARE ONE OBJECT.
 
-        {/* THE FACE, TO THE RIGHT OF THE NAME.
+            The avatar was pushed to the far end of the bar, against the
+            controls — so the two halves of "whose profile is this" sat at
+            opposite edges with a void between them, and the picture read as a
+            fourth button rather than as part of the identity. Beside the name
+            it is what it is: a face with a name next to it.
 
-            The bar exists because everything identifying the profile has
-            scrolled away, and it was replacing only half of it. A name on its
-            own is the weakest of the identifiers it stood in for: display names
-            repeat, they truncate at this width, and the thing the eye actually
-            recognises forty cards down a grid is the picture.
-
-            To the RIGHT of the name rather than in front of it, which is the
-            unusual choice and the deliberate one. The name takes the whole
-            measure and truncates; putting the avatar first would give a fixed
-            28px to the picture and take it from the one element here that
-            already has too little. On the right it sits against the controls,
-            so the bar reads left-to-right as "who this is" then "what you can
-            do", and a long name is shortened rather than the face being
-            dropped. */}
-        <PinnedAvatar name={name} url={avatarUrl} />
+            To the RIGHT of the name rather than in front of it. The name takes
+            whatever measure is left and truncates; putting a fixed 28px ahead
+            of it would take that width from the one element here that already
+            has too little. `min-w-0` on the group is what lets the name shorten
+            instead of shoving the controls off the edge. */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="min-w-0 truncate text-[16px] font-bold tracking-[-0.01em] text-neutral-900">
+            {name}
+          </span>
+          <PinnedAvatar name={name} url={avatarUrl} />
+        </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
           <PinnedButton label="Distribuie" onClick={onShare}>

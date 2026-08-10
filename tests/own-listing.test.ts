@@ -1082,6 +1082,47 @@ check(
   })(),
 )
 
+check(
+  "there is no card drawn inside the sheet",
+  (() => {
+    // A panel inside a panel, two radii and two edges deep, for a list of five
+    // things. The sheet IS the container; a second one inside it says its
+    // contents belong to something else that happens to be in here.
+    const body = sheet.slice(sheet.indexOf("<BottomSheet"), sheet.indexOf("</BottomSheet>"))
+    return !/rounded-2xl border border-neutral/.test(body) && /-mx-2/.test(body)
+  })(),
+)
+
+check(
+  "the rows run to both edges, and the rule does not cut the icon off",
+  (() => {
+    // A press highlight that stops short of the edge reads as a button placed
+    // on the sheet rather than as a row of it; a full-width rule separates the
+    // icon column from the text it belongs to.
+    const row = sheet.slice(sheet.indexOf("function Row("))
+    return /w-full items-center gap-4 px-5/.test(row) && /left-\[56px\] right-0 h-px/.test(row)
+  })(),
+)
+
+check(
+  "the scrim sets the stage before the sheet lands on it",
+  (() => {
+    // Tied to the sheet's own 380ms, the page behind was still fully legible
+    // when the panel was halfway up — two things arriving at once, and the eye
+    // reads the whole screen going dark as the slower of the two.
+    return /const SCRIM_IN = "opacity 240ms/.test(bottomSheet) && /const SPRING_IN = "transform 380ms/.test(bottomSheet)
+  })(),
+)
+
+check(
+  "and clears before it has finished leaving",
+  (() => {
+    const scrimOut = Number(bottomSheet.match(/SCRIM_OUT = "opacity (\d+)ms/)?.[1])
+    const springOut = Number(bottomSheet.match(/SPRING_OUT = "transform (\d+)ms/)?.[1])
+    return scrimOut > 0 && springOut > 0 && scrimOut < springOut
+  })(),
+)
+
 console.log("\nSwitching tabs says which way you went")
 
 check(
@@ -1192,6 +1233,64 @@ check(
   // `position: fixed` inside a transformed ancestor is fixed to THAT, which
   // would park the bar somewhere down the page.
   /createPortal\(/.test(pinnedSrc) && /document\.body,/.test(pinnedSrc),
+)
+
+check(
+  "the bar does not survive a modal opening over the page",
+  (() => {
+    // "Vinde un articol" appeared with this profile's bar across the top of it.
+    // /products/new is an INTERCEPTED route, which is what lets the sell sheet
+    // open without losing the page behind — so this component is not unmounted,
+    // and its bar, portalled to <body> and fixed to the viewport, went on being
+    // drawn over a screen it has nothing to do with.
+    return (
+      /usePathname/.test(profileSrc) &&
+      /pathname === "\/profile" \|\| !!pathname\?\.startsWith\("\/member\/"\)/.test(profileSrc) &&
+      /visible=\{pinned && onScreen\}/.test(profileSrc)
+    )
+  })(),
+)
+
+check(
+  "the name and the face are one object, not two ends of the bar",
+  (() => {
+    // The avatar sat against the controls, so the two halves of "whose profile
+    // is this" were at opposite edges and the picture read as a fourth button.
+    const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
+    const nameAt = group.indexOf("{name}")
+    const faceAt = group.indexOf("<PinnedAvatar")
+    return nameAt > 0 && faceAt > nameAt
+  })(),
+)
+
+check(
+  "arriving is slower than leaving, and the fade trails rather than leads",
+  (() => {
+    // Both directions shared one timing, so the bar hit full opacity a third of
+    // the way through its travel — the most visible part of the animation was
+    // the least informative.
+    const rest = css.slice(css.indexOf(".profile-pinned {"), css.indexOf('.profile-pinned[data-shown="true"]'))
+    const shown = css.slice(css.indexOf('.profile-pinned[data-shown="true"]'))
+    const outT = Number(rest.match(/transform (\d+)ms/)?.[1])
+    const outO = Number(rest.match(/opacity (\d+)ms/)?.[1])
+    const inT = Number(shown.match(/transform (\d+)ms/)?.[1])
+    const inO = Number(shown.match(/opacity (\d+)ms/)?.[1])
+    return inT > outT && outO < outT && inO < inT && inO > outO
+  })(),
+)
+
+check(
+  "a subpage holds the page still until it has actually gone",
+  (() => {
+    // The lock was keyed on `open`, so it was released a third of a second
+    // BEFORE the panel finished sliding off. Restoring `overflow` re-snaps the
+    // document scroller, in full view through the space the panel is vacating.
+    const picker = strip(read("components/sell/picker-page.tsx"))
+    return (
+      /if \(stage === "closed"\) return\s*\n\s*return lockScroll\(\)/.test(picker) &&
+      !/document\.body\.style\.overflow/.test(picker)
+    )
+  })(),
 )
 
 console.log("\nThe last of the bumps, and the badge")

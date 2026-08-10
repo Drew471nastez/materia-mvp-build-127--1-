@@ -297,10 +297,7 @@ export function ManageListingSheet({
           </div>
 
           {error && (
-            <p
-              role="alert"
-              className="mx-4 mt-3 rounded-xl bg-amber-50 px-3.5 py-3 text-[13.5px] font-medium text-amber-900"
-            >
+            <p role="alert" className="mx-5 mt-3 text-[13.5px] font-medium leading-relaxed text-amber-700">
               {error}
             </p>
           )}
@@ -353,7 +350,7 @@ function Row({
         // The highlight arrives instantly and fades out. A press that has to
         // animate IN is a press that feels late — this is the one place a
         // transition is deliberately one-directional.
-        "relative flex min-h-[54px] w-full items-center gap-3.5 px-4 py-3 text-left",
+        "relative flex min-h-[56px] w-full items-center gap-4 px-5 py-3 text-left",
         "transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100 disabled:opacity-60",
         danger ? "text-rose-600" : "text-neutral-900",
       )}
@@ -362,7 +359,9 @@ function Row({
         {busy ? <Loader2 className="h-[19px] w-[19px] animate-spin" /> : icon}
       </span>
       <span className="min-w-0 flex-1 truncate text-[16px] font-medium">{children}</span>
-      {!last && <span aria-hidden className="absolute bottom-0 left-4 right-0 h-px bg-neutral-100" />}
+      {/* Inset to where the label starts, not to the edge: a line that runs the
+          full width cuts the icon column off from the text it belongs to. */}
+      {!last && <span aria-hidden className="absolute bottom-0 left-[56px] right-0 h-px bg-neutral-100" />}
     </button>
   )
 }

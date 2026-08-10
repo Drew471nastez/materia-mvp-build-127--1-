@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useSyncExternalStore } from "react"
 import { ShieldCheck } from "lucide-react"
 
 import { PickerPage } from "@/components/sell/picker-page"
@@ -12,60 +12,132 @@ import { cn } from "@/lib/utils"
  *  THE MARK BESIDE THE PRICE, AND WHAT IT OPENS
  * ===========================================================================
  *
- * Prices are quoted inclusive of buyer protection now (see
+ * Prices are quoted inclusive of buyer protection (see
  * lib/marketplace/display-price.ts). Quoting an inclusive number without saying
  * so would be the same lie in the other direction — a seller asking 130 whose
  * listing reads 141 with no explanation looks like a marketplace adding a
  * mystery margin.
  *
- * So: a shield and the word "incl.", small enough to sit on a grid card without
- * competing with the figure it qualifies. Not a coloured pill, not a banner —
- * this is a footnote to a number, and it has to be legible sixty times on one
- * screen without turning the grid into a wall of badges.
+ * ---------------------------------------------------------------------------
+ * IT IS A CONTROL, NOT A LABEL — INCLUDING ON A GRID CARD
+ * ---------------------------------------------------------------------------
+ * It was inert on cards, and the reason was real: sixty cards meant sixty
+ * subpages mounted to serve one tap, each with its own matchMedia listener and
+ * its own stage machine. But a shield that does nothing where people actually
+ * meet it is a promise the feed does not keep — the feed IS where somebody
+ * first wonders why the number is what it is, and being told to open the
+ * listing to find out is not an answer.
+ *
+ * So there is ONE subpage for the whole application, mounted once in the root
+ * layout, and every mark on every surface opens that one. The store below is
+ * three lines because that is all the state is: a boolean nobody owns.
+ *
+ * ---------------------------------------------------------------------------
+ * AND IT IS NOT A CHIP, OR A CALL TO ACTION
+ * ---------------------------------------------------------------------------
+ * A filled grey pill beside every price turned the grid into two columns of
+ * badges. Colouring the shield purple instead was worse in the other direction:
+ * purple is what this interface uses for the thing it wants you to press, and
+ * sixty of them down a feed is sixty calls to action drowning the numbers they
+ * qualify. Shield and word in one quiet grey, at 11px, next to a bold price —
+ * a footnote you notice exactly when you are already asking what it means.
+ */
+
+/* ── One subpage, one boolean, no provider ─────────────────────────────────
+ *
+ * A context would mean a provider high enough for every surface — the feed, the
+ * profile grid, the listing page, the wishlist — re-rendering all of it to
+ * toggle one panel. This is read with useSyncExternalStore, so opening the
+ * panel re-renders the panel and nothing else. */
+let panelOpen = false
+const subscribers = new Set<() => void>()
+
+function emit() {
+  subscribers.forEach((fn) => fn())
+}
+
+function subscribe(fn: () => void) {
+  subscribers.add(fn)
+  return () => {
+    subscribers.delete(fn)
+  }
+}
+
+export function openBuyerProtection() {
+  void triggerHaptic("light")
+  panelOpen = true
+  emit()
+}
+
+export function closeBuyerProtection() {
+  panelOpen = false
+  emit()
+}
+
+/**
+ * Mounted ONCE, in the root layout. Renders nothing until somebody taps a mark
+ * — PickerPage is null while closed — so the cost of having it everywhere is a
+ * single subscription.
+ */
+export function BuyerProtectionHost() {
+  const open = useSyncExternalStore(
+    subscribe,
+    () => panelOpen,
+    // The server never has a panel open, and saying otherwise would hydrate a
+    // subpage onto a page that does not have one.
+    () => false,
+  )
+  return <BuyerProtectionPage open={open} onClose={closeBuyerProtection} />
+}
+
+/**
+ * The shield and the word, in one colour.
+ *
+ * `tone` exists for the one surface that is drawn over a photograph, where a
+ * mid grey disappears and white does not.
  */
 export function ProtectionMark({
-  onClick,
   className,
+  tone = "default",
 }: {
-  /** Interactive on the listing page; a plain mark on a grid card, where a
-   *  nested button inside the card's own link is a hit target fighting the one
-   *  around it — and sixty subpages would be mounted to serve one tap. */
-  onClick?: () => void
   className?: string
+  tone?: "default" | "onPhoto"
 }) {
-  const body = (
-    <>
-      <ShieldCheck className="h-[13px] w-[13px] shrink-0" strokeWidth={2.4} />
-      <span className="leading-none">incl.</span>
-    </>
-  )
-
-  const base = cn(
-    "inline-flex shrink-0 items-center gap-1 rounded-md bg-neutral-100 px-1.5 py-[3px] text-[11px] font-semibold text-neutral-500",
-    className,
-  )
-
-  if (!onClick) {
-    return (
-      <span className={base} aria-label="Protecția cumpărătorului inclusă">
-        {body}
-      </span>
-    )
-  }
+  const onClick = useCallback((e: React.MouseEvent) => {
+    // It lives beside a price, inside a card whose photograph is a link. Without
+    // both of these the tap opens the listing and the panel never appears.
+    e.preventDefault()
+    e.stopPropagation()
+    openBuyerProtection()
+  }, [])
 
   return (
     <button
       type="button"
       aria-label="Ce înseamnă protecția cumpărătorului"
-      onClick={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        void triggerHaptic("light")
-        onClick()
-      }}
-      className={cn(base, "transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-200")}
+      onClick={onClick}
+      className={cn(
+        "relative inline-flex shrink-0 items-center gap-[3px] text-[11px] font-semibold leading-none",
+        // The tap target is bigger than the mark. At 11px the glyph and the
+        // word together are about forty pixels wide and twelve tall, which is
+        // half of what a thumb needs — so the hit area is pushed out around it
+        // without moving anything on the screen.
+        "after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-['']",
+        "transition-opacity duration-200 ease-out active:duration-0 active:opacity-55",
+        tone === "onPhoto" ? "text-white/90" : "text-neutral-500",
+        className,
+      )}
     >
-      {body}
+      {/* THE SAME GREY AS THE WORD, not the brand purple.
+          
+          Purple is what this interface uses for the thing it wants you to press
+          — the compose button, Publish. On a footnote beside a price, repeated
+          on every card in a grid, it reads as sixty calls to action, and the
+          eye goes to them instead of to the numbers they qualify. A footnote
+          should be quiet enough that you only notice it when you are already
+          asking the question it answers. */}
+      <ShieldCheck className="h-[13px] w-[13px] shrink-0" strokeWidth={2.5} />
+      incl.
     </button>
   )
 }
@@ -91,7 +163,14 @@ export function BuyerProtectionPage({ open, onClose }: { open: boolean; onClose:
     <PickerPage open={open} title="Protecția cumpărătorului" onClose={onClose}>
       {() => (
         <div className="px-5 pb-10 pt-1">
-          <div className="flex flex-col items-center pb-6 pt-2 text-center">
+          {/* AIR ABOVE THE MARK.
+              
+              It sat two pixels under the title bar's hairline, so the badge read
+              as attached to the chrome rather than as the first thing on the
+              screen. A subpage whose content starts immediately under its own
+              header has nothing separating what you navigated FROM from what
+              you navigated TO. */}
+          <div className="flex flex-col items-center pb-6 pt-8 text-center">
             <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white">
               <ShieldCheck className="h-7 w-7" strokeWidth={2.2} />
             </span>
@@ -145,22 +224,5 @@ function Point({ title, children, last }: { title: string; children: React.React
       <p className="text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">{title}</p>
       <p className="mt-1 text-[13.5px] font-medium leading-relaxed text-neutral-500">{children}</p>
     </div>
-  )
-}
-
-/**
- * The pair, for a surface that wants both and does not want to hold the state.
- *
- * Returns the mark and mounts the subpage next to it. Only for screens that
- * show ONE price — a grid must not mount sixty of these, which is why
- * ProtectionMark is exported on its own for cards.
- */
-export function ProtectionMarkWithPage({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <ProtectionMark className={className} onClick={() => setOpen(true)} />
-      <BuyerProtectionPage open={open} onClose={() => setOpen(false)} />
-    </>
   )
 }
