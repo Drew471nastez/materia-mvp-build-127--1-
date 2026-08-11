@@ -70,11 +70,14 @@ type Slide = {
   body: string
   cta: string
   href: string
-  image: string
-  alt: string
   /** The left half. Chosen per slide so three in a row are not one colour. */
   ground: string
-}
+  alt: string
+} & (
+  | { kind: "art"; image: string }
+  /** Three real listings, each in its own 3:4 box. */
+  | { kind: "shelf"; items: { id: string; image: string; slug: string }[] }
+)
 
 /**
  * The three, written rather than generated.
@@ -88,10 +91,18 @@ type Slide = {
  * `fallback` is what it wears when the catalogue has nothing matching, and it is
  * the editorial artwork rather than a borrowed photograph of something else.
  */
-type SlideCopy = Omit<Slide, "key" | "image" | "alt"> & {
-  match: string[]
-  fallback: string
+type SlideCopy = {
+  eyebrow: string
+  title: string
+  body: string
+  cta: string
+  href: string
+  ground: string
   alt: string
+  /** Words that decide which listings this slide may show. */
+  match: string[]
+  /** The artwork it wears when the catalogue cannot fill its shelf. */
+  fallback: string
 }
 
 const SNEAKERS_ART =
@@ -133,36 +144,71 @@ const COPY: SlideCopy[] = [
   },
 ]
 
-/** The first listing whose title, brand or category contains one of the words —
- *  and which has not already been taken by an earlier slide. */
-function pickImage(listings: HeroListing[], words: string[], taken: Set<string>): string | null {
-  const hit = listings.find((l) => {
-    if (taken.has(l.id)) return false
+/**
+ * ===========================================================================
+ *  WHY THE LISTING SLIDES ARE A SHELF AND NOT A PHOTOGRAPH
+ * ===========================================================================
+ *
+ * They used to stretch one listing's photo across the whole right half, and it
+ * was the worst thing on the page. A listing photograph is PORTRAIT — a jumper
+ * on a hanger, a pair of jeans on a floor, shot 3:4 by somebody holding a phone
+ * vertically. Putting that in a 820x260 slot with `object-cover` throws away
+ * three quarters of it and keeps a horizontal band from the middle, which is
+ * how the front page ended up showing two people's torsos and a picnic blanket.
+ * No crop rule fixes that; the aspect ratios are simply not the same shape.
+ *
+ * A shelf of three, each in its own 3:4 box, crops NOTHING. It also happens to
+ * be more honest and better looking: three real things somebody is selling,
+ * side by side, instead of one stock-looking lifestyle photograph that could
+ * have come from anywhere. Clean, and unmistakably this marketplace's.
+ *
+ * A slide that cannot fill its shelf falls back to the editorial artwork rather
+ * than drawing one or two boxes and a gap.
+ */
+const SHELF = 3
+
+function pickShelf(
+  listings: HeroListing[],
+  words: string[],
+  taken: Set<string>,
+): { id: string; image: string; slug: string }[] {
+  const out: { id: string; image: string; slug: string }[] = []
+  for (const l of listings) {
+    if (out.length === SHELF) break
+    if (taken.has(l.id)) continue
     const hay = `${l.title ?? ""} ${l.brand ?? ""} ${l.category ?? ""} ${l.subcategory ?? ""}`.toLowerCase()
-    return words.some((w) => hay.includes(w))
-  })
-  if (!hit) return null
-  const img = cardImage(readVariants(hit.image_variants), hit.thumbnail_url, 0)
-  if (img) taken.add(hit.id)
-  return img
+    if (!words.some((w) => hay.includes(w))) continue
+    const image = cardImage(readVariants(l.image_variants), l.thumbnail_url, 0)
+    if (!image) continue
+    taken.add(l.id)
+    out.push({ id: l.id, image, slug: l.slug })
+  }
+  return out
 }
 
 export function HeroSlides({ listings }: { listings: HeroListing[] }) {
   const slides = useMemo<Slide[]>(() => {
     const taken = new Set<string>()
-    return COPY.map((c, i) => ({
-      key: `slide-${i}`,
-      eyebrow: c.eyebrow,
-      title: c.title,
-      body: c.body,
-      cta: c.cta,
-      href: c.href,
-      ground: c.ground,
-      alt: c.alt,
+    return COPY.map((c, i) => {
+      const base = {
+        key: `slide-${i}`,
+        eyebrow: c.eyebrow,
+        title: c.title,
+        body: c.body,
+        cta: c.cta,
+        href: c.href,
+        ground: c.ground,
+        alt: c.alt,
+      }
       // The first slide keeps its editorial artwork whatever is listed: it is
-      // the one that has to be right on an empty marketplace.
-      image: (i === 0 ? c.fallback : pickImage(listings, c.match, taken) ?? c.fallback),
-    }))
+      // the one that has to be right on an empty marketplace, and it is the one
+      // image on the page that was actually composed for this shape.
+      if (i === 0) return { ...base, kind: "art" as const, image: c.fallback }
+      const items = pickShelf(listings, c.match, taken)
+      return items.length === SHELF
+        ? { ...base, kind: "shelf" as const, items }
+        : { ...base, kind: "art" as const, image: c.fallback }
+    })
   }, [listings])
 
   const [index, setIndex] = useState(0)
@@ -262,19 +308,45 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
               </SmartLink>
             </div>
 
-            {/* The photograph, doing the one thing a photograph is for. */}
-            <div className="relative h-[240px] lg:h-[260px]">
-              <Image
-                src={s.image}
-                alt={s.alt}
-                fill
-                sizes="(min-width: 1024px) 820px, 60vw"
-                // Only the first slide is above the fold on arrival; the others
-                // are one transform away and can wait.
-                priority={i === 0}
-                className="object-cover"
-              />
-            </div>
+            {/* The right half: either artwork composed for this shape, or three
+                real listings each in its own box. Never one portrait photograph
+                stretched across a landscape slot — see the note above pickShelf. */}
+            {s.kind === "art" ? (
+              <div className="relative h-[240px] lg:h-[260px]">
+                <Image
+                  src={s.image}
+                  alt={s.alt}
+                  fill
+                  sizes="(min-width: 1024px) 820px, 60vw"
+                  // Only the first slide is above the fold on arrival; the
+                  // others are one transform away and can wait.
+                  priority={i === 0}
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div
+                className="flex h-[240px] items-center gap-3 px-6 lg:h-[260px] lg:gap-4 lg:px-8"
+                style={{ backgroundColor: s.ground }}
+              >
+                {s.items.map((it) => (
+                  <SmartLink
+                    key={it.id}
+                    href={`/products/${it.slug}`}
+                    tabIndex={i === index ? 0 : -1}
+                    className="relative h-[184px] flex-1 overflow-hidden rounded-xl bg-black/20 lg:h-[200px]"
+                  >
+                    <Image
+                      src={it.image}
+                      alt=""
+                      fill
+                      sizes="200px"
+                      className="object-cover transition-transform duration-[400ms] ease-out hover:scale-[1.04]"
+                    />
+                  </SmartLink>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

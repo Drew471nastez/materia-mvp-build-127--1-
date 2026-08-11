@@ -135,22 +135,38 @@ check(
 )
 
 check(
-  "a slide wears a photograph of what it is about, or the artwork",
+  "a listing slide is a shelf of three, not one photograph stretched wide",
   (() => {
-    // A slide about denim must not be wearing a picture of a lamp; and a
-    // catalogue with no denim in it gets the editorial image rather than a
-    // borrowed photograph of something else.
+    // A listing photograph is PORTRAIT — shot 3:4 by somebody holding a phone
+    // vertically. In an 820x260 slot with object-cover, three quarters of it is
+    // thrown away and a horizontal band from the middle is kept, which is how
+    // the front page ended up showing two torsos and a picnic blanket. No crop
+    // rule fixes that; the aspect ratios are not the same shape.
     return (
-      /function pickImage/.test(hero) &&
-      /words\.some\(\(w\) => hay\.includes\(w\)\)/.test(hero) &&
-      /pickImage\(listings, c\.match, taken\) \?\? c\.fallback/.test(hero)
+      /const SHELF = 3/.test(hero) &&
+      /kind: "shelf"/.test(hero) &&
+      /items\.length === SHELF/.test(hero) &&
+      !/pickImage/.test(hero)
     )
   })(),
 )
 
 check(
-  "and no two slides borrow the same listing's photograph",
-  /taken\.add\(hit\.id\)/.test(hero) && /if \(taken\.has\(l\.id\)\) return false/.test(hero),
+  "and a shelf it cannot fill falls back to artwork, not to a gap",
+  /: \{ \.\.\.base, kind: "art" as const, image: c\.fallback \}/.test(hero),
+)
+
+check(
+  "no two slides show the same listing",
+  /taken\.add\(l\.id\)/.test(hero) && /if \(taken\.has\(l\.id\)\) continue/.test(hero),
+)
+
+check(
+  "the shelf's boxes are the card's own ratio, so nothing is cropped",
+  (() => {
+    const shelf = hero.slice(hero.indexOf('s.kind === "art"'))
+    return /h-\[184px\] flex-1/.test(shelf) && /sizes="200px"/.test(shelf)
+  })(),
 )
 
 check(
@@ -197,6 +213,35 @@ check(
 check(
   "an off-screen slide's button is out of the tab order",
   /tabIndex=\{i === index \? 0 : -1\}/.test(hero),
+)
+
+check(
+  "the personal sections hold their place instead of vanishing",
+  (() => {
+    // They returned null on a first visit, so a new visitor's home page was
+    // hero → pills → suggestions: three of seven sections missing, in an order
+    // that reads as wrong rather than as empty. A section that disappears takes
+    // the SHAPE of the page with it, and the shape is what somebody learns.
+    return (
+      /emptyNote\?: string/.test(row) &&
+      /if \(empty && !emptyNote\) return null/.test(row) &&
+      /emptyNote="Deschide câteva anunțuri/.test(home) &&
+      /emptyNote="Anunțurile pe care le deschizi apar aici/.test(home)
+    )
+  })(),
+)
+
+check(
+  "an empty section is a line, not five card-shaped holes",
+  (() => {
+    // Grey rectangles would promise content that is not coming.
+    return /border-dashed/.test(row) && !/aspect-\[3\/4\][\s\S]{0,120}empty/.test(row)
+  })(),
+)
+
+check(
+  "and See more is not offered on a section with nothing in it",
+  /\{href && !empty && \(/.test(row),
 )
 
 console.log("\nIt knows what this person was looking at")
@@ -418,6 +463,46 @@ check(
 check(
   "the home page is only drawn when there is nothing being searched for",
   /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} \/>\}/.test(feed),
+)
+
+console.log("\nA build cannot die on somebody else's font server")
+
+check(
+  "only the interface typeface is fetched at build time",
+  (() => {
+    // next/font/google fetches from fonts.gstatic.com AT BUILD TIME, and a blip
+    // there fails the whole build with "Can't resolve
+    // '@vercel/turbopack-next/internal/font/…'". Six families meant six chances
+    // per deploy to die on somebody else's network — and it took three of them
+    // in one afternoon, each on a different font, each with a diff that had
+    // nothing to do with typography. A failed build looks exactly like a change
+    // that was never pushed.
+    const layout = read("app/layout.tsx")
+    return (
+      /import \{ Inter \} from "next\/font\/google"/.test(layout) &&
+      // Comments name them; only the CODE must not import them.
+      !/from "next\/font\/google"[\s\S]*?(Plus_Jakarta_Sans|Space_Grotesk|DM_Sans\(|Poppins\(|Montserrat\()/.test(layout) &&
+      !/\bconst (plusJakartaSans|spaceGrotesk|dmSans|poppins|montserrat) =/.test(layout)
+    )
+  })(),
+)
+
+check(
+  "the five builder families still load, from a stylesheet",
+  (() => {
+    // They are used by NOTHING in the marketplace — the OnePage theme picker
+    // writes them as raw CSS family names, so they need the family to be
+    // available and do not care where it came from.
+    const layout = read("app/layout.tsx")
+    return (
+      /fonts\.googleapis\.com\/css2\?family=DM\+Sans/.test(layout) &&
+      /Montserrat/.test(layout) &&
+      /Poppins/.test(layout) &&
+      /Space\+Grotesk/.test(layout) &&
+      /display=swap/.test(layout) &&
+      /rel="preconnect" href="https:\/\/fonts\.gstatic\.com"/.test(layout)
+    )
+  })(),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

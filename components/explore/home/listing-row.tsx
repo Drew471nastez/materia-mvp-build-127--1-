@@ -27,6 +27,7 @@ export function ListingRow({
   href,
   seeMoreLabel = "Vezi mai multe",
   origin = "feed",
+  emptyNote,
 }: {
   title: string
   items: any[]
@@ -36,6 +37,20 @@ export function ListingRow({
   href?: string
   seeMoreLabel?: string
   origin?: "feed" | "member" | "search"
+  /**
+   * WHAT TO SAY WHEN THERE IS NOTHING YET, INSTEAD OF VANISHING.
+   *
+   * The two personal rows returned null on a first visit, so the home page a
+   * new visitor saw was hero → pills → suggestions: three of the seven sections
+   * missing, in an order that read as wrong rather than as empty. A section
+   * that disappears takes the SHAPE of the page with it, and the shape is the
+   * thing somebody learns on their second visit.
+   *
+   * So a row with a note holds its heading and says why it is empty. Without
+   * one it still collapses, because a section nobody can ever fill — "recently
+   * viewed" on a catalogue of four — is worth less than the space it takes.
+   */
+  emptyNote?: string
 }) {
   // FIVE. Six cards across 1400px leaves each one about 215px wide, and a
   // second-hand listing is sold by its photograph — at that width a jumper on a
@@ -43,15 +58,17 @@ export function ListingRow({
   // width the card was drawn for.
   const PER_ROW = 5
   const shown = items.slice(0, PER_ROW * rows)
-  // A row with one card in it is not a row. Below three the section is drawn as
-  // nothing: an almost-empty shelf says less than no shelf.
-  if (shown.length < 3) return null
+  // A row with one card in it is not a row. Below three it is drawn as its
+  // heading and a line, or not at all — an almost-empty shelf says less than
+  // either.
+  const empty = shown.length < 3
+  if (empty && !emptyNote) return null
 
   return (
     <section className="mt-10">
       <div className="mb-4 flex items-baseline justify-between gap-4">
         <h2 className="text-[22px] font-bold tracking-[-0.02em] text-neutral-900">{title}</h2>
-        {href && (
+        {href && !empty && (
           <SmartLink
             href={href}
             className="shrink-0 text-[14px] font-semibold text-[#7c3aed] transition-colors duration-200 hover:text-[#6d28d9]"
@@ -61,6 +78,14 @@ export function ListingRow({
         )}
       </div>
 
+      {empty ? (
+        /* A line, not a card-shaped hole. The section is here to hold its place
+           in the order and to say what will fill it — drawing five grey
+           rectangles would promise content that is not coming. */
+        <p className="rounded-2xl border border-dashed border-neutral-200 px-5 py-8 text-center text-[14px] font-medium leading-relaxed text-neutral-400">
+          {emptyNote}
+        </p>
+      ) : (
       <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
         {shown.map((product, i) => (
           <ProductCard
@@ -73,6 +98,7 @@ export function ListingRow({
           />
         ))}
       </div>
+      )}
     </section>
   )
 }
