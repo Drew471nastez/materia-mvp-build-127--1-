@@ -2110,7 +2110,10 @@ export function PlatformHeaderClient() {
 
             {/* Mobile Category Pills - White/Light UI */}
             {showCategories && (
-              <div className="md:hidden px-0 pt-1 pb-2 overflow-x-auto scrollbar-hide">
+              /* Same lip above, same arithmetic — see the note on the desktop nav
+                 below. pt-0 lets the 20px concave block be the top padding, and
+                 pb-4 comes close to matching it under a 36px pill. */
+              <div className="md:hidden px-0 pt-0 pb-4 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   {MOBILE_CATEGORIES.map((cat) => {
                     const Icon = cat.icon
@@ -2138,16 +2141,31 @@ export function PlatformHeaderClient() {
             {/* Desktop Categories - White/Light UI */}
             {showCategories && (
               <nav className="hidden md:block">
-                {/* THE STRIP UNDER THE BLACK BAR.
+                {/* ═══════════════════════════════════════════════════════════
+                    THE 20px NOBODY WAS COUNTING
+                    ═══════════════════════════════════════════════════════════
 
-                    `pt-1` put the labels four pixels under the header's edge,
-                    so the row read as stuck to the bottom of the black rather
-                    than as the first thing on the white — which is what made it
-                    look wrong without looking like anything in particular.
-                    `pt-2.5` splits the difference: `pt-1` had the labels
-                    stuck to the black bar, `pt-4` left a band of white that
-                    read as a gap between two things rather than as the top of
-                    one. Ten pixels is the strip breathing, not a margin.
+                    Three values were tried here — pt-1, pt-4, pt-2.5 — and all
+                    three were guesses at the wrong number, because the white
+                    above these labels does not start where this element starts.
+
+                    A SEPARATE 20px BLOCK sits above it: the concave transition,
+                    `bg-black h-[20px]` with a `rounded-t-[20px]` white overlay,
+                    which is what makes the corners curve where the black bar
+                    meets the white. Its twenty pixels are white too, so the gap
+                    above the labels has always been LIP + whatever was set
+                    here, while the gap below was only what was set here.
+                    pt-2.5 therefore read as 30 above against 14 below — the
+                    lopsided band of white in the screenshot, and the reason no
+                    value of `pt` alone was ever going to centre this.
+
+                    So the padding-top is ZERO and the lip IS the top padding.
+                    `pb-5` matches it, and the row is centred in the white for
+                    the first time: 20 above, 20 below.
+
+                    If that block's height ever changes, this has to change with
+                    it. They are one measurement written in two places, which is
+                    exactly how this went wrong.
 
                     NO DIVIDERS HERE. They were tried and taken out: these six
                     are one flat list of filters over the same thing, and ruling
@@ -2158,7 +2176,7 @@ export function PlatformHeaderClient() {
                     Gaps are the right separator for a list; rules are for a
                     choice between unlike things. */}
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-3.5 pt-2.5 text-[14.5px]">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-5 pt-0 text-[14.5px]">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
