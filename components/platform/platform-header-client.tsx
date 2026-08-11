@@ -1392,7 +1392,21 @@ export function PlatformHeaderClient() {
               type="button"
               onClick={() => setSearchModalOpen(true)}
               aria-label={t("search_placeholder")}
-              className={`relative h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-left text-[15px] text-white/50 transition-colors hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+              // INVISIBLE WHILE THE PANEL IS OPEN, not hidden.
+              //
+              // The panel carries the live field, so with this still drawn
+              // there were two search inputs on screen at once: one dimmed
+              // under the scrim reading "Caută orice", one in the panel reading
+              // "Caută articole sau membri". Nothing said which one typing went
+              // into, and the answer was neither, because this is a button.
+              //
+              // Opacity rather than `hidden`: it keeps its box, so the logo and
+              // the icons either side of it do not slide inwards and back out
+              // every time search is opened. It also fades, which a display
+              // switch cannot.
+              tabIndex={searchModalOpen ? -1 : 0}
+              aria-hidden={searchModalOpen}
+              className={`relative h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-left text-[15px] text-white/50 transition-[opacity,background-color] duration-200 hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${searchModalOpen ? "pointer-events-none opacity-0" : "opacity-100"} ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
               <span className="flex h-full items-center truncate">

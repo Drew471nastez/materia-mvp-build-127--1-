@@ -441,7 +441,21 @@ export function MobileSearchOverlay({
       <div
         className={
           wide
-            ? "relative flex max-h-[min(660px,78vh)] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_28px_80px_-16px_rgba(15,15,15,0.38),0_2px_10px_rgba(15,15,15,0.08)]"
+            ? // `h-fit`, and it is the whole of "the modal is too tall".
+              //
+              // The children are laid out for a phone, where the panel IS the
+              // screen and the content area is meant to take everything left
+              // over — `flex-1` on the scroller, a 40vh floor under the empty
+              // state. Put that in a box with a max-height and it stops being a
+              // ceiling and becomes a target: the panel grew to 78% of the
+              // window to hold an icon and one line of grey text.
+              //
+              // `h-fit` makes the box content-sized, so `flex-1` has no free
+              // space to claim and the max-height goes back to being a cap for
+              // a long list of results. The empty states drop their viewport
+              // floors at the same breakpoint; both halves are needed, because
+              // either one alone still leaves a panel sized by the viewport.
+              "relative flex h-fit max-h-[min(620px,76vh)] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_28px_80px_-16px_rgba(15,15,15,0.38),0_2px_10px_rgba(15,15,15,0.08)]"
             : "contents"
         }
       >
@@ -519,7 +533,16 @@ export function MobileSearchOverlay({
 
       {/* Content — padded by the keyboard height so results never hide under it */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
+        className={cn(
+          "min-h-0 overflow-y-auto overscroll-contain scrollbar-hide",
+          // A phone: fill everything under the tabs, because the panel IS the
+          // screen. A desktop: `flex: 0 1 auto` — size to the content so a
+          // one-line empty state is a one-line panel, but still SHRINK when the
+          // list is long enough to hit the panel's cap, which is what makes it
+          // scroll instead of being clipped by the `overflow-hidden` above.
+          // `flex-none` would have done the first half and lost the second.
+          "flex-1 md:flex-initial",
+        )}
         style={{
           scrollbarWidth: "none",
           paddingBottom: wide ? 10 : `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)`,
@@ -570,7 +593,7 @@ function ItemsTab({
   if (!trimmed) {
     if (recent.length === 0) {
       return (
-        <div className="flex min-h-[40vh] flex-col items-center justify-center px-8 text-center">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center px-8 py-10 text-center md:min-h-0 md:py-12">
           <Search className="mb-3 h-7 w-7 text-neutral-300" />
           <p className="text-[13px] text-neutral-500">{t("mfeed.search_placeholder")}</p>
         </div>
@@ -724,7 +747,7 @@ function PeopleTab({
 }) {
   if (trimmed.length < 2) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center px-8 text-center">
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-8 py-10 text-center md:min-h-0 md:py-12">
         <Store className="mb-3 h-7 w-7 text-neutral-300" />
         <p className="text-[13px] text-neutral-500">{t("mfeed.search_people_hint")}</p>
       </div>
@@ -732,14 +755,14 @@ function PeopleTab({
   }
   if (loading && people.length === 0) {
     return (
-      <div className="flex min-h-[35vh] items-center justify-center">
+      <div className="flex min-h-[35vh] items-center justify-center py-10 md:min-h-0 md:py-12">
         <IosSpinner size={24} />
       </div>
     )
   }
   if (people.length === 0) {
     return (
-      <div className="flex min-h-[35vh] flex-col items-center justify-center px-8 text-center">
+      <div className="flex min-h-[35vh] flex-col items-center justify-center px-8 py-10 text-center md:min-h-0 md:py-12">
         <p className="text-[14px] font-semibold text-neutral-700">{t("mfeed.no_people")}</p>
       </div>
     )

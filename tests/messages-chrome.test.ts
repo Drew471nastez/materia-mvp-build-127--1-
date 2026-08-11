@@ -688,6 +688,43 @@ check(
   "        components/explore/mobile-search-overlay.tsx",
 )
 
+check(
+  "the panel is sized by what is in it, not by the window",
+  (() => {
+    // The children are laid out for a phone, where the panel is the screen:
+    // `flex-1` on the scroller and a 40vh floor under the empty state. Put that
+    // in a box with a max-height and the ceiling becomes a target — the panel
+    // grew to 76% of the window to hold an icon and one line of grey text.
+    // Both halves are needed; either alone still leaves a viewport-sized panel.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /h-fit max-h-\[min\(/.test(overlay) &&
+      /"flex-1 md:flex-initial"/.test(overlay) &&
+      /min-h-\[40vh\][^"]*md:min-h-0/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
+  "and it does not put a second search box on the screen",
+  (() => {
+    // The panel carries the live field, so with the header's trigger still
+    // drawn there were two search inputs at once: one dimmed under the scrim
+    // reading "Caută orice", one in the panel reading "Caută articole sau
+    // membri". Nothing said which one typing went into, and the answer was
+    // neither, because the header's is a button.
+    //
+    // Opacity rather than `hidden`, so the logo and icons either side do not
+    // slide inwards and back out every time search opens.
+    return (
+      /searchModalOpen \? "pointer-events-none opacity-0" : "opacity-100"/.test(platformHeader) &&
+      !/searchModalOpen \? "hidden"/.test(platformHeader)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
 // ---------------------------------------------------------------------------
 console.log("\nLoading that does not announce itself")
 // ---------------------------------------------------------------------------
