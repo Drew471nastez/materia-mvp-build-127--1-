@@ -1106,7 +1106,18 @@ export function MessageThread({
       done = true
       setPixelsReady(true)
     }
-    const pending = Array.from(el.querySelectorAll("img")).filter((i) => !i.complete)
+    /**
+     * Only the photographs that are actually being fetched.
+     *
+     * A lazy image the browser has not started is `complete === false` and will
+     * stay that way until it is scrolled near — so counting them would hold the
+     * cover for the full 1800ms cap on every thread with history in it, which is
+     * the opposite of what deferring them is for. The recent ones are eager
+     * precisely so this has something finite to wait on.
+     */
+    const pending = Array.from(el.querySelectorAll("img")).filter(
+      (i) => !i.complete && i.loading !== "lazy",
+    )
     if (!pending.length) {
       // Already decoded. Cleared on the next frame rather than synchronously, so
       // the lift is a transition rather than a flicker of something that was
@@ -2471,6 +2482,25 @@ export function MessageThread({
                             )}
                             draggable={false}
                             decoding="async"
+                            /**
+                             * OLDER PHOTOGRAPHS ARE NOT FETCHED UNTIL THEY ARE
+                             * NEEDED.
+                             *
+                             * A conversation opens scrolled to the BOTTOM, so
+                             * the only pictures anybody can see are the last
+                             * few. Every one above them was being downloaded
+                             * anyway — a thread with sixty photographs in it
+                             * was sixty files over the network to show four, on
+                             * a phone, before the screen could settle.
+                             *
+                             * The recent ones stay eager because they are the
+                             * ones being waited for: the cover lifts when the
+                             * visible photographs have decoded, and an image
+                             * that has not started cannot be waited on. Eight
+                             * is comfortably more than a screen holds at the
+                             * smallest bubble size.
+                             */
+                            loading={i < arr.length - 8 ? "lazy" : "eager"}
                             style={{
                               opacity: 0,
                               transition: "opacity 220ms ease",
