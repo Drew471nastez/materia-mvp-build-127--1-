@@ -5141,3 +5141,15 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
   padding-top: 3rem;
   padding-bottom: 3rem;
 }
+
+/* A mark that only exists where a pointer does.
+   The photos card says the same thing in plain text directly under its heading,
+   which on a phone is the full screen width and impossible to miss. A mark you
+   have to tap to reveal a longer version of the sentence six pixels below it is
+   a second door to a room you are already standing in. On a pointer the caption
+   competes with a two-column layout and the mark costs a hover, so it stays. */
+@media (hover: none) {
+  .pointer-only-tip {
+    display: none;
+  }
+}

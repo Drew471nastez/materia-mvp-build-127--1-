@@ -744,13 +744,43 @@ check(
       // the header's stacking context and any ancestor overflow are out of the
       // picture entirely…
       /anchorTo=\{searchBoxRef\}/.test(platformHeader) &&
-      /createPortal\(body, document\.body\)/.test(overlay) &&
+      /createPortal\(layer, document\.body\)/.test(overlay) &&
       /getBoundingClientRect\(\)/.test(overlay) &&
       // …and draws no field of its own when it does.
       /\{!anchored && \(/.test(overlay)
     )
   })(),
   "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the dim is a SIBLING of the panel, and below it",
+  (() => {
+    // THE BUG THIS SHIPPED AS. The scrim was `fixed inset-0 z-[94]` INSIDE the
+    // panel's own `fixed z-[95]` wrapper — and a positioned element with a
+    // z-index is a stacking context, so those numbers were compared against
+    // each other rather than against the page. The scrim won: a 25% black wash
+    // painted OVER the search panel, the whole box came up grey, and every
+    // click aimed at a tab or a result landed on the scrim and closed it.
+    //
+    // Two things have to hold, and asserting only one of them is what let it
+    // through: the scrim must not live inside the panel's wrapper, AND its
+    // z-index must be the lower of the two.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const bodyBlock = overlay.slice(overlay.indexOf("const body = ("), overlay.indexOf("const layer ="))
+    const layerBlock = overlay.slice(overlay.indexOf("const layer ="))
+    const scrimZ = /bg-black\/25/.test(layerBlock)
+      ? Number(/z-\[(\d+)\][^"]*bg-black\/25/.exec(layerBlock)?.[1] ?? NaN)
+      : NaN
+    const panelZ = Number(/anchored\s*\?\s*"fixed z-\[(\d+)\]"/.exec(bodyBlock)?.[1] ?? NaN)
+    return (
+      !/bg-black\/25/.test(bodyBlock) &&
+      Number.isFinite(scrimZ) &&
+      Number.isFinite(panelZ) &&
+      scrimZ < panelZ
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
 )
 
 check(
@@ -849,12 +879,17 @@ check(
 )
 
 check(
-  "and it states the seller's payout, not only the buyer's total",
+  "and it names both numbers, the typed one first",
   (() => {
-    // The form asked for a price and then told them only what somebody else
-    // would pay. The commission comes off this side, so the number they care
-    // about was the one the screen did not show.
-    return /sellerReceivesCents\(priceCents\)/.test(sellForm) && /Tu primești/.test(sellForm)
+    // The seller's own figure has to lead. A line that opens with the buyer's
+    // total reads as the price going up; the same two numbers the other way
+    // round read as protection being added to theirs.
+    const line = sellForm.slice(sellForm.indexOf("price-total-in mt-2.5"))
+    return (
+      line.indexOf("formatPlatformMoney(priceCents)") <
+        line.indexOf("formatPlatformMoney(buyerPaysCents(priceCents))") &&
+      /incl\. protecția plății/.test(line)
+    )
   })(),
   "        components/sell/new-listing-form.tsx",
 )
@@ -888,25 +923,34 @@ check(
 )
 
 check(
-  "the price card shows their own number, not the platform's books",
+  "the price line is one quiet caption, not a panel with a disclosure in it",
   (() => {
-    // Two rows — "Cumpărătorul plătește 454" over "Tu primești 431" — set the
-    // platform's cut out as a line item in the largest type on the card, at the
-    // moment somebody is deciding whether to bother listing at all. Every
-    // figure was correct and the effect was an argument with itself.
+    // Three versions were wrong three ways: a grey sentence buried the figure
+    // that matters mid-paragraph; two large rows set the platform's cut out as
+    // a line item in the biggest type on the card; a violet panel with a shield
+    // and a tooltip made a small arithmetic fact look like a notice, with an
+    // explanation longer than the thing explained.
     //
-    // The arithmetic is unchanged and nothing is hidden: the mark opens both
-    // figures in a sentence. The difference is that it is something you can ask
-    // for rather than something the form announces.
-    const badge = sellForm.slice(sellForm.indexOf("price-total-in mt-3"))
+    // What is left is the two numbers, in the weight the form's other captions
+    // use. No accent, no panel, no tooltip.
+    const line = sellForm.slice(sellForm.indexOf("price-total-in mt-2.5"), sellForm.indexOf("</section>", sellForm.indexOf("price-total-in mt-2.5")))
     return (
-      /<ShieldCheck/.test(badge) &&
-      /Anunțul tău apare la/.test(badge) &&
-      /formatPlatformMoney\(priceCents\)/.test(badge) &&
-      !/Cumpărătorul plătește\n/.test(badge.split("<InfoTip>")[0])
+      /<ShieldCheck[^>]*text-neutral-400/.test(line) &&
+      !/#7c3aed/.test(line) &&
+      !/<InfoTip/.test(line)
     )
   })(),
   "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "and the photos mark is gone where there is no hover to open it with",
+  (() => {
+    // The card already says the same thing in plain text directly under the
+    // heading, which on a phone is the full screen width.
+    return /infoOnTouch=\{false\}/.test(sellForm) && /@media \(hover: none\) \{\s*\.pointer-only-tip \{\s*display: none;/.test(css)
+  })(),
+  "        components/sell/new-listing-form.tsx, app/globals.css",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

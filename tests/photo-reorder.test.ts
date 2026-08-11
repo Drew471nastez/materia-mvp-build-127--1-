@@ -724,8 +724,8 @@ check(
     // receive 130" was accurate before that was surfaced and wrong after it.
     return (
       /formatPlatformMoney\(buyerPaysCents\(priceCents\)\)/.test(form) &&
-      /formatPlatformMoney\(sellerReceivesCents\(priceCents\)\)/.test(form) &&
-      /taxa de protecție/.test(form)
+      /formatPlatformMoney\(priceCents\)/.test(form) &&
+      /incl\. protecția plății/.test(form)
     )
   })(),
 )

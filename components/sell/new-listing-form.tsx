@@ -40,12 +40,6 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
-import {
-  buyerProtectionFee,
-  SELLER_COMMISSION_PERCENT,
-  sellerCommissionCents,
-  sellerReceivesCents,
-} from "@/lib/checkout/pricing"
 import { minimumListingPriceCents } from "@/lib/checkout/currency"
 
 /** Read once. It depends only on the platform currency, which is a build-time
@@ -139,6 +133,7 @@ function SectionHeading({
   children,
   trailing,
   info,
+  infoOnTouch = true,
 }: {
   children: React.ReactNode
   trailing?: React.ReactNode
@@ -146,12 +141,25 @@ function SectionHeading({
    *  components/ui/info-tip.tsx for why it is not a permanent line of grey
    *  text under the heading. */
   info?: React.ReactNode
+  /**
+   * Whether the mark survives on a touch screen.
+   *
+   * The photos card already says the same thing in plain text directly under
+   * its heading — "Minimum 2. Prima fotografie este coperta anunțului." — which
+   * on a phone is the whole screen width and impossible to miss. A mark that
+   * has to be tapped to reveal a longer version of the sentence six pixels
+   * below it is a second door to a room you are standing in.
+   *
+   * It stays on a pointer, where the sentence under the heading competes with a
+   * form laid out in two columns and the mark costs a hover.
+   */
+  infoOnTouch?: boolean
 }) {
   return (
     <div className="info-tip-host flex items-center justify-between gap-3">
       <h2 className="flex items-center gap-1.5 text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">
         {children}
-        {info && <InfoTip>{info}</InfoTip>}
+        {info && <InfoTip className={infoOnTouch ? undefined : "pointer-only-tip"}>{info}</InfoTip>}
       </h2>
       {trailing}
     </div>
@@ -2470,6 +2478,7 @@ export function NewListingForm({
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
+          infoOnTouch={false}
           info="Prima fotografie devine coperta anunțului în feed. Fotografiază la lumină naturală, pe fundal simplu, și arată orice defect. Anunțurile cu poze clare se vând de câteva ori mai repede."
         >
           Fotografii
@@ -2736,7 +2745,9 @@ export function NewListingForm({
       <div className="min-w-0">
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
-        <SectionHeading info="Tu primești exact suma pe care o scrii aici. Cumpărătorul plătește puțin mai mult, pentru că prețul afișat în feed include taxa de protecție a plății.">
+        <SectionHeading
+          infoOnTouch
+          info="Tu primești exact suma pe care o scrii aici. Cumpărătorul plătește puțin mai mult, pentru că prețul afișat în feed include taxa de protecție a plății.">
           Preț
         </SectionHeading>
         {/* ONE FIELD. The comparison price is gone from the whole app — a
@@ -2796,48 +2807,47 @@ export function NewListingForm({
           )}
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
-        {/* A SHIELD AND THEIR OWN NUMBER. NOT A RECEIPT.
+        {/* ONE QUIET LINE WITH BOTH NUMBERS IN IT.
 
-            This was two rows: "Cumpărătorul plătește 454 RON" over "Tu primești
-            431 RON". Every figure in it was correct and the effect was wrong —
-            it set the platform's cut out as a line item under the field, in the
-            largest type on the card, at the exact moment somebody is deciding
-            whether to bother listing at all. A marketplace that opens its books
-            at the point of sale is not being transparent, it is arguing with
-            itself, and the number a seller came here to see is the one they
-            just typed.
+            Three versions of this have now been wrong in three different ways,
+            and each correction is worth keeping:
 
-            So: their price, a shield, one line. The arithmetic has not changed
-            and none of it is hidden — the mark opens both figures, in a
-            sentence, for anybody who wants them. The difference is that it is
-            now something you can ask for rather than something the form
-            announces.
+            A grey sentence with a dash in it buried the figure that matters in
+            the middle of three facts.
 
-            It fades and rises rather than appearing, because it arrives as you
-            type. And it carries NO `key`: keyed on the price it was rebuilt per
-            keystroke, so the entrance replayed on every character and the row
-            strobed under the field. See `.price-total-in`. */}
+            Two big rows — "Cumpărătorul plătește 454" over "Tu primești 431" —
+            set the platform's cut out as a line item in the largest type on the
+            card, at the moment somebody is deciding whether to bother listing.
+
+            A violet panel with a shield and a tooltip full of explanation made
+            a small arithmetic fact look like a disclosure notice, and the
+            explanation was longer than the thing it explained.
+
+            What is left is what a seller actually needs: the number they typed,
+            the number a buyer will see, and nothing else. Neutral, 12.5px,
+            under the field, in the weight the rest of the form's captions use.
+            No panel, no accent, no tooltip. The shield is 13px and grey — it is
+            there to say the second number is protection rather than markup, and
+            that is the entire job it has.
+
+            It carries NO `key`: keyed on the price it was rebuilt per keystroke,
+            so the entrance replayed on every character and the line strobed
+            under the field. `tabular-nums` keeps the digits from shuffling
+            sideways as they change in place. */}
         {Number.isFinite(priceCents) && priceCents >= MIN_LISTING_PRICE_CENTS && (
-          <div className="info-tip-host price-total-in mt-3 flex items-center gap-2.5 rounded-xl bg-[#7c3aed]/[0.055] px-3.5 py-2.5">
-            <ShieldCheck className="h-[17px] w-[17px] shrink-0 text-[#7c3aed]" strokeWidth={2.2} />
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] leading-snug text-neutral-600">
-              <span className="min-w-0">
-                Anunțul tău apare la{" "}
-                <span className="font-semibold tabular-nums text-neutral-900">
-                  {formatPlatformMoney(priceCents)}
-                </span>
-                , cu plata protejată.
-              </span>
-              <InfoTip>
-                Cumpărătorul plătește {formatPlatformMoney(buyerPaysCents(priceCents))}: prețul tău
-                plus {formatPlatformMoney(buyerProtectionFee(priceCents))} taxă de protecție, care
-                acoperă livrarea urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost
-                descris. Din prețul tău reținem un comision de{" "}
-                {(SELLER_COMMISSION_PERCENT * 100).toFixed(0)}%, așa că primești{" "}
-                {formatPlatformMoney(sellerReceivesCents(priceCents))}.
-              </InfoTip>
+          <p className="price-total-in mt-2.5 flex items-center gap-1.5 text-[12.5px] leading-snug text-neutral-500">
+            <ShieldCheck className="h-[13px] w-[13px] shrink-0 text-neutral-400" strokeWidth={2.2} />
+            <span>
+              <span className="font-semibold tabular-nums text-neutral-700">
+                {formatPlatformMoney(priceCents)}
+              </span>{" "}
+              · afișat{" "}
+              <span className="font-semibold tabular-nums text-neutral-700">
+                {formatPlatformMoney(buyerPaysCents(priceCents))}
+              </span>{" "}
+              incl. protecția plății
             </span>
-          </div>
+          </p>
         )}
       </section>
 
