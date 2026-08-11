@@ -53,8 +53,11 @@ const strip = (src: string) =>
 import {
   DEPARTMENTS,
   LISTING_CATEGORIES,
+  asksFor,
+  categoryLabelFor,
   categoryShortLabel,
   departmentForGroup,
+  fieldsFor,
   groupsForDepartment,
 } from "../lib/marketplace/listing-taxonomy"
 
@@ -942,17 +945,86 @@ check(
 )
 
 check(
-  "a group that is sold for everyone appears under every department",
+  "each department holds its own groups and nobody else's",
   (() => {
-    // Accessories, bags, sportswear, swimwear and underwear are not a fourth
-    // department nobody would think to open.
+    // The shared-group idea is gone with the reorganisation: "Accesorii" was one
+    // list appearing under women, men and kids, and its leaves had to say which
+    // — so a woman's scarf and a man's tie were in the same category and the
+    // department above it meant nothing. Each department names its own now.
     const women = groupsForDepartment("women").map((g) => g.id)
     const men = groupsForDepartment("men").map((g) => g.id)
-    const kids = groupsForDepartment("kids").map((g) => g.id)
+    const ent = groupsForDepartment("entertainment").map((g) => g.id)
     return (
-      women.includes("accessories") && men.includes("accessories") && kids.includes("accessories") &&
-      women.includes("women-dresses") && !men.includes("women-dresses") && !kids.includes("women-dresses")
+      women.includes("women-accessories") && !women.includes("men-accessories") &&
+      men.includes("men-accessories") && !men.includes("women-clothing") &&
+      ent.includes("ent-books") && !ent.includes("women-clothing")
     )
+  })(),
+)
+
+check(
+  "the five departments are the five this marketplace is for",
+  (() => {
+    // Not a taxonomy of the world. Home, electronics and sport were dropped
+    // because nothing in them was ever listed.
+    const ids = DEPARTMENTS.map((d) => d.id)
+    return (
+      ids.join(",") === "women,men,kids,entertainment,hobby" &&
+      DEPARTMENTS.every((d) => groupsForDepartment(d.id).length > 0)
+    )
+  })(),
+)
+
+check(
+  "every leaf list can say Altele",
+  (() => {
+    // A taxonomy is never finished, and a seller who cannot file their item
+    // either files it wrongly or gives up on the listing.
+    return LISTING_CATEGORIES.every((g) => g.items.some((i) => i.id === "other"))
+  })(),
+)
+
+check(
+  "a listing filed under the old tree still says what it is",
+  (() => {
+    // Reorganising the tree does not reach into the database. Without a legacy
+    // map, every listing published under "women-tops" would have rendered with
+    // no category at all the day this shipped — and null is indistinguishable
+    // from "the seller never chose one".
+    return (
+      categoryLabelFor("women-tops", "t-shirts") !== null &&
+      categoryLabelFor("men-footwear", "sneakers") !== null &&
+      categoryLabelFor("kids", "baby") !== null &&
+      categoryLabelFor("not-a-group-that-ever-existed", "x") === null
+    )
+  })(),
+)
+
+check(
+  "a category is only asked the questions it has answers to",
+  (() => {
+    // A paperback has no size, a Pokémon card has no colour, and a vinyl record
+    // has no era in the sense this form means it.
+    return (
+      asksFor("women-clothing", "size") &&
+      asksFor("women-clothing", "era") &&
+      !asksFor("ent-books", "size") &&
+      !asksFor("ent-books", "era") &&
+      !asksFor("hobby-cards", "colour") &&
+      !asksFor("women-bags", "size") &&
+      asksFor("women-bags", "colour") &&
+      // Nothing at all before a category is chosen.
+      fieldsFor(null).length === 0
+    )
+  })(),
+)
+
+check(
+  "an unrecognised group is asked everything rather than nothing",
+  (() => {
+    // A listing on an id the tree no longer has must not silently lose fields
+    // its seller had already filled in and can no longer see.
+    return asksFor("women-tops", "size") && asksFor("women-tops", "brand")
   })(),
 )
 
@@ -976,9 +1048,10 @@ check(
     // already made.
     return (
       /const dep = departmentForGroup\(group\)/.test(form) &&
-      departmentForGroup("women-dresses") === "women" &&
-      departmentForGroup("men-suits") === "men" &&
-      departmentForGroup("kids") === "kids" &&
+      departmentForGroup("women-clothing") === "women" &&
+      departmentForGroup("men-shoes") === "men" &&
+      departmentForGroup("kids-toys") === "kids" &&
+      departmentForGroup("ent-music") === "entertainment" &&
       departmentForGroup(null) === null
     )
   })(),

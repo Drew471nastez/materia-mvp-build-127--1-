@@ -10,6 +10,7 @@ import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
+import { goToSellFormAsPage, isSellFormRoute } from "@/lib/marketplace/sell-route"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { cn } from "@/lib/utils"
 
@@ -1107,6 +1108,24 @@ export function PlatformHeaderClient() {
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      /**
+       * THE SELL FORM IS A PAGE ON A DESKTOP, NOT A MODAL OVER THE FEED.
+       *
+       * Both sell addresses are intercepted routes, so `router.push` renders
+       * them into the @modal slot over whatever you were looking at. Right on a
+       * phone; wrong on a monitor, where writing a listing is a ten-minute job
+       * with eight photographs in it and a modal says the opposite — a quick
+       * aside from the page behind, dismissable by clicking away from it.
+       *
+       * An interception only fires on a client navigation, so the fix is to
+       * stop asking the router rather than to defeat it. First, before the
+       * canonical and native branches: those decide HOW to navigate, and this
+       * decides whether this navigation may be a soft one at all.
+       */
+      if (isSellFormRoute(targetPath) && goToSellFormAsPage(targetPath)) {
+        e.preventDefault()
+        return
+      }
       if (targetPath !== pathname) startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use

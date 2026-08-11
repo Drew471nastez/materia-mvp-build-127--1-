@@ -70,3 +70,46 @@ export function isSellFormRoute(pathname: string | null | undefined): boolean {
   if (pathname === SELL_NEW || pathname.startsWith(`${SELL_NEW}/`)) return true
   return pathname.startsWith("/products/edit/")
 }
+
+/**
+ * ===========================================================================
+ *  ON A DESKTOP, "VINDE ACUM" IS A PAGE
+ * ===========================================================================
+ *
+ * Both sell addresses are intercepted routes, so a client navigation renders
+ * them into the layout's @modal slot over the screen you were on. That is right
+ * on a phone — the sheet needs something to slide over, and `router.back()`
+ * returns you to the feed at the scroll you left it.
+ *
+ * On a monitor it is wrong for a reason that has nothing to do with how it
+ * looks: writing a listing there is a ten-minute job with eight photographs in
+ * it, and a modal says the opposite — that this is a quick aside from the page
+ * behind, dismissable by clicking away from it. The URL bar says
+ * /products/new and the screen says "you are still on the feed".
+ *
+ * An interception only fires on a CLIENT navigation. A document load resolves
+ * the real route, full-page, with the site header above it — so the fix is not
+ * to defeat the router but to stop asking it. One line at the two places a
+ * person starts a listing from on a desktop.
+ *
+ * Deliberately NOT a media query in CSS or a breakpoint constant imported from
+ * somewhere else: 768 is `md`, it is the same number the form's own layout
+ * turns on at, and the two must agree or there is a width at which the page
+ * opens as a modal and then renders as a page inside it.
+ */
+export function sellOpensAsPage(): boolean {
+  if (typeof window === "undefined") return false
+  return window.matchMedia("(min-width: 768px)").matches
+}
+
+/**
+ * Returns true when it has handled the navigation itself.
+ *
+ * `assign`, not `href`: it leaves the current page in the session history, so
+ * the browser's back button returns to the feed rather than to nothing.
+ */
+export function goToSellFormAsPage(href: string): boolean {
+  if (!sellOpensAsPage()) return false
+  window.location.assign(href)
+  return true
+}

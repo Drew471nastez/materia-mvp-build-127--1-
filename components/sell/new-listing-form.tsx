@@ -16,9 +16,11 @@ import {
   STYLES,
   categoryLabelFor,
   categoryShortLabel,
+  asksFor,
   departmentForGroup,
   groupsForDepartment,
   DEPARTMENTS,
+  type ListingField,
   type CategoryGroup,
   type Option,
 } from "@/lib/marketplace/listing-taxonomy"
@@ -1728,6 +1730,16 @@ export function NewListingForm({
       photos.length,
   )
 
+  /**
+   * WHICH ATTRIBUTES THIS CATEGORY HAS ANSWERS TO.
+   *
+   * One call, read by both the rows below and the validation above, so the form
+   * cannot refuse a publish for a field it never showed — which is exactly what
+   * would happen the first time somebody listed a paperback and was told a size
+   * was missing from a row that does not exist.
+   */
+  const asks = useCallback((field: ListingField) => asksFor(group, field), [group])
+
   const priceCents = Math.round(parseFloat(price.replace(",", ".")) * 100)
 
   /**
@@ -1763,14 +1775,16 @@ export function NewListingForm({
     if (description.trim().length < 10)
       g.push({ key: "description", label: "descriere", message: "Scrie o descriere de cel puțin 10 caractere." })
     if (!group || !item) g.push({ key: "category", label: "categorie", message: "Alege o categorie." })
-    if (!brand) g.push({ key: "brand", label: "brand", message: "Alege un brand." })
+    // Gated on the SAME function the rows are, so the form can never refuse a
+    // publish over a field it did not draw.
+    if (asks("brand") && !brand) g.push({ key: "brand", label: "brand", message: "Alege un brand." })
     if (!condition) g.push({ key: "condition", label: "stare", message: "Alege starea articolului." })
-    if (!size) g.push({ key: "size", label: "mărime", message: "Alege mărimea." })
-    if (!colour) g.push({ key: "colour", label: "culoare", message: "Alege culoarea." })
+    if (asks("size") && !size) g.push({ key: "size", label: "mărime", message: "Alege mărimea." })
+    if (asks("colour") && !colour) g.push({ key: "colour", label: "culoare", message: "Alege culoarea." })
     if (!Number.isFinite(priceCents) || priceCents < 0)
       g.push({ key: "price", label: "preț", message: "Adaugă prețul." })
     return g
-  }, [uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents])
+  }, [asks, uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents])
 
   /** Nothing is marked until a publish has actually been refused. A form that
    *  turns red while you are still filling it in is telling you off for not
@@ -2684,16 +2698,60 @@ export function NewListingForm({
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <SectionHeading>Detalii</SectionHeading>
+        {/* ═══════════════════════════════════════════════════════════════════
+            THE CATEGORY IS THE ONLY QUESTION UNTIL IT IS ANSWERED
+            ═══════════════════════════════════════════════════════════════════
+
+            Eight rows were drawn to everybody, and most of them could not be
+            answered by most listings. A paperback was asked for its size, a
+            vinyl record for its era, a Pokémon card for its style — three
+            questions with no answer, above three that mattered, on the screen
+            where somebody decides whether listing the thing is worth it.
+
+            So: one row. Choosing it tells the form what kind of object this is,
+            and the rows that apply arrive underneath — see `fieldsFor` in
+            lib/marketplace/listing-taxonomy.ts. Nothing is hidden that was ever
+            filled in, because nothing CAN be filled in before the category is.
+
+            The reveal is a grid 0fr → 1fr, which is the only way to animate to
+            a height nobody has measured. It is on the block rather than on each
+            row so the group arrives as one movement instead of six. */}
         <div className="mt-1">
           <Field label="Categorie" value={categoryLabelFor(group, item)} onClick={openCategory} error={gapFor("category")} anchor={(el) => setGapEl("category", el)} />
-          <Field label="Brand" value={brand} onClick={() => setSheet("brand")} error={gapFor("brand")} anchor={(el) => setGapEl("brand", el)} />
-          <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
-          <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} error={gapFor("size")} anchor={(el) => setGapEl("size", el)} />
-          <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} error={gapFor("colour")} anchor={(el) => setGapEl("colour", el)} />
-          <Field label="Tip" optional value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
-          <Field label="Epocă" optional value={label(ERAS, era)} onClick={() => setSheet("era")} />
-          <Field label="Stil" optional value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
         </div>
+        <div
+          className="grid transition-[grid-template-rows] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          style={{ gridTemplateRows: group ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className={cn("transition-opacity duration-200 ease-out", group ? "opacity-100 delay-[120ms]" : "opacity-0")}>
+              <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
+              {asks("brand") && (
+                <Field label="Brand" value={brand} onClick={() => setSheet("brand")} error={gapFor("brand")} anchor={(el) => setGapEl("brand", el)} />
+              )}
+              {asks("size") && (
+                <Field label="Mărime" value={label(SIZES, size)} onClick={() => setSheet("size")} error={gapFor("size")} anchor={(el) => setGapEl("size", el)} />
+              )}
+              {asks("colour") && (
+                <Field label="Culoare" value={label(COLOURS, colour)} onClick={() => setSheet("colour")} error={gapFor("colour")} anchor={(el) => setGapEl("colour", el)} />
+              )}
+              {asks("sources") && (
+                <Field label="Tip" optional value={sources.length ? sources.map((s) => label(SOURCES, s)).join(", ") : null} onClick={() => setSheet("source")} />
+              )}
+              {asks("era") && (
+                <Field label="Epocă" optional value={label(ERAS, era)} onClick={() => setSheet("era")} />
+              )}
+              {asks("style") && (
+                <Field label="Stil" optional value={styles.length ? styles.map((s) => label(STYLES, s)).join(", ") : null} onClick={() => setSheet("style")} />
+              )}
+            </div>
+          </div>
+        </div>
+        {!group && (
+          <p className="mt-2 px-1 text-[12.5px] font-medium leading-relaxed text-neutral-400">
+            Alege categoria și îți cerem doar detaliile care contează pentru ea.
+          </p>
+        )}
       </section>
 
       {error && (

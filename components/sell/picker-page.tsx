@@ -423,7 +423,19 @@ export function PickerPage({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[110]"
+      /**
+       * UNDER THE SITE HEADER ON A DESKTOP, OVER EVERYTHING ON A PHONE.
+       *
+       * At z-110 the picker covered the header at every width, so choosing a
+       * brand on a monitor took the search, the categories and the account menu
+       * off the screen — and this panel is a centred dialog there, not a
+       * full-screen push, so there was no reason for it to.
+       *
+       * 35 sits above the sell form's own desktop layer (30) and below the
+       * sticky header (40). On a phone it stays at 110, where covering
+       * everything IS the behaviour: the picker is the screen.
+       */
+      className="fixed inset-0 z-[110] md:z-[35]"
       style={{ pointerEvents: open ? "auto" : "none" }}
       aria-hidden={!open}
     >

@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation"
 import { ChevronRight, X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { goToSellFormAsPage, isSellFormRoute } from "@/lib/marketplace/sell-route"
 
 /**
  * The one edge-anchored drawer the mobile web header uses for both its panels —
@@ -354,7 +355,17 @@ export function DrawerRow({
   return (
     <Link
       href={href}
-      onClick={onNavigate}
+      // VINDE is one of these rows, and on a desktop it must land on the page
+      // rather than in the modal slot — see goToSellFormAsPage. The drawer still
+      // closes either way: a document load discards it, and a soft navigation
+      // needs the caller's own handler.
+      onClick={(e) => {
+        if (isSellFormRoute(href) && goToSellFormAsPage(href)) {
+          e.preventDefault()
+          return
+        }
+        onNavigate?.()
+      }}
       className="flex items-center gap-3 px-5 py-3.5 text-[15px] font-medium text-neutral-900 transition-[background-color,transform] duration-150 active:scale-[0.99] active:bg-neutral-100"
     >
       {body}

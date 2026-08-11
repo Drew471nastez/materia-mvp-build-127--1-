@@ -16,320 +16,381 @@ export type Option = { id: string; label: string }
  *  is already established by where you are — see categoryShortLabel. */
 export type CategoryGroup = { id: string; label: string; short?: string; items: Option[] }
 
-const OTHER: Option = { id: "other", label: "Altele" }
 
-export const LISTING_CATEGORIES: CategoryGroup[] = [
-  {
-    id: "women-tops",
-    label: "Damă · Tricouri și bluze",
-    items: [
-      { id: "t-shirts", label: "Tricouri" },
-      { id: "jerseys", label: "Jerseuri" },
-      { id: "hoodies", label: "Hanorace" },
-      { id: "sweatshirts", label: "Bluze de trening" },
-      { id: "sweaters", label: "Pulovere" },
-      { id: "cardigans", label: "Cardigane" },
-      { id: "shirts", label: "Cămăși" },
-      { id: "polo-shirts", label: "Tricouri polo" },
-      { id: "blouses", label: "Bluze" },
-      { id: "crop-tops", label: "Crop top-uri" },
-      { id: "tank-tops", label: "Maiouri și camisole" },
-      { id: "corsets", label: "Corsete" },
-      { id: "bodysuits", label: "Body-uri" },
-      OTHER,
-    ],
-  },
-  {
-    id: "women-bottoms",
-    label: "Damă · Pantaloni și fuste",
-    items: [
-      { id: "jeans", label: "Blugi" },
-      { id: "sweatpants", label: "Pantaloni de trening" },
-      { id: "trousers", label: "Pantaloni" },
-      { id: "shorts", label: "Pantaloni scurți" },
-      { id: "leggings", label: "Colanți" },
-      { id: "skirts", label: "Fuste" },
-      OTHER,
-    ],
-  },
-  {
-    id: "women-outerwear",
-    label: "Damă · Paltoane și jachete",
-    items: [
-      { id: "coats", label: "Paltoane" },
-      { id: "jackets", label: "Jachete" },
-      { id: "vests", label: "Veste" },
-      OTHER,
-    ],
-  },
-  {
-    id: "women-dresses",
-    label: "Damă · Rochii și salopete",
-    items: [
-      { id: "mini-dresses", label: "Rochii mini" },
-      { id: "midi-dresses", label: "Rochii midi" },
-      { id: "maxi-dresses", label: "Rochii maxi" },
-      { id: "jumpsuits", label: "Salopete" },
-      OTHER,
-    ],
-  },
-  {
-    id: "women-footwear",
-    label: "Damă · Încălțăminte",
-    items: [
-      { id: "sneakers", label: "Sneakers" },
-      { id: "boots", label: "Ghete și cizme" },
-      { id: "heels", label: "Pantofi cu toc" },
-      { id: "flats", label: "Balerini" },
-      { id: "sandals", label: "Sandale" },
-      OTHER,
-    ],
-  },
-  {
-    id: "men-tops",
-    label: "Bărbați · Tricouri și bluze",
-    items: [
-      { id: "t-shirts", label: "Tricouri" },
-      { id: "jerseys", label: "Jerseuri" },
-      { id: "hoodies", label: "Hanorace" },
-      { id: "sweatshirts", label: "Bluze de trening" },
-      { id: "sweaters", label: "Pulovere" },
-      { id: "cardigans", label: "Cardigane" },
-      { id: "shirts", label: "Cămăși" },
-      { id: "polo-shirts", label: "Tricouri polo" },
-      { id: "tank-tops", label: "Maiouri" },
-      OTHER,
-    ],
-  },
-  {
-    id: "men-bottoms",
-    label: "Bărbați · Pantaloni",
-    items: [
-      { id: "jeans", label: "Blugi" },
-      { id: "sweatpants", label: "Pantaloni de trening" },
-      { id: "trousers", label: "Pantaloni" },
-      { id: "shorts", label: "Pantaloni scurți" },
-      OTHER,
-    ],
-  },
-  {
-    id: "men-outerwear",
-    label: "Bărbați · Paltoane și jachete",
-    items: [
-      { id: "coats", label: "Paltoane" },
-      { id: "jackets", label: "Jachete" },
-      { id: "vests", label: "Veste" },
-      OTHER,
-    ],
-  },
-  {
-    id: "men-suits",
-    label: "Bărbați · Costume",
-    items: [
-      { id: "suits", label: "Costume complete" },
-      { id: "blazers", label: "Sacouri" },
-      { id: "suit-trousers", label: "Pantaloni de costum" },
-      OTHER,
-    ],
-  },
-  {
-    id: "men-footwear",
-    label: "Bărbați · Încălțăminte",
-    items: [
-      { id: "sneakers", label: "Sneakers" },
-      { id: "boots", label: "Ghete și bocanci" },
-      { id: "formal-shoes", label: "Pantofi eleganți" },
-      { id: "sandals", label: "Sandale" },
-      OTHER,
-    ],
-  },
-  {
-    id: "accessories",
-    label: "Accesorii",
-    items: [
-      { id: "bags", label: "Genți și rucsacuri" },
-      { id: "jewellery", label: "Bijuterii" },
-      { id: "watches", label: "Ceasuri" },
-      { id: "belts", label: "Curele" },
-      { id: "hats", label: "Șepci și pălării" },
-      { id: "scarves", label: "Eșarfe și fulare" },
-      { id: "sunglasses", label: "Ochelari de soare" },
-      { id: "gloves", label: "Mănuși" },
-      { id: "wallets", label: "Portofele" },
-      { id: "hair", label: "Accesorii de păr" },
-      { id: "ties", label: "Cravate și papioane" },
-      OTHER,
-    ],
-  },
-  // ── Everything below here was missing, and every one of them is a listing
-  //    somebody could not file.
-  //
-  //    The list stopped at accessories, so a whole second-hand wardrobe had
-  //    nowhere to go: knitwear (which is not a t-shirt and not a coat),
-  //    activewear, swimwear, underwear and nightwear, bags as their own
-  //    category rather than an accessory, and anything for a child. A seller
-  //    who cannot find their category either files it wrongly — where nobody
-  //    browsing for it will look — or gives up on the listing.
-  //
-  //    New ids only. Nothing existing is renamed or renumbered, because a
-  //    category id is stored on every listing already published under it.
-  {
-    id: "women-knitwear",
-    label: "Damă · Tricotaje",
-    items: [
-      { id: "jumpers", label: "Pulovere" },
-      { id: "cardigans", label: "Cardigane" },
-      { id: "hoodies", label: "Hanorace" },
-      { id: "sweatshirts", label: "Bluze de trening" },
-      { id: "vests", label: "Veste tricotate" },
-      OTHER,
-    ],
-  },
-  {
-    id: "men-knitwear",
-    label: "Bărbați · Tricotaje",
-    items: [
-      { id: "jumpers", label: "Pulovere" },
-      { id: "cardigans", label: "Cardigane" },
-      { id: "hoodies", label: "Hanorace" },
-      { id: "sweatshirts", label: "Bluze de trening" },
-      { id: "vests", label: "Veste tricotate" },
-      OTHER,
-    ],
-  },
-  {
-    id: "activewear",
-    label: "Sport",
-    items: [
-      { id: "tops", label: "Tricouri și topuri sport" },
-      { id: "leggings", label: "Colanți" },
-      { id: "shorts", label: "Pantaloni scurți sport" },
-      { id: "tracksuits", label: "Treninguri" },
-      { id: "jackets", label: "Jachete sport" },
-      { id: "trainers", label: "Adidași" },
-      OTHER,
-    ],
-  },
-  {
-    id: "swimwear",
-    label: "Costume de baie",
-    items: [
-      { id: "bikinis", label: "Bikini" },
-      { id: "one-piece", label: "Întregi" },
-      { id: "swim-shorts", label: "Șorturi de baie" },
-      { id: "cover-ups", label: "Pareo și cover-up" },
-      OTHER,
-    ],
-  },
-  {
-    id: "underwear",
-    label: "Lenjerie și pijamale",
-    items: [
-      { id: "bras", label: "Sutiene" },
-      { id: "briefs", label: "Chiloți și boxeri" },
-      { id: "socks", label: "Șosete și ciorapi" },
-      { id: "pyjamas", label: "Pijamale" },
-      { id: "loungewear", label: "Haine de casă" },
-      OTHER,
-    ],
-  },
-  {
-    id: "bags",
-    label: "Genți",
-    items: [
-      { id: "shoulder", label: "Genți de umăr" },
-      { id: "tote", label: "Genți tote" },
-      { id: "crossbody", label: "Genți crossbody" },
-      { id: "backpacks", label: "Rucsacuri" },
-      { id: "clutch", label: "Plicuri și clutch" },
-      { id: "luggage", label: "Bagaje" },
-      OTHER,
-    ],
-  },
-  {
-    id: "kids",
-    label: "Copii",
-    short: "Îmbrăcăminte",
-    items: [
-      { id: "tops", label: "Tricouri și bluze" },
-      { id: "bottoms", label: "Pantaloni și fuste" },
-      { id: "outerwear", label: "Geci și paltoane" },
-      { id: "dresses", label: "Rochii" },
-      { id: "shoes", label: "Încălțăminte" },
-      { id: "baby", label: "Bebeluși (0–2 ani)" },
-      OTHER,
-    ],
-  },
+/**
+ * ===========================================================================
+ *  DEPARTMENT → GROUP → ITEM, AND THE DEPARTMENT DECIDES THE REST OF THE FORM
+ * ===========================================================================
+ *
+ * The tree used to be a wardrobe and nothing else: twenty-two groups of
+ * clothing, split by who wears it, with everything that is not clothing having
+ * nowhere to go. A marketplace that sells books, records, board games and
+ * prams cannot file any of them, so they were listed as "Damă · Altele" or not
+ * listed at all.
+ *
+ * Five departments, and they are not a taxonomy of the world — they are the
+ * five things this marketplace is actually for. Each holds groups a person
+ * would look under, and each group holds the specific thing.
+ *
+ * ---------------------------------------------------------------------------
+ * AND IT DECIDES WHICH QUESTIONS GET ASKED
+ * ---------------------------------------------------------------------------
+ * This is the part the tree exists for. A paperback has no size, a vinyl record
+ * has no era in the sense the form means it, and asking a seller for the "stil"
+ * of a Pokémon card is asking a question with no answer — so the form used to
+ * present eight attribute rows to everybody and let most sellers work out for
+ * themselves which ones to ignore.
+ *
+ * `fieldsFor` below answers that from the group alone. Nothing is asked until a
+ * category is chosen, and then only what applies.
+ *
+ * ---------------------------------------------------------------------------
+ * NOTHING STORED CHANGES SHAPE
+ * ---------------------------------------------------------------------------
+ * `products.category` still holds the group id and `products.subcategory` the
+ * item id. Old group ids that no longer exist in the tree still resolve to a
+ * label through LEGACY_GROUP_LABELS, so a listing published under
+ * "women-tops" goes on saying what it is instead of losing its category the day
+ * the tree was reorganised.
+ */
+
+/** Every leaf list ends with this, because a taxonomy is never finished. */
+const OTHER_ITEM: Option = { id: "other", label: "Altele" }
+
+const item = (id: string, label: string): Option => ({ id, label })
+
+/** Written per group and closed with Altele, so no list can forget it. */
+function group(id: string, label: string, department: string, items: Option[]): CategoryGroup & { department: string } {
+  return { id, label, department, items: [...items, OTHER_ITEM] }
+}
+
+export const LISTING_CATEGORIES: (CategoryGroup & { department: string })[] = [
+  // ── FEMEI ────────────────────────────────────────────────────────────────
+  group("women-clothing", "Femei · Haine", "women", [
+    item("t-shirts", "Tricouri"),
+    item("blouses", "Bluze și cămăși"),
+    item("tank-tops", "Topuri și maiouri"),
+    item("jumpers", "Pulovere și cardigane"),
+    item("hoodies", "Hanorace și bluze de trening"),
+    item("dresses", "Rochii"),
+    item("skirts", "Fuste"),
+    item("jeans", "Blugi"),
+    item("trousers", "Pantaloni"),
+    item("shorts", "Pantaloni scurți"),
+    item("leggings", "Colanți"),
+    item("jumpsuits", "Salopete"),
+    item("jackets", "Jachete și geci"),
+    item("coats", "Paltoane"),
+    item("activewear", "Îmbrăcăminte sport"),
+    item("swimwear", "Costume de baie"),
+    item("underwear", "Lenjerie"),
+    item("sleepwear", "Pijamale și haine de casă"),
+  ]),
+  group("women-shoes", "Femei · Pantofi", "women", [
+    item("sneakers", "Sneakers"),
+    item("boots", "Ghete și cizme"),
+    item("heels", "Pantofi cu toc"),
+    item("flats", "Balerini și mocasini"),
+    item("sandals", "Sandale"),
+    item("slippers", "Papuci"),
+  ]),
+  group("women-bags", "Femei · Genți", "women", [
+    item("shoulder", "Genți de umăr"),
+    item("tote", "Genți tote"),
+    item("crossbody", "Genți crossbody"),
+    item("backpacks", "Rucsacuri"),
+    item("clutch", "Plicuri și clutch"),
+    item("luggage", "Bagaje"),
+  ]),
+  group("women-accessories", "Femei · Accesorii", "women", [
+    item("jewellery", "Bijuterii"),
+    item("watches", "Ceasuri"),
+    item("belts", "Curele"),
+    item("scarves", "Eșarfe și fulare"),
+    item("hats", "Pălării și căciuli"),
+    item("sunglasses", "Ochelari de soare"),
+    item("gloves", "Mănuși"),
+    item("wallets", "Portofele"),
+    item("hair", "Accesorii de păr"),
+  ]),
+  group("women-beauty", "Femei · Frumusețe", "women", [
+    item("makeup", "Machiaj"),
+    item("skincare", "Îngrijirea pielii"),
+    item("haircare", "Îngrijirea părului"),
+    item("fragrance", "Parfumuri"),
+    item("nails", "Unghii"),
+    item("tools", "Accesorii și aparate"),
+  ]),
+
+  // ── BĂRBAȚI ──────────────────────────────────────────────────────────────
+  group("men-clothing", "Bărbați · Haine", "men", [
+    item("t-shirts", "Tricouri"),
+    item("shirts", "Cămăși"),
+    item("polo-shirts", "Tricouri polo"),
+    item("jumpers", "Pulovere și cardigane"),
+    item("hoodies", "Hanorace și bluze de trening"),
+    item("jeans", "Blugi"),
+    item("trousers", "Pantaloni"),
+    item("shorts", "Pantaloni scurți"),
+    item("jackets", "Jachete și geci"),
+    item("coats", "Paltoane"),
+    item("suits", "Costume și sacouri"),
+    item("activewear", "Îmbrăcăminte sport"),
+    item("swimwear", "Costume de baie"),
+    item("underwear", "Lenjerie"),
+    item("sleepwear", "Pijamale și haine de casă"),
+  ]),
+  group("men-shoes", "Bărbați · Pantofi", "men", [
+    item("sneakers", "Sneakers"),
+    item("boots", "Ghete și bocanci"),
+    item("formal", "Pantofi eleganți"),
+    item("loafers", "Mocasini"),
+    item("sandals", "Sandale"),
+    item("slippers", "Papuci"),
+  ]),
+  group("men-accessories", "Bărbați · Accesorii", "men", [
+    item("watches", "Ceasuri"),
+    item("belts", "Curele"),
+    item("wallets", "Portofele"),
+    item("hats", "Șepci și căciuli"),
+    item("sunglasses", "Ochelari de soare"),
+    item("scarves", "Eșarfe și fulare"),
+    item("ties", "Cravate și papioane"),
+    item("bags", "Genți și rucsacuri"),
+    item("jewellery", "Bijuterii"),
+  ]),
+  group("men-grooming", "Bărbați · Îngrijire", "men", [
+    item("beard", "Îngrijirea bărbii"),
+    item("skincare", "Îngrijirea pielii"),
+    item("haircare", "Îngrijirea părului"),
+    item("fragrance", "Parfumuri"),
+    item("shaving", "Aparate de ras"),
+  ]),
+
+  // ── COPII ────────────────────────────────────────────────────────────────
+  group("kids-girls", "Copii · Îmbrăcăminte pentru fete", "kids", [
+    item("tops", "Tricouri și bluze"),
+    item("dresses", "Rochii"),
+    item("skirts", "Fuste"),
+    item("trousers", "Pantaloni"),
+    item("jeans", "Blugi"),
+    item("outerwear", "Geci și paltoane"),
+    item("sleepwear", "Pijamale"),
+    item("shoes", "Încălțăminte"),
+    item("baby", "Bebeluși (0–2 ani)"),
+  ]),
+  group("kids-boys", "Copii · Îmbrăcăminte pentru băieți", "kids", [
+    item("tops", "Tricouri și bluze"),
+    item("shirts", "Cămăși"),
+    item("trousers", "Pantaloni"),
+    item("jeans", "Blugi"),
+    item("outerwear", "Geci și paltoane"),
+    item("sleepwear", "Pijamale"),
+    item("shoes", "Încălțăminte"),
+    item("baby", "Bebeluși (0–2 ani)"),
+  ]),
+  group("kids-toys", "Copii · Jucării", "kids", [
+    item("soft-toys", "Jucării de pluș"),
+    item("educational", "Jocuri educative"),
+    item("figures", "Figurine"),
+    item("baby-toys", "Jucării pentru bebeluși"),
+    item("building", "Jocuri de construcție"),
+    item("outdoor", "Jucării de exterior"),
+  ]),
+  group("kids-transport", "Copii · Cărucioare, landouri și scaune auto", "kids", [
+    item("pushchairs", "Cărucioare"),
+    item("prams", "Landouri"),
+    item("car-seats", "Scaune auto"),
+    item("carriers", "Marsupii și port-bebe"),
+    item("accessories", "Accesorii"),
+  ]),
+  group("kids-furniture", "Copii · Mobilier și decorațiuni", "kids", [
+    item("cots", "Pătuțuri"),
+    item("high-chairs", "Scaune de masă"),
+    item("storage", "Dulapuri și rafturi"),
+    item("decor", "Decorațiuni"),
+    item("play-mats", "Covorașe de joacă"),
+  ]),
+  group("kids-bath", "Copii · Îmbăiere și înfășare", "kids", [
+    item("baths", "Cădițe"),
+    item("towels", "Prosoape"),
+    item("nappies", "Scutece"),
+    item("changing", "Mese de înfășat"),
+    item("care", "Îngrijire"),
+  ]),
+  group("kids-safety", "Copii · Echipamente de protecție și siguranță", "kids", [
+    item("gates", "Bariere de siguranță"),
+    item("monitors", "Monitoare pentru bebeluși"),
+    item("corners", "Protecții pentru colțuri"),
+    item("playpens", "Țarcuri"),
+  ]),
+  group("kids-health", "Copii · Sănătate și sarcină", "kids", [
+    item("maternity", "Îmbrăcăminte de maternitate"),
+    item("pillows", "Perne de sarcină"),
+    item("thermometers", "Termometre"),
+    item("aspirators", "Aspiratoare nazale"),
+  ]),
+  group("kids-feeding", "Copii · Alăptare și hrănire", "kids", [
+    item("bottles", "Biberoane"),
+    item("pumps", "Pompe de sân"),
+    item("sterilisers", "Sterilizatoare"),
+    item("chairs", "Scaune de masă"),
+    item("tableware", "Veselă pentru copii"),
+  ]),
+  group("kids-sleep", "Copii · Dormit și lenjerie de pat", "kids", [
+    item("bedding", "Lenjerii de pat"),
+    item("sleep-bags", "Saci de dormit"),
+    item("blankets", "Pături"),
+    item("dummies", "Suzete"),
+  ]),
+  group("kids-school", "Copii · Rechizite școlare", "kids", [
+    item("backpacks", "Ghiozdane"),
+    item("cases", "Penare"),
+    item("notebooks", "Caiete și blocnotesuri"),
+    item("pens", "Instrumente de scris"),
+  ]),
+  group("kids-other", "Copii · Alte articole pentru copii", "kids", []),
+
+  // ── DIVERTISMENT ─────────────────────────────────────────────────────────
+  group("ent-books", "Divertisment · Cărți", "entertainment", [
+    item("fiction", "Ficțiune"),
+    item("non-fiction", "Non-ficțiune"),
+    item("children", "Cărți pentru copii"),
+    item("comics", "Benzi desenate și manga"),
+    item("textbooks", "Manuale și cărți școlare"),
+    item("art-books", "Cărți de artă și fotografie"),
+  ]),
+  group("ent-magazines", "Divertisment · Reviste", "entertainment", [
+    item("fashion", "Modă"),
+    item("sport", "Sport"),
+    item("science", "Știință și tehnologie"),
+    item("lifestyle", "Lifestyle"),
+    item("vintage", "Numere vintage"),
+  ]),
+  group("ent-music", "Divertisment · Muzică", "entertainment", [
+    item("vinyl", "Viniluri"),
+    item("cd", "CD-uri"),
+    item("cassette", "Casete"),
+    item("merch", "Merch muzical"),
+  ]),
+  group("ent-video", "Divertisment · Video", "entertainment", [
+    item("dvd", "DVD-uri"),
+    item("bluray", "Blu-ray"),
+    item("vhs", "Casete VHS"),
+    item("series", "Seriale"),
+  ]),
+
+  // ── HOBBYURI ȘI COLECȚII ─────────────────────────────────────────────────
+  group("hobby-cards", "Hobbyuri · Carduri de tranzacționare", "hobby", [
+    item("pokemon", "Pokémon"),
+    item("football", "Fotbal"),
+    item("magic", "Magic: The Gathering"),
+    item("yugioh", "Yu-Gi-Oh!"),
+    item("sealed", "Produse sigilate"),
+  ]),
+  group("hobby-boardgames", "Hobbyuri · Jocuri de societate", "hobby", [
+    item("family", "Jocuri de familie"),
+    item("strategy", "Jocuri de strategie"),
+    item("party", "Jocuri de petrecere"),
+    item("card-games", "Jocuri de cărți"),
+  ]),
+  group("hobby-puzzles", "Hobbyuri · Puzzle-uri", "hobby", [
+    item("under-500", "Sub 500 de piese"),
+    item("500-1000", "500–1000 de piese"),
+    item("over-1000", "Peste 1000 de piese"),
+    item("3d", "Puzzle 3D"),
+  ]),
+  group("hobby-miniatures", "Hobbyuri · Jocuri de masă și în miniatură", "hobby", [
+    item("miniatures", "Miniaturi"),
+    item("starter-sets", "Seturi de start"),
+    item("paints", "Vopsele și unelte"),
+    item("terrain", "Terenuri de joc"),
+  ]),
+  group("hobby-memorabilia", "Hobbyuri · Suveniruri", "hobby", [
+    item("sport", "Sport"),
+    item("music", "Muzică"),
+    item("film", "Film și TV"),
+    item("advertising", "Publicitate"),
+  ]),
+  group("hobby-coins", "Hobbyuri · Monede și bancnote", "hobby", [
+    item("ro-coins", "Monede românești"),
+    item("world-coins", "Monede străine"),
+    item("banknotes", "Bancnote"),
+    item("sets", "Seturi de colecție"),
+  ]),
+  group("hobby-stamps", "Hobbyuri · Timbre", "hobby", [
+    item("ro-stamps", "Timbre românești"),
+    item("world-stamps", "Timbre străine"),
+    item("albums", "Seturi și albume"),
+  ]),
+  group("hobby-postcards", "Hobbyuri · Cărți poștale", "hobby", [
+    item("vintage", "Vintage"),
+    item("cities", "Orașe și călătorii"),
+    item("illustrated", "Ilustrate"),
+  ]),
+  group("hobby-instruments", "Hobbyuri · Instrumente muzicale și echipamente", "hobby", [
+    item("guitars", "Chitare"),
+    item("keyboards", "Claviaturi și piane"),
+    item("wind", "Instrumente de suflat"),
+    item("percussion", "Percuție"),
+    item("audio", "Echipamente audio"),
+    item("accessories", "Accesorii"),
+  ]),
+  group("hobby-crafts", "Hobbyuri · Arte și meșteșuguri", "hobby", [
+    item("painting", "Materiale de pictură"),
+    item("sewing", "Cusut și croitorie"),
+    item("knitting", "Tricotat și croșetat"),
+    item("paper", "Hârtie și scrapbooking"),
+    item("tools", "Unelte"),
+  ]),
+  group("hobby-storage", "Hobbyuri · Depozitare obiecte de colecție", "hobby", [
+    item("sleeves", "Folii și sleeve-uri"),
+    item("boxes", "Cutii de depozitare"),
+    item("albums", "Albume"),
+    item("cases", "Vitrine"),
+  ]),
+  group("hobby-gaming", "Hobbyuri · Accesorii pentru jocuri", "hobby", [
+    item("controllers", "Controllere"),
+    item("headsets", "Căști"),
+    item("keyboards", "Mouse și tastaturi"),
+    item("chairs", "Scaune de gaming"),
+  ]),
 ]
 
 /**
  * ===========================================================================
- *  THE THIRD LEVEL: WHO IT IS FOR
+ *  THE FIRST QUESTION
  * ===========================================================================
  *
- * There are twenty-two groups and about a hundred and sixty leaves, and the
- * picker used to show all of them at once: one flat scroll from "Damă ·
- * Tricouri" to "Copii · Bebeluși", with the department repeated in every
- * single group heading because that was the only thing distinguishing
- * "Bărbați · Încălțăminte" from "Damă · Încălțăminte". Finding your category
- * meant reading past every category you were not looking for.
- *
- * The department was always there — it was just written into the labels
- * instead of being a level you could stand on. Stated here, it becomes the
- * first question, which is the one nobody has to think about, and it removes
- * three quarters of the list before the second question is asked.
- *
- * This adds NOTHING to the database. `products.category` still stores the group
- * id and `products.subcategory` still stores the leaf id — the department is a
- * route through the picker, not a value.
+ * Five, and the order is how often they are used rather than alphabetical.
  */
 export type Department = { id: string; label: string }
 
 export const DEPARTMENTS: Department[] = [
-  { id: "women", label: "Damă" },
+  { id: "women", label: "Femei" },
   { id: "men", label: "Bărbați" },
   { id: "kids", label: "Copii" },
+  { id: "entertainment", label: "Divertisment" },
+  { id: "hobby", label: "Hobbyuri și colecții" },
 ]
 
-/**
- * Groups that belong to every department rather than to one.
- *
- * Accessories, bags, sportswear, swimwear and underwear are sold for women,
- * men and children alike, and their leaves say which — so they appear under
- * all three rather than being exiled to a fourth department nobody would think
- * to open.
- */
-const SHARED_GROUPS = new Set(["accessories", "bags", "activewear", "swimwear", "underwear"])
-
-/** Which department a group lives in, from the id prefix it already had. */
-function departmentIdOf(groupId: string): string | null {
-  if (SHARED_GROUPS.has(groupId)) return null // every department
-  if (groupId.startsWith("women-")) return "women"
-  if (groupId.startsWith("men-")) return "men"
-  if (groupId === "kids") return "kids"
-  return null
-}
-
 export function groupsForDepartment(departmentId: string): CategoryGroup[] {
-  return LISTING_CATEGORIES.filter((g) => {
-    const own = departmentIdOf(g.id)
-    return own === null ? SHARED_GROUPS.has(g.id) : own === departmentId
-  })
+  return LISTING_CATEGORIES.filter((g) => g.department === departmentId)
 }
 
 /** Which department to open the picker on for a group already chosen, so
  *  re-opening it lands where the choice was made rather than at the top. */
 export function departmentForGroup(groupId?: string | null): string | null {
   if (!groupId) return null
-  return departmentIdOf(groupId) ?? "women"
+  return LISTING_CATEGORIES.find((g) => g.id === groupId)?.department ?? null
 }
 
 /**
  * The group's name with the department taken off.
  *
- * "Damă · Tricouri și bluze" reads as "Tricouri și bluze" once you are already
- * inside Damă, and repeating the department in every row of a department's own
- * list is the noise the drill-down exists to remove.
+ * "Femei · Haine" reads as "Haine" once you are already inside Femei, and
+ * repeating the department in every row of its own list is the noise the
+ * drill-down exists to remove.
  */
 export function categoryShortLabel(group: CategoryGroup): string {
   if (group.short) return group.short
@@ -337,16 +398,142 @@ export function categoryShortLabel(group: CategoryGroup): string {
   return at === -1 ? group.label : group.label.slice(at + 3)
 }
 
+/**
+ * ===========================================================================
+ *  WHICH QUESTIONS THIS CATEGORY ACTUALLY HAS ANSWERS TO
+ * ===========================================================================
+ *
+ * The form asked all eight of everybody. A paperback was asked for its size, a
+ * vinyl record for its era, and a Pokémon card for its style — three questions
+ * with no answer, sitting above three that mattered, on the screen where a
+ * seller decides whether listing the thing is worth the trouble.
+ *
+ * Keyed on the group rather than the department, because the split is not
+ * always the same one: "Femei · Haine" wants a size and "Femei · Frumusețe"
+ * does not, and both are Femei.
+ *
+ * `condition` is on everything and is not listed — there is nothing on this
+ * marketplace whose condition does not matter.
+ */
+export type ListingField = "brand" | "size" | "colour" | "sources" | "era" | "style"
+
+/** Clothing and footwear: the full set. */
+const WORN: ListingField[] = ["brand", "size", "colour", "sources", "era", "style"]
+/** Carried and worn, but not sized. */
+const CARRIED: ListingField[] = ["brand", "colour", "sources", "era", "style"]
+/** Objects: a brand and a colour, and nothing about how they are styled. */
+const OBJECT: ListingField[] = ["brand", "colour"]
+/** Printed and recorded matter: a brand is a publisher or a label, and that is
+ *  the only one of the six that means anything. */
+const MEDIA: ListingField[] = ["brand"]
+/** Collectibles: a brand is the maker or the set, and colour is meaningless. */
+const COLLECTIBLE: ListingField[] = ["brand"]
+
+const FIELDS_BY_GROUP: Record<string, ListingField[]> = {
+  "women-clothing": WORN,
+  "women-shoes": WORN,
+  "women-bags": CARRIED,
+  "women-accessories": CARRIED,
+  "women-beauty": OBJECT,
+  "men-clothing": WORN,
+  "men-shoes": WORN,
+  "men-accessories": CARRIED,
+  "men-grooming": OBJECT,
+  "kids-girls": WORN,
+  "kids-boys": WORN,
+  "kids-toys": OBJECT,
+  "kids-transport": OBJECT,
+  "kids-furniture": OBJECT,
+  "kids-bath": OBJECT,
+  "kids-safety": OBJECT,
+  "kids-health": OBJECT,
+  "kids-feeding": OBJECT,
+  "kids-sleep": OBJECT,
+  "kids-school": OBJECT,
+  "kids-other": OBJECT,
+  "ent-books": MEDIA,
+  "ent-magazines": MEDIA,
+  "ent-music": MEDIA,
+  "ent-video": MEDIA,
+  "hobby-cards": COLLECTIBLE,
+  "hobby-boardgames": COLLECTIBLE,
+  "hobby-puzzles": COLLECTIBLE,
+  "hobby-miniatures": COLLECTIBLE,
+  "hobby-memorabilia": COLLECTIBLE,
+  "hobby-coins": COLLECTIBLE,
+  "hobby-stamps": COLLECTIBLE,
+  "hobby-postcards": COLLECTIBLE,
+  "hobby-instruments": OBJECT,
+  "hobby-crafts": OBJECT,
+  "hobby-storage": OBJECT,
+  "hobby-gaming": OBJECT,
+}
+
+/**
+ * What to ask about a listing in this group.
+ *
+ * An unknown group — a listing published under a group id that has since been
+ * reorganised away — gets the full set rather than none: showing a seller a
+ * field they do not need costs them one row, and hiding one they had already
+ * filled in would silently drop a value they can no longer see or correct.
+ */
+export function fieldsFor(groupId?: string | null): ListingField[] {
+  if (!groupId) return []
+  return FIELDS_BY_GROUP[groupId] ?? WORN
+}
+
+/** Convenience, because every call site asks about one field at a time. */
+export function asksFor(groupId: string | null | undefined, field: ListingField): boolean {
+  return fieldsFor(groupId).includes(field)
+}
+
+/**
+ * ===========================================================================
+ *  WHAT THE OLD TREE CALLED THINGS
+ * ===========================================================================
+ *
+ * Every listing already published stores a group id, and reorganising the tree
+ * does not reach into the database to update them. Without this, the day this
+ * shipped, every one of those listings would have rendered with no category at
+ * all — `categoryLabelFor` returns null for a group it cannot find, and null is
+ * indistinguishable from "the seller never chose one".
+ *
+ * A label, not a redirect: these ids are gone from the picker, so a seller
+ * editing such a listing is asked to pick again from the tree that exists. What
+ * this preserves is the listing READING correctly in the meantime, which is the
+ * part a buyer sees.
+ */
+const LEGACY_GROUP_LABELS: Record<string, string> = {
+  "women-tops": "Femei · Haine",
+  "women-bottoms": "Femei · Haine",
+  "women-outerwear": "Femei · Haine",
+  "women-dresses": "Femei · Haine",
+  "women-knitwear": "Femei · Haine",
+  "women-footwear": "Femei · Pantofi",
+  "men-tops": "Bărbați · Haine",
+  "men-bottoms": "Bărbați · Haine",
+  "men-outerwear": "Bărbați · Haine",
+  "men-knitwear": "Bărbați · Haine",
+  "men-suits": "Bărbați · Haine",
+  "men-footwear": "Bărbați · Pantofi",
+  accessories: "Accesorii",
+  bags: "Genți",
+  activewear: "Îmbrăcăminte sport",
+  swimwear: "Costume de baie",
+  underwear: "Lenjerie",
+  kids: "Copii",
+}
+
 /** Flattened, for search and for turning a stored pair back into labels. */
 export const CATEGORY_INDEX: { groupId: string; groupLabel: string; item: Option }[] =
-  LISTING_CATEGORIES.flatMap((g) => g.items.map((item) => ({ groupId: g.id, groupLabel: g.label, item })))
+  LISTING_CATEGORIES.flatMap((g) => g.items.map((i) => ({ groupId: g.id, groupLabel: g.label, item: i })))
 
 export function categoryLabelFor(groupId?: string | null, itemId?: string | null): string | null {
   if (!groupId) return null
-  const group = LISTING_CATEGORIES.find((g) => g.id === groupId)
-  if (!group) return null
-  const item = group.items.find((i) => i.id === itemId)
-  return item ? `${group.label} · ${item.label}` : group.label
+  const found = LISTING_CATEGORIES.find((g) => g.id === groupId)
+  if (!found) return LEGACY_GROUP_LABELS[groupId] ?? null
+  const leaf = found.items.find((i) => i.id === itemId)
+  return leaf ? `${found.label} · ${leaf.label}` : found.label
 }
 
 // These ids are NOT free to choose — products.condition carries a CHECK

@@ -749,6 +749,110 @@ check(
 
 const overlayCss = read("app/globals.css")
 
+console.log("\nOne question, then the ones it opens")
+
+check(
+  "nothing but the category is asked until the category is answered",
+  (() => {
+    // Eight rows were drawn to everybody and most could not be answered by most
+    // listings. A paperback was asked for its size, a vinyl record for its era,
+    // a Pokémon card for its style — three questions with no answer, above three
+    // that mattered, on the screen where somebody decides whether listing the
+    // thing is worth the trouble.
+    return (
+      /gridTemplateRows: group \? "1fr" : "0fr"/.test(form) &&
+      /Alege categoria și îți cerem doar detaliile care contează pentru ea/.test(form)
+    )
+  })(),
+)
+
+check(
+  "and each row is gated on what the category can answer",
+  (() => {
+    return (
+      /\{asks\("brand"\) && \(/.test(form) &&
+      /\{asks\("size"\) && \(/.test(form) &&
+      /\{asks\("colour"\) && \(/.test(form) &&
+      /\{asks\("sources"\) && \(/.test(form) &&
+      /\{asks\("era"\) && \(/.test(form) &&
+      /\{asks\("style"\) && \(/.test(form)
+    )
+  })(),
+)
+
+check(
+  "the publish cannot be refused over a row that was never drawn",
+  (() => {
+    // The single worst outcome here: a seller lists a book, presses Publish, and
+    // is told a size is missing from a field that does not exist on the screen.
+    // Both sides read the same function.
+    return (
+      /if \(asks\("brand"\) && !brand\)/.test(form) &&
+      /if \(asks\("size"\) && !size\)/.test(form) &&
+      /if \(asks\("colour"\) && !colour\)/.test(form)
+    )
+  })(),
+)
+
+check(
+  "and the SERVER agrees with the form about which rows exist",
+  (() => {
+    // The API enforces the same checklist independently, so a rule that lived
+    // only on the client would refuse the request the form had just allowed.
+    const completeness = read("lib/marketplace/listing-completeness.ts")
+    return (
+      /asksFor\(groupId, "brand"\) && !v\.brand/.test(completeness) &&
+      /asksFor\(groupId, "size"\) && !v\.size/.test(completeness) &&
+      /asksFor\(groupId, "colour"\) && !v\.colour/.test(completeness)
+    )
+  })(),
+)
+
+check(
+  "condition is asked of everything, and is not gated",
+  // There is nothing on this marketplace whose condition does not matter.
+  /<Field label="Stare"/.test(form) && !/asks\("condition"\)/.test(form),
+)
+
+check(
+  "a picker does not cover the site header on a desktop",
+  (() => {
+    // It is a centred dialog there, not a full-screen push, so there was no
+    // reason for it to take the search and the account menu off the screen.
+    // 35 sits above the form's own desktop layer and below the sticky header.
+    const picker = read("components/sell/picker-page.tsx")
+    return /z-\[110\] md:z-\[35\]/.test(picker)
+  })(),
+)
+
+check(
+  "on a desktop, starting a listing goes to the page rather than the modal",
+  (() => {
+    // An interception only fires on a client navigation, so the fix is to stop
+    // asking the router rather than to defeat it.
+    const route = read("lib/marketplace/sell-route.ts")
+    const header = read("components/platform/platform-header-client.tsx")
+    const drawer = read("components/marketing/side-drawer.tsx")
+    return (
+      /min-width: 768px/.test(route) &&
+      /window\.location\.assign\(href\)/.test(route) &&
+      /isSellFormRoute\(targetPath\) && goToSellFormAsPage\(targetPath\)/.test(header) &&
+      /isSellFormRoute\(href\) && goToSellFormAsPage\(href\)/.test(drawer)
+    )
+  })(),
+)
+
+check(
+  "and it decides that BEFORE the canonical and native branches",
+  (() => {
+    // Those decide HOW to navigate; this decides whether the navigation may be
+    // a soft one at all.
+    const header = read("components/platform/platform-header-client.tsx")
+    const fn = header.slice(header.indexOf("const onCanonicalNav = useCallback"))
+    return fn.indexOf("goToSellFormAsPage") < fn.indexOf("shouldForceCanonicalNav")
+  })(),
+)
+
 console.log("\nThe sell form on a large screen")
 
 check(
