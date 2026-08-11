@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, ChevronRight, GripVertical, Info, Loader2, Plus, Search, X } from "lucide-react"
+import {
+  Camera,
+  Check,
+  ChevronRight,
+  GripVertical,
+  Info,
+  Loader2,
+  Plus,
+  Search,
+  ShieldCheck,
+  X,
+} from "lucide-react"
 import {
   CATEGORY_INDEX,
   COLOURS,
@@ -2750,7 +2761,7 @@ export function NewListingForm({
               The unit belongs ON the input rather than in a hint below it: a
               caption is read once and the field is used every time. */}
           <label htmlFor="listing-price" className="block text-[13px] font-medium text-neutral-500">
-            Preț (RON) · minimum {formatPlatformMoney(MIN_LISTING_PRICE_CENTS)}
+            Preț (RON)
           </label>
           <div className="relative mt-1.5">
             <input
@@ -2768,75 +2779,64 @@ export function NewListingForm({
               RON
             </span>
           </div>
+          {/* SAID WHEN IT MATTERS, NOT BEFORE.
+
+              The floor used to sit in the label as "· minimum 5 RON", which is
+              a rule printed permanently above a field that almost nobody was
+              going to break. It is a note UNDER the field now, and only once
+              there is a number below the line — so it reads as an answer to
+              what was just typed instead of as a condition of using the form.
+
+              Not a block on the keystroke: refusing the "1" on the way to "15"
+              is a field that fights you. The publish is what enforces it. */}
+          {Number.isFinite(priceCents) && priceCents > 0 && priceCents < MIN_LISTING_PRICE_CENTS && (
+            <p className="price-total-in mt-2 text-[12.5px] font-medium leading-snug text-amber-700">
+              Prețul minim pentru un anunț este {formatPlatformMoney(MIN_LISTING_PRICE_CENTS)}.
+            </p>
+          )}
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
-        {/* WHAT THE BUYER WILL SEE, AS SOON AS THERE IS A NUMBER TO SEE IT FROM.
+        {/* A SHIELD AND THEIR OWN NUMBER. NOT A RECEIPT.
 
-            This was a sentence in grey: "Cumpărătorii văd 141 RON — prețul tău
-            plus taxa de protecție. Tu primești în continuare 130 RON." It is
-            three facts and a dash, set at 12.5px under the field, and the one
-            that matters — the figure a buyer will actually be quoted — was in
-            the middle of it.
+            This was two rows: "Cumpărătorul plătește 454 RON" over "Tu primești
+            431 RON". Every figure in it was correct and the effect was wrong —
+            it set the platform's cut out as a line item under the field, in the
+            largest type on the card, at the exact moment somebody is deciding
+            whether to bother listing at all. A marketplace that opens its books
+            at the point of sale is not being transparent, it is arguing with
+            itself, and the number a seller came here to see is the one they
+            just typed.
 
-            A row instead: label on the left, number on the right, in the shape
-            every total in this app already uses. The explanation moves behind
-            the mark, where the other two on this form are, so the line is a
-            fact you can read at a glance and a sentence you can ask for.
+            So: their price, a shield, one line. The arithmetic has not changed
+            and none of it is hidden — the mark opens both figures, in a
+            sentence, for anybody who wants them. The difference is that it is
+            now something you can ask for rather than something the form
+            announces.
 
             It fades and rises rather than appearing, because it arrives as you
-            type — an element that pops in mid-keystroke reads as the form
-            jumping. See `.price-total-in`. */}
-        {/* NO `key`, AND THAT IS THE FLASH.
-
-            It was keyed on `priceCents` so the entrance would replay whenever
-            the number changed. What "changed" means while somebody is typing a
-            price is EVERY KEYSTROKE — so React threw the row away and built a
-            new one per character, and `price-total-in` ran its fade-and-rise
-            from the first frame each time. Typing "130" played the animation
-            three times; holding a key played it continuously. The intent was to
-            draw the eye to a number that had moved; the effect was a row that
-            strobed under the field you were using.
-
-            The animation now belongs to the row's ARRIVAL, which happens once,
-            because the element persists for as long as there is a price. The
-            figures inside it update in place, which is what a number changing
-            is supposed to look like. `tabular-nums` keeps the digits from
-            shuffling sideways as they do. */}
-        {Number.isFinite(priceCents) && priceCents > 0 && (
-          <div className="price-total-in mt-3 overflow-hidden rounded-xl bg-neutral-50">
-            <div className="info-tip-host flex items-center justify-between gap-3 px-3.5 py-2.5">
-              <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
-                Cumpărătorul plătește
-                <InfoTip>
-                  Prețul afișat în feed include taxa de protecție a plății, care acoperă livrarea
-                  urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost descris. Taxa
-                  este {formatPlatformMoney(buyerProtectionFee(priceCents))} pentru un articol la
-                  acest preț.
-                </InfoTip>
+            type. And it carries NO `key`: keyed on the price it was rebuilt per
+            keystroke, so the entrance replayed on every character and the row
+            strobed under the field. See `.price-total-in`. */}
+        {Number.isFinite(priceCents) && priceCents >= MIN_LISTING_PRICE_CENTS && (
+          <div className="info-tip-host price-total-in mt-3 flex items-center gap-2.5 rounded-xl bg-[#7c3aed]/[0.055] px-3.5 py-2.5">
+            <ShieldCheck className="h-[17px] w-[17px] shrink-0 text-[#7c3aed]" strokeWidth={2.2} />
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] leading-snug text-neutral-600">
+              <span className="min-w-0">
+                Anunțul tău apare la{" "}
+                <span className="font-semibold tabular-nums text-neutral-900">
+                  {formatPlatformMoney(priceCents)}
+                </span>
+                , cu plata protejată.
               </span>
-              <span className="shrink-0 text-[15px] font-semibold tabular-nums text-neutral-900">
-                {formatPlatformMoney(buyerPaysCents(priceCents))}
-              </span>
-            </div>
-            {/* AND WHAT THE SELLER ACTUALLY BANKS.
-
-                The form asked for a price and then told them only what somebody
-                else would pay. The commission is five percent and it is taken
-                from this side of the transaction, so the number they care about
-                was the one number the screen did not show. */}
-            <div className="info-tip-host flex items-center justify-between gap-3 border-t border-neutral-200/70 px-3.5 py-2.5">
-              <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
-                Tu primești
-                <InfoTip>
-                  Storelib reține un comision de {(SELLER_COMMISSION_PERCENT * 100).toFixed(0)}% din
-                  preț, adică {formatPlatformMoney(sellerCommissionCents(priceCents))} la acest
-                  anunț. Restul îți este virat după ce comanda este confirmată.
-                </InfoTip>
-              </span>
-              <span className="shrink-0 text-[15px] font-semibold tabular-nums text-neutral-900">
-                {formatPlatformMoney(sellerReceivesCents(priceCents))}
-              </span>
-            </div>
+              <InfoTip>
+                Cumpărătorul plătește {formatPlatformMoney(buyerPaysCents(priceCents))}: prețul tău
+                plus {formatPlatformMoney(buyerProtectionFee(priceCents))} taxă de protecție, care
+                acoperă livrarea urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost
+                descris. Din prețul tău reținem un comision de{" "}
+                {(SELLER_COMMISSION_PERCENT * 100).toFixed(0)}%, așa că primești{" "}
+                {formatPlatformMoney(sellerReceivesCents(priceCents))}.
+              </InfoTip>
+            </span>
           </div>
         )}
       </section>

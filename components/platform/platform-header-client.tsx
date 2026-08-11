@@ -651,6 +651,8 @@ export function PlatformHeaderClient() {
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "")
   const [searchModalOpen, setSearchModalOpen] = useState(false)
+  /** The field the search panel is measured against. See `anchorTo`. */
+  const searchBoxRef = useRef<HTMLDivElement>(null)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
@@ -1401,7 +1403,7 @@ export function PlatformHeaderClient() {
               field at every width without measuring anything. This is the shape
               the old dropdown had right; what was wrong with it was its
               CONTENTS, which are now the marketplace's. */}
-          <div className="relative hidden md:flex flex-1 max-w-xl mx-4">
+          <div ref={searchBoxRef} className="relative hidden md:flex flex-1 max-w-xl mx-4">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
             <input
               value={query}
@@ -1435,6 +1437,7 @@ export function PlatformHeaderClient() {
               open={searchModalOpen}
               onClose={() => setSearchModalOpen(false)}
               anchored
+              anchorTo={searchBoxRef}
               query={query}
               onQueryChange={setQuery}
               onSelectCategory={(id) => {

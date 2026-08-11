@@ -566,9 +566,10 @@ check(
 
 // ---------------------------------------------------------------------------
 console.log("\nThe \"i\" beside a heading")
-// ---------------------------------------------------------------------------
 
 const tip = code("components/ui/info-tip.tsx")
+// ---------------------------------------------------------------------------
+
 
 check(
   "the bubble is always mounted, so it can fade in both directions",
@@ -597,12 +598,46 @@ check(
     // so there was never a state where you could see that help existed and
     // choose whether to read it.
     return (
-      /\.info-tip-mark \{\s*opacity: 1;\s*\}/.test(css) &&
+      /\.info-tip-mark \{\s*opacity: 1;/.test(css) &&
       !/\.info-tip-mark \{\s*opacity: 0;/.test(css) &&
-      /\.info-tip:hover > \.info-tip-bubble/.test(css)
+      /onPointerEnter=/.test(tip) &&
+      /setOpen\(true\)/.test(tip)
     )
   })(),
-  "        app/globals.css",
+  "        app/globals.css, components/ui/info-tip.tsx",
+)
+
+check(
+  "and the bubble is drawn where nothing can clip it",
+  (() => {
+    // It was an absolutely-positioned child and it was CUT OFF along the edge
+    // of the row it sat in. Everything above it is a candidate: the form's rows
+    // clip their own backgrounds to their corners, the sheet scrolls inside an
+    // overflow-hidden box, cards clip by design. Fixing that one container at a
+    // time means finding every container, forever.
+    return (
+      /createPortal\(/.test(tip) &&
+      /getBoundingClientRect\(\)/.test(tip) &&
+      /position: fixed;/.test(css.slice(css.indexOf(".info-tip-bubble {"), css.indexOf(".info-tip-arrow")))
+    )
+  })(),
+  "        components/ui/info-tip.tsx",
+)
+
+check(
+  "and it flips above the mark rather than off the bottom of the window",
+  (() => {
+    // The DECISION has to consult the viewport height, not merely mention the
+    // upward coordinate somewhere. The first version of this asked only for
+    // `const below =` and for the upward expression, both of which survive
+    // `const below = true` — because the upward coordinate still appears in the
+    // `top` it then never picks.
+    return (
+      /const below = [\s\S]{0,160}?<= vh/.test(tip) &&
+      /top: below \? r\.bottom \+ GAP : r\.top - GAP - h/.test(tip)
+    )
+  })(),
+  "        components/ui/info-tip.tsx",
 )
 
 check(
@@ -705,8 +740,12 @@ check(
       /<input\b[\s\S]{0,600}?value=\{query\}/.test(platformHeader) &&
       /onQueryChange=\{setQuery\}/.test(platformHeader) &&
       /\banchored\b/.test(platformHeader) &&
-      // …the panel hangs off that field's own container…
-      /absolute left-0 right-0 top-full/.test(overlay) &&
+      // …the panel is measured against that field and drawn in a portal, so
+      // the header's stacking context and any ancestor overflow are out of the
+      // picture entirely…
+      /anchorTo=\{searchBoxRef\}/.test(platformHeader) &&
+      /createPortal\(body, document\.body\)/.test(overlay) &&
+      /getBoundingClientRect\(\)/.test(overlay) &&
       // …and draws no field of its own when it does.
       /\{!anchored && \(/.test(overlay)
     )
@@ -825,10 +864,15 @@ check(
   (() => {
     // Stated rather than enforced at the keystroke: a field that refuses the
     // "1" you type on the way to "15" is a field that fights you.
+    //
+    // The floor is NOT printed in the label. A rule stated permanently above a
+    // field almost nobody was going to break is a condition of using the form;
+    // the same sentence under the field, once a number is below the line, is an
+    // answer to what was just typed.
     return (
       /priceCents < MIN_LISTING_PRICE_CENTS/.test(sellForm) &&
-      /Prețul minim este/.test(sellForm) &&
-      /minimum \{formatPlatformMoney\(MIN_LISTING_PRICE_CENTS\)\}/.test(sellForm)
+      /Prețul minim pentru un anunț este/.test(sellForm) &&
+      !/minimum \{formatPlatformMoney\(MIN_LISTING_PRICE_CENTS\)\}/.test(sellForm)
     )
   })(),
   "        components/sell/new-listing-form.tsx",
@@ -839,6 +883,28 @@ check(
   (() => {
     const titleLabel = sellForm.slice(sellForm.indexOf(">Titlu<") - 400, sellForm.indexOf(">Titlu<") + 40)
     return !/InfoTip/.test(titleLabel) && /Fotografii/.test(sellForm) && /info="Prima fotografie/.test(sellForm)
+  })(),
+  "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "the price card shows their own number, not the platform's books",
+  (() => {
+    // Two rows — "Cumpărătorul plătește 454" over "Tu primești 431" — set the
+    // platform's cut out as a line item in the largest type on the card, at the
+    // moment somebody is deciding whether to bother listing at all. Every
+    // figure was correct and the effect was an argument with itself.
+    //
+    // The arithmetic is unchanged and nothing is hidden: the mark opens both
+    // figures in a sentence. The difference is that it is something you can ask
+    // for rather than something the form announces.
+    const badge = sellForm.slice(sellForm.indexOf("price-total-in mt-3"))
+    return (
+      /<ShieldCheck/.test(badge) &&
+      /Anunțul tău apare la/.test(badge) &&
+      /formatPlatformMoney\(priceCents\)/.test(badge) &&
+      !/Cumpărătorul plătește\n/.test(badge.split("<InfoTip>")[0])
+    )
   })(),
   "        components/sell/new-listing-form.tsx",
 )

@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Search, Clock, ArrowUpLeft, X, Store } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -171,6 +172,7 @@ export function MobileSearchOverlay({
   onSearchSubmit,
   initialQuery = "",
   anchored = false,
+  anchorTo,
   query: controlledQuery,
   onQueryChange,
 }: {
@@ -199,6 +201,27 @@ export function MobileSearchOverlay({
    * Requires a `position: relative` parent, and the caller must own the query.
    */
   anchored?: boolean
+  /**
+   * The element the panel hangs off, when anchored.
+   *
+   * It is MEASURED and the panel is drawn in a portal at those coordinates,
+   * rather than being an `absolute` child of it. That looks like the long way
+   * round and it is the only way that holds:
+   *
+   * The header is `sticky` with a `z-index`, which makes it a STACKING CONTEXT.
+   * A panel inside it can be given z-90 and still be trapped underneath the
+   * page, because its z-index is resolved against its siblings inside the
+   * header and the whole header is then placed as one layer. Its scrim has the
+   * same problem in reverse: `fixed inset-0` covers the viewport geometrically
+   * but is still painted within the header's layer. And any ancestor that ever
+   * grows an `overflow` — a scrolling category rail is one edit away — clips it
+   * outright with no warning.
+   *
+   * A portal to `document.body` has none of those. The cost is that the
+   * position has to be recomputed on resize and on scroll, which is what the
+   * effect below does.
+   */
+  anchorTo?: React.RefObject<HTMLElement | null>
   /** Controlled query. Passed with `anchored`, where the caller draws the
    *  field; omitted on a phone, where this component draws it. */
   query?: string
@@ -244,6 +267,31 @@ export function MobileSearchOverlay({
   const [peopleLoading, setPeopleLoading] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
+
+  /** Where the field is, in viewport coordinates. Null until measured, which is
+   *  before the first paint — see the layout effect. */
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!anchored || !mounted) return
+    const measure = () => {
+      const el = anchorTo?.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      // 8px of air under the field, which is what `mt-2` used to be.
+      setBox({ top: r.bottom + 8, left: r.left, width: r.width })
+    }
+    measure()
+    // `true` on the scroll listener so it fires for scrolls in any container,
+    // not only the window: a sticky header does not move, but the page under it
+    // does, and on a short window the header can still travel.
+    window.addEventListener("resize", measure)
+    window.addEventListener("scroll", measure, true)
+    return () => {
+      window.removeEventListener("resize", measure)
+      window.removeEventListener("scroll", measure, true)
+    }
+  }, [anchored, mounted, anchorTo])
 
   // Smooth mount / open / close blend.
   useEffect(() => {
@@ -418,24 +466,24 @@ export function MobileSearchOverlay({
   )
 
   if (!mounted) return null
+  // Anchored, nothing is drawn until the field has been measured — one frame,
+  // in a layout effect, so there is no flash of a panel in the wrong place.
+  if (anchored && !box) return null
 
   const recent = searches.slice(0, 4)
 
-  return (
+  const body = (
     <div
       className={cn(
         anchored
-          ? // Attached to the field above it. `top-full` is the bottom edge of
-            // the container it is a child of, which IS the search box, so the
-            // panel lines up with it at every window width with nothing
-            // measured and nothing to re-measure on resize.
-            "absolute left-0 right-0 top-full z-[90] mt-2"
+          ? "fixed z-[95]"
           : "fixed inset-0 z-[90] flex flex-col bg-white",
       )}
       style={{
         // Full-screen — never resizes, so no bottom gap/displacement. Anchored,
-        // the height is whatever the panel needs.
+        // the geometry comes from the measured field.
         height: anchored ? undefined : "100dvh",
+        ...(anchored && box ? { top: box.top, left: box.left, width: box.width } : null),
         opacity: shown ? 1 : 0,
         // Pure fade + a whisper of a slide — NO scale (which warps text).
         //
@@ -468,7 +516,7 @@ export function MobileSearchOverlay({
       {anchored && (
         <div
           aria-hidden
-          className="fixed inset-0 z-[89] bg-black/25"
+          className="fixed inset-0 z-[94] bg-black/25"
           onClick={onClose}
         />
       )}
@@ -546,7 +594,7 @@ export function MobileSearchOverlay({
       )}
 
       {/* Tabs */}
-      <div className={cn("shrink-0 flex items-stretch border-b border-neutral-100 px-2", !anchored && "mt-2")}>
+      <div className={cn("shrink-0 flex items-stretch border-b border-neutral-100 px-2", anchored ? "pt-1.5" : "mt-2")}>
         {TABS.map(([id, key]) => {
           const active = tab === id
           return (
@@ -612,6 +660,9 @@ export function MobileSearchOverlay({
       </div>
     </div>
   )
+
+  // Out of the header's stacking context entirely. See `anchorTo`.
+  return anchored && typeof document !== "undefined" ? createPortal(body, document.body) : body
 }
 
 /* ---------------- Items tab ---------------- */

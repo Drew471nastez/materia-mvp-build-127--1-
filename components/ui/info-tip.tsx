@@ -1,53 +1,65 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
- *  THE LITTLE "i" BESIDE A HEADING
+ *  THE LITTLE "i" BESIDE A LABEL
  * ===========================================================================
  *
  * A form asks for things whose answer is obvious to whoever wrote the form and
- * not to whoever is filling it in — which photograph becomes the thumbnail,
- * what "stare" is being asked about, why a brand is optional here and required
- * there. The answer to each of those is one sentence long, and there are two
- * ordinary places to put a sentence like that, both of which are worse than
+ * not to whoever is filling it in. The answer to each is one sentence long, and
+ * there are two ordinary places to put a sentence like that, both worse than
  * this one:
  *
- *   UNDER THE HEADING, always visible. Every field grows a line of grey text,
- *   the form doubles in height, and the sentences are read exactly once — after
+ *   UNDER THE LABEL, always visible. Every field grows a line of grey text, the
+ *   form doubles in height, and the sentences are read exactly once — after
  *   which they are permanent furniture between you and the control you came to
  *   use.
  *
  *   IN A HELP PAGE. Nobody leaves a half-filled form to read one.
  *
- * So it is on demand: a mark you can ignore, and one sentence when you ask.
+ * So it is on demand: a mark you can ignore, and one sentence when you ask. The
+ * mark is always visible and hovering it opens the sentence, which is the right
+ * way round — a mark that appears on hover is a mark you cannot know to point
+ * at, and revealing and opening on the same movement leaves no state in which
+ * you can see that help exists and choose whether to read it.
  *
  * ---------------------------------------------------------------------------
- * THE MARK ITSELF APPEARS ON HOVER — on a pointer, and only on a pointer
+ * THE BUBBLE IS DRAWN IN A PORTAL, AND THAT IS NOT OVER-ENGINEERING
  * ---------------------------------------------------------------------------
- * At rest the heading is the heading. Bring a cursor near it and the mark fades
- * up; that is the whole affordance, and it costs the layout nothing because the
- * mark occupies its box either way — it changes opacity, never `display`, so a
- * heading does not reflow under the pointer.
+ * It began as an absolutely-positioned child of the mark, and it was CUT OFF —
+ * a black box sliced along the edge of the row it sat in. Everything above it
+ * in the tree is a candidate for that: the sell form's rows use
+ * `overflow-hidden` to keep their own backgrounds inside their corners, the
+ * sheet the form lives in is `overflow-hidden` with the content scrolling
+ * inside it, and cards clip their children by design. An absolutely-positioned
+ * element is clipped by the nearest ancestor with an overflow, and every one of
+ * those is a legitimate style that has nothing to do with tooltips.
  *
- * On a touch screen there is no hover to reveal anything with, and a control
- * that is invisible until an event that cannot happen is a control that does
- * not exist. So it is simply there, at low contrast. `@media (hover: hover)` is
- * the discriminator rather than a breakpoint, because a tablet is a wide screen
- * with no pointer and would otherwise get the desktop's invisible version.
+ * Fixing it one container at a time means finding every container, forever, and
+ * a tooltip that is correct only where somebody remembered is not correct. In a
+ * portal on `document.body` there is no ancestor left to clip it, and the same
+ * measurement that makes that possible also lets it FLIP above the mark when
+ * there is no room below and stay inside the window horizontally.
  *
- * ---------------------------------------------------------------------------
- * AND THE BUBBLE OPENS BELOW-LEFT, NOT BESIDE
- * ---------------------------------------------------------------------------
- * Beside the mark is prettier and it is what the reference does. It is also the
- * one placement that cannot be made safe here without measuring: these sit at
- * the end of a heading, headings vary in length, and a bubble anchored to the
- * right of a long one leaves the card. Below-left is anchored to a point that
- * is always inside the card, is the same on every screen width, and needs no
- * layout read to be correct.
+ * The cost is that hover can no longer be pure CSS: `.info-tip:hover > bubble`
+ * cannot match a node that is no longer a descendant. So the open state is held
+ * here, and a short close delay lets the pointer travel from the mark onto the
+ * bubble without it disappearing on the way.
  */
+
+/** How far the bubble sits from the mark, and from the window's edges. */
+const GAP = 9
+const EDGE = 12
+const WIDTH = 272
+/** Long enough to cross the gap with a mouse, short enough not to feel sticky. */
+const CLOSE_DELAY_MS = 90
+
+type Placement = { top: number; left: number; below: boolean; arrowLeft: number }
+
 export function InfoTip({
   children,
   className,
@@ -59,25 +71,88 @@ export function InfoTip({
   label?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState<Placement | null>(null)
   const id = useId()
   const wrap = useRef<HTMLSpanElement>(null)
+  const mark = useRef<HTMLButtonElement>(null)
+  const bubble = useRef<HTMLSpanElement>(null)
+  const closeTimer = useRef<number | null>(null)
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }, [])
+
+  const closeSoon = useCallback(() => {
+    cancelClose()
+    closeTimer.current = window.setTimeout(() => setOpen(false), CLOSE_DELAY_MS)
+  }, [cancelClose])
+
+  useEffect(() => cancelClose, [cancelClose])
 
   /**
-   * A tap anywhere else closes it.
+   * Measured before the browser paints, so the bubble is never seen in the
+   * wrong place. Height is read from the bubble itself once it exists, which is
+   * why this runs again while open rather than only on the way in.
+   */
+  useLayoutEffect(() => {
+    if (!open) return
+    const measure = () => {
+      const m = mark.current
+      if (!m) return
+      const r = m.getBoundingClientRect()
+      const h = bubble.current?.offsetHeight ?? 0
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+
+      // Below unless there genuinely is not room, in which case above. Not
+      // "whichever side has more space": flipping on a near-tie makes the
+      // bubble jump between sides as the page scrolls a few pixels.
+      const below = r.bottom + GAP + h + EDGE <= vh || r.top - GAP - h < EDGE
+
+      // Anchored to the mark's left edge, pulled back a little so the bubble
+      // starts under the word the mark follows rather than under the mark, then
+      // clamped so neither end leaves the window.
+      const wanted = r.left - 6
+      const left = Math.min(Math.max(EDGE, wanted), Math.max(EDGE, vw - WIDTH - EDGE))
+
+      setPlace({
+        top: below ? r.bottom + GAP : r.top - GAP - h,
+        left,
+        below,
+        // The arrow tracks the MARK, not the bubble, so it still points at the
+        // control after the clamp above has moved the box.
+        arrowLeft: Math.min(Math.max(10, r.left + r.width / 2 - left - 4.5), WIDTH - 20),
+      })
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    window.addEventListener("scroll", measure, true)
+    return () => {
+      window.removeEventListener("resize", measure)
+      window.removeEventListener("scroll", measure, true)
+    }
+  }, [open, children])
+
+  /**
+   * A tap or a click anywhere else closes it.
    *
-   * Hover handles this for free on a pointer — the bubble goes when the cursor
-   * does. On touch the bubble is opened by a tap and there is no matching
-   * "untap", so without this the only way to dismiss one is to tap the mark
-   * again, which nobody does: they tap the thing they were trying to reach, the
+   * On a pointer this is redundant with the hover handlers; on touch there is
+   * no "untap", so without it the only way to dismiss one is to tap the mark
+   * again, which nobody does. They tap the thing they were trying to reach, the
    * bubble stays over it, and the form appears stuck.
    *
-   * `pointerdown` rather than `click`, so the bubble is gone before whatever
-   * was underneath it receives the press.
+   * `pointerdown` rather than `click`, so the bubble is gone before whatever is
+   * underneath receives the press.
    */
   useEffect(() => {
     if (!open) return
     const away = (e: PointerEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (wrap.current?.contains(t) || bubble.current?.contains(t)) return
+      setOpen(false)
     }
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false)
@@ -90,14 +165,59 @@ export function InfoTip({
     }
   }, [open])
 
+  const bubbleNode =
+    open && place && typeof document !== "undefined"
+      ? createPortal(
+          <span
+            ref={bubble}
+            id={id}
+            role="tooltip"
+            // Kept interactive so the pointer can travel onto it and the text
+            // can be selected; the close timer is cancelled while it is here.
+            onPointerEnter={cancelClose}
+            onPointerLeave={closeSoon}
+            className="info-tip-bubble info-tip-bubble-open"
+            style={{ top: place.top, left: place.left, width: WIDTH }}
+          >
+            {children}
+            <span
+              aria-hidden
+              className="info-tip-arrow"
+              style={{
+                left: place.arrowLeft,
+                ...(place.below ? { top: -4 } : { bottom: -4 }),
+              }}
+            />
+          </span>,
+          document.body,
+        )
+      : null
+
   return (
-    <span ref={wrap} className={cn("info-tip relative inline-flex align-middle", className)}>
+    <span
+      ref={wrap}
+      className={cn("info-tip relative inline-flex align-middle", className)}
+      onPointerEnter={(e) => {
+        // Hover opens it on a mouse. A touch "pointerenter" fires on tap and
+        // would race the click handler below into an immediate re-close.
+        if (e.pointerType !== "touch") {
+          cancelClose()
+          setOpen(true)
+        }
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType !== "touch") closeSoon()
+      }}
+    >
       <button
+        ref={mark}
         type="button"
         aria-label={label}
         aria-expanded={open}
         aria-describedby={open ? id : undefined}
         onClick={() => setOpen((o) => !o)}
+        onFocus={() => setOpen(true)}
+        onBlur={closeSoon}
         className={cn(
           "info-tip-mark flex h-[17px] w-[17px] items-center justify-center rounded-full",
           "bg-[#7c3aed]/10 text-[11px] font-bold leading-none text-[#7c3aed]",
@@ -106,21 +226,7 @@ export function InfoTip({
       >
         i
       </button>
-
-      {/* ALWAYS IN THE DOM, never conditionally mounted.
-          A mounted element can transition in both directions; an unmounted one
-          can only pop — and this is opened by a hover, so it would pop on every
-          pass of the cursor. `visibility` is in the transition list with a
-          delay so it can be taken out of the accessibility tree and off the hit
-          testing when closed, without that removal cutting the fade short. */}
-      <span
-        id={id}
-        role="tooltip"
-        className={cn("info-tip-bubble", open && "info-tip-bubble-open")}
-      >
-        {children}
-        <span aria-hidden className="info-tip-arrow" />
-      </span>
+      {bubbleNode}
     </span>
   )
 }
