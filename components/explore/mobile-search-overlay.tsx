@@ -272,6 +272,19 @@ export function MobileSearchOverlay({
    *  before the first paint — see the layout effect. */
   const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null)
 
+  useEffect(() => {
+    if (!open) return
+    // Wherever focus happens to be. The caller's input has its own handler, but
+    // focus moves the moment anything in the panel is clicked, and a panel that
+    // only closes while one particular element is focused is a panel that
+    // stops responding to Escape as soon as you use it.
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", esc)
+    return () => document.removeEventListener("keydown", esc)
+  }, [open, onClose])
+
   useLayoutEffect(() => {
     if (!anchored || !mounted) return
     const measure = () => {
@@ -666,9 +679,22 @@ export function MobileSearchOverlay({
   const layer =
     anchored && box ? (
       <>
+        {/* BELOW THE HEADER, NOT OVER IT.
+ 
+            At z-94 this covered the whole viewport — including the search field
+            it belongs to. So the field you were typing in was dimmed and behind
+            a layer, and a click on it landed on the scrim and CLOSED the panel:
+            open search, click the box you are searching in, and it shuts. There
+            is no way to select the text you have typed, either.
+
+            z-39 puts it under the site header (z-40) and over the page. The
+            header stays fully lit and fully clickable, which is correct on its
+            own terms as well — the field is part of the search, not part of
+            what the search is covering — and the page behind still dims and
+            still closes on a click. */}
         <div
           aria-hidden
-          className="fixed inset-0 z-[94] bg-black/25"
+          className="fixed inset-0 z-[39] bg-black/25"
           style={{ opacity: shown ? 1 : 0, transition: "opacity 220ms cubic-bezier(0.33,0,0.67,1)" }}
           onClick={onClose}
         />

@@ -100,7 +100,8 @@ export const BUYER_PROTECTION_FIXED_BY_CURRENCY: Record<PlatformCurrency, number
  *  THE BUYER-PROTECTION LADDER
  * ===========================================================================
  *
- * The fee is a FLAT amount decided by the size of the order, not a percentage:
+ * The fee is 5% of the item PLUS a fixed part, and the fixed part is what this
+ * table decides:
  *
  *   0.01 to 7.99 lei    1.00 lei
  *   8.00 to 9.99        1.25
@@ -108,17 +109,17 @@ export const BUYER_PROTECTION_FIXED_BY_CURRENCY: Record<PlatformCurrency, number
  *   12.00 to 14.99      1.75
  *   15.00 and up        4.00
  *
- * Why a ladder rather than the "5% + 4 lei" this replaced: at 130 lei both come
- * to roughly the same number, and at 10 lei the old rule charged 4.50 on a
- * ten-lei item — a 45% surcharge, on precisely the orders a second-hand
- * marketplace lives on. The ladder keeps the fee proportionate at the bottom
- * and lands on the same flat 4 lei everywhere above fifteen, which is where
- * nearly all the volume is.
+ * Both halves earn their place. A flat fee alone takes four lei on a 350-lei
+ * order, which does not cover the risk being carried on it. A percentage alone
+ * takes fifty bani on a ten-lei order, which does not cover one dispute about
+ * it. The percentage scales with the exposure; the fixed part puts a floor
+ * under it — and the floor is graduated rather than flat so that a ten-lei sale
+ * is not charged the same four lei as a fifteen-lei one, which was a 45%
+ * surcharge on exactly the trade a second-hand marketplace lives on.
  *
- * The 5% did not disappear; it moved to the side of the transaction it always
- * described. It is the SELLER's commission now — see SELLER_COMMISSION_PERCENT
- * in lib/checkout/pricing.ts — so the platform takes 5% from the seller and a
- * flat fee from the buyer, and neither is a percentage stacked on the other.
+ * The platform's cut is this fee and nothing else. There is no separate seller
+ * commission — see SELLER_COMMISSION_PERCENT in lib/checkout/pricing.ts for why
+ * it is zero, and what would be wrong with charging the five percent twice.
  *
  * ---------------------------------------------------------------------------
  * BOUNDARIES ARE HALF-OPEN AND EXPRESSED IN MINOR UNITS

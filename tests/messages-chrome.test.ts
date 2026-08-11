@@ -773,11 +773,16 @@ check(
       ? Number(/z-\[(\d+)\][^"]*bg-black\/25/.exec(layerBlock)?.[1] ?? NaN)
       : NaN
     const panelZ = Number(/anchored\s*\?\s*"fixed z-\[(\d+)\]"/.exec(bodyBlock)?.[1] ?? NaN)
+    // AND UNDER THE SITE HEADER (z-40), which is the second thing this got
+    // wrong: at 94 the scrim covered the search field itself, so the box you
+    // were typing in was dimmed, unreadable to a text selection, and a click on
+    // it landed on the scrim and closed the panel.
     return (
       !/bg-black\/25/.test(bodyBlock) &&
       Number.isFinite(scrimZ) &&
       Number.isFinite(panelZ) &&
-      scrimZ < panelZ
+      scrimZ < panelZ &&
+      scrimZ < 40
     )
   })(),
   "        components/explore/mobile-search-overlay.tsx",
@@ -888,7 +893,7 @@ check(
     return (
       line.indexOf("formatPlatformMoney(priceCents)") <
         line.indexOf("formatPlatformMoney(buyerPaysCents(priceCents))") &&
-      /incl\. protecția plății/.test(line)
+      /incl\./.test(line)
     )
   })(),
   "        components/sell/new-listing-form.tsx",
@@ -923,24 +928,41 @@ check(
 )
 
 check(
-  "the price line is one quiet caption, not a panel with a disclosure in it",
+  "the badge is a control, and it opens the app's one explanation of the fee",
   (() => {
-    // Three versions were wrong three ways: a grey sentence buried the figure
-    // that matters mid-paragraph; two large rows set the platform's cut out as
-    // a line item in the biggest type on the card; a violet panel with a shield
-    // and a tooltip made a small arithmetic fact look like a notice, with an
-    // explanation longer than the thing explained.
+    // The explanation is NOT written on the sell form. It opens the same
+    // "Protecția cumpărătorului" screen the feed, the listing page and the
+    // wishlist open from their own shields — a full-screen subpage on a phone,
+    // a centred dialog on a desktop. One explanation, in one place, reached the
+    // same way from every surface that quotes the fee.
     //
-    // What is left is the two numbers, in the weight the form's other captions
-    // use. No accent, no panel, no tooltip.
-    const line = sellForm.slice(sellForm.indexOf("price-total-in mt-2.5"), sellForm.indexOf("</section>", sellForm.indexOf("price-total-in mt-2.5")))
+    // Violet, because unlike the caption this replaced, this one is pressable.
+    // From the element's OPENING TAG, not from its class attribute. The class
+    // is where the marker is, and slicing from there starts the window after
+    // `<button` and its onClick — so the first version of this reported both
+    // missing while they were sitting two lines above the slice.
+    const at = sellForm.indexOf("price-total-in mt-2.5")
+    const line = sellForm.slice(sellForm.lastIndexOf("<", at), sellForm.indexOf("</section>", at))
     return (
-      /<ShieldCheck[^>]*text-neutral-400/.test(line) &&
-      !/#7c3aed/.test(line) &&
+      /<button/.test(line) &&
+      /onClick=\{\(\) => openBuyerProtection\(\)\}/.test(line) &&
+      /<ShieldCheck[^>]*text-\[#7c3aed\]/.test(line) &&
       !/<InfoTip/.test(line)
     )
   })(),
   "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "and that explanation names both halves of the fee",
+  (() => {
+    // The page said "5% din prețul articolului, plus 4 lei" while the code
+    // charged a flat tier for a while. Copy and arithmetic have to agree, and
+    // the fixed part is graduated now, so the sentence has to say so.
+    const prot = code("components/marketplace/buyer-protection.tsx")
+    return /5% din prețul articolului, plus o sumă fixă/.test(prot) && /4 lei de la 15 lei în sus/.test(prot)
+  })(),
+  "        components/marketplace/buyer-protection.tsx",
 )
 
 check(

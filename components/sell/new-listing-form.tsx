@@ -52,6 +52,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
 import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
+import { openBuyerProtection } from "@/components/marketplace/buyer-protection"
 import { InfoTip } from "@/components/ui/info-tip"
 import { cn } from "@/lib/utils"
 
@@ -2807,47 +2808,47 @@ export function NewListingForm({
           )}
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
-        {/* ONE QUIET LINE WITH BOTH NUMBERS IN IT.
+        {/* THE BADGE, AND WHAT PRESSING IT OPENS.
 
-            Three versions of this have now been wrong in three different ways,
-            and each correction is worth keeping:
+            Four shapes now, and the corrections are worth keeping: a grey
+            sentence buried the figure that mattered mid-paragraph; two large
+            rows set the platform's cut out as a line item in the biggest type
+            on the card; a neutral caption said the right two numbers but read
+            as a footnote nobody would press.
 
-            A grey sentence with a dash in it buried the figure that matters in
-            the middle of three facts.
+            What it is: the number they typed, the number a buyer is quoted, and
+            a shield in the brand violet — because this one IS a control. The
+            explanation is not written here at all. It opens the same
+            "Protecția cumpărătorului" screen the feed, the listing page and the
+            wishlist already open from their own shields (openBuyerProtection),
+            which is a full-screen subpage on a phone and a centred dialog on a
+            desktop. One explanation of the fee, in one place, reached the same
+            way from every surface that quotes it.
 
-            Two big rows — "Cumpărătorul plătește 454" over "Tu primești 431" —
-            set the platform's cut out as a line item in the largest type on the
-            card, at the moment somebody is deciding whether to bother listing.
-
-            A violet panel with a shield and a tooltip full of explanation made
-            a small arithmetic fact look like a disclosure notice, and the
-            explanation was longer than the thing it explained.
-
-            What is left is what a seller actually needs: the number they typed,
-            the number a buyer will see, and nothing else. Neutral, 12.5px,
-            under the field, in the weight the rest of the form's captions use.
-            No panel, no accent, no tooltip. The shield is 13px and grey — it is
-            there to say the second number is protection rather than markup, and
-            that is the entire job it has.
-
-            It carries NO `key`: keyed on the price it was rebuilt per keystroke,
-            so the entrance replayed on every character and the line strobed
-            under the field. `tabular-nums` keeps the digits from shuffling
-            sideways as they change in place. */}
+            NO `key`: keyed on the price it was rebuilt per keystroke, so the
+            entrance replayed on every character and the badge strobed under the
+            field. `tabular-nums` keeps the digits from shuffling sideways as
+            they change in place. */}
         {Number.isFinite(priceCents) && priceCents >= MIN_LISTING_PRICE_CENTS && (
-          <p className="price-total-in mt-2.5 flex items-center gap-1.5 text-[12.5px] leading-snug text-neutral-500">
-            <ShieldCheck className="h-[13px] w-[13px] shrink-0 text-neutral-400" strokeWidth={2.2} />
-            <span>
-              <span className="font-semibold tabular-nums text-neutral-700">
+          <button
+            type="button"
+            onClick={() => openBuyerProtection()}
+            aria-label="Cum funcționează protecția plății"
+            className="price-total-in mt-2.5 flex w-full items-center gap-2 rounded-xl bg-[#7c3aed]/[0.07] px-3 py-2.5 text-left transition-colors duration-200 active:bg-[#7c3aed]/[0.12] [@media(hover:hover)]:hover:bg-[#7c3aed]/[0.11]"
+          >
+            <ShieldCheck className="h-[15px] w-[15px] shrink-0 text-[#7c3aed]" strokeWidth={2.3} />
+            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-neutral-600">
+              <span className="font-semibold tabular-nums text-neutral-900">
                 {formatPlatformMoney(priceCents)}
               </span>{" "}
-              · afișat{" "}
-              <span className="font-semibold tabular-nums text-neutral-700">
+              pentru tine · cumpărătorul vede{" "}
+              <span className="font-semibold tabular-nums text-neutral-900">
                 {formatPlatformMoney(buyerPaysCents(priceCents))}
               </span>{" "}
-              incl. protecția plății
+              incl.
             </span>
-          </p>
+            <ChevronRight className="h-[15px] w-[15px] shrink-0 text-[#7c3aed]/60" />
+          </button>
         )}
       </section>
 

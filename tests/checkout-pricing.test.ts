@@ -71,27 +71,33 @@ const LADDER_RON = [
 ] as const
 
 check(
-  "the ladder charges exactly what the table says, at every boundary",
+  "the FIXED part is exactly what the table says, at every boundary",
   (() => {
     // Boundaries are where a ladder goes wrong, so every one of them is here
     // twice: the last value of a band and the first value of the next.
     const ron = BUYER_PROTECTION_LADDER_BY_CURRENCY.ron
-    const feeFor = (cents: number) => {
+    const fixedFor = (cents: number) => {
       for (const band of ron) if (cents < band.upTo) return band.fee
       return BUYER_PROTECTION_FIXED_BY_CURRENCY.ron
     }
-    return LADDER_RON.every(([cents, fee]) => feeFor(cents) === fee)
+    return LADDER_RON.every(([cents, fee]) => fixedFor(cents) === fee)
   })(),
   "        0.01–7.99 → 1 leu · 8–9.99 → 1.25 · 10–11.99 → 1.50 ·\n" +
-    "        12–14.99 → 1.75 · 15+ → 4 lei flat",
+    "        12–14.99 → 1.75 · 15+ → 4 lei",
 )
 
 check(
-  "a 345,37 order is charged the flat 4 lei, not a percentage",
+  "and the fee is that PLUS five percent of the item",
   (() => {
-    // The old rule made this 21.27. Anything at or above fifteen lei is four
-    // lei, which is nearly every order on the site.
-    return buyerProtectionFee(34537) === BUYER_PROTECTION_FIXED
+    // Both halves. A flat fee alone takes four lei on a 350-lei order, which
+    // does not cover the risk carried on it; a percentage alone takes fifty
+    // bani on a ten-lei one, which does not cover one dispute about it.
+    //
+    // 350 lei → 17.50 + 4.00 = 21.50.
+    return (
+      buyerProtectionFee(35000) === 1750 + BUYER_PROTECTION_FIXED &&
+      buyerProtectionFee(34537) === Math.round(34537 * 0.05) + BUYER_PROTECTION_FIXED
+    )
   })(),
 )
 
@@ -110,39 +116,43 @@ check(
 )
 
 check(
-  "a ten-lei order is no longer charged a 45% surcharge",
+  "a ten-lei order is not charged a 45% surcharge",
   (() => {
-    // 5% + 4 lei made this 4.50 on a 10-lei item. The ladder makes it 1.50.
+    // A flat 4 lei made this 4.50 on a 10-lei item. The graduated fixed part
+    // makes it 2.00: 50 bani of percentage plus 1.50 of floor.
     const small = buyerProtectionFee(1000)
-    return small < BUYER_PROTECTION_FIXED && small === 150
+    return small === 50 + 150 && small < 450
   })(),
 )
 
 /* ── THE SELLER'S SIDE ───────────────────────────────────────────────────── */
 check(
-  "the seller pays five percent, flat, whoever they are",
+  "the platform's cut is taken ONCE, from the buyer",
   (() => {
-    // It replaced a plan ladder from the digital-goods product this app used to
-    // be: 6% free, 3% growth, 1.5% pro, plus a $0.25 fixed fee above $3 —
-    // subscriptions this marketplace does not sell, priced in dollars against
-    // rows that hold lei.
+    // The five percent is charged inside the protection fee. Charging the same
+    // five percent again on the seller's side would be taking it twice from one
+    // transaction — and would contradict the buyer-protection page, which has
+    // told people "5% din prețul articolului, plus 4 lei" the whole time.
+    //
+    // The constant survives at zero rather than being deleted: a commission is
+    // a commercial decision, and a zero with the reasoning beside it can be
+    // revisited in one line where a removed concept has to be rediscovered.
     return (
-      SELLER_COMMISSION_PERCENT === 0.05 &&
-      sellerCommissionCents(10000) === 500 &&
-      sellerCommissionCents(1) === 0 &&
-      sellerCommissionCents(0) === 0
+      (SELLER_COMMISSION_PERCENT as number) === 0 &&
+      sellerCommissionCents(10000) === 0 &&
+      sellerCommissionCents(35000) === 0
     )
   })(),
 )
 
 check(
-  "and what they are told they will receive is the price minus that",
+  "so a seller types 350 and is paid 350",
   (() => {
-    // The sell form quotes this. A payout figure derived from a second copy of
-    // the rule is a promise the transfer does not keep.
+    // Nothing is deducted from a number they chose. This is what lets the sell
+    // form state their own figure without a second, smaller one beside it.
     return (
-      sellerReceivesCents(10000) === 9500 &&
-      sellerReceivesCents(13000) === 13000 - sellerCommissionCents(13000) &&
+      sellerReceivesCents(35000) === 35000 &&
+      sellerReceivesCents(10000) === 10000 &&
       sellerReceivesCents(0) === 0
     )
   })(),
@@ -154,7 +164,7 @@ check(
     // Five lei. Below it the protection fee is a fifth of the order and the
     // courier costs several times the item.
     const floor = MIN_LISTING_PRICE_BY_CURRENCY.ron
-    return floor === 500 && buyerProtectionFee(floor) / floor <= 0.2
+    return floor === 500 && buyerProtectionFee(floor) / floor <= 0.3
   })(),
 )
 check(

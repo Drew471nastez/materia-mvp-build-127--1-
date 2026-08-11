@@ -12,7 +12,7 @@
  * The three lines a buyer sees
  * ---------------------------------------------------------------------------
  *   Comandă                       the item
- *   Taxă de protecție             a flat fee, by order size (see the ladder)
+ *   Taxă de protecție             5% of the item, plus a fixed part by size
  *   Expediere                     the courier, at cost
  *   ─────────────────────────────
  *   Total de plată
@@ -45,16 +45,32 @@ import {
   PLATFORM_CURRENCY,
 } from "@/lib/checkout/currency"
 
+/** The percentage part of the buyer-protection fee. */
+export const BUYER_PROTECTION_PERCENT = 0.05
+
 /**
- * WHAT THE SELLER PAYS, and it is the only percentage left in this file.
+ * WHAT THE SELLER PAYS: NOTHING.
  *
- * Five percent of the item, flat, for every seller. It replaces a plan ladder
- * inherited from the digital-goods product this app used to be — 6% on free,
- * 3% on "growth", 1.5% on "pro", plus a $0.25 fixed fee above $3 — which
- * described subscriptions that a second-hand marketplace does not sell and
- * charged in dollars against rows that hold lei.
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS ZERO AND NOT FIVE PERCENT
+ * ---------------------------------------------------------------------------
+ * The platform's cut is five percent plus a fixed amount, and it is charged
+ * ONCE — to the buyer, inside the protection fee. Charging the same five
+ * percent again on the seller's side would be taking it twice from one
+ * transaction, which is not what "5% and the fixed fee" describes and is not
+ * what the buyer-protection page has been telling people the whole time
+ * ("5% din prețul articolului, plus 4 lei").
+ *
+ * It is the arrangement the marketplaces this one is modelled on use, and it
+ * is the one that makes the sell form honest: a seller types 350 and is paid
+ * 350. Nothing is deducted from a number they chose.
+ *
+ * Left as a named constant at zero rather than deleted. The commission is a
+ * commercial decision, not a fact about the code, and a zero with the reasoning
+ * beside it is a decision somebody can revisit in one line — where a deleted
+ * concept is a decision they have to rediscover.
  */
-export const SELLER_COMMISSION_PERCENT = 0.05
+export const SELLER_COMMISSION_PERCENT = 0
 
 /**
  * The top of the buyer-protection ladder: a flat 4 lei on anything from 15 lei
@@ -116,11 +132,21 @@ function round(n: number): number {
 export function buyerProtectionFee(itemCents: number): number {
   if (!Number.isFinite(itemCents) || itemCents <= 0) return 0
   const cents = round(itemCents)
-  // `upTo` is exclusive, so 799 is in the first band and 800 opens the second.
+  // The fixed part comes off the ladder; `upTo` is exclusive, so 799 is in the
+  // first band and 800 opens the second.
+  let fixed = BUYER_PROTECTION_FIXED
   for (const band of PROTECTION_LADDER) {
-    if (cents < band.upTo) return band.fee
+    if (cents < band.upTo) {
+      fixed = band.fee
+      break
+    }
   }
-  return BUYER_PROTECTION_FIXED
+  // BOTH PARTS. A flat fee alone earns four lei on a 350-lei order, which does
+  // not cover the risk being carried on it; a percentage alone earns fifty bani
+  // on a ten-lei one, which does not cover a single dispute about it. The
+  // percentage scales with the exposure and the fixed part covers the floor,
+  // which is why every marketplace that offers this charges both.
+  return round(cents * BUYER_PROTECTION_PERCENT) + fixed
 }
 
 /**
