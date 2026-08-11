@@ -2,10 +2,12 @@
 
 import { useMemo } from "react"
 import Image from "next/image"
+import { ArrowRight } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { DEPARTMENTS, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import { cardImage, readVariants } from "@/lib/images/variants"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -64,25 +66,62 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
   }, [catalogue])
 
   return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">
-        Cumpără second-hand pe categorii
-      </h2>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        {tiles.map((t) => (
+    /**
+     * ---------------------------------------------------------------------
+     * THE OLD SHAPE, WITH THE NEW DEPARTMENTS
+     * ---------------------------------------------------------------------
+     * It had become five equal tiles under a 22px heading — the same object as
+     * the four listing rows above it, so the page ended in five sections that
+     * all looked alike and nothing said "this is the way in". The version
+     * before it was better and this is that shape back: a column on the left
+     * carrying a large headline and one dark button, and the tiles to the right
+     * of it, three across the top and two wider underneath.
+     *
+     * What does NOT come back is the old taxonomy. That layout was built for
+     * nine legacy categories — sneakers, jewellery, home, vintage — which is
+     * exactly the list that was cut down to five departments. The layout is the
+     * part that was worth keeping; the categories in it are the real ones.
+     */
+    <section className="mt-20 border-t border-neutral-100 pt-14">
+      <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+        {/* The left column: the invitation, and one thing to press. */}
+        <div className="flex flex-col justify-center lg:col-span-3">
+          <h2 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-neutral-900 lg:text-[34px]">
+            Cumpără second-hand pe categorii
+          </h2>
+          <p className="mt-3 text-[14.5px] font-medium leading-relaxed text-neutral-500">
+            Fiecare articol are un singur exemplar și un vânzător real în spate.
+          </p>
+          <SmartLink
+            href="/?q="
+            className="mt-6 inline-flex h-11 w-fit items-center gap-2 rounded-full bg-neutral-900 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 ease-out hover:bg-neutral-800"
+          >
+            Vezi toate anunțurile
+            <ArrowRight className="h-4 w-4" strokeWidth={2.4} />
+          </SmartLink>
+        </div>
+
+        {/* The tiles. Three across, then the remaining two at half the width
+            each — which is what five things in a magazine grid look like, and
+            the reason this is not a row of five identical rectangles. */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-6 lg:col-span-9">
+          {tiles.map((t, i) => (
           <SmartLink
             key={t.id}
             href={`/?category=${encodeURIComponent(t.id)}`}
-            className="group relative block overflow-hidden rounded-2xl"
+            className={cn(
+              "group relative block overflow-hidden rounded-2xl",
+              i < 3 ? "sm:col-span-2" : "sm:col-span-3",
+            )}
             style={{ backgroundColor: t.ground }}
           >
-            <div className="relative aspect-[4/5]">
+            <div className={cn("relative", i < 3 ? "aspect-[4/5]" : "aspect-[16/10]")}>
               {t.image && (
                 <Image
                   src={t.image}
                   alt=""
                   fill
-                  sizes="(min-width: 1024px) 260px, 33vw"
+                  sizes="(min-width: 1024px) 340px, 45vw"
                   className="object-cover transition-transform duration-[400ms] ease-out group-hover:scale-[1.04]"
                 />
               )}
@@ -104,7 +143,8 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
               </span>
             </div>
           </SmartLink>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   )

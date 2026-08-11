@@ -52,7 +52,7 @@ export function useAuthGate() {
     const safety = window.setTimeout(() => {
       setAuthInProgress(false)
       setNativeAuthInProgress(false)
-    }, 9_000)
+    }, 4_000)
     return () => {
       window.clearInterval(poll)
       window.clearTimeout(safety)
@@ -69,14 +69,39 @@ export function useAuthGate() {
    * with no way for the person to do anything about it.
    *
    * Started once, at mount, it is a ceiling on the whole sequence rather than
-   * on one step of it. Twelve seconds is deliberately longer than the flag's
-   * nine, so in the pathological case the flag clears first, the boot below
-   * gets its chance to resolve normally, and this never fires — which is what
-   * keeps the login form from flashing up a moment before the redirect.
+   * on one step of it.
+   *
+   * FIVE SECONDS, down from twelve. Nothing should ever reach it: the bounded
+   * read below answers in one, and the in-progress flag's own safety is four.
+   * It exists so that a web view where BOTH of those somehow fail still puts a
+   * form on the screen instead of a spinner — the rule being that there is no
+   * path through this hook, however pathological, that holds the screen
+   * indefinitely.
    */
   useEffect(() => {
-    const floor = window.setTimeout(() => setBooting(false), 12_000)
+    const floor = window.setTimeout(() => setBooting(false), 5_000)
     return () => window.clearTimeout(floor)
+  }, [])
+
+  /**
+   * A LATE SESSION STILL COUNTS.
+   *
+   * The bounded read below gives up after a second so the form appears. That
+   * cap is only safe because of this: supabase-js emits INITIAL_SESSION when
+   * its own load finishes, whenever that is, and a refresh that was still in
+   * flight when we stopped waiting arrives as TOKEN_REFRESHED. Either way the
+   * session lands here and the page's redirect effect takes it from there.
+   *
+   * Without this, shortening the read would have traded an infinite spinner for
+   * a signed-in person being shown a login form and left on it — the same bug
+   * wearing different clothes.
+   */
+  useEffect(() => {
+    const supabase = createClient()
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (s) setSession(s)
+    })
+    return () => data.subscription.unsubscribe()
   }, [])
 
   // Boot: resolve getSession() once after native callback finishes (or immediately)
@@ -95,19 +120,30 @@ export function useAuthGate() {
      * the access token has expired, goes to the network to refresh — and on
      * native it could block behind a lock a suspended web view never released,
      * in which case it never settles at all and no timeout on the promise
-     * itself would ever run. Four seconds is far past a normal read (tens of
-     * milliseconds) and short enough that a bad one is a pause rather than the
-     * "it just shows the loading thing and never loads" report.
+     * itself would ever run.
+     *
+     * ONE SECOND, down from four.
+     *
+     * A healthy read is tens of milliseconds; the only thing four seconds ever
+     * bought was a longer stare at a spinner on the one screen where a spinner
+     * is never the answer. Getting to a sign-in form has to feel immediate —
+     * somebody who has just been signed out is already annoyed, and the app
+     * making them wait to fix it is the whole of "it takes forever and
+     * sometimes never loads".
      *
      * A timeout resolves to no session, which shows the sign-in form. That is
      * the right answer HERE and only here: /login is the one screen where
      * being wrong about a session costs nothing — the form is what somebody
-     * came for. Everywhere else in the app a timed-out read means "keep them
-     * in", which is what lib/auth/session-read.ts is for.
+     * came for, and the subscription above still redirects them if a session
+     * turns up a moment later. Everywhere else in the app a timed-out read
+     * means "keep them in", which is what lib/auth/session-read.ts is for.
      */
-    readSessionBounded(supabase, 4_000).then((r) => {
+    readSessionBounded(supabase, 1_000).then((r) => {
       if (cancelled) return
-      setSession(r.session)
+      // Only overwrite with a real answer. A timed-out read carries `null`,
+      // and writing that over a session the subscription above has already
+      // delivered would un-sign-in somebody a second after signing them in.
+      if (r.session || (!r.timedOut && !r.failed)) setSession(r.session)
       setBooting(false)
     })
 

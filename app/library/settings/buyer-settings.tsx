@@ -255,7 +255,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const handleSignOut = useCallback(async () => {
     setSigningOut(true)
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     if (isNativePlatform()) {
       nativeLogOut()
     } else {
@@ -319,7 +319,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
       const data = await response.json()
       if (response.ok) {
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: "local" })
         if (isNativePlatform()) {
           nativeLogOut()
         } else {

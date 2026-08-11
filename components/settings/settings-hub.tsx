@@ -80,7 +80,7 @@ export function SettingsHub({
     void triggerHaptic("light")
     setSigningOut(true)
     try {
-      await createClient().auth.signOut()
+      await createClient().auth.signOut({ scope: "local" })
     } catch {
       /* the redirect below still leaves the signed-out UI */
     }
@@ -146,7 +146,7 @@ export function SettingsHub({
           a group where a thumb aiming at Mesaje can land on it. */}
       <button
         type="button"
-        onClick={() => void signOut()}
+        onClick={() => void signOut({ scope: "local" })}
         disabled={signingOut}
         className="mt-6 flex h-[52px] w-full items-center justify-center gap-2.5 rounded-2xl border border-neutral-200/70 bg-white text-[15.5px] font-semibold text-rose-600 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors duration-150 active:bg-rose-50 disabled:opacity-60"
       >

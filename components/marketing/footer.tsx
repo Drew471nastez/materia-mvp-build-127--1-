@@ -93,7 +93,10 @@ export function MarketingFooter() {
 
   return (
     <footer
-      className="bg-[#0f0f0f] text-white"
+      // `marketing-footer` is one rule in app/globals.css and it is not
+      // cosmetic: it stops the footer being composited underneath — and so
+      // painted over — the sections above it. See the note there.
+      className="marketing-footer bg-[#0f0f0f] text-white"
       style={{
         /* Extend dark bg into body's safe-area-inset-bottom padding so
            there is no white strip above the iOS home indicator */

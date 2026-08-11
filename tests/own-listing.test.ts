@@ -1057,8 +1057,12 @@ check(
   (() => {
     // Half the header state lives in server components; a client-side push
     // would keep painting the signed-in chrome around a signed-out session.
+    //
+    // `scope: "local"` matters as much as the reload: the default is "global",
+    // which revokes the account's tokens on every device — see the guard in
+    // tests/auth-guards.test.ts.
     const hub = strip(read("components/settings/settings-hub.tsx"))
-    return /auth\.signOut\(\)/.test(hub) && /window\.location\.assign\("\/"\)/.test(hub)
+    return /auth\.signOut\(\{ scope: "local" \}\)/.test(hub) && /window\.location\.assign\("\/"\)/.test(hub)
   })(),
 )
 

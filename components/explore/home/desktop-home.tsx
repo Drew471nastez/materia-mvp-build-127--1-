@@ -20,12 +20,16 @@ import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } fr
  * that suggests, then a way in by category, then everything else.
  *
  *   hero                 three slides, two of them real listings
- *   based on your views  what is like the things you opened
- *   you might be into    the searches those things imply
- *   recently viewed      the things themselves
+ *   based on your views  what is like the things you opened     — hidden if none
+ *   recently viewed      the things themselves                  — hidden if none
  *   suggested for you    three rows, the wider net
+ *   you might be into    queries worth trying next              — never empty
  *   by category          five doors
  *   more listings        everything left, two rows at a time
+ *
+ * The two marked "hidden if none" are not drawn AT ALL on a device with no
+ * history — not as a heading, not as a placeholder. So a first visit is four
+ * sections and every one of them is full, and a second visit is six.
  *
  * ---------------------------------------------------------------------------
  * EVERY ROW IS DERIVED, AND NOTHING IS FETCHED
@@ -132,31 +136,34 @@ export function DesktopHome({ products }: { products: any[] }) {
   }, [products, views])
 
   return (
-    // `home-arrive` is a 160ms opacity fade over the loading shell, which is
-    // otherwise replaced in a single commit — a hard cut on two thousand pixels
-    // of content. See the note in app/globals.css.
-    <div className="home-arrive hidden md:block">
+    /* NO ENTRANCE ANIMATION ON THIS CONTAINER, deliberately.
+     *
+     * There was a 160ms opacity fade here to cover the swap from the loading
+     * shell. It was also promoting two thousand pixels of page to a composited
+     * layer at the exact moment that page changes height — and a layer that
+     * grows after it is rasterised is how the footer ended up painted across
+     * the middle of the listings. The shell is the right shape now, so there is
+     * nothing left for a fade to hide. See app/globals.css. */
+    <div className="hidden md:block">
       <HeroSlides listings={products} />
 
       {/* Personal first. Somebody who has been here before should see what they
-          were doing before they see what we would like them to do. */}
+          were doing before they see what we would like them to do.
+
+          BOTH OF THESE VANISH COMPLETELY on a device with no history — no
+          heading, no placeholder, nothing. A first visit is not a page with two
+          apologies on it; it is the hero, then suggestions, then the pills,
+          then the categories, and these two arrive on the second visit already
+          full. See the note in listing-row.tsx. */}
       <ListingRow
         title="Bazat pe vizualizările tale recente"
         items={sections.basedOnViews}
         rows={1}
         href="/?q="
         seeMoreLabel="Vezi mai multe"
-        emptyNote="Deschide câteva anunțuri și îți arătăm aici lucruri asemănătoare."
       />
 
-      <YouMightBeInto views={views} catalogue={products} />
-
-      <ListingRow
-        title="Vizualizate recent"
-        items={sections.recentlyViewed}
-        rows={1}
-        emptyNote="Anunțurile pe care le deschizi apar aici, ca să te întorci la ele ușor."
-      />
+      <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} />
 
       <ListingRow
         title="Sugestii pentru tine"
@@ -165,6 +172,16 @@ export function DesktopHome({ products }: { products: any[] }) {
         href="/?q="
         seeMoreLabel="Vezi mai multe"
       />
+
+      {/* UNDER the suggestions, not above them.
+
+          It sat between the two personal rows, which put a strip of search
+          chips in the middle of the part of the page that is about what YOU
+          were looking at. It belongs after the browsing is done: you have
+          scrolled four rows, nothing has caught you, and here are the queries
+          worth trying next. It is also the one section that is never empty, so
+          it is the one that carries a first visit — see you-might-be-into.tsx. */}
+      <YouMightBeInto views={views} catalogue={products} />
 
       <ShopByCategory catalogue={products} />
 

@@ -909,9 +909,31 @@ export function PlatformHeaderClient() {
     ((user?.user_metadata as any)?.full_name as string | undefined) ||
     (user?.email ? user.email.split("@")[0] : "User")
 
+  /**
+   * ===========================================================================
+   *  SIGNING OUT HERE SIGNS OUT *HERE*
+   * ===========================================================================
+   *
+   * `scope: "local"` is not a detail — a bare `signOut()` defaults to
+   * `scope: "global"`, which asks Supabase to REVOKE EVERY REFRESH TOKEN THE
+   * ACCOUNT HAS. Signing out on a laptop therefore killed the session on the
+   * iOS app, the Android app and every other browser at the same time, without
+   * anything on screen suggesting it would.
+   *
+   * The second-order damage was worse than the logout. Those devices still held
+   * a stored refresh token, now dead. On next open they tried to refresh it,
+   * got an error back, and sat on a spinner while the auth gate waited for a
+   * read that was never going to resolve into a session — which is the
+   * "it logs me out randomly and then loads forever" report, both halves of it,
+   * from one default argument.
+   *
+   * Local revokes this device's token and leaves the others alone. Signing out
+   * everywhere is still available, deliberately, as its own control in
+   * settings — and that one passes `scope: 'global'` on purpose.
+   */
   async function handleLogout() {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     setMobileProfileOpen(false)
     setDesktopProfileOpen(false)
     setCachedAvatarUrl(null)

@@ -323,14 +323,25 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         }}
       >
         {slides.map((s, i) => (
+          /* THE HEIGHT LIVES HERE, ON THE SLIDE, NOT ON THE PICTURE.
+
+             It used to be on the image half — `h-[240px]` on a grid item, while
+             the copy half was sized by its own contents. Eyebrow, two lines of
+             32px headline, two lines of body, a 44px button and 80px of padding
+             come to about 285px, so the ROW was 285 tall and the picture was
+             240: a band of page-white under the photograph, for the whole width
+             of it. That is the cut edge.
+
+             With the height on the row both halves stretch to it, and the copy
+             is centred in whatever is left rather than deciding it. */
           <div
             key={s.key}
-            className="grid w-full shrink-0 grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
+            className="grid h-[300px] w-full shrink-0 grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:h-[320px]"
             aria-hidden={i !== index}
           >
             {/* The words, on a ground that cannot be argued with. */}
             <div
-              className="flex flex-col justify-center px-8 py-10 lg:px-12"
+              className="flex flex-col justify-center px-8 py-8 lg:px-12"
               style={{ backgroundColor: s.ground }}
             >
               {s.eyebrow && (
@@ -360,7 +371,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
                 real listings each in its own box. Never one portrait photograph
                 stretched across a landscape slot — see the note above pickShelf. */}
             {s.kind === "art" ? (
-              <div className="relative h-[240px] lg:h-[260px]">
+              <div className="relative h-full">
                 <Image
                   src={s.image}
                   alt={s.alt}
@@ -374,15 +385,20 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
               </div>
             ) : (
               <div
-                className="flex h-[240px] items-center gap-3 px-6 lg:h-[260px] lg:gap-4 lg:px-8"
+                className="flex h-full items-center justify-center gap-3 px-6 lg:gap-4 lg:px-8"
                 style={{ backgroundColor: s.ground }}
               >
                 {s.items.map((it) => (
+                  /* `aspect-[3/4]` rather than a width, so the box IS the card's
+                     ratio and `object-cover` has nothing to throw away. The row
+                     is centred because three 3:4 boxes are narrower than the
+                     half they sit in — space either side is the correct answer,
+                     stretching them to fill it is not. */
                   <SmartLink
                     key={it.id}
                     href={`/products/${it.slug}`}
                     tabIndex={i === index ? 0 : -1}
-                    className="relative h-[184px] flex-1 overflow-hidden rounded-xl bg-black/20 lg:h-[200px]"
+                    className="relative h-[236px] aspect-[3/4] overflow-hidden rounded-xl bg-black/20 lg:h-[252px]"
                   >
                     <Image
                       src={it.image}

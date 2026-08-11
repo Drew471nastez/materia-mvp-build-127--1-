@@ -60,7 +60,7 @@ export function MoreListings({ items }: { items: any[] }) {
   if (items.length === 0) return null
 
   return (
-    <section className="mt-12 pb-16">
+    <section className="mt-14 pb-20">
       <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">Mai multe anunțuri</h2>
 
       <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">

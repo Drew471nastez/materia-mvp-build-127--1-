@@ -55,7 +55,7 @@ export function DashboardSidebar() {
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     setMobileMenuOpen(false)
     if (isNativePlatform()) {
       nativeLogOut()

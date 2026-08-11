@@ -290,7 +290,7 @@ export async function nativeLogout(
   supabaseClient: import("@supabase/supabase-js").SupabaseClient,
   router: { replace: (url: string) => void },
 ): Promise<void> {
-  try { await supabaseClient.auth.signOut() } catch { /* ignore */ }
+  try { await supabaseClient.auth.signOut({ scope: "local" }) } catch { /* ignore */ }
   try { localStorage.removeItem("sb-native-home") } catch { /* ignore */ }
   isNative() ? window.location.replace("/welcome") : router.replace("/login")
 }
