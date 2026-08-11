@@ -1,11 +1,9 @@
-import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { getServerT } from "@/lib/i18n/server"
-import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
-import { MostPopularSection } from "@/components/explore/most-popular-section"
+import { DesktopHome } from "@/components/explore/home/desktop-home"
 
 // Shared implementation of the marketplace feed.
 //
@@ -223,17 +221,23 @@ export async function ExploreFeed({
           initialView={initialView}
         />
 
-        {/* Below-the-fold sections — desktop only; the mobile feed is a full-screen
-            overlay, so these would just render hidden behind it on phones. */}
-        <div className="hidden md:block space-y-8">
-          <Suspense fallback={null}>
-            <FeaturedCategoriesSection products={productsWithCreators} />
-          </Suspense>
+        {/* ═══════════════════════════════════════════════════════════════════
+            THE DESKTOP HOME PAGE
+            ═══════════════════════════════════════════════════════════════════
 
-          <Suspense fallback={null}>
-            <MostPopularSection products={productsWithCreators} />
-          </Suspense>
-        </div>
+            Desktop only, and it replaces the whole of what used to be here: a
+            featured-categories rail and a most-popular grid, under a client
+            component that drew a banner and one more grid. Four sections, three
+            of them the same hundred listings in a different order, and none of
+            them different on a second visit.
+
+            The mobile feed is a full-screen overlay, so anything drawn here on a
+            phone is drawn behind it — hence `hidden md:block` inside the
+            component rather than a second render path.
+
+            Nothing is fetched: it is handed the same array the feed already
+            built, and cuts it seven ways. See components/explore/home. */}
+        {!searchQuery && <DesktopHome products={productsWithCreators} />}
       </div>
     </main>
   )

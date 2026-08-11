@@ -22,6 +22,7 @@ import { ProtectionMark } from "@/components/marketplace/buyer-protection"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { PUBLIC_FEED } from "@/lib/marketplace/listing-status"
+import { recordView } from "@/lib/marketplace/recent-views"
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client"
 import { getStoreUrl } from "@/lib/url-helpers"
 import {
@@ -107,6 +108,29 @@ export function ProductDetail({ product }: { product: any }) {
    * the bar reads. Each state still says which it is — sold and reserved are
    * different news.
    */
+  /**
+   * WHAT THE HOME PAGE WILL REMEMBER ABOUT THIS VISIT.
+   *
+   * Three sections of the desktop home page are built from the listings
+   * somebody has opened — see lib/marketplace/recent-views. This is where that
+   * is recorded, because opening a listing is the only unambiguous signal of
+   * interest a marketplace gets for free: a search can be a typo and a scroll
+   * can be a thumb, but nobody opens a jumper by accident.
+   *
+   * On the device, never sent anywhere, and it stores four short strings — the
+   * id, the brand and the two category ids — which is exactly what the rows
+   * need and nothing that would be worth leaking.
+   */
+  useEffect(() => {
+    if (!product?.id) return
+    recordView({
+      id: product.id,
+      brand: product.brand ?? null,
+      category: product.category ?? null,
+      subcategory: product.subcategory ?? null,
+    })
+  }, [product?.id, product?.brand, product?.category, product?.subcategory])
+
   const isSold = product.status === "sold"
   const unavailable = !PUBLIC_FEED.includes(product.status)
   const unavailableLabel = isSold ? "Vândut" : "Rezervat"

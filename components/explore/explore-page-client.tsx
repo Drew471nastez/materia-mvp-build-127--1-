@@ -1319,7 +1319,23 @@ export function ExplorePageClient({
     <WishlistProvider>
     {/* Mobile: Depop/TikTok-style full-screen feed. Desktop keeps the grid below. */}
     <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} initialView={initialView} />
-    <div className="space-y-8 hidden md:block">
+    {/* ═══════════════════════════════════════════════════════════════════════
+        ONLY WHEN THERE IS A SEARCH.
+        ═══════════════════════════════════════════════════════════════════════
+
+        This block WAS the desktop home page — a banner, a recommended grid, a
+        pill rail and a browse grid. It is now the search results screen and
+        nothing else: the home page is components/explore/home/desktop-home,
+        which the feed renders instead when there is no query.
+
+        Drawing both was the actual bug behind "there are two grids of the same
+        thing": the feed's own sections and this component's sections were the
+        same hundred listings, ordered twice, one under the other.
+
+        The whole subtree is dropped rather than hidden, so on the home page it
+        costs no render — this file is seventeen hundred lines and most of them
+        are search chrome. */}
+    <div className={urlSearchQuery ? "space-y-8 hidden md:block" : "hidden"}>
       {/* Featured Banner Carousel */}
       {!urlSearchQuery && featuredProducts.length > 0 && (
         <FeaturedBannerCarousel products={featuredProducts} />

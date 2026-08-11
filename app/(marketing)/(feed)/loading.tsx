@@ -134,23 +134,30 @@ export default function FeedLoading() {
         />
       </div>
 
-      {/* Desktop is a plain grid under the site header, so it gets a plain grid
-          skeleton. It shares nothing with the phone shell above and must not
-          inherit its fixed positioning. */}
-      <div className="mx-auto hidden max-w-[1400px] px-4 pb-8 pt-5 sm:px-6 md:block lg:px-8">
-        <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-            <div key={i} className="flex flex-col">
-              <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-neutral-100" />
-              <div className="flex flex-col gap-1.5 px-0.5 pt-2.5">
-                <div className="h-3 w-20 animate-pulse rounded bg-neutral-100" />
-                <div className="h-3.5 w-full animate-pulse rounded bg-neutral-100" />
-                <div className="h-4 w-14 animate-pulse rounded bg-neutral-100" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* ═══════════════════════════════════════════════════════════════════
+          NOTHING FOR THE DESKTOP, ON PURPOSE.
+          ═══════════════════════════════════════════════════════════════════
+
+          There was a ten-card grid here, and it was worse than a blank page for
+          two reasons that both come from it being a GUESS.
+
+          It guessed the wrong shape. The desktop home page is a split hero,
+          five personalised rows, a category strip and a load-more grid — so the
+          skeleton promised one thing and ten cards of grey arrived somewhere
+          else entirely. A placeholder whose only job is to hold the position of
+          what is coming is worth nothing when it holds the wrong position; the
+          page still jumps, and now it jumps AFTER having flashed.
+
+          And it guessed there would be a wait. A desktop visitor is on a
+          machine and a connection where this route resolves in a couple of
+          hundred milliseconds. A skeleton with a pulse animation shown for two
+          hundred milliseconds is a flash of grey, which reads as a glitch
+          rather than as loading — the exact complaint that removed it.
+
+          The phone shell above stays: the app has no browser chrome to say a
+          navigation happened, the route is the most expensive in the product,
+          and a tap on Acasă with nothing on screen is a tap that looks dropped.
+          Different device, different problem, different answer. */}
     </>
   )
 }
