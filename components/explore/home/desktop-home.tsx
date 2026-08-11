@@ -197,7 +197,15 @@ export function DesktopHome({ products }: { products: any[] }) {
           visit is not a page with two apologies on it; it is the hero, then
           suggestions, then the pills, then the categories, and these two arrive
           once there is enough browsing behind them to fill a row and mean
-          something. See the note beside MIN_HISTORY, and the one in
+          something.
+
+          TWO CONDITIONS, AND THEY ARE NOT THE SAME ONE TWICE. `personal` is
+          about the HISTORY — has this device opened five listings — and
+          `minItems` is about the ROW — are there five cards to draw. Neither
+          implies the other: five views of listings that have since sold leave
+          the recently-viewed row with two cards in it, and a single view is
+          enough for the ranking below to produce fifty candidates for the row
+          above. See the note beside MIN_HISTORY, and minItems in
           listing-row.tsx. */}
       {personal && (
         <>
@@ -205,11 +213,18 @@ export function DesktopHome({ products }: { products: any[] }) {
             title="Bazat pe vizualizările tale recente"
             items={sections.basedOnViews}
             rows={1}
+            // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
+            minItems={ROW}
             href="/?q="
             seeMoreLabel="Vezi mai multe"
           />
 
-          <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} />
+          <ListingRow
+            title="Vizualizate recent"
+            items={sections.recentlyViewed}
+            rows={1}
+            minItems={ROW}
+          />
         </>
       )}
 

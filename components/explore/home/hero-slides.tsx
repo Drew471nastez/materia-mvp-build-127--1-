@@ -5,7 +5,9 @@ import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
+import { useLocale } from "@/components/locale-provider"
 import { cardImage, readVariants } from "@/lib/images/variants"
+import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { cn } from "@/lib/utils"
 
 /**
@@ -60,6 +62,17 @@ export type HeroListing = {
   brand?: string | null
   category?: string | null
   subcategory?: string | null
+  price_cents?: number | null
+}
+
+/** One thing on a shelf: enough to draw a card, not a whole listing. */
+type ShelfItem = {
+  id: string
+  image: string
+  slug: string
+  title: string
+  brand: string | null
+  priceCents: number | null
 }
 
 type Slide = {
@@ -75,7 +88,7 @@ type Slide = {
 } & (
   | { kind: "art"; image: string }
   /** Three real listings, each in its own 3:4 box. */
-  | { kind: "shelf"; items: { id: string; image: string; slug: string }[] }
+  | { kind: "shelf"; items: ShelfItem[] }
 )
 
 /**
@@ -198,19 +211,22 @@ const COPY: SlideCopy[] = [
  */
 const SHELF = 3
 
-function pickShelf(
-  listings: HeroListing[],
-  prefer: string[],
-  taken: Set<string>,
-): { id: string; image: string; slug: string }[] {
-  const out: { id: string; image: string; slug: string }[] = []
+function pickShelf(listings: HeroListing[], prefer: string[], taken: Set<string>): ShelfItem[] {
+  const out: ShelfItem[] = []
 
   const consider = (l: HeroListing) => {
     if (out.length === SHELF || taken.has(l.id)) return
     const image = cardImage(readVariants(l.image_variants), l.thumbnail_url, 0)
     if (!image) return
     taken.add(l.id)
-    out.push({ id: l.id, image, slug: l.slug })
+    out.push({
+      id: l.id,
+      image,
+      slug: l.slug,
+      title: l.title ?? "",
+      brand: l.brand ?? null,
+      priceCents: typeof l.price_cents === "number" ? l.price_cents : null,
+    })
   }
 
   // Preferred first, in catalogue order (which is newest-first).
@@ -336,23 +352,26 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
              is centred in whatever is left rather than deciding it. */
           <div
             key={s.key}
-            className="grid h-[300px] w-full shrink-0 grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:h-[320px]"
+            /* 0.46/0.54 below 1024, 0.42/0.58 above. At 768px the copy half was
+               322px carrying a 32px headline and a button, which is where the
+               "Sneakers sub" wrapping came from. */
+            className="grid h-[320px] w-full shrink-0 grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
             aria-hidden={i !== index}
           >
             {/* The words, on a ground that cannot be argued with. */}
             <div
-              className="flex flex-col justify-center px-8 py-8 lg:px-12"
+              className="flex flex-col justify-center px-6 py-8 lg:px-12"
               style={{ backgroundColor: s.ground }}
             >
               {s.eyebrow && (
-                <p className="mb-2 truncate text-[12.5px] font-semibold uppercase tracking-[0.08em] text-white/60">
+                <p className="mb-2 truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-white/60">
                   {s.eyebrow}
                 </p>
               )}
-              <h2 className="line-clamp-2 text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-white lg:text-[32px]">
+              <h2 className="line-clamp-2 text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-white lg:text-[32px]">
                 {s.title}
               </h2>
-              <p className="mt-2 line-clamp-2 max-w-[34ch] text-[14.5px] font-medium leading-relaxed text-white/70">
+              <p className="mt-2 line-clamp-2 max-w-[34ch] text-[13.5px] font-medium leading-relaxed text-white/70 lg:text-[14.5px]">
                 {s.body}
               </p>
               <SmartLink
@@ -385,29 +404,23 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
               </div>
             ) : (
               <div
-                className="flex h-full items-center justify-center gap-3 px-6 lg:gap-4 lg:px-8"
+                className="flex h-full items-center justify-center gap-3 px-5 lg:gap-4 lg:px-8"
                 style={{ backgroundColor: s.ground }}
               >
-                {s.items.map((it) => (
-                  /* `aspect-[3/4]` rather than a width, so the box IS the card's
-                     ratio and `object-cover` has nothing to throw away. The row
-                     is centred because three 3:4 boxes are narrower than the
-                     half they sit in — space either side is the correct answer,
-                     stretching them to fill it is not. */
-                  <SmartLink
+                {s.items.map((it, n) => (
+                  <ShelfCard
                     key={it.id}
-                    href={`/products/${it.slug}`}
-                    tabIndex={i === index ? 0 : -1}
-                    className="relative h-[236px] aspect-[3/4] overflow-hidden rounded-xl bg-black/20 lg:h-[252px]"
-                  >
-                    <Image
-                      src={it.image}
-                      alt=""
-                      fill
-                      sizes="200px"
-                      className="object-cover transition-transform duration-[400ms] ease-out hover:scale-[1.04]"
-                    />
-                  </SmartLink>
+                    item={it}
+                    tabbable={i === index}
+                    /* THE THIRD ONE STANDS DOWN ON A NARROW WINDOW.
+
+                       Between 768 and 1024 the picture half is about 430px, and
+                       three cards plus their gaps do not fit in it — they were
+                       being squeezed until the titles wrapped to three lines and
+                       the prices fell off the bottom. Two cards at a comfortable
+                       size say the same thing as three cramped ones. */
+                    className={n === 2 ? "hidden lg:flex" : "flex"}
+                  />
                 ))}
               </div>
             )}
@@ -415,23 +428,31 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         ))}
       </div>
 
-      {/* ARROWS.
-          
-          Dots say which of three you are on; they do not say you can move. A
-          carousel whose only control is a 6px dot is one people wait out rather
-          than drive, and on a desktop — where there is no swipe — waiting is the
-          only option they had.
-          
-          Over the photograph rather than the copy, because the copy half is
-          where the button is and two things to press in one corner is a corner
-          nobody presses confidently. They fade in on hover of the strip and stay
-          permanently visible to a keyboard, so a pointer gets a clean image and
-          a tab does not get a hidden control. */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          THE CONTROLS, IN ONE CORNER, ON TOP OF NOTHING
+          ═══════════════════════════════════════════════════════════════════
+
+          The arrows were vertically centred at the left and right edges, which
+          put the left one straight through the middle of the headline and the
+          body copy — a white disc sitting on the word it was covering. Every
+          fix that keeps an arrow at the left edge has the same problem, because
+          the left edge is where the words are: pushing it further out runs it
+          off the slide, pulling it in moves it deeper into the sentence, and
+          fading it until hover just means it appears on top of the text later.
+
+          So they stop straddling the slide and become a PAIR, in the bottom
+          right — over the picture half, where the only thing underneath is a
+          photograph, and diagonally opposite the button so the two things you
+          can press are never in the same corner. The dots keep the bottom left,
+          under the copy where they have always been legible.
+
+          Together they read as one control rather than two edges of the strip,
+          which is also how everybody expects a carousel to be driven. */}
       {count > 1 && (
-        <>
+        <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 lg:bottom-5 lg:right-6">
           <HeroArrow side="left" onClick={() => go(index - 1)} />
           <HeroArrow side="right" onClick={() => go(index + 1)} />
-        </>
+        </div>
       )}
 
       {/* The dots, over the ground rather than over the photograph — the one
@@ -459,12 +480,81 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
 }
 
 /**
- * One of the two arrows.
+ * ===========================================================================
+ *  ONE THING ON THE SHELF — A PICTURE AND WHAT IT IS
+ * ===========================================================================
  *
- * `opacity-0 … group-hover:opacity-100` on the SECTION's hover rather than its
- * own: an arrow that only appears once the cursor is already on it is an arrow
- * you have to know is there. `focus-visible:opacity-100` keeps it reachable
- * without a pointer at all.
+ * It was a photograph and nothing else, and three unlabelled photographs is a
+ * mood board: you cannot tell whether the thing is five lei or five hundred,
+ * or even what it is, without clicking one to find out. On a marketplace's
+ * front page that is the one question the picture exists to answer.
+ *
+ * So it is a card. The image keeps its 3:4 exactly — the whole reason these
+ * are boxes rather than a stretched banner — and the two lines under it are
+ * the two facts somebody needs to decide whether to click: what it is, and
+ * what it costs.
+ *
+ * The price is the BUYER-INCLUSIVE one, through buyerPaysCents, because that is
+ * the number quoted everywhere else on this site. A hero showing 130 next to a
+ * grid showing 141 for the same jumper would be the front page undercutting the
+ * rest of the marketplace.
+ *
+ * White at 70% for the name and full white for the price: on a coloured ground
+ * the price has to survive being the smallest thing on the slide.
+ */
+function ShelfCard({
+  item,
+  tabbable,
+  className,
+}: {
+  item: ShelfItem
+  tabbable: boolean
+  className?: string
+}) {
+  const { t, formatPrice } = useLocale()
+  return (
+    <SmartLink
+      href={`/products/${item.slug}`}
+      tabIndex={tabbable ? 0 : -1}
+      className={cn(
+        "group/card w-[132px] flex-col lg:w-[152px]",
+        // The whole card lifts, not just the photograph — a picture that moves
+        // inside a caption that does not is two objects, and this is one.
+        "transition-transform duration-[380ms] ease-out hover:-translate-y-1",
+        className,
+      )}
+    >
+      <span className="relative block aspect-[3/4] w-full overflow-hidden rounded-xl bg-black/20">
+        <Image
+          src={item.image}
+          alt=""
+          fill
+          sizes="160px"
+          className="object-cover transition-transform duration-[500ms] ease-out group-hover/card:scale-[1.05]"
+        />
+      </span>
+      <span className="mt-2 block truncate text-[12.5px] font-medium leading-tight text-white/70">
+        {item.brand || item.title}
+      </span>
+      <span className="mt-0.5 block text-[14px] font-bold leading-tight text-white">
+        {item.priceCents == null
+          ? " "
+          : item.priceCents === 0
+            ? t("product.free")
+            : formatPrice(buyerPaysCents(item.priceCents))}
+      </span>
+    </SmartLink>
+  )
+}
+
+/**
+ * One of the two arrows. Positioned by the pair that holds them, not by itself.
+ *
+ * They stay VISIBLE rather than fading in on hover. Hiding them was the right
+ * call when they sat over the middle of the artwork; in the corner they take up
+ * no picture worth seeing, and a control that appears only once you have
+ * guessed it is there is a control most people never find. Muted white so they
+ * read as chrome on any of the three grounds.
  */
 function HeroArrow({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
   const Icon = side === "left" ? ChevronLeft : ChevronRight
@@ -474,14 +564,13 @@ function HeroArrow({ side, onClick }: { side: "left" | "right"; onClick: () => v
       onClick={onClick}
       aria-label={side === "left" ? "Slide-ul anterior" : "Slide-ul următor"}
       className={cn(
-        "absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full",
-        "bg-white/90 text-neutral-900 shadow-[0_2px_10px_rgba(0,0,0,0.18)] backdrop-blur-sm",
-        "opacity-0 transition-[opacity,transform] duration-200 ease-out",
-        "group-hover/hero:opacity-100 focus-visible:opacity-100 hover:bg-white active:scale-95",
-        side === "left" ? "left-3" : "right-3",
+        "flex h-9 w-9 items-center justify-center rounded-full",
+        "bg-white/85 text-neutral-900 shadow-[0_2px_10px_rgba(0,0,0,0.18)] backdrop-blur-sm",
+        "transition-[background-color,transform] duration-200 ease-out",
+        "hover:bg-white active:scale-95",
       )}
     >
-      <Icon className="h-5 w-5" strokeWidth={2.4} />
+      <Icon className="h-[18px] w-[18px]" strokeWidth={2.4} />
     </button>
   )
 }

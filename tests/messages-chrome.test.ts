@@ -753,6 +753,38 @@ check(
 )
 
 check(
+  "the header's field is not reset by its own re-renders",
+  (() => {
+    /**
+     * THE BUG THAT MADE SEARCH LOOK ENTIRELY BROKEN.
+     *
+     *   useEffect(() => { setQuery(searchParams.get("q") ?? "") }, [searchParams])
+     *
+     * `searchParams` is an OBJECT — a new one on re-render — so the dependency
+     * is an identity rather than a value and the effect fires on a URL that
+     * never changed. On the home page `q` is absent, so every run set the field
+     * back to "".
+     *
+     * And the field's own onChange calls setSearchModalOpen(true), which
+     * re-renders the header. So the first character anybody typed went: query
+     * = "n", panel opens, re-render, effect runs, query = "". The field stayed
+     * empty and the panel stayed on its empty state.
+     *
+     * The dependency must be the STRING. Anything else is the same bug.
+     */
+    const header = code("components/platform/platform-header-client.tsx")
+    return (
+      !/\}, \[searchParams\]\)/.test(header) &&
+      /const urlQuery = searchParams\.get\("q"\) \?\? ""/.test(header) &&
+      /\}, \[urlQuery\]\)/.test(header) &&
+      // And it still seeds from a real navigation to a different query.
+      /lastUrlQuery\.current = urlQuery/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
   "the dim is a SIBLING of the panel, and below it",
   (() => {
     // THE BUG THIS SHIPPED AS. The scrim was `fixed inset-0 z-[94]` INSIDE the

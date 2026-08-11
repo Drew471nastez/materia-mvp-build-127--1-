@@ -196,7 +196,7 @@ check(
   "the shelf's boxes are the card's own ratio, so nothing is cropped",
   (() => {
     const shelf = hero.slice(hero.indexOf('s.kind === "art"'))
-    return /h-\[236px\] aspect-\[3\/4\]/.test(shelf) && /sizes="200px"/.test(shelf)
+    return /aspect-\[3\/4\] w-full overflow-hidden rounded-xl/.test(hero) && /sizes="160px"/.test(hero)
   })(),
 )
 
@@ -208,8 +208,8 @@ check(
     // and a band of page-white ran under it for the full width. That is the
     // cut edge people were seeing.
     return (
-      /grid h-\[300px\] w-full shrink-0 grid-cols-/.test(hero) &&
-      /lg:h-\[320px\]/.test(hero) &&
+      /grid h-\[320px\] w-full shrink-0 grid-cols-/.test(hero) &&
+      /lg:h-\[340px\]/.test(hero) &&
       // Both halves fill the row rather than stating their own height.
       /<div className="relative h-full">/.test(hero) &&
       /flex h-full items-center justify-center gap-3/.test(hero) &&
@@ -229,16 +229,44 @@ check(
 )
 
 check(
-  "there are arrows, on both sides",
+  "there are arrows, and they are a pair in a corner rather than two edges",
   (() => {
-    // Dots say which of three you are on; they do not say you can move. On a
-    // desktop, where there is no swipe, waiting was the only option.
+    // Centred at the left and right edges, the left one sat straight through
+    // the headline — and every fix that keeps an arrow at the left edge has
+    // that problem, because the left edge is where the words are. In the
+    // bottom right the only thing underneath is a photograph, and they are
+    // diagonally opposite the button so the two pressable things are never in
+    // the same corner.
     return (
       /<HeroArrow side="left"/.test(hero) &&
       /<HeroArrow side="right"/.test(hero) &&
-      /group-hover\/hero:opacity-100 focus-visible:opacity-100/.test(hero)
+      /absolute bottom-4 right-4 z-10 flex items-center gap-2/.test(hero) &&
+      // No longer straddling the slide, and no longer hidden until hover.
+      !/absolute top-1\/2 z-10 flex h-10 w-10 -translate-y-1\/2/.test(hero) &&
+      !/group-hover\/hero:opacity-100/.test(hero)
     )
   })(),
+)
+
+check(
+  "a shelf card says what the thing is and what it costs",
+  (() => {
+    // Three unlabelled photographs is a mood board: you cannot tell whether the
+    // thing is five lei or five hundred without clicking one to find out.
+    return (
+      /function ShelfCard\(/.test(hero) &&
+      /formatPrice\(buyerPaysCents\(item\.priceCents\)\)/.test(hero) &&
+      /\{item\.brand \|\| item\.title\}/.test(hero)
+    )
+  })(),
+)
+
+check(
+  "and the third card stands down where three will not fit",
+  // Between 768 and 1024 the picture half is about 430px; three cards plus
+  // their gaps were being squeezed until the titles wrapped and the prices
+  // fell off the bottom.
+  /n === 2 \? "hidden lg:flex" : "flex"/.test(hero),
 )
 
 check(
@@ -274,7 +302,7 @@ check(
     // promises something nobody asked for, and pushes what IS worth seeing
     // below the fold to do it.
     return (
-      /if \(shown\.length < 3\) return null/.test(row) &&
+      /if \(shown\.length < minItems\) return null/.test(row) &&
       !/emptyNote/.test(row) &&
       !/emptyNote/.test(home) &&
       !/border-dashed/.test(row)
@@ -313,6 +341,27 @@ check(
     )
   })(),
   "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "and a personal row needs a FULL row before it claims to know you",
+  (() => {
+    // "Sugestii pentru tine" with three cards is a quiet day. "Bazat pe
+    // vizualizările tale recente" with three is the marketplace announcing it
+    // has been watching you and then producing almost nothing.
+    //
+    // A SECOND condition, not a restatement of the one above. That gate is on
+    // the history — has this device opened five listings — and this one is on
+    // the row: are there five cards to draw. Neither implies the other. Five
+    // views of listings that have since sold leave the recently-viewed row with
+    // two cards in it, and a single view is enough for the ranking to produce
+    // fifty candidates for the row above.
+    return (
+      /minItems = 3/.test(row) &&
+      (home.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
+      !/minItems/.test(home.slice(home.indexOf("Sugestii pentru tine"), home.indexOf("<YouMightBeInto")))
+    )
+  })(),
 )
 
 check(
@@ -504,8 +553,8 @@ check(
       /xl:grid-cols-5/.test(loading) &&
       // The same hero height the real slide states — when these drift the
       // placeholder stops holding the space it exists to hold.
-      /h-\[300px\]/.test(loading) &&
-      /lg:h-\[320px\]/.test(loading) &&
+      /h-\[320px\]/.test(loading) &&
+      /lg:h-\[340px\]/.test(loading) &&
       /\[0, 1, 2, 3, 4\]\.map/.test(loading)
     )
   })(),
@@ -516,7 +565,7 @@ check(
   (() => {
     // A 1400x260 block flashing grey is the most distracting thing a loading
     // screen can do, and it is the first thing on the page.
-    const heroBlock = loading.slice(loading.indexOf("h-[300px]"), loading.indexOf("{[0, 1].map"))
+    const heroBlock = loading.slice(loading.indexOf("h-[320px]"), loading.indexOf("{[0, 1].map"))
     return !/animate-pulse/.test(heroBlock)
   })(),
 )

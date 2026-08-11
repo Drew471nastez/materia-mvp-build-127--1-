@@ -27,6 +27,7 @@ export function ListingRow({
   href,
   seeMoreLabel = "Vezi mai multe",
   origin = "feed",
+  minItems = 3,
 }: {
   title: string
   items: any[]
@@ -36,6 +37,18 @@ export function ListingRow({
   href?: string
   seeMoreLabel?: string
   origin?: "feed" | "member" | "search"
+  /**
+   * HOW MANY IT TAKES BEFORE THIS SECTION IS WORTH DRAWING.
+   *
+   * Three is enough for a general shelf; the two PERSONAL rows ask for five,
+   * which is a full row. The difference is what the heading claims. "Sugestii
+   * pentru tine" with three cards is a quiet day. "Bazat pe vizualizările tale
+   * recente" with three cards is the marketplace announcing it has been
+   * watching you and then producing almost nothing — worse than not mentioning
+   * it, and it leaves a half-empty row under a personal heading, which is the
+   * single most obviously unfinished thing a home page can show.
+   */
+  minItems?: number
 }) {
   // FIVE. Six cards across 1400px leaves each one about 215px wide, and a
   // second-hand listing is sold by its photograph — at that width a jumper on a
@@ -56,7 +69,7 @@ export function ListingRow({
    * heading, the moment there is something in it — which is the second visit,
    * and by then it is a row of listings rather than a paragraph.
    */
-  if (shown.length < 3) return null
+  if (shown.length < minItems) return null
 
   return (
     <section className="mt-14">

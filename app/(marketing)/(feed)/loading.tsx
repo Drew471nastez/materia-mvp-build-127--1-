@@ -166,7 +166,7 @@ export default function FeedLoading() {
         {/* The hero: two halves, the real height, no pulse on the ground —
             a 1400×260 block flashing grey is the single most distracting thing
             a loading screen can do, and it is the first thing on the page. */}
-        <div className="grid h-[300px] grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-2xl lg:h-[320px]">
+        <div className="grid h-[320px] grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] overflow-hidden rounded-2xl lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
           <div className="flex flex-col justify-center gap-3 bg-neutral-200/70 px-8 lg:px-12">
             <div className="h-3 w-16 rounded bg-white/25" />
             <div className="h-7 w-3/4 rounded bg-white/25" />
