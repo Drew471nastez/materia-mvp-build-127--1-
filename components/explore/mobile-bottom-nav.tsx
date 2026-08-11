@@ -323,7 +323,25 @@ export function MobileBottomNav({
        * on screen now. Only a URL that never changed at all is evidence of the
        * dead end this was written for.
        */
-      if (window.location.pathname !== from) {
+      const now = window.location.pathname
+      /**
+       * MOVED SOMEWHERE THAT IS NOT THE SELL FORM — the push was delivered and
+       * the person has since gone elsewhere: opened it and changed their mind,
+       * opened it and published, opened it and pressed back. Nothing to do.
+       *
+       * This used to be `pathname !== from`, full stop, and that had a hole in
+       * it exactly the size of the failure that has just been reported: a URL
+       * that DID change to /products/new while the sheet never appeared was
+       * read as success and the watchdog stood down, so a sheet that failed to
+       * render had nothing left to catch it. Press +, URL changes, no sheet,
+       * and the button looks dead.
+       *
+       * Being ON the sell route with no sheet after four seconds cannot be
+       * somebody having closed it — closing it moves the URL off this route —
+       * so it is the one shape that is unambiguously broken, and it is the one
+       * shape the escalation below now also covers.
+       */
+      if (now !== from && !isSellFormRoute(now)) {
         window.clearInterval(watch)
         return
       }
@@ -350,8 +368,11 @@ export function MobileBottomNav({
        */
       window.clearInterval(watch)
       // Re-checked rather than assumed: four seconds is a long time and the
-      // route may have arrived between the test above and this line.
-      if (!open() && window.location.pathname === from) {
+      // route may have arrived between the test above and this line. Two dead
+      // ends qualify — never left the page at all, or sitting on the sell route
+      // with nothing rendered into it.
+      const at = window.location.pathname
+      if (!open() && (at === from || isSellFormRoute(at))) {
         window.location.assign("/products/new")
       }
     }, 150)

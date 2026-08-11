@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 
 /**
@@ -51,6 +52,32 @@ export function InterceptedOnly({
   // Query strings never appear here: usePathname strips them, so `?draft=` and
   // the rest compare equal to the bare route, which is what is wanted.
   const pathname = usePathname()
-  if (pathname !== path) return null
+
+  /**
+   * IT FAILS OPEN NOW, AND THE REVERSAL IS THE FIX.
+   *
+   * This used to return null on the first render whenever the pathname did not
+   * match. The reasoning was that a slot showing nothing is recoverable and a
+   * slot showing the wrong listing is not — which is true about the CONSEQUENCES
+   * and wrong about the risk, because it made a first-render disagreement fatal.
+   * Shipped, the sell sheet stopped opening at all: press +, and nothing.
+   *
+   * A comparison that is right on every subsequent render and wrong on the first
+   * one now costs a frame instead of the feature. The slot renders, and an effect
+   * — which runs AFTER the router state is unambiguously settled — takes it away
+   * if it turns out to be stale. The stale case is a modal that was already
+   * mounted under the previous URL, so its effect re-runs the moment the pathname
+   * changes and removes it; the correct case renders immediately and stays.
+   *
+   * What that costs is at most one frame of the previous sheet during a
+   * navigation between two modal routes. What it can no longer do is swallow the
+   * screen entirely.
+   */
+  const [stale, setStale] = useState(false)
+  useEffect(() => {
+    setStale(pathname !== path)
+  }, [pathname, path])
+
+  if (stale) return null
   return <>{children}</>
 }

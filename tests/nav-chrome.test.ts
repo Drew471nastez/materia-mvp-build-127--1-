@@ -836,14 +836,39 @@ check(
     return (
       // A baseline to compare against at all.
       /const from = /.test(body) &&
-      // Moved at all -> delivered, whatever is on screen now.
-      /window\.location\.pathname !== from/.test(body) &&
-      // And the escalation re-checks rather than trusting a four-second-old test.
-      /!open\(\) && window\.location\.pathname === from/.test(body)
+      // Moved somewhere that is NOT the sell form -> delivered, and the person
+      // has since gone elsewhere. Nothing to do.
+      /now !== from && !isSellFormRoute\(now\)/.test(body) &&
+      // BUT being ON the sell route with no sheet is not success. That hole is
+      // the size of "press +, the URL changes, and no sheet ever appears" —
+      // which is a dead button with nothing left to catch it. Closing a sheet
+      // moves the URL OFF this route, so this shape is unambiguously broken.
+      /!open\(\) && \(at === from \|\| isSellFormRoute\(at\)\)/.test(body)
     )
   })(),
   "        components/explore/mobile-bottom-nav.tsx — a pathname that MOVED is\n" +
     "        proof the push landed. Only one that never changed is a dead end.",
+)
+
+check(
+  "an intercepted modal can never swallow the screen by hiding on its first render",
+  (() => {
+    // The guard that stops a stale slot drawing the wrong listing returned null
+    // whenever the pathname disagreed — which made a first-render disagreement
+    // fatal rather than cosmetic, and shipped as "I press + and nothing
+    // happens". A comparison that is right on every subsequent render and wrong
+    // on the first now costs a frame instead of the feature: it renders, and an
+    // effect removes it if it turns out to be stale.
+    const guard = strip(read("components/sell/intercepted-only.tsx"))
+    return (
+      /useState\(false\)/.test(guard) &&
+      /useEffect\(\(\) => \{\s*\n\s*setStale\(pathname !== path\)/.test(guard) &&
+      // And nothing may return null straight out of the render again.
+      !/if \(pathname !== path\) return null/.test(guard)
+    )
+  })(),
+  "        components/sell/intercepted-only.tsx — hiding during render makes a\n" +
+    "        first-frame disagreement fatal. Hide from an effect.",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

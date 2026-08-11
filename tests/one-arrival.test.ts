@@ -287,21 +287,34 @@ check(
 )
 
 check(
-  "and the guard fails closed",
+  "and the guard hides from an effect, never during render",
   (() => {
-    // A slot rendering nothing is a screen with no sheet on it, which the next
-    // press fixes. A slot rendering the wrong listing is somebody editing a
-    // thing they did not open, and the first they know of it is what they saved.
+    // IT USED TO FAIL CLOSED, and the reasoning was that a slot showing nothing
+    // is recoverable while a slot showing the wrong listing is not. That is true
+    // about the consequences and wrong about the risk: returning null during
+    // render makes a first-frame disagreement FATAL rather than cosmetic, and
+    // shipped as "I press + and nothing happens" — the sheet never opened at
+    // all.
+    //
+    // Hiding from an effect inverts it. The slot renders, and the effect — which
+    // runs after the router state is unambiguously settled — takes it away if it
+    // is stale. The stale case was mounted under the previous URL, so its effect
+    // re-runs on the pathname change and removes it; the correct case renders
+    // immediately and stays. The cost is at most one frame of the previous
+    // sheet. What it can no longer do is swallow the screen.
     const guard = code("components/sell/intercepted-only.tsx")
     return (
-      /if \(pathname !== path\) return null/.test(guard) &&
+      /setStale\(pathname !== path\)/.test(guard) &&
+      /useEffect\(/.test(guard) &&
+      !/if \(pathname !== path\) return null/.test(guard) &&
       // Against the ROUTER's pathname, not the document's: window.location is
-      // written by a pushState in an effect afterwards and would be the previous
-      // page's on the first render, which would hide the correct modal.
+      // written by a pushState in an effect afterwards.
       /usePathname\(\)/.test(guard) &&
       !/window\.location/.test(guard)
     )
   })(),
+  "        components/sell/intercepted-only.tsx — hiding during render turns a\n" +
+    "        one-frame disagreement into a screen that never opens.",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
