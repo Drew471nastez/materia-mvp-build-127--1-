@@ -48,6 +48,38 @@ import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } fr
  *  Stated once here rather than repeated as 5, 15 and 5 — they are one fact. */
 const ROW = 5
 
+/**
+ * HOW MUCH BROWSING THE TWO PERSONAL ROWS WAIT FOR.
+ *
+ * (Their headings are written once each, below, and deliberately not quoted up
+ * here — the guards in tests/desktop-home.test.ts find those sections by
+ * searching this file for their titles, and a second copy in a comment is the
+ * one they find first.)
+ *
+ * They used to appear on the FIRST listing anybody opened, and that is where
+ * both of them are at their worst. The recently-viewed row with one card in it
+ * is four fifths empty — the grid is five across, so a single view draws one
+ * square and four columns of white — and it is telling somebody something they
+ * already know, about a page they were on ten seconds ago.
+ *
+ * The row above it is worse, because it is FULL: one view of one jumper is
+ * enough for the ranking to produce five cards, and it puts a heading claiming
+ * to know what you are into over a row derived from a single click. The heading
+ * writes a cheque the signal cannot cash, and a recommendation that is obviously
+ * guessing is worse for trust than no recommendation at all.
+ *
+ * FIVE is not an arbitrary threshold: it is one full row of the grid below, so
+ * the first time either row is drawn it is drawn complete, and it is enough
+ * browsing for `signalsFrom` to have a brand or a category with more than one
+ * vote behind it.
+ *
+ * Counted on the HISTORY rather than on either row's own contents, because that
+ * is what "collected" means and it is the one number both rows depend on — the
+ * second row can produce a hundred candidates from a single view, so gating it
+ * on its own length would gate nothing.
+ */
+const MIN_HISTORY = 5
+
 export function DesktopHome({ products }: { products: any[] }) {
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
@@ -135,6 +167,16 @@ export function DesktopHome({ products }: { products: any[] }) {
     return { recentlyViewed, basedOnViews, suggested, rest }
   }, [products, views])
 
+  /**
+   * Whether this device has browsed enough for the two personal rows to exist.
+   *
+   * Read from `views` and not from `sections.recentlyViewed`: a view whose
+   * listing has since sold falls out of that array, and somebody who has opened
+   * eight things should not lose the rows because two of them are gone. What was
+   * collected is what was collected.
+   */
+  const personal = views.length >= MIN_HISTORY
+
   return (
     /* NO ENTRANCE ANIMATION ON THIS CONTAINER, deliberately.
      *
@@ -150,20 +192,26 @@ export function DesktopHome({ products }: { products: any[] }) {
       {/* Personal first. Somebody who has been here before should see what they
           were doing before they see what we would like them to do.
 
-          BOTH OF THESE VANISH COMPLETELY on a device with no history — no
-          heading, no placeholder, nothing. A first visit is not a page with two
-          apologies on it; it is the hero, then suggestions, then the pills,
-          then the categories, and these two arrive on the second visit already
-          full. See the note in listing-row.tsx. */}
-      <ListingRow
-        title="Bazat pe vizualizările tale recente"
-        items={sections.basedOnViews}
-        rows={1}
-        href="/?q="
-        seeMoreLabel="Vezi mai multe"
-      />
+          BOTH OF THESE VANISH COMPLETELY until this device has collected
+          MIN_HISTORY listings — no heading, no placeholder, nothing. An early
+          visit is not a page with two apologies on it; it is the hero, then
+          suggestions, then the pills, then the categories, and these two arrive
+          once there is enough browsing behind them to fill a row and mean
+          something. See the note beside MIN_HISTORY, and the one in
+          listing-row.tsx. */}
+      {personal && (
+        <>
+          <ListingRow
+            title="Bazat pe vizualizările tale recente"
+            items={sections.basedOnViews}
+            rows={1}
+            href="/?q="
+            seeMoreLabel="Vezi mai multe"
+          />
 
-      <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} />
+          <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} />
+        </>
+      )}
 
       <ListingRow
         title="Sugestii pentru tine"

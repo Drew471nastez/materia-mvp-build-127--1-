@@ -295,6 +295,23 @@ export function MobileWebHeader() {
   // font loads, so it is observed rather than written down twice.
   const headerRef = useRef<HTMLElement>(null)
   /**
+   * Read the header and write its height to the root, forcing layout on the way.
+   *
+   * `getBoundingClientRect()` is what makes this correct rather than merely
+   * early: called inside a layout effect it flushes pending style and layout, so
+   * it returns the height the header has AFTER the commit that just happened
+   * rather than the one it had before.
+   */
+  const publishHeaderHeight = useCallback(() => {
+    const el = headerRef.current
+    if (!el) return
+    document.documentElement.style.setProperty(
+      "--web-header-h",
+      `${Math.round(el.getBoundingClientRect().height)}px`,
+    )
+  }, [])
+
+  /**
    * A LAYOUT effect, and that is the whole of a layout shift on every
    * navigation.
    *
@@ -316,11 +333,8 @@ export function MobileWebHeader() {
   useLayoutEffect(() => {
     const el = headerRef.current
     if (!el || typeof ResizeObserver === "undefined") return
-    const publish = () => {
-      document.documentElement.style.setProperty("--web-header-h", `${Math.round(el.getBoundingClientRect().height)}px`)
-    }
-    publish()
-    const observer = new ResizeObserver(publish)
+    publishHeaderHeight()
+    const observer = new ResizeObserver(publishHeaderHeight)
     observer.observe(el)
     return () => {
       observer.disconnect()
@@ -338,7 +352,41 @@ export function MobileWebHeader() {
       // so it is set to zero, not left alone.
       document.documentElement.style.setProperty("--web-header-h", "0px")
     }
-  }, [])
+  }, [publishHeaderHeight])
+
+  /**
+   * ===========================================================================
+   *  THE BUMP BETWEEN THE PROFILE AND THE HOME PAGE
+   * ===========================================================================
+   * This header is not one height. `isCompactHeader` drops the search row on
+   * /profile, /settings, /messages and the order pages, so crossing between your
+   * account and the feed changes it by a whole row — about 56px. And the feed is
+   * `position: fixed` with `top: var(--web-header-h)`, so that number is not
+   * decoration: it is where the home screen starts.
+   *
+   * The effect above publishes it, and it runs ONCE. On a route change the
+   * header re-renders taller or shorter without remounting, so nothing above
+   * re-ran — the only thing left to notice was the ResizeObserver, which fires
+   * from the browser's own rendering steps rather than from the commit that
+   * caused the change. The value was therefore right in the end and wrong at the
+   * moment it mattered, and the feed arrived inset by the height of the header
+   * you had just LEFT before settling onto the height of the one you are looking
+   * at. That is the little bump on the way to Acasă, and it plays in reverse on
+   * the way back.
+   *
+   * So the height is republished from the commit that reshapes the header,
+   * synchronously, before the browser paints the arriving route. `compact` is
+   * the whole of what can change it between routes — the icon row is a fixed
+   * `h-14` and the safe-area inset does not move — so this fires exactly when
+   * the geometry actually changes and not on every navigation.
+   *
+   * The observer stays for everything a render cannot predict: the logo's font
+   * landing, an orientation change, the safe-area inset changing on a
+   * standalone install.
+   */
+  useLayoutEffect(() => {
+    publishHeaderHeight()
+  }, [compact, publishHeaderHeight])
 
   return (
     <>

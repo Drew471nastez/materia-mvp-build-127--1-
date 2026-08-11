@@ -888,11 +888,45 @@ check(
     // The seller's own figure has to lead. A line that opens with the buyer's
     // total reads as the price going up; the same two numbers the other way
     // round read as protection being added to theirs.
-    const line = sellForm.slice(sellForm.indexOf("price-total-in mt-2.5"))
+    //
+    // BOTH still have to be there. The row got quieter, not shorter by a number:
+    // the buyer's total is the one that surprises somebody later on the listing
+    // page, and a form that drops it is a form that lets them find out
+    // afterwards.
+    const line = sellForm.slice(sellForm.indexOf("price-total-in "))
     return (
       line.indexOf("formatPlatformMoney(priceCents)") <
         line.indexOf("formatPlatformMoney(buyerPaysCents(priceCents))") &&
-      /incl\./.test(line)
+      /Primești/.test(line) &&
+      /cumpărătorul vede/.test(line)
+    )
+  })(),
+  "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "it is a caption under the field, not a panel shouting at it",
+  (() => {
+    // A tinted, full-width, two-and-a-half-line box under a field somebody is
+    // still typing into was the loudest thing in the Preț section — louder than
+    // the price field. A row that shouts reads as a warning, and this is not
+    // one: nothing has gone wrong and nothing needs deciding. It restates the
+    // number just typed and names the one a buyer will see, which is a caption.
+    //
+    // The whole element, from its opening tag to the end of the section — the
+    // class attribute is where the marker is, and slicing from there would start
+    // the window after `<button` and its handler.
+    const at = sellForm.indexOf("price-total-in ")
+    const line = sellForm.slice(sellForm.lastIndexOf("<", at), sellForm.indexOf("</section>", at))
+    return (
+      // No tinted ground, no chevron pointing at itself, no full-width block.
+      !/bg-\[#7c3aed\]\/\[0\.07\]/.test(line) &&
+      !/<ChevronRight/.test(line) &&
+      !/\bw-full\b/.test(line) &&
+      // What says it is pressable instead: the text darkens under a finger.
+      /active:text-neutral-800/.test(line) &&
+      // And it is smaller than the row it replaced, which was 12.5px.
+      /text-\[12px\]/.test(line)
     )
   })(),
   "        components/sell/new-listing-form.tsx",
@@ -935,17 +969,21 @@ check(
     // a centred dialog on a desktop. One explanation, in one place, reached the
     // same way from every surface that quotes the fee.
     //
-    // Violet, because unlike the caption this replaced, this one is pressable.
+    // The shield keeps the brand violet even though the row around it is now a
+    // grey caption: it is the mark that says there is something behind this
+    // line, and it is the same mark on the same errand everywhere else in the
+    // product.
+    //
     // From the element's OPENING TAG, not from its class attribute. The class
     // is where the marker is, and slicing from there starts the window after
     // `<button` and its onClick — so the first version of this reported both
     // missing while they were sitting two lines above the slice.
-    const at = sellForm.indexOf("price-total-in mt-2.5")
+    const at = sellForm.indexOf("price-total-in ")
     const line = sellForm.slice(sellForm.lastIndexOf("<", at), sellForm.indexOf("</section>", at))
     return (
       /<button/.test(line) &&
       /onClick=\{\(\) => openBuyerProtection\(\)\}/.test(line) &&
-      /<ShieldCheck[^>]*text-\[#7c3aed\]/.test(line) &&
+      /<ShieldCheck[\s\S]{0,160}?text-\[#7c3aed\]/.test(line) &&
       !/<InfoTip/.test(line)
     )
   })(),

@@ -998,8 +998,16 @@ export function MobileFeed({
       // GlobalMobileNav now renders on every route including this one, at
       // z-[80] above this shell, mounted once in the layout and never
       // unmounted. See components/marketing/global-mobile-nav.tsx.
+      //
+      // THE HEIGHT IS NOT INLINE, and it used to be (`style={{height:"100dvh"}}`).
+      // An inline declaration outranks every selector in the stylesheet, so on a
+      // phone browser the shell took the rule's `top: var(--web-header-h)` and
+      // refused its matching `height: calc(100dvh - var(--web-header-h))` — a
+      // full viewport starting below the header, hanging off the bottom of the
+      // screen by exactly the header's height, with the tab-bar spacer and the
+      // last row of listings down there. It is `.mobile-feed-shell` in
+      // app/globals.css now, where the web rule can subtract from it.
       className={cn("mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white", returning && "feed-return")}
-      style={{ height: "100dvh" }}
     >
       {/* The shadow the feed comes back out of. Portalled to the body on purpose:
           it has to stay still while the feed slides, or it would travel with it

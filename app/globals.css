@@ -4862,7 +4862,26 @@ html:not(.capacitor):has(.web-only-header) .native-only-topbar {
    tracks the real measured header rather than a number written twice.
 
    Scoped to `html:not(.capacitor)` and to phone widths, so the app and the
-   desktop grid are untouched.                                                 */
+   desktop grid are untouched.
+
+   ── AND THE HEIGHT IS STATED HERE RATHER THAN INLINE ────────────────────────
+   Both the feed and its loading shell used to carry `style={{height:"100dvh"}}`
+   on the element itself, which is exactly the rule below with one extra point of
+   specificity that nothing can outrank: an inline declaration beats any selector
+   short of `!important`. So on a phone BROWSER the shell was inset from the top
+   by the header's height and still a full viewport TALL — it hung off the bottom
+   of the screen by precisely that amount, and what hangs off the bottom is the
+   spacer that reserves the tab bar plus the last row of listings under it.
+
+   The inline style was there because `h-screen` is 100vh, which on a phone
+   browser is the viewport WITH the address bar collapsed and therefore too tall
+   the whole time it is not. `100dvh` is the fix for that, and it belongs in this
+   file where the web rule can subtract from it. `inset: 0` still supplies the
+   other three sides; an over-constrained fixed box drops `bottom` in favour of a
+   stated height, which is why the height has to be stated at all.             */
+.mobile-feed-shell {
+  height: 100dvh;
+}
 @media (width < 48rem) {
   html:not(.capacitor) .mobile-feed-shell {
     top: var(--web-header-h, 0px);

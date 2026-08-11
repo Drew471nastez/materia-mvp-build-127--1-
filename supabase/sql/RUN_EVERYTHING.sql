@@ -1979,24 +1979,46 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists is_staff boolean not null default false;
 
--- The one account that has both, addressed by the email it signed up with
--- rather than by a uuid pasted into a file. `lower()` on both sides because an
--- address is case-insensitive in its local part by every practical convention
--- and Supabase stores whatever was typed.
+-- ---------------------------------------------------------------------------
+-- THE ADMINS CARRY THE STORELIB MARK AND NOT THE BLUE CHECK
+-- ---------------------------------------------------------------------------
+-- Both of these accounts were granted both marks by an earlier version of this
+-- file, and the check is being taken back off. It is not a change of mind about
+-- who they are; it is that the two marks answer different questions and only one
+-- of them is worth asking about somebody who works here.
+--
+-- The check says "this account is who it claims to be", which is a statement
+-- that matters when there is somebody to be mistaken for — a brand, a shop, a
+-- seller with a following. The Storelib mark already says something strictly
+-- stronger about these two: it says they work here, and it is granted by a
+-- column no account can set for itself. Beside that, a check adds nothing and
+-- costs something — two marks after one name reads as decoration, and it spends
+-- the recognisable blue tick on the two accounts that need it least, which is
+-- exactly how a verification mark stops meaning anything.
+--
+-- `is_verified = false` is written EXPLICITLY rather than by simply dropping
+-- these statements. The column already holds `true` for both of them in the
+-- live database, so a file that merely stops granting it would leave the badge
+-- exactly where it is and this would read as done when nothing had happened.
+--
+-- The one account addressed by the email it signed up with rather than by a
+-- uuid pasted into a file. `lower()` on both sides because an address is
+-- case-insensitive in its local part by every practical convention and Supabase
+-- stores whatever was typed.
 --
 -- Idempotent: re-running sets the same two booleans to the same two values.
 update public.profiles p
-   set is_verified = true,
+   set is_verified = false,
        is_staff    = true
   from auth.users u
  where u.id = p.id
    and lower(u.email) = lower('nastees112@gmail.com');
 
--- The same two marks for the other account that has them, addressed by handle
--- because that is the identifier that was given for it. `lower()` on both
--- sides: usernames are matched case-insensitively everywhere they are read.
+-- The same for the other account that has the mark, addressed by handle because
+-- that is the identifier that was given for it. `lower()` on both sides:
+-- usernames are matched case-insensitively everywhere they are read.
 update public.profiles
-   set is_verified = true,
+   set is_verified = false,
        is_staff    = true
  where lower(username) = lower('ZarraBianco');
 
