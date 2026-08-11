@@ -20,6 +20,25 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
+// Set up a browser BEFORE the module under test is used. auth-snapshot only
+// touches `window` inside its functions, never at load, so a static import is
+// safe as long as nothing is CALLED before this runs.
+const store = new Map<string, string>()
+;(globalThis as any).localStorage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, v),
+  removeItem: (k: string) => void store.delete(k),
+}
+;(globalThis as any).window = new EventTarget()
+
+import {
+  AUTH_SNAPSHOT_EVENT,
+  clearAuthSnapshot,
+  readAuthSnapshot,
+  subscribeAuthSnapshot,
+  writeAuthSnapshot,
+} from "@/lib/auth/auth-snapshot"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -361,9 +380,9 @@ check(
     const newPage = strip(read("app/(marketing)/products/new/page.tsx"))
     return (
       /const \{ id \} = await params/.test(editModal) &&
-      /<NewListingForm editId=\{id\} overlay \/>/.test(editModal) &&
+      /<NewListingForm editId=\{id\} initialListing=\{listing\} overlay \/>/.test(editModal) &&
       /const \{ id \} = await params/.test(editPage) &&
-      /<NewListingForm editId=\{id\} \/>/.test(editPage) &&
+      /<NewListingForm editId=\{id\} initialListing=\{listing\} \/>/.test(editPage) &&
       /const \{ draft \} = await searchParams/.test(newModal) &&
       /draftId=\{draft \?\? null\} overlay/.test(newModal) &&
       /const \{ draft \} = await searchParams/.test(newPage) &&
@@ -378,14 +397,44 @@ check(
 )
 
 check(
-  "the intercepted edit route has its own loading shell",
+  "the intercepted edit route has NO loading shell, so it arrives once",
   (() => {
-    // A Suspense fallback resolves to the nearest loading.tsx up the tree, which
-    // without this is the FULL-PAGE shell — a centred column of grey blocks with
-    // no sheet. Tapping Editează would show a page-shaped skeleton in place and
-    // then the real sheet sliding up over it: two arrivals, which is the flash
-    // the interception exists to prevent.
-    return existsSync(join(process.cwd(), "app/(marketing)/@modal/(.)products/edit/[id]/loading.tsx"))
+    // It had one, and adding the server read is what made it wrong. A
+    // `loading.tsx` IS a Suspense boundary: Next shows the fallback immediately
+    // and swaps the real thing in when it resolves. While the page was
+    // synchronous that fallback almost never appeared; the moment it started
+    // awaiting a database read it appeared every time — a sheet-shaped skeleton
+    // sliding up, then the real sheet replacing it. Two arrivals for one tap,
+    // which is the exact fault the server read was added to remove.
+    //
+    // With no boundary here, and none around `{modal}` in the layout either, the
+    // navigation waits: the screen you are on stays put, then the sheet mounts
+    // once, already full. The prefetch in the manage sheet is what pays for the
+    // wait.
+    const layout = strip(read("app/(marketing)/layout.tsx"))
+    return (
+      !existsSync(join(process.cwd(), "app/(marketing)/@modal/(.)products/edit/[id]/loading.tsx")) &&
+      // If the layout ever wraps the slot in Suspense, this all comes back.
+      !/<Suspense[^>]*>\s*\{modal\}/.test(layout) &&
+      /\{modal\}/.test(layout)
+    )
+  })(),
+)
+
+check(
+  "but the full-page one keeps its shell, because a cold load has nothing to hold",
+  // Not an inconsistency: with no previous screen the choice there is a shell or
+  // a blank document.
+  existsSync(join(process.cwd(), "app/(marketing)/products/edit/[id]/loading.tsx")),
+)
+
+check(
+  "and the route is warmed from the profile grid too, not only from the sheet",
+  (() => {
+    // Archived and draft cards reach the edit screen through SmartLink, which is
+    // the other way in and the one with no explicit prefetch beside it.
+    const link = strip(read("components/smart-link.tsx"))
+    return /router\.prefetch\(resolvedHref\)/.test(link)
   })(),
 )
 
@@ -656,7 +705,9 @@ check(
       /if \(PUBLIC_PAGE\.includes\(listing\.status as ListingStatus\)\) return `\/products\/\$\{listing\.slug\}`/.test(
         statuses,
       ) &&
-      /const key = listing\.status === "draft" \? "draft" : "edit"/.test(statuses) &&
+      // The two hrefs are built by sell-route.ts now rather than spelled out
+      // here — see "archived and draft cards no longer point at a dead address".
+      /sellDraftHref\(listing\.id\) : sellEditHref\(listing\.id\)/.test(statuses) &&
       /hrefOverride=\{isOwner \? ownerListingHref\(listing\) : undefined\}/.test(profile) &&
       /const productUrl = hrefOverride \?\? getListingUrl/.test(card)
     )
@@ -848,7 +899,7 @@ check(
     return (
       /cornerAction=\{\s*\n?\s*isOwner \? \(/.test(profile) &&
       /setManageFor\(listing\)/.test(profile) &&
-      /\{cornerAction \?\? \(mine \? null : <WishlistHeartButton/.test(card)
+      /\{cornerAction \?\?\s*\n\s*\(known && !mine \? \(/.test(card)
     )
   })(),
 )
@@ -1029,6 +1080,8 @@ check(
 
 const profileSrc = strip(read("components/member/member-profile.tsx"))
 const pinnedSrc = strip(read("components/member/profile-pinned-header.tsx"))
+const pinHook = strip(read("lib/marketplace/use-pinned-bar.ts"))
+const listingPinned = strip(read("components/product/listing-pinned-header.tsx"))
 const lockSrc = strip(read("lib/scroll-lock.ts"))
 const bottomSheet = strip(read("components/ui/bottom-sheet.tsx"))
 const dialog = strip(read("components/ui/confirm-dialog.tsx"))
@@ -1115,16 +1168,49 @@ check(
     // Tied to the sheet's own 380ms, the page behind was still fully legible
     // when the panel was halfway up — two things arriving at once, and the eye
     // reads the whole screen going dark as the slower of the two.
-    return /const SCRIM_IN = "opacity 240ms/.test(bottomSheet) && /const SPRING_IN = "transform 380ms/.test(bottomSheet)
+    // The invariant is that the dim LEADS the travel, not a particular number:
+    // 240 was reached by shortening it, which fixed the ordering and made the
+    // fade itself read as a cut. See the easing check below.
+    const scrimIn = Number(bottomSheet.match(/SCRIM_IN = `opacity (\d+)ms/)?.[1])
+    const springIn = Number(bottomSheet.match(/SPRING_IN = "transform (\d+)ms/)?.[1])
+    return scrimIn > 0 && springIn > 0 && scrimIn < springIn
   })(),
 )
 
 check(
   "and clears before it has finished leaving",
   (() => {
-    const scrimOut = Number(bottomSheet.match(/SCRIM_OUT = "opacity (\d+)ms/)?.[1])
+    const scrimOut = Number(bottomSheet.match(/SCRIM_OUT = `opacity (\d+)ms/)?.[1])
     const springOut = Number(bottomSheet.match(/SPRING_OUT = "transform (\d+)ms/)?.[1])
     return scrimOut > 0 && springOut > 0 && scrimOut < springOut
+  })(),
+)
+
+check(
+  "the dimming is an EVEN fade, not the sheet's spring borrowed",
+  (() => {
+    // `cubic-bezier(0.32, 0.72, 0, 1)` is the sheet's own curve and handing it to
+    // an opacity is a category error dressed as consistency. It is violently
+    // front-loaded, which is exactly right for TRAVEL — a sheet that leaves fast
+    // and settles slowly reads as an object with momentum — and an opacity has
+    // no momentum to read. It reaches ~62% in the first quarter of its duration,
+    // so at 240ms the screen was fully dimmed in about sixty milliseconds and
+    // spent the rest on rounding. A cut with a tail on it, which is what read as
+    // cheap.
+    const ease = /const SCRIM_EASE = "(cubic-bezier\([^"]+\))"/.exec(bottomSheet)?.[1]
+    if (!ease) return false
+    const pts = ease.replace(/[^0-9.,]/g, "").split(",").map(Number)
+    return (
+      // Both control points inside 0..1 — no overshoot, no spring.
+      pts.length === 4 &&
+      pts.every((n) => n >= 0 && n <= 1) &&
+      // Symmetric: what it does on the way in it does in reverse on the way out.
+      Math.abs(pts[1] - (1 - pts[3])) < 0.01 &&
+      // And it is NOT the sheet's, which keeps its spring because the sheet is
+      // the thing that actually moves.
+      !/SCRIM_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(bottomSheet) &&
+      /const SPRING_IN = "transform \d+ms cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(bottomSheet)
+    )
   })(),
 )
 
@@ -1169,7 +1255,12 @@ check(
   (() => {
     // Scrolling it to y=0 puts it under frosted glass, which reads as having
     // scrolled too far.
-    return /getBoundingClientRect\(\)\.top - pinnedOffset\(\)/.test(profileSrc) && /profile-pinned\[data-shown="true"\]/.test(profileSrc)
+    // `pinnedOffset` lives in lib/marketplace/use-pinned-bar.ts now, beside the
+    // observer pair, because the listing page needs the same measurement.
+    return (
+      /getBoundingClientRect\(\)\.top - pinnedOffset\(\)/.test(profileSrc) &&
+      /profile-pinned\[data-shown="true"\]/.test(pinHook)
+    )
   })(),
 )
 
@@ -1203,16 +1294,19 @@ check(
     // running every frame to compute a boolean that changes twice a session is
     // main-thread work paid for continuously and used almost never.
     return (
-      /new IntersectionObserver/.test(profileSrc) &&
-      !/addEventListener\("scroll"/.test(profileSrc) &&
-      !/addEventListener\("scroll"/.test(pinnedSrc)
+      /new IntersectionObserver/.test(pinHook) &&
+      !/addEventListener\("scroll"/.test(pinHook) &&
+      !/addEventListener\("scroll"/.test(pinnedSrc) &&
+      // And the profile reaches it through the shared hook rather than keeping
+      // its own copy, so the two screens cannot drift.
+      /usePinnedBar<HTMLSpanElement>\(\)/.test(profileSrc)
     )
   })(),
 )
 
 check(
   "it appears when the name goes ABOVE, not before it is reached",
-  /entry\.boundingClientRect\.top < 0/.test(profileSrc),
+  /entry\.boundingClientRect\.top < 0/.test(pinHook),
 )
 
 check(
@@ -1241,34 +1335,45 @@ check(
 )
 
 check(
-  "the bar does not survive a modal opening over the page",
+  "NO bar survives a modal opening over its page — and not by a per-screen list",
   (() => {
-    // "Vinde un articol" appeared with this profile's bar across the top of it.
-    // /products/new is an INTERCEPTED route, which is what lets the sell sheet
-    // open without losing the page behind — so this component is not unmounted,
-    // and its bar, portalled to <body> and fixed to the viewport, went on being
-    // drawn over a screen it has nothing to do with.
+    // "Vinde un articol" appeared with the profile's bar across the top of it,
+    // and later the sell form opened with the LISTING page's bar — back arrow,
+    // ⋯, share and the product's title — over a form for editing that same
+    // product. Intercepted routes render into the @modal slot while the page
+    // underneath stays mounted, so its bar, portalled to <body> and fixed to the
+    // viewport, goes on being drawn.
+    //
+    // It looks exactly like a z-index problem and is not: the bar is z-60 and
+    // the sheet z-95, but the bar is a body child while the sheet sits inside a
+    // wrapper that establishes a stacking context, so the sheet's 95 never
+    // competes with the bar at all. Raising numbers chases that around.
+    //
+    // The profile fixed it for itself with a hand-written list of its own paths.
+    // That did not generalise — the listing page grew a bar, did not copy the
+    // list, and the bug came back on a different screen. So the rule is in the
+    // hook, captured at mount, and no caller has to remember it.
     return (
-      /usePathname/.test(profileSrc) &&
-      /pathname === "\/profile" \|\| !!pathname\?\.startsWith\("\/member\/"\)/.test(profileSrc) &&
-      /visible=\{pinned && onScreen\}/.test(profileSrc)
+      /const pathname = usePathname\(\)/.test(pinHook) &&
+      /if \(ownPath\.current === null\) ownPath\.current = pathname \?\? ""/.test(pinHook) &&
+      // The shape gained a third field — `left`, which says WHY the bar is
+      // hidden so the route hide can be instant while the scroll hide keeps
+      // its animation. What this check is about is unchanged: `pinned` is
+      // still ANDed with being on the page in front.
+      /pinned: pinned && onOwnScreen/.test(pinHook) &&
+      // And the per-screen allowlist is gone rather than left beside it.
+      !/pathname === "\/profile" \|\| !!pathname\?\.startsWith\("\/member\/"\)/.test(profileSrc) &&
+      /visible=\{pinned\}/.test(profileSrc)
     )
   })(),
 )
 
-check(
-  "the face comes first, then the name, as everywhere else",
-  (() => {
-    // The avatar sat against the controls, so the two halves of "whose profile
-    // is this" were at opposite edges and the picture read as a fourth button.
-    // Grouped, and in the header's own order — reversing them made the bar read
-    // as a different thing that happened to contain the same two elements.
-    const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
-    const faceAt = group.indexOf("<PinnedAvatar")
-    const nameAt = group.indexOf("{name}\n")
-    return faceAt > 0 && nameAt > faceAt
-  })(),
-)
+// The ordering of the face and the name is asserted ONCE, further down, under
+// "and the face is AFTER the name, which is what was asked for". A check
+// enforcing the opposite order stood here and has been removed rather than
+// loosened: two checks disagreeing about the same two elements is how the bar
+// came to be written both ways twice. The reasoning for each side is recorded at
+// the surviving check and in the component.
 
 check(
   "the bar is opaque, not frosted",
@@ -1377,7 +1482,12 @@ check(
     // Two panels of different weights moving at once. The status actions already
     // defer their refresh by exactly this constant for exactly this reason.
     const edit = sheet.slice(sheet.indexOf("const onEdit = useCallback"), sheet.indexOf("const act = useCallback"))
-    return /setTimeout\(\(\) => router\.push\(editHref\), AFTER_EXIT_MS\)/.test(edit)
+    // Through `navigateBlended`, which is also what puts the progress bar up
+    // during the wait — see "the wait is narrated, but only when there is one".
+    return (
+      /AFTER_EXIT_MS\)/.test(edit) &&
+      /navigateBlended\("enter", \(\) => router\.push\(editHref\)\)/.test(edit)
+    )
   })(),
 )
 
@@ -1450,6 +1560,463 @@ check(
   })(),
 )
 
+console.log("\nThe edit screen arrives already filled in")
+
+check(
+  "the route reads the row, so there is no second arrival to watch",
+  (() => {
+    // The form used to fetch this itself: the sheet mounted empty, slid up, and
+    // the row landed a few hundred milliseconds later — every field, every chip
+    // and eight photographs appearing at once, AFTER the slide had finished. Two
+    // arrivals for one tap, and the second cannot be part of the transition
+    // because the transition is over by then.
+    const modal = strip(read("app/(marketing)/@modal/(.)products/edit/[id]/page.tsx"))
+    const page = strip(read("app/(marketing)/products/edit/[id]/page.tsx"))
+    return (
+      /const listing = await loadOwnedListing\(id\)/.test(modal) &&
+      /initialListing=\{listing\}/.test(modal) &&
+      /const listing = await loadOwnedListing\(id\)/.test(page) &&
+      /initialListing=\{listing\}/.test(page)
+    )
+  })(),
+)
+
+check(
+  "every field is seeded on the first render rather than set by an effect",
+  (() => {
+    // A `useState` initialiser runs before the first paint. `setTitle` in an
+    // effect is a second render, which is the pop.
+    return (
+      /const seed = useRef\(initialListing \? fieldsFromRow\(initialListing\) : null\)\.current/.test(form) &&
+      /useState<Photo\[\]>\(seed\?\.photos \?\? \[\]\)/.test(form) &&
+      /useState\(seed\?\.title \?\? ""\)/.test(form) &&
+      /useState\(seed\?\.price \?\? ""\)/.test(form)
+    )
+  })(),
+)
+
+check(
+  "and the form does not then fetch the row it was just handed",
+  (() => {
+    // The answer would be identical to what is on screen, and applying it would
+    // overwrite anything typed while it was in flight.
+    return /if \(seed\) return\s*\n\s*const id = draftId \?\? editId/.test(form)
+  })(),
+)
+
+check(
+  "'unchanged' is measured from the seeded values, not from an empty form",
+  (() => {
+    // `formReady` is what decides when the baseline for `dirty` is taken. Left
+    // false on a seeded form, the baseline would be taken later and the fields
+    // would compare unequal to an empty form — every edit screen opening as
+    // though somebody had already typed in it, and closing would ask whether to
+    // discard changes nobody made.
+    return /const \[formReady, setFormReady\] = useState\(!!seed\)/.test(form)
+  })(),
+)
+
+check(
+  "one mapping from row to fields, shared by both paths",
+  (() => {
+    // The seeded path and the draft path both turn a row into field values. Two
+    // copies is two places for "the era chip does not come back" to live.
+    return (
+      /function fieldsFromRow\(/.test(form) &&
+      /const next = fieldsFromRow\(v\)/.test(form) &&
+      (form.match(/thumbnail_url, \.\.\.\(Array\.isArray/g) ?? []).length === 1
+    )
+  })(),
+)
+
+check(
+  "the server read is ownership-scoped in the query itself",
+  (() => {
+    // The id is a uuid anybody can read off a listing page. Fetched by id AND by
+    // the caller's creator id in one statement — not fetched and then compared,
+    // which leaks a row's existence through timing and through which error comes
+    // back.
+    const owned = strip(read("lib/marketplace/owned-listing.ts"))
+    return (
+      /\.eq\("id", id\)\s*\n\s*\.eq\("creator_id", creatorId\)/.test(owned) &&
+      /import "server-only"/.test(owned)
+    )
+  })(),
+)
+
+console.log("\nAn archived card opens the screen that can do something about it")
+
+check(
+  "archived and draft cards no longer point at a dead address",
+  (() => {
+    // REGRESSION, caught twice in the same function. It wrote
+    // `/products/new?edit=<id>` by hand and was left pointing there after the
+    // edit screen moved to its own route — so tapping an archived card, on the
+    // one shelf that exists to make archived listings reachable again, opened a
+    // blank NEW-listing form. The comment above it already records this function
+    // linking to a 404 once before, for the same reason: an address written out
+    // in a file that does not own addresses.
+    const statuses = strip(read("lib/marketplace/listing-status.ts"))
+    return (
+      !/products\/new\?edit=/.test(statuses) &&
+      /return listing\.status === "draft" \? sellDraftHref\(listing\.id\) : sellEditHref\(listing\.id\)/.test(
+        statuses,
+      )
+    )
+  })(),
+)
+
+check(
+  "a published card still opens the listing, not the form",
+  /if \(PUBLIC_PAGE\.includes\(listing\.status as ListingStatus\)\) return `\/products\/\$\{listing\.slug\}`/.test(
+    strip(read("lib/marketplace/listing-status.ts")),
+  ),
+)
+
+console.log("\nYou cannot save your own listing")
+
+check(
+  "the grid card hides the heart on your own listing",
+  (() => {
+    // A wishlist is a list of things you might buy, and the checkout refuses your
+    // own item — the listing page has already replaced Buy and Make an offer for
+    // exactly that reason. A heart there is a control whose only honest outcome
+    // is putting something you already own on a list of things to acquire.
+    const card = strip(read("components/explore/product-card.tsx"))
+    return (
+      /const \{ mine, known \} = useListingOwnership\(/.test(card) &&
+      /known && !mine \? \(\s*\n\s*<WishlistHeartButton/.test(card)
+    )
+  })(),
+)
+
+check(
+  "and so does the full-screen one in For You",
+  (() => {
+    // It did not, so the SAME listing offered a save on the grid and not in the
+    // reel — which is worse than either answer alone, because it reads as one of
+    // the two being broken.
+    const reel = strip(read("components/explore/mobile-listing-card.tsx"))
+    return (
+      /const \{ mine, known \} = useListingOwnership\(username, product\.creator\?\.user_id\)/.test(reel) &&
+      /\{known && !mine && \(\s*\n\s*<button type="button" onClick=\{onLike\}/.test(reel)
+    )
+  })(),
+)
+
+check(
+  "the control is removed, not disabled",
+  (() => {
+    // A greyed-out heart still asks to be pressed, and the answer would be a
+    // refusal.
+    const reel = strip(read("components/explore/mobile-listing-card.tsx"))
+    return !/disabled=\{mine\}/.test(reel) && !/opacity-\d+.*mine/.test(reel)
+  })(),
+)
+
+check(
+  "and it is decided from the snapshot, not from a request per card",
+  (() => {
+    // The feed is cached and auth-free on purpose — that is most of why it opens
+    // instantly — so this cannot become sixty ownership lookups.
+    const hook = strip(read("lib/marketplace/use-my-username.ts"))
+    return /readAuthSnapshot\(\)/.test(hook) && !/fetch\(/.test(hook)
+  })(),
+)
+
+console.log("\nThe category rail does not flinch on the way back to For You")
+
+check(
+  "restoring a tab's scroll position is not read as a scroll DOWN",
+  (() => {
+    // The bar hides on scroll-down and reveals on scroll-up, by comparing
+    // against `lastScrollY`. On a tab change the reset sets that to 0 and the
+    // restore then jumps to the remembered offset — say 1500px — which the
+    // handler reads as a fifteen-hundred-pixel downward scroll. So the bar
+    // rendered, was visible for a frame, and slid away on its own with nothing
+    // having been scrolled by hand. Only For You has a position to restore,
+    // which is why it was that transition and no other.
+    const feed = strip(read("components/explore/mobile-feed.tsx"))
+    const fx = feed.slice(feed.indexOf("if (!tabSettled.current)"))
+    return (
+      /const top = tabScroll\.current\[tab\] \?\? 0/.test(fx.slice(0, 400)) &&
+      /lastScrollY\.current = top/.test(fx.slice(0, 900))
+    )
+  })(),
+)
+
+check(
+  "and the seed is written BEFORE the scroll it describes",
+  (() => {
+    // The scroll event is asynchronous, so writing it afterwards races the
+    // handler it exists to inform — and it is also correct when the event never
+    // fires at all, which is what restoring 0 from 0 does.
+    const feed = strip(read("components/explore/mobile-feed.tsx"))
+    const fx = feed.slice(feed.indexOf("if (!tabSettled.current)"))
+    const seed = fx.indexOf("lastScrollY.current = top")
+    const scroll = fx.indexOf("scrollTo({ top, behavior: \"auto\" })")
+    return seed > 0 && scroll > seed
+  })(),
+)
+
+console.log("\nThe listing page grows the same bar the profile has")
+
+check(
+  "it is the SAME bar, not a second one that looks like it",
+  (() => {
+    // Two near-identical bars is how one of them ends up 4px taller with a
+    // different curve, on the two screens people move between most.
+    return (
+      /className="profile-pinned md:hidden"/.test(listingPinned) &&
+      /usePinnedBar<HTMLSpanElement>\(\)/.test(detail) &&
+      /<ListingPinnedHeader/.test(detail)
+    )
+  })(),
+)
+
+check(
+  "it carries the way back, the title, and the controls that were on the photo",
+  (() => {
+    // Exactly what scrolled away, and nothing new: a bar that grows a control
+    // the screen did not have is a bar that has to be learned.
+    return (
+      /label="Înapoi"/.test(listingPinned) &&
+      /label="Distribuie"/.test(listingPinned) &&
+      /label="Gestionează anunțul"/.test(listingPinned) &&
+      /\{title\}/.test(listingPinned) &&
+      /title=\{product\.title \?\? ""\}/.test(detail)
+    )
+  })(),
+)
+
+check(
+  "a long title truncates instead of pushing the controls off the screen",
+  (() => {
+    // Listing titles are written by sellers and are frequently a paragraph. The
+    // controls beside them have a fixed width, so without this a long one shoves
+    // back, manage and share off the right-hand edge.
+    // Absolutely positioned and centred across the whole bar now, so the
+    // truncation is bounded by a max-width that reserves the wider side at both
+    // ends rather than by flex leftovers.
+    return (
+      /absolute inset-x-0 mx-auto max-w-\[calc\(100%-180px\)\] truncate text-center/.test(listingPinned) &&
+      /shrink-0/.test(listingPinned)
+    )
+  })(),
+)
+
+check(
+  "the title is centred against the SCREEN, not against the leftover space",
+  (() => {
+    // As a flex child between the back arrow and the controls it was centred in
+    // what remained — and the two sides are not the same width, one button
+    // against two, so it sat visibly left of centre and read as hanging off the
+    // back arrow rather than titling the screen.
+    return (
+      /text-center/.test(listingPinned) &&
+      !/min-w-0 flex-1/.test(listingPinned) &&
+      // It overlays the controls' row now, so it must not swallow their taps.
+      /pointer-events-none absolute inset-x-0/.test(listingPinned) &&
+      // And the controls are pushed right by the layout rather than by the title.
+      /ml-auto flex shrink-0/.test(listingPinned)
+    )
+  })(),
+)
+
+check(
+  "and it is a phone thing, because a monitor never loses the photograph",
+  /md:hidden/.test(listingPinned),
+)
+
+check(
+  "the bar takes over from the controls on the photograph, not from the title",
+  (() => {
+    // The sentinel sat under the <h1>, so the bar did not arrive until the whole
+    // photograph AND the title had gone past the top — six hundred pixels or
+    // more on a phone, most of it spent with no way back on screen. It was
+    // correct and arrived long after it was needed.
+    //
+    // What it stands in for is the row of white controls on the photograph, so
+    // the moment to hand over is when THOSE leave: they sit at the status-bar
+    // inset plus 10px and are 40px tall, so they are gone by ~90px of scroll.
+    const at = detail.indexOf('ref={titleEndRef}')
+    const h1 = detail.indexOf("<h1")
+    return (
+      at > 0 &&
+      at < h1 &&
+      // Below where the photo's controls finish leaving (~90px), not at it: at
+      // 90 the bar arrived ~146px in and read as chasing them off, and a short
+      // flick was enough to summon it. Tuned HERE and not in the hook, because
+      // SHOW_AT is shared with the profile's bar.
+      /absolute left-0 top-\[130px\] h-0 w-full/.test(detail) &&
+      /const SHOW_AT = 56/.test(pinHook)
+    )
+  })(),
+)
+
+console.log("\nYour own card does not offer to save itself, whoever you are")
+
+check(
+  "ownership is decided by user id, not only by username",
+  (() => {
+    // THE HEART WAS STILL THERE. `profiles.username` is nullable and the auth
+    // snapshot copies it as `profile?.username ?? null`, so an account without
+    // one compared `null === "loudliba"` — false — on every card it owns. The
+    // control rendered exactly as if the listing belonged to somebody else, and
+    // nothing raised an error, because a false answer to "is this mine" is a
+    // perfectly ordinary thing for that function to return.
+    const hook = strip(read("lib/marketplace/use-my-username.ts"))
+    return (
+      /sellerUserId\?: string \| null/.test(hook) &&
+      /const byId = !!me\.userId && !!sellerUserId && me\.userId === sellerUserId/.test(hook) &&
+      // The username still works for callers that only have that.
+      /const byName = !!me\.username && !!sellerUsername && me\.username === sellerUsername/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "and both feed cards actually pass the id they already have",
+  (() => {
+    // The feed selects `id, user_id, slug` off creators and hangs it on every
+    // product, so nothing new has to be fetched to use it.
+    const card = strip(read("components/explore/product-card.tsx"))
+    const reel = strip(read("components/explore/mobile-listing-card.tsx"))
+    return (
+      /useListingOwnership\(product\?\.creator\?\.profile\?\.username, product\?\.creator\?\.user_id\)/.test(card) &&
+      /useListingOwnership\(username, product\.creator\?\.user_id\)/.test(reel) &&
+      // And the card's own prop type admits the field, or it never arrives.
+      /user_id\?: string \| null/.test(card)
+    )
+  })(),
+)
+
+check(
+  "and the listing page's bar is covered by the same rule, without opting in",
+  (() => {
+    // The whole point of moving it into the hook: this screen does nothing to
+    // earn the guard, and cannot forget it.
+    return (
+      /usePinnedBar<HTMLSpanElement>\(\)/.test(detail) &&
+      /visible=\{pinned\}/.test(detail) &&
+      !/usePathname/.test(listingPinned) &&
+      // The bar component itself stays dumb — it draws what it is told.
+      /data-shown=\{visible \? "true" : "false"\}/.test(listingPinned)
+    )
+  })(),
+)
+
+console.log("\nOpening the edit screen says something is happening")
+
+check(
+  "the wait is narrated, but only when there is one",
+  (() => {
+    // Removing the loading shell is what stopped the sheet arriving twice, and
+    // the cost of it is a silent gap: the sheet has gone, the screen behind is
+    // sitting there, nothing says a screen is coming. `navigateBlended` puts the
+    // progress bar up — after 180ms, so a warm prefetched route still shows
+    // nothing at all. Fast is silent, slow is narrated.
+    return (
+      /navigateBlended\("enter"/.test(sheet) &&
+      /const BAR_DELAY_MS = \d+/.test(strip(read("lib/screen-transition.ts")))
+    )
+  })(),
+)
+
+console.log("\nA photograph that has not arrived is a shimmer, not a hole")
+
+check(
+  "the edit grid draws a skeleton until the browser reports the image decoded",
+  (() => {
+    // Eight full-size photographs load off storage when an edit screen opens,
+    // and they arrive neither together nor in order — so each tile snapped from
+    // an empty grey box to a picture at its own unpredictable moment.
+    return (
+      /\{!loadedPhotos\[p\.id\] && !p\.uploading && \(/.test(form) &&
+      /className="photo-skeleton absolute inset-0"/.test(form) &&
+      /onLoad=\{\(\) => markPhotoLoaded\(p\.id\)\}/.test(form)
+    )
+  })(),
+)
+
+check(
+  "a photograph that will never arrive settles instead of shimmering forever",
+  // onError clears it too, or a dead URL shimmers for the rest of the session.
+  /onError=\{\(\) => markPhotoLoaded\(p\.id\)\}/.test(form),
+)
+
+check(
+  "it is keyed by photo id, not by position",
+  (() => {
+    // The grid is reorderable. Keyed by index, dragging a tile hands its
+    // "loaded" flag to whatever moves into that slot — a picture already on
+    // screen flashing back to a skeleton because something else was dropped in
+    // front of it.
+    return /useState<Record<string, true>>\(\{\}\)/.test(form) && /prev\[id\] \? prev : \{ \.\.\.prev, \[id\]: true \}/.test(form)
+  })(),
+)
+
+check(
+  "and the skeleton changes no layout, so nothing moves when the picture lands",
+  (() => {
+    // A placeholder that resizes the box it stands in for is worse than none.
+    const css2 = strip(read("app/globals.css"))
+    const rule = css2.slice(css2.indexOf(".photo-skeleton {"), css2.indexOf(".photo-skeleton {") + 400)
+    return (
+      /background-position/.test(css2.slice(css2.indexOf("@keyframes photo-skeleton"), css2.indexOf("@keyframes photo-skeleton") + 200)) &&
+      !/(width|height|margin|padding):/.test(rule) &&
+      /transition-opacity duration-300/.test(form)
+    )
+  })(),
+)
+
+check(
+  "somebody who has asked for less motion gets a flat placeholder",
+  /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}?\.photo-skeleton \{ animation: none; \}/.test(
+    strip(read("app/globals.css")),
+  ),
+)
+
+console.log("\nComing back to where you were")
+
+check(
+  "closing the sheet does not drop you at the top of the profile",
+  (() => {
+    // Skipping the reset while the sheet is UP was only half of it. The reset
+    // fires on the navigation BACK, when the pathname is /profile again and the
+    // guard no longer applies — so the position was thrown away one step after
+    // the guard stopped watching.
+    const reset = strip(read("components/marketing/shell-scroll-reset.tsx"))
+    return (
+      /cameFrom\.current = \{ path: previous \?\? "", top: el\?\.scrollTop \?\? 0 \}/.test(reset) &&
+      /if \(back && back\.path === path\)/.test(reset) &&
+      /el\.scrollTop = back\.top/.test(reset)
+    )
+  })(),
+)
+
+check(
+  "the position is captured on the way IN, once",
+  (() => {
+    // While the sheet is up this effect can run again for a search-param change,
+    // and re-reading then captures the covered page's scrollTop after something
+    // else has touched it.
+    const reset = strip(read("components/marketing/shell-scroll-reset.tsx"))
+    return /if \(!previous \|\| !isSellFormRoute\(previous\)\)/.test(reset)
+  })(),
+)
+
+check(
+  "and a DIFFERENT screen still arrives at its top",
+  (() => {
+    // Publishing an edit ends on /products/<slug>, which is not where you came
+    // from and must not inherit its scroll position.
+    const reset = strip(read("components/marketing/shell-scroll-reset.tsx"))
+    const tail = reset.slice(reset.indexOf("if (back && back.path === path)"))
+    return /if \(el && el\.scrollTop !== 0\) el\.scrollTop = 0/.test(tail)
+  })(),
+)
+
 console.log("\nWhat a missing photograph draws")
 
 check(
@@ -1493,6 +2060,314 @@ check(
       pinnedSrc.indexOf("<PinnedAvatar") < pinnedSrc.indexOf('label="Distribuie"') &&
       // And the caller actually hands it one.
       /avatarUrl=\{member\.avatarUrl\}/.test(profileSrc)
+    )
+  })(),
+)
+
+check(
+  "and the face LEADS the name, which is what was asked for",
+  (() => {
+    // Written name-then-face, then face-then-name, then back, then here. The
+    // record is worth keeping because the deciding argument was never an
+    // aesthetic one: it was asked for, then the opposite was asked for, and this
+    // is the current ask — "the profile avatar circle needs to be on the other
+    // side of the username".
+    //
+    // Asserted rather than left to a comment precisely because a comment did not
+    // hold it. If it changes again it should change because the same person asks
+    // again, and then this check changes with it.
+    const group = pinnedSrc.slice(pinnedSrc.indexOf("flex min-w-0 flex-1 items-center gap-2"))
+    const name = group.indexOf("{name}")
+    const face = group.indexOf("<PinnedAvatar")
+    return face > 0 && name > face
+  })(),
+)
+
+check(
+  "the bar does not flip state while a finger is holding still on the line",
+  (() => {
+    // One zero-height sentinel and one threshold means the state flips the
+    // instant that line crosses the top of the viewport — so a slow drag, the
+    // tail of a flick or an overscroll settle crosses it repeatedly, and each
+    // crossing starts a 320ms slide the next one reverses partway through. The
+    // judder was several animations over each other, none finishing.
+    return (
+      // POSITIVE. Negative shrinks the root and moves the line DOWN into the
+      // viewport, so `show` fired at a sentinel top of about +56 while its own
+      // test asks for `top < 0` — and an observer only calls back on a crossing,
+      // so once that one had passed nothing fired again however far you
+      // scrolled. The bar could not appear at all. Positive grows the root
+      // upward, which is where "the name has gone past" actually lives.
+      /const SHOW_AT = 56/.test(pinHook) &&
+      /const HIDE_AT = 8/.test(pinHook) &&
+      /rootMargin: `\$\{SHOW_AT\}px 0px 0px 0px`/.test(pinHook) &&
+      /rootMargin: `\$\{HIDE_AT\}px 0px 0px 0px`/.test(pinHook) &&
+      // Two observers, because a threshold is about how MUCH of an element is
+      // visible and this is about where it is — a zero-height element is never
+      // partly visible.
+      /show\.observe\(el\)/.test(pinHook) &&
+      /hide\.observe\(el\)/.test(pinHook)
+    )
+  })(),
+)
+
+// ── THE HEART THAT WOULD NOT GO AWAY, THIRD TIME ────────────────────────────
+//
+// Twice this was fixed by making the comparison right, and twice it stayed on
+// screen — because the comparison was never what was wrong the second time.
+// The card asked "who am I" in a mount effect with an empty dependency array,
+// which is a question asked exactly once, at the one moment the answer is not
+// yet known: the snapshot is written by the header AFTER a session check and a
+// profile query, and every card in the feed has mounted long before that lands.
+//
+// Each card read "signed out", correctly, and then never found out otherwise.
+// No error, nothing in a log, and a card that renders exactly as it would for a
+// stranger's listing.
+//
+// These are driven against the real module with a real EventTarget, because
+// this is precisely the failure that a test asserting the guard is WIRED cannot
+// see — the guard was wired every time.
+
+const SNAPSHOT = {
+  signedIn: true,
+  userId: "user-abc",
+  avatarUrl: null,
+  displayName: "Cineva",
+  username: null,
+  isSeller: false,
+}
+
+check(
+  "a reader that asked before sign-in landed is told when it does",
+  (() => {
+    // THE BUG, exactly: subscribe while signed out, then let the header write.
+    store.clear()
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    const before = readAuthSnapshot()
+    writeAuthSnapshot(SNAPSHOT)
+    const after = readAuthSnapshot()
+    stop()
+    return before === null && told === 1 && after?.userId === "user-abc"
+  })(),
+  "        lib/auth/auth-snapshot.ts — the snapshot is written after two network\n" +
+    "        round trips, so nothing on the first screen can read it in time.",
+)
+
+check(
+  "and a username that is null does not make the identity unusable",
+  (() => {
+    // The FIRST version of this bug. `profiles.username` is nullable, and an
+    // account without one compared null against a name on every card it owned.
+    store.clear()
+    writeAuthSnapshot(SNAPSHOT)
+    const snap = readAuthSnapshot()
+    return snap?.username === null && snap?.userId === "user-abc"
+  })(),
+)
+
+check(
+  "signing out reaches the same readers signing in did",
+  (() => {
+    // Otherwise a control hidden because a listing was yours stays hidden for
+    // whoever uses the phone next.
+    store.clear()
+    writeAuthSnapshot(SNAPSHOT)
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    clearAuthSnapshot()
+    const after = readAuthSnapshot()
+    stop()
+    return told === 1 && after === null
+  })(),
+)
+
+check(
+  "another tab signing in counts too",
+  (() => {
+    // `storage` fires only in OTHER tabs, which is why the in-tab event exists
+    // at all — but the cross-tab case is still a real one and must not be lost
+    // by adding the in-tab one.
+    store.clear()
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    const e = new Event("storage") as Event & { key: string | null }
+    e.key = "_sl_auth_v1"
+    ;(globalThis as any).window.dispatchEvent(e)
+    stop()
+    return told === 1
+  })(),
+)
+
+check(
+  "a reader that has gone away stops being told",
+  (() => {
+    store.clear()
+    let told = 0
+    const stop = subscribeAuthSnapshot(() => {
+      told++
+    })
+    stop()
+    writeAuthSnapshot(SNAPSHOT)
+    ;(globalThis as any).window.dispatchEvent(new Event(AUTH_SNAPSHOT_EVENT))
+    return told === 0
+  })(),
+)
+
+check(
+  "the identity is re-read on every change, not once on mount",
+  (() => {
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return (
+      /subscribeAuthSnapshot\(read\)/.test(hook) &&
+      /watchers\.add\(read\)/.test(hook) &&
+      // And the listener is removed, or every card that ever scrolled past
+      // stays subscribed for the life of the page.
+      /watchers\.delete\(read\)/.test(hook) &&
+      /stop\(\)/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "sixty cards asking who I am produce at most one request",
+  (() => {
+    // A feed is sixty cards and each one calls this hook. Sixty round trips to
+    // answer one question would be a worse bug than the one being fixed.
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return (
+      /^let fromSession/m.test(hook) &&
+      /if \(sessionChecked \|\| asking\) return/.test(hook) &&
+      [...hook.matchAll(/auth\.getSession\(\)/g)].length === 1
+    )
+  })(),
+)
+
+// ── THE + THAT TURNS ────────────────────────────────────────────────────────
+
+check(
+  "the turning + is a compositor job and nothing else",
+  (() => {
+    const css = read("app/globals.css")
+    const rule = /\.plus-turn \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    const open = /\.plus-turn\[data-open="true"\] \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    return (
+      // Transform alone. A transition list naming a colour or a filter drags
+      // the whole animation onto the main thread — which is busy loading the
+      // route this very press started.
+      /transition: transform /.test(rule) &&
+      !/transition:[^;]*(color|background|box-shadow|filter|opacity)/.test(rule) &&
+      // Promoted BEFORE the press, not at the first frame of the turn.
+      /transform: translateZ\(0\) rotate\(0deg\)/.test(rule) &&
+      // The angle itself is asserted in tests/sheet-motion.test.ts ("a whole
+      // turn, not a tilt"). What this check is about is the PROMOTION being
+      // present in both states — left off the open state, the layer is torn
+      // down and rebuilt every time it turns back.
+      /transform: translateZ\(0\) rotate\(\d+deg\)/.test(open) &&
+      /backface-visibility: hidden/.test(rule) &&
+      /transform-origin: 50% 50%/.test(rule)
+    )
+  })(),
+  "        app/globals.css — the promotion has to be in BOTH states, or the\n" +
+    "        layer is torn down and rebuilt every time it turns back.",
+)
+
+check(
+  "and the circle it sits in does not animate with it",
+  (() => {
+    // Two transitions on nested elements is the "cheap bump" that was removed
+    // from this button once already.
+    const nav = read("components/explore/mobile-bottom-nav.tsx")
+    const btn = /className="flex h-12 w-12 items-center justify-center rounded-full text-white"/.exec(nav)
+    return !!btn && !/active:scale-\d+[\s\S]{0,80}?plus-turn/.test(nav)
+  })(),
+)
+
+check(
+  "the save control does not exist until the question has an answer",
+  (() => {
+    // THE FLASH. `mine` alone cannot say "nobody has looked yet", so a card
+    // that trusted it drew the heart on the first frame of your own listing and
+    // took it away once the identity landed. A frame of the wrong control is
+    // still the wrong control.
+    const card = read("components/explore/product-card.tsx")
+    const reel = read("components/explore/mobile-listing-card.tsx")
+    return (
+      /known && !mine \? \(/.test(card) &&
+      /\{known && !mine && \(/.test(reel) &&
+      // And nothing may go back to deciding on `mine` by itself.
+      !/mine \? null : <WishlistHeartButton/.test(card)
+    )
+  })(),
+  "        components/explore — the heart waits for `known`. A heart missing for\n" +
+    "        a moment on a stranger's card is invisible; one present for a moment\n" +
+    "        on your own is the bug.",
+)
+
+check(
+  "signed OUT is an answer, so a visitor still gets the control",
+  (() => {
+    // The obvious way to write the above is "hide it until we know it is not
+    // yours", which for somebody who is not signed in never resolves — and the
+    // save control disappears from the whole app for every logged-out visitor,
+    // which is a far bigger bug than the one being fixed.
+    const hook = read("lib/marketplace/use-my-username.ts")
+    return (
+      /sessionChecked = true/.test(hook) &&
+      /known: sessionChecked/.test(hook) &&
+      // Read from the device, not asked over the network — the delay is the
+      // whole problem here.
+      /auth\.getSession\(\)/.test(hook) &&
+      !/auth\.getUser\(\)/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "a pinned bar is GONE when a screen opens over it, not sliding away",
+  (() => {
+    // Two reasons a bar hides, and they want opposite motion. Scrolled back up,
+    // it leaves the way it arrived. But when a sheet opens over it, the sheet
+    // climbs from the bottom of the screen while the header slides out of the
+    // top — two surfaces passing each other in opposite directions for one
+    // press, which reads as the header being shoved out of the way.
+    const hook = read("lib/marketplace/use-pinned-bar.ts")
+    const css = read("app/globals.css")
+    const profile = read("components/member/profile-pinned-header.tsx")
+    const listing = read("components/product/listing-pinned-header.tsx")
+    return (
+      // Reported by the hook as its own thing, not inferred by the bars.
+      /left: !onOwnScreen/.test(hook) &&
+      /\.profile-pinned\[data-instant="true"\] \{\s*\n\s*transition: none;/.test(css) &&
+      // BOTH bars, since both are covered by the same sheet.
+      /data-instant=\{instant \? "true" : undefined\}/.test(profile) &&
+      /data-instant=\{instant \? "true" : undefined\}/.test(listing)
+    )
+  })(),
+  "        lib/marketplace/use-pinned-bar.ts — the scroll hide keeps its\n" +
+    "        animation; only the route hide is instant.",
+)
+
+check(
+  "and a scroll can never reach that rule",
+  (() => {
+    // If `instant` were driven by anything the scroll touches, every ordinary
+    // hide would become a hard cut — which is the fix breaking the thing it
+    // was protecting.
+    const profile = read("components/member/member-profile.tsx")
+    const listing = read("components/product/product-detail.tsx")
+    return (
+      /instant=\{leftProfile\}/.test(profile) &&
+      /instant=\{leftListing\}/.test(listing) &&
+      // Sourced from the hook's pathname comparison and nothing else.
+      /pinned, left: leftProfile \} = usePinnedBar/.test(profile) &&
+      /pinned, left: leftListing \} = usePinnedBar/.test(listing)
     )
   })(),
 )

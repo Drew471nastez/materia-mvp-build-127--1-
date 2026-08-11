@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 import { announceThread } from "@/lib/messages/announce"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
+import { decodeVoiceBody } from "@/lib/messages/voice-message"
+import { decodeCallBody, type CallRecord } from "@/lib/messages/call-message"
 import {
   STORELIB_AVATAR_URL,
   fetchProfilesWithOfficial,
@@ -47,8 +49,17 @@ function optionalAdminClient(): SupabaseClient | null {
 export type ThreadMessage = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image"
+  kind: "text" | "offer" | "image" | "voice" | "call"
   body: string | null
+  /**
+   * A voice note, decoded out of the body. `path` is a signed, short-lived URL
+   * by the time this leaves here — what is STORED is the object path in the
+   * private bucket, exactly as for a photograph. See
+   * lib/messages/voice-message.ts.
+   */
+  voice?: { path: string; ms: number; peaks: number[] } | null
+  /** A finished call, decoded out of the body. See lib/messages/call-message. */
+  call?: CallRecord | null
   /** Unsent by its author. The row survives so the conversation keeps its shape;
    *  its contents do not. */
   deleted_at?: string | null
@@ -255,15 +266,38 @@ export async function readThread({
   const page = (messagesRes.data ?? []) as unknown as ThreadMessage[]
   const hasMore = page.length > PAGE
   const messages = page.slice(0, PAGE).reverse().map((m) => {
+    // Two things can be hiding inside a text body, and they are told apart by
+    // their own sentinels. Decoded here, once, so nothing downstream — the
+    // client, the inbox preview, the action sheet — has to know there are
+    // several ways a piece of media can be filed.
+    const voice = m.kind === "text" ? decodeVoiceBody(m.body) : null
+    if (voice) {
+      return { ...m, kind: "voice" as const, body: null, image_url: null, voice }
+    }
+    // A third sentinel, and the same argument as the other two: a call record is
+    // not a new `kind` in the database, so nothing downstream has to be taught
+    // that one exists.
+    const call = m.kind === "text" ? decodeCallBody(m.body) : null
+    if (call) {
+      return { ...m, kind: "call" as const, body: null, image_url: null, call }
+    }
     const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
     if (encoded) {
       return { ...m, kind: "image" as const, body: encoded.caption, image_url: encoded.path }
     }
     return { ...m, image_url: m.image_url ?? null }
   })
-  const paths = messages
-    .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
-    .map((m) => m.image_url as string)
+  // Photographs and voice notes live in the same private bucket and are signed
+  // in the same round trip. Splitting them into two calls would double the
+  // latency of opening a thread to no end.
+  const paths = [
+    ...messages
+      .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
+      .map((m) => m.image_url as string),
+    ...messages
+      .filter((m) => m.kind === "voice" && m.voice?.path && !m.voice.path.startsWith("http"))
+      .map((m) => (m.voice as { path: string }).path),
+  ]
   if (paths.length) {
     // Fifteen minutes, not an hour.
     //
@@ -284,6 +318,9 @@ export async function readThread({
     const byPath = new Map((signed ?? []).map((s) => [s.path as string, s.signedUrl]))
     for (const m of messages) {
       if (m.kind === "image" && m.image_url) m.image_url = byPath.get(m.image_url) ?? null
+      if (m.kind === "voice" && m.voice?.path) {
+        m.voice = { ...m.voice, path: byPath.get(m.voice.path) ?? "" }
+      }
     }
   }
 

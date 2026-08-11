@@ -32,11 +32,47 @@ export function ViewportVars() {
     let lastH = -1
     let lastTop = -1
     let lastKb: boolean | null = null
+    let settleTimer = 0
+
+    /**
+     * ===================================================================
+     *  THE KEYBOARD CLOSING IS ONE STEP, NOT A MOVEMENT
+     * ===================================================================
+     * iOS animates the keyboard down over about a quarter of a second and
+     * then reports the new viewport ONCE, at the end. So everything sized
+     * from `--vv-h` — the conversation shell, its composer, the messages
+     * above it — is correct, then correct at a different size, with nothing
+     * in between. That single step is the bump: the layout is never wrong,
+     * it just arrives in one frame.
+     *
+     * There is nothing to interpolate here, because the intermediate sizes
+     * were never reported. What can be done is let CSS carry the change:
+     * a class is put on <html> for the length of the settle, and the shell
+     * transitions its geometry only while it is there.
+     *
+     * ONLY FOR A JUMP. A collapsing browser toolbar is sixty-odd pixels and
+     * a page scrolled under an open keyboard moves `offsetTop` continuously
+     * — transitioning those would make the screen lag a finger that is
+     * actively dragging it, which is a worse fault than the one being
+     * fixed. 80px is comfortably above a toolbar and far below a keyboard.
+     */
+    const settle = () => {
+      root.classList.add("vv-settling")
+      /* Read forced BEFORE the variable changes. A transition only runs if
+         the transition property was already in effect at the previous style
+         resolution — set both in the same frame and the browser has nothing
+         to interpolate from, so the value snaps and the class does nothing.
+         One reflow per keyboard toggle, not per scroll event. */
+      void root.offsetHeight
+      window.clearTimeout(settleTimer)
+      settleTimer = window.setTimeout(() => root.classList.remove("vv-settling"), 340)
+    }
 
     const apply = () => {
       const h = Math.round(vv?.height ?? window.innerHeight)
       const top = Math.round(vv?.offsetTop ?? 0)
       if (h !== lastH) {
+        if (lastH >= 0 && Math.abs(h - lastH) > 80) settle()
         lastH = h
         root.style.setProperty("--vv-h", `${h}px`)
       }
@@ -67,6 +103,8 @@ export function ViewportVars() {
       vv?.removeEventListener("scroll", apply)
       window.removeEventListener("resize", apply)
       window.removeEventListener("orientationchange", apply)
+      window.clearTimeout(settleTimer)
+      root.classList.remove("vv-settling")
       root.style.removeProperty("--vv-h")
       root.style.removeProperty("--vv-top")
       delete root.dataset.keyboard

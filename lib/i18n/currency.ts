@@ -9,6 +9,8 @@
  * server route) when real checkout in multiple currencies is needed.
  */
 
+import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
+
 export type CurrencyCode = "USD" | "EUR" | "GBP" | "RON" | "CAD" | "AUD"
 
 /** 1 USD → X <currency>. Base currency is USD. */
@@ -83,7 +85,22 @@ export function formatMoney(usdCents: number, currency: CurrencyCode): string {
  * there is no window where the two disagree.
  */
 export function formatPlatformMoney(cents: number): string {
-  const storedIsLei = process.env.NEXT_PUBLIC_PLATFORM_CURRENCY === "ron"
+  /**
+   * ONE ANSWER, FROM ONE PLACE.
+   *
+   * This read the environment variable directly and inverted the default the
+   * charge side used — so the two halves of "what does price_cents mean" were
+   * two separate expressions that had to be kept in agreement by hand. They were
+   * not: display multiplied by 4.6 while the card was charged the raw number in
+   * dollars, and a listing typed at 360 lei was quoted at ~1656 and billed at
+   * $360.
+   *
+   * `PLATFORM_CURRENCY` is that answer, and it is the same constant the
+   * PaymentIntent is built from. There is now no way for the number on the card
+   * and the number on the bank statement to disagree about their unit, because
+   * there is only one place that decides it.
+   */
+  const storedIsLei = PLATFORM_CURRENCY === "ron"
   const amount = ((cents || 0) / 100) * (storedIsLei ? 1 : USD_RATES.RON)
   try {
     return new Intl.NumberFormat("ro-RO", {

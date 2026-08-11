@@ -33,7 +33,7 @@ alter table public.messages
   );
 
 -- ---------------------------------------------------------------------------
--- 2. The bucket those photos live in
+-- 2. The bucket those attachments live in
 -- ---------------------------------------------------------------------------
 -- Private, unlike `listings`: a photo sent in a conversation is between two
 -- people, and a public bucket would make it readable by anyone who ever saw the
@@ -44,7 +44,22 @@ values (
   'messages',
   false,
   10485760, -- 10 MB; a phone photo compressed client-side is well under this
-  array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+  -- NULL = no bucket-level type gate, and that is deliberate.
+  --
+  -- This used to be an image-only array, written when photographs were the only
+  -- thing anyone could attach. Voice notes then failed with `mime type
+  -- audio/webm is not supported` — refused by the BUCKET, before a line of app
+  -- code ran, and unfixable by deploying anything. Adding the audio types would
+  -- only move the same trap one attachment kind along, and the `do update`
+  -- below means re-running this file re-imposes whatever is written here.
+  --
+  -- What the array actually checked was the content type the CLIENT declared,
+  -- which is a label rather than a fact. Both message routes sniff the
+  -- container's magic bytes and refuse anything that is not really the kind of
+  -- file it claims to be — so the honest gate is in app code, and the bucket's
+  -- one only ever caught honest files. Same reasoning, and the same NULL, as
+  -- the buckets in complete_upload_system.sql.
+  null
 )
 on conflict (id) do update
   set file_size_limit = excluded.file_size_limit,

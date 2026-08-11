@@ -29,7 +29,9 @@ import { cn } from "@/lib/utils"
 export type ActionableMessage = {
   id: string
   body: string | null
-  kind: "text" | "offer" | "image"
+  /** "voice" behaves as a photograph does here: there is nothing to copy, and
+   *  everything else — unsend, report, the timestamp — applies unchanged. */
+  kind: "text" | "offer" | "image" | "voice" | "call"
   created_at: string
   read_at: string | null
   mine: boolean

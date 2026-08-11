@@ -566,14 +566,43 @@ html.capacitor a.no-tap-fade:active {
    solid white strip sliding — the most visible part of the animation was also
    the least informative. Held back, the fade finishes as the bar lands, and
    what you see is one movement settling instead of two things happening. */
+/* SLOWER AGAIN, and the reason is peak velocity rather than duration.
+
+   320ms was still arriving and stopping. What the eye reads as "too fast" on a
+   strip this size is not how long it takes but how quickly it is moving at its
+   quickest — a short animation on a decisive curve spends most of its distance
+   in the first third, so the bar appears to be flung into place and caught.
+   440ms over the same distance is a lower peak speed throughout, and the curve
+   spends its whole second half decelerating, so the last few pixels are the
+   slowest rather than the same speed as the first.
+
+   The fade still trails the travel and still lands with it: 360 against 440
+   keeps the same ratio the note above describes, so the bar is not fully opaque
+   until it has almost stopped. */
 .profile-pinned[data-shown="true"] {
   transform: translate3d(0, 0, 0);
   opacity: 1;
   pointer-events: auto;
   transition:
-    transform 320ms cubic-bezier(0.32, 0.72, 0, 1),
-    opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
+    transform 440ms cubic-bezier(0.22, 0.61, 0.16, 1),
+    opacity 360ms cubic-bezier(0.22, 0.61, 0.16, 1);
 }
+/* GONE, NOT LEAVING.
+
+   A bar hides for two different reasons and they want opposite motion. Scrolled
+   back up, it leaves the way it arrived — it is the only thing moving and the
+   movement is the point. But when another screen opens OVER it, the bar has to
+   stop existing rather than travel: the sell sheet climbs from the bottom of
+   the screen while the header slides out of the top of it, and two surfaces
+   passing each other in opposite directions for one press reads as the header
+   being shoved out of the way. Which is what it looks like, because it is.
+
+   Set only by lib/marketplace/use-pinned-bar when the PATHNAME changed, so a
+   scroll can never reach this rule. */
+.profile-pinned[data-instant="true"] {
+  transition: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .profile-pinned {
     transition: none;
@@ -1017,13 +1046,105 @@ html.capacitor a.no-tap-fade:active {
  * the one small layer: a press can come at any moment, so there is no frame in
  * which to build the layer beforehand, and building it on the first frame of
  * the turn is a hitch at exactly the start — which is the part being fixed. */
+/* A PHOTOGRAPH ON ITS WAY, IN THE SELL FORM'S GRID.
+ *
+ * Eight full-size images load off storage when an edit screen opens, and they
+ * arrive neither together nor in order — so each tile snapped from an empty grey
+ * box to a picture at its own unpredictable moment. Eight hard cuts is the
+ * popping; this is the thing that stands in the gap.
+ *
+ * A moving highlight rather than a pulsing block: a pulse says "waiting", a
+ * sweep says "arriving", and the second one is true. `background-position` on a
+ * gradient rather than a transformed child, so there is nothing to clip against
+ * the tile's rounded corners and no second layer to composite over an image that
+ * is about to replace it anyway.
+ *
+ * It stops existing the moment the browser reports the image decoded, so this
+ * animation never runs alongside a picture — see `loadedPhotos` in
+ * components/sell/new-listing-form.tsx. */
+@keyframes photo-skeleton {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.photo-skeleton {
+  background-image: linear-gradient(
+    100deg,
+    rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0.045) 50%,
+    rgba(0, 0, 0, 0) 70%
+  );
+  background-size: 200% 100%;
+  background-color: #f0f0f1;
+  animation: photo-skeleton 1.35s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The well stays, the sweep goes. A flat placeholder still says "not yet". */
+  .photo-skeleton { animation: none; }
+}
+
+
 .plus-turn {
-  transition: transform 520ms cubic-bezier(0.32, 0.72, 0, 1);
-  transform: rotate(0deg);
+  /* ONLY transform, and the same property in both states.
+     A transition list that also names a colour or a filter drags the whole
+     animation back onto the main thread, where it competes with the route this
+     press just started loading — which is exactly the frame budget it cannot
+     afford. Rotation alone is a compositor job. */
+  /* 240ms, DOWN from 480, and the duration is the bug rather than a taste.
+
+     The turn starts on pointerdown and the sell sheet climbs from below this
+     bar the moment the route commits — which on a warm route is 150-250ms
+     later. At 480ms the rotation was barely a third done when the sheet passed
+     over it, so what reached the eye was a + tilting slightly and then being
+     covered. It has been "not rotating" that whole time because the part worth
+     seeing was always played behind something. Finished inside the window it
+     actually has, the whole 135° lands before anything covers it.
+
+     The curve is unchanged and stays the sheet's, because the + and the sheet
+     are one movement seen in two places. Speed is what was missing, not a
+     bounce: an overshoot here lands within a few frames of the sheet passing
+     over the icon, which is the twitch that was deliberately removed once
+     already. */
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* The translateZ is not decoration. It puts this glyph on its own GPU layer
+     BEFORE the press rather than at the first frame of the turn, so the layer
+     is created while nothing is moving instead of during the animation — which
+     is what a promotion mid-turn costs you, one dropped frame at the start,
+     precisely where it is most visible. `will-change` asks for the same thing
+     and browsers are free to ignore it; this is not a request. */
+  transform: translateZ(0) rotate(0deg);
   will-change: transform;
+  /* A rotating SVG stroke re-rasterises at every angle unless the layer is
+     kept flat, and the symptom is a faint shimmer on the diagonals rather than
+     anything as obvious as a stutter. */
+  backface-visibility: hidden;
+  /* Stated rather than inherited: a glyph whose box is a fraction off centre
+     orbits instead of spinning, and 24px is small enough that a half-pixel
+     offset reads as a wobble. */
+  transform-origin: 50% 50%;
 }
 .plus-turn[data-open="true"] {
-  transform: rotate(135deg);
+  /* A FULL TURN, AND THEN THE CROSS.
+
+     495 = 360 + 135. The glyph spins once all the way round and lands as the ×
+     it has always landed as, rather than taking the short way there — a + that
+     tips 135 degrees is a state change, and a + that goes round once is a
+     gesture answered. Nothing else about the button changes: it is the same
+     element, the same single property, the same curve as the sheet, and the
+     same layer it was already promoted onto.
+
+     Written as one number instead of a spin plus a tilt because a transition
+     interpolates the VALUE: two chained rotations would need two declarations
+     and would land at the same place having cost a second animation. And the
+     close unwinds it — 495 back to 0 is the same turn in reverse, which is what
+     a reversible transition gives for free and a keyframe animation does not.
+
+     It still has to finish inside the window it has. The sheet climbs from the
+     bottom of the screen and this button is at the bottom of the screen, so the
+     covering starts within a few frames of the route committing; 300ms is what
+     fits, and is why this is a brisk spin rather than a languid one. A slower
+     turn would be a better animation that nobody ever sees the end of, which is
+     the mistake this button has already been through once. */
+  transform: translateZ(0) rotate(495deg);
 }
 @media (prefers-reduced-motion: reduce) {
   .plus-turn { transition: none; }
@@ -1280,9 +1401,24 @@ html.capacitor a.no-tap-fade:active {
        the list does not arrive and stop, it stops arriving. A shorter
        animation with a harder curve has higher peak velocity, and peak
        velocity is what the eye reads as abrupt. */
-    animation: pop-return 420ms cubic-bezier(0.16, 0.84, 0.3, 1) both;
-    transform-origin: 50% 42%;
-    will-change: transform, opacity;
+    /* THE OTHER HALF OF THE PUSH, and it has to be the other half rather than
+       its own idea. A conversation now slides in from the right, so coming
+       back is the level above being uncovered — which travels a short way
+       from the LEFT, on the same curve and slightly quicker than the push,
+       exactly as the picker's pop does. A scale-and-fade here would mean the
+       screen left one way and returned another. */
+    animation: pop-return-list 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    /* No `will-change`, same reason as .thread-arrive: the keyframes are
+       translate3d, so the layer exists for the animation and is given back
+       afterwards — and this element is the inbox, which is a long scrolling
+       list that has to stay cheap once it has arrived. */
+    backface-visibility: hidden;
+  }
+  /* 25%, the same parallax distance the picker shifts a covered level by:
+     the list was never fully off screen, so it does not come fully back on. */
+  @keyframes pop-return-list {
+    from { transform: translate3d(-25%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
   }
   html.pop-return .marketing-flex-wrapper > .native-only-topbar {
     /* Chrome fades with the page but does not travel with it. */
@@ -1308,21 +1444,147 @@ html.capacitor a.no-tap-fade:active {
    * 0.86, which is visible without being a page-load dim, over 320ms whose
    * tail is most of it — the conversation eases the last few percent into
    * place instead of arriving and stopping. */
-  @keyframes thread-arrive {
-    from { opacity: 0.9; }
-    to   { opacity: 1; }
+  /* A CONVERSATION IS PUSHED ON, NOT FADED IN.
+     ---------------------------------------------------------------------
+     This was two opacity ramps composed together — <main> rising 0.88 → 1
+     and this rising 0.9 → 1 inside it — and however carefully they were
+     matched, a fade is what the flash was. Nothing travels, so the only
+     thing the eye has to go on is brightness changing on a screen whose
+     content has just been replaced, which reads as a flicker rather than as
+     a movement. Opening a conversation is going one level deeper into
+     something, and the app already has a motion that means exactly that:
+     components/sell/picker-page.tsx, where choosing a brand pushes a panel
+     in from the right over the level above it. Same easing, same distance,
+     same duration — 420ms in, 360ms back, cubic-bezier(0.32, 0.72, 0, 1).
+
+     WHY THE ANCESTOR MAY NOW BE TRANSFORMED, when the note above says it
+     may not: a transform makes this element the containing block for the
+     `position: fixed` .thread-shell inside it, which is why every earlier
+     attempt at this jumped. `inset: 0` makes that containing block exactly
+     the viewport rectangle — so the shell's `top` and `height` resolve to
+     the identical pixels they resolved to before, and the only thing the
+     transform changes is that the whole screen travels together. It is
+     scoped to this media query because .thread-shell is only fixed here;
+     on a desktop the conversation is a column in a split view and must
+     stay in the flow. */
+  @keyframes thread-push-in {
+    from { transform: translate3d(100%, 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
   }
   .thread-arrive {
-    /* THE SAME CURVE AND THE SAME LENGTH AS THE DIP ABOVE IT, and that is the
-       whole point rather than a coincidence.
-       <main> rises 0.88 → 1 over 240ms when the route commits. This element is
-       INSIDE it, so the two opacities MULTIPLY — and two ramps of different
-       lengths on different curves multiply into a fade that visibly changes
-       pace partway through. That kink is what was left of "not smooth" on the
-       way in: not either animation, but the beat between them.
-       Matched, they compose into a single smooth ramp from 0.88 x 0.9 to 1. */
-    animation: thread-arrive 240ms cubic-bezier(0.12, 0.86, 0.32, 1) both;
+    position: fixed;
+    inset: 0;
+    /* EXACTLY the layer .thread-shell used to claim for itself, and that is
+       the point rather than a detail. A transform creates a stacking context,
+       so the shell's own `z-index: 45` is now resolved INSIDE this element
+       instead of against the page — leaving this at `auto` would silently
+       re-order the conversation against the sticky web header it has always
+       been painted over. Same number, same result. */
+    z-index: 45;
+    /* NO BACKGROUND, and no swallowing of taps.
+
+       A white fill here would paint over the whole viewport including the
+       mobile web header, which sits above this screen rather than inside it —
+       and it is not needed: .thread-shell is `left: 0; right: 0` on a phone, so
+       it fills this box completely and there is no strip beside it to cover.
+       Transparent, though, this is still a full-screen fixed element, and one
+       that intercepts pointer events over everything it covers. So it passes
+       them through and the shell inside takes them back. */
+    pointer-events: none;
+    animation: thread-push-in 420ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    /* NO `will-change` HERE, deliberately.
+
+       The translate3d in the keyframes already promotes this to its own layer
+       for the duration of the animation, and then RELEASES it. `will-change`
+       would hold a full-screen compositor layer for the entire visit to the
+       conversation — through every message you scroll, on top of the fixed
+       .thread-shell layer inside it — to buy one frame of promotion at the
+       start that the transform is doing anyway. On a phone that is memory
+       spent on nothing, and it is the sort of thing that makes a long thread
+       scroll worse the longer you stay. */
+    backface-visibility: hidden;
   }
+  @media (prefers-reduced-motion: reduce) {
+    .thread-arrive { animation: none; }
+  }
+
+  /* THE MESSAGES SETTLING IN, rather than being switched on.
+     The cover fading is a change in OPACITY and nothing else, so what it
+     uncovers has not moved — which is why a correctly fading cover can still
+     leave the conversation feeling like it appeared. This is the other half:
+     the exchange rises the last few pixels as the cover goes.
+
+     A transform against the cover's opacity on purpose. Two opacity ramps on
+     nested elements multiply into a fade that changes pace partway through —
+     the fault this file has now been through twice — where a fade and a
+     travel are different properties and compose into one arrival. */
+  @keyframes thread-reveal {
+    from { transform: translate3d(0, 10px, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+  }
+  .thread-reveal {
+    animation: thread-reveal 520ms cubic-bezier(0.22, 0.61, 0.24, 1) both;
+    backface-visibility: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thread-reveal { animation: none; }
+  }
+
+  /* ===================================================================
+     ONE MOVEMENT AT A TIME ON THESE PIXELS
+     ===================================================================
+     This is what was left of "not smooth", and it was never the push.
+
+     <main> fades 0.88 → 1 over 240ms on every arrival. The conversation
+     slides in over 420ms. Both are correct on their own and together they
+     are two animations of different lengths, on different curves, on the
+     same pixels — and an opacity below 1 on an ancestor forces the whole
+     subtree into a transparency group, so for those 240ms the compositor is
+     blending an entire screen WHILE translating a full-screen layer inside
+     it. That is the frame cost, and the visible result is a slide that
+     changes brightness partway through, which reads as a stutter rather
+     than as a fade.
+
+     The push is the transition. Where it is running, the fade has nothing
+     left to say, so it is switched off rather than tuned to match — matching
+     was the previous approach and it is why there were two of these.
+
+     `:has()` rather than a class on <html>: the fade must be suppressed only
+     where the slide actually is, and the element that slides is the one that
+     knows. A browser too old for `:has()` ignores the rule and gets exactly
+     what it gets today. */
+  .marketing-flex-wrapper > main:has(> .thread-arrive),
+  html.tab-arriving .marketing-flex-wrapper > main:has(> .thread-arrive),
+  html.tab-leaving .marketing-flex-wrapper > main:has(> .thread-arrive) {
+    opacity: 1;
+    transition: none;
+  }
+  /* And the same on the way back, where the list is the thing that travels. */
+  html.pop-return .marketing-flex-wrapper > main:has(> [data-primary="list"]) {
+    opacity: 1;
+    transition: none;
+  }
+
+  /* ===================================================================
+     WHY THE LISTING PAGE DOES NOT GET THIS TOO — YET
+     ===================================================================
+     A rule was added here matching every direct child of <main>, so that
+     coming back from a product page moved the way coming back from a
+     conversation does. It is removed, because it re-broke something that had
+     already been fixed on purpose.
+
+     A route with a loading boundary paints TWO elements in that slot, one
+     after the other: the Suspense shell, then the real page. An entrance
+     declared on "whatever is in main" is therefore declared on both, and
+     plays twice — the screen slides in, is replaced, and slides in again.
+     app/(marketing)/messages/loading.tsx says so in its own header: "Nothing
+     here animates its own arrival any more." It carries no `data-primary`
+     precisely so the rule below cannot match it, and `main > *` matched it
+     anyway.
+
+     So this has to be opt-IN, by a marker on the page roots that want it,
+     and never a wildcard — the shells are indistinguishable from the pages
+     they stand in for, and there is no selector that can tell them apart. */
 
   /* The same dip, for the navigations no finger on the bar started — a
      redirect, a back gesture, a push from somewhere else. Zero duration on
@@ -3092,7 +3354,31 @@ html.capacitor body.modal-open .marketing-flex-wrapper {
     height: calc(var(--vv-h, 100dvh) - var(--thread-top, 0px));
     z-index: 45;
     background: #ffffff;
+    /* Taken back from the wrapper that passes them through — see
+       `.thread-arrive`. Everything interactive on this screen is inside here,
+       so this one declaration restores the whole of it. */
+    pointer-events: auto;
   }
+  /* THE KEYBOARD CLOSING, CARRIED RATHER THAN STEPPED.
+     Only while <html> says a jump is settling — see components/viewport-vars.
+     A toolbar collapsing or a page dragged under an open keyboard changes the
+     same variables continuously, and transitioning those would make the screen
+     lag the finger moving it. 300ms against the ~250ms iOS spends animating the
+     keyboard itself, so the composer lands just after the key it was following.
+
+     `top` and `height` are layout properties and this is the one place in the
+     app that animates them on purpose: there is no transform that expresses
+     "the visible viewport is now a different size", and it is bounded to a
+     third of a second on a single element, twice per keyboard. */
+  html.vv-settling .thread-shell {
+    transition:
+      top 300ms cubic-bezier(0.22, 0.61, 0.24, 1),
+      height 300ms cubic-bezier(0.22, 0.61, 0.24, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.vv-settling .thread-shell { transition: none; }
+  }
+
   html:not(.capacitor) .thread-shell {
     --thread-top: var(--web-header-h, 0px);
   }
@@ -4539,4 +4825,77 @@ html:not(.capacitor):has(.web-only-header) .native-only-topbar {
    screen's claim.                                                             */
 html.capacitor.native-feed-bg:not(.app-layout) body {
   background-color: inherit;
+}
+
+/* ===========================================================================
+   A CALL ARRIVING
+   ===========================================================================
+   Three motions, and each of them is doing a job rather than decorating one.
+
+   call-screen-in   The screen covers everything, so it must not simply BE
+                    there — an interface that replaces itself in one frame
+                    reads as a glitch. It rises and fades, quickly, on the
+                    same front-loaded curve as every other travelling surface
+                    in this app.
+
+   call-pulse       The ring, on the caller's face, while the phone is ringing.
+                    A ringing screen with nothing moving on it looks frozen,
+                    and the one thing a person needs to know at that moment is
+                    that this is happening NOW.
+
+   call-answer-pulse  Only the answer button breathes. It is the one thing
+                    somebody woken by a ringtone is looking for.
+
+   All three stop under prefers-reduced-motion. A pulsing screen is exactly
+   the kind of motion that setting exists for, and the call is entirely
+   usable without any of it.                                                  */
+@keyframes call-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.call-screen-in {
+  animation: call-screen-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes call-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.28);
+  }
+  70% {
+    box-shadow: 0 0 0 22px rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+.call-pulse {
+  border-radius: 9999px;
+  animation: call-pulse 1900ms ease-out infinite;
+}
+
+@keyframes call-answer-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.075);
+  }
+}
+.call-answer-pulse {
+  animation: call-answer-pulse 1500ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-screen-in,
+  .call-pulse,
+  .call-answer-pulse {
+    animation: none;
+  }
 }

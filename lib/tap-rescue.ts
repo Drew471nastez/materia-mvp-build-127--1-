@@ -55,8 +55,15 @@ export type TapRescue<T> = {
   move(x: number, y: number): void
   /** The finger lifted on the control. Starts the wait for the click. */
   up(): void
-  /** The click arrived after all — stand down. */
-  click(): void
+  /**
+   * The click arrived after all — stand down.
+   *
+   * Returns whether the CALLER should still act on it. False means this gesture
+   * has already been rescued and acted upon, and this click is its late arrival:
+   * doing the work again would be doing it twice for one press. See the note on
+   * `spent` in the implementation.
+   */
+  click(): boolean
   /** The system took the gesture away (pointercancel), or the caller gave up. */
   cancel(): void
   /** Drop everything, including any pending timer. For unmount. */
@@ -102,6 +109,36 @@ export function createTapRescue<T>(options: TapRescueOptions<T>): TapRescue<T> {
   type Live = { target: T; x: number; y: number; clicked: boolean; timer: number | null }
   let live: Live | null = null
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  THE GESTURE WE HAVE ALREADY ACTED ON
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * THE BUG: pressing + sometimes opened the sell sheet TWICE — two history
+   * entries, two pushes, and a visible glitch as the second landed on top of the
+   * first.
+   *
+   * The rescue and the click are two callbacks for one press, and they were only
+   * mutually exclusive while the gesture was still live. `click()` disarmed the
+   * timer, and the timer's own callback checked `g.clicked`. But the timer fires
+   * 220ms after pointerup and then sets `live = null` — so a click arriving
+   * LATER than that found no gesture to disarm, returned silently, and the
+   * caller went on to run the action a second time. The rescue had already run
+   * it.
+   *
+   * 220ms is not long on a main thread that is doing something. The click is
+   * synthesised by the engine after its own bookkeeping, and a busy frame, a
+   * scroll settling, or a route committing is enough to push it past that
+   * window — which is exactly why the double-open was intermittent and why it
+   * happened on the one button whose action is the most expensive on the bar.
+   *
+   * So a rescued gesture is remembered rather than forgotten. The next `click()`
+   * consumes that memory and reports back that it must not act, and the next
+   * `down()` clears it — a press is the only thing that starts a new gesture, so
+   * there is no state here that can outlive one.
+   */
+  let spent: Live | null = null
+
   /** Forget the gesture. `undo` tells the caller to take its press state back. */
   function drop(undo: boolean): void {
     const g = live
@@ -118,6 +155,9 @@ export function createTapRescue<T>(options: TapRescueOptions<T>): TapRescue<T> {
       // dropped silently rather than undone — the new press is about to
       // replace whatever it was showing anyway.
       drop(false)
+      // A new press is a new gesture, so any click still owed to the last one is
+      // no longer owed to anything.
+      spent = null
       live = { target, x, y, clicked: false, timer: null }
       options.onPress(target)
     },
@@ -141,16 +181,32 @@ export function createTapRescue<T>(options: TapRescueOptions<T>): TapRescue<T> {
         // click turned up. Either way this gesture no longer decides anything.
         if (live !== g || g.clicked) return
         live = null
+        // Remembered, not forgotten: a click that arrives after this must know
+        // the work has been done. See the note on `spent`.
+        spent = g
         options.onRescue(g.target)
       }, graceMs)
     },
 
-    click() {
+    click(): boolean {
       const g = live
-      if (!g) return
+      if (!g) {
+        // No live gesture. If the last one was RESCUED, this is its late click
+        // and the action has already been performed — consume the memory and
+        // tell the caller to stand down.
+        if (spent) {
+          spent = null
+          return false
+        }
+        // Otherwise it is an ordinary click on something this machine is not
+        // tracking — a keyboard activation, or one that follows a gesture we
+        // abandoned. A real click is a real intention; let it act.
+        return true
+      }
       g.clicked = true
       if (g.timer !== null) clearTimer(g.timer)
       g.timer = null
+      return true
     },
 
     cancel() {
@@ -159,6 +215,7 @@ export function createTapRescue<T>(options: TapRescueOptions<T>): TapRescue<T> {
 
     dispose() {
       drop(false)
+      spent = null
     },
 
     peek() {

@@ -5,6 +5,7 @@ import { runMessagePush } from "@/lib/push/message-db"
 import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { encodeImageBody } from "@/lib/messages/image-fallback"
+import { uploadMessageMedia } from "@/lib/messages/media-bucket"
 
 /**
  * POST /api/messages/:id/image  (multipart: file)  → { message }
@@ -125,31 +126,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const admin = createAdminClient()
   const path = `${user.id}/${id}/${crypto.randomUUID()}.${extensionFor(sniffed)}`
 
-  const put = () =>
-    admin.storage
-      .from("messages")
-      // The sniffed type, so what we serve back is described by what it is.
-      .upload(path, file, { contentType: sniffed, cacheControl: "31536000", upsert: false })
-
-  let { error: upErr } = await put()
-
-  // The bucket makes itself.
-  //
-  // "Încărcare eșuată" with nothing else to go on is almost always this: the
-  // migration that declares the `messages` bucket has not been run, so the very
-  // first photo anyone tries to send fails with a message that says nothing
-  // about why. A bucket is not schema — there is no data in it to migrate and
-  // nothing to get wrong — so the service role simply creates it and tries
-  // again. The SQL remains the source of truth for the storage POLICIES; this
-  // only removes a dead end.
-  if (upErr && /bucket.*not.*found/i.test(upErr.message || "")) {
-    await admin.storage.createBucket("messages", {
-      public: false,
-      fileSizeLimit: MAX_BYTES,
-      allowedMimeTypes: [...ALLOWED],
-    })
-    ;({ error: upErr } = await put())
-  }
+  // Through the shared helper — the sniffed type, so what we serve back is
+  // described by what it is. That module owns what this bucket accepts, because
+  // it is shared with voice notes and two routes each declaring the allowlist of
+  // one bucket is a definition that agrees with itself only by luck. It did not:
+  // this route's image-only list is what refused every voice note with "mime
+  // type audio/webm is not supported".
+  const { error: upErr } = await uploadMessageMedia(admin, path, file as File, sniffed)
 
   if (upErr) {
     // The real reason, not a shrug. A failed upload that says only "it failed"

@@ -14,6 +14,7 @@ import { conditionLabel } from "@/lib/marketplace/categories"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
 import { ProtectionMark } from "@/components/marketplace/buyer-protection"
 import { FollowButton } from "@/components/explore/follow-button"
+import { useListingOwnership } from "@/lib/marketplace/use-my-username"
 import { cn } from "@/lib/utils"
 
 const BLUR = "data:image/gif;base64,R0lGODlhAQABAIAAAOfn5wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
@@ -115,6 +116,26 @@ export const MobileListingCard = memo(function MobileListingCard({
   // where to return to, and which surfaces actually convert.
   const productUrl = getListingUrl(product.slug || "", "reels")
   const storeUrl = username ? `/member/${encodeURIComponent(username)}` : "#"
+  /**
+   * YOUR OWN CARD DOES NOT OFFER TO SAVE ITSELF.
+   *
+   * A wishlist is a list of things you might buy, and you cannot buy your own
+   * listing — the checkout refuses it and the listing page has replaced Buy and
+   * Make an offer with the manage controls for exactly that reason. A heart on
+   * your own item is a control whose only honest outcome is putting something
+   * you already own on a list of things to acquire.
+   *
+   * The grid card already does this (see product-card.tsx). This full-screen one
+   * did not, so the same listing offered a save on one surface and not on the
+   * other — which is worse than either answer on its own, because it reads as
+   * one of the two being broken.
+   *
+   * Answered on the client from the auth snapshot, because the feed is cached
+   * and auth-free on purpose. See lib/marketplace/use-my-username.ts: it is null
+   * for the first frame, so the control exists for one frame on your own card
+   * and nobody else ever sees it.
+   */
+  const { mine, known } = useListingOwnership(username, product.creator?.user_id)
   const cond = conditionLabel(product.condition)
   // A follow points at the person, so it needs the seller's profile id — the
   // creator row is only how their listings hang off them.
@@ -263,12 +284,17 @@ export const MobileListingCard = memo(function MobileListingCard({
           </span>
         </SmartLink>
 
-        <button type="button" onClick={onLike} aria-pressed={isWishlisted} aria-label={t("product.add_to_wishlist")} className="flex flex-col items-center gap-1">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">
-            <Heart key={nonce} className={cn("h-[22px] w-[22px] transition-colors duration-[750ms] ease-out", nonce > 0 && "motion-safe:heart-pop", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
-          </span>
-          <span className="text-[11px] font-medium drop-shadow">{t("mfeed.save")}</span>
-        </button>
+        {/* Not on your own listing — see `mine` above. The rail simply has one
+            fewer control rather than a disabled one: a greyed-out heart still
+            asks to be pressed, and the answer would be a refusal. */}
+        {known && !mine && (
+          <button type="button" onClick={onLike} aria-pressed={isWishlisted} aria-label={t("product.add_to_wishlist")} className="flex flex-col items-center gap-1">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">
+              <Heart key={nonce} className={cn("h-[22px] w-[22px] transition-colors duration-[750ms] ease-out", nonce > 0 && "motion-safe:heart-pop", isWishlisted ? "fill-rose-500 text-rose-500" : "text-white")} />
+            </span>
+            <span className="text-[11px] font-medium drop-shadow">{t("mfeed.save")}</span>
+          </button>
+        )}
 
         <SmartLink href={productUrl} onClick={(e) => e.stopPropagation()} className="flex flex-col items-center gap-1">
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/25 backdrop-blur-sm transition-transform active:scale-90">

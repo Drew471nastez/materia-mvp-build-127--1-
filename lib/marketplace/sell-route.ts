@@ -57,5 +57,16 @@ export function sellDraftHref(draftId: string): string {
  */
 export function isSellFormRoute(pathname: string | null | undefined): boolean {
   if (!pathname) return false
-  return pathname.startsWith(SELL_NEW) || pathname.startsWith("/products/edit/")
+  // BOUNDED, and for the reason the note above gives about `edit` — which was
+  // written about `edit` and then not applied to `new`.
+  //
+  // A bare `startsWith(SELL_NEW)` matches `/products/newbalance-97`, and the
+  // consequence is worse there than losing a tab bar: `sheetOpen` is what the +
+  // checks before opening, so on any listing whose slug begins with "new" the
+  // button silently refuses every press, for as long as that page is open, with
+  // nothing to suggest why. A query string never reaches this — usePathname
+  // strips it — so the only two shapes that count are the route itself and
+  // anything nested under it.
+  if (pathname === SELL_NEW || pathname.startsWith(`${SELL_NEW}/`)) return true
+  return pathname.startsWith("/products/edit/")
 }

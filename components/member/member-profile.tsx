@@ -13,6 +13,7 @@ import { FollowButton } from "@/components/explore/follow-button"
 import { EmptyShelf } from "@/components/member/empty-shelf"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ownerListingHref, ownerStatusBadge } from "@/lib/marketplace/listing-status"
+import { pinnedOffset, usePinnedBar } from "@/lib/marketplace/use-pinned-bar"
 import { SellerReviewsList } from "@/components/member/seller-reviews-list"
 import { ProfilePinnedHeader } from "@/components/member/profile-pinned-header"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
@@ -102,19 +103,6 @@ function reviewsLabel(count: number, language: string): string {
     return count < 20 ? `${count} recenzii` : `${count} de recenzii`
   }
   return count === 1 ? "1 review" : `${count} reviews`
-}
-
-/**
- * How much of the top of the screen the pinned bar is currently covering.
- *
- * Measured rather than stated, because its height is 52px plus whatever the
- * device's status-bar inset happens to be — a number that only CSS knows. Zero
- * when the bar is not up, which is the case where scrolling to y=0 is correct.
- */
-function pinnedOffset(): number {
-  if (typeof document === "undefined") return 0
-  const bar = document.querySelector<HTMLElement>('.profile-pinned[data-shown="true"]')
-  return bar ? bar.getBoundingClientRect().height : 0
 }
 
 export type ReviewsSummary = { average: number; count: number }
@@ -506,47 +494,33 @@ export function MemberProfile({
    * continuously and used almost never. The observer fires exactly on the
    * crossings.
    */
-  const nameEndRef = useRef<HTMLSpanElement>(null)
-  const [pinned, setPinned] = useState(false)
-  useEffect(() => {
-    const el = nameEndRef.current
-    if (!el || typeof IntersectionObserver === "undefined") return
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        // Above the viewport, not below it. Without the second test the bar
-        // also appears when the sentinel has not been reached yet — which on a
-        // short profile is most of the time.
-        setPinned(!entry.isIntersecting && entry.boundingClientRect.top < 0)
-      },
-      { threshold: 0 },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  /**
+   * THE BAR AT THE TOP, ONCE THE NAME HAS GONE.
+   *
+   * The observer pair and the dead band between their trigger lines live in
+   * lib/marketplace/use-pinned-bar.ts, because the listing page needs exactly
+   * the same behaviour and "exactly the same" is not something two copies of an
+   * IntersectionObserver stay for long. That file also records why the margins
+   * are positive, which is the part that was wrong here and made the bar stop
+   * appearing altogether.
+   */
+  const { sentinel: nameEndRef, pinned, left: leftProfile } = usePinnedBar<HTMLSpanElement>()
 
   /**
-   * ═══════════════════════════════════════════════════════════════════════════
-   *  AND IT MUST NOT SURVIVE A MODAL OPENING OVER THE PAGE
-   * ═══════════════════════════════════════════════════════════════════════════
+   * NOT GUARDED HERE ANY MORE.
    *
-   * "Vinde un articol" appeared with this profile's bar across the top of it —
-   * somebody else's name, a share button and a settings gear, over a form for
-   * listing a jumper.
+   * This screen used to hide its own bar while a modal was over it, with a
+   * hand-written list of the paths the bar belongs to — `/profile` and
+   * `/member/…`. It was correct and it did not generalise: the listing page grew
+   * the same bar, did not copy the list, and the sell form opened with somebody
+   * else's chrome across the top of it.
    *
-   * /products/new is an INTERCEPTED route (app/(marketing)/@modal/(.)products/
-   * new), which is what makes the sell sheet open over whatever you were
-   * looking at without losing it. The consequence is that this component is not
-   * unmounted while that sheet is open — so its bar, portalled to <body> and
-   * fixed to the viewport, went on being drawn over a screen it has nothing to
-   * do with.
-   *
-   * The pathname is the honest test: when the modal is open the URL is the
-   * modal's, and this page is underneath rather than in front. Not a z-index
-   * fight — a bar belonging to the page BEHIND must not be visible over the one
-   * in front no matter which of them stacks higher.
+   * `usePinnedBar` captures the path its page was mounted on and reports
+   * `pinned` as false whenever the current path is something else, so every bar
+   * built on it is covered without its caller having to remember. See the note
+   * there for why this is a URL test rather than a z-index one.
    */
   const pathname = usePathname()
-  const onScreen = pathname === "/profile" || !!pathname?.startsWith("/member/")
   /**
    * The listing whose ⋯ sheet is open, when this is your own shelf.
    *
@@ -692,7 +666,8 @@ export function MemberProfile({
       <ProfilePinnedHeader
         name={name}
         avatarUrl={member.avatarUrl}
-        visible={pinned && onScreen}
+        visible={pinned}
+        instant={leftProfile}
         isOwner={isOwner}
         onShare={() => void share()}
       />

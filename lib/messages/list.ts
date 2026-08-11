@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
+import { isEncodedVoice } from "@/lib/messages/voice-message"
+import { callPreview, decodeCallBody } from "@/lib/messages/call-message"
 import {
   ensureSystemConversation,
   fetchProfilesWithOfficial,
@@ -44,7 +46,7 @@ export type InboxListing = {
 
 export type InboxLastMessage = {
   sender_id: string
-  kind: "text" | "offer" | "image"
+  kind: "text" | "offer" | "image" | "voice" | "call"
   body: string | null
   offer_cents: number | null
   offer_status: "pending" | "accepted" | "declined" | null
@@ -297,6 +299,22 @@ export async function listConversations({
     // there are two ways a photo can be filed; it only has to know it is one.
     for (const m of lastRes.data ?? []) {
       if (last.has(m.conversation_id)) continue
+      // A voice note is filed the same way and would print the same gibberish —
+      // "\u0002storelib:voice\u0002a81ccv72e…" — down the inbox. It has no
+      // text to preview at all, so the row is told what it is and says so
+      // itself, the way it already does for a photograph.
+      if (m.kind === "text" && isEncodedVoice(m.body)) {
+        last.set(m.conversation_id, { ...m, kind: "voice", body: null } as any)
+        continue
+      }
+      // And a third: a call leaves a row in the thread like everything else, so
+      // it can be the newest thing in a conversation and would print its own
+      // sentinel down the inbox exactly as the other two would have.
+      const call = m.kind === "text" ? decodeCallBody(m.body) : null
+      if (call) {
+        last.set(m.conversation_id, { ...m, kind: "call", body: callPreview(call) } as any)
+        continue
+      }
       const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
       last.set(
         m.conversation_id,

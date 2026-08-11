@@ -48,27 +48,47 @@ export async function assertChargeCurrencyReady(): Promise<CurrencyReadiness> {
 
   try {
     const admin = createAdminClient()
+    /**
+     * EITHER MARKER WILL DO, BECAUSE THERE ARE TWO HONEST WAYS TO BE IN LEI.
+     *
+     *   currency_ron_2026    the catalogue held USD cents and was converted.
+     *                        Left behind by RUN_CURRENCY_RON.sql.
+     *
+     *   currency_ron_native  the catalogue was ALWAYS lei and there was nothing
+     *                        to convert. Left behind by
+     *                        RUN_CURRENCY_RON_NATIVE.sql.
+     *
+     * The second exists because this guard was written assuming the only road to
+     * lei was a conversion, and that is not the road this product took.
+     * `price_cents` is written by exactly one screen — the sell form — which
+     * takes a number typed by a Romanian seller and multiplies it by 100. It has
+     * always held bani.
+     *
+     * Demanding the conversion marker would therefore demand a migration that
+     * must NEVER run here: RUN_CURRENCY_RON.sql multiplies every stored amount
+     * by 4.6, which against a catalogue already in bani is the old display bug
+     * made permanent and written to the data instead of the screen.
+     *
+     * What the guard is for has not changed. It still refuses to charge lei
+     * until somebody has stated, in the database, what the stored unit is. It
+     * now accepts both of the true answers rather than only one of them.
+     */
     const { data, error } = await admin
       .from("platform_migrations")
       .select("key")
-      .eq("key", "currency_ron_2026")
+      .in("key", ["currency_ron_2026", "currency_ron_native"])
+      .limit(1)
       .maybeSingle()
 
-    // A MISSING TABLE IS A MISSING MIGRATION, and it is the same answer: the
-    // table is created by the very file that would have set the marker.
-    if (error) {
+    // A MISSING TABLE IS AN UNSTATED UNIT, and it is the same answer: the table
+    // is created by whichever file would have left the marker.
+    if (error || !data) {
       return {
         ok: false,
         message:
-          "Plățile sunt configurate în lei, dar migrarea prețurilor nu a rulat. Rulează supabase/sql/RUN_CURRENCY_RON.sql.",
-      }
-    }
-
-    if (!data) {
-      return {
-        ok: false,
-        message:
-          "Plățile sunt configurate în lei, dar prețurile din catalog sunt încă în altă monedă. Rulează supabase/sql/RUN_CURRENCY_RON.sql.",
+          "Plățile sunt configurate în lei, dar unitatea prețurilor nu este confirmată. " +
+          "Rulează supabase/sql/RUN_CURRENCY_RON_NATIVE.sql dacă prețurile au fost " +
+          "dintotdeauna în lei, sau RUN_CURRENCY_RON.sql dacă sunt în dolari.",
       }
     }
 

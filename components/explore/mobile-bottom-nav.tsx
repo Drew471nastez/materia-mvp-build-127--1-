@@ -230,10 +230,34 @@ export function MobileBottomNav({
    * fallback is a hesitation rather than a second attempt you have given up on.
    * In the ordinary case this timer fires, finds the sheet, and returns.
    */
+  /** When the sell sheet was last asked for. See the guard inside. */
+  const lastSell = useRef(0)
+
   const onSell = useCallback(() => {
     // Already open — the only case worth declining, and it is asked of the
     // route rather than of a flag that remembers having asked.
     if (sheetOpen) return
+    /**
+     * AND NOT TWICE INSIDE ONE PRESS.
+     *
+     * `sheetOpen` is derived from the pathname, which is the right source and
+     * the wrong speed: a second call arriving milliseconds after the first sees
+     * a URL that has not changed yet and pushes again. The gesture machine is
+     * where that second call was coming from and it has been fixed there — this
+     * is the floor under it, because "open the sell sheet twice" is worth
+     * refusing from every direction, including ones nobody has found yet.
+     *
+     * A TIMESTAMP RATHER THAN A FLAG, and the difference is the whole reason
+     * this is acceptable. The note above records why a `launching` boolean had
+     * to be deleted: it was set on press and cleared on a route change, so any
+     * moment the two disagreed left it stuck true and the + dead for the rest of
+     * the session. This cannot stick — it expires by wall clock whatever else
+     * goes wrong, and the worst case is one ignored press within 700ms of
+     * another, which is not a press anybody makes on purpose.
+     */
+    const now = Date.now()
+    if (now - lastSell.current < 700) return
+    lastSell.current = now
     // The buzz already fired on pointerdown, with the finger rather than after
     // it — see the gesture machine below.
     router.push("/products/new")
@@ -244,27 +268,117 @@ export function MobileBottomNav({
     const open = () =>
       window.location.pathname.startsWith("/products/new") && !!document.querySelector(".sell-sheet")
 
-    window.setTimeout(() => {
-      if (typeof document === "undefined" || open()) return
-      if (!window.location.pathname.startsWith("/products/new")) {
-        // The push never took. Ask once more, the cheap way — a client
-        // navigation, so a transient drop costs a beat and nothing else.
-        router.push("/products/new")
-        // AND A FLOOR UNDER THE RETRY. Modelling this against a router that
-        // drops every push showed the retry branch had no terminal case: two
-        // client pushes, both lost, and the sheet never opens. Escalating means
-        // there is exactly one outcome — the form is on screen — however many
-        // ways the client navigation finds to fail.
-        window.setTimeout(() => {
-          if (!open()) window.location.assign("/products/new")
-        }, 700)
+    /**
+     * THE WATCHDOG THAT WAS CAUSING THE THING IT EXISTED TO PREVENT.
+     *
+     * It gave the navigation 700ms and then, if `.sell-sheet` was not in the
+     * document, called `window.location.assign` — a full document load. But
+     * 700ms is not a timeout for "the push was dropped", it is a timeout for
+     * "this phone has not finished rendering a long form yet", and on a cold
+     * route those are indistinguishable from here. So a navigation that was
+     * working perfectly well got a hard reload dropped on top of it, and what
+     * you saw was the sell page appearing, and then appearing again. It opened
+     * twice because this opened it twice.
+     *
+     * Two changes, and they follow from what the two failures actually look
+     * like:
+     *
+     *   THE ROUTE IS RIGHT, THE FORM IS NOT PAINTED YET. Not a failure at all —
+     *   it is a render in progress. Waiting costs nothing and reloading throws
+     *   away the work and shows the arrival a second time. So this case no
+     *   longer escalates, ever; it just keeps looking.
+     *
+     *   THE ROUTE NEVER CHANGED. That is the real dropped push, it is
+     *   detectable without guessing, and it is the only thing worth acting on.
+     *
+     * Polled rather than a single deadline, so a fast phone stops looking
+     * almost immediately and a slow one is given the time it needs.
+     */
+    const started = Date.now()
+    /** The URL the press happened on. The only baseline that means anything. */
+    const from = typeof window === "undefined" ? "" : window.location.pathname
+    const watch = window.setInterval(() => {
+      if (typeof document === "undefined" || open()) {
+        window.clearInterval(watch)
         return
       }
-      // On the route with nothing rendered into the slot. A second client
-      // navigation cannot fix that; a document load renders the page route,
-      // which always works.
-      window.location.assign("/products/new")
-    }, 700)
+      /**
+       * THE NAVIGATION HAPPENED. STOP LOOKING.
+       *
+       * This is the third distinct way this watchdog has produced the bug it
+       * exists to prevent, and the pattern is always the same: it treats "the
+       * sheet is not on screen right now" as "the sheet never opened".
+       *
+       * Those are different states, and the gap between them is everything the
+       * user does in the four seconds after pressing +. Open the sheet and close
+       * it again because you changed your mind; open it and publish something
+       * short; open it, go back, and look at the listing behind it. In every one
+       * of those the sheet opened perfectly and is legitimately gone by the
+       * deadline — and the escalation below then hard-loads /products/new on top
+       * of whatever screen you had settled on. The sell page appearing out of
+       * nowhere seconds after you dismissed it is "it appears, then closes, then
+       * appears randomly".
+       *
+       * A pathname that has MOVED is proof the push was delivered, whatever is
+       * on screen now. Only a URL that never changed at all is evidence of the
+       * dead end this was written for.
+       */
+      const now = window.location.pathname
+      /**
+       * MOVED SOMEWHERE THAT IS NOT THE SELL FORM — the push was delivered and
+       * the person has since gone elsewhere: opened it and changed their mind,
+       * opened it and published, opened it and pressed back. Nothing to do.
+       *
+       * This used to be `pathname !== from`, full stop, and that had a hole in
+       * it exactly the size of the failure that has just been reported: a URL
+       * that DID change to /products/new while the sheet never appeared was
+       * read as success and the watchdog stood down, so a sheet that failed to
+       * render had nothing left to catch it. Press +, URL changes, no sheet,
+       * and the button looks dead.
+       *
+       * Being ON the sell route with no sheet after four seconds cannot be
+       * somebody having closed it — closing it moves the URL off this route —
+       * so it is the one shape that is unambiguously broken, and it is the one
+       * shape the escalation below now also covers.
+       */
+      if (now !== from && !isSellFormRoute(now)) {
+        window.clearInterval(watch)
+        return
+      }
+      const waited = Date.now() - started
+      if (waited < 4000) return
+      /**
+       * THE SECOND ROUTER.PUSH IS GONE, AND THAT IS THE WHOLE FIX.
+       *
+       * There used to be a retry here: if the URL had not changed within a
+       * short window, push again. But `router.push` is asynchronous — a slow
+       * phone, a cold route, a payload still in flight all look exactly like a
+       * push that was dropped, because from here the only evidence either way
+       * is a pathname that has not changed YET. So the retry fired on top of a
+       * navigation that was working, and the sell page opened twice. Every
+       * version of this double-open has been the recovery, never the press.
+       *
+       * There is no way to tell the two apart from out here, so this no longer
+       * tries. One press is one `router.push`, always, and the only thing left
+       * is a terminal case for the genuine dead end: after four seconds with
+       * neither the route nor the form, a document load. That CANNOT open
+       * anything twice — it replaces the page rather than adding to it — and
+       * four seconds is long enough that no working navigation has ever
+       * reached it.
+       */
+      window.clearInterval(watch)
+      // Re-checked rather than assumed: four seconds is a long time and the
+      // route may have arrived between the test above and this line. Two dead
+      // ends qualify — never left the page at all, or sitting on the sell route
+      // with nothing rendered into it.
+      const at = window.location.pathname
+      if (!open() && (at === from || isSellFormRoute(at))) {
+        window.location.assign("/products/new")
+      }
+    }, 150)
+    // Never left running: this bar is mounted on every screen for the whole
+    // session, and an interval per press would accumulate one per tap.
+    window.setTimeout(() => window.clearInterval(watch), 6000)
   }, [sheetOpen, router])
 
   // Every tab answers the finger before the route does.
@@ -415,7 +529,11 @@ export function MobileBottomNav({
     // starts the spin — put that work in the intent, so the click path and the
     // rescue path run exactly the same thing rather than two copies of it.
     onClick: () => {
-      rescue.current?.click()
+      // FALSE MEANS THE RESCUE ALREADY DID THIS. The grace period is 220ms and a
+      // synthesised click can arrive later than that on a busy frame — in which
+      // case the rescue has already run `intent.run` and running it again is one
+      // press opening two sheets. See the note on `spent` in lib/tap-rescue.ts.
+      if (rescue.current?.click() === false) return
       intent.run?.()
     },
   })
@@ -508,11 +626,21 @@ export function MobileBottomNav({
                 a turn that began behind the thing hiding it. `plusOpen` is true
                 from the press, which is the only version of this you can
                 actually watch. The curve and its length are in globals.css. */}
-            <Plus
-              className="plus-turn h-6 w-6"
-              strokeWidth={2.6}
+            {/* THE TURN IS ON A SPAN, NOT ON THE ICON.
+
+                `data-open` was set on <Plus>, which is a component, not an
+                element — whether it reaches the DOM at all depends on that
+                library forwarding unknown props to its <svg>. When it does not,
+                the attribute never lands, the selector never matches, and the
+                rotation does not happen: no error, no warning, and CSS that
+                reads exactly right. This is a plain HTML element, so the
+                attribute is on it because it was written on it. */}
+            <span
+              className="plus-turn flex h-6 w-6 items-center justify-center"
               data-open={plusOpen ? "true" : "false"}
-            />
+            >
+              <Plus className="h-6 w-6" strokeWidth={2.6} />
+            </span>
           </span>
         </button>
 

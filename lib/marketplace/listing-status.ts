@@ -22,6 +22,8 @@
  * own shelf.
  */
 
+import { sellDraftHref, sellEditHref } from "@/lib/marketplace/sell-route"
+
 export const LISTING_STATUSES = ["draft", "published", "reserved", "archived", "sold"] as const
 export type ListingStatus = (typeof LISTING_STATUSES)[number]
 
@@ -95,6 +97,19 @@ export function ownerStatusBadge(status: string | null | undefined): StatusBadge
  */
 export function ownerListingHref(listing: { slug: string; id: string; status?: string | null }): string {
   if (PUBLIC_PAGE.includes(listing.status as ListingStatus)) return `/products/${listing.slug}`
-  const key = listing.status === "draft" ? "draft" : "edit"
-  return `/products/new?${key}=${encodeURIComponent(listing.id)}`
+  /**
+   * BUILT BY sell-route.ts, NOT SPELLED OUT HERE.
+   *
+   * This used to write `/products/new?edit=<id>` by hand, and it was left
+   * pointing at that after the edit screen moved to its own route — so tapping
+   * an archived card, on the one shelf that exists to make archived listings
+   * reachable again, opened a blank NEW-listing form. The listing was fine; the
+   * address was to a screen that no longer reads that query.
+   *
+   * That is the second time this function has had exactly this fault: the
+   * comment above records it once linking to a 404 for the same reason, an
+   * address written out in a file that does not own it. So it does not write
+   * addresses any more — it asks the module whose job that is.
+   */
+  return listing.status === "draft" ? sellDraftHref(listing.id) : sellEditHref(listing.id)
 }

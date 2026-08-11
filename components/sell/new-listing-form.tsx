@@ -533,6 +533,49 @@ const MOTION_CLASS: Record<SheetMotion, string> = {
   idle: "",
 }
 
+/**
+ * The row, mapped to what the fields hold.
+ *
+ * Used twice and it must be used twice: once to SEED the state when the route
+ * already read the row on the server, and once inside the fetch effect for the
+ * draft path, which still loads on the client. Two copies of this mapping is two
+ * places for "the era chip does not come back" to live.
+ *
+ * The photos come back as URLs that are already uploaded, so they are marked
+ * `uploading: false` with their url in place — the form's own upload path is for
+ * files being chosen NOW, and re-running it against something already in storage
+ * would upload it a second time.
+ */
+function fieldsFromRow(v: any) {
+  const urls: string[] = [v?.thumbnail_url, ...(Array.isArray(v?.gallery_urls) ? v.gallery_urls : [])].filter(
+    (u: unknown): u is string => typeof u === "string" && !!u,
+  )
+  const variants = Array.isArray(v?.image_variants) ? v.image_variants : []
+  return {
+    photos: urls.map((url, i) => ({
+      id: `row-${i}-${url.slice(-12)}`,
+      url,
+      uploading: false as const,
+      localUrl: url,
+      variant: variants[i] ?? null,
+    })),
+    title: v?.title ?? "",
+    description: v?.description ?? "",
+    group: v?.category ?? null,
+    item: v?.subcategory ?? null,
+    brand: v?.brand ?? null,
+    condition: v?.condition ?? null,
+    colour: v?.colour ?? null,
+    size: v?.size ?? null,
+    era: v?.era ?? null,
+    sources: Array.isArray(v?.source_tags) ? v.source_tags : [],
+    styles: Array.isArray(v?.style_tags) ? v.style_tags : [],
+    // Minor units back to what somebody typed. 0 is "no price yet" on a draft,
+    // and must not come back as the string "0".
+    price: v?.price_cents > 0 ? String(v.price_cents / 100) : "",
+  }
+}
+
 export function NewListingForm({
   /**
    * Handed down by the route, which is the only place that knows them at the
@@ -542,9 +585,25 @@ export function NewListingForm({
   draftId: initialDraftId,
   editId: initialEditId,
   overlay = false,
+  /**
+   * THE ROW, ALREADY READ, WHEN THE ROUTE COULD READ IT.
+   *
+   * This is what stops the edit screen arriving empty and then filling itself in
+   * a moment later. The route knows which listing it is — the id is in the path
+   * — so it reads the row while it renders and hands it over, and every field
+   * below is seeded from it in a `useState` initialiser. The first painted frame
+   * of the sheet already has the title, the price and the photographs in it, so
+   * there is no second arrival to watch.
+   *
+   * Absent for a draft (which still loads on the client through the drafts
+   * route) and for a listing the server could not read, both of which fall back
+   * to the fetch effect exactly as before.
+   */
+  initialListing,
 }: {
   draftId?: string | null
   editId?: string | null
+  initialListing?: any | null
   /**
    * ═══════════════════════════════════════════════════════════════════════════
    *  RENDERED OVER A PAGE, OR AS ONE
@@ -570,6 +629,9 @@ export function NewListingForm({
    */
   overlay?: boolean
 } = {}) {
+  /** Computed once. Re-running the mapping on every render would rebuild the
+   *  photo array and hand `photos` a new identity each time. */
+  const seed = useRef(initialListing ? fieldsFromRow(initialListing) : null).current
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   /** The sheet's one scroller — sent back to the top when a second listing starts. */
@@ -633,21 +695,38 @@ export function NewListingForm({
    * moment "unchanged" is defined — take the baseline a render too early and
    * the draft loading into the fields reads as edits the user never made.
    */
-  const [formReady, setFormReady] = useState(false)
+  // Ready on the first frame when the route already handed us the row: there is
+  // nothing left to wait for, and `formReady` is what decides when the baseline
+  // for "unchanged" is taken. Taking it now is correct precisely BECAUSE the
+  // fields are already filled — the seeded values are what the form started
+  // from, so nothing reads as an edit nobody made.
+  const [formReady, setFormReady] = useState(!!seed)
 
-  const [photos, setPhotos] = useState<Photo[]>([])
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [group, setGroup] = useState<string | null>(null)
-  const [item, setItem] = useState<string | null>(null)
-  const [brand, setBrand] = useState<string | null>(null)
-  const [condition, setCondition] = useState<string | null>(null)
-  const [colour, setColour] = useState<string | null>(null)
-  const [size, setSize] = useState<string | null>(null)
-  const [era, setEra] = useState<string | null>(null)
-  const [sources, setSources] = useState<string[]>([])
-  const [styles, setStyles] = useState<string[]>([])
-  const [price, setPrice] = useState("")
+  const [photos, setPhotos] = useState<Photo[]>(seed?.photos ?? [])
+  /**
+   * Which photographs the browser has actually decoded.
+   *
+   * Keyed by photo id rather than by index, because the grid is reorderable and
+   * an index would mean dragging a tile hands its "loaded" flag to whatever
+   * moves into that slot — a picture already on screen flashing back to a
+   * skeleton because something else was dropped in front of it.
+   */
+  const [loadedPhotos, setLoadedPhotos] = useState<Record<string, true>>({})
+  const markPhotoLoaded = useCallback((id: string) => {
+    setLoadedPhotos((prev) => (prev[id] ? prev : { ...prev, [id]: true }))
+  }, [])
+  const [title, setTitle] = useState(seed?.title ?? "")
+  const [description, setDescription] = useState(seed?.description ?? "")
+  const [group, setGroup] = useState<string | null>(seed?.group ?? null)
+  const [item, setItem] = useState<string | null>(seed?.item ?? null)
+  const [brand, setBrand] = useState<string | null>(seed?.brand ?? null)
+  const [condition, setCondition] = useState<string | null>(seed?.condition ?? null)
+  const [colour, setColour] = useState<string | null>(seed?.colour ?? null)
+  const [size, setSize] = useState<string | null>(seed?.size ?? null)
+  const [era, setEra] = useState<string | null>(seed?.era ?? null)
+  const [sources, setSources] = useState<string[]>(seed?.sources ?? [])
+  const [styles, setStyles] = useState<string[]>(seed?.styles ?? [])
+  const [price, setPrice] = useState(seed?.price ?? "")
   const [postAnother, setPostAnother] = useState(false)
 
   const [sheet, setSheet] = useState<null | "category" | "brand" | "condition" | "colour" | "size" | "era" | "source" | "style">(null)
@@ -703,6 +782,10 @@ export function NewListingForm({
    * for anyway.
    */
   useEffect(() => {
+    // Already filled in by the route. Fetching the same row again would be a
+    // request whose answer is identical to what is on screen, and applying it
+    // would overwrite anything typed in the meantime.
+    if (seed) return
     const id = draftId ?? editId
     if (!id) {
       setFormReady(true)
@@ -718,33 +801,22 @@ export function NewListingForm({
       .then((d) => {
         const v = d?.draft ?? d?.listing
         if (!alive || !v) return
-        const urls: string[] = [v.thumbnail_url, ...(Array.isArray(v.gallery_urls) ? v.gallery_urls : [])].filter(
-          (u: unknown): u is string => typeof u === "string" && !!u,
-        )
-        const variants = Array.isArray(v.image_variants) ? v.image_variants : []
-        setPhotos(
-          urls.map((url, i) => ({
-            id: `draft-${i}-${url.slice(-12)}`,
-            url,
-            uploading: false,
-            localUrl: url,
-            variant: variants[i] ?? null,
-          })),
-        )
-        setTitle(v.title ?? "")
-        setDescription(v.description ?? "")
-        setGroup(v.category ?? null)
-        setItem(v.subcategory ?? null)
-        setBrand(v.brand ?? null)
-        setCondition(v.condition ?? null)
-        setColour(v.colour ?? null)
-        setSize(v.size ?? null)
-        setEra(v.era ?? null)
-        setSources(Array.isArray(v.source_tags) ? v.source_tags : [])
-        setStyles(Array.isArray(v.style_tags) ? v.style_tags : [])
-        // Minor units back to what somebody typed. 0 is "no price yet" on a
-        // draft, and must not come back as the string "0".
-        setPrice(v.price_cents > 0 ? String(v.price_cents / 100) : "")
+        // ONE mapping, shared with the seeded path above. Two copies of it is
+        // two places for "the era chip does not come back" to live.
+        const next = fieldsFromRow(v)
+        setPhotos(next.photos)
+        setTitle(next.title)
+        setDescription(next.description)
+        setGroup(next.group)
+        setItem(next.item)
+        setBrand(next.brand)
+        setCondition(next.condition)
+        setColour(next.colour)
+        setSize(next.size)
+        setEra(next.era)
+        setSources(next.sources)
+        setStyles(next.styles)
+        setPrice(next.price)
       })
       .catch(() => undefined)
       .finally(() => {
@@ -758,7 +830,7 @@ export function NewListingForm({
     return () => {
       alive = false
     }
-  }, [draftId, editId])
+  }, [draftId, editId, seed])
 
   // ---- photos ----
   const addFiles = useCallback(async (files: FileList | null) => {
@@ -1984,6 +2056,28 @@ export function NewListingForm({
             if (draft) router.replace("/profile")
             else if (data?.slug) router.replace(`/products/${data.slug}`)
             else router.replace("/")
+            /**
+             * AND THE REFRESH, WHICH THE EDIT PATH ABOVE ALREADY HAD.
+             *
+             * This form is reached through an INTERCEPTED route — see
+             * app/(marketing)/@modal/(.)products/new. Leaving one with `replace`
+             * rewrites the history entry while the router still holds the tree
+             * in which that interception is the thing being shown. The screen
+             * you land on is correct, so nothing looks wrong; what is left
+             * behind is a @modal slot the router considers already resolved.
+             *
+             * The next press of + pushes /products/new, the router matches it
+             * against a tree that already contains it, and renders nothing. The
+             * + is then dead for the rest of the session — reported as "I
+             * published a listing, it took me back to the product page, and now
+             * the plus does not open at all".
+             *
+             * `refresh` re-resolves the tree from the server, which clears that
+             * slot. The edit branch has had this since it was written and the
+             * publish branch never did, which is the whole of why one of them
+             * leaves the button working and the other does not.
+             */
+            router.refresh()
           }, 316)
         }, 1100)
       } catch {
@@ -2325,12 +2419,40 @@ export function NewListingForm({
                     "z-10 scale-[1.06] shadow-[0_16px_36px_-10px_rgba(0,0,0,0.45)] ring-[2.5px] ring-neutral-900 will-change-transform",
                 )}
               >
+                {/* A PHOTOGRAPH THAT IS NOT HERE YET IS A SHIMMER, NOT A HOLE.
+                
+                    Opening an edit screen loads eight full-size photographs off
+                    storage, and they do not arrive together or in order — so the
+                    grid filled in one tile at a time, each one snapping from an
+                    empty grey box to a picture. Eight hard cuts at eight
+                    unpredictable moments, which is the popping.
+                    
+                    The well underneath carries the skeleton, and the image fades
+                    over it once the browser has actually decoded it. `onLoad`
+                    rather than a timer, because the honest moment is the one the
+                    browser reports; `onError` clears it too, so a photograph
+                    that will never arrive settles instead of shimmering for the
+                    rest of the session.
+                    
+                    Opacity only — the tile is already the right size and the
+                    right shape from the first frame, so nothing moves and no
+                    layout is touched. A skeleton that changes the box it is
+                    standing in for is worse than none. */}
+                {!loadedPhotos[p.id] && !p.uploading && (
+                  <span aria-hidden className="photo-skeleton absolute inset-0" />
+                )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.url || p.localUrl}
                   alt=""
                   draggable={false}
-                  className="pointer-events-none h-full w-full select-none object-cover"
+                  onLoad={() => markPhotoLoaded(p.id)}
+                  onError={() => markPhotoLoaded(p.id)}
+                  className={cn(
+                    "pointer-events-none h-full w-full select-none object-cover",
+                    "transition-opacity duration-300 ease-out",
+                    loadedPhotos[p.id] ? "opacity-100" : "opacity-0",
+                  )}
                 />
 
                 {p.uploading && (
@@ -2505,14 +2627,35 @@ export function NewListingForm({
             types 130, opens the feed and finds their listing at 141 with no
             explanation. */}
         <div className="mt-3" ref={(el) => setGapEl("price", el)}>
-          <label className="block text-[13px] font-medium text-neutral-500">Preț</label>
-          <input
-            value={price}
-            onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
-            inputMode="decimal"
-            placeholder="0"
-            className="mt-1.5 w-full rounded-xl border border-neutral-200 bg-neutral-50/70 px-3.5 py-3 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
-          />
+          {/* THE FIELD SAYS WHAT UNIT IT IS IN.
+          
+              It said "Preț" and took a bare number. On a marketplace whose
+              couriers bill in lei, whose sellers are paid in lei and whose every
+              displayed price carries "RON", a seller typing 360 into an
+              unlabelled box is entitled to believe they have priced the item at
+              360 lei — and nothing on the screen either confirmed or denied it.
+              
+              The unit belongs ON the input rather than in a hint below it: a
+              caption is read once and the field is used every time. */}
+          <label htmlFor="listing-price" className="block text-[13px] font-medium text-neutral-500">
+            Preț (RON)
+          </label>
+          <div className="relative mt-1.5">
+            <input
+              id="listing-price"
+              value={price}
+              onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
+              inputMode="decimal"
+              placeholder="0"
+              className="w-full rounded-xl border border-neutral-200 bg-neutral-50/70 py-3 pl-3.5 pr-14 text-[15px] font-medium outline-none transition-colors duration-150 focus:border-neutral-900 focus:bg-white"
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[14px] font-semibold text-neutral-400"
+            >
+              RON
+            </span>
+          </div>
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
         {Number.isFinite(priceCents) && priceCents > 0 && (

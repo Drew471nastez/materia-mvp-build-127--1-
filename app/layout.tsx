@@ -15,6 +15,7 @@ import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-gua
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
 import { NativePushInit } from "@/components/native-push-init"
+import { CallHost } from "@/components/calls/call-host"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -150,7 +151,18 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
-        <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
+        {/* ONE call listener for the whole application.
+
+            A call arrives while you are browsing listings, or reading a
+            different conversation — so the thing that hears it cannot live in
+            the conversation. And a call outlives the screen it was started
+            from: every caller opens the listing they are calling about, and if
+            the call belonged to that thread, navigating would hang up.
+
+            It renders nothing at all until a phone rings. */}
+        <CallHost>
+          <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
+        </CallHost>
         {/* ONE buyer-protection subpage for the whole application.
             
             The shield beside a price is on every surface that shows one — the

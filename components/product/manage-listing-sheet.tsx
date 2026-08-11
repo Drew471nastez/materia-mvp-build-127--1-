@@ -8,6 +8,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { sellDraftHref, sellEditHref } from "@/lib/marketplace/sell-route"
+import { navigateBlended } from "@/lib/nav-blend"
 import { cn } from "@/lib/utils"
 
 /**
@@ -169,7 +170,24 @@ export function ManageListingSheet({
     void triggerHaptic("light")
     onClose()
     window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => router.push(editHref), AFTER_EXIT_MS)
+    timer.current = window.setTimeout(() => {
+      /**
+       * THROUGH THE BLEND, SO THE WAIT IS VISIBLE.
+       *
+       * Removing this route's `loading.tsx` is what stopped the edit screen
+       * arriving twice — the navigation now waits for the server read instead of
+       * showing a skeleton and swapping it out. The cost of that is a silent
+       * gap: the sheet has gone, the screen behind it is sitting there, and
+       * nothing says a screen is on its way.
+       *
+       * `navigateBlended` is the app's own answer to exactly that. It puts the
+       * purple bar at the top of the document — after 180ms, so a warm
+       * prefetched route still shows nothing at all — and finishes it when the
+       * destination reports itself rendered. So a fast open is silent and a slow
+       * one is narrated, which is the right way round.
+       */
+      navigateBlended("enter", () => router.push(editHref))
+    }, AFTER_EXIT_MS)
   }, [router, onClose, editHref])
 
   /** Every status move goes through here, so they cannot drift apart. */

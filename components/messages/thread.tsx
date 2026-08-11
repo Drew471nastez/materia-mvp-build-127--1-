@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, RotateCw, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Phone, PhoneMissed, RotateCw, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
@@ -15,6 +15,12 @@ import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
+import { isEncodedVoice } from "@/lib/messages/voice-message"
+import { callSummary, type CallRecord } from "@/lib/messages/call-message"
+import { formatCallDuration } from "@/lib/calls/protocol"
+import { useCall } from "@/components/calls/call-host"
+import { VoiceRecorder } from "@/components/messages/voice-recorder"
+import { VoiceBubble } from "@/components/messages/voice-bubble"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
@@ -25,7 +31,7 @@ import { cn } from "@/lib/utils"
 type Msg = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image"
+  kind: "text" | "offer" | "image" | "voice" | "call"
   body: string | null
   /** Signed and short-lived by the time it reaches here — what is stored is an
    *  object path in a private bucket. On an optimistic bubble it is a local
@@ -1022,7 +1028,49 @@ export function MessageThread({
   // pictures means what is uncovered is finished.
   const [dataReady, setDataReady] = useState(!fromCache)
   const [pixelsReady, setPixelsReady] = useState(false)
-  const covered = !dataReady || !pixelsReady
+  /**
+   * AND IT DOES NOT LIFT WHILE THE SCREEN IS STILL TRAVELLING.
+   *
+   * On a phone the conversation is pushed in over 420ms (`.thread-arrive` in
+   * globals.css). A cover that lifted at 150ms — a warm route, cached photos —
+   * revealed the messages while the screen was still sliding, so the content
+   * appeared to arrive separately from the thing carrying it. Two arrivals for
+   * one tap, which is the shape of every complaint on this screen.
+   *
+   * Held for the length of the push and no longer. It costs nothing: the cover
+   * is the same surface as what is underneath it, the spinner does not appear
+   * for another 420ms, and the screen is moving throughout.
+   *
+   * Phone only, because the push is phone only — on a desktop the conversation
+   * is a column in a split view that does not travel, and this would be a
+   * quarter of a second of nothing for no reason.
+   */
+  const [travelled, setTravelled] = useState(true)
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth >= 768) return
+    setTravelled(false)
+    const t = window.setTimeout(() => setTravelled(true), 420)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  /**
+   * AND IT NEVER UNCOVERS ONTO A SKELETON.
+   *
+   * This is the rare one: the conversation showing its grey bubbles for a beat
+   * before the real messages. `thread === null` is the state where there is no
+   * conversation to draw at all, and the skeleton below is what stands in — but
+   * the cover's three conditions could all be satisfied while it was still null.
+   * `dataReady` starts true when nothing came from the cache, `pixelsReady`
+   * turns true immediately when there are no images to wait for, and `travelled`
+   * expires on a timer regardless. All three, on a cold open, can be true before
+   * the payload has landed.
+   *
+   * So the cover lifted onto the placeholder, and the placeholder was then
+   * replaced by the messages: two arrivals for one tap, with the least
+   * informative one first. The skeleton exists to be the LAST RESORT behind the
+   * cover, not a thing anybody is shown.
+   */
+  const covered = thread === null || !dataReady || !pixelsReady || !travelled
   coveredRef.current = covered
 
   // Wait one: the server's copy of this conversation.
@@ -1327,7 +1375,7 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
+      if (row.kind === "image" || isEncodedImage(row.body) || isEncodedVoice(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
@@ -1566,6 +1614,122 @@ export function MessageThread({
   // link for it — the two are swapped and the object URL is revoked, because a
   // blob held past its usefulness is the file kept in memory for the life of
   // the tab.
+  /**
+   * A finished recording, on its way.
+   *
+   * The optimistic bubble is drawn from the LOCAL blob, so it is playable before
+   * the upload finishes — the same principle the photo path follows, and it
+   * matters more here: a voice note you cannot hear back until the network says
+   * so is one you cannot check you did not fumble.
+   *
+   * The peaks travel with it, so the bubble that goes up is the bubble that
+   * stays: no waveform appearing a moment later, nothing changing shape when the
+   * server's copy replaces the local one.
+   */
+  const sendVoice = useCallback(
+    async (blob: Blob, ms: number, peaks: number[]) => {
+      if (uploading) return
+      const tempId = nextTempId()
+      const localUrl = URL.createObjectURL(blob)
+      setUploading(true)
+      stickBottom.current = true
+      setImageError(null)
+      setThread((t) =>
+        t
+          ? {
+              ...t,
+              messages: [
+                ...t.messages,
+                {
+                  id: tempId,
+                  sender_id: t.me,
+                  kind: "voice",
+                  body: null,
+                  image_url: null,
+                  voice: { path: localUrl, ms, peaks },
+                  offer_cents: null,
+                  offer_status: null,
+                  created_at: new Date().toISOString(),
+                  read_at: null,
+                  pending: true,
+                  localKey: tempId,
+                } as any,
+              ],
+            }
+          : t,
+      )
+      try {
+        const form = new FormData()
+        // A name with an extension, because some servers and some browsers
+        // decide the type from it when the blob's own is empty.
+        form.append("file", blob, "voice.webm")
+        form.append("ms", String(Math.round(ms)))
+        form.append("peaks", peaks.map((p) => String(Math.max(0, Math.min(9, Math.round(p))))).join(""))
+        const res = await fetch(`/api/messages/${id}/voice`, {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok || !data?.message) {
+          setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+          setImageError(data?.error || "Nu am putut trimite înregistrarea.")
+          return
+        }
+        const message = data.message
+        // SWAPPED IN PLACE, NOT RELOADED.
+        //
+        // This called `load()` and let the refetch replace the optimistic row.
+        // It cannot: `load` deliberately KEEPS every pending row, because a poll
+        // that landed mid-send would otherwise eat a message still in flight —
+        // so the temp row was re-appended by the very call that was supposed to
+        // retire it, and sat at "Se trimite…" for ever with the real message
+        // beside it. Two bubbles for one recording, one of them permanently
+        // sending. The swap has to be done here, by the only code that knows
+        // this particular send is over — exactly as sendImage does it.
+        seen.current?.add(message.id)
+        stickBottom.current = true
+        setThread((t) =>
+          t
+            ? {
+                ...t,
+                messages: t.messages.map((m) =>
+                  m.id === tempId
+                    ? {
+                        // The stored row's body is the encoded sentinel and its
+                        // kind is "text" — the decode into a voice note happens
+                        // server-side on READ (lib/messages/thread.ts), and this
+                        // is a write's answer. So it is decoded here instead,
+                        // into what is already on screen.
+                        ...message,
+                        kind: "voice" as const,
+                        body: null,
+                        image_url: null,
+                        // The local recording keeps playing. It is the same
+                        // audio as the signed URL, already in memory, and the
+                        // next read replaces it with the signed one anyway.
+                        voice: { path: localUrl, ms, peaks },
+                        localKey: tempId,
+                      }
+                    : m,
+                ),
+              }
+            : t,
+        )
+        // Revoked when the screen goes, not here: this URL is the src the
+        // bubble has just committed to.
+        blobs.current.push(localUrl)
+        announce("msg")
+      } catch {
+        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
+        setImageError("Nu am putut trimite înregistrarea.")
+      } finally {
+        setUploading(false)
+      }
+    },
+    [announce, id, uploading],
+  )
+
   const sendImage = useCallback(
     async (file: File) => {
       if (!file || uploading) return
@@ -1872,6 +2036,10 @@ export function MessageThread({
   }
 
   const name = thread?.other?.display_name || thread?.other?.username || "Utilizator"
+  // The call machinery lives above every screen — see components/calls/call-host.
+  // Null only if this tree is somehow mounted outside it, which the button
+  // treats as "cannot call" rather than crashing a conversation over it.
+  const call = useCall()
   // A minute hand for the presence line.
   //
   // `presenceOf` turns a timestamp into "activ acum 3 min" at RENDER time, and
@@ -1966,10 +2134,13 @@ export function MessageThread({
             // A pop, announced as one: the hint on <html> is what tells the
             // inbox it is being returned to rather than opened, so it arrives
             // travelling back from the left instead of simply being there.
-            onClick={() => {
-              void triggerHaptic("light")
-              closeThread()
-            }}
+            // NO BUZZ. Leaving a screen is navigation, not an act — the same
+            // reasoning as the conversation rows in the inbox, which lost
+            // theirs for the same reason. A buzz here also fires on the one
+            // control people press most often on this screen, and on the exact
+            // frame the pop animation starts, so it reads as the transition
+            // stuttering rather than as feedback.
+            onClick={() => closeThread()}
             className="tap-fade flex h-10 w-10 items-center justify-center rounded-full"
           >
             <ArrowLeft className="h-5 w-5 text-neutral-800" />
@@ -2011,6 +2182,35 @@ export function MessageThread({
               )}
             </span>
           </PartyLink>
+          {/* CALLING THEM.
+
+              In the header rather than the action sheet, because it is the one
+              thing here somebody reaches for in a hurry — a buyer standing
+              outside the door, a seller about to leave. Everything behind the
+              ⋯ is deliberate and can afford a second tap; this cannot.
+
+              Never for Storelib: a platform account has no phone to ring, and
+              a button that always fails is worse than no button. */}
+          {!thread?.official && thread?.other?.id && (
+            <button
+              type="button"
+              aria-label={`Sună pe ${name}`}
+              disabled={!call || call.busy}
+              onClick={() =>
+                call?.start(
+                  {
+                    id: thread.other!.id,
+                    name: thread.other!.display_name || thread.other!.username || "Utilizator",
+                    avatar: thread.other!.avatar_url ?? null,
+                  },
+                  thread.id,
+                )
+              }
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100 active:text-[#7c3aed] disabled:opacity-40"
+            >
+              <Phone className="h-[19px] w-[19px]" />
+            </button>
+          )}
           {/* Everything you might want to DO about this conversation, behind one
               button, because none of it belongs in the header itself: a row of
               icons for report and block turns a conversation with a person into
@@ -2118,8 +2318,31 @@ export function MessageThread({
           // background as well as a reveal — a flat white panel dissolving into
           // a textured one, which is a flicker of exactly the kind this exists
           // to prevent.
-          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center transition-opacity duration-[420ms] ease-[cubic-bezier(0.22,0.61,0.24,1)]"
-          style={{ opacity: covered ? 1 : 0, visibility: covered ? "visible" : "hidden" }}
+          className="thread-surface pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+          style={{
+            opacity: covered ? 1 : 0,
+            visibility: covered ? "visible" : "hidden",
+            /**
+             * THE FADE THAT WAS NEVER PLAYING.
+             *
+             * `visibility` was toggled but never transitioned, and an untransitioned
+             * property applies on the frame it changes — so the moment the cover
+             * lifted the element became `hidden`, instantly, and the 420ms opacity
+             * ramp beside it animated something nobody could see. What you got was
+             * the conversation appearing in one frame, which is exactly the
+             * "disappears too direct" of it.
+             *
+             * The fix is the standard pairing: visibility flips at 0s on the way IN,
+             * and is DELAYED by the length of the fade on the way out, so the element
+             * stays visible for precisely as long as it is still fading.
+             */
+            transitionProperty: "opacity, visibility",
+            transitionDuration: "560ms, 0s",
+            transitionDelay: covered ? "0s, 0s" : "0s, 560ms",
+            // Slower and almost all tail — the last of the reveal is the part
+            // the eye follows, so it is the part given the most time.
+            transitionTimingFunction: "cubic-bezier(0.22, 0.61, 0.24, 1)",
+          }}
         >
           {/* Held back nearly half a second, and that is now the ONLY spinner
               in the arrival.
@@ -2136,8 +2359,11 @@ export function MessageThread({
               appears and disappears inside 200ms is a blink, which is the
               flicker the cover exists to prevent. `both` keeps it invisible
               during the delay rather than merely un-animated. */}
-          <span className="animate-[fade-in_220ms_ease-out_440ms_both]">
-            <IosSpinner size={24} />
+          {/* Bigger, and it fades with the cover rather than being cut off by
+              it. 24px read as an afterthought on a screen that is otherwise
+              empty; 30 is the size iOS uses for a full-screen wait. */}
+          <span className="animate-[fade-in_260ms_ease-out_420ms_both]">
+            <IosSpinner size={30} />
           </span>
         </div>
       <div
@@ -2174,7 +2400,16 @@ export function MessageThread({
             No entrance on the column: the two are now the same box, sized from
             the same viewport numbers, so the handover is already invisible and
             an animation over an invisible swap is just a visible animation. */}
-        <div className="flex min-h-full flex-col justify-end">
+        {/* The reveal rides on the CONTENT, not on the scroller.
+
+            A transform on the scroll container itself would make it the
+            containing block for anything fixed inside and would move the
+            scrollbar with it; this is the column of messages, and translating
+            it changes no layout at all — only where it is drawn for half a
+            second. It starts the moment the cover begins to fade, so the fade
+            and the travel are one arrival rather than a reveal followed by a
+            settle. */}
+        <div className={cn("flex min-h-full flex-col justify-end", !covered && "thread-reveal")}>
         {thread === null ? (
           // The last resort, and it is now shaped like the conversation it is
           // standing in for rather than like three grey bars: alternating sides,
@@ -2315,6 +2550,73 @@ export function MessageThread({
                         onAnswer={answer}
                         formatPrice={formatPrice}
                       />
+                    ) : m.kind === "call" ? (
+                      // A CALL IS A RECORD, NOT A REMARK.
+                      //
+                      // Drawn as a quiet chip rather than a bubble on either
+                      // side, because it is the one entry in a conversation
+                      // nobody wrote. Giving it the sender's colour would make
+                      // "you called and they did not answer" look like
+                      // something somebody said.
+                      <div
+                        className={cn(
+                          "flex max-w-[82%] items-center gap-2 rounded-full border px-3 py-1.5",
+                          (m as any).call?.ending === "missed" ||
+                            (m as any).call?.ending === "declined" ||
+                            (m as any).call?.ending === "failed"
+                            ? "border-rose-100 bg-rose-50/70 text-rose-600"
+                            : "border-neutral-150 bg-neutral-50 text-neutral-500",
+                        )}
+                      >
+                        {(m as any).call?.ending === "ended" ? (
+                          <Phone className="h-[15px] w-[15px] shrink-0" />
+                        ) : (
+                          <PhoneMissed className="h-[15px] w-[15px] shrink-0" />
+                        )}
+                        <span className="truncate text-[13.5px] font-medium">
+                          {callSummary((m as any).call as CallRecord, mine)}
+                        </span>
+                        {(m as any).call?.ms > 0 && (
+                          <span className="shrink-0 text-[13px] tabular-nums opacity-70">
+                            {formatCallDuration((m as any).call.ms)}
+                          </span>
+                        )}
+                      </div>
+                    ) : m.kind === "voice" ? (
+                      // Long-press still reaches the action sheet, exactly as it
+                      // does on a photograph — the bubble's own controls are
+                      // taps and drags, so a press that becomes neither is still
+                      // free to mean "do something to this message".
+                      <div
+                        onPointerDown={(e) => beginPress(m, e)}
+                        onPointerMove={movePress}
+                        onPointerUp={cancelPress}
+                        onPointerCancel={cancelPress}
+                        onContextMenu={(e) => e.preventDefault()}
+                        className={cn(
+                          // THE BUBBLE THE VOICE NOTE IS DRAWN ON.
+                          //
+                          // It had none — just a bare wrapper — and VoiceBubble
+                          // draws itself for a coloured ground: white play
+                          // button, white bars, white text when the message is
+                          // yours. On no ground at all that is white on white,
+                          // so a sent voice note was completely invisible and
+                          // the row showed nothing but its timestamp. Same
+                          // corners, same colours and the same `msg-bubble` as
+                          // every other kind of message, because it is one.
+                          "msg-bubble max-w-[82%] rounded-[20px] px-3 py-2",
+                          mine
+                            ? "rounded-br-md bg-[#7c3aed] text-white"
+                            : "rounded-bl-md bg-neutral-100 text-neutral-900",
+                        )}
+                      >
+                        <VoiceBubble
+                          src={(m as any).voice?.path ?? ""}
+                          ms={(m as any).voice?.ms ?? 0}
+                          peaks={(m as any).voice?.peaks ?? []}
+                          mine={mine}
+                        />
+                      </div>
                     ) : m.kind === "image" ? (
                       <div
                         onPointerDown={(e) => beginPress(m, e)}
@@ -2547,11 +2849,23 @@ export function MessageThread({
         {imageError && (
           <p className="pb-2 text-center text-[13px] text-red-600">{imageError}</p>
         )}
-        <div className="flex items-end gap-2">
+        {/* `relative`, so the recording strip can cover this row rather than
+            replacing it. Swapping the composer out would change its height and
+            reflow the thread at the exact moment somebody is concentrating on
+            speaking — see components/messages/voice-recorder.tsx. */}
+        <div className="relative flex items-end gap-2">
           {/* The picker is a hidden input driven by the button beside it, so the
               button can look like the rest of the composer instead of like a
               browser's file control. Reset to "" after every pick, or choosing
               the same photo twice in a row fires no change event at all. */}
+          {/* FIRST IN THE ROW, and that is a layout decision rather than a
+              preference. Its recording strip covers this whole row, and the mic
+              has to stay visible and pressable on top of it — so the mic must be
+              at one END, or the strip has to leave a hole in its middle for a
+              button sitting in the way of its own contents. That hole is what
+              the overlap was: the timer and the waveform ran underneath the
+              photo and mic buttons. */}
+          <VoiceRecorder disabled={uploading} onRecorded={(blob, ms, peaks) => void sendVoice(blob, ms, peaks)} />
           <input
             ref={fileRef}
             type="file"

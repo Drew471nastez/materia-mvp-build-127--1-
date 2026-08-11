@@ -11,6 +11,8 @@ import { useLocale } from "@/components/locale-provider"
 import { useIsWishlisted, useToggleWishlist } from "@/components/explore/wishlist-context"
 import { FollowButton } from "@/components/explore/follow-button"
 import { backHrefFor } from "@/lib/marketplace/listing-url"
+import { usePinnedBar } from "@/lib/marketplace/use-pinned-bar"
+import { ListingPinnedHeader } from "@/components/product/listing-pinned-header"
 import { navigateBlended, signalArrival } from "@/lib/nav-blend"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { claimSurface } from "@/lib/surface-bg"
@@ -264,6 +266,23 @@ export function ProductDetail({ product }: { product: any }) {
   // `origin` is the fallback for a cold arrival (a shared link, a new tab),
   // where there is no history to return to.
   // The navigation on its own, with nothing animating around it.
+  /**
+   * THE BAR THAT ARRIVES WHEN THE PHOTOGRAPH LEAVES.
+   *
+   * Scroll a listing on a phone and everything identifying it goes at once: the
+   * photograph, the title, and the three controls that were sitting on top of
+   * the photograph in white — back, manage-or-report, and share. Below that you
+   * are reading a description with no way out except the OS gesture and nothing
+   * on screen saying what you are looking at.
+   *
+   * The profile solved this already, and this is deliberately the SAME bar
+   * rather than a second one that looks like it: same 52px, same white, same
+   * arrival, same dead band, from lib/marketplace/use-pinned-bar.ts. Two
+   * near-identical bars is how one of them ends up 4px taller with a different
+   * curve, and on the two screens people move between most.
+   */
+  const { sentinel: titleEndRef, pinned, left: leftListing } = usePinnedBar<HTMLSpanElement>()
+
   const goBack = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back()
     else router.push(backHrefFor(origin))
@@ -442,6 +461,21 @@ export function ProductDetail({ product }: { product: any }) {
 
   return (
     <div ref={rootRef} className="min-h-screen bg-white pb-28 md:pb-0">
+      {/* Phone only: on a monitor the photograph never leaves the screen, so
+          there is nothing for a stand-in to stand in for. */}
+      <ListingPinnedHeader
+        title={product.title ?? ""}
+        visible={pinned}
+        instant={leftListing}
+        isOwn={isOwn}
+        onBack={onBack}
+        onManage={openManage}
+        onShare={() => {
+          if (typeof navigator !== "undefined" && navigator.share) {
+            void navigator.share({ title: product.title, url: window.location.href })
+          }
+        }}
+      />
       <div className="md:mx-auto md:grid md:max-w-6xl md:grid-cols-2 md:gap-10 md:px-6 md:py-8">
         {/* ---- Photos ---- */}
         <div className="relative md:sticky md:top-24 md:self-start">
@@ -627,6 +661,41 @@ export function ProductDetail({ product }: { product: any }) {
               without dimming the product itself. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/35 to-transparent md:hidden" />
 
+          {/* ═══════════════════════════════════════════════════════════════════
+              WHERE THE BAR TAKES OVER, AND WHY IT IS UP HERE
+              ═══════════════════════════════════════════════════════════════════
+
+              This sentinel used to sit under the <h1>, which meant the bar did
+              not arrive until the ENTIRE photograph and the title had gone past
+              the top of the screen — six hundred pixels or more of scrolling on
+              a phone, most of it spent with no way back on screen at all. The
+              bar was correct and arrived long after it was needed.
+
+              What it is standing in for is the row of white controls on the
+              photograph, so the honest moment to hand over is when THOSE leave.
+              They sit at the status-bar inset plus 10px and are 40px tall, so
+              they are gone by about 90px of scroll.
+
+              THIS SITS BELOW THAT ON PURPOSE. At 90 the bar arrived at ~146px
+              once the hook's 56px dead band is added, and that was too eager:
+              the controls had only just cleared the top, so the handover read as
+              the bar chasing them off rather than replacing them, and a short
+              flick you did not mean as a scroll was enough to summon it. 130
+              puts it at ~186px — still a fraction of the gallery, still nowhere
+              near the title, but unmistakably a scroll you meant.
+
+              TUNED HERE RATHER THAN IN THE HOOK. `SHOW_AT` is shared with the
+              profile's bar, and this screen wanting a later handover is not a
+              reason to make the profile's later too. One number, on one screen.
+
+              `absolute` inside the photo block so it costs no layout and moves
+              no pixel; it is a position in the page and nothing else. */}
+          <span
+            ref={titleEndRef}
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-[130px] h-0 w-full md:hidden"
+          />
+
           {/* NOT ON YOUR OWN LISTING. Saving your own thing to your own
               wishlist is the same non-action as buying it from yourself, and
               the heart was the last one of those still on this page. */}
@@ -669,7 +738,6 @@ export function ProductDetail({ product }: { product: any }) {
           <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] text-neutral-900 md:text-[26px]">
             {product.title}
           </h1>
-
           <p className="mt-1.5 text-[14.5px] text-neutral-500">
             {summary}
             {summary && product.brand ? " · " : ""}

@@ -48,20 +48,44 @@ import { cn } from "@/lib/utils"
  */
 const SPRING_IN = "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)"
 const SPRING_OUT = "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)"
-/* The scrim SETS THE STAGE, on the way in as well as out.
-   
-   It was tied to the sheet's own 380ms, so the page behind was still fully
-   legible when the panel was already halfway up — two things arriving at once,
-   and the eye reads the page-going-dark as the slower of the two because it
-   covers the whole screen. Landing the dim at 240 means the sheet arrives onto
-   a stage that has already been set, which is the difference between a panel
-   appearing over a page and a panel replacing it. */
-const SCRIM_IN = "opacity 240ms cubic-bezier(0.32, 0.72, 0, 1)"
-/* And it clears FASTER than the sheet slides, for the mirror of that reason:
-   the screen you are going back to is bright again while the sheet is still on
-   its way down, which reads as the sheet leaving rather than as the app waiting
-   for it. */
-const SCRIM_OUT = "opacity 200ms cubic-bezier(0.32, 0.72, 0, 1)"
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE SCRIM SETS THE STAGE — BUT IT MUST NOT GET THE SHEET'S CURVE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * It leads the sheet, and that part is right and is kept: tied to the sheet's
+ * own 380ms the page behind was still fully legible when the panel was already
+ * halfway up, which is two things arriving at once. Landing the dim first means
+ * the sheet arrives onto a stage that has been set.
+ *
+ * WHAT WAS WRONG IS THE EASING, and shortening the duration made it worse.
+ * `cubic-bezier(0.32, 0.72, 0, 1)` is the sheet's spring, and handing it to an
+ * opacity is a category error dressed as consistency. That curve is violently
+ * front-loaded, which is exactly right for TRAVEL — a sheet that leaves fast and
+ * settles slowly reads as an object with momentum. An opacity has no momentum to
+ * read. It reaches about 62% of its value in the first quarter of its duration,
+ * so at 240ms the screen was essentially fully dimmed within about sixty
+ * milliseconds and then spent the rest of the time on rounding. That is not a
+ * fade, it is a cut with a tail on it, and it is what reads as cheap.
+ *
+ * A fade wants to be EVEN. `cubic-bezier(0.33, 0, 0.67, 1)` is symmetric and
+ * gentle at both ends: nothing jumps at the start, nothing stops abruptly at the
+ * finish, and it is the same shape in reverse on the way out.
+ *
+ * 320 still lands the dim comfortably before the sheet's 380ms of travel — the
+ * stage is still set first — while giving the change of state a length the eye
+ * can follow. The sheet keeps its spring, because the sheet is the thing that is
+ * actually moving.
+ */
+const SCRIM_EASE = "cubic-bezier(0.33, 0, 0.67, 1)"
+const SCRIM_IN = `opacity 320ms ${SCRIM_EASE}`
+/* And it clears BEFORE the sheet has finished sliding, for the mirror of that
+   reason: the screen you are going back to is readable again while the sheet is
+   still on its way down, which reads as the sheet leaving rather than as the app
+   waiting for it. 200ms on a front-loaded curve was not "faster" though — it was
+   instant, the dimming simply gone with the sheet still there. 260 on an even
+   curve still finishes well inside the 300ms exit. */
+const SCRIM_OUT = `opacity 260ms ${SCRIM_EASE}`
 const OUT_MS = 310
 /** Past this share of its own height, letting go throws it away. */
 const DISMISS_RATIO = 0.28
