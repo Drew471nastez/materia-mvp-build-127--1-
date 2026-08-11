@@ -281,7 +281,7 @@ export function ProductDetail({ product }: { product: any }) {
    * near-identical bars is how one of them ends up 4px taller with a different
    * curve, and on the two screens people move between most.
    */
-  const { sentinel: titleEndRef, pinned } = usePinnedBar<HTMLSpanElement>()
+  const { sentinel: titleEndRef, pinned, left: leftListing } = usePinnedBar<HTMLSpanElement>()
 
   const goBack = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back()
@@ -466,6 +466,7 @@ export function ProductDetail({ product }: { product: any }) {
       <ListingPinnedHeader
         title={product.title ?? ""}
         visible={pinned}
+        instant={leftListing}
         isOwn={isOwn}
         onBack={onBack}
         onManage={openManage}

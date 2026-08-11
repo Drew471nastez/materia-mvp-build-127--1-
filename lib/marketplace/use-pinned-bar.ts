@@ -130,10 +130,30 @@ export function usePinnedBar<T extends HTMLElement>() {
     }
   }, [])
 
-  // `pinned` is what the SCROLL says; `onOwnScreen` is whether this page is the
-  // one in front. Both have to be true, and the second is not the caller's
-  // business to remember.
-  return { sentinel, pinned: pinned && onOwnScreen }
+  /**
+   * `pinned` is what the SCROLL says; `onOwnScreen` is whether this page is the
+   * one in front. Both have to be true, and the second is not the caller's
+   * business to remember.
+   *
+   * `left` is the DIFFERENCE between the two reasons a bar can be hidden, and
+   * they want opposite motion:
+   *
+   *   scrolled back up   the bar leaves the way it arrived. It is the only
+   *                      thing moving and the movement is the point.
+   *
+   *   another screen
+   *   opened over it     the bar must simply stop existing. A sell sheet climbs
+   *                      from the bottom of the screen while a header slides
+   *                      out of the top of it, and two surfaces travelling past
+   *                      each other in opposite directions for one press is
+   *                      read as the header being shoved out of the way —
+   *                      which is exactly what it looks like, because it is.
+   *
+   * Reported rather than decided here, because a hook cannot set an attribute;
+   * the bars pass it to `data-instant`, and app/globals.css drops the
+   * transition when it is set.
+   */
+  return { sentinel, pinned: pinned && onOwnScreen, left: !onOwnScreen }
 }
 
 /**

@@ -504,7 +504,7 @@ export function MemberProfile({
    * are positive, which is the part that was wrong here and made the bar stop
    * appearing altogether.
    */
-  const { sentinel: nameEndRef, pinned } = usePinnedBar<HTMLSpanElement>()
+  const { sentinel: nameEndRef, pinned, left: leftProfile } = usePinnedBar<HTMLSpanElement>()
 
   /**
    * NOT GUARDED HERE ANY MORE.
@@ -667,6 +667,7 @@ export function MemberProfile({
         name={name}
         avatarUrl={member.avatarUrl}
         visible={pinned}
+        instant={leftProfile}
         isOwner={isOwner}
         onShare={() => void share()}
       />

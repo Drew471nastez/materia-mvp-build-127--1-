@@ -39,6 +39,7 @@ import { ArrowLeft, Flag, MoreHorizontal, Share2 } from "lucide-react"
  * fixed to THAT — which would park this bar somewhere down the page.
  */
 export function ListingPinnedHeader({
+  instant,
   title,
   visible,
   isOwn,
@@ -46,6 +47,13 @@ export function ListingPinnedHeader({
   onManage,
   onShare,
 }: {
+  /**
+   * True when this bar is hidden because the SCREEN went, not because the
+   * scroll did. See `left` in lib/marketplace/use-pinned-bar — it makes the
+   * disappearance instant, so the bar does not slide out of the top of the
+   * screen while a sheet climbs in from the bottom of it.
+   */
+  instant?: boolean
   title: string
   visible: boolean
   isOwn: boolean
@@ -58,7 +66,12 @@ export function ListingPinnedHeader({
   if (!mounted || typeof document === "undefined") return null
 
   return createPortal(
-    <div className="profile-pinned md:hidden" data-shown={visible ? "true" : "false"} aria-hidden={!visible}>
+    <div
+      className="profile-pinned md:hidden"
+      data-shown={visible ? "true" : "false"}
+      data-instant={instant ? "true" : undefined}
+      aria-hidden={!visible}
+    >
       <div className="relative mx-auto flex h-[52px] w-full max-w-[1100px] items-center px-2">
         <PinnedButton label="Înapoi" onClick={onBack}>
           <ArrowLeft className="h-[21px] w-[21px]" strokeWidth={2.2} />

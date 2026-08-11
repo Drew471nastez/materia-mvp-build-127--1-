@@ -587,6 +587,22 @@ html.capacitor a.no-tap-fade:active {
     transform 440ms cubic-bezier(0.22, 0.61, 0.16, 1),
     opacity 360ms cubic-bezier(0.22, 0.61, 0.16, 1);
 }
+/* GONE, NOT LEAVING.
+
+   A bar hides for two different reasons and they want opposite motion. Scrolled
+   back up, it leaves the way it arrived — it is the only thing moving and the
+   movement is the point. But when another screen opens OVER it, the bar has to
+   stop existing rather than travel: the sell sheet climbs from the bottom of
+   the screen while the header slides out of the top of it, and two surfaces
+   passing each other in opposite directions for one press reads as the header
+   being shoved out of the way. Which is what it looks like, because it is.
+
+   Set only by lib/marketplace/use-pinned-bar when the PATHNAME changed, so a
+   scroll can never reach this rule. */
+.profile-pinned[data-instant="true"] {
+  transition: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .profile-pinned {
     transition: none;

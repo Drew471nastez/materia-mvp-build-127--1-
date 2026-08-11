@@ -43,6 +43,7 @@ import { beginTabLeave } from "@/lib/tab-leave"
  * fixed to THAT — which would park this bar somewhere down the page.
  */
 export function ProfilePinnedHeader({
+  instant,
   name,
   avatarUrl,
   visible,
@@ -56,13 +57,25 @@ export function ProfilePinnedHeader({
   visible: boolean
   isOwner: boolean
   onShare: () => void
+  /**
+   * True when this bar is hidden because the SCREEN went, not because the
+   * scroll did. See `left` in lib/marketplace/use-pinned-bar — it makes the
+   * disappearance instant, so the bar does not slide out of the top of the
+   * screen while a sheet climbs in from the bottom of it.
+   */
+  instant?: boolean
 }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   if (!mounted || typeof document === "undefined") return null
 
   return createPortal(
-    <div className="profile-pinned" data-shown={visible ? "true" : "false"} aria-hidden={!visible}>
+    <div
+      className="profile-pinned"
+      data-shown={visible ? "true" : "false"}
+      data-instant={instant ? "true" : undefined}
+      aria-hidden={!visible}
+    >
       <div className="mx-auto flex h-[52px] w-full max-w-[1100px] items-center gap-3 px-4 md:px-8">
         {/* The name, at the size a title bar uses rather than the size the
             header uses — this is a label saying where you are, not the heading

@@ -1351,7 +1351,11 @@ check(
     return (
       /const pathname = usePathname\(\)/.test(pinHook) &&
       /if \(ownPath\.current === null\) ownPath\.current = pathname \?\? ""/.test(pinHook) &&
-      /return \{ sentinel, pinned: pinned && onOwnScreen \}/.test(pinHook) &&
+      // The shape gained a third field — `left`, which says WHY the bar is
+      // hidden so the route hide can be instant while the scroll hide keeps
+      // its animation. What this check is about is unchanged: `pinned` is
+      // still ANDed with being on the page in front.
+      /pinned: pinned && onOwnScreen/.test(pinHook) &&
       // And the per-screen allowlist is gone rather than left beside it.
       !/pathname === "\/profile" \|\| !!pathname\?\.startsWith\("\/member\/"\)/.test(profileSrc) &&
       /visible=\{pinned\}/.test(profileSrc)
@@ -2312,6 +2316,49 @@ check(
       // whole problem here.
       /auth\.getSession\(\)/.test(hook) &&
       !/auth\.getUser\(\)/.test(hook)
+    )
+  })(),
+)
+
+check(
+  "a pinned bar is GONE when a screen opens over it, not sliding away",
+  (() => {
+    // Two reasons a bar hides, and they want opposite motion. Scrolled back up,
+    // it leaves the way it arrived. But when a sheet opens over it, the sheet
+    // climbs from the bottom of the screen while the header slides out of the
+    // top — two surfaces passing each other in opposite directions for one
+    // press, which reads as the header being shoved out of the way.
+    const hook = read("lib/marketplace/use-pinned-bar.ts")
+    const css = read("app/globals.css")
+    const profile = read("components/member/profile-pinned-header.tsx")
+    const listing = read("components/product/listing-pinned-header.tsx")
+    return (
+      // Reported by the hook as its own thing, not inferred by the bars.
+      /left: !onOwnScreen/.test(hook) &&
+      /\.profile-pinned\[data-instant="true"\] \{\s*\n\s*transition: none;/.test(css) &&
+      // BOTH bars, since both are covered by the same sheet.
+      /data-instant=\{instant \? "true" : undefined\}/.test(profile) &&
+      /data-instant=\{instant \? "true" : undefined\}/.test(listing)
+    )
+  })(),
+  "        lib/marketplace/use-pinned-bar.ts — the scroll hide keeps its\n" +
+    "        animation; only the route hide is instant.",
+)
+
+check(
+  "and a scroll can never reach that rule",
+  (() => {
+    // If `instant` were driven by anything the scroll touches, every ordinary
+    // hide would become a hard cut — which is the fix breaking the thing it
+    // was protecting.
+    const profile = read("components/member/member-profile.tsx")
+    const listing = read("components/product/product-detail.tsx")
+    return (
+      /instant=\{leftProfile\}/.test(profile) &&
+      /instant=\{leftListing\}/.test(listing) &&
+      // Sourced from the hook's pathname comparison and nothing else.
+      /pinned, left: leftProfile \} = usePinnedBar/.test(profile) &&
+      /pinned, left: leftListing \} = usePinnedBar/.test(listing)
     )
   })(),
 )
