@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { X } from "lucide-react"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { lockScroll } from "@/lib/scroll-lock"
+import { useWideViewport } from "@/lib/use-wide-viewport"
 import { cn } from "@/lib/utils"
 
 /**
@@ -92,6 +94,51 @@ const DISMISS_RATIO = 0.28
 /** …or past this speed, in px/ms, however far it got. A flick is an intention. */
 const DISMISS_VELOCITY = 0.55
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  ON A DESKTOP THIS IS NOT A SHEET
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Everything above is designed around a thumb: a panel that rises from the
+ * bottom edge because that is the part of a phone a hand can reach, with a grab
+ * handle because a finger can throw it away, capped at 86% of the viewport
+ * because the top of a phone is where the status bar lives.
+ *
+ * Put the same object on a 27-inch monitor and every one of those reasons is
+ * gone, and what is left is the tell: a panel glued to the bottom edge of a
+ * browser window, five hundred pixels wide in the middle of two thousand, with
+ * a grab handle nobody can grab because a mouse does not flick. It is the single
+ * loudest way a desktop screen announces it was designed for a phone and shipped
+ * as-is.
+ *
+ * So the same component draws a CENTRED DIALOG above 768px. Not a second
+ * component and not a second call site — the ten places that open one of these
+ * would each have grown their own answer, and ten answers to "what does this
+ * look like on a laptop" is how an app ends up with three modal styles.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE MOTION IS DIFFERENT TOO, AND NOT JUST THE POSITION
+ * ---------------------------------------------------------------------------
+ * A sheet's spring is front-loaded because it models an object with momentum
+ * being thrown up from an edge. A dialog does not travel — it is already where
+ * it is going — so it arrives by settling: a few pixels of rise and a hair of
+ * scale, under an opacity. Given the sheet's curve and its 380ms it would look
+ * like it had been dropped rather than opened.
+ *
+ * Shorter, as well. A sheet's length is justified by the distance it covers; a
+ * dialog that fades for a third of a second is a dialog you wait for.
+ */
+const DIALOG_IN =
+  "transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 180ms cubic-bezier(0.33, 0, 0.67, 1)"
+const DIALOG_OUT =
+  "transform 170ms cubic-bezier(0.4, 0, 0.9, 1), opacity 150ms cubic-bezier(0.33, 0, 0.67, 1)"
+const DIALOG_OUT_MS = 180
+/** Rest, and the eight pixels below it that it rises through. */
+const DIALOG_SHOWN = "translate3d(0, 0, 0) scale(1)"
+const DIALOG_HIDDEN = "translate3d(0, 8px, 0) scale(0.97)"
+const SHEET_SHOWN = "translate3d(0, 0, 0)"
+const SHEET_HIDDEN = "translate3d(0, 100%, 0)"
+
 export function BottomSheet({
   open,
   onClose,
@@ -110,33 +157,93 @@ export function BottomSheet({
 }) {
   /** Kept mounted through the closing animation, so it can be watched leaving. */
   const [mounted, setMounted] = useState(open)
+  /**
+   * A dialog above 768px, a sheet below it — see the note by DIALOG_IN.
+   *
+   * Read here rather than in CSS because this component animates by writing
+   * styles straight to the node: a media query could move the box but could not
+   * tell the imperative code which transform means "hidden", and a dialog
+   * springing in from `translateY(100%)` is a dialog that flies up from off
+   * screen. One source of truth for both halves.
+   *
+   * The hook resolves in an effect, so it is false for the first client render.
+   * That costs nothing here: these components render null until something opens
+   * them, which is always long after mount.
+   */
+  const wide = useWideViewport()
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
 
-  const settle = useCallback((to: "open" | "closed") => {
-    const sheet = sheetRef.current
-    const scrim = scrimRef.current
-    if (!sheet || !scrim) return
-    sheet.style.transition = to === "open" ? SPRING_IN : SPRING_OUT
-    scrim.style.transition = to === "open" ? SCRIM_IN : SCRIM_OUT
-    sheet.style.transform = to === "open" ? "translate3d(0, 0, 0)" : "translate3d(0, 100%, 0)"
-    scrim.style.opacity = to === "open" ? "1" : "0"
-    // A sheet on its way out stops taking taps. It is still on screen for a
-    // third of a second after the decision was made, and a row pressed in that
-    // window fires an action against a panel the person has already dismissed —
-    // which is where "I tapped once and it did it twice" comes from.
-    const dead = to === "open" ? "" : "none"
-    sheet.style.pointerEvents = dead
-    scrim.style.pointerEvents = dead
-  }, [])
+  const outMs = wide ? DIALOG_OUT_MS : OUT_MS
+
+  const settle = useCallback(
+    (to: "open" | "closed") => {
+      const sheet = sheetRef.current
+      const scrim = scrimRef.current
+      if (!sheet || !scrim) return
+      const opening = to === "open"
+      sheet.style.transition = wide
+        ? opening
+          ? DIALOG_IN
+          : DIALOG_OUT
+        : opening
+          ? SPRING_IN
+          : SPRING_OUT
+      scrim.style.transition = opening ? SCRIM_IN : SCRIM_OUT
+      sheet.style.transform = wide
+        ? opening
+          ? DIALOG_SHOWN
+          : DIALOG_HIDDEN
+        : opening
+          ? SHEET_SHOWN
+          : SHEET_HIDDEN
+      // A sheet travels, so it needs no opacity — it is legible the whole way
+      // and its own edge is the animation. A dialog barely moves, so opacity is
+      // the animation; without it the box would simply appear.
+      sheet.style.opacity = wide ? (opening ? "1" : "0") : "1"
+      scrim.style.opacity = opening ? "1" : "0"
+      // A sheet on its way out stops taking taps. It is still on screen for a
+      // third of a second after the decision was made, and a row pressed in that
+      // window fires an action against a panel the person has already dismissed —
+      // which is where "I tapped once and it did it twice" comes from.
+      const dead = opening ? "" : "none"
+      sheet.style.pointerEvents = dead
+      scrim.style.pointerEvents = dead
+    },
+    [wide],
+  )
 
   const dismiss = useCallback(() => {
     settle("closed")
     // Long enough for the spring to finish. Unmounting mid-animation is the
     // sheet vanishing rather than leaving, which is the whole thing this avoids.
-    window.setTimeout(onClose, OUT_MS)
-  }, [onClose, settle])
+    window.setTimeout(onClose, outMs)
+  }, [onClose, outMs, settle])
+
+  /**
+   * ESCAPE CLOSES IT.
+   *
+   * A phone has a system back gesture and a scrim under a thumb; a keyboard has
+   * neither, and Escape is the one key every person who has ever closed a dialog
+   * reaches for first. It was missing entirely — which on the sheets that have
+   * no visible close control at all (the message actions list) meant the only
+   * way out on a desktop was to find the dimmed area and click it.
+   *
+   * Bound while MOUNTED rather than while open, so a key pressed during the
+   * closing animation cannot re-enter anything.
+   */
+  useEffect(() => {
+    if (!mounted || !open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation()
+        dismiss()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [mounted, open, dismiss])
 
   useEffect(() => {
     if (open) {
@@ -145,9 +252,9 @@ export function BottomSheet({
     }
     if (!mounted) return
     settle("closed")
-    const t = window.setTimeout(() => setMounted(false), OUT_MS)
+    const t = window.setTimeout(() => setMounted(false), outMs)
     return () => window.clearTimeout(t)
-  }, [open, mounted, settle])
+  }, [open, mounted, outMs, settle])
 
   /**
    * THE PAGE BEHIND HOLDS STILL.
@@ -176,13 +283,14 @@ export function BottomSheet({
     const scrim = scrimRef.current
     if (!sheet || !scrim) return
     sheet.style.transition = "none"
-    sheet.style.transform = "translate3d(0, 100%, 0)"
+    sheet.style.transform = wide ? DIALOG_HIDDEN : SHEET_HIDDEN
+    sheet.style.opacity = wide ? "0" : "1"
     scrim.style.transition = "none"
     scrim.style.opacity = "0"
     void sheet.offsetHeight // commit the start state before the target replaces it
     const raf = requestAnimationFrame(() => settle("open"))
     return () => cancelAnimationFrame(raf)
-  }, [mounted, open, settle])
+  }, [mounted, open, wide, settle])
 
   const drag = useRef({
     armed: false,
@@ -272,48 +380,94 @@ export function BottomSheet({
   if (!mounted || typeof document === "undefined") return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[95]" role="dialog" aria-modal="true" aria-label={label}>
+    <div
+      className={cn("fixed inset-0 z-[95]", wide && "flex items-center justify-center p-6")}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+    >
       {/* `will-change: opacity` on the scrim as well as the sheet. Both are
           animated on every open and close, and a full-screen black layer that
           is NOT promoted is a full-screen repaint per frame behind a sheet that
           is trying to slide at sixty — the one element on this component most
-          likely to be the reason it is not. */}
+          likely to be the reason it is not.
+
+          Lighter behind a dialog. A sheet covers the bottom half of a phone and
+          the dim is what says the rest of the screen is not the subject; a
+          dialog is a small box in the middle of a large window, and 45% black
+          over a whole desktop for a three-row menu is a blackout for a
+          decision that does not deserve one. */}
       <div
         ref={scrimRef}
         onClick={dismiss}
-        className="absolute inset-0 bg-black/45 will-change-[opacity]"
+        className={cn("absolute inset-0 will-change-[opacity]", wide ? "bg-black/30" : "bg-black/45")}
         style={{ opacity: 0 }}
       />
 
       <div
         ref={sheetRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        // No drag on a desktop. The handlers are not merely inert there — a
+        // mouse-down that begins a gesture the pointer can never complete is
+        // how a dialog ends up half-dismissed under a cursor that was only
+        // trying to select the text in it.
+        onPointerDown={wide ? undefined : onPointerDown}
+        onPointerMove={wide ? undefined : onPointerMove}
+        onPointerUp={wide ? undefined : onPointerUp}
+        onPointerCancel={wide ? undefined : onPointerUp}
         className={cn(
-          "absolute inset-x-0 bottom-0 mx-auto flex max-h-[86dvh] max-w-lg flex-col rounded-t-3xl bg-white",
-          "shadow-[0_-8px_44px_rgba(0,0,0,0.2)] will-change-transform [backface-visibility:hidden]",
+          "flex max-h-[86dvh] flex-col bg-white will-change-transform [backface-visibility:hidden]",
+          wide
+            ? // Centred, its own object, with a shadow that reads as height off
+              // the page rather than as a panel lifted off the bottom edge.
+              "relative w-full max-w-lg rounded-2xl shadow-[0_24px_70px_-12px_rgba(15,15,15,0.32),0_2px_8px_rgba(15,15,15,0.08)]"
+            : "absolute inset-x-0 bottom-0 mx-auto max-w-lg rounded-t-3xl shadow-[0_-8px_44px_rgba(0,0,0,0.2)]",
           className,
         )}
-        style={{ transform: "translate3d(0, 100%, 0)" }}
+        style={{ transform: wide ? DIALOG_HIDDEN : SHEET_HIDDEN, opacity: wide ? 0 : 1 }}
       >
-        {/* `touch-action: none` here and only here: the browser must not claim
-            this gesture for a scroll before the handler sees it, and everything
-            below still scrolls normally. */}
-        <div
-          data-sheet-handle
-          className="shrink-0 cursor-grab pt-2.5 active:cursor-grabbing"
-          style={{ touchAction: "none" }}
-        >
-          <span aria-hidden className="mx-auto block h-1.5 w-10 rounded-full bg-neutral-200" />
-          {header}
-        </div>
+        {wide ? (
+          /* A grab handle on a desktop is a control that cannot be operated —
+             a mouse does not flick — so it is replaced by the one a pointer
+             expects. The spacer keeps the button in its own corner on the
+             sheets that pass no header at all (the message actions list),
+             rather than floating it over their first row. */
+          <div className="relative shrink-0 pr-11">
+            {/* `pr-11` on the wrapper rather than on each caller's header: the
+                close button occupies that column, and a header laid out to the
+                full width would truncate its own title underneath it. */}
+            {header ?? <span aria-hidden className="block h-9" />}
+            <button
+              type="button"
+              aria-label="Închide"
+              onClick={dismiss}
+              className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+            >
+              <X className="h-[17px] w-[17px]" strokeWidth={2.3} />
+            </button>
+          </div>
+        ) : (
+          /* `touch-action: none` here and only here: the browser must not claim
+              this gesture for a scroll before the handler sees it, and everything
+              below still scrolls normally. */
+          <div
+            data-sheet-handle
+            className="shrink-0 cursor-grab pt-2.5 active:cursor-grabbing"
+            style={{ touchAction: "none" }}
+          >
+            <span aria-hidden className="mx-auto block h-1.5 w-10 rounded-full bg-neutral-200" />
+            {header}
+          </div>
+        )}
 
         <div
           ref={bodyRef}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2"
-          style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) + 4px), 14px)" }}
+          // The home-indicator inset is a phone fact. On a desktop it resolves
+          // to zero anyway, but the 14px floor under it would still be reserving
+          // room for a gesture bar that is not there.
+          style={{
+            paddingBottom: wide ? 10 : "max(calc(env(safe-area-inset-bottom, 0px) + 4px), 14px)",
+          }}
         >
           {children}
         </div>
@@ -328,4 +482,10 @@ export const SHEET_ROW =
   // 16px and a little more air. A sheet is a list of decisions read at arm's
   // length with a thumb over half the screen, and 15.5 was set to match a
   // conversation that has itself moved to 16 — the two must not disagree.
-  "flex w-full items-center gap-3 rounded-xl px-3 py-[15px] text-left text-[16px] transition-colors active:bg-neutral-100"
+  //
+  // The hover state is gated on there being a pointer, not on a breakpoint. A
+  // plain `hover:` lights the row on tap and leaves it lit until the next one,
+  // and `md:hover:` would do exactly that on every tablet — which is the same
+  // class of mistake as shipping a bottom sheet to a desktop: a guess at the
+  // input device made from the width of the screen.
+  "flex w-full items-center gap-3 rounded-xl px-3 py-[15px] text-left text-[16px] transition-colors active:bg-neutral-100 [@media(hover:hover)]:hover:bg-neutral-50"

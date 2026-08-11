@@ -900,8 +900,46 @@ alter table public.messages
 -- flood the moderation queue if it is not bounded. One report per person per
 -- conversation is the rule; pressing it again updates nothing and errors
 -- nothing the user needs to see.
-create unique index if not exists conversation_reports_one_per_reporter
-  on public.conversation_reports (conversation_id, reporter_id);
+--
+-- ---------------------------------------------------------------------------
+-- REPORTING ONE MESSAGE, not just the thread
+-- ---------------------------------------------------------------------------
+-- A report used to be about a conversation. That is the right unit for "this
+-- person is a scammer" and the wrong one for "this specific message asked me
+-- for my card number" — which is the one moderation can act on without reading
+-- a hundred rows to find what was meant. `message_id` is nullable because both
+-- remain true reports: the details sheet still reports the thread, and the menu
+-- on a bubble reports that bubble.
+--
+-- `on delete set null` rather than cascade, deliberately. A message that has
+-- been deleted is very often the reason somebody is reporting it, and a report
+-- that vanishes when the offender presses "unsend" is a moderation queue the
+-- offender controls. The report survives; it simply loses its pointer.
+alter table public.conversation_reports
+  add column if not exists message_id uuid references public.messages(id) on delete set null;
+
+-- The one-per-reporter rule, split so that per-message reports are not blocked
+-- by a thread-level one somebody filed months ago — and so that a hundred
+-- reports on a hundred messages is still one report per message.
+--
+-- Dropped and recreated as PARTIAL: the old unconditional index would refuse a
+-- second row for the same (conversation, reporter) whatever its message_id was,
+-- which would make the per-message report silently a no-op for anybody who has
+-- ever reported that thread. Both new indexes are `if not exists`, so a rerun
+-- of this file after the first one is still a no-op.
+drop index if exists conversation_reports_one_per_reporter;
+
+create unique index if not exists conversation_reports_one_per_thread
+  on public.conversation_reports (conversation_id, reporter_id)
+  where message_id is null;
+
+create unique index if not exists conversation_reports_one_per_message
+  on public.conversation_reports (reporter_id, message_id)
+  where message_id is not null;
+
+create index if not exists conversation_reports_message_idx
+  on public.conversation_reports (message_id)
+  where message_id is not null;
 
 
 -- ===========================================================================

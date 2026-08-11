@@ -8,8 +8,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
-import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
-import { priceCheckout } from "@/lib/checkout/pricing"
+import { priceCheckout, SELLER_COMMISSION_PERCENT, sellerCommissionCents } from "@/lib/checkout/pricing"
 import { minimumChargeCents } from "@/lib/checkout/currency"
 import { assertChargeCurrencyReady } from "@/lib/checkout/currency-guard"
 import { isShippable } from "@/lib/marketplace/product-kind"
@@ -283,11 +282,25 @@ export async function POST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  // The seller's commission is charged on THEIR money — the item and any tip.
-  // Not on the buyer's protection fee and not on the postage, neither of which
-  // was ever theirs to be taxed on.
+  /**
+   * The seller's commission is charged on THEIR money — the item and any tip.
+   * Not on the buyer's protection fee and not on the postage, neither of which
+   * was ever theirs to be taxed on.
+   *
+   * FIVE PERCENT, FLAT, FOR EVERYBODY. This used to call calculatePlatformFee,
+   * which resolves a subscription plan off the `creators` table and charges 6%,
+   * 3% or 1.5% accordingly, plus a $0.25 fixed fee above $3. That is the fee
+   * schedule of the digital-goods product this app used to be: it prices
+   * subscriptions this marketplace does not sell, and its fixed component is
+   * denominated in dollars against rows that hold lei.
+   *
+   * It also meant the sell form could not tell a seller what they would be paid
+   * without doing a database read and reimplementing a plan ladder. One
+   * percentage, in the same module as the buyer's fee, is what lets the form's
+   * promise and the transfer be the same arithmetic.
+   */
   const sellerSideCents = basePriceCents + (tipCents || 0)
-  const feeCalculation = await calculatePlatformFee(sellerSideCents, product.creator.id, admin)
+  const commissionCents = sellerCommissionCents(sellerSideCents)
 
   // ── POSTAGE ────────────────────────────────────────────────────────────────
   //
@@ -337,7 +350,7 @@ export async function POST(request: Request) {
     itemCents: basePriceCents,
     shippingCents,
     tipCents: tipCents || 0,
-    platformCommissionCents: feeCalculation.platformFeeCents,
+    platformCommissionCents: commissionCents,
   })
 
   const totalAmount = pricing.totalCents
@@ -380,10 +393,8 @@ export async function POST(request: Request) {
     platformFee,
     sellerReceives: pricing.sellerReceivesCents,
     stripeAccountId: product.creator.stripe_account_id,
-    creatorPlan: feeCalculation.planId,
-    planName: feeCalculation.planName,
-    feePercent: `${(feeCalculation.feePercent * 100).toFixed(2)}%`,
-    feeFixedCents: feeCalculation.feeFixedCents,
+    feePercent: `${(SELLER_COMMISSION_PERCENT * 100).toFixed(2)}%`,
+    commissionCents,
     variantId: selectedVariant?.id || "none",
     variantName: selectedVariant?.name || "none",
   })
@@ -417,9 +428,8 @@ export async function POST(request: Request) {
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
-        fee_percent: String(feeCalculation.feePercent),
-        fee_fixed_cents: String(feeCalculation.feeFixedCents),
-        plan_used: feeCalculation.planId,
+        fee_percent: String(SELLER_COMMISSION_PERCENT),
+        fee_fixed_cents: "0",
         variant_id: selectedVariant?.id || "",
         variant_name: selectedVariant?.name || "",
         variant_price_cents: selectedVariant?.price_cents?.toString() || "",
@@ -497,9 +507,8 @@ export async function POST(request: Request) {
             session_fingerprint: sessionFingerprint,
             receipt_token: receiptToken,
             platform_fee_cents: platformFee.toString(),
-            fee_percent: String(feeCalculation.feePercent),
-            fee_fixed_cents: String(feeCalculation.feeFixedCents),
-            plan_used: feeCalculation.planId,
+            fee_percent: String(SELLER_COMMISSION_PERCENT),
+            fee_fixed_cents: "0",
             variant_id: selectedVariant?.id || "",
             variant_name: selectedVariant?.name || "",
             variant_price_cents: selectedVariant?.price_cents?.toString() || "",

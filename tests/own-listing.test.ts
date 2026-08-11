@@ -1411,7 +1411,12 @@ check(
     // document scroller, in full view through the space the panel is vacating.
     const picker = strip(read("components/sell/picker-page.tsx"))
     return (
-      /if \(stage === "closed"\) return\s*\n\s*return lockScroll\(\)/.test(picker) &&
+      // Keyed on the STAGE, which is what this check is about. The lock is
+      // now also scoped to phones — a centred desktop dialog that takes the
+      // body out of its scroller unpins the site header — so the two lines
+      // are no longer adjacent, and the width test sits between them.
+      /if \(stage === "closed"\) return/.test(picker) &&
+      /return lockScroll\(\)/.test(picker) &&
       !/document\.body\.style\.overflow/.test(picker)
     )
   })(),

@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Search, Clock, ArrowUpLeft, X, Store } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
@@ -170,6 +171,10 @@ export function MobileSearchOverlay({
   onSelectCategory,
   onSearchSubmit,
   initialQuery = "",
+  anchored = false,
+  anchorTo,
+  query: controlledQuery,
+  onQueryChange,
 }: {
   open: boolean
   onClose: () => void
@@ -178,20 +183,115 @@ export function MobileSearchOverlay({
   onSearchSubmit?: () => void
   /** Pre-fills the field when opened (e.g. an active search on the feed). */
   initialQuery?: string
+  /**
+   * DROP FROM A FIELD THAT IS ALREADY ON SCREEN, instead of being a panel with
+   * a field of its own.
+   *
+   * The desktop header has a search box in the bar. A centred modal with its
+   * own box put TWO search inputs on screen at once, and hiding the header's
+   * while the panel was open was worse again: the thing you clicked vanished
+   * from where you clicked it and a different one appeared lower down.
+   *
+   * Anchored mode is the answer the old dropdown had right. The header's field
+   * stays exactly where it is and stays the one you type in; this renders the
+   * results under it, positioned by being a child of the field's own container
+   * rather than by measuring anything. There is one input, it never moves, and
+   * the panel is visibly attached to it.
+   *
+   * Requires a `position: relative` parent, and the caller must own the query.
+   */
+  anchored?: boolean
+  /**
+   * The element the panel hangs off, when anchored.
+   *
+   * It is MEASURED and the panel is drawn in a portal at those coordinates,
+   * rather than being an `absolute` child of it. That looks like the long way
+   * round and it is the only way that holds:
+   *
+   * The header is `sticky` with a `z-index`, which makes it a STACKING CONTEXT.
+   * A panel inside it can be given z-90 and still be trapped underneath the
+   * page, because its z-index is resolved against its siblings inside the
+   * header and the whole header is then placed as one layer. Its scrim has the
+   * same problem in reverse: `fixed inset-0` covers the viewport geometrically
+   * but is still painted within the header's layer. And any ancestor that ever
+   * grows an `overflow` — a scrolling category rail is one edit away — clips it
+   * outright with no warning.
+   *
+   * A portal to `document.body` has none of those. The cost is that the
+   * position has to be recomputed on resize and on scroll, which is what the
+   * effect below does.
+   */
+  anchorTo?: React.RefObject<HTMLElement | null>
+  /** Controlled query. Passed with `anchored`, where the caller draws the
+   *  field; omitted on a phone, where this component draws it. */
+  query?: string
+  onQueryChange?: (value: string) => void
 }) {
   const { t } = useLocale()
   const router = useRouter()
   const { searches, add: addSearch, remove: removeSearch, clear: clearSearches } = useRecentSearches()
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  ONE SEARCH, TWO SHAPES — and it used to be one shape and a stub
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * This is the marketplace's real search: items, categories and people behind
+   * three tabs, recent queries, and the popular-expansion table that turns
+   * "jordan" into the eight things people actually look for. It was
+   * `md:hidden`, so a desktop browser could not reach any of it.
+   *
+   * What a desktop got instead was the header's own dropdown, which predates
+   * the marketplace entirely: nine digital-goods categories (Design,
+   * Development, Marketing, AI…), results linking to /p/ product pages,
+   * prices in dollars, "Product by", and English copy on a Romanian site. It
+   * was not a smaller version of this — it was a different product's search,
+   * left running.
+   *
+   * So the same component now draws a centred panel above 768px. Same tabs,
+   * same suggestions, same recents, same everything; a phone gets the full
+   * screen it needs and a desktop gets a panel under the header, because a
+   * 2000px window blanked to white for a search box is the same category of
+   * mistake as a bottom sheet on a monitor.
+   */
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
   const [tab, setTab] = useState<SearchTab>("items")
-  const [query, setQuery] = useState("")
+  const [ownQuery, setOwnQuery] = useState("")
+  // Controlled when the caller draws the field, uncontrolled when this does.
+  // One `query` either way, so nothing below has to know which case it is in.
+  const query = controlledQuery ?? ownQuery
+  const setQuery = onQueryChange ?? setOwnQuery
   const [titles, setTitles] = useState<string[]>([])
   const [people, setPeople] = useState<Person[]>([])
   const [peopleLoading, setPeopleLoading] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
+
+  /** Where the field is, in viewport coordinates. Null until measured, which is
+   *  before the first paint — see the layout effect. */
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!anchored || !mounted) return
+    const measure = () => {
+      const el = anchorTo?.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      // 8px of air under the field, which is what `mt-2` used to be.
+      setBox({ top: r.bottom + 8, left: r.left, width: r.width })
+    }
+    measure()
+    // `true` on the scroll listener so it fires for scrolls in any container,
+    // not only the window: a sticky header does not move, but the page under it
+    // does, and on a short window the header can still travel.
+    window.addEventListener("resize", measure)
+    window.addEventListener("scroll", measure, true)
+    return () => {
+      window.removeEventListener("resize", measure)
+      window.removeEventListener("scroll", measure, true)
+    }
+  }, [anchored, mounted, anchorTo])
 
   // Smooth mount / open / close blend.
   useEffect(() => {
@@ -279,8 +379,13 @@ export function MobileSearchOverlay({
   useEffect(() => {
     if (!open) return
     setTab("items")
-    setQuery(initialQuery)
+    // Only when this component owns the field. Anchored, the caller's input is
+    // already focused and already holds what was typed into it — re-seeding it
+    // from `initialQuery` would erase the first character somebody typed,
+    // because typing is what opened the panel.
+    if (!anchored) setQuery(initialQuery)
     setPeople([])
+    if (anchored) return
     const timer = setTimeout(() => {
       const el = inputRef.current
       if (!el) return
@@ -294,7 +399,7 @@ export function MobileSearchOverlay({
       }
     }, 140)
     return () => clearTimeout(timer)
-  }, [open, initialQuery])
+  }, [open, initialQuery, anchored])
 
   const trimmed = query.trim()
 
@@ -361,15 +466,24 @@ export function MobileSearchOverlay({
   )
 
   if (!mounted) return null
+  // Anchored, nothing is drawn until the field has been measured — one frame,
+  // in a layout effect, so there is no flash of a panel in the wrong place.
+  if (anchored && !box) return null
 
   const recent = searches.slice(0, 4)
 
-  return (
+  const body = (
     <div
-      className="md:hidden fixed inset-0 z-[90] flex flex-col bg-white"
+      className={cn(
+        anchored
+          ? "fixed z-[95]"
+          : "fixed inset-0 z-[90] flex flex-col bg-white",
+      )}
       style={{
-        // Full-screen — never resizes, so no bottom gap/displacement.
-        height: "100dvh",
+        // Full-screen — never resizes, so no bottom gap/displacement. Anchored,
+        // the geometry comes from the measured field.
+        height: anchored ? undefined : "100dvh",
+        ...(anchored && box ? { top: box.top, left: box.left, width: box.width } : null),
         opacity: shown ? 1 : 0,
         // Pure fade + a whisper of a slide — NO scale (which warps text).
         //
@@ -395,7 +509,46 @@ export function MobileSearchOverlay({
         pointerEvents: shown ? "auto" : "none",
       }}
     >
-      {/* Header: search field + close */}
+      {/* The dim. `fixed` rather than `absolute` when anchored, because the
+          panel is now a small box inside the header and an absolute scrim would
+          only cover the panel's own footprint. Behind it (z-[89]) so the panel
+          sits on top of its own dim, and it takes the click that closes. */}
+      {anchored && (
+        <div
+          aria-hidden
+          className="fixed inset-0 z-[94] bg-black/25"
+          onClick={onClose}
+        />
+      )}
+
+      {/* `display: contents` on a phone, so the children stay direct flex items
+          of the full-screen column exactly as they were and not one pixel of
+          the existing layout moves. Anchored, this is the panel. */}
+      <div
+        className={
+          anchored
+            ? // `h-fit`, and it is the whole of "the modal is too tall".
+              //
+              // The children are laid out for a phone, where the panel IS the
+              // screen and the content area is meant to take everything left
+              // over — `flex-1` on the scroller, a 40vh floor under the empty
+              // state. Put that in a box with a max-height and it stops being a
+              // ceiling and becomes a target: the panel grew to 78% of the
+              // window to hold an icon and one line of grey text.
+              //
+              // `h-fit` makes the box content-sized, so `flex-1` has no free
+              // space to claim and the max-height goes back to being a cap for
+              // a long list of results. The empty states drop their viewport
+              // floors at the same breakpoint; both halves are needed, because
+              // either one alone still leaves a panel sized by the viewport.
+              "search-anchored relative z-[90] flex h-fit max-h-[min(560px,70vh)] w-full flex-col overflow-hidden rounded-2xl border border-neutral-200/70 bg-white shadow-[0_24px_64px_-14px_rgba(15,15,15,0.30),0_2px_8px_rgba(15,15,15,0.07)]"
+            : "contents"
+        }
+      >
+      {/* Header: search field + close. NOT DRAWN WHEN ANCHORED — the caller's
+          field is the one and only search input, which is the whole point of
+          anchoring. See the note on the `anchored` prop. */}
+      {!anchored && (
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
           <form
@@ -438,9 +591,10 @@ export function MobileSearchOverlay({
           </button>
         </div>
       </div>
+      )}
 
       {/* Tabs */}
-      <div className="shrink-0 mt-2 flex items-stretch border-b border-neutral-100 px-2">
+      <div className={cn("shrink-0 flex items-stretch border-b border-neutral-100 px-2", anchored ? "pt-1.5" : "mt-2")}>
         {TABS.map(([id, key]) => {
           const active = tab === id
           return (
@@ -469,8 +623,21 @@ export function MobileSearchOverlay({
 
       {/* Content — padded by the keyboard height so results never hide under it */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
-        style={{ scrollbarWidth: "none", paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)` }}
+        className={cn(
+          "min-h-0 overflow-y-auto overscroll-contain scrollbar-hide",
+          // A phone: fill everything under the tabs, because the panel IS the
+          // screen. A desktop: `flex: 0 1 auto` — size to the content so a
+          // one-line empty state is a one-line panel, but still SHRINK when the
+          // list is long enough to hit the panel's cap, which is what makes it
+          // scroll instead of being clipped by the `overflow-hidden` above.
+          // `flex-none` would have done the first half and lost the second.
+          "flex-1",
+          anchored && "flex-initial",
+        )}
+        style={{
+          scrollbarWidth: "none",
+          paddingBottom: anchored ? 10 : `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)`,
+        }}
       >
         <div key={`${tab}-${trimmed ? "q" : "e"}`} className="animate-in fade-in-0 duration-200 ease-out">
           {tab === "items" && (
@@ -490,8 +657,12 @@ export function MobileSearchOverlay({
           )}
         </div>
       </div>
+      </div>
     </div>
   )
+
+  // Out of the header's stacking context entirely. See `anchorTo`.
+  return anchored && typeof document !== "undefined" ? createPortal(body, document.body) : body
 }
 
 /* ---------------- Items tab ---------------- */
@@ -516,7 +687,7 @@ function ItemsTab({
   if (!trimmed) {
     if (recent.length === 0) {
       return (
-        <div className="flex min-h-[40vh] flex-col items-center justify-center px-8 text-center">
+        <div className="search-empty flex flex-col items-center justify-center px-8 text-center">
           <Search className="mb-3 h-7 w-7 text-neutral-300" />
           <p className="text-[13px] text-neutral-500">{t("mfeed.search_placeholder")}</p>
         </div>
@@ -670,7 +841,7 @@ function PeopleTab({
 }) {
   if (trimmed.length < 2) {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center px-8 text-center">
+      <div className="search-empty flex flex-col items-center justify-center px-8 text-center">
         <Store className="mb-3 h-7 w-7 text-neutral-300" />
         <p className="text-[13px] text-neutral-500">{t("mfeed.search_people_hint")}</p>
       </div>
@@ -678,14 +849,14 @@ function PeopleTab({
   }
   if (loading && people.length === 0) {
     return (
-      <div className="flex min-h-[35vh] items-center justify-center">
+      <div className="search-empty flex items-center justify-center">
         <IosSpinner size={24} />
       </div>
     )
   }
   if (people.length === 0) {
     return (
-      <div className="flex min-h-[35vh] flex-col items-center justify-center px-8 text-center">
+      <div className="search-empty flex flex-col items-center justify-center px-8 text-center">
         <p className="text-[14px] font-semibold text-neutral-700">{t("mfeed.no_people")}</p>
       </div>
     )

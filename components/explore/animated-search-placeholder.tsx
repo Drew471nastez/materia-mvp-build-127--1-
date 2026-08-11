@@ -91,7 +91,7 @@ interface AnimatedSearchPlaceholderProps {
 export function AnimatedSearchPlaceholder({
   active,
   phrases = DEFAULT_SEARCH_PHRASES,
-  prefix = "Search for ",
+  prefix = "Search for",
   quoted = true,
   className,
   typeMs = 55,
@@ -214,7 +214,17 @@ export function AnimatedSearchPlaceholder({
       // stable string from the input itself, not a per-character stream.
       aria-hidden="true"
       className={cn(
-        "pointer-events-none select-none flex items-center overflow-hidden whitespace-nowrap text-neutral-500",
+        // `gap-[0.3em]`, and this is the space between "Caută" and the opening
+        // quote — which was written as a trailing space inside `prefix` and
+        // therefore was never there.
+        //
+        // HTML collapses whitespace at the end of an inline box before the next
+        // one, so `<span>Caută </span><span>„…"</span>` renders as `Caută„…"`.
+        // The string was correct at every call site and the DOM ate it, which is
+        // why it looked like a typo nobody could find. A flex gap is a layout
+        // fact rather than a character, so nothing can collapse it — and it
+        // scales with the font size, which a hard-coded &nbsp; would not.
+        "pointer-events-none flex select-none items-center gap-[0.3em] overflow-hidden whitespace-nowrap text-neutral-500",
         className,
       )}
     >

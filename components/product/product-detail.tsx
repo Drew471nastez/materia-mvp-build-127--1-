@@ -32,8 +32,10 @@ import {
   SOURCES,
   STYLES,
   categoryLabelFor,
+  conditionsFor,
 } from "@/lib/marketplace/listing-taxonomy"
 import { ImageViewer } from "@/components/messages/image-viewer"
+import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { cn } from "@/lib/utils"
 import { sellEditHref } from "@/lib/marketplace/sell-route"
 
@@ -472,7 +474,17 @@ export function ProductDetail({ product }: { product: any }) {
     return () => surface.release()
   }, [])
 
-  const cond = labelOf(CONDITIONS, product.condition)
+  /**
+   * Worded for what this listing IS, not for clothing.
+   *
+   * The five condition ids are shared by everything on the marketplace and the
+   * words are not: `new_with_tags` reads "Nou, cu etichetă" on a jacket and
+   * "Nou, sigilat" on a board game, which has no tag and was never worn. The
+   * seller was shown the right sentence when they chose it — see conditionsFor
+   * — and the buyer has to be shown the same one, or the listing says something
+   * the seller did not.
+   */
+  const cond = labelOf(conditionsFor(product.category), product.condition)
   const colour = labelOf(COLOURS, product.colour)
   const era = labelOf(ERAS, product.era)
   const category = categoryLabelFor(product.category, product.subcategory)
@@ -865,14 +877,11 @@ export function ProductDetail({ product }: { product: any }) {
           <div className="mt-6 flex items-center gap-3 rounded-2xl border border-neutral-200/70 p-3">
             <SmartLink href={storeUrl} className="flex min-w-0 flex-1 items-center gap-3">
               <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-neutral-100">
-                {seller?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={seller.avatar_url} alt="" className="h-full w-full object-cover" />
-                ) : (
+                <AvatarPhoto url={seller?.avatar_url} size={44} className="h-full w-full object-cover">
                   <span className="flex h-full w-full items-center justify-center text-[16px] font-semibold text-neutral-400">
                     {sellerName.charAt(0).toUpperCase()}
                   </span>
-                )}
+                </AvatarPhoto>
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[15px] font-semibold text-neutral-900">{sellerName}</span>

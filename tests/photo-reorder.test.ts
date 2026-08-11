@@ -22,6 +22,13 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { indexAtPoint, moveItem, type Box } from "../lib/sell/reorder"
+import {
+  brandDirectoryApplies,
+  fieldsFor,
+  SIZES,
+  conditionsFor,
+  sizesFor,
+} from "../lib/marketplace/listing-taxonomy"
 
 let passed = 0
 let failed = 0
@@ -555,7 +562,19 @@ check(
   (() => {
     // It is the decision people arrive with and the one they change most; it
     // was sitting under eight rows of pickers.
-    return form.indexOf("<SectionHeading>Preț</SectionHeading>") < form.indexOf("<SectionHeading>Detalii</SectionHeading>")
+    //
+    // Matched on the heading TEXT rather than on the exact element. This asked
+    // for the literal `<SectionHeading>Preț</SectionHeading>` and so began
+    // failing the day the component grew an `info` prop and the call sites went
+    // multi-line — with `indexOf` returning -1 for both sides, which compares
+    // false and reports the ordering as wrong. The ordering had not changed.
+    const at = (word: string) => {
+      const m = new RegExp(`<SectionHeading[^>]*>\\s*${word}\\s*<`).exec(form)
+      return m ? m.index : -1
+    }
+    const price = at("Preț")
+    const details = at("Detalii")
+    return price >= 0 && details >= 0 && price < details
   })(),
 )
 
@@ -688,10 +707,25 @@ check(
     // Prices are quoted inclusive of the protection fee everywhere a buyer
     // reads them, so without this a seller types 130, opens the feed, and finds
     // their own listing at 141 with no explanation anywhere.
+    //
+    // Both numbers, and an explanation reachable from the same place. The copy
+    // is deliberately not pinned: this used to require the exact sentence and
+    // failed when the line became a labelled row with the reasoning behind an
+    // info mark, which states more than the sentence did rather than less.
+    //
+    // The number itself, formatted for display — not a mention of the helper.
+    // A copy check is not enough here: the same sentence appears in the info
+    // text beside the heading, so a version of this that only looked for the
+    // words passed with the figure deleted.
+    //
+    // BOTH SIDES OF THE TRANSACTION, as figures rather than as prose. The
+    // seller's line is `sellerReceivesCents` now, not the gross price: the
+    // commission is five percent and it comes off this side, so "you still
+    // receive 130" was accurate before that was surfaced and wrong after it.
     return (
-      /buyerPaysCents\(priceCents\)/.test(form) &&
-      /Cumpărătorii văd/.test(form) &&
-      /Tu primești în continuare/.test(form)
+      /formatPlatformMoney\(buyerPaysCents\(priceCents\)\)/.test(form) &&
+      /formatPlatformMoney\(sellerReceivesCents\(priceCents\)\)/.test(form) &&
+      /taxa de protecție/.test(form)
     )
   })(),
 )
@@ -990,6 +1024,176 @@ check(
     // replaced to pick a colour.
     const picker = read("components/sell/picker-page.tsx")
     return /min-width: 768px/.test(picker) && /isDesktop/.test(picker)
+  })(),
+)
+
+check(
+  "a book is never asked for a fashion brand",
+  (() => {
+    // The brand row is not a free-text box: it opens the BRAND DIRECTORY, which
+    // is fashion. Listing a paperback and being offered Nike, Adidas and Zara is
+    // not a slightly imprecise label — it is a question with no correct answer
+    // in it, on a form whose whole job is to be answerable.
+    //
+    // Driven against the real table rather than grepped, because the point is
+    // which groups resolve to which fields, and that is exactly what a lookup
+    // can be wrong about while every line of it reads correctly.
+    const media = ["ent-books", "ent-magazines", "ent-music", "ent-video"]
+    const collectible = [
+      "hobby-cards", "hobby-boardgames", "hobby-puzzles", "hobby-miniatures",
+      "hobby-memorabilia", "hobby-coins", "hobby-stamps", "hobby-postcards",
+    ]
+    const offenders = [...media, ...collectible].filter((g) =>
+      fieldsFor(g).includes("brand"),
+    )
+    if (offenders.length) console.log(`        ${offenders.join(", ")}`)
+    return offenders.length === 0
+  })(),
+  "        lib/marketplace/listing-taxonomy.ts — a publisher field and a maker\n" +
+    "        field would each be right, and each needs its own directory first.",
+)
+
+check(
+  "and clothing still is, because there the directory is the right one",
+  (() => {
+    // The removal has to be about the groups the directory does not serve, not
+    // about the field. Taking brand off a pair of trainers would be a far worse
+    // bug than the one being fixed.
+    return (
+      fieldsFor("women-clothing").includes("brand") &&
+      fieldsFor("men-shoes").includes("brand") &&
+      fieldsFor("women-bags").includes("brand")
+    )
+  })(),
+)
+
+check(
+  "a child's listing has a size it can honestly give",
+  (() => {
+    // THE WORST OF THIS FAMILY, because it is not a list with wrong entries in
+    // it — it is a required question with no correct answer available. Kids
+    // clothing asks for a size; the list held adult letters, adult waists and
+    // adult shoe sizes, so a jumper for a three-year-old could only be filed
+    // under one of those or left blank.
+    const kids = sizesFor("kids-girls")
+    const labels = kids.map((o) => o.label)
+    return (
+      kids.length > 0 &&
+      labels.some((l) => /luni/.test(l)) &&
+      labels.some((l) => /\bani\b/.test(l)) &&
+      // And nothing adult in it.
+      !labels.includes("XXL") &&
+      !labels.some((l) => /^4[0-5] · încălțăminte$/.test(l))
+    )
+  })(),
+  "        lib/marketplace/listing-taxonomy.ts — a question the form cannot\n" +
+    "        accept an answer to is worse than one with wrong answers in it.",
+)
+
+check(
+  "a shoe is not offered XXL, and a t-shirt is not offered shoe sizes",
+  (() => {
+    const shoes = sizesFor("men-shoes").map((o) => o.label)
+    const tops = sizesFor("women-clothing").map((o) => o.label)
+    return (
+      shoes.every((l) => /încălțăminte/.test(l)) &&
+      tops.some((l) => l === "M") &&
+      !tops.some((l) => /încălțăminte/.test(l))
+    )
+  })(),
+)
+
+check(
+  "and a size already stored still resolves to its label",
+  (() => {
+    // The union has to remain, or editing a listing's category would blank a
+    // size that is perfectly valid — the picker narrows, the lookup does not.
+    const all = SIZES.map((o) => o.id)
+    return (
+      all.includes("xxl") &&
+      all.includes("k-3y") &&
+      all.some((id) => id.startsWith("shoe") || /4[0-5]/.test(id)) &&
+      // An unknown group shows everything rather than nothing: a dead end is
+      // worse than a long list.
+      sizesFor("hobby-gaming").length === SIZES.length
+    )
+  })(),
+)
+
+check(
+  "the brand shortcut is only offered where the directory can answer it",
+  (() => {
+    // The seeded directory is fashion end to end — Nike, Zara, H&M, Shein. The
+    // FIELD is still fine on a toy or a cosmetic, because the picker takes free
+    // text; what is not fine is a shortcut list in which every entry is from
+    // another department.
+    return (
+      brandDirectoryApplies("women-clothing") &&
+      brandDirectoryApplies("men-shoes") &&
+      brandDirectoryApplies("women-bags") &&
+      !brandDirectoryApplies("women-beauty") &&
+      !brandDirectoryApplies("kids-toys") &&
+      !brandDirectoryApplies("hobby-instruments") &&
+      !brandDirectoryApplies("ent-books") &&
+      !brandDirectoryApplies(null)
+    )
+  })(),
+)
+
+check(
+  "a book is not asked whether it still has its tag on",
+  (() => {
+    // The five rungs are right for everything; the WORDS were right for
+    // clothing only. "Nou, cu etichetă", "Nepurtat", "Purtat de câteva ori" —
+    // asked of a paperback, a board game or a lipstick, none of which is ever
+    // worn and none of which has a tag.
+    const book = conditionsFor("ent-books")
+    const words = book.map((c) => `${c.label} ${c.hint}`).join(" ")
+    return (
+      !/etichet/i.test(words) &&
+      !/purtat/i.test(words) &&
+      /sigilat/i.test(words) &&
+      /folosit/i.test(words)
+    )
+  })(),
+  "        lib/marketplace/listing-taxonomy.ts — same ladder, same ids, the\n" +
+    "        vocabulary the thing is actually sold in.",
+)
+
+check(
+  "clothing keeps the tag language, because there it is the right language",
+  (() => {
+    const shirt = conditionsFor("women-clothing").map((c) => `${c.label} ${c.hint}`).join(" ")
+    return /etichet/i.test(shirt) && /purtat/i.test(shirt) && !/sigilat/i.test(shirt)
+  })(),
+)
+
+check(
+  "and relabelling never becomes a second set of stored values",
+  (() => {
+    // Every listing ever filed carries one of these ids and the feed filters on
+    // them. Two vocabularies is a relabelling; two ID SETS would mean a
+    // listing's condition changing meaning the day its category was edited.
+    const ids = (g: string) => conditionsFor(g).map((c) => c.id).join(",")
+    return (
+      ids("ent-books") === ids("women-clothing") &&
+      ids("hobby-coins") === ids("men-shoes") &&
+      // And an unknown group answers in the wording every existing listing was
+      // written against, rather than retroactively restating them.
+      ids(undefined as unknown as string) === ids("women-clothing") &&
+      conditionsFor(null).some((c) => /etichet/i.test(c.label))
+    )
+  })(),
+)
+
+check(
+  "the buyer reads the same sentence the seller chose",
+  (() => {
+    // The seller picks "Nou, sigilat" on a board game; if the product page
+    // resolves that id against the clothing list it prints "Nou, cu etichetă"
+    // — the listing saying something the seller did not.
+    const detail = read("components/product/product-detail.tsx")
+    return /labelOf\(conditionsFor\(product\.category\), product\.condition\)/.test(detail)
   })(),
 )
 

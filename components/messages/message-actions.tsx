@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { Check, CheckCheck, Copy, Trash2 } from "lucide-react"
+import Link from "next/link"
+import { Check, CheckCheck, Copy, Flag, Trash2 } from "lucide-react"
 import { BottomSheet, SHEET_ROW } from "@/components/ui/bottom-sheet"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
@@ -49,12 +50,42 @@ function fullStamp(iso: string): string {
   })
 }
 
+/**
+ * Where "Raportare" goes, and why it is a page rather than another sheet.
+ *
+ * Reporting a whole conversation is a two-tap decision and belongs in the
+ * details sheet, where it already is. Reporting ONE MESSAGE is not: the thing
+ * being reported has to travel with the report — which message, in which
+ * thread, sent by whom — or moderation receives "this person is abusive" about
+ * a hundred rows and has to guess which one was meant.
+ *
+ * That is four identifiers, and four identifiers is a URL. It survives a
+ * refresh, it can be opened from an email, and the sheet does not have to hold
+ * a form on top of a conversation while somebody types out what happened.
+ */
+function reportHref(conversationId: string, offenderId: string, messageId: string): string {
+  const q = new URLSearchParams({
+    ref_id: conversationId,
+    ref_type: "msg_thread",
+    offender_id: offenderId,
+    reported_message_id: messageId,
+  })
+  return `/user/reports/new?${q.toString()}`
+}
+
 export function MessageActions({
   message,
+  conversationId,
+  offenderId,
   onClose,
   onDelete,
 }: {
   message: ActionableMessage | null
+  /** The thread this message is in — half of what a report has to carry. */
+  conversationId: string
+  /** The other party. Null while the thread is still loading, in which case
+   *  reporting is simply not offered rather than offered with a hole in it. */
+  offenderId?: string | null
   onClose: () => void
   onDelete: (id: string) => Promise<void>
 }) {
@@ -137,6 +168,22 @@ export function MessageActions({
             </p>
           )}
         </div>
+      )}
+
+      {/* Not on your own words. "Report" beside something you wrote yourself is
+          a control with no meaning, and on the sheet it sits directly above
+          "Șterge mesajul" — two rows apart, both destructive-looking, one of
+          them nonsense. A pending message has no server row yet, so there is
+          nothing for a moderator to be pointed at. */}
+      {message && !message.mine && !message.pending && offenderId && (
+        <Link
+          href={reportHref(conversationId, offenderId, message.id)}
+          onClick={close}
+          className={SHEET_ROW}
+        >
+          <Flag className="h-[19px] w-[19px] text-neutral-500" />
+          <span className="flex-1 text-neutral-900">Raportare</span>
+        </Link>
       )}
 
       {canDelete &&

@@ -33,13 +33,18 @@ const SYSTEM_USERNAME = "storelib"
 /**
  * The welcome note, sent once, at the moment the thread comes into existence.
  * Short on purpose: it is the first thing a new user reads in their inbox, and
- * its whole job is to explain why Storelib is writing to them and that the
- * reply box works.
+ * its whole job is to explain why Storelib is writing to them.
+ *
+ * The last line used to read "scrie-ne direct aici — îți răspundem". It was
+ * true of the composer and never true of anybody reading: replies landed in a
+ * thread owned by a service account with no inbox behind it. The composer is
+ * gone from this thread now, so the invitation had to go with it — copy that
+ * asks for something the screen no longer offers is the worst of both.
  */
 const WELCOME_RO = [
   "Bine ai venit pe Storelib! 💜",
   "Aici îți trimitem noutăți despre aplicație și sfaturi care te ajută să vinzi mai repede.",
-  "Dacă ai o întrebare, scrie-ne direct aici — îți răspundem.",
+  "Ai o întrebare? Găsești răspunsurile și formularul de contact în Centrul de ajutor.",
 ].join("\n\n")
 
 export type OfficialProfile = {

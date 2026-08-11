@@ -4827,3 +4827,278 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
   background-color: inherit;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOVER, EVERYWHERE, AS ONE MOTION
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The complaint was that hover across the app feels "too direct" — cheap and
+   plastic — and it was right, for a reason worth writing down: a Tailwind
+   `hover:` utility does not animate anything. `hover:bg-[#6d28d9]` on a button
+   with no `transition-*` class is a background that CHANGES BETWEEN TWO FRAMES.
+   Most of the buttons in this app are exactly that, and the ones that do carry
+   a transition carry Tailwind's 150ms default, which on a colour change is
+   barely distinguishable from an instant one.
+
+   So this is not a restyle. Every hover state keeps the colour, the shadow and
+   the lift it already had; what it gains is the quarter-second and the curve
+   that make it read as a surface responding rather than a sprite swapping.
+   `cubic-bezier(0.33, 0.9, 0.35, 1)` is fast off the mark and settles long —
+   the shape of something with a little mass behind it.
+
+   ---------------------------------------------------------------------------
+   THE SELECTOR IS THE POINT
+   ---------------------------------------------------------------------------
+   `[class*="hover:"]` is every element in the app that has a hover state and
+   nothing else — which is exactly the set that was asked about, and a far
+   safer set than "every button". A blanket rule over buttons would reach into
+   animations that have nothing to do with hovering: the composer's send disc,
+   the tab bar's plus, the sheet transitions, all of which are timed against
+   each other and none of which asked. An element with no hover utility has no
+   hover animation to smooth.
+
+   ---------------------------------------------------------------------------
+   ASYMMETRIC, on purpose
+   ---------------------------------------------------------------------------
+   Arriving is faster than leaving — 150ms in, 260ms out. A control has to feel
+   like it noticed the cursor immediately or the whole interface feels laggy;
+   but one that snaps back the instant the pointer slides off looks like it was
+   never really lit. The press is faster still, because a press is the one event
+   the finger has already committed to.
+
+   ---------------------------------------------------------------------------
+   WHAT IT DELIBERATELY DOES NOT TOUCH
+   ---------------------------------------------------------------------------
+   An element that states its own timing keeps it: `:not([class*="duration-"])`
+   and `:not([class*="ease-"])`. The slow zoom on a card photograph is a
+   deliberate 500ms and stays 500ms. This fills in the silence where nothing was
+   specified at all, which is the overwhelming majority.
+
+   `:not([class*="transition-none"])` — a transition that was switched off was
+   switched off for a reason.
+
+   Pointer-only. On a touch screen :hover fires on tap and lingers until the
+   next one, which is what the @media (hover: none) block above already spends
+   forty lines suppressing; adding a quarter-second fade to a state that should
+   not be there at all would undo that work.                                   */
+@media (hover: hover) and (pointer: fine) {
+  [class*="hover:"]:not([class*="transition-none"]) {
+    transition-property: color, background-color, border-color, text-decoration-color, fill,
+      stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+  }
+
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="ease-"]) {
+    transition-timing-function: cubic-bezier(0.33, 0.9, 0.35, 1);
+  }
+
+  /* Leaving. */
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="duration-"]) {
+    transition-duration: 260ms;
+  }
+
+  /* Arriving. */
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="duration-"]):hover {
+    transition-duration: 150ms;
+  }
+
+  /* Pressed. */
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="duration-"]):active {
+    transition-duration: 80ms;
+  }
+
+  /* ── A lift, not a jump ───────────────────────────────────────────────────
+     The other half of "plastic" is the SIZE of the bump. A 10% jump on a button
+     under the cursor is a cartoon, and on a 48px control it also shoves the
+     text beside it out of alignment for as long as the pointer is there.
+     Roughly halved: enough to confirm the pointer is on the right thing, not
+     enough to be a movement you sit and watch.
+
+     Tailwind v4 compiles these to the INDIVIDUAL `scale` and `translate`
+     properties rather than to one composed `transform`, which is what makes
+     this safe — overriding `scale` cannot clobber a `-translate-y-1/2` that is
+     centring the element, and none of this would have been possible in v3.
+
+     `group-hover:` is excluded by name. That is the slow zoom on a listing
+     photograph inside a card: a deliberate effect on an image that fills its
+     own frame, where 10% is right and 2.5% would be invisible. It is a
+     different thing that happens to be spelled similarly.                    */
+  [class*="hover:scale-110"]:not([class*="group-hover:scale"]):hover {
+    scale: 1.055;
+  }
+  [class*="hover:scale-105"]:not([class*="group-hover:scale"]):hover {
+    scale: 1.025;
+  }
+  [class*="hover:-translate-y-1"]:not([class*="group-hover:"]):hover {
+    translate: 0 -2px;
+  }
+}
+
+/* ── The menu beside a message ───────────────────────────────────────────────
+   Present on every bubble, which is forty times on a screen whose entire
+   content is the bubbles — so at full contrast it is a column of furniture
+   running down the middle of the conversation, and at zero it is a feature
+   nobody ever finds.
+
+   The difference that actually matters is whether there is a pointer. With a
+   mouse it fades in on the row under the cursor: you are already pointing at
+   the message you mean, so the control arrives exactly where you are looking
+   and nowhere else. On a touch screen there is no hover to reveal anything
+   with, so it is simply there — drawn light enough to sit under the text
+   rather than compete with it.
+
+   Focus reveals it too, or it would be a control a keyboard could tab to and
+   never see.                                                                  */
+.msg-dots {
+  opacity: 0;
+  transition: opacity 180ms cubic-bezier(0.33, 0.9, 0.35, 1);
+}
+.msg-row:hover > .msg-dots,
+.msg-dots:focus-visible {
+  opacity: 1;
+}
+/* NOT ON A TOUCH SCREEN AT ALL.
+   The gesture already exists there and everybody already knows it: press and
+   hold a message. That opens the same sheet this button opens, it has done so
+   since the sheet was written, and it is what people do without being told.
+   So on a phone the dots are forty pieces of furniture running down the middle
+   of a screen whose entire content is the messages, offering a second door to a
+   room that already has one.
+
+   A pointer is the case with no gesture — a mouse cannot press-and-hold, and
+   there is nothing to discover by trying. That is where the button earns its
+   place, and it is revealed by the hover that a pointer makes possible. */
+@media (hover: none) {
+  .msg-dots {
+    display: none;
+  }
+}
+
+/* ── The "i" beside a label, and the sentence behind it ─────────────────────
+   The behaviour lives in components/ui/info-tip.tsx, which measures the mark
+   and draws the bubble in a portal — see the long note there for why an
+   absolutely-positioned bubble could not be made to stop being clipped. What is
+   left here is appearance and the two things that are still CSS: the fade, and
+   the fact that a bubble which is not in the DOM cannot fade OUT.
+
+   `visibility` is in the transition list with a delay so the element can leave
+   the hit-test and the accessibility tree without cutting its own exit short.
+   The portal mounts and unmounts it, so in practice the exit is instant today;
+   the declaration stays because it costs nothing and is what makes the class
+   correct on its own terms rather than only in the caller that happens to use
+   it now.                                                                     */
+.info-tip-mark {
+  opacity: 1;
+  transition:
+    opacity 180ms cubic-bezier(0.33, 0.9, 0.35, 1),
+    background-color 180ms cubic-bezier(0.33, 0.9, 0.35, 1),
+    transform 180ms cubic-bezier(0.33, 0.9, 0.35, 1);
+}
+
+/* `fixed`, and positioned entirely from JavaScript. Nothing in the cascade
+   decides where this goes, because nothing in the cascade knows where the mark
+   ended up after a scroll. */
+.info-tip-bubble {
+  position: fixed;
+  z-index: 120;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.42;
+  letter-spacing: -0.005em;
+  text-align: left;
+  white-space: normal;
+  box-shadow:
+    0 10px 28px -8px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-3px);
+  transition:
+    opacity 170ms cubic-bezier(0.33, 0, 0.67, 1),
+    transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    visibility 0s linear 200ms;
+}
+
+.info-tip-arrow {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: #111111;
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+
+.info-tip-bubble-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity 170ms cubic-bezier(0.33, 0, 0.67, 1),
+    transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    visibility 0s linear 0s;
+}
+
+/* THE MARK IS ALWAYS THERE. THE SENTENCE IS WHAT HOVER REVEALS.
+
+   It used to fade up under the cursor, and that was the wrong half to hide. A
+   mark you cannot see is a mark you cannot know to point at: the only way to
+   discover it was to happen to move a cursor across a label and notice
+   something appear, which is not a way anyone finds anything. And it made the
+   two gestures one, so there was never a state where you could see that help
+   existed and choose whether to read it.
+
+   Darkening slightly under the pointer, so it reads as a control rather than as
+   punctuation.                                                                */
+@media (hover: hover) and (pointer: fine) {
+  .info-tip-mark:hover,
+  .info-tip-host:hover .info-tip-mark {
+    background-color: rgba(124, 58, 237, 0.18);
+  }
+  .info-tip-mark:hover {
+    transform: scale(1.08);
+  }
+}
+
+/* The buyer-pays total, which arrives while somebody is still typing the price.
+   A row that pops into existence mid-keystroke reads as the form jumping; the
+   same row rising two pixels under a fade reads as an answer settling. Keyed on
+   the price in the JSX, so it replays when the number changes rather than only
+   when the row first appears.                                                 */
+@keyframes price-total-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.price-total-in {
+  animation: price-total-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+/* ── Search: the empty and loading states, in two contexts ───────────────────
+   On a phone the overlay IS the screen, so "nothing to show yet" has to fill
+   everything under the tabs — a magnifier and one line of text floating at the
+   top of a blank white screen reads as a page that failed to load. 40vh is that
+   floor.
+
+   Anchored under the desktop header, the same floor is the bug: the panel is
+   content-sized, so a viewport-relative minimum on its only child makes the
+   panel 40% of the window tall to hold one sentence. `.search-anchored` is on
+   the panel and this is the whole of what it does — the floor becomes ordinary
+   padding, and the panel is the size of what is in it.                        */
+.search-empty {
+  min-height: 40vh;
+  padding-top: 2.5rem;
+  padding-bottom: 2.5rem;
+}
+.search-anchored .search-empty {
+  min-height: 0;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}

@@ -12,7 +12,7 @@
  * The three lines a buyer sees
  * ---------------------------------------------------------------------------
  *   Comandă                       the item
- *   Taxă de protecție             5% of the item + a fixed amount
+ *   Taxă de protecție             a flat fee, by order size (see the ladder)
  *   Expediere                     the courier, at cost
  *   ─────────────────────────────
  *   Total de plată
@@ -39,25 +39,36 @@
  * BUYER_PROTECTION_FIXED below for what happens when it is not.
  */
 
-import { BUYER_PROTECTION_FIXED_BY_CURRENCY, PLATFORM_CURRENCY } from "@/lib/checkout/currency"
-
-/** 5% of the item price. */
-export const BUYER_PROTECTION_PERCENT = 0.05
+import {
+  BUYER_PROTECTION_FIXED_BY_CURRENCY,
+  BUYER_PROTECTION_LADDER_BY_CURRENCY,
+  PLATFORM_CURRENCY,
+} from "@/lib/checkout/currency"
 
 /**
- * Plus a flat 4 lei.
+ * WHAT THE SELLER PAYS, and it is the only percentage left in this file.
  *
- * The flat part is what makes small orders viable: a percentage alone earns 50
- * bani on a 10-lei sale, which does not cover the cost of handling a dispute
- * about it.
+ * Five percent of the item, flat, for every seller. It replaces a plan ladder
+ * inherited from the digital-goods product this app used to be — 6% on free,
+ * 3% on "growth", 1.5% on "pro", plus a $0.25 fixed fee above $3 — which
+ * described subscriptions that a second-hand marketplace does not sell and
+ * charged in dollars against rows that hold lei.
+ */
+export const SELLER_COMMISSION_PERCENT = 0.05
+
+/**
+ * The top of the buyer-protection ladder: a flat 4 lei on anything from 15 lei
+ * up, which is nearly every order. See BUYER_PROTECTION_LADDER_BY_CURRENCY for
+ * the four bands below it and for why the fee stopped being a percentage.
  *
  * Taken from the currency module rather than written here as 400, because 400
  * minor units is four LEI in one configuration and four DOLLARS in the other —
  * roughly an eighteen-lei fee, which is not what was asked for and would
- * quietly overcharge every small order. It follows whatever the platform
- * actually charges in.
+ * quietly overcharge every small order.
  */
 export const BUYER_PROTECTION_FIXED = BUYER_PROTECTION_FIXED_BY_CURRENCY[PLATFORM_CURRENCY]
+
+const PROTECTION_LADDER = BUYER_PROTECTION_LADDER_BY_CURRENCY[PLATFORM_CURRENCY]
 
 export interface PricingInput {
   /** The item, in minor units. An accepted offer price belongs here. */
@@ -104,7 +115,32 @@ function round(n: number): number {
  */
 export function buyerProtectionFee(itemCents: number): number {
   if (!Number.isFinite(itemCents) || itemCents <= 0) return 0
-  return round(itemCents * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED)
+  const cents = round(itemCents)
+  // `upTo` is exclusive, so 799 is in the first band and 800 opens the second.
+  for (const band of PROTECTION_LADDER) {
+    if (cents < band.upTo) return band.fee
+  }
+  return BUYER_PROTECTION_FIXED
+}
+
+/**
+ * The platform's cut of the item, taken from the seller.
+ *
+ * Exported so the sell form can tell a seller what they will actually be paid
+ * before they publish, using the same arithmetic the payout runs on. A payout
+ * figure quoted with a second copy of this rule is a promise the transfer does
+ * not keep.
+ */
+export function sellerCommissionCents(itemCents: number): number {
+  if (!Number.isFinite(itemCents) || itemCents <= 0) return 0
+  return round(round(itemCents) * SELLER_COMMISSION_PERCENT)
+}
+
+/** What lands in the seller's account for an item at this price, before any
+ *  tip. The inverse of the line above, and the number the sell form quotes. */
+export function sellerReceivesCents(itemCents: number): number {
+  if (!Number.isFinite(itemCents) || itemCents <= 0) return 0
+  return Math.max(0, round(itemCents) - sellerCommissionCents(itemCents))
 }
 
 export function priceCheckout(input: PricingInput): PricingBreakdown {

@@ -6,6 +6,7 @@ import { createNotification } from "@/lib/notifications"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { encodeImageBody } from "@/lib/messages/image-fallback"
 import { uploadMessageMedia } from "@/lib/messages/media-bucket"
+import { isOfficialThread, OFFICIAL_THREAD_REFUSAL } from "@/lib/messages/official-thread"
 
 /**
  * POST /api/messages/:id/image  (multipart: file)  → { message }
@@ -85,6 +86,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq("id", id)
     .maybeSingle()
   if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // The same rule the text endpoint keeps, and it has to be here too: a route
+  // that refuses words and accepts photographs has not closed the thread, it
+  // has only made writing into it inconvenient.
+  if (await isOfficialThread(createAdminClient(), convo)) {
+    return NextResponse.json({ error: OFFICIAL_THREAD_REFUSAL }, { status: 403 })
+  }
 
   let file: File | null = null
   let caption = ""

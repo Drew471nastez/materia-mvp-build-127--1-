@@ -221,6 +221,27 @@ export function PickerPage({
    */
   useEffect(() => {
     if (stage === "closed") return
+    /**
+     * PHONE ONLY, AND THAT IS WHY THE HEADER WAS DISAPPEARING.
+     *
+     * `lockScroll` sets `overflow: hidden` on the body. On a phone that is
+     * exactly right: this panel covers the viewport, nothing behind it is
+     * visible, and a page that scrolls under a full-screen sheet is the fault
+     * the lock exists to prevent.
+     *
+     * On a desktop the panel is a centred dialog — `md:max-w-lg`, `md:h-[72vh]`
+     * — and the page is fully visible around it, INCLUDING the site header at
+     * the top. Making the body non-scrolling there takes the document out of
+     * its own scroller, and a header that was sticking to the top of that
+     * scroller has nothing left to stick to: it goes back to wherever it sits
+     * in the document, which on a scrolled page is above the fold. The header
+     * did not fade or slide. It stopped being pinned.
+     *
+     * The cost of not locking is that a wheel over the dimmed area moves the
+     * page behind the dialog. That is a smaller fault than the header vanishing,
+     * and unlike the header it is one nobody has reported.
+     */
+    if (typeof window !== "undefined" && window.innerWidth >= 768) return
     return lockScroll()
   }, [stage])
 

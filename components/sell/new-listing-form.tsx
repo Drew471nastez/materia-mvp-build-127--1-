@@ -2,21 +2,35 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Camera, Check, ChevronRight, GripVertical, Info, Loader2, Plus, Search, X } from "lucide-react"
+import {
+  Camera,
+  Check,
+  ChevronRight,
+  GripVertical,
+  Info,
+  Loader2,
+  Plus,
+  Search,
+  ShieldCheck,
+  X,
+} from "lucide-react"
 import {
   CATEGORY_INDEX,
   COLOURS,
   CONDITIONS,
+  conditionsFor,
   ERAS,
   LISTING_CATEGORIES,
   MAX_PHOTOS,
   MIN_PHOTOS,
   SIZES,
+  sizesFor,
   SOURCES,
   STYLES,
   categoryLabelFor,
   categoryShortLabel,
   asksFor,
+  brandDirectoryApplies,
   departmentForGroup,
   groupsForDepartment,
   DEPARTMENTS,
@@ -26,6 +40,17 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
+import {
+  buyerProtectionFee,
+  SELLER_COMMISSION_PERCENT,
+  sellerCommissionCents,
+  sellerReceivesCents,
+} from "@/lib/checkout/pricing"
+import { minimumListingPriceCents } from "@/lib/checkout/currency"
+
+/** Read once. It depends only on the platform currency, which is a build-time
+ *  constant, so a call per render would be a call per keystroke. */
+const MIN_LISTING_PRICE_CENTS = minimumListingPriceCents()
 import { formatPlatformMoney } from "@/lib/i18n/currency"
 import { PickerPage } from "@/components/sell/picker-page"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -33,6 +58,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
 import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
+import { InfoTip } from "@/components/ui/info-tip"
 import { cn } from "@/lib/utils"
 
 type Photo = {
@@ -104,17 +130,29 @@ function OptionalTag() {
 }
 
 /** The heading of one card, with an optional right-hand slot (the photo
- *  count, so far). */
+ *  count, so far) and an optional sentence explaining what is being asked.
+ *
+ *  `info-tip-host` is what lets the mark fade up when the cursor is anywhere
+ *  near the heading rather than only when it is already on the mark — see the
+ *  rules in globals.css. */
 function SectionHeading({
   children,
   trailing,
+  info,
 }: {
   children: React.ReactNode
   trailing?: React.ReactNode
+  /** One sentence. Rendered behind a mark that appears on hover; see
+   *  components/ui/info-tip.tsx for why it is not a permanent line of grey
+   *  text under the heading. */
+  info?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">{children}</h2>
+    <div className="info-tip-host flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-1.5 text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">
+        {children}
+        {info && <InfoTip>{info}</InfoTip>}
+      </h2>
       {trailing}
     </div>
   )
@@ -504,13 +542,6 @@ function PickerNote({ children }: { children: React.ReactNode }) {
  * difference between a listing that is described accurately and one that comes
  * back. The hint is where the meaning goes.
  */
-const CONDITION_HINTS: Record<string, string> = {
-  new_with_tags: "Nepurtat, cu eticheta originală",
-  new_without_tags: "Nepurtat, dar fără etichetă",
-  very_good: "Purtat de câteva ori, fără urme vizibile",
-  good: "Purtat, cu urme mici de folosire",
-  satisfactory: "Urme vizibile sau un defect descris în anunț",
-}
 
 /**
  * The four things the sheet can be doing, and the class for each.
@@ -756,6 +787,15 @@ export function NewListingForm({
   const [catGroup, setCatGroup] = useState<string | null>(null)
   const [catQuery, setCatQuery] = useState("")
   const [brandQuery, setBrandQuery] = useState("")
+  /**
+   * Whether the seeded brand list is worth showing for what is being listed.
+   *
+   * The directory is fashion, end to end. A picker with a free-text escape can
+   * take "Lego" or "Dior" from anybody, so the FIELD is fine on a toy or a
+   * cosmetic — what is not fine is offering a shortcut list in which every
+   * single entry is from another department. See brandDirectoryApplies.
+   */
+  const brandList = brandDirectoryApplies(group)
   const [brands, setBrands] = useState<{ name: string; slug: string }[]>([])
   const [saving, setSaving] = useState<null | "draft" | "post">(null)
   const [error, setError] = useState<string | null>(null)
@@ -1781,8 +1821,27 @@ export function NewListingForm({
     if (!condition) g.push({ key: "condition", label: "stare", message: "Alege starea articolului." })
     if (asks("size") && !size) g.push({ key: "size", label: "mărime", message: "Alege mărimea." })
     if (asks("colour") && !colour) g.push({ key: "colour", label: "culoare", message: "Alege culoarea." })
-    if (!Number.isFinite(priceCents) || priceCents < 0)
+    /**
+     * THE FLOOR, AND WHY IT IS A SENTENCE RATHER THAN A REFUSAL.
+     *
+     * Five lei. Below it the protection fee is a fifth of the order, the
+     * courier costs several times the item, and the listing is nearly always a
+     * mistake or a test.
+     *
+     * Stated as a gap rather than blocked at the keystroke: a field that
+     * refuses the "1" you type on the way to "15" is a field that fights you.
+     * The publish is what enforces it, and the note under the field says the
+     * number, so nobody has to guess where the line is.
+     */
+    if (!Number.isFinite(priceCents) || priceCents <= 0) {
       g.push({ key: "price", label: "preț", message: "Adaugă prețul." })
+    } else if (priceCents < MIN_LISTING_PRICE_CENTS) {
+      g.push({
+        key: "price",
+        label: "preț",
+        message: `Prețul minim este ${formatPlatformMoney(MIN_LISTING_PRICE_CENTS)}.`,
+      })
+    }
     return g
   }, [asks, uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents])
 
@@ -2333,7 +2392,7 @@ export function NewListingForm({
           </h1>
           <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
             {editId
-              ? "Modifică ce vrei și salvează — anunțul rămâne la aceeași adresă."
+              ? "Modifică ce vrei și salvează. Anunțul rămâne la aceeași adresă."
               : "Completează detaliile și anunțul tău apare instant în feed."}
           </p>
         </div>
@@ -2411,6 +2470,7 @@ export function NewListingForm({
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
+          info="Prima fotografie devine coperta anunțului în feed. Fotografiază la lumină naturală, pe fundal simplu, și arată orice defect. Anunțurile cu poze clare se vând de câteva ori mai repede."
         >
           Fotografii
         </SectionHeading>
@@ -2563,11 +2623,38 @@ export function NewListingForm({
               }}
               aria-label="Adaugă fotografii"
               className={cn(
-                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl border",
+                /* DASHED, and that is not a decoration.
+
+                   A solid hairline is the border every FILLED card on this form
+                   already wears — the price card, the details card, the tile a
+                   photograph lands in. So an empty slot drawn with the same
+                   solid line reads as a card that exists and happens to be
+                   blank, which is why the grid looked like three broken tiles
+                   rather than three places to put something.
+
+                   A dashed outline is the one border convention that means "not
+                   filled in yet", and it is what every drop target on the web
+                   has used for twenty years. The moment a photograph arrives the
+                   tile becomes solid, because by then it IS a card. */
+                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl",
+                "border-2 border-dashed",
                 "transition-[transform,background-color,border-color] duration-150 active:scale-[0.97]",
                 n === 0
-                  ? "border-neutral-300 bg-neutral-50 active:border-neutral-400 active:bg-neutral-100"
-                  : "border-neutral-200 bg-neutral-50/60 active:border-neutral-300 active:bg-neutral-100",
+                  ? "border-neutral-300 bg-neutral-50/70 active:border-neutral-500 active:bg-neutral-100"
+                  : "border-neutral-200 bg-neutral-50/40 active:border-neutral-400 active:bg-neutral-100",
+                // IN INK, not in violet — and that is a rule about this grid
+                // rather than a preference. Every other tile here is a
+                // photograph, and a saturated accent laid over a wall of
+                // photographs competes with the only thing on the screen that
+                // is meant to be looked at. The cover badge and the cover ring
+                // are black for the same reason; an empty slot that lit up
+                // violet under the cursor would have been the one violet object
+                // in a grid that has deliberately never had one.
+                //
+                // A pointer still gets the state: on a row of identical
+                // rectangles, the one under the cursor being the only one
+                // darkened is what makes the grid legible as a set of targets.
+                "[@media(hover:hover)]:hover:border-neutral-400 [@media(hover:hover)]:hover:bg-neutral-100/70",
               )}
             >
               <span
@@ -2623,7 +2710,13 @@ export function NewListingForm({
         </div>
 
         <div ref={(el) => setGapEl("description", el)} className="mt-6">
-        <label className="block text-[15px] font-semibold text-neutral-900">Descriere</label>
+        <label className="info-tip-host flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900">
+          Descriere
+          <InfoTip>
+            Spune starea reală, materialul și cum vine pe corp. Menționează orice defect: un
+            cumpărător care știe ce primește nu deschide o reclamație.
+          </InfoTip>
+        </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -2643,7 +2736,9 @@ export function NewListingForm({
       <div className="min-w-0">
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
-        <SectionHeading>Preț</SectionHeading>
+        <SectionHeading info="Tu primești exact suma pe care o scrii aici. Cumpărătorul plătește puțin mai mult, pentru că prețul afișat în feed include taxa de protecție a plății.">
+          Preț
+        </SectionHeading>
         {/* ONE FIELD. The comparison price is gone from the whole app — a
             second-hand marketplace has no list price to discount FROM, so the
             "was" figure was another number the same seller typed and the
@@ -2684,14 +2779,65 @@ export function NewListingForm({
               RON
             </span>
           </div>
+          {/* SAID WHEN IT MATTERS, NOT BEFORE.
+
+              The floor used to sit in the label as "· minimum 5 RON", which is
+              a rule printed permanently above a field that almost nobody was
+              going to break. It is a note UNDER the field now, and only once
+              there is a number below the line — so it reads as an answer to
+              what was just typed instead of as a condition of using the form.
+
+              Not a block on the keystroke: refusing the "1" on the way to "15"
+              is a field that fights you. The publish is what enforces it. */}
+          {Number.isFinite(priceCents) && priceCents > 0 && priceCents < MIN_LISTING_PRICE_CENTS && (
+            <p className="price-total-in mt-2 text-[12.5px] font-medium leading-snug text-amber-700">
+              Prețul minim pentru un anunț este {formatPlatformMoney(MIN_LISTING_PRICE_CENTS)}.
+            </p>
+          )}
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
-        {Number.isFinite(priceCents) && priceCents > 0 && (
-          <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-neutral-400">
-            Cumpărătorii văd{" "}
-            <span className="font-semibold text-neutral-600">{formatPlatformMoney(buyerPaysCents(priceCents))}</span> —
-            prețul tău plus taxa de protecție. Tu primești în continuare {formatPlatformMoney(priceCents)}.
-          </p>
+        {/* A SHIELD AND THEIR OWN NUMBER. NOT A RECEIPT.
+
+            This was two rows: "Cumpărătorul plătește 454 RON" over "Tu primești
+            431 RON". Every figure in it was correct and the effect was wrong —
+            it set the platform's cut out as a line item under the field, in the
+            largest type on the card, at the exact moment somebody is deciding
+            whether to bother listing at all. A marketplace that opens its books
+            at the point of sale is not being transparent, it is arguing with
+            itself, and the number a seller came here to see is the one they
+            just typed.
+
+            So: their price, a shield, one line. The arithmetic has not changed
+            and none of it is hidden — the mark opens both figures, in a
+            sentence, for anybody who wants them. The difference is that it is
+            now something you can ask for rather than something the form
+            announces.
+
+            It fades and rises rather than appearing, because it arrives as you
+            type. And it carries NO `key`: keyed on the price it was rebuilt per
+            keystroke, so the entrance replayed on every character and the row
+            strobed under the field. See `.price-total-in`. */}
+        {Number.isFinite(priceCents) && priceCents >= MIN_LISTING_PRICE_CENTS && (
+          <div className="info-tip-host price-total-in mt-3 flex items-center gap-2.5 rounded-xl bg-[#7c3aed]/[0.055] px-3.5 py-2.5">
+            <ShieldCheck className="h-[17px] w-[17px] shrink-0 text-[#7c3aed]" strokeWidth={2.2} />
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] leading-snug text-neutral-600">
+              <span className="min-w-0">
+                Anunțul tău apare la{" "}
+                <span className="font-semibold tabular-nums text-neutral-900">
+                  {formatPlatformMoney(priceCents)}
+                </span>
+                , cu plata protejată.
+              </span>
+              <InfoTip>
+                Cumpărătorul plătește {formatPlatformMoney(buyerPaysCents(priceCents))}: prețul tău
+                plus {formatPlatformMoney(buyerProtectionFee(priceCents))} taxă de protecție, care
+                acoperă livrarea urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost
+                descris. Din prețul tău reținem un comision de{" "}
+                {(SELLER_COMMISSION_PERCENT * 100).toFixed(0)}%, așa că primești{" "}
+                {formatPlatformMoney(sellerReceivesCents(priceCents))}.
+              </InfoTip>
+            </span>
+          </div>
         )}
       </section>
 
@@ -2725,7 +2871,7 @@ export function NewListingForm({
         >
           <div className="overflow-hidden">
             <div className={cn("transition-opacity duration-200 ease-out", group ? "opacity-100 delay-[120ms]" : "opacity-0")}>
-              <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
+              <Field label="Stare" value={label(conditionsFor(group), condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
               {asks("brand") && (
                 <Field label="Brand" value={brand} onClick={() => setSheet("brand")} error={gapFor("brand")} anchor={(el) => setGapEl("brand", el)} />
               )}
@@ -2925,23 +3071,40 @@ export function NewListingForm({
               search box reads as "no brands", which is a wrong answer; rows
               that are the right height and the right count read as "not yet",
               and they hold the layout so nothing jumps when the names land. */}
-          {brands.length === 0 &&
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={`skel-${i}`} className="flex h-[56px] items-center px-4">
-                <span
-                  className="h-[13px] animate-pulse rounded-full bg-neutral-100"
-                  style={{ width: `${38 + ((i * 17) % 42)}%` }}
+          {brandList ? (
+            <>
+              {brands.length === 0 &&
+                Array.from({ length: 8 }).map((_, i) => (
+                  <div key={`skel-${i}`} className="flex h-[56px] items-center px-4">
+                    <span
+                      className="h-[13px] animate-pulse rounded-full bg-neutral-100"
+                      style={{ width: `${38 + ((i * 17) % 42)}%` }}
+                    />
+                  </div>
+                ))}
+              {brands.map((b) => (
+                <OptionRow
+                  key={b.slug}
+                  label={b.name}
+                  selected={brand === b.name}
+                  onClick={() => setBrand(b.name)}
                 />
-              </div>
-            ))}
-          {brands.map((b) => (
-            <OptionRow
-              key={b.slug}
-              label={b.name}
-              selected={brand === b.name}
-              onClick={() => setBrand(b.name)}
-            />
-          ))}
+              ))}
+            </>
+          ) : (
+            /* NO LIST, RATHER THAN THE WRONG LIST.
+
+               Every name in the directory is a clothing label, so on a lipstick
+               or a set of speakers the suggestions were eight answers that are
+               all wrong followed by the one row that is not. Saying so costs a
+               line and stops the form looking like it does not know what is
+               being sold. The search box above still queries — a listing whose
+               brand really is a fashion label finds it by typing — and the row
+               below still takes anything. */
+            <p className="px-4 pb-2 pt-1 text-[13.5px] leading-[1.45] text-neutral-500">
+              Scrie numele brandului în căsuța de căutare.
+            </p>
+          )}
           {/* Always available, never a row in the table — a brand directory can
               never be complete, and a missing brand shouldn't block a listing. */}
           <button
@@ -2952,7 +3115,7 @@ export function NewListingForm({
             }}
             className="mt-2 flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-4 text-left text-[15px] font-medium text-neutral-600 transition-colors duration-150 active:bg-neutral-100"
           >
-            <span className="flex-1">Nu găsesc brandul — Altele</span>
+            <span className="flex-1">Nu găsesc brandul · Altele</span>
             {brand === "Altele" && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />}
           </button>
         </div>
@@ -2966,11 +3129,14 @@ export function NewListingForm({
           what it means. */}
       <PickerPage open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>{() => (
         <>
-        {CONDITIONS.map((c) => (
+        {/* Worded for what is being listed: a book is never "nepurtat" and has
+            no tag on it. Same five rungs and the same five ids either way —
+            see conditionsFor. */}
+        {conditionsFor(group).map((c) => (
           <OptionRow
             key={c.id}
             label={c.label}
-            hint={CONDITION_HINTS[c.id]}
+            hint={c.hint}
             selected={condition === c.id}
             onClick={() => setCondition(c.id)}
           />
@@ -2982,7 +3148,11 @@ export function NewListingForm({
       <PickerPage open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>{() => (
         <>
         <ChipField>
-          {SIZES.map((c) => (
+          {/* The sizes for THIS category, not every size the marketplace knows.
+              A t-shirt was being offered shoe sizes, a shoe was being offered
+              XXS, and a child's jumper had no correct answer in the list at
+              all — see sizesFor. */}
+          {sizesFor(group).map((c) => (
             <OptionChip
               key={c.id}
               label={c.label}

@@ -400,6 +400,50 @@ check(
     "        should not be queued behind it.",
 )
 
+check(
+  "a thread with history does not download every photograph to show four",
+  (() => {
+    // A conversation opens scrolled to the BOTTOM, so the only pictures anybody
+    // can see are the last few — and every one above them was being fetched
+    // anyway. Sixty photographs over the network on a phone to show four.
+    const t = read("components/messages/thread.tsx")
+    return /loading=\{i < arr\.length - \d+ \? "lazy" : "eager"\}/.test(t)
+  })(),
+)
+
+check(
+  "and the cover only ever waits for photographs that are actually being fetched",
+  (() => {
+    // THE TRAP IN THE LINE ABOVE. A lazy image the browser has not started is
+    // `complete === false` and stays that way until it is scrolled near, so
+    // counting them would hold the cover for its full 1800ms cap on every thread
+    // with history — deferring the images would have made opening a conversation
+    // slower, which is the opposite of the point.
+    const t = read("components/messages/thread.tsx")
+    return /!i\.complete && i\.loading !== "lazy"/.test(t)
+  })(),
+  "        components/messages/thread.tsx — an image that has not started cannot\n" +
+    "        be waited on.",
+)
+
+check(
+  "the inbox has no loading shell whose shape disagrees with the page",
+  (() => {
+    // On a desktop the inbox is a two-pane split: a 340-380px conversation list
+    // beside the conversation. The shell was `mx-auto max-w-2xl` — a narrow
+    // centred column, which is not that layout at any width. So clicking
+    // Messages painted one shape, then replaced it with a different one.
+    //
+    // The page reads its conversations on the server and hands them down, so
+    // there is nothing left for a shell to stand in for: without one the
+    // navigation waits for a payload it is already prefetching, and the inbox
+    // arrives once, correct at every width.
+    return !existsSync(join(root, "app/(marketing)/messages/loading.tsx"))
+  })(),
+  "        A skeleton whose geometry disagrees with what replaces it is a layout\n" +
+    "        jump dressed up as a loading state.",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

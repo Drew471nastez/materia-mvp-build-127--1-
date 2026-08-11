@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { ShieldCheck, X } from "lucide-react"
 
 /**
@@ -58,7 +59,24 @@ export function SafetyNotice() {
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-[15px] w-[15px] shrink-0 text-[#7c3aed]" strokeWidth={2.3} />
         <p className="min-w-0 flex-1 text-[12px] leading-[1.4] text-neutral-600">
-          Nu da date bancare sau personale. Plătește doar prin Storelib.
+          Nu da date bancare sau personale. Plătește doar prin Storelib.{" "}
+          {/* A WARNING WITH NOWHERE TO GO IS A WARNING YOU CAN ONLY OBEY OR
+              DISMISS.
+
+              Two lines cannot explain what a payment outside the app actually
+              costs you, what the protection covers, or what to do when somebody
+              has already asked — and this band appears at exactly the moment
+              those questions occur to somebody. Underlined and violet rather
+              than a bare colour change: a link that is only a different colour
+              is a link on a device where colour is the one thing that did not
+              survive, and this is the sentence where being missable matters
+              most. */}
+          <Link
+            href="/help"
+            className="font-semibold text-[#7c3aed] underline decoration-[#7c3aed]/40 underline-offset-2"
+          >
+            Află mai multe
+          </Link>
         </p>
         <button
           type="button"

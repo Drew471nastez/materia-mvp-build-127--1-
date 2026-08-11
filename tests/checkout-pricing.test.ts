@@ -13,14 +13,20 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { BUYER_PROTECTION_FIXED_BY_CURRENCY } from "../lib/checkout/currency"
+import {
+  BUYER_PROTECTION_FIXED_BY_CURRENCY,
+  BUYER_PROTECTION_LADDER_BY_CURRENCY,
+  MIN_LISTING_PRICE_BY_CURRENCY,
+} from "../lib/checkout/currency"
 import { buyerPaysCents } from "../lib/marketplace/display-price"
 import {
   BUYER_PROTECTION_FIXED,
-  BUYER_PROTECTION_PERCENT,
+  SELLER_COMMISSION_PERCENT,
   breakdownLines,
   buyerProtectionFee,
   priceCheckout,
+  sellerCommissionCents,
+  sellerReceivesCents,
 } from "../lib/checkout/pricing"
 
 let passed = 0
@@ -43,32 +49,112 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 console.log("\nCheckout pricing: what the buyer pays, and who gets it\n")
 
 /* ── THE FEE ─────────────────────────────────────────────────────────────── */
+/**
+ * The buyer's fee is a FLAT amount by band, not a percentage. It replaced
+ * "5% + 4 lei", which at ten lei charged 4.50 on a ten-lei item — a 45%
+ * surcharge on exactly the orders a second-hand marketplace lives on. The 5%
+ * did not go away; it moved to the side of the transaction it always described
+ * and is the seller's commission now.
+ */
+const LADDER_RON = [
+  // [order value in bani, fee in bani] — one row per band, plus the edges.
+  [1, 100],
+  [799, 100],
+  [800, 125],
+  [999, 125],
+  [1000, 150],
+  [1199, 150],
+  [1200, 175],
+  [1499, 175],
+  [1500, 400],
+  [34537, 400],
+] as const
+
 check(
-  "the fee is 5% of the item plus a flat amount",
-  // The FIXED part follows the currency being charged — 400 bani in lei, its
-  // equivalent in cents until the migration runs — so the test reads it rather
-  // than pinning one side and failing on the other.
-  BUYER_PROTECTION_PERCENT === 0.05 && BUYER_PROTECTION_FIXED > 0,
-)
-check(
-  "in lei, a 345,37 order is charged 21,27 protection",
+  "the ladder charges exactly what the table says, at every boundary",
   (() => {
-    // 34537 * 0.05 = 1726.85, + 400 = 2126.85 → 2127
-    const inRon = Math.round(34537 * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED_BY_CURRENCY.ron)
-    return inRon === 2127
+    // Boundaries are where a ladder goes wrong, so every one of them is here
+    // twice: the last value of a band and the first value of the next.
+    const ron = BUYER_PROTECTION_LADDER_BY_CURRENCY.ron
+    const feeFor = (cents: number) => {
+      for (const band of ron) if (cents < band.upTo) return band.fee
+      return BUYER_PROTECTION_FIXED_BY_CURRENCY.ron
+    }
+    return LADDER_RON.every(([cents, fee]) => feeFor(cents) === fee)
+  })(),
+  "        0.01–7.99 → 1 leu · 8–9.99 → 1.25 · 10–11.99 → 1.50 ·\n" +
+    "        12–14.99 → 1.75 · 15+ → 4 lei flat",
+)
+
+check(
+  "a 345,37 order is charged the flat 4 lei, not a percentage",
+  (() => {
+    // The old rule made this 21.27. Anything at or above fifteen lei is four
+    // lei, which is nearly every order on the site.
+    return buyerProtectionFee(34537) === BUYER_PROTECTION_FIXED
   })(),
 )
+
 check(
   "the fee tracks whatever currency is configured",
-  buyerProtectionFee(34537) === Math.round(34537 * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED),
-)
-check(
-  "the flat part is what makes a small order viable",
   (() => {
-    // A percentage alone earns 50 bani on a 10-lei sale, which does not cover
-    // the cost of handling one dispute about it.
+    // The ladder is per-currency for the same reason the flat fee was: 400
+    // minor units is four lei in one configuration and four dollars in the
+    // other. Reading it rather than pinning one side.
+    const ladder = BUYER_PROTECTION_LADDER_BY_CURRENCY
+    return (
+      ladder.ron.length === ladder.usd.length &&
+      ladder.ron.every((b, i) => b.upTo > ladder.usd[i].upTo && b.fee > ladder.usd[i].fee)
+    )
+  })(),
+)
+
+check(
+  "a ten-lei order is no longer charged a 45% surcharge",
+  (() => {
+    // 5% + 4 lei made this 4.50 on a 10-lei item. The ladder makes it 1.50.
     const small = buyerProtectionFee(1000)
-    return small === 50 + BUYER_PROTECTION_FIXED && small > 1000 * BUYER_PROTECTION_PERCENT
+    return small < BUYER_PROTECTION_FIXED && small === 150
+  })(),
+)
+
+/* ── THE SELLER'S SIDE ───────────────────────────────────────────────────── */
+check(
+  "the seller pays five percent, flat, whoever they are",
+  (() => {
+    // It replaced a plan ladder from the digital-goods product this app used to
+    // be: 6% free, 3% growth, 1.5% pro, plus a $0.25 fixed fee above $3 —
+    // subscriptions this marketplace does not sell, priced in dollars against
+    // rows that hold lei.
+    return (
+      SELLER_COMMISSION_PERCENT === 0.05 &&
+      sellerCommissionCents(10000) === 500 &&
+      sellerCommissionCents(1) === 0 &&
+      sellerCommissionCents(0) === 0
+    )
+  })(),
+)
+
+check(
+  "and what they are told they will receive is the price minus that",
+  (() => {
+    // The sell form quotes this. A payout figure derived from a second copy of
+    // the rule is a promise the transfer does not keep.
+    return (
+      sellerReceivesCents(10000) === 9500 &&
+      sellerReceivesCents(13000) === 13000 - sellerCommissionCents(13000) &&
+      sellerReceivesCents(0) === 0
+    )
+  })(),
+)
+
+check(
+  "a listing has a floor, and it is above the band where the fee is a fifth of the order",
+  (() => {
+    // Five lei. Below it the protection fee is a fifth of the order and the
+    // courier costs several times the item.
+    const floor = MIN_LISTING_PRICE_BY_CURRENCY.ron
+    return floor === 500 && buyerProtectionFee(floor) / floor <= 0.2
   })(),
 )
 check(
@@ -215,7 +301,10 @@ check(
   )
   check(
     "the commission is computed on the seller's money only",
-    /calculatePlatformFee\(sellerSideCents/.test(session),
+    // `sellerSideCents` is the item plus any tip. Charging the commission on
+    // the inflated total would tax the seller on the buyer's protection fee and
+    // on the postage, neither of which was ever theirs.
+    /sellerCommissionCents\(sellerSideCents\)/.test(session),
     "        Charging it on the inflated total would tax the seller on the\n" +
       "        buyer's protection fee.",
   )
@@ -425,7 +514,7 @@ check(
     // 13000 * 0.05 = 650, + the flat part. The assertion is written against
     // the same constants the checkout uses so it survives the currency switch.
     const item = 13000
-    const expected = item + Math.round(item * BUYER_PROTECTION_PERCENT + BUYER_PROTECTION_FIXED)
+    const expected = item + buyerProtectionFee(item)
     return buyerPaysCents(item) === expected && expected > item
   })(),
 )
@@ -544,8 +633,21 @@ check(
     // The price field is what the SELLER is asking and what their payout is
     // computed from. Showing them the inclusive figure would tell somebody
     // typing 130 that they are earning 141.
+    //
+    // Matched on the FIGURE rather than on the sentence around it. This asked
+    // for the literal "Tu primești în continuare {formatPlatformMoney(
+    // priceCents)}" and so failed the moment that line became a row with the
+    // explanation behind a mark. The rule was never about the words: it is that
+    // the seller's own, un-grossed-up number is stated somewhere on this form,
+    // and that the field itself is not pre-filled with the buyer's.
     const form = read("components/sell/new-listing-form.tsx")
-    return /Tu primești în continuare \{formatPlatformMoney\(priceCents\)\}/.test(form)
+    // Their PAYOUT, which is stronger than what this used to ask for. It
+    // required the gross price to appear somewhere, which was true of a
+    // sentence saying "you still receive 130" — accurate before the commission
+    // was surfaced, and misleading after it, because 130 is not what lands.
+    const statesPayout = /sellerReceivesCents\(priceCents\)/.test(form)
+    const fieldIsTheirs = /value=\{price\}/.test(form) && !/value=\{formatPlatformMoney\(buyerPaysCents/.test(form)
+    return statesPayout && fieldIsTheirs
   })(),
 )
 

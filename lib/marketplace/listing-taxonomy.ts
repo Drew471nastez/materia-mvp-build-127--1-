@@ -423,11 +423,26 @@ const WORN: ListingField[] = ["brand", "size", "colour", "sources", "era", "styl
 const CARRIED: ListingField[] = ["brand", "colour", "sources", "era", "style"]
 /** Objects: a brand and a colour, and nothing about how they are styled. */
 const OBJECT: ListingField[] = ["brand", "colour"]
-/** Printed and recorded matter: a brand is a publisher or a label, and that is
- *  the only one of the six that means anything. */
-const MEDIA: ListingField[] = ["brand"]
-/** Collectibles: a brand is the maker or the set, and colour is meaningless. */
-const COLLECTIBLE: ListingField[] = ["brand"]
+/**
+ * Printed and recorded matter, and collectibles: NONE of the six.
+ *
+ * Both of these used to ask for a brand, on the reasoning that a brand is a
+ * publisher for a book and a maker for a boxed set. The reasoning is sound and
+ * the field is not, because the field is not a free-text box — it opens the
+ * BRAND DIRECTORY, which is fashion. Listing a paperback and being offered
+ * Nike, Adidas and Zara is not a slightly imprecise label; it is a question
+ * with no correct answer in it, on a form whose whole job is to be answerable.
+ *
+ * A publisher field and a maker field would each be right, and each needs a
+ * directory of its own before it can exist. Until then the title carries it —
+ * "Dune, Nemira, 2021" is how anybody writes a book listing anyway — and the
+ * form asks nothing it cannot accept an answer to.
+ *
+ * Colour and size were already absent from both for the same class of reason,
+ * so this is the third of the six going for the third time.
+ */
+const MEDIA: ListingField[] = []
+const COLLECTIBLE: ListingField[] = []
 
 const FIELDS_BY_GROUP: Record<string, ListingField[]> = {
   "women-clothing": WORN,
@@ -477,6 +492,31 @@ const FIELDS_BY_GROUP: Record<string, ListingField[]> = {
  * field they do not need costs them one row, and hiding one they had already
  * filled in would silently drop a value they can no longer see or correct.
  */
+/**
+ * Does the BRAND DIRECTORY have anything to say about this group?
+ *
+ * The seeded directory is fashion, end to end — Nike, Adidas, Zara, H&M, Levi's,
+ * Supreme, Shein. Nothing in it is a toy, a cosmetic, an instrument or a games
+ * label, and nothing ever will be by accident.
+ *
+ * The brand FIELD is still right on most of those groups, because a picker with
+ * a free-text escape can take "Lego" or "Dior" or "Yamaha" perfectly well — the
+ * directory is a shortcut, not the answer. What is wrong is offering that
+ * shortcut where every single suggestion in it is from another department:
+ * opening Brand on a lipstick and being shown a list of streetwear labels reads
+ * as the form not knowing what is being sold.
+ *
+ * So the suggestions are scoped to where they apply and the free-text path is
+ * left everywhere. A group is served by the directory exactly when its fields
+ * come from the two fashion sets — which is the same fact the table above
+ * already encodes, read rather than restated.
+ */
+export function brandDirectoryApplies(groupId?: string | null): boolean {
+  if (!groupId) return false
+  const fields = FIELDS_BY_GROUP[groupId]
+  return fields === WORN || fields === CARRIED
+}
+
 export function fieldsFor(groupId?: string | null): ListingField[] {
   if (!groupId) return []
   return FIELDS_BY_GROUP[groupId] ?? WORN
@@ -541,13 +581,71 @@ export function categoryLabelFor(groupId?: string | null, itemId?: string | null
 // exactly this ladder. I invented a different set (brand_new, like_new, …) and
 // every publish was rejected by the database. Matching the constraint is the fix;
 // widening it would fork the vocabulary for every listing that already exists.
-export const CONDITIONS: Option[] = [
-  { id: "new_with_tags", label: "Nou, cu etichetă" },
-  { id: "new_without_tags", label: "Nou, fără etichetă" },
-  { id: "very_good", label: "Foarte bună" },
-  { id: "good", label: "Bună" },
-  { id: "satisfactory", label: "Acceptabilă" },
-]
+/**
+ * ===========================================================================
+ *  CONDITION, IN THE WORDS THE THING IS ACTUALLY SOLD IN
+ * ===========================================================================
+ *
+ * The five rungs are right for everything on this marketplace. The WORDS were
+ * right for clothing only: "Nou, cu etichetă" and hints reading "Nepurtat" and
+ * "Purtat de câteva ori" — asked of a paperback, a board game or a lipstick,
+ * none of which is ever worn and none of which has a tag on it.
+ *
+ * Same ladder, same five ids, different language. The ids matter more than they
+ * look: every listing ever filed carries one, the feed filters on them, and a
+ * second set would mean a listing's condition changing meaning the day its
+ * category was edited. So this is a relabelling, not a second taxonomy.
+ *
+ * Two vocabularies, because there are two ways a thing arrives new: with the
+ * tag still on it, or still sealed in the box. Everything below the top two
+ * rungs is about use, and "folosit" covers a book, a toy and a guitar equally
+ * well where "purtat" covers none of them.
+ */
+const CONDITION_IDS = [
+  "new_with_tags",
+  "new_without_tags",
+  "very_good",
+  "good",
+  "satisfactory",
+] as const
+
+export type ConditionId = (typeof CONDITION_IDS)[number]
+
+const WORN_WORDS: Record<ConditionId, { label: string; hint: string }> = {
+  new_with_tags: { label: "Nou, cu etichetă", hint: "Nepurtat, cu eticheta originală" },
+  new_without_tags: { label: "Nou, fără etichetă", hint: "Nepurtat, dar fără etichetă" },
+  very_good: { label: "Foarte bună", hint: "Purtat de câteva ori, fără urme vizibile" },
+  good: { label: "Bună", hint: "Purtat, cu urme mici de folosire" },
+  satisfactory: { label: "Acceptabilă", hint: "Urme vizibile sau un defect descris în anunț" },
+}
+
+const USED_WORDS: Record<ConditionId, { label: string; hint: string }> = {
+  new_with_tags: { label: "Nou, sigilat", hint: "Nedesfăcut, în ambalajul original" },
+  new_without_tags: { label: "Nou, desigilat", hint: "Nefolosit, dar fără ambalaj" },
+  very_good: { label: "Foarte bună", hint: "Folosit de câteva ori, fără urme vizibile" },
+  good: { label: "Bună", hint: "Folosit, cu urme mici de uzură" },
+  satisfactory: { label: "Acceptabilă", hint: "Urme vizibile sau un defect descris în anunț" },
+}
+
+/**
+ * The ladder, worded for what is being listed.
+ *
+ * Clothing, shoes, bags and accessories get the tag language; everything else
+ * gets the box language. An unknown group gets the clothing wording, because
+ * that is what every listing filed before this existed was written against and
+ * changing it retroactively would be a worse answer than an imprecise one.
+ */
+export function conditionsFor(groupId?: string | null): (Option & { hint: string })[] {
+  const fields = groupId ? FIELDS_BY_GROUP[groupId] : undefined
+  const words = fields === WORN || fields === CARRIED || fields === undefined ? WORN_WORDS : USED_WORDS
+  return CONDITION_IDS.map((id) => ({ id, label: words[id].label, hint: words[id].hint }))
+}
+
+/** The clothing wording, which is what a stored value resolves against. */
+export const CONDITIONS: Option[] = CONDITION_IDS.map((id) => ({
+  id,
+  label: WORN_WORDS[id].label,
+}))
 
 export const COLOURS: (Option & { hex: string })[] = [
   { id: "black", label: "Negru", hex: "#111111" },
@@ -655,12 +753,31 @@ export const STYLES: Option[] = [
 ]
 
 /**
- * One field for everything the marketplace sells, which is why shoe sizes say
- * so on the label. Nine letter sizes was thin to the point of being wrong:
- * "Blugi, M" is not what a pair of jeans is sold as anywhere, and there was no
- * way at all to list a shoe.
+ * ===========================================================================
+ *  SIZES, AND WHY THERE IS MORE THAN ONE LIST
+ * ===========================================================================
+ *
+ * There was one flat list for everything the marketplace sells, and it produced
+ * the same fault the brand directory did, three times over:
+ *
+ *   A T-SHIRT was offered 35 · încălțăminte through 45 · încălțăminte, and
+ *   waist 32 through 50. Two thirds of the list could not be the answer.
+ *
+ *   A PAIR OF SHOES was offered XXS through XXXL for the same reason.
+ *
+ *   AND A CHILD'S JUMPER HAD NO CORRECT ANSWER IN THE LIST AT ALL. Kids
+ *   clothing asks for a size, the list held adult letters, adult waists and
+ *   adult shoe sizes, and a listing for a three-year-old could only be filed
+ *   under one of them or left blank. That is worse than a list with wrong
+ *   entries in it: it is a required question the form cannot accept an answer
+ *   to.
+ *
+ * So there are four lists and a function that picks one. `SIZES` stays as the
+ * union of all of them, and is still what a stored value is resolved against —
+ * a listing keeps its size when its category is edited, and a label lookup that
+ * only knew the current group would render a blank for it.
  */
-export const SIZES: Option[] = [
+export const SIZES_TOPS: Option[] = [
   { id: "one-size", label: "Mărime universală" },
   { id: "xxs", label: "XXS" },
   { id: "xs", label: "XS" },
@@ -670,6 +787,10 @@ export const SIZES: Option[] = [
   { id: "xl", label: "XL" },
   { id: "xxl", label: "XXL" },
   { id: "xxxl", label: "XXXL" },
+]
+
+/** Trousers, skirts, denim — the numbers a waistband is sold by. */
+export const SIZES_WAIST: Option[] = [
   { id: "eu-32", label: "32" },
   { id: "eu-34", label: "34" },
   { id: "eu-36", label: "36" },
@@ -680,6 +801,9 @@ export const SIZES: Option[] = [
   { id: "eu-46", label: "46" },
   { id: "eu-48", label: "48" },
   { id: "eu-50", label: "50" },
+]
+
+export const SIZES_SHOES: Option[] = [
   { id: "shoe-35", label: "35 · încălțăminte" },
   { id: "shoe-36", label: "36 · încălțăminte" },
   { id: "shoe-37", label: "37 · încălțăminte" },
@@ -693,6 +817,74 @@ export const SIZES: Option[] = [
   { id: "shoe-45", label: "45 · încălțăminte" },
   { id: "shoe-46", label: "46 · încălțăminte" },
 ]
+
+/**
+ * Children, by age and then by foot.
+ *
+ * Months up to two years because that is how baby clothes are sold and the
+ * difference between 3-6 and 12-18 months is most of a wardrobe; years after
+ * that. Added rather than adapted: none of these existed, which is why a
+ * children's listing had nothing it could honestly say.
+ */
+export const SIZES_KIDS: Option[] = [
+  { id: "k-0-3m", label: "0-3 luni" },
+  { id: "k-3-6m", label: "3-6 luni" },
+  { id: "k-6-9m", label: "6-9 luni" },
+  { id: "k-9-12m", label: "9-12 luni" },
+  { id: "k-12-18m", label: "12-18 luni" },
+  { id: "k-18-24m", label: "18-24 luni" },
+  { id: "k-2y", label: "2 ani" },
+  { id: "k-3y", label: "3 ani" },
+  { id: "k-4y", label: "4 ani" },
+  { id: "k-5y", label: "5 ani" },
+  { id: "k-6y", label: "6 ani" },
+  { id: "k-7y", label: "7 ani" },
+  { id: "k-8y", label: "8 ani" },
+  { id: "k-9y", label: "9 ani" },
+  { id: "k-10y", label: "10 ani" },
+  { id: "k-11y", label: "11 ani" },
+  { id: "k-12y", label: "12 ani" },
+  { id: "k-13y", label: "13 ani" },
+  { id: "k-14y", label: "14 ani" },
+  { id: "k-shoe-18", label: "18 · încălțăminte copii" },
+  { id: "k-shoe-19", label: "19 · încălțăminte copii" },
+  { id: "k-shoe-20", label: "20 · încălțăminte copii" },
+  { id: "k-shoe-21", label: "21 · încălțăminte copii" },
+  { id: "k-shoe-22", label: "22 · încălțăminte copii" },
+  { id: "k-shoe-23", label: "23 · încălțăminte copii" },
+  { id: "k-shoe-24", label: "24 · încălțăminte copii" },
+  { id: "k-shoe-25", label: "25 · încălțăminte copii" },
+  { id: "k-shoe-26", label: "26 · încălțăminte copii" },
+  { id: "k-shoe-27", label: "27 · încălțăminte copii" },
+  { id: "k-shoe-28", label: "28 · încălțăminte copii" },
+  { id: "k-shoe-29", label: "29 · încălțăminte copii" },
+  { id: "k-shoe-30", label: "30 · încălțăminte copii" },
+  { id: "k-shoe-31", label: "31 · încălțăminte copii" },
+  { id: "k-shoe-32", label: "32 · încălțăminte copii" },
+  { id: "k-shoe-33", label: "33 · încălțăminte copii" },
+  { id: "k-shoe-34", label: "34 · încălțăminte copii" },
+  { id: "k-shoe-35", label: "35 · încălțăminte copii" },
+]
+
+/** Every size the marketplace knows, for resolving a stored value to a label. */
+export const SIZES: Option[] = [...SIZES_TOPS, ...SIZES_WAIST, ...SIZES_SHOES, ...SIZES_KIDS]
+
+/**
+ * The sizes worth offering for what is being listed.
+ *
+ * Falls back to the union rather than to nothing: an unknown group is a group
+ * this table has not been taught about, and showing every size is wrong in a way
+ * somebody can work around, where showing none is a dead end.
+ */
+export function sizesFor(groupId?: string | null): Option[] {
+  if (!groupId) return SIZES
+  if (groupId === "kids-girls" || groupId === "kids-boys") return SIZES_KIDS
+  if (groupId === "women-shoes" || groupId === "men-shoes") return SIZES_SHOES
+  if (groupId === "women-clothing" || groupId === "men-clothing") {
+    return [...SIZES_TOPS, ...SIZES_WAIST]
+  }
+  return SIZES
+}
 
 /** Photos: at least two, at most eight. */
 export const MIN_PHOTOS = 2

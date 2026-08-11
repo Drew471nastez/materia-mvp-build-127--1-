@@ -4,7 +4,19 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, RotateCw, Send, X } from "lucide-react"
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Check,
+  CheckCheck,
+  ImageIcon,
+  Info,
+  ImagePlus,
+  MoreVertical,
+  RotateCw,
+  Send,
+  X,
+} from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
@@ -1106,7 +1118,18 @@ export function MessageThread({
       done = true
       setPixelsReady(true)
     }
-    const pending = Array.from(el.querySelectorAll("img")).filter((i) => !i.complete)
+    /**
+     * Only the photographs that are actually being fetched.
+     *
+     * A lazy image the browser has not started is `complete === false` and will
+     * stay that way until it is scrolled near — so counting them would hold the
+     * cover for the full 1800ms cap on every thread with history in it, which is
+     * the opposite of what deferring them is for. The recent ones are eager
+     * precisely so this has something finite to wait on.
+     */
+    const pending = Array.from(el.querySelectorAll("img")).filter(
+      (i) => !i.complete && i.loading !== "lazy",
+    )
     if (!pending.length) {
       // Already decoded. Cleared on the next frame rather than synchronously, so
       // the lift is a transition rather than a flicker of something that was
@@ -2386,183 +2409,221 @@ export function MessageThread({
                       isFresh(m.localKey ?? m.id) && (mine ? "msg-in-mine" : "msg-in-theirs"),
                     )}
                   >
-                    {m.deleted_at ? (
-                      // The row survives so the day dividers and grouping above
-                      // it do not reshuffle; what it said does not.
-                      <div
-                        className={cn(
-                          "max-w-[82%] rounded-[20px] border border-dashed px-4 py-2.5 text-[15px] italic leading-[1.4]",
-                          mine
-                            ? "rounded-br-md border-[#7c3aed]/30 text-[#7c3aed]/70"
-                            : "rounded-bl-md border-neutral-200 text-neutral-400",
-                        )}
-                      >
-                        Mesaj șters
-                      </div>
-                    ) : m.kind === "offer" ? (
-                      <OfferBubble
-                        msg={m}
-                        mine={mine}
-                        youAre={thread.youAre}
-                        listing={thread.listing}
-                        busy={answering === m.id}
-                        onAnswer={answer}
-                        formatPrice={formatPrice}
-                      />
-                    ) : m.kind === "legacy" ? (
-                      /* A ROW FROM A FEATURE THAT NO LONGER EXISTS.
+                    {/* THE ROW, so a message can carry a control beside it.
 
-                         Voice notes and voice calls were removed; the rows they
-                         wrote are still in these conversations and always will
-                         be. Drawn as a quiet chip that names what happened, with
-                         nothing to press — see lib/messages/legacy-media for why
-                         they are recognised at all rather than left to render as
-                         the raw sentinel they are stored as. */
-                      <div className="flex max-w-[82%] items-center gap-2 rounded-full border border-neutral-150 bg-neutral-50 px-3 py-1.5 text-neutral-400">
-                        <span className="truncate text-[13.5px] font-medium">{m.body}</span>
-                      </div>
-                    ) : m.kind === "image" ? (
-                      <div
-                        onPointerDown={(e) => beginPress(m, e)}
-                        onPointerMove={movePress}
-                        onPointerUp={cancelPress}
-                        onPointerCancel={cancelPress}
-                        onContextMenu={(e) => e.preventDefault()}
-                        className={cn(
-                          "msg-bubble relative max-w-[68%] overflow-hidden rounded-[20px] bg-neutral-100",
-                          mine ? "rounded-br-md" : "rounded-bl-md",
-                        )}
-                      >
-                        {m.image_url ? (
-                          // A plain img, not next/image: the src is a signed URL
-                          // that expires, so it is neither cacheable by the
-                          // optimizer nor stable enough to be worth optimising.
-                          // eslint-disable-next-line @next/next/no-img-element
-                          // Fades in over its own placeholder rather than
-                          // arriving into a zero-height box. Without a reserved
-                          // size the bubble is nothing until the bytes land and
-                          // then snaps to full height, which is what makes a
-                          // conversation look like it is assembling itself after
-                          // you have already arrived — every photo pushing the
-                          // ones above it as it loads.
-                          <img
-                            src={m.image_url}
-                            alt={m.body || "Fotografie"}
-                            onLoad={(e) => {
-                              e.currentTarget.style.opacity = "1"
-                            }}
-                            onClick={() => {
-                              // A pending photo is a local blob mid-upload;
-                              // opening it full screen would show a picture that
-                              // is about to be replaced.
-                              if (!m.pending && m.image_url) setViewing(m.image_url)
-                            }}
-                            className={cn(
-                              "block max-h-[260px] w-full cursor-zoom-in object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
-                              // While it is going up it is softened, and it
-                              // resolves to the real thing the moment the server
-                              // answers. The photo is never replaced, only
-                              // sharpened, so there is nothing to flash. The
-                              // dimming lives in the ring's wash, which drains
-                              // with the progress instead of switching off — two
-                              // separate opacities fighting over the same picture
-                              // is what made the finish look like a jump.
-                              m.pending && "blur-[1.5px]",
-                            )}
-                            draggable={false}
-                            decoding="async"
-                            style={{
-                              opacity: 0,
-                              transition: "opacity 220ms ease",
-                              // THE BOX BEFORE THE PIXELS.
-                              //
-                              // `w-full` with a max height and no intrinsic size
-                              // means the img is zero pixels tall until the file
-                              // has decoded — so the bubble appeared as a sliver
-                              // and snapped to its real height a moment later,
-                              // shoving the whole conversation up with it. Now
-                              // that a send glides the scroller over half a
-                              // second, that snap lands mid-glide and moves the
-                              // target underneath the animation.
-                              //
-                              // 3/4 until the real ratio is known, because a
-                              // phone camera in someone's hand produces portrait
-                              // far more often than not, and being right most of
-                              // the time costs nothing when the correction
-                              // arrives within a frame or two. Only ever applied
-                              // to a photo still going up: one that came from
-                              // the server is fetched with its dimensions in the
-                              // file, and forcing a ratio on it would crop it.
-                              ...(m.pending ? { aspectRatio: String(m.aspect ?? 0.75) } : null),
-                            }}
-                          />
-                        ) : (
-                          <div className="flex h-40 w-56 items-center justify-center text-neutral-400">
-                            <ImageIcon className="h-6 w-6" />
-                          </div>
-                        )}
-                        {m.pending && <UploadRing value={progress[m.id]} />}
-                        {m.body && (
-                          <div
-                            className={cn(
-                              "whitespace-pre-wrap break-words px-4 py-2.5 text-[16px] leading-[1.4]",
-                              mine ? "bg-[#7c3aed] text-white" : "bg-neutral-100 text-neutral-900",
-                            )}
-                          >
-                            {m.body}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div
-                        onPointerDown={(e) => beginPress(m, e)}
-                        onPointerMove={movePress}
-                        onPointerUp={cancelPress}
-                        onPointerCancel={cancelPress}
-                        onContextMenu={(e) => e.preventDefault()}
-                        className={cn(
-                          // 16px over 15, on 82% of the width instead of 78,
-                          // with a millimetre more padding around it. A message
-                          // is the only thing on this screen anybody came to
-                          // read, and it was set smaller than the listing
-                          // titles in the feed — which made a conversation feel
-                          // like a caption track rather than the content. 16px
-                          // is also the size below which iOS zooms a focused
-                          // input, so the composer had to be 16 anyway: what
-                          // you type and what you sent are now the same size,
-                          // which they visibly were not.
-                          "msg-bubble max-w-[82%] whitespace-pre-wrap break-words rounded-[20px] px-4 py-2.5 text-[16px] leading-[1.4]",
-                          mine
-                            ? "rounded-br-md bg-[#7c3aed] text-white"
-                            : "rounded-bl-md bg-neutral-100 text-neutral-900",
-                          // NO DIMMING WHILE IT IS IN FLIGHT, and removing it is
-                          // the last discontinuity in a send.
-                          //
-                          // The entry animation lives on the WRAPPER around this
-                          // bubble and ramps opacity 0 → 1. A 0.7 here multiplies
-                          // with it, so the message arrived at seven tenths
-                          // strength — and then, whenever the server happened to
-                          // answer, `opacity-70` was dropped and a second 200ms
-                          // ramp ran 0.7 → 1 ON TOP of the first one, which was
-                          // often still going. Two overlapping opacity curves on
-                          // nested elements, the second one triggered by a
-                          // network response: the brightness of your own message,
-                          // and when it changed, depended on the connection.
-                          //
-                          // A message you sent is full strength from its first
-                          // frame. That it has not landed yet is said by the
-                          // receipt underneath it — "Se trimite…" with a single
-                          // check — which is where every chat worth copying says
-                          // it, and which costs the message itself nothing.
-                          // The corner facing the message above closes up when
-                          // there is one, which is what makes a run read as a
-                          // single block rather than a stack of separate cards.
-                          grouped && (mine ? "rounded-tr-md" : "rounded-tl-md"),
-                        )}
-                      >
-                        {m.body}
-                      </div>
-                    )}
+                        Every bubble below used to be a direct child of the
+                        column, which left nowhere for a per-message action to
+                        live except on top of the message itself. A long press
+                        opened the actions sheet and still does — but a long
+                        press is invisible, it does not exist on a desktop
+                        pointer at all, and "hold this to find out what you can
+                        do" is not an affordance. The dots are the affordance;
+                        the sheet behind them is the one that was already there.
+
+                        Placed on the INSIDE edge — left of your own messages,
+                        right of theirs — so the column of dots runs down the
+                        middle of the thread instead of pushing the bubbles off
+                        their own margin. */}
+                    <div className={cn("msg-row flex w-full items-end gap-0.5", mine ? "justify-end" : "justify-start")}>
+                      {mine && <MessageDots onOpen={() => setActing(m)} />}
+                      {m.deleted_at ? (
+                        // The row survives so the day dividers and grouping above
+                        // it do not reshuffle; what it said does not.
+                        <div
+                          className={cn(
+                            "max-w-[82%] rounded-[20px] border border-dashed px-4 py-2.5 text-[15px] italic leading-[1.4]",
+                            mine
+                              ? "rounded-br-md border-[#7c3aed]/30 text-[#7c3aed]/70"
+                              : "rounded-bl-md border-neutral-200 text-neutral-400",
+                          )}
+                        >
+                          Mesaj șters
+                        </div>
+                      ) : m.kind === "offer" ? (
+                        <OfferBubble
+                          msg={m}
+                          mine={mine}
+                          youAre={thread.youAre}
+                          listing={thread.listing}
+                          busy={answering === m.id}
+                          onAnswer={answer}
+                          formatPrice={formatPrice}
+                        />
+                      ) : m.kind === "legacy" ? (
+                        /* A ROW FROM A FEATURE THAT NO LONGER EXISTS.
+
+                           Voice notes and voice calls were removed; the rows they
+                           wrote are still in these conversations and always will
+                           be. Drawn as a quiet chip that names what happened, with
+                           nothing to press — see lib/messages/legacy-media for why
+                           they are recognised at all rather than left to render as
+                           the raw sentinel they are stored as. */
+                        <div className="flex max-w-[82%] items-center gap-2 rounded-full border border-neutral-150 bg-neutral-50 px-3 py-1.5 text-neutral-400">
+                          <span className="truncate text-[13.5px] font-medium">{m.body}</span>
+                        </div>
+                      ) : m.kind === "image" ? (
+                        <div
+                          onPointerDown={(e) => beginPress(m, e)}
+                          onPointerMove={movePress}
+                          onPointerUp={cancelPress}
+                          onPointerCancel={cancelPress}
+                          onContextMenu={(e) => e.preventDefault()}
+                          className={cn(
+                            "msg-bubble relative max-w-[68%] overflow-hidden rounded-[20px] bg-neutral-100",
+                            mine ? "rounded-br-md" : "rounded-bl-md",
+                          )}
+                        >
+                          {m.image_url ? (
+                            // A plain img, not next/image: the src is a signed URL
+                            // that expires, so it is neither cacheable by the
+                            // optimizer nor stable enough to be worth optimising.
+                            // eslint-disable-next-line @next/next/no-img-element
+                            // Fades in over its own placeholder rather than
+                            // arriving into a zero-height box. Without a reserved
+                            // size the bubble is nothing until the bytes land and
+                            // then snaps to full height, which is what makes a
+                            // conversation look like it is assembling itself after
+                            // you have already arrived — every photo pushing the
+                            // ones above it as it loads.
+                            <img
+                              src={m.image_url}
+                              alt={m.body || "Fotografie"}
+                              onLoad={(e) => {
+                                e.currentTarget.style.opacity = "1"
+                              }}
+                              onClick={() => {
+                                // A pending photo is a local blob mid-upload;
+                                // opening it full screen would show a picture that
+                                // is about to be replaced.
+                                if (!m.pending && m.image_url) setViewing(m.image_url)
+                              }}
+                              className={cn(
+                                "block max-h-[260px] w-full cursor-zoom-in object-cover transition-[filter,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.06,0.16,1)]",
+                                // While it is going up it is softened, and it
+                                // resolves to the real thing the moment the server
+                                // answers. The photo is never replaced, only
+                                // sharpened, so there is nothing to flash. The
+                                // dimming lives in the ring's wash, which drains
+                                // with the progress instead of switching off — two
+                                // separate opacities fighting over the same picture
+                                // is what made the finish look like a jump.
+                                m.pending && "blur-[1.5px]",
+                              )}
+                              draggable={false}
+                              decoding="async"
+                              /**
+                               * OLDER PHOTOGRAPHS ARE NOT FETCHED UNTIL THEY ARE
+                               * NEEDED.
+                               *
+                               * A conversation opens scrolled to the BOTTOM, so
+                               * the only pictures anybody can see are the last
+                               * few. Every one above them was being downloaded
+                               * anyway — a thread with sixty photographs in it
+                               * was sixty files over the network to show four, on
+                               * a phone, before the screen could settle.
+                               *
+                               * The recent ones stay eager because they are the
+                               * ones being waited for: the cover lifts when the
+                               * visible photographs have decoded, and an image
+                               * that has not started cannot be waited on. Eight
+                               * is comfortably more than a screen holds at the
+                               * smallest bubble size.
+                               */
+                              loading={i < arr.length - 8 ? "lazy" : "eager"}
+                              style={{
+                                opacity: 0,
+                                transition: "opacity 220ms ease",
+                                // THE BOX BEFORE THE PIXELS.
+                                //
+                                // `w-full` with a max height and no intrinsic size
+                                // means the img is zero pixels tall until the file
+                                // has decoded — so the bubble appeared as a sliver
+                                // and snapped to its real height a moment later,
+                                // shoving the whole conversation up with it. Now
+                                // that a send glides the scroller over half a
+                                // second, that snap lands mid-glide and moves the
+                                // target underneath the animation.
+                                //
+                                // 3/4 until the real ratio is known, because a
+                                // phone camera in someone's hand produces portrait
+                                // far more often than not, and being right most of
+                                // the time costs nothing when the correction
+                                // arrives within a frame or two. Only ever applied
+                                // to a photo still going up: one that came from
+                                // the server is fetched with its dimensions in the
+                                // file, and forcing a ratio on it would crop it.
+                                ...(m.pending ? { aspectRatio: String(m.aspect ?? 0.75) } : null),
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-40 w-56 items-center justify-center text-neutral-400">
+                              <ImageIcon className="h-6 w-6" />
+                            </div>
+                          )}
+                          {m.pending && <UploadRing value={progress[m.id]} />}
+                          {m.body && (
+                            <div
+                              className={cn(
+                                "whitespace-pre-wrap break-words px-4 py-2.5 text-[16px] leading-[1.4]",
+                                mine ? "bg-[#7c3aed] text-white" : "bg-neutral-100 text-neutral-900",
+                              )}
+                            >
+                              {m.body}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div
+                          onPointerDown={(e) => beginPress(m, e)}
+                          onPointerMove={movePress}
+                          onPointerUp={cancelPress}
+                          onPointerCancel={cancelPress}
+                          onContextMenu={(e) => e.preventDefault()}
+                          className={cn(
+                            // 16px over 15, on 82% of the width instead of 78,
+                            // with a millimetre more padding around it. A message
+                            // is the only thing on this screen anybody came to
+                            // read, and it was set smaller than the listing
+                            // titles in the feed — which made a conversation feel
+                            // like a caption track rather than the content. 16px
+                            // is also the size below which iOS zooms a focused
+                            // input, so the composer had to be 16 anyway: what
+                            // you type and what you sent are now the same size,
+                            // which they visibly were not.
+                            "msg-bubble max-w-[82%] whitespace-pre-wrap break-words rounded-[20px] px-4 py-2.5 text-[16px] leading-[1.4]",
+                            mine
+                              ? "rounded-br-md bg-[#7c3aed] text-white"
+                              : "rounded-bl-md bg-neutral-100 text-neutral-900",
+                            // NO DIMMING WHILE IT IS IN FLIGHT, and removing it is
+                            // the last discontinuity in a send.
+                            //
+                            // The entry animation lives on the WRAPPER around this
+                            // bubble and ramps opacity 0 → 1. A 0.7 here multiplies
+                            // with it, so the message arrived at seven tenths
+                            // strength — and then, whenever the server happened to
+                            // answer, `opacity-70` was dropped and a second 200ms
+                            // ramp ran 0.7 → 1 ON TOP of the first one, which was
+                            // often still going. Two overlapping opacity curves on
+                            // nested elements, the second one triggered by a
+                            // network response: the brightness of your own message,
+                            // and when it changed, depended on the connection.
+                            //
+                            // A message you sent is full strength from its first
+                            // frame. That it has not landed yet is said by the
+                            // receipt underneath it — "Se trimite…" with a single
+                            // check — which is where every chat worth copying says
+                            // it, and which costs the message itself nothing.
+                            // The corner facing the message above closes up when
+                            // there is one, which is what makes a run read as a
+                            // single block rather than a stack of separate cards.
+                            grouped && (mine ? "rounded-tr-md" : "rounded-tl-md"),
+                          )}
+                        >
+                          {m.body}
+                        </div>
+                      )}
+                      {!mine && <MessageDots onOpen={() => setActing(m)} />}
+                    </div>
 
                     {/* One line under the last message of a run, never under the
                         ones above it — the time a run ended is the only time
@@ -2645,10 +2706,36 @@ export function MessageThread({
       </div>
       </div>
 
-      {/* Composer — on the bottom edge of what you can see, whatever that is.
-          The home-indicator inset is real when the phone is idle and pure dead
-          space the moment a keyboard covers that part of the screen, so
-          `.thread-composer` drops it while one is open. */}
+      {/* NOTHING TO TYPE INTO, ON THE ONE THREAD NOBODY READS.
+          Storelib announces; it does not correspond. The composer was there
+          because this is an ordinary conversation with an unusual party on the
+          other end — and the messages people typed into it went to a service
+          account with no inbox behind it. An input that accepts what nothing
+          consumes is worse than no input: it looks like support and behaves
+          like a void. The refusal is also enforced at the endpoint, because a
+          missing text box is a courtesy and not an access rule — see
+          lib/messages/official-thread.ts.
+
+          Still `.thread-composer`, still the bottom edge, so the layout above
+          it — which measures against this element — is unchanged. */}
+      {thread?.official ? (
+        <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-6 pt-3">
+          <p className="pb-1 text-center text-[13px] leading-[1.45] text-neutral-500">
+            Aici primești noutăți de la Storelib. Pentru întrebări, scrie-ne prin{" "}
+            <Link
+              href="/help"
+              className="font-semibold text-[#7c3aed] underline decoration-[#7c3aed]/40 underline-offset-2"
+            >
+              Centrul de ajutor
+            </Link>
+            .
+          </p>
+        </div>
+      ) : (
+      /* Composer — on the bottom edge of what you can see, whatever that is.
+         The home-indicator inset is real when the phone is idle and pure dead
+         space the moment a keyboard covers that part of the screen, so
+         `.thread-composer` drops it while one is open. */
       <div className="thread-composer shrink-0 border-t border-neutral-100 bg-white px-3 pt-2.5">
         {imageError && (
           <p className="pb-2 text-center text-[13px] text-red-600">{imageError}</p>
@@ -2802,6 +2889,7 @@ export function MessageThread({
           </div>
         </div>
       </div>
+      )}
 
       {/* MOUNTED ONLY WHILE A PHOTO IS OPEN.
           It used to be mounted permanently with `src` going null when nothing
@@ -2829,6 +2917,12 @@ export function MessageThread({
               }
             : null
         }
+        conversationId={id}
+        // Null suppresses the report row, which is what the official thread
+        // wants: reporting Storelib to Storelib is a form nobody is on the
+        // other end of. The details sheet has drawn the same conclusion about
+        // the thread-level report since it was written.
+        offenderId={thread?.official ? null : thread?.other?.id ?? null}
         onClose={() => setActing(null)}
         onDelete={deleteMessage}
       />
@@ -2865,6 +2959,40 @@ export function MessageThread({
  * number reads as smoothing over a stall — an upload is allowed to look like
  * exactly the speed it is.
  */
+/**
+ * The three dots beside a message.
+ *
+ * ---------------------------------------------------------------------------
+ * Why it is not always at full strength, and not hidden either
+ * ---------------------------------------------------------------------------
+ * A control repeated once per message is repeated forty times on a screen whose
+ * whole content is the messages, so at full contrast it is a column of
+ * furniture running down the middle of the conversation. At zero it is a
+ * feature nobody finds.
+ *
+ * `.msg-dots` (globals.css) resolves that by the only thing that actually
+ * differs: whether there is a pointer. On a mouse it fades in with the row
+ * under the cursor — you are already pointing at the message you mean, and the
+ * dots arrive where you are looking. On a touch screen there is no hover to
+ * reveal anything with, so it is simply there, drawn light enough to sit under
+ * the text rather than compete with it.
+ *
+ * It opens the SAME sheet a long press has always opened. One set of actions,
+ * two ways in — not a second menu that has to be kept in step with the first.
+ */
+function MessageDots({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Opțiuni mesaj"
+      onClick={onOpen}
+      className="msg-dots flex h-7 w-[22px] shrink-0 items-center justify-center rounded-full text-neutral-400"
+    >
+      <MoreVertical className="h-[15px] w-[15px]" strokeWidth={2.2} />
+    </button>
+  )
+}
+
 function UploadRing({ value }: { value?: number }) {
   const R = 13
   const C = 2 * Math.PI * R
