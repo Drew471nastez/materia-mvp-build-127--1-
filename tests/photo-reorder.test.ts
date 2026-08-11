@@ -756,8 +756,9 @@ check(
   (() => {
     // The single line that caused it. `md:static` may only be reachable when
     // this is the real page route.
-    const root = form.slice(form.indexOf('"sell-sheet fixed inset-0'), form.indexOf('"sell-sheet fixed inset-0') + 700)
-    return /overlay\s*\n?\s*\?\s*"sell-sheet-overlay/.test(root) && /:\s*"md:static md:z-auto md:block/.test(root)
+    const at = form.indexOf('"sell-sheet fixed inset-0')
+    const root = form.slice(at, at + 1800)
+    return /sell-sheet-overlay/.test(root) && /:\s*"md:static md:z-auto md:block/.test(root)
   })(),
 )
 
@@ -804,6 +805,49 @@ check(
     // `top-24` clears the site header on the real page. Inside an overlay there
     // is none, and 96px is a card that starts late with less room to travel.
     return /overlay \? "md:sticky md:top-4" : "md:sticky md:top-24"/.test(form)
+  })(),
+)
+
+check(
+  "and it does not take the site header down with it",
+  (() => {
+    // At z-95 the overlay covered the header, so opening the form from a
+    // desktop took the search, the categories and the account menu with it, and
+    // left nothing in their place. `md:z-30` puts it under the sticky header's
+    // z-40 rather than pushing it down with a magic offset — the header goes on
+    // painting at whatever height it happens to be.
+    return /md:z-30/.test(form) && /md:pt-\[84px\]/.test(form)
+  })(),
+)
+
+check(
+  "the sell routes are not given a white lip they have no bar for",
+  (() => {
+    // Under the black header the shell draws a 20px strip with a white
+    // rounded-t overlay — the concave transition into the white search bar. On
+    // a route with no such bar and a #f6f6f7 background, that strip is a band
+    // of white between the header and the page, curving at the corners because
+    // it is the lip of something that is not there.
+    const header = read("components/platform/platform-header-client.tsx")
+    return (
+      /const isSellRoute = pathname\.startsWith\("\/products\/new"\) \|\| pathname\.startsWith\("\/products\/edit"\)/.test(header) &&
+      (header.match(/\{!isSellRoute && \(showCategories/g) ?? []).length === 2
+    )
+  })(),
+)
+
+check(
+  "the desktop header is a bar rather than a band",
+  (() => {
+    // 81px of black on every page: the tallest thing on a marketplace should be
+    // a photograph of something for sale. The logo comes down with it — 46px in
+    // a 68px row is four pixels of air, which is a logo wedged into a bar.
+    const header = read("components/platform/platform-header-client.tsx")
+    return (
+      /md:h-\[68px\]/.test(header) &&
+      !/md:h-\[81px\]/.test(header) &&
+      !/h-\[46px\] w-auto rounded-\[7px\]/.test(header)
+    )
   })(),
 )
 

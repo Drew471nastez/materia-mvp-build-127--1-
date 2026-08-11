@@ -2187,7 +2187,21 @@ export function NewListingForm({
         // A PAGE reverts to the flow above md. An OVERLAY never can — see the
         // note on the `overlay` prop.
         overlay
-          ? "sell-sheet-overlay md:items-center md:justify-center md:bg-black/45 md:p-6 lg:p-10"
+          ? // THE SITE HEADER STAYS VISIBLE ABOVE IT.
+            //
+            // At z-95 the overlay covered the header, so opening the form from a
+            // desktop took the search, the categories and the account menu with
+            // it — and left nothing in their place, because the panel's own
+            // chrome is a title and a close button. A modal that hides the way
+            // out of the app is a modal you are trapped in.
+            //
+            // `md:z-30` puts it UNDER the sticky header's z-40 rather than
+            // pushing it down with a magic offset: the header goes on painting
+            // over the scrim, at whatever height it happens to be, and nothing
+            // here has to know that number. The padding is only so the panel
+            // does not slide under it — a scrim that runs behind the header is
+            // correct, a panel that does is not.
+            "sell-sheet-overlay md:z-30 md:items-center md:justify-center md:bg-black/45 md:p-6 md:pt-[84px] lg:p-10 lg:pt-[92px]"
           : "md:static md:z-auto md:block md:pb-20",
         // BOTH of these read from a ref, and both have to.
         //

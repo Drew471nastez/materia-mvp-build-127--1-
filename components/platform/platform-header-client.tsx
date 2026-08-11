@@ -1002,6 +1002,21 @@ export function PlatformHeaderClient() {
     pathname === "/" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
   const isSellerOrProductPage = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/") || pathname.startsWith("/s/")
+  /**
+   * THE SELL FORM IS NOT A WHITE PAGE, so it must not be handed a white lip.
+   *
+   * Under the black header the shell draws a 20px strip with a white
+   * `rounded-t-[20px]` overlay on it — the concave transition into the white
+   * search-and-categories bar below. On a route that has no such bar and whose
+   * own background is #f6f6f7, that strip is simply a band of white between the
+   * header and the page: the empty gap at the top of /products/new, curving at
+   * the corners because it is the lip of a bar that is not there.
+   *
+   * Named rather than folded into the condition, because it is now checked
+   * twice — for the lip and for the bar it is the lip OF — and the two must not
+   * be able to disagree about which routes they apply to.
+   */
+  const isSellRoute = pathname.startsWith("/products/new") || pathname.startsWith("/products/edit")
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
   // "/" is the marketplace now, not a landing page, so it gets the marketplace
@@ -1144,7 +1159,14 @@ export function PlatformHeaderClient() {
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
-          className="platform-header-row flex md:h-[81px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
+          // 81 → 68 on a desktop. Eighty-one pixels of black is a band, and it
+          // was one on every page: the tallest thing on a marketplace should be
+          // a photograph of something for sale, not the bar above it. The logo
+          // comes down with it — at 46px in a 68px row it would have four
+          // pixels of air top and bottom, which is a logo wedged into a bar
+          // rather than sitting in one. Untouched below md, where the row is
+          // sized by the safe-area inset rather than by this.
+          className="platform-header-row flex md:h-[68px] items-center justify-between gap-4 pb-3 md:pb-[3px]"
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
@@ -1158,10 +1180,10 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[46px] w-auto rounded-[7px]"
+                    className="h-[38px] w-auto rounded-[7px]"
                     priority
                   />
-                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Center - Nav Links (show for all users) */}
@@ -1276,10 +1298,10 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[46px] w-auto rounded-[7px]"
+                    className="h-[38px] w-auto rounded-[7px]"
                     priority
                   />
-                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
+                  <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Categories Dropdown Button with Tooltip */}
@@ -2281,14 +2303,14 @@ export function PlatformHeaderClient() {
       </div>
 
       {/* Concave transition from black header to white category bar */}
-      {(showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+      {!isSellRoute && (showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
         <div className="relative z-[35] bg-black h-[20px]">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
       )}
 
       {/* White UI section for search bar and category pills (below the black header) */}
-      {(showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+      {!isSellRoute && (showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
         <div className={`relative z-[35] w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
