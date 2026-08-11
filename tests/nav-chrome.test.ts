@@ -871,6 +871,51 @@ check(
     "        first-frame disagreement fatal. Hide from an effect.",
 )
 
+check(
+  "scrolling a list of conversations does not dim the screen",
+  (() => {
+    // The dip takes <main> to 0.88 so the screen is already moving when a route
+    // commits. On a TAB BAR that is right, because a press there is always a
+    // press. A conversation row lives inside a scroller, where a finger landing
+    // is as likely to be the start of a drag as a tap — so starting it on
+    // pointerdown dimmed the entire list on every attempt to scroll, and
+    // undimmed it a few pixels later when the gesture turned out to be a scroll.
+    const inbox = strip(read("components/messages/inbox.tsx"))
+    const press = /onPress: \(id\) => \{[\s\S]*?\n      \},/.exec(inbox)?.[0] ?? ""
+    return (
+      press.length > 0 &&
+      !/beginTabLeave/.test(press) &&
+      // Nor a buzz, for the same reason: it fired on every row touched while
+      // scrolling past it.
+      !/triggerHaptic/.test(press) &&
+      // The row highlight stays — one row, under the finger, taken back the
+      // instant the gesture becomes a drag, which is what a native list does.
+      /setPressed\(id\)/.test(press)
+    )
+  })(),
+  "        components/messages/inbox.tsx — a press inside a scroller is a bet on\n" +
+    "        the gesture, and the bet is wrong every time somebody scrolls.",
+)
+
+check(
+  "and the dip still happens, once the gesture is certainly a tap",
+  (() => {
+    // Removing it outright would take the handover off the one navigation that
+    // most needs it. It moves to the click — a tap that has already happened —
+    // and to the rescue, which only runs when the click was swallowed.
+    const inbox = strip(read("components/messages/inbox.tsx"))
+    const onClick = /onClick: \(\) => \{[\s\S]*?\n    \},/.exec(inbox)?.[0] ?? ""
+    return (
+      /if \(rescue\.current\?\.click\(\) === false\) return/.test(onClick) &&
+      /beginTabLeave\(\)/.test(onClick) &&
+      // And in the rescue, which is the swallowed-click path.
+      /onRescue: \(id\) => \{[\s\S]*?beginTabLeave\(\)/.test(inbox) &&
+      // A late click after a rescue must not start a second one.
+      /=== false\) return/.test(onClick)
+    )
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

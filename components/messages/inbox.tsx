@@ -21,7 +21,7 @@ import { consumeNavHint } from "@/lib/screen-transition"
 import { wasServedFromCache } from "@/lib/render-key"
 import { createClient } from "@/lib/supabase/client"
 import { triggerHaptic } from "@/lib/native-bridge"
-import { beginTabLeave, endTabLeave } from "@/lib/tab-leave"
+import { beginTabLeave } from "@/lib/tab-leave"
 import { createTapRescue, type TapRescue } from "@/lib/tap-rescue"
 import { useWideViewport } from "@/lib/use-wide-viewport"
 import { cn } from "@/lib/utils"
@@ -918,21 +918,36 @@ function MessagesList({
   const rescue = useRef<TapRescue<string> | null>(null)
   if (!rescue.current) {
     rescue.current = createTapRescue<string>({
+      /**
+       * ROW HIGHLIGHT ONLY. NOTHING THAT TOUCHES THE SCREEN.
+       *
+       * This used to call `beginTabLeave()` here, and that is the whole of "when
+       * I try to scroll the list it starts fading the other conversations".
+       *
+       * The dip is a TAB affordance: it takes <main> to 0.88 so the screen is
+       * already moving when the route commits, and on a tab bar that is right
+       * because a press there is always a press. A conversation row is inside a
+       * scroller, where a finger landing is as likely to be the start of a drag
+       * as a tap — so every attempt to scroll dimmed the entire list, and then
+       * undimmed it a few pixels later when the gesture turned out to be a
+       * scroll. A screen-wide brightness change on every scroll attempt.
+       *
+       * The highlight stays on pointerdown, because that part is correct and is
+       * what every native list does: it is one row, it is the row under the
+       * finger, and it is taken back the instant the gesture becomes a drag.
+       */
       onPress: (id) => {
-        // NO BUZZ FOR OPENING A CONVERSATION.
-        //
-        // Haptics are for acts, not for arrivals — sending, saving, deleting,
-        // something committing. Opening a conversation is navigation, and the
-        // screen answering the finger IS the feedback; a buzz on top of it is
-        // the app congratulating you for tapping a row. It also fires on every
-        // row you touch while scrolling a list of them, which is where "the
-        // messages page feels cheap" comes from.
+        // And no buzz either. Haptics are for acts — sending, saving, deleting
+        // — not for arrivals, and this one fired on every row touched while
+        // scrolling past it.
         setPressed(id)
-        beginTabLeave()
       },
       onAbandon: () => {
         setPressed(null)
-        endTabLeave()
+        // Deliberately NOT `endTabLeave()`. Nothing was begun here any more, and
+        // releasing a dip this component did not start would cancel one the
+        // bottom bar is holding — a tab press while a finger is on this list is
+        // exactly when that happens.
       },
       onRescue: (id) => {
         const href = `/messages/${id}`
@@ -940,6 +955,9 @@ function MessagesList({
         // finished yet. The router updates `location` the moment a navigation
         // commits, so this tells the two apart without guessing at timing.
         if (window.location.pathname === href) return
+        // The gesture is a tap for certain by the time this runs, which is the
+        // only moment the dip is safe to start from a list.
+        beginTabLeave()
         router.push(href)
       },
     })
@@ -962,9 +980,13 @@ function MessagesList({
     onPointerUp: () => rescue.current?.up(),
     onPointerCancel: () => rescue.current?.cancel(),
     // The click arrived, so `<Link>` has it from here and the rescue stands
-    // down. Nothing else belongs in here: the haptic and the dip both moved to
-    // the press, which is the entire point.
-    onClick: () => rescue.current?.click(),
+    // down — and THIS is where the dip belongs, because a click is a tap that
+    // has already happened. Started on pointerdown it was a bet on the gesture,
+    // and the bet was wrong every time somebody scrolled.
+    onClick: () => {
+      if (rescue.current?.click() === false) return
+      beginTabLeave()
+    },
   })
 
   if (rows === null) return <ListSkeleton />
