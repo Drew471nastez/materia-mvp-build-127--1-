@@ -12,11 +12,13 @@ import {
   MAX_PHOTOS,
   MIN_PHOTOS,
   SIZES,
+  sizesFor,
   SOURCES,
   STYLES,
   categoryLabelFor,
   categoryShortLabel,
   asksFor,
+  brandDirectoryApplies,
   departmentForGroup,
   groupsForDepartment,
   DEPARTMENTS,
@@ -756,6 +758,15 @@ export function NewListingForm({
   const [catGroup, setCatGroup] = useState<string | null>(null)
   const [catQuery, setCatQuery] = useState("")
   const [brandQuery, setBrandQuery] = useState("")
+  /**
+   * Whether the seeded brand list is worth showing for what is being listed.
+   *
+   * The directory is fashion, end to end. A picker with a free-text escape can
+   * take "Lego" or "Dior" from anybody, so the FIELD is fine on a toy or a
+   * cosmetic — what is not fine is offering a shortcut list in which every
+   * single entry is from another department. See brandDirectoryApplies.
+   */
+  const brandList = brandDirectoryApplies(group)
   const [brands, setBrands] = useState<{ name: string; slug: string }[]>([])
   const [saving, setSaving] = useState<null | "draft" | "post">(null)
   const [error, setError] = useState<string | null>(null)
@@ -2925,23 +2936,40 @@ export function NewListingForm({
               search box reads as "no brands", which is a wrong answer; rows
               that are the right height and the right count read as "not yet",
               and they hold the layout so nothing jumps when the names land. */}
-          {brands.length === 0 &&
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={`skel-${i}`} className="flex h-[56px] items-center px-4">
-                <span
-                  className="h-[13px] animate-pulse rounded-full bg-neutral-100"
-                  style={{ width: `${38 + ((i * 17) % 42)}%` }}
+          {brandList ? (
+            <>
+              {brands.length === 0 &&
+                Array.from({ length: 8 }).map((_, i) => (
+                  <div key={`skel-${i}`} className="flex h-[56px] items-center px-4">
+                    <span
+                      className="h-[13px] animate-pulse rounded-full bg-neutral-100"
+                      style={{ width: `${38 + ((i * 17) % 42)}%` }}
+                    />
+                  </div>
+                ))}
+              {brands.map((b) => (
+                <OptionRow
+                  key={b.slug}
+                  label={b.name}
+                  selected={brand === b.name}
+                  onClick={() => setBrand(b.name)}
                 />
-              </div>
-            ))}
-          {brands.map((b) => (
-            <OptionRow
-              key={b.slug}
-              label={b.name}
-              selected={brand === b.name}
-              onClick={() => setBrand(b.name)}
-            />
-          ))}
+              ))}
+            </>
+          ) : (
+            /* NO LIST, RATHER THAN THE WRONG LIST.
+
+               Every name in the directory is a clothing label, so on a lipstick
+               or a set of speakers the suggestions were eight answers that are
+               all wrong followed by the one row that is not. Saying so costs a
+               line and stops the form looking like it does not know what is
+               being sold. The search box above still queries — a listing whose
+               brand really is a fashion label finds it by typing — and the row
+               below still takes anything. */
+            <p className="px-4 pb-2 pt-1 text-[13.5px] leading-[1.45] text-neutral-500">
+              Scrie numele brandului în căsuța de căutare.
+            </p>
+          )}
           {/* Always available, never a row in the table — a brand directory can
               never be complete, and a missing brand shouldn't block a listing. */}
           <button
@@ -2982,7 +3010,11 @@ export function NewListingForm({
       <PickerPage open={sheet === "size"} title="Mărime" onClose={() => setSheet(null)}>{() => (
         <>
         <ChipField>
-          {SIZES.map((c) => (
+          {/* The sizes for THIS category, not every size the marketplace knows.
+              A t-shirt was being offered shoe sizes, a shoe was being offered
+              XXS, and a child's jumper had no correct answer in the list at
+              all — see sizesFor. */}
+          {sizesFor(group).map((c) => (
             <OptionChip
               key={c.id}
               label={c.label}

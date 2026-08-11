@@ -22,7 +22,12 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { indexAtPoint, moveItem, type Box } from "../lib/sell/reorder"
-import { fieldsFor } from "../lib/marketplace/listing-taxonomy"
+import {
+  brandDirectoryApplies,
+  fieldsFor,
+  SIZES,
+  sizesFor,
+} from "../lib/marketplace/listing-taxonomy"
 
 let passed = 0
 let failed = 0
@@ -1030,6 +1035,79 @@ check(
       fieldsFor("women-clothing").includes("brand") &&
       fieldsFor("men-shoes").includes("brand") &&
       fieldsFor("women-bags").includes("brand")
+    )
+  })(),
+)
+
+check(
+  "a child's listing has a size it can honestly give",
+  (() => {
+    // THE WORST OF THIS FAMILY, because it is not a list with wrong entries in
+    // it — it is a required question with no correct answer available. Kids
+    // clothing asks for a size; the list held adult letters, adult waists and
+    // adult shoe sizes, so a jumper for a three-year-old could only be filed
+    // under one of those or left blank.
+    const kids = sizesFor("kids-girls")
+    const labels = kids.map((o) => o.label)
+    return (
+      kids.length > 0 &&
+      labels.some((l) => /luni/.test(l)) &&
+      labels.some((l) => /\bani\b/.test(l)) &&
+      // And nothing adult in it.
+      !labels.includes("XXL") &&
+      !labels.some((l) => /^4[0-5] · încălțăminte$/.test(l))
+    )
+  })(),
+  "        lib/marketplace/listing-taxonomy.ts — a question the form cannot\n" +
+    "        accept an answer to is worse than one with wrong answers in it.",
+)
+
+check(
+  "a shoe is not offered XXL, and a t-shirt is not offered shoe sizes",
+  (() => {
+    const shoes = sizesFor("men-shoes").map((o) => o.label)
+    const tops = sizesFor("women-clothing").map((o) => o.label)
+    return (
+      shoes.every((l) => /încălțăminte/.test(l)) &&
+      tops.some((l) => l === "M") &&
+      !tops.some((l) => /încălțăminte/.test(l))
+    )
+  })(),
+)
+
+check(
+  "and a size already stored still resolves to its label",
+  (() => {
+    // The union has to remain, or editing a listing's category would blank a
+    // size that is perfectly valid — the picker narrows, the lookup does not.
+    const all = SIZES.map((o) => o.id)
+    return (
+      all.includes("xxl") &&
+      all.includes("k-3y") &&
+      all.some((id) => id.startsWith("shoe") || /4[0-5]/.test(id)) &&
+      // An unknown group shows everything rather than nothing: a dead end is
+      // worse than a long list.
+      sizesFor("hobby-gaming").length === SIZES.length
+    )
+  })(),
+)
+
+check(
+  "the brand shortcut is only offered where the directory can answer it",
+  (() => {
+    // The seeded directory is fashion end to end — Nike, Zara, H&M, Shein. The
+    // FIELD is still fine on a toy or a cosmetic, because the picker takes free
+    // text; what is not fine is a shortcut list in which every entry is from
+    // another department.
+    return (
+      brandDirectoryApplies("women-clothing") &&
+      brandDirectoryApplies("men-shoes") &&
+      brandDirectoryApplies("women-bags") &&
+      !brandDirectoryApplies("women-beauty") &&
+      !brandDirectoryApplies("kids-toys") &&
+      !brandDirectoryApplies("hobby-instruments") &&
+      !brandDirectoryApplies("ent-books") &&
+      !brandDirectoryApplies(null)
     )
   })(),
 )
