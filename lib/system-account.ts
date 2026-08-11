@@ -67,9 +67,11 @@ export type OfficialProfile = {
  * Storelib that does not carry it looks like a thread from a user called
  * Storelib. Applied at read time rather than written into the profile row so it
  * follows the asset, and only when the account has not set one of its own.
+ *
+ * The string itself is in lib/marketplace/storelib-mark.ts, because the staff
+ * badge is drawn in a client component and this module is server-only.
  */
-export const STORELIB_AVATAR_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
+export { STORELIB_MARK_URL as STORELIB_AVATAR_URL } from "@/lib/marketplace/storelib-mark"
 
 /**
  * Resolution is memoised per process because it never changes at runtime, and

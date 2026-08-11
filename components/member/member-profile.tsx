@@ -23,6 +23,7 @@ import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
+import { ProfileBadges } from "@/components/marketplace/profile-badges"
 import { coverImageUrl, defaultCoverFor, resolveCover } from "@/lib/profile/covers"
 import { cn } from "@/lib/utils"
 
@@ -82,6 +83,10 @@ export type MemberSummary = {
   /** null means "never chose one" — the account gets the preset its id
    *  resolves to. See lib/profile/covers.ts. */
   coverUrl?: string | null
+  /** The blue check, and the Storelib mark that says "Storelib Admin". See
+   *  components/marketplace/profile-badges.tsx. */
+  verified?: boolean | null
+  staff?: boolean | null
 }
 
 /** "Membru din martie 2025" — month precision is all this is worth. */
@@ -666,6 +671,8 @@ export function MemberProfile({
       {/* Everything the cover was carrying, once the cover has gone. */}
       <ProfilePinnedHeader
         name={name}
+        verified={member.verified}
+        staff={member.staff}
         avatarUrl={member.avatarUrl}
         visible={pinned}
         instant={leftProfile}
@@ -895,8 +902,15 @@ export function MemberProfile({
           means the two can disagree — which is a few pixels of vertical shift
           on every arrival, in the part of the page the eye is fixed on. Every
           measurement below has a counterpart in that file. */}
-      <h1 className="mt-3 truncate text-[22px] font-bold leading-[28px] tracking-[-0.015em] text-neutral-900 md:text-[28px] md:leading-[34px] lg:text-[32px] lg:leading-[38px]">
-        {name}
+      {/* The badges are INSIDE the h1 and the name truncates around them.
+          Beside it, in a sibling, a long name would push them off the edge —
+          and a verified mark that disappears on long names is a mark that
+          disappears exactly where impersonation is easiest. `min-w-0` on the
+          name is what lets the ellipsis happen to the text rather than to the
+          row. */}
+      <h1 className="mt-3 flex items-center gap-1.5 text-[22px] font-bold leading-[28px] tracking-[-0.015em] text-neutral-900 md:text-[28px] md:leading-[34px] lg:text-[32px] lg:leading-[38px]">
+        <span className="min-w-0 truncate">{name}</span>
+        <ProfileBadges verified={member.verified} staff={member.staff} size={20} />
       </h1>
       <p className="truncate text-[13.5px] leading-[18px] text-neutral-500 md:text-[15px] md:leading-[20px]">
         @{member.username}

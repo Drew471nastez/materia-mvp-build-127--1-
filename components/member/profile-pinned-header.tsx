@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Bookmark, Settings, Share2 } from "lucide-react"
 
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
+import { ProfileBadges } from "@/components/marketplace/profile-badges"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
 
@@ -46,12 +47,20 @@ import { beginTabLeave } from "@/lib/tab-leave"
 export function ProfilePinnedHeader({
   instant,
   name,
+  verified,
+  staff,
   avatarUrl,
   visible,
   isOwner,
   onShare,
 }: {
   name: string
+  /** The same two marks the header above carries. A bar that stands in for
+   *  the identity has to stand in for all of it — a name that is verified up
+   *  the page and unmarked in the bar is the bar disagreeing with the page it
+   *  replaced. */
+  verified?: boolean | null
+  staff?: boolean | null
   /** The same picture the header above uses. `null` for a member who has not
    *  uploaded one — see the fallback in `PinnedAvatar`. */
   avatarUrl: string | null
@@ -109,6 +118,7 @@ export function ProfilePinnedHeader({
           <span className="min-w-0 truncate text-[16px] font-bold tracking-[-0.01em] text-neutral-900">
             {name}
           </span>
+          <ProfileBadges verified={verified} staff={staff} size={15} />
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">

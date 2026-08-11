@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { writeProfile } from "@/lib/profile/write"
 import { COVER_PRESETS, MAX_BIO_CHARS, MAX_NAME_CHARS, normaliseBio, normaliseName } from "@/lib/profile/covers"
+import { slugifyUsername } from "@/lib/profile/username"
+import { isValidUsername } from "@/lib/reserved-words"
 
 /**
- * PATCH /api/profile { displayName?, bio?, cover? } → { ok, … }
+ * PATCH /api/profile { displayName?, username?, bio?, cover? } → { ok, … }
  *
  * What /profile/edit saves: your name, the line under it, and the band behind
  * it. Every field is optional and only the ones present are touched, so the
@@ -56,7 +58,7 @@ export async function PATCH(req: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
 
-  let payload: { displayName?: unknown; bio?: unknown; cover?: unknown }
+  let payload: { displayName?: unknown; bio?: unknown; cover?: unknown; username?: unknown }
   try {
     payload = await req.json()
   } catch {
@@ -92,6 +94,52 @@ export async function PATCH(req: NextRequest) {
     } else {
       return NextResponse.json({ error: "Bad cover" }, { status: 400 })
     }
+  }
+
+  /**
+   * THE HANDLE, WHICH IS THE ONE FIELD THAT CAN COLLIDE.
+   *
+   * Everything else on this route is yours alone and can only fail on the way
+   * to the database. A username is a claim on a name in a shared space, so it
+   * gets three gates in order, and the order matters:
+   *
+   *   1. SHAPE. Slugified first, so what is checked is what will be stored —
+   *      validating the raw input and storing the slug would let "Andrew Rullz"
+   *      pass a check that "andrewrullz" never had.
+   *   2. RULES. isValidUsername, the same function the signup flow uses and the
+   *      same one that refuses the reserved words. "storelib" is in that list,
+   *      which is what stops anybody claiming the official handle.
+   *   3. UNIQUENESS. Case-insensitively, because /member/[username] resolves
+   *      case-insensitively, and excluding the caller so saving a form without
+   *      touching the handle is not refused for the value it already holds.
+   *
+   * The check here is not a lock and cannot be — two writes a millisecond apart
+   * both see a free handle. What makes that safe is that it is a NAME rather
+   * than a resource: the loser of that race gets a duplicate, which the unique
+   * index in the database refuses if there is one, and which is recoverable by
+   * changing it. Reserving handles to close a race nobody will lose would be a
+   * worse system.
+   */
+  if ("username" in payload && typeof payload.username === "string") {
+    const wanted = slugifyUsername(payload.username)
+    const verdict = isValidUsername(wanted)
+    if (!verdict.valid) {
+      return NextResponse.json({ error: verdict.error ?? "Nume de utilizator invalid", field: "username" }, { status: 400 })
+    }
+    const { data: clash } = await createAdminClient()
+      .from("profiles")
+      .select("id")
+      .ilike("username", wanted)
+      .neq("id", user.id)
+      .limit(1)
+      .maybeSingle()
+    if (clash) {
+      return NextResponse.json(
+        { error: "Numele de utilizator este deja luat.", field: "username", taken: true },
+        { status: 409 },
+      )
+    }
+    patch.username = wanted
   }
 
   if (Object.keys(patch).length === 0) {

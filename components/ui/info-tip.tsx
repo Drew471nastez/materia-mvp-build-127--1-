@@ -64,11 +64,24 @@ export function InfoTip({
   children,
   className,
   label = "Mai multe informații",
+  trigger,
+  markClassName,
 }: {
   /** One sentence. If it needs two, it is not a tooltip. */
   children: React.ReactNode
   className?: string
   label?: string
+  /**
+   * What you press, if it is not the "i".
+   *
+   * The measuring, the flip, the clamp, the close delay and the portal are the
+   * hard part and none of it is about the letter — so a badge that needs a
+   * label on hover passes its own mark in here rather than growing a second
+   * copy of all of it. See components/marketplace/profile-badges.tsx.
+   */
+  trigger?: React.ReactNode
+  /** Replaces the mark's own chrome when a `trigger` supplies its own. */
+  markClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [place, setPlace] = useState<Placement | null>(null)
@@ -219,12 +232,13 @@ export function InfoTip({
         onFocus={() => setOpen(true)}
         onBlur={closeSoon}
         className={cn(
-          "info-tip-mark flex h-[17px] w-[17px] items-center justify-center rounded-full",
-          "bg-[#7c3aed]/10 text-[11px] font-bold leading-none text-[#7c3aed]",
+          "info-tip-mark flex items-center justify-center",
+          markClassName ??
+            "h-[17px] w-[17px] rounded-full bg-[#7c3aed]/10 text-[11px] font-bold leading-none text-[#7c3aed]",
           open && "info-tip-mark-open",
         )}
       >
-        i
+        {trigger ?? "i"}
       </button>
       {bubbleNode}
     </span>

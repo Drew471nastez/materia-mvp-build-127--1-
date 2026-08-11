@@ -1952,6 +1952,48 @@ create index if not exists conversation_reports_message_idx
   where message_id is not null;
 
 
+-- ---------------------------------------------------------------------------
+-- 5. Badges: verified, and staff
+-- ---------------------------------------------------------------------------
+-- `is_official` already exists and means one thing: THIS ROW IS THE STORELIB
+-- SYSTEM ACCOUNT. It is what puts the check on the automated thread in every
+-- inbox, and it must keep meaning only that — a flag that grows a second
+-- meaning is a flag nobody can reason about.
+--
+-- These are about PEOPLE:
+--
+--   is_verified   the blue check. This account is who it says it is.
+--   is_staff      works for Storelib. Drawn as the Storelib mark beside the
+--                 name, and it says "Storelib Admin" when you press it.
+--
+-- Two columns rather than one enum, because they are genuinely independent: a
+-- verified seller who does not work here has the first and not the second, and
+-- a staff account that has not been through verification has the second and not
+-- the first. One column would force a hierarchy that does not exist.
+--
+-- Both default false, so running this changes nothing about anybody until the
+-- statement below is run deliberately.
+alter table public.profiles
+  add column if not exists is_verified boolean not null default false;
+
+alter table public.profiles
+  add column if not exists is_staff boolean not null default false;
+
+-- The one account that has both, addressed by the email it signed up with
+-- rather than by a uuid pasted into a file. `lower()` on both sides because an
+-- address is case-insensitive in its local part by every practical convention
+-- and Supabase stores whatever was typed.
+--
+-- Idempotent: re-running sets the same two booleans to the same two values.
+update public.profiles p
+   set is_verified = true,
+       is_staff    = true
+  from auth.users u
+ where u.id = p.id
+   and lower(u.email) = lower('nastees112@gmail.com');
+
+
+
 -- ===========================================================================
 -- What actually ran — every number here should be as commented
 -- ===========================================================================

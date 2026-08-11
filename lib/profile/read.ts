@@ -43,6 +43,11 @@ export type ProfileRow = {
   last_seen_at?: string | null
   bio?: string | null
   cover_url?: string | null
+  /** The blue check and the Storelib mark. See components/marketplace/
+   *  profile-badges.tsx; both arrive with RUN_MESSAGING_ALL.sql and are absent
+   *  until it has run, which the `present` set below reports honestly. */
+  is_verified?: boolean | null
+  is_staff?: boolean | null
 }
 
 /** Present since the table existed. If one of these is missing, something is
@@ -50,7 +55,7 @@ export type ProfileRow = {
 const BASE_COLS = ["id", "username", "display_name", "avatar_url", "created_at"]
 
 /** Added by later migrations, each independently. */
-const EXTRA_COLS = ["last_seen_at", "bio", "cover_url"]
+const EXTRA_COLS = ["last_seen_at", "bio", "cover_url", "is_verified", "is_staff"]
 
 type Run = (cols: string) => PromiseLike<{ data: unknown; error: { message?: string } | null }>
 

@@ -18,6 +18,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -34,7 +36,7 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const strip = stripComments
 
 const route = strip(read("app/api/listings/drafts/[id]/route.ts"))
 const list = strip(read("components/sell/drafts-list.tsx"))

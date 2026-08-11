@@ -142,6 +142,8 @@ export default async function ProfilePage() {
         joinedAt: profile?.created_at || user.created_at || null,
         bio: profile?.bio ?? null,
         coverUrl: profile?.cover_url ?? null,
+        verified: profile?.is_verified ?? false,
+        staff: profile?.is_staff ?? false,
         // null draws no presence dot at all. Telling you that you are online is
         // the one thing the dot can never be useful for.
         online: null,
