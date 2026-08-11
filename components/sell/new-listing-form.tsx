@@ -541,9 +541,34 @@ export function NewListingForm({
    */
   draftId: initialDraftId,
   editId: initialEditId,
+  overlay = false,
 }: {
   draftId?: string | null
   editId?: string | null
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  RENDERED OVER A PAGE, OR AS ONE
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * /products/new is an INTERCEPTED route: a client navigation renders it into
+   * the layout's `@modal` slot while the screen you came from goes on rendering
+   * underneath. That is what gives the sheet something to slide over on a phone.
+   *
+   * On a desktop it was a disaster, and this flag is the fix. The root reverted
+   * to `md:static md:block` above 768px — correct for the real page route, and
+   * catastrophic in the modal slot, because a static element in a parallel slot
+   * simply JOINS THE DOCUMENT FLOW. So on a monitor, pressing VINDE left the
+   * feed exactly where it was and appended the entire sell form underneath it:
+   * one scroll containing two pages, the second of which had no way out because
+   * its only close button is `md:hidden`. That is "it mixes with the other
+   * pages, all in one" — precisely and literally.
+   *
+   * With `overlay`, the form stays fixed at every width and gets a desktop
+   * presentation of its own: a scrim, and a centred panel that scrolls inside
+   * itself. Without it — the real page route, a reload, a shared link — nothing
+   * changes and it is the ordinary two-column page it has been.
+   */
+  overlay?: boolean
 } = {}) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -2064,7 +2089,12 @@ export function NewListingForm({
       ref={sheetRef}
       onAnimationEnd={onSheetAnimationEnd}
       className={cn(
-        "sell-sheet fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7] md:static md:z-auto md:block md:pb-20",
+        "sell-sheet fixed inset-0 z-[95] flex flex-col bg-[#f6f6f7]",
+        // A PAGE reverts to the flow above md. An OVERLAY never can — see the
+        // note on the `overlay` prop.
+        overlay
+          ? "sell-sheet-overlay md:items-center md:justify-center md:bg-black/45 md:p-6 lg:p-10"
+          : "md:static md:z-auto md:block md:pb-20",
         // BOTH of these read from a ref, and both have to.
         //
         // React owns this `className`, so every render rewrites the whole
@@ -2093,6 +2123,25 @@ export function NewListingForm({
         sheet !== null && "sell-pushed",
       )}
     >
+      {/* THE PANEL.
+          
+          `display: contents` when this is a page, so the wrapper is not there
+          at all and the header, the scroller and the action bar are the direct
+          flex children of the root exactly as they were. When it is an overlay
+          it becomes the card: full-bleed on a phone, and above md a centred
+          sheet of bounded height that scrolls INSIDE itself over a scrim.
+          
+          Bounded height is the part that matters. Without it the panel grows to
+          its content and the form runs off the bottom of a laptop screen with
+          the page behind unable to scroll — which is the same "no way out" the
+          static-in-the-flow bug produced, arrived at from the other side. */}
+      <div
+        className={
+          overlay
+            ? "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#f6f6f7] md:h-auto md:max-h-[88vh] md:max-w-6xl md:rounded-2xl md:shadow-[0_30px_90px_-24px_rgba(0,0,0,0.5)]"
+            : "contents"
+        }
+      >
       {/* The header. An X and a title, like every sheet on a phone — and it
           pays the status-bar inset itself, because the strip that used to do
           that for this route is gone. */}
@@ -2141,22 +2190,48 @@ export function NewListingForm({
         // rather than a pair on every input.
         onFocus={onFieldFocus}
         onBlur={onFieldBlur}
-        className="min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain md:overflow-visible"
+        // A PAGE hands the scroll back to the document above md — the form is
+        // just a long page there. An OVERLAY must keep it: the document behind
+        // is a different screen, and letting the panel grow instead of scroll
+        // is what puts Publish below the bottom of the monitor.
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto [overflow-x:clip] overscroll-contain",
+          !overlay && "md:overflow-visible",
+        )}
       >
       {/* The page column. Mobile is untouched — max-w-2xl at 16px gutters is the
           sheet it has always been. Above md it becomes a page: wider, with
           gutters that grow with the window rather than staying at phone size on
           a 27-inch monitor. */}
       <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-9 md:max-w-5xl md:px-6 lg:max-w-6xl lg:px-8">
-      <header className="mb-6 hidden md:block lg:mb-8">
-        <h1 className="text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
-          {editId ? title.trim() || "Editează anunțul" : "Listează un articol"}
-        </h1>
-        <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
-          {editId
-            ? "Modifică ce vrei și salvează — anunțul rămâne la aceeași adresă."
-            : "Completează detaliile și anunțul tău apare instant în feed."}
-        </p>
+      <header className="mb-6 hidden md:flex md:items-start md:justify-between md:gap-6 lg:mb-8">
+        <div className="min-w-0">
+          <h1 className="truncate text-[26px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[32px]">
+            {editId ? title.trim() || "Editează anunțul" : "Listează un articol"}
+          </h1>
+          <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
+            {editId
+              ? "Modifică ce vrei și salvează — anunțul rămâne la aceeași adresă."
+              : "Completează detaliile și anunțul tău apare instant în feed."}
+          </p>
+        </div>
+        {/* THE ONLY WAY OUT OF THE DESKTOP OVERLAY.
+            
+            The X above is `md:hidden`, and a page does not need one — the site
+            header and the back button are both right there. An overlay covers
+            both, so without this the form was a screen you could fill in and
+            not leave. `requestClose`, not a bare dismiss, so a half-written
+            listing still gets asked about. */}
+        {overlay && (
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Închide"
+            className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors duration-200 ease-out hover:bg-neutral-200/70 hover:text-neutral-900 active:duration-0"
+          >
+            <X className="h-[21px] w-[21px]" strokeWidth={2.2} />
+          </button>
+        )}
       </header>
 
       {/* Desktop splits the form in two: media and prose on the left, the
@@ -2475,7 +2550,11 @@ export function NewListingForm({
           however far down the photo grid and description have pushed the page.
           The error lives in here too — on desktop this card is where your eye
           is when a submit fails. */}
-      <div className="hidden md:sticky md:top-24 md:block">
+      {/* `top-24` clears the site header on the real page. Inside an overlay
+          there is no site header — the panel's own top edge is the ceiling — and
+          96px of offset there is just a card that starts late and has less room
+          to travel. */}
+      <div className={cn("hidden md:block", overlay ? "md:sticky md:top-4" : "md:sticky md:top-24")}>
         <div className="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
           {error && (
             <p className="rounded-xl bg-rose-50 px-3.5 py-3 text-[13.5px] text-rose-700">{error}</p>
@@ -2537,6 +2616,8 @@ export function NewListingForm({
           </div>
         </div>
       </div>
+
+      </div>{/* /panel */}
 
       {/* ---- Pickers ---- */}
       {/* THREE LEVELS: who it is for, what kind of thing, which thing.

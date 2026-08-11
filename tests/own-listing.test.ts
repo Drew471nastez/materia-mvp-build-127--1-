@@ -361,13 +361,18 @@ check(
     const newPage = strip(read("app/(marketing)/products/new/page.tsx"))
     return (
       /const \{ id \} = await params/.test(editModal) &&
-      /<NewListingForm editId=\{id\} \/>/.test(editModal) &&
+      /<NewListingForm editId=\{id\} overlay \/>/.test(editModal) &&
       /const \{ id \} = await params/.test(editPage) &&
       /<NewListingForm editId=\{id\} \/>/.test(editPage) &&
       /const \{ draft \} = await searchParams/.test(newModal) &&
-      /draftId=\{draft \?\? null\}/.test(newModal) &&
+      /draftId=\{draft \?\? null\} overlay/.test(newModal) &&
       /const \{ draft \} = await searchParams/.test(newPage) &&
-      /draftId=\{draft \?\? null\}/.test(newPage)
+      /draftId=\{draft \?\? null\}/.test(newPage) &&
+      // And ONLY the intercepted pair declares itself an overlay: the real
+      // routes are pages, and a page that stayed fixed would cover the site
+      // header on the one screen reached by typing the URL.
+      !/overlay/.test(editPage) &&
+      !/overlay/.test(newPage)
     )
   })(),
 )

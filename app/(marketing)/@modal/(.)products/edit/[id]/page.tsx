@@ -31,5 +31,7 @@ export default async function InterceptedEditListing({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  return <NewListingForm editId={id} />
+  // Over the page you came from, at every width — see the note on `overlay` in
+  // components/sell/new-listing-form.tsx.
+  return <NewListingForm editId={id} overlay />
 }

@@ -730,6 +730,121 @@ check(
   })(),
 )
 
+
+/* ===========================================================================
+ *  ON A MONITOR IT IS A PAGE, OR A DIALOG — NEVER BOTH PAGES AT ONCE
+ * ===========================================================================
+ *
+ * /products/new is an intercepted route, so a client navigation renders it in
+ * the layout's @modal slot — a SIBLING of <main> — while the screen you came
+ * from goes on rendering underneath. On a phone that is the whole point: the
+ * sheet has something to slide over.
+ *
+ * Above 768px the form reverted to `md:static md:block`, and a static element
+ * in a parallel slot simply joins the document flow. So on a desktop, pressing
+ * VINDE left the feed exactly where it was and appended the entire sell form
+ * beneath it: one scroll containing two pages, the second with no way out
+ * because its only close button is `md:hidden`.
+ */
+
+const overlayCss = read("app/globals.css")
+
+console.log("\nThe sell form on a large screen")
+
+check(
+  "an overlay never falls back into the document flow",
+  (() => {
+    // The single line that caused it. `md:static` may only be reachable when
+    // this is the real page route.
+    const root = form.slice(form.indexOf('"sell-sheet fixed inset-0'), form.indexOf('"sell-sheet fixed inset-0') + 700)
+    return /overlay\s*\n?\s*\?\s*"sell-sheet-overlay/.test(root) && /:\s*"md:static md:z-auto md:block/.test(root)
+  })(),
+)
+
+check(
+  "and it is a bounded, scrolling panel rather than a full-height column",
+  (() => {
+    // Without a ceiling the panel grows to its content and the form runs off
+    // the bottom of a laptop screen with the page behind unable to scroll —
+    // the same "no way out", arrived at from the other side.
+    return /md:max-h-\[88vh\]/.test(form) && /md:max-w-6xl/.test(form) && /md:rounded-2xl/.test(form)
+  })(),
+)
+
+check(
+  "the scroll stays inside it",
+  (() => {
+    // A page hands the scroll back to the document above md, because the form
+    // is just a long page there. An overlay cannot: the document behind it is a
+    // different screen.
+    return /!overlay && "md:overflow-visible"/.test(form)
+  })(),
+)
+
+check(
+  "there is a way out of it on a desktop",
+  (() => {
+    // The phone's X is `md:hidden`, and a page does not need one — the site
+    // header is right there. An overlay covers it, so without this the form was
+    // a screen you could fill in and not leave.
+    const header = form.slice(form.indexOf('<header className="mb-6 hidden md:'), form.indexOf("{/* Desktop splits the form in two"))
+    return /\{overlay && \(/.test(header) && /onClick=\{requestClose\}/.test(header)
+  })(),
+)
+
+check(
+  "and it asks before throwing away a half-written listing",
+  // requestClose, not a bare dismiss — the same guard the phone's X has.
+  !/onClick=\{close\}/.test(form),
+)
+
+check(
+  "the sticky action card does not clear a header that is not there",
+  (() => {
+    // `top-24` clears the site header on the real page. Inside an overlay there
+    // is none, and 96px is a card that starts late with less room to travel.
+    return /overlay \? "md:sticky md:top-4" : "md:sticky md:top-24"/.test(form)
+  })(),
+)
+
+check(
+  "a desktop overlay arrives, and does not slide the viewport to do it",
+  (() => {
+    // A full-viewport slide at 1440px is exactly what the md rule above it was
+    // written against; a dialog that simply exists on the next frame is what
+    // every alert in this app already avoids.
+    const block = overlayCss.slice(overlayCss.indexOf("@keyframes sell-overlay-enter"))
+    return (
+      /\.sell-sheet-overlay\.sell-sheet-enter/.test(overlayCss) &&
+      /transform: scale\(0\.985\)/.test(block) &&
+      !/translate3d/.test(block.slice(0, block.indexOf(".sell-sheet-overlay.sell-sheet-leave")))
+    )
+  })(),
+)
+
+check(
+  "the desktop layout is two columns with gutters that grow",
+  (() => {
+    // The form itself was already responsive — this is what the flow bug was
+    // hiding. Asserted so a future edit cannot quietly drop it.
+    return (
+      /md:grid md:grid-cols-\[minmax\(0,1\.1fr\)_minmax\(0,1fr\)\]/.test(form) &&
+      /md:max-w-5xl md:px-6 lg:max-w-6xl lg:px-8/.test(form)
+    )
+  })(),
+)
+
+check(
+  "every picker is a centred dialog on a monitor, not a full-screen push",
+  (() => {
+    // Sliding a full-screen panel in from the right is the grammar of a device
+    // you hold in one hand. On a 27-inch monitor it is a whole desktop being
+    // replaced to pick a colour.
+    const picker = read("components/sell/picker-page.tsx")
+    return /min-width: 768px/.test(picker) && /isDesktop/.test(picker)
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

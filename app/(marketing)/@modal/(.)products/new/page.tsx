@@ -50,5 +50,10 @@ export default async function InterceptedNewListing({
   // an effect afterwards — so a draft opened from the drafts list arrived at a
   // blank form. Same fault, same fix, as the edit route beside this one.
   const { draft } = await searchParams
-  return <NewListingForm draftId={draft ?? null} />
+  // `overlay` — the whole reason this file and the page route can no longer
+  // render the same thing unqualified. A parallel slot is a SIBLING of <main>,
+  // so an element that goes `static` above md joins the document flow and the
+  // form is appended under whatever page you were looking at. See the note on
+  // the prop in components/sell/new-listing-form.tsx.
+  return <NewListingForm draftId={draft ?? null} overlay />
 }
