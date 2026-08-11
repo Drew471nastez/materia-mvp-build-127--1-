@@ -661,9 +661,40 @@ export function PlatformHeaderClient() {
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  WHY TYPING IN THE HEADER DID NOTHING
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * This was:
+   *
+   *     useEffect(() => { setQuery(searchParams.get("q") ?? "") }, [searchParams])
+   *
+   * `searchParams` is an OBJECT, and a new one arrives on re-render — so the
+   * dependency is an identity, not a value, and the effect fires again and
+   * again on a URL that never changed. On the home page `q` is absent, so
+   * every one of those runs set the field back to "".
+   *
+   * And the header re-renders constantly: the auth state resolves, the avatar
+   * loads, a dropdown opens — and, fatally, `setSearchModalOpen(true)` fires
+   * from the field's own `onChange`. So the sequence for the first character
+   * anybody typed was: set query to "n", open the panel, re-render, effect
+   * runs, query back to "". The field stayed empty, the panel stayed on its
+   * "search vintage, brands, styles…" empty state, and search looked broken
+   * because from the outside it WAS.
+   *
+   * Comparing the VALUE fixes it: a string dependency is stable across
+   * re-renders, and the ref makes the intent explicit — the URL may seed this
+   * field, and may overwrite it on a real navigation to a different query, but
+   * it may never overwrite it merely because React rendered again.
+   */
+  const urlQuery = searchParams.get("q") ?? ""
+  const lastUrlQuery = useRef(urlQuery)
   useEffect(() => {
-    setQuery(searchParams.get("q") ?? "")
-  }, [searchParams])
+    if (lastUrlQuery.current === urlQuery) return
+    lastUrlQuery.current = urlQuery
+    setQuery(urlQuery)
+  }, [urlQuery])
 
   // Close modals on route change
   useEffect(() => {
@@ -1618,16 +1649,44 @@ export function PlatformHeaderClient() {
                   </Link>
                 </Button>
 
-                {/* Signed out: sign up / log in, exactly where the avatar sits
-                    when you are signed in — so the row never changes shape. */}
+                {/* ═══════════════════════════════════════════════════════════
+                    SIGNED OUT: ONE CONTROL, SPLIT — NOT TWO BUTTONS
+                    ═══════════════════════════════════════════════════════════
+
+                    It was an outlined pill beside a ghost pill: two objects of
+                    the same size and shape, so the row asked a question it has
+                    no business asking. Between "sign up" and "log in" there is
+                    always a right answer for the person reading it, and they
+                    already know which one they are.
+
+                    So they are ONE thing with two weights. Log in is the plain
+                    word — the returning half needs recognising, not selling to
+                    — and Sign up is the only solid object in the pair, which
+                    makes it the thing a first-time visitor's eye lands on.
+                    A hairline between them says they belong together.
+
+                    It sits exactly where the avatar sits when you are signed
+                    in, so the row never changes shape. */}
                 {!user && (
-                  <div className="flex items-center gap-2">
-                    <Button asChild variant="outline" className="h-10 rounded-full border-white/25 bg-transparent px-5 text-[14.5px] font-semibold text-white hover:bg-white/10 hover:text-white">
-                      <Link href="/signup">{t("sign_up")}</Link>
-                    </Button>
-                    <Button asChild variant="ghost" className="h-10 rounded-full px-4 text-[14.5px] font-semibold text-white/85 hover:bg-white/10 hover:text-white">
-                      <Link href="/login">{t("log_in")}</Link>
-                    </Button>
+                  <div className="flex items-center">
+                    <Link
+                      href="/login"
+                      className="px-4 text-[14.5px] font-semibold text-white/85 transition-colors duration-200 hover:text-white"
+                    >
+                      {t("log_in")}
+                    </Link>
+                    <span aria-hidden className="mr-3 h-5 w-px bg-white/20" />
+                    {/* Solid dark grey rather than white. The bar is pure
+                        black, so a filled neutral is a real object on it — and
+                        it stays out of the way of the one purple button beside
+                        it, which is the marketplace's actual primary action. A
+                        white pill here would be two things shouting. */}
+                    <Link
+                      href="/signup"
+                      className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 bg-neutral-800 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 hover:bg-neutral-700"
+                    >
+                      {t("sign_up")}
+                    </Link>
                   </div>
                 )}
 
@@ -2144,31 +2203,47 @@ export function PlatformHeaderClient() {
             {/* Desktop Categories - White/Light UI */}
             {showCategories && (
               <nav className="hidden md:block">
+                {/* THE STRIP UNDER THE BLACK BAR.
+
+                    `pt-1` put the labels four pixels under the header's edge,
+                    so the row read as stuck to the bottom of the black rather
+                    than as the first thing on the white — which is what made it
+                    look wrong without looking like anything in particular.
+                    `pt-4` gives it the same air underneath it already had.
+
+                    And the items are separated rather than merely spaced. Six
+                    words in a line at even gaps is a sentence; a hairline
+                    between each pair says they are six choices. The rule is
+                    drawn by the item AFTER it (`:not(:first-child)`), so there
+                    is never a stray divider hanging off either end however many
+                    categories there turn out to be. */}
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[14.5px] pt-1 pb-4">
-                    {DEFAULT_CATEGORIES.map((cat) => {
+                  <div className="flex items-center justify-start whitespace-nowrap pb-4 pt-4 text-[14.5px]">
+                    {DEFAULT_CATEGORIES.map((cat, i) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
                       const isActive = activeCategoryId === cat.id
                       return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => onCategoryClick(cat.id)}
-                          className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
-                            isActive
-                              ? "text-neutral-900"
-                              : "text-neutral-500 hover:text-neutral-900"
-                          }`}
-                        >
-                          {isAll && <Icon className="w-[18px] h-[18px]" />}
-                          {cat.label}
-                          {cat.badge && (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
-                              {cat.badge}
-                            </span>
-                          )}
-                        </button>
+                        <div key={cat.id} className="flex items-center">
+                          {i > 0 && <span aria-hidden className="mx-3.5 h-4 w-px shrink-0 bg-neutral-200" />}
+                          <button
+                            type="button"
+                            onClick={() => onCategoryClick(cat.id)}
+                            className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
+                              isActive
+                                ? "text-neutral-900"
+                                : "text-neutral-500 hover:text-neutral-900"
+                            }`}
+                          >
+                            {isAll && <Icon className="w-[18px] h-[18px]" />}
+                            {cat.label}
+                            {cat.badge && (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
+                                {cat.badge}
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       )
                     })}
                   </div>

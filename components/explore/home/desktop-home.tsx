@@ -159,11 +159,13 @@ export function DesktopHome({ products }: { products: any[] }) {
         title="Bazat pe vizualizările tale recente"
         items={sections.basedOnViews}
         rows={1}
+        // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
+        minItems={ROW}
         href="/?q="
         seeMoreLabel="Vezi mai multe"
       />
 
-      <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} />
+      <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} minItems={ROW} />
 
       <ListingRow
         title="Sugestii pentru tine"
