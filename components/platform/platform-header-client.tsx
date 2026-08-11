@@ -1415,6 +1415,10 @@ export function PlatformHeaderClient() {
                 if (!searchModalOpen) setSearchModalOpen(true)
               }}
               onFocus={() => setSearchModalOpen(true)}
+              // AND on click. After Escape the field still holds focus, so
+              // `onFocus` cannot fire again — clicking the search box would do
+              // nothing at all until you clicked somewhere else first.
+              onClick={() => setSearchModalOpen(true)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setSearchModalOpen(false)
               }}

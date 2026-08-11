@@ -193,13 +193,15 @@ export function BuyerProtectionPage({ open, onClose }: { open: boolean; onClose:
               sesizare și îți returnăm suma plătită.
             </Point>
             <Point title="Cât costă" last>
-              5% din prețul articolului, plus 4 lei. Suma este deja inclusă în prețul pe care îl vezi, așa că
-              nu apare nimic în plus la final.
+              5% din prețul articolului, plus o sumă fixă care ține de mărimea comenzii: 1 leu sub 8 lei,
+              1,25 lei până la 10, 1,50 lei până la 12, 1,75 lei până la 15, și 4 lei de la 15 lei în sus.
+              Totul este deja inclus în prețul pe care îl vezi, așa că nu apare nimic în plus la final.
             </Point>
           </div>
 
           <p className="mt-4 px-1 text-[12.5px] font-medium leading-relaxed text-neutral-400">
-            Taxa se aplică o singură dată pe comandă și nu se aplică livrării.
+            Taxa se aplică o singură dată pe comandă și nu se aplică livrării. Vânzătorul primește exact
+            prețul pe care l-a cerut; taxa nu se scade din suma lui.
           </p>
 
           <button

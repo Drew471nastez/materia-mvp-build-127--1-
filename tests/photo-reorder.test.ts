@@ -725,7 +725,8 @@ check(
     return (
       /formatPlatformMoney\(buyerPaysCents\(priceCents\)\)/.test(form) &&
       /formatPlatformMoney\(priceCents\)/.test(form) &&
-      /incl\. protecția plății/.test(form)
+      /incl\./.test(form) &&
+      /openBuyerProtection\(\)/.test(form)
     )
   })(),
 )
