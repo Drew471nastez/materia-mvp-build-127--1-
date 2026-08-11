@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { cardImage, readVariants } from "@/lib/images/variants"
@@ -25,13 +26,25 @@ import { cn } from "@/lib/utils"
  * happens to be listed today.
  *
  * ---------------------------------------------------------------------------
- * TWO OF THE THREE SLIDES COME FROM THE CATALOGUE
+ * ALL THREE ARE EDITORIAL, AND ALL THREE OPEN A REAL SEARCH
  * ---------------------------------------------------------------------------
- * A marketplace hero advertising nothing that is for sale is a poster. The
- * first slide is editorial; the other two pull a real listing's photograph and
- * link to it, so what the front page is showing is a thing somebody can
- * actually buy this minute. A slide whose listing cannot be found is DROPPED
- * rather than drawn empty.
+ * Two of them used the LISTING'S OWN TITLE as the headline, which meant the
+ * front page of the marketplace read "Eu2" in 32px — a name that means
+ * something to the person who typed it and nothing to anybody else. A hero is
+ * the one place on the site that has to speak to somebody who has not decided
+ * to buy anything yet, and a product title cannot do that.
+ *
+ * So the words are written, and they are written to be read by everybody:
+ * sneakers, denim and one-off pieces are the three things this catalogue is
+ * actually full of, none of them is addressed to men or to women, and each one
+ * gives a REASON rather than a name — priced so you can justify it, worn
+ * exactly enough, not something everybody else has.
+ *
+ * The photographs still come from the catalogue where there are any, so what is
+ * on the front page is stock this marketplace really holds. The button opens a
+ * SEARCH rather than the single listing whose picture it borrowed — a slide
+ * that promises "denim" and lands on one pair of jeans is a bait, and a search
+ * is the honest version of the same promise.
  */
 
 const AUTOPLAY_MS = 6000
@@ -63,47 +76,93 @@ type Slide = {
   ground: string
 }
 
-/** The editorial slide. Everything after it is whatever is listed today. */
-const EDITORIAL: Slide = {
-  key: "editorial",
-  eyebrow: "Selecție",
-  title: "Sneakers sub 250 lei",
-  body: "Perechi purtate puțin, la un preț pe care îl poți justifica.",
-  cta: "Vezi selecția",
-  href: "/?q=sneakers",
-  image:
-    "https://contentful.depop.com/itoh30v6uh9a/6kH5Llt5SlaiA1fsozElfZ/e824fe68ea258ea059a35a1f31616ba8/748x240__2_.jpg?fm=webp&w=1400",
-  alt: "Sneakers second-hand",
-  ground: "#3d4451",
+/**
+ * The three, written rather than generated.
+ *
+ * `match` is how each one finds its own photograph in the catalogue — a slide
+ * about denim should not be wearing a picture of a lamp. It is a substring test
+ * over the title, the brand and the category rather than a filter on a field,
+ * because a second-hand catalogue files "blugi" under four different leaves and
+ * spells it three ways.
+ *
+ * `fallback` is what it wears when the catalogue has nothing matching, and it is
+ * the editorial artwork rather than a borrowed photograph of something else.
+ */
+type SlideCopy = Omit<Slide, "key" | "image" | "alt"> & {
+  match: string[]
+  fallback: string
+  alt: string
 }
 
-/** Words for a slide built from a listing — the listing's own title is the
- *  headline, because it is the only honest thing to put there. */
-function slideFor(listing: HeroListing, index: number): Slide | null {
-  const variants = readVariants(listing.image_variants)
-  const image = cardImage(variants, listing.thumbnail_url, 0)
-  if (!image) return null
-  const grounds = ["#1f2937", "#4a3f5c"]
-  return {
-    key: listing.id,
-    eyebrow: listing.brand?.trim() || "Nou pe Storelib",
-    title: listing.title,
-    body: "Un singur exemplar. Când pleacă, a plecat.",
-    cta: "Vezi anunțul",
-    href: `/products/${listing.slug}`,
-    image,
-    alt: listing.title,
-    ground: grounds[index % grounds.length],
-  }
+const SNEAKERS_ART =
+  "https://contentful.depop.com/itoh30v6uh9a/6kH5Llt5SlaiA1fsozElfZ/e824fe68ea258ea059a35a1f31616ba8/748x240__2_.jpg?fm=webp&w=1400"
+
+const COPY: SlideCopy[] = [
+  {
+    eyebrow: "Selecție",
+    title: "Sneakers sub 250 lei",
+    body: "Perechi purtate puțin, la un preț pe care îl poți justifica.",
+    cta: "Vezi selecția",
+    href: "/?q=sneakers",
+    ground: "#3d4451",
+    match: ["sneaker", "adidasi", "adidași", "nike", "jordan", "shoes", "pantofi"],
+    fallback: SNEAKERS_ART,
+    alt: "Sneakers second-hand",
+  },
+  {
+    eyebrow: "Denim",
+    title: "Blugi care au trecut proba timpului",
+    body: "Denim purtat exact cât trebuie — se poartă mai bine decât unul nou și costă mai puțin.",
+    cta: "Vezi denim",
+    href: "/?q=blugi",
+    ground: "#2b3a4a",
+    match: ["blugi", "denim", "jeans", "levi", "geac", "jachet"],
+    fallback: SNEAKERS_ART,
+    alt: "Blugi second-hand",
+  },
+  {
+    eyebrow: "Unicat",
+    title: "Lucruri pe care nu le are toată lumea",
+    body: "Fiecare anunț este un singur exemplar. Când pleacă, a plecat — și de aceea merită căutat.",
+    cta: "Descoperă",
+    href: "/?q=vintage",
+    ground: "#4a3f5c",
+    match: ["vintage", "retro", "unicat", "y2k", "second"],
+    fallback: SNEAKERS_ART,
+    alt: "Piese vintage second-hand",
+  },
+]
+
+/** The first listing whose title, brand or category contains one of the words —
+ *  and which has not already been taken by an earlier slide. */
+function pickImage(listings: HeroListing[], words: string[], taken: Set<string>): string | null {
+  const hit = listings.find((l) => {
+    if (taken.has(l.id)) return false
+    const hay = `${l.title ?? ""} ${l.brand ?? ""} ${l.category ?? ""} ${l.subcategory ?? ""}`.toLowerCase()
+    return words.some((w) => hay.includes(w))
+  })
+  if (!hit) return null
+  const img = cardImage(readVariants(hit.image_variants), hit.thumbnail_url, 0)
+  if (img) taken.add(hit.id)
+  return img
 }
 
 export function HeroSlides({ listings }: { listings: HeroListing[] }) {
-  const slides = useMemo(() => {
-    const fromCatalogue = listings
-      .slice(0, 2)
-      .map((l, i) => slideFor(l, i))
-      .filter((s): s is Slide => s !== null)
-    return [EDITORIAL, ...fromCatalogue]
+  const slides = useMemo<Slide[]>(() => {
+    const taken = new Set<string>()
+    return COPY.map((c, i) => ({
+      key: `slide-${i}`,
+      eyebrow: c.eyebrow,
+      title: c.title,
+      body: c.body,
+      cta: c.cta,
+      href: c.href,
+      ground: c.ground,
+      alt: c.alt,
+      // The first slide keeps its editorial artwork whatever is listed: it is
+      // the one that has to be right on an empty marketplace.
+      image: (i === 0 ? c.fallback : pickImage(listings, c.match, taken) ?? c.fallback),
+    }))
   }, [listings])
 
   const [index, setIndex] = useState(0)
@@ -156,7 +215,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
-      className="relative overflow-hidden rounded-2xl"
+      className="group/hero relative overflow-hidden rounded-2xl"
     >
       {/* THE TRACK. One transform for the whole strip rather than a fade per
           slide: a crossfade of two 1400px images is two full-width layers being
@@ -220,6 +279,25 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         ))}
       </div>
 
+      {/* ARROWS.
+          
+          Dots say which of three you are on; they do not say you can move. A
+          carousel whose only control is a 6px dot is one people wait out rather
+          than drive, and on a desktop — where there is no swipe — waiting is the
+          only option they had.
+          
+          Over the photograph rather than the copy, because the copy half is
+          where the button is and two things to press in one corner is a corner
+          nobody presses confidently. They fade in on hover of the strip and stay
+          permanently visible to a keyboard, so a pointer gets a clean image and
+          a tab does not get a hidden control. */}
+      {count > 1 && (
+        <>
+          <HeroArrow side="left" onClick={() => go(index - 1)} />
+          <HeroArrow side="right" onClick={() => go(index + 1)} />
+        </>
+      )}
+
       {/* The dots, over the ground rather than over the photograph — the one
           part of this that IS drawn on top of something, and it is drawn on the
           half whose colour we chose. */}
@@ -241,5 +319,33 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * One of the two arrows.
+ *
+ * `opacity-0 … group-hover:opacity-100` on the SECTION's hover rather than its
+ * own: an arrow that only appears once the cursor is already on it is an arrow
+ * you have to know is there. `focus-visible:opacity-100` keeps it reachable
+ * without a pointer at all.
+ */
+function HeroArrow({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+  const Icon = side === "left" ? ChevronLeft : ChevronRight
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={side === "left" ? "Slide-ul anterior" : "Slide-ul următor"}
+      className={cn(
+        "absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full",
+        "bg-white/90 text-neutral-900 shadow-[0_2px_10px_rgba(0,0,0,0.18)] backdrop-blur-sm",
+        "opacity-0 transition-[opacity,transform] duration-200 ease-out",
+        "group-hover/hero:opacity-100 focus-visible:opacity-100 hover:bg-white active:scale-95",
+        side === "left" ? "left-3" : "right-3",
+      )}
+    >
+      <Icon className="h-5 w-5" strokeWidth={2.4} />
+    </button>
   )
 }
