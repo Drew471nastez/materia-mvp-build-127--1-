@@ -95,6 +95,80 @@ export const BUYER_PROTECTION_FIXED_BY_CURRENCY: Record<PlatformCurrency, number
   usd: 87,
 }
 
+/**
+ * ===========================================================================
+ *  THE BUYER-PROTECTION LADDER
+ * ===========================================================================
+ *
+ * The fee is a FLAT amount decided by the size of the order, not a percentage:
+ *
+ *   0.01 to 7.99 lei    1.00 lei
+ *   8.00 to 9.99        1.25
+ *   10.00 to 11.99      1.50
+ *   12.00 to 14.99      1.75
+ *   15.00 and up        4.00
+ *
+ * Why a ladder rather than the "5% + 4 lei" this replaced: at 130 lei both come
+ * to roughly the same number, and at 10 lei the old rule charged 4.50 on a
+ * ten-lei item — a 45% surcharge, on precisely the orders a second-hand
+ * marketplace lives on. The ladder keeps the fee proportionate at the bottom
+ * and lands on the same flat 4 lei everywhere above fifteen, which is where
+ * nearly all the volume is.
+ *
+ * The 5% did not disappear; it moved to the side of the transaction it always
+ * described. It is the SELLER's commission now — see SELLER_COMMISSION_PERCENT
+ * in lib/checkout/pricing.ts — so the platform takes 5% from the seller and a
+ * flat fee from the buyer, and neither is a percentage stacked on the other.
+ *
+ * ---------------------------------------------------------------------------
+ * BOUNDARIES ARE HALF-OPEN AND EXPRESSED IN MINOR UNITS
+ * ---------------------------------------------------------------------------
+ * `upTo` is EXCLUSIVE, so 7.99 falls in the first band and 8.00 falls in the
+ * second — which is what "0.01–7.99" and "8–9.99" mean and what a `<=` against
+ * 799 would get wrong for 7.995 if a price ever carried a fraction of a ban.
+ * Minor units throughout, because that is what `price_cents` holds and every
+ * comparison against a float in lei is a rounding bug waiting for a price
+ * ending in .99.
+ *
+ * The USD column is the lei figure at the same static rate the rest of this
+ * file uses, so a deployment on the other flag charges the same fee in real
+ * terms rather than four dollars.
+ */
+export type ProtectionBand = { upTo: number; fee: number }
+
+export const BUYER_PROTECTION_LADDER_BY_CURRENCY: Record<PlatformCurrency, ProtectionBand[]> = {
+  ron: [
+    { upTo: 800, fee: 100 },
+    { upTo: 1000, fee: 125 },
+    { upTo: 1200, fee: 150 },
+    { upTo: 1500, fee: 175 },
+  ],
+  usd: [
+    { upTo: 174, fee: 22 },
+    { upTo: 217, fee: 27 },
+    { upTo: 261, fee: 33 },
+    { upTo: 326, fee: 38 },
+  ],
+}
+
+/**
+ * The floor under a listing price.
+ *
+ * Five lei, and it is a marketplace rule rather than a payments one: below it
+ * the protection fee is a fifth of the order, the courier costs several times
+ * the item, and the listing is almost always a mistake or a test. Stripe's own
+ * floor (MIN_CHARGE_BY_CURRENCY) is lower and stays where it is — it answers a
+ * different question, which is whether a charge can be made at all.
+ */
+export const MIN_LISTING_PRICE_BY_CURRENCY: Record<PlatformCurrency, number> = {
+  ron: 500,
+  usd: 109,
+}
+
+export function minimumListingPriceCents(): number {
+  return MIN_LISTING_PRICE_BY_CURRENCY[PLATFORM_CURRENCY]
+}
+
 /** Stripe rejects a payment below roughly $0.50; the equivalent floor in lei. */
 export const MIN_CHARGE_BY_CURRENCY: Record<PlatformCurrency, number> = {
   ron: 250,

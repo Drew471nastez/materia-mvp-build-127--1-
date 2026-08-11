@@ -717,9 +717,14 @@ check(
     // A copy check is not enough here: the same sentence appears in the info
     // text beside the heading, so a version of this that only looked for the
     // words passed with the figure deleted.
+    //
+    // BOTH SIDES OF THE TRANSACTION, as figures rather than as prose. The
+    // seller's line is `sellerReceivesCents` now, not the gross price: the
+    // commission is five percent and it comes off this side, so "you still
+    // receive 130" was accurate before that was surfaced and wrong after it.
     return (
       /formatPlatformMoney\(buyerPaysCents\(priceCents\)\)/.test(form) &&
-      /formatPlatformMoney\(priceCents\)/.test(form) &&
+      /formatPlatformMoney\(sellerReceivesCents\(priceCents\)\)/.test(form) &&
       /taxa de protecție/.test(form)
     )
   })(),

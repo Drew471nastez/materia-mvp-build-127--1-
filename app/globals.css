@@ -5096,3 +5096,25 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
 .price-total-in {
   animation: price-total-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
+
+/* ── Search: the empty and loading states, in two contexts ───────────────────
+   On a phone the overlay IS the screen, so "nothing to show yet" has to fill
+   everything under the tabs — a magnifier and one line of text floating at the
+   top of a blank white screen reads as a page that failed to load. 40vh is that
+   floor.
+
+   Anchored under the desktop header, the same floor is the bug: the panel is
+   content-sized, so a viewport-relative minimum on its only child makes the
+   panel 40% of the window tall to hold one sentence. `.search-anchored` is on
+   the panel and this is the whole of what it does — the floor becomes ordinary
+   padding, and the panel is the size of what is in it.                        */
+.search-empty {
+  min-height: 40vh;
+  padding-top: 2.5rem;
+  padding-bottom: 2.5rem;
+}
+.search-anchored .search-empty {
+  min-height: 0;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}

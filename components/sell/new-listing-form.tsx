@@ -29,6 +29,17 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { buyerPaysCents } from "@/lib/marketplace/display-price"
+import {
+  buyerProtectionFee,
+  SELLER_COMMISSION_PERCENT,
+  sellerCommissionCents,
+  sellerReceivesCents,
+} from "@/lib/checkout/pricing"
+import { minimumListingPriceCents } from "@/lib/checkout/currency"
+
+/** Read once. It depends only on the platform currency, which is a build-time
+ *  constant, so a call per render would be a call per keystroke. */
+const MIN_LISTING_PRICE_CENTS = minimumListingPriceCents()
 import { formatPlatformMoney } from "@/lib/i18n/currency"
 import { PickerPage } from "@/components/sell/picker-page"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -1799,8 +1810,27 @@ export function NewListingForm({
     if (!condition) g.push({ key: "condition", label: "stare", message: "Alege starea articolului." })
     if (asks("size") && !size) g.push({ key: "size", label: "mărime", message: "Alege mărimea." })
     if (asks("colour") && !colour) g.push({ key: "colour", label: "culoare", message: "Alege culoarea." })
-    if (!Number.isFinite(priceCents) || priceCents < 0)
+    /**
+     * THE FLOOR, AND WHY IT IS A SENTENCE RATHER THAN A REFUSAL.
+     *
+     * Five lei. Below it the protection fee is a fifth of the order, the
+     * courier costs several times the item, and the listing is nearly always a
+     * mistake or a test.
+     *
+     * Stated as a gap rather than blocked at the keystroke: a field that
+     * refuses the "1" you type on the way to "15" is a field that fights you.
+     * The publish is what enforces it, and the note under the field says the
+     * number, so nobody has to guess where the line is.
+     */
+    if (!Number.isFinite(priceCents) || priceCents <= 0) {
       g.push({ key: "price", label: "preț", message: "Adaugă prețul." })
+    } else if (priceCents < MIN_LISTING_PRICE_CENTS) {
+      g.push({
+        key: "price",
+        label: "preț",
+        message: `Prețul minim este ${formatPlatformMoney(MIN_LISTING_PRICE_CENTS)}.`,
+      })
+    }
     return g
   }, [asks, uploaded.length, title, description, group, item, brand, condition, colour, size, priceCents])
 
@@ -2429,6 +2459,7 @@ export function NewListingForm({
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
+          info="Prima fotografie devine coperta anunțului în feed. Fotografiază la lumină naturală, pe fundal simplu, și arată orice defect. Anunțurile cu poze clare se vând de câteva ori mai repede."
         >
           Fotografii
         </SectionHeading>
@@ -2656,13 +2687,7 @@ export function NewListingForm({
       {/* ---- Title + description ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <div ref={(el) => setGapEl("title", el)}>
-        <label className="info-tip-host flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900">
-          Titlu
-          <InfoTip>
-            Scrie ce ai scrie dacă ai căuta tu articolul: marca, modelul și mărimea. Titlurile
-            care spun exact ce este apar în mai multe căutări.
-          </InfoTip>
-        </label>
+        <label className="block text-[15px] font-semibold text-neutral-900">Titlu</label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -2725,7 +2750,7 @@ export function NewListingForm({
               The unit belongs ON the input rather than in a hint below it: a
               caption is read once and the field is used every time. */}
           <label htmlFor="listing-price" className="block text-[13px] font-medium text-neutral-500">
-            Preț (RON)
+            Preț (RON) · minimum {formatPlatformMoney(MIN_LISTING_PRICE_CENTS)}
           </label>
           <div className="relative mt-1.5">
             <input
@@ -2761,22 +2786,57 @@ export function NewListingForm({
             It fades and rises rather than appearing, because it arrives as you
             type — an element that pops in mid-keystroke reads as the form
             jumping. See `.price-total-in`. */}
+        {/* NO `key`, AND THAT IS THE FLASH.
+
+            It was keyed on `priceCents` so the entrance would replay whenever
+            the number changed. What "changed" means while somebody is typing a
+            price is EVERY KEYSTROKE — so React threw the row away and built a
+            new one per character, and `price-total-in` ran its fade-and-rise
+            from the first frame each time. Typing "130" played the animation
+            three times; holding a key played it continuously. The intent was to
+            draw the eye to a number that had moved; the effect was a row that
+            strobed under the field you were using.
+
+            The animation now belongs to the row's ARRIVAL, which happens once,
+            because the element persists for as long as there is a price. The
+            figures inside it update in place, which is what a number changing
+            is supposed to look like. `tabular-nums` keeps the digits from
+            shuffling sideways as they do. */}
         {Number.isFinite(priceCents) && priceCents > 0 && (
-          <div
-            key={priceCents}
-            className="info-tip-host price-total-in mt-3 flex items-center justify-between gap-3 rounded-xl bg-neutral-50 px-3.5 py-2.5"
-          >
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
-              Cumpărătorul plătește
-              <InfoTip>
-                Prețul afișat în feed include taxa de protecție a plății, care acoperă livrarea
-                urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost descris. Ție
-                ți se virează {formatPlatformMoney(priceCents)}, exact cât ai cerut.
-              </InfoTip>
-            </span>
-            <span className="shrink-0 text-[15px] font-semibold tabular-nums text-neutral-900">
-              {formatPlatformMoney(buyerPaysCents(priceCents))}
-            </span>
+          <div className="price-total-in mt-3 overflow-hidden rounded-xl bg-neutral-50">
+            <div className="info-tip-host flex items-center justify-between gap-3 px-3.5 py-2.5">
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
+                Cumpărătorul plătește
+                <InfoTip>
+                  Prețul afișat în feed include taxa de protecție a plății, care acoperă livrarea
+                  urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost descris. Taxa
+                  este {formatPlatformMoney(buyerProtectionFee(priceCents))} pentru un articol la
+                  acest preț.
+                </InfoTip>
+              </span>
+              <span className="shrink-0 text-[15px] font-semibold tabular-nums text-neutral-900">
+                {formatPlatformMoney(buyerPaysCents(priceCents))}
+              </span>
+            </div>
+            {/* AND WHAT THE SELLER ACTUALLY BANKS.
+
+                The form asked for a price and then told them only what somebody
+                else would pay. The commission is five percent and it is taken
+                from this side of the transaction, so the number they care about
+                was the one number the screen did not show. */}
+            <div className="info-tip-host flex items-center justify-between gap-3 border-t border-neutral-200/70 px-3.5 py-2.5">
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
+                Tu primești
+                <InfoTip>
+                  Storelib reține un comision de {(SELLER_COMMISSION_PERCENT * 100).toFixed(0)}% din
+                  preț, adică {formatPlatformMoney(sellerCommissionCents(priceCents))} la acest
+                  anunț. Restul îți este virat după ce comanda este confirmată.
+                </InfoTip>
+              </span>
+              <span className="shrink-0 text-[15px] font-semibold tabular-nums text-neutral-900">
+                {formatPlatformMoney(sellerReceivesCents(priceCents))}
+              </span>
+            </div>
           </div>
         )}
       </section>

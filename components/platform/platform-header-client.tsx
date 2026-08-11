@@ -1387,32 +1387,61 @@ export function PlatformHeaderClient() {
               TRIGGER now, and the overlay it opens is that one — see
               components/explore/mobile-search-overlay.tsx, which grew a desktop
               shape rather than a desktop copy. */}
-          <div className="hidden md:flex flex-1 max-w-xl mx-4">
-            <button
-              type="button"
-              onClick={() => setSearchModalOpen(true)}
+          {/* ONE FIELD, IN THE BAR, WITH THE RESULTS UNDER IT.
+
+              A real input rather than a button that opens a modal with its own
+              input. Both earlier versions of this were wrong in opposite ways:
+              a centred modal put two search boxes on screen at once, and hiding
+              this one while the modal was open meant the thing you clicked
+              vanished from where you clicked it and a different one appeared
+              lower down.
+
+              The field stays. It never moves, it is always the one you type in,
+              and the panel is a child of this container so it lines up with the
+              field at every width without measuring anything. This is the shape
+              the old dropdown had right; what was wrong with it was its
+              CONTENTS, which are now the marketplace's. */}
+          <div className="relative hidden md:flex flex-1 max-w-xl mx-4">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                // Typing is opening. Somebody who starts typing into a closed
+                // field means to search, and making them press it first is a
+                // step that exists only because the panel is a separate thing.
+                if (!searchModalOpen) setSearchModalOpen(true)
+              }}
+              onFocus={() => setSearchModalOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setSearchModalOpen(false)
+              }}
+              placeholder={t("search_placeholder")}
               aria-label={t("search_placeholder")}
-              // INVISIBLE WHILE THE PANEL IS OPEN, not hidden.
-              //
-              // The panel carries the live field, so with this still drawn
-              // there were two search inputs on screen at once: one dimmed
-              // under the scrim reading "Caută orice", one in the panel reading
-              // "Caută articole sau membri". Nothing said which one typing went
-              // into, and the answer was neither, because this is a button.
-              //
-              // Opacity rather than `hidden`: it keeps its box, so the logo and
-              // the icons either side of it do not slide inwards and back out
-              // every time search is opened. It also fades, which a display
-              // switch cannot.
-              tabIndex={searchModalOpen ? -1 : 0}
-              aria-hidden={searchModalOpen}
-              className={`relative h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-left text-[15px] text-white/50 transition-[opacity,background-color] duration-200 hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${searchModalOpen ? "pointer-events-none opacity-0" : "opacity-100"} ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-            >
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
-              <span className="flex h-full items-center truncate">
-                {query || t("search_placeholder")}
-              </span>
-            </button>
+              className={`h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-[15px] text-white outline-none transition-colors placeholder:text-white/50 focus:border-violet-500 focus:bg-white/[0.14] ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label={t("marketplace.clear_search")}
+                onClick={() => setQuery("")}
+                className="absolute right-3.5 top-1/2 z-10 -translate-y-1/2 text-white/40 transition-colors hover:text-white/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+
+            <MobileSearchOverlay
+              open={searchModalOpen}
+              onClose={() => setSearchModalOpen(false)}
+              anchored
+              query={query}
+              onQueryChange={setQuery}
+              onSelectCategory={(id) => {
+                setSearchModalOpen(false)
+                router.push(id === "all" ? "/explore" : `/explore/${id}`)
+              }}
+            />
           </div>
 
           {/* Mobile Header for Non-Homepage pages */}
@@ -1675,27 +1704,6 @@ export function PlatformHeaderClient() {
 
         </div>
 
-        {/* ONE SEARCH IN THIS HEADER, on every width.
-
-            What stood here was a second copy of the digital-goods search, in a
-            top sheet, bound to the same `searchModalOpen` as the desktop
-            dropdown above: the same nine Design/Development/Marketing chips,
-            the same /p/ links and dollar prices. Two implementations of a
-            catalogue this app no longer sells.
-
-            The marketplace overlay answers both now. It draws a full screen on
-            a phone and a centred panel on a desktop, and it is the same one the
-            mobile web header and the feed already open, so there is exactly one
-            place where "what does search do" is decided. */}
-        <MobileSearchOverlay
-          open={searchModalOpen}
-          onClose={() => setSearchModalOpen(false)}
-          onSelectCategory={(id) => {
-            setSearchModalOpen(false)
-            router.push(id === "all" ? "/explore" : `/explore/${id}`)
-          }}
-          initialQuery={query}
-        />
 
         {/* Mobile & Desktop Categories are now rendered below in white UI section */}
       </div>

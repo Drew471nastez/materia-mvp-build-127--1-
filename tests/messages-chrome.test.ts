@@ -683,9 +683,35 @@ check(
     const overlay = code("components/explore/mobile-search-overlay.tsx")
     // `md:hidden` was why a desktop could not reach any of it. One component,
     // two shapes — the alternative is two implementations of what search means.
-    return !/md:hidden fixed inset-0/.test(overlay) && /useWideViewport\(\)/.test(overlay)
+    return !/md:hidden fixed inset-0/.test(overlay) && /anchored \? /.test(overlay)
   })(),
   "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
+  "there is ONE search field, it is in the bar, and it never moves",
+  (() => {
+    // Two earlier versions were wrong in opposite ways. A centred modal with
+    // its own field put two search boxes on screen at once. Hiding the header's
+    // while that modal was open was worse: the thing you clicked vanished from
+    // where you clicked it and a different one appeared lower down.
+    //
+    // Anchored, the header's input IS the search field and the panel is a child
+    // of its container — so it lines up at every width with nothing measured,
+    // and the panel draws no field of its own.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      // The header draws the field and owns what is in it…
+      /<input\b[\s\S]{0,600}?value=\{query\}/.test(platformHeader) &&
+      /onQueryChange=\{setQuery\}/.test(platformHeader) &&
+      /\banchored\b/.test(platformHeader) &&
+      // …the panel hangs off that field's own container…
+      /absolute left-0 right-0 top-full/.test(overlay) &&
+      // …and draws no field of its own when it does.
+      /\{!anchored && \(/.test(overlay)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
 )
 
 check(
@@ -694,35 +720,16 @@ check(
     // The children are laid out for a phone, where the panel is the screen:
     // `flex-1` on the scroller and a 40vh floor under the empty state. Put that
     // in a box with a max-height and the ceiling becomes a target — the panel
-    // grew to 76% of the window to hold an icon and one line of grey text.
+    // grew to most of the window to hold an icon and one line of grey text.
     // Both halves are needed; either alone still leaves a viewport-sized panel.
     const overlay = code("components/explore/mobile-search-overlay.tsx")
     return (
       /h-fit max-h-\[min\(/.test(overlay) &&
-      /"flex-1 md:flex-initial"/.test(overlay) &&
-      /min-h-\[40vh\][^"]*md:min-h-0/.test(overlay)
+      /anchored && "flex-initial"/.test(overlay) &&
+      /\.search-anchored \.search-empty \{\s*min-height: 0;/.test(css)
     )
   })(),
-  "        components/explore/mobile-search-overlay.tsx",
-)
-
-check(
-  "and it does not put a second search box on the screen",
-  (() => {
-    // The panel carries the live field, so with the header's trigger still
-    // drawn there were two search inputs at once: one dimmed under the scrim
-    // reading "Caută orice", one in the panel reading "Caută articole sau
-    // membri". Nothing said which one typing went into, and the answer was
-    // neither, because the header's is a button.
-    //
-    // Opacity rather than `hidden`, so the logo and icons either side do not
-    // slide inwards and back out every time search opens.
-    return (
-      /searchModalOpen \? "pointer-events-none opacity-0" : "opacity-100"/.test(platformHeader) &&
-      !/searchModalOpen \? "hidden"/.test(platformHeader)
-    )
-  })(),
-  "        components/platform/platform-header-client.tsx",
+  "        components/explore/mobile-search-overlay.tsx, app/globals.css",
 )
 
 // ---------------------------------------------------------------------------
@@ -779,6 +786,61 @@ check(
     return /gap-\[0\.3em\]/.test(ph) && !/prefix = "Search for ",/.test(ph)
   })(),
   "        components/explore/animated-search-placeholder.tsx",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nThe price row does not strobe under the field")
+// ---------------------------------------------------------------------------
+
+check(
+  "the buyer-pays row is not rebuilt on every keystroke",
+  (() => {
+    // It was keyed on `priceCents` so the entrance would replay when the number
+    // changed. What "changed" means while somebody types a price is EVERY
+    // KEYSTROKE — so React threw the row away and built a new one per
+    // character, and the fade-and-rise ran from its first frame each time.
+    // Typing "130" played it three times; holding a key played it continuously.
+    return (
+      /price-total-in/.test(sellForm) &&
+      !/key=\{priceCents\}/.test(sellForm) &&
+      /tabular-nums/.test(sellForm)
+    )
+  })(),
+  "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "and it states the seller's payout, not only the buyer's total",
+  (() => {
+    // The form asked for a price and then told them only what somebody else
+    // would pay. The commission comes off this side, so the number they care
+    // about was the one the screen did not show.
+    return /sellerReceivesCents\(priceCents\)/.test(sellForm) && /Tu primești/.test(sellForm)
+  })(),
+  "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "a listing cannot be published below the floor, and the floor is on screen",
+  (() => {
+    // Stated rather than enforced at the keystroke: a field that refuses the
+    // "1" you type on the way to "15" is a field that fights you.
+    return (
+      /priceCents < MIN_LISTING_PRICE_CENTS/.test(sellForm) &&
+      /Prețul minim este/.test(sellForm) &&
+      /minimum \{formatPlatformMoney\(MIN_LISTING_PRICE_CENTS\)\}/.test(sellForm)
+    )
+  })(),
+  "        components/sell/new-listing-form.tsx",
+)
+
+check(
+  "the info mark is on the photos and the price, and not on the title",
+  (() => {
+    const titleLabel = sellForm.slice(sellForm.indexOf(">Titlu<") - 400, sellForm.indexOf(">Titlu<") + 40)
+    return !/InfoTip/.test(titleLabel) && /Fotografii/.test(sellForm) && /info="Prima fotografie/.test(sellForm)
+  })(),
+  "        components/sell/new-listing-form.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
