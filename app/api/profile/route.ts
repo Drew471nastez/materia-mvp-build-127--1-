@@ -66,6 +66,8 @@ export async function PATCH(req: NextRequest) {
   }
 
   const patch: Record<string, string | null> = {}
+  /** The new handle, when one is being taken. Null on every other save. */
+  let releasedHandle: string | null = null
 
   if ("displayName" in payload) {
     const name = normaliseName(payload.displayName)
@@ -140,6 +142,10 @@ export async function PATCH(req: NextRequest) {
       )
     }
     patch.username = wanted
+    // Remembered below, after the write is known to have succeeded — see
+    // `releasedHandle`. Recording it here would leave a redirect pointing at a
+    // rename that never happened.
+    releasedHandle = wanted
   }
 
   if (Object.keys(patch).length === 0) {
@@ -151,6 +157,13 @@ export async function PATCH(req: NextRequest) {
   // the rest saved) and — the one that produced "Could not save" on an account
   // whose uploads had apparently just worked — an account with NO `profiles`
   // ROW AT ALL, where an update matches nothing and reports success.
+  /** What the handle WAS, read before the write replaces it. */
+  const previousUsername = releasedHandle
+    ? ((
+        await createAdminClient().from("profiles").select("username").eq("id", user.id).maybeSingle()
+      ).data?.username ?? null)
+    : null
+
   const written = await writeProfile({
     admin: createAdminClient(),
     userId: user.id,
@@ -158,6 +171,47 @@ export async function PATCH(req: NextRequest) {
     fallbackUsername: user.email?.split("@")[0] ?? null,
     email: user.email ?? null,
   })
+
+  /**
+   * THE ADDRESS THAT USED TO BE THEIRS.
+   *
+   * /member/<handle> is where a seller's listings are linked from, where they
+   * have put the link in their bio, and where anybody who bookmarked them comes
+   * back to. Changing it silently breaks all of that, which is why most
+   * products make the handle permanent instead — the other, worse answer.
+   *
+   * So the old one is written down and the profile page falls back to it. Done
+   * AFTER the write and only when the write succeeded: a redirect recorded for
+   * a rename that failed would send people away from a profile that never
+   * moved.
+   *
+   * `upsert` on the handle rather than insert: the same handle can be released
+   * more than once, by different accounts, and the most recent claimant is the
+   * one an old link should now reach. And the row for the handle being TAKEN is
+   * deleted, because it is live again — leaving it would mean a redirect
+   * competing with a real profile, which the page resolves in the right order
+   * anyway but which is a contradiction sitting in the table.
+   *
+   * Best-effort, and deliberately not awaited into the response's success. A
+   * profile that saved is saved; failing the request because a redirect could
+   * not be filed would be reporting a working rename as a broken one.
+   */
+  if (releasedHandle && previousUsername && previousUsername.toLowerCase() !== releasedHandle.toLowerCase()) {
+    const admin = createAdminClient()
+    try {
+      await admin.from("profile_username_history").upsert(
+        {
+          username_lower: previousUsername.toLowerCase(),
+          user_id: user.id,
+          released_at: new Date().toISOString(),
+        },
+        { onConflict: "username_lower" },
+      )
+      await admin.from("profile_username_history").delete().eq("username_lower", releasedHandle.toLowerCase())
+    } catch (e: unknown) {
+      console.error("[profile] could not record released handle:", (e as Error)?.message)
+    }
+  }
 
   if (!written.ok) {
     if (written.reason === "no-columns") {

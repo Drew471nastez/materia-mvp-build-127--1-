@@ -356,6 +356,135 @@ check(
   "        components/member/member-profile.tsx",
 )
 
+check(
+  "the seal is filled, not an outline",
+  (() => {
+    // lucide's BadgeCheck is a stroked scallop with a stroked tick in it, which
+    // at sixteen pixels reads as a faint ring rather than as a badge. The thing
+    // everybody recognises is a SOLID coloured seal with a white tick knocked
+    // out — and recognition is the whole value of using the convention.
+    //
+    // Both paths are FILLS. A stroked tick has to have its width chosen for one
+    // size, and this is drawn at 15, 16 and 20 in three places.
+    const seal = badges.slice(badges.indexOf("function VerifiedSeal"))
+    return (
+      /fill="#1d9bf0"/.test(seal) &&
+      /fill="#ffffff"/.test(seal) &&
+      !/stroke=/.test(seal.slice(0, seal.indexOf("</svg>"))) &&
+      !/BadgeCheck/.test(badges)
+    )
+  })(),
+  "        components/marketplace/profile-badges.tsx",
+)
+
+check(
+  "the tooltip is sized by its contents, not to a fixed 272px",
+  (() => {
+    // Every bubble was 272 wide, including the one that says "Storelib Admin" —
+    // two words that need about ninety. A box three times the width of its
+    // contents reads as a panel that failed to load, and on a narrow phone it
+    // was most of the screen for a fourteen-character label.
+    const tip = code("components/ui/info-tip.tsx")
+    const css = read("app/globals.css")
+    return (
+      /const MAX_WIDTH = \d+/.test(tip) &&
+      !/width: WIDTH/.test(tip) &&
+      /maxWidth: `min\(\$\{MAX_WIDTH\}px, calc\(100vw/.test(tip) &&
+      /width: max-content;/.test(css.slice(css.indexOf(".info-tip-bubble {"), css.indexOf(".info-tip-arrow")))
+    )
+  })(),
+  "        components/ui/info-tip.tsx, app/globals.css",
+)
+
+check(
+  "and it is clamped by its REAL width, not by the ceiling",
+  (() => {
+    // Clamping a ninety-pixel bubble as though it were 272 pushes it left near
+    // the right edge, for space it is not using.
+    const tip = code("components/ui/info-tip.tsx")
+    return /const w = Math\.min\(bubble\.current\?\.offsetWidth/.test(tip) && /vw - w - EDGE/.test(tip)
+  })(),
+)
+
+console.log("\nChanging a handle")
+
+check(
+  "the save closes over the CURRENT handle",
+  (() => {
+    // useCallback froze `save` on the first render, so the handle it compared
+    // was the one the form was born with: the comparison was always equal, the
+    // username key was never added to the body, and pressing save after
+    // changing the handle sent everything except the handle. The request
+    // succeeded and said "Profil salvat".
+    return /\}, \[busy, displayName, bio, cover, handle, username, back, router\]\)/.test(form)
+  })(),
+  "        components/member/profile-edit-form.tsx — a stale closure is\n" +
+    "        invisible at the call site and produces a successful save of the\n" +
+    "        old value.",
+)
+
+check(
+  "an address that used to be yours still finds you",
+  (() => {
+    const page = code("app/(marketing)/member/[username]/page.tsx")
+    const patchRoute = code("app/api/profile/route.ts")
+    return (
+      /profile_username_history/.test(patchRoute) &&
+      /profile_username_history/.test(page) &&
+      /redirect\(`\/member\//.test(page)
+    )
+  })(),
+  "        A rename that 404s every link to a seller's listings is why most\n" +
+    "        products refuse to allow renames at all.",
+)
+
+check(
+  "the history is consulted only AFTER the live handle fails to resolve",
+  (() => {
+    // This is what makes it safe for a released handle to be claimed by
+    // somebody else: the new owner is found first and the redirect never runs.
+    const page = code("app/(marketing)/member/[username]/page.tsx")
+    return /if \(!profile\) \{[\s\S]{0,900}?profile_username_history/.test(page)
+  })(),
+)
+
+check(
+  "and the old handle is recorded only when the write actually succeeded",
+  (() => {
+    // A redirect filed for a rename that failed sends people away from a
+    // profile that never moved.
+    const patchRoute = code("app/api/profile/route.ts")
+    const write = patchRoute.indexOf("const written = await writeProfile")
+    return write > 0 && patchRoute.indexOf('from("profile_username_history").upsert') > write
+  })(),
+)
+
+check(
+  "nothing is said when the handle is simply free",
+  (() => {
+    // "Verificăm…" and "Este liber." were a running commentary on the common
+    // path. A tick in the field says it without a sentence.
+    return !/Este liber/.test(form) && !/Verificăm/.test(form) && /handleState\.status === "free" \? "opacity-100"/.test(form)
+  })(),
+  "        components/member/profile-edit-form.tsx",
+)
+
+check(
+  "and the two marks cross-fade in place rather than appearing",
+  (() => {
+    // Both mounted, only opacity changing, so the answer arriving on a field
+    // somebody is still typing into does not move anything.
+    const box = form.slice(form.indexOf("inset-y-0 right-3.5"))
+    return /<Check[\s\S]{0,300}?transition-opacity/.test(box) && /<AlertCircle[\s\S]{0,300}?transition-opacity/.test(box)
+  })(),
+)
+
+check(
+  "the other account has both marks too",
+  /lower\(username\) = lower\('ZarraBianco'\)/.test(messagingSql),
+  "        supabase/sql/RUN_MESSAGING_ALL.sql",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

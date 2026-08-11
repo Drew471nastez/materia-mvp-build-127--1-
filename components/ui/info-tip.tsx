@@ -54,7 +54,23 @@ import { cn } from "@/lib/utils"
 /** How far the bubble sits from the mark, and from the window's edges. */
 const GAP = 9
 const EDGE = 12
-const WIDTH = 272
+/**
+ * A CEILING, NOT A WIDTH.
+ *
+ * It was `width: 272` and every bubble was 272 pixels wide — including the one
+ * that says "Storelib Admin", which is two words and needed about ninety. A box
+ * three times the width of its contents does not read as a tooltip, it reads as
+ * a panel that failed to load, and on a narrow phone it was most of the screen
+ * for a fourteen-character label.
+ *
+ * As a max-width the box is the size of what is in it: a two-word label is two
+ * words wide, a sentence wraps at 272 and no wider, because a line longer than
+ * that stops being scannable. The measured width is then what the clamp uses,
+ * so the bubble is kept inside the window by its REAL edge rather than by an
+ * assumed one — which is what made a short bubble near the right edge get
+ * pushed left for space it was not using.
+ */
+const MAX_WIDTH = 272
 /** Long enough to cross the gap with a mouse, short enough not to feel sticky. */
 const CLOSE_DELAY_MS = 90
 
@@ -119,6 +135,10 @@ export function InfoTip({
       const h = bubble.current?.offsetHeight ?? 0
       const vw = window.innerWidth
       const vh = window.innerHeight
+      // The box's own width once it exists. Before the first measurement there
+      // is nothing to read, and the ceiling is the safe assumption — it is only
+      // ever too cautious, never too narrow.
+      const w = Math.min(bubble.current?.offsetWidth || MAX_WIDTH, MAX_WIDTH)
 
       // Below unless there genuinely is not room, in which case above. Not
       // "whichever side has more space": flipping on a near-tie makes the
@@ -129,7 +149,7 @@ export function InfoTip({
       // starts under the word the mark follows rather than under the mark, then
       // clamped so neither end leaves the window.
       const wanted = r.left - 6
-      const left = Math.min(Math.max(EDGE, wanted), Math.max(EDGE, vw - WIDTH - EDGE))
+      const left = Math.min(Math.max(EDGE, wanted), Math.max(EDGE, vw - w - EDGE))
 
       setPlace({
         top: below ? r.bottom + GAP : r.top - GAP - h,
@@ -137,7 +157,7 @@ export function InfoTip({
         below,
         // The arrow tracks the MARK, not the bubble, so it still points at the
         // control after the clamp above has moved the box.
-        arrowLeft: Math.min(Math.max(10, r.left + r.width / 2 - left - 4.5), WIDTH - 20),
+        arrowLeft: Math.min(Math.max(8, r.left + r.width / 2 - left - 4.5), Math.max(8, w - 17)),
       })
     }
     measure()
@@ -190,7 +210,14 @@ export function InfoTip({
             onPointerEnter={cancelClose}
             onPointerLeave={closeSoon}
             className="info-tip-bubble info-tip-bubble-open"
-            style={{ top: place.top, left: place.left, width: WIDTH }}
+            style={{
+              top: place.top,
+              left: place.left,
+              // Never wider than the ceiling, and never wider than the window
+              // it has to sit inside — which on a 320px phone is the binding
+              // one of the two.
+              maxWidth: `min(${MAX_WIDTH}px, calc(100vw - ${EDGE * 2}px))`,
+            }}
           >
             {children}
             <span

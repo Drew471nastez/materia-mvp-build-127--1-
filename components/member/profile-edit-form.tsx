@@ -314,7 +314,21 @@ export function ProfileEditForm({
       setBusy(null)
       setNotice({ tone: "bad", title: "Salvarea a eșuat", detail: "Verifică conexiunea și încearcă din nou." })
     }
-  }, [busy, displayName, bio, cover, back, router])
+    /**
+     * `handle` AND `username` ARE IN HERE, and their absence was the bug.
+     *
+     * useCallback froze this function on the first render, so the `handle` it
+     * closed over was the one the form was born with — the account's existing
+     * username. The comparison against `username` was therefore always equal,
+     * the `username` key was never added to the body, and pressing save after
+     * changing the handle sent everything EXCEPT the handle. The request
+     * succeeded, the form said "Profil salvat", and nothing about the address
+     * had changed.
+     *
+     * Nothing in the code read wrong. A stale closure is invisible at the call
+     * site and the save it produces is a successful save of the old value.
+     */
+  }, [busy, displayName, bio, cover, handle, username, back, router])
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col pb-16">
@@ -512,16 +526,57 @@ export function ProfileEditForm({
             spellCheck={false}
             maxLength={30}
             placeholder={slugifyUsername(displayName) || username}
-            className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-8 pr-3.5 text-[16px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/40 focus:bg-white"
+            className={cn(
+              "h-12 w-full rounded-2xl border bg-neutral-50 pl-8 pr-11 text-[16px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:bg-white",
+              // The field itself carries the verdict. A red ring is the whole
+              // of "negative" — it needs no sentence to be understood, and it
+              // is on the control that is wrong rather than under it.
+              handleState.status === "taken" || handleState.status === "invalid"
+                ? "border-red-300 focus:border-red-400"
+                : "border-neutral-200 focus:border-[#7c3aed]/40",
+            )}
           />
+
+          {/* One box, two marks, cross-fading in place.
+              Both are always mounted and only their opacity changes, so the
+              answer arriving does not move anything and does not pop — which on
+              a field somebody is still typing into is the difference between an
+              indicator and a flicker. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center"
+          >
+            <Check
+              className={cn(
+                "absolute right-0 h-[18px] w-[18px] text-emerald-500 transition-opacity duration-200",
+                handleState.status === "free" ? "opacity-100" : "opacity-0",
+              )}
+              strokeWidth={2.6}
+            />
+            <AlertCircle
+              className={cn(
+                "absolute right-0 h-[18px] w-[18px] text-red-500 transition-opacity duration-200",
+                handleState.status === "taken" || handleState.status === "invalid"
+                  ? "opacity-100"
+                  : "opacity-0",
+              )}
+              strokeWidth={2.4}
+            />
+          </span>
         </div>
 
-        {handleState.status === "checking" && (
-          <p className="mt-1.5 px-1 text-[12.5px] font-medium text-neutral-400">Verificăm…</p>
-        )}
-        {handleState.status === "free" && (
-          <p className="mt-1.5 px-1 text-[12.5px] font-medium text-emerald-600">Este liber.</p>
-        )}
+        {/* NOTHING IS SAID WHEN NOTHING IS WRONG.
+
+            It used to print "Verificăm…" while the request was out and "Este
+            liber." when it came back — two lines of prose, under a field, about
+            a handle somebody had already decided on. Most of what a person
+            types here is available, so the common path was a running commentary
+            on a non-event.
+
+            A tick in the field says the same thing without a sentence, and it
+            fades rather than appearing so the field does not flicker under the
+            cursor while the answer settles. The words are kept for the case
+            that actually needs words: it is taken, and here is what else. */}
         {(handleState.status === "taken" || handleState.status === "invalid") && (
           <div className="mt-1.5 px-1">
             <p className="text-[12.5px] font-medium text-amber-700">{handleState.message}</p>

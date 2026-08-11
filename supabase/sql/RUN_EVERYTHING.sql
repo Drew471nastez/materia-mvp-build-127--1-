@@ -1992,6 +1992,56 @@ update public.profiles p
  where u.id = p.id
    and lower(u.email) = lower('nastees112@gmail.com');
 
+-- The same two marks for the other account that has them, addressed by handle
+-- because that is the identifier that was given for it. `lower()` on both
+-- sides: usernames are matched case-insensitively everywhere they are read.
+update public.profiles
+   set is_verified = true,
+       is_staff    = true
+ where lower(username) = lower('ZarraBianco');
+
+
+-- ---------------------------------------------------------------------------
+-- 6. Handles that used to be somebody's
+-- ---------------------------------------------------------------------------
+-- A username is an ADDRESS. /member/<handle> is where a seller's listings are
+-- linked from, where they have put the link in their bio, and where anybody who
+-- has ever bookmarked them will come back to. Letting somebody change it and
+-- silently breaking all of that is the reason most products make the handle
+-- permanent — which is the other, worse answer.
+--
+-- So the old one is remembered, and the profile page falls back to it: an
+-- address that used to be yours still finds you.
+--
+-- KEYED ON THE HANDLE, not on the user. One row per released handle, and the
+-- most recent claimant wins if the same one is released twice — which is what
+-- makes the upsert on rename correct without a delete first.
+--
+-- A released handle is NOT reserved. Somebody else may take it, and when they
+-- do the live profile lookup finds them first and this table is never
+-- consulted. That is deliberate: reserving every handle anybody has ever used
+-- would make the good ones unavailable forever to protect links that mostly do
+-- not exist.
+create table if not exists public.profile_username_history (
+  username_lower text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  released_at timestamptz not null default now()
+);
+
+create index if not exists profile_username_history_user_idx
+  on public.profile_username_history (user_id, released_at desc);
+
+alter table public.profile_username_history enable row level security;
+
+-- Readable by anyone, because the redirect it powers is on a public page and
+-- the row holds nothing that is not already public: a handle somebody used to
+-- have, and the account it pointed at. Writes are service-role only — there is
+-- no policy for insert or update, and RLS is deny-by-default per command, so
+-- the API is the only writer.
+drop policy if exists profile_username_history_read on public.profile_username_history;
+create policy profile_username_history_read on public.profile_username_history
+  for select using (true);
+
 
 
 -- ===========================================================================

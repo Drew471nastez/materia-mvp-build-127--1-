@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MemberProfile, type MemberListing } from "@/components/member/member-profile"
@@ -71,7 +71,53 @@ export default async function MemberPage({ params }: MemberPageProps) {
   )
   const presenceKnown = present.has("last_seen_at")
 
-  if (!profile) notFound()
+  /**
+   * NO PROFILE HERE — BUT THIS ADDRESS MAY HAVE BEEN SOMEBODY'S.
+   *
+   * A handle is where a seller's listings are linked from and where anybody who
+   * bookmarked them comes back to, so a rename that 404s every one of those
+   * links is the reason most products refuse to let people rename at all. The
+   * old handle is recorded when it is released (see the PATCH route) and this
+   * is the other half: an address that used to be yours still finds you.
+   *
+   * Checked ONLY after the live lookup fails, which is what makes it safe for a
+   * released handle to be claimed by somebody else — the new owner's profile is
+   * found first and this never runs.
+   *
+   * `redirect` rather than rendering the profile at the old address: two URLs
+   * serving one profile is two things for a crawler to index and two "share"
+   * buttons producing different links. Temporary rather than permanent, because
+   * a 308 is cached by browsers indefinitely and the handle can be released
+   * again — a permanent redirect to an address that later becomes somebody
+   * else's is unfixable from the server.
+   *
+   * Wrapped, because the table arrives with a migration: until it has run the
+   * query errors and this must degrade to the 404 it always was.
+   */
+  if (!profile) {
+    let movedTo: string | null = null
+    try {
+      const { data: past } = await admin
+        .from("profile_username_history")
+        .select("user_id")
+        .eq("username_lower", username.toLowerCase())
+        .maybeSingle()
+      if (past?.user_id) {
+        const { data: now } = await admin
+          .from("profiles")
+          .select("username")
+          .eq("id", past.user_id)
+          .maybeSingle()
+        if (now?.username && now.username.toLowerCase() !== username.toLowerCase()) {
+          movedTo = now.username
+        }
+      }
+    } catch {
+      /* no history table yet — the 404 below is the behaviour that shipped */
+    }
+    if (movedTo) redirect(`/member/${encodeURIComponent(movedTo)}`)
+    notFound()
+  }
 
   // Every published listing this member holds, however it was created and
   // whichever creator row it hangs off. Both were assumptions this page made
