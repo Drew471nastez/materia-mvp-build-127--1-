@@ -34,17 +34,16 @@ import { cn } from "@/lib/utils"
  * the one place on the site that has to speak to somebody who has not decided
  * to buy anything yet, and a product title cannot do that.
  *
- * So the words are written, and they are written to be read by everybody:
- * sneakers, denim and one-off pieces are the three things this catalogue is
- * actually full of, none of them is addressed to men or to women, and each one
- * gives a REASON rather than a name — priced so you can justify it, worn
- * exactly enough, not something everybody else has.
+ * So the words are written, and they are written to be read by everybody: a
+ * price you can justify, things that went up this week, things that exist once.
+ * None of the three is addressed to men or to women, and each gives a REASON
+ * rather than a name.
  *
- * The photographs still come from the catalogue where there are any, so what is
- * on the front page is stock this marketplace really holds. The button opens a
- * SEARCH rather than the single listing whose picture it borrowed — a slide
- * that promises "denim" and lands on one pair of jeans is a bait, and a search
- * is the honest version of the same promise.
+ * The photographs come from the catalogue, so what is on the front page is
+ * stock this marketplace really holds. The button opens a SEARCH rather than
+ * the single listing whose picture it borrowed — a slide that promises a
+ * category and lands on one item is a bait, and a search is the honest version
+ * of the same promise.
  */
 
 const AUTOPLAY_MS = 6000
@@ -99,15 +98,36 @@ type SlideCopy = {
   href: string
   ground: string
   alt: string
-  /** Words that decide which listings this slide may show. */
-  match: string[]
-  /** The artwork it wears when the catalogue cannot fill its shelf. */
-  fallback: string
-}
+} & (
+  /** The one composed image. */
+  | { art: string }
+  /** Preference for which listings fill this slide's shelf; it is a preference
+   *  and not a filter — see pickShelf. */
+  | { prefer: string[] }
+)
 
 const SNEAKERS_ART =
   "https://contentful.depop.com/itoh30v6uh9a/6kH5Llt5SlaiA1fsozElfZ/e824fe68ea258ea059a35a1f31616ba8/748x240__2_.jpg?fm=webp&w=1400"
 
+/**
+ * ---------------------------------------------------------------------------
+ * WHY THERE IS NO LONGER A SLIDE ABOUT JEANS
+ * ---------------------------------------------------------------------------
+ * "Blugi care au trecut proba timpului" over a stock photograph was copy
+ * written to sound like a campaign for a category this marketplace does not
+ * especially have. It read as generated, which on a second-hand site is the
+ * one thing that cannot be true — the whole proposition is that these are real
+ * objects owned by real people.
+ *
+ * What replaced it says something that is simply a FACT about the catalogue —
+ * these went up in the last few days; each of these exists once — and then
+ * proves it by showing the actual things rather than a picture of the idea of
+ * them. Nothing to disbelieve, nothing to write.
+ *
+ * The grounds are muted and natural for the same reason: three saturated
+ * panels in a row is a banner ad, and the photographs are the colour on this
+ * page.
+ */
 const COPY: SlideCopy[] = [
   {
     eyebrow: "Selecție",
@@ -116,30 +136,27 @@ const COPY: SlideCopy[] = [
     cta: "Vezi selecția",
     href: "/?q=sneakers",
     ground: "#3d4451",
-    match: ["sneaker", "adidasi", "adidași", "nike", "jordan", "shoes", "pantofi"],
-    fallback: SNEAKERS_ART,
+    art: SNEAKERS_ART,
     alt: "Sneakers second-hand",
   },
   {
-    eyebrow: "Denim",
-    title: "Blugi care au trecut proba timpului",
-    body: "Denim purtat exact cât trebuie — se poartă mai bine decât unul nou și costă mai puțin.",
-    cta: "Vezi denim",
-    href: "/?q=blugi",
-    ground: "#2b3a4a",
-    match: ["blugi", "denim", "jeans", "levi", "geac", "jachet"],
-    fallback: SNEAKERS_ART,
-    alt: "Blugi second-hand",
+    eyebrow: "Noutăți",
+    title: "Adăugate zilele astea",
+    body: "Piese urcate de curând de oameni din toată țara. Se vând o singură dată.",
+    cta: "Vezi noutățile",
+    href: "/?q=",
+    ground: "#5b5148",
+    prefer: [],
+    alt: "Anunțuri adăugate recent",
   },
   {
     eyebrow: "Unicat",
     title: "Lucruri pe care nu le are toată lumea",
-    body: "Fiecare anunț este un singur exemplar. Când pleacă, a plecat — și de aceea merită căutat.",
+    body: "Fiecare anunț este un singur exemplar. Când pleacă, a plecat.",
     cta: "Descoperă",
     href: "/?q=vintage",
-    ground: "#4a3f5c",
-    match: ["vintage", "retro", "unicat", "y2k", "second"],
-    fallback: SNEAKERS_ART,
+    ground: "#3f4a44",
+    prefer: ["vintage", "retro", "unicat", "y2k", "second", "handmade"],
     alt: "Piese vintage second-hand",
   },
 ]
@@ -162,26 +179,52 @@ const COPY: SlideCopy[] = [
  * side by side, instead of one stock-looking lifestyle photograph that could
  * have come from anywhere. Clean, and unmistakably this marketplace's.
  *
- * A slide that cannot fill its shelf falls back to the editorial artwork rather
- * than drawing one or two boxes and a gap.
+ * ---------------------------------------------------------------------------
+ * THE KEYWORDS ARE A PREFERENCE, NOT A FILTER
+ * ---------------------------------------------------------------------------
+ * They used to be a filter, and on the real catalogue that meant BOTH listing
+ * slides found fewer than three matches, both fell back to the artwork, and the
+ * front page showed the SAME photograph three times in a row. Three identical
+ * slides is worse than any crop.
+ *
+ * So each slide takes its preferred listings first and then tops up from
+ * whatever else is unused. A slide called "Unicat" showing a coat that is not
+ * literally tagged vintage is still telling the truth — it IS a single
+ * exemplar, that is the claim — whereas showing the same stock photo three
+ * times is not telling the truth about anything.
+ *
+ * A slide that STILL cannot fill three boxes is dropped from the carousel
+ * outright. One honest slide beats three copies of one.
  */
 const SHELF = 3
 
 function pickShelf(
   listings: HeroListing[],
-  words: string[],
+  prefer: string[],
   taken: Set<string>,
 ): { id: string; image: string; slug: string }[] {
   const out: { id: string; image: string; slug: string }[] = []
-  for (const l of listings) {
-    if (out.length === SHELF) break
-    if (taken.has(l.id)) continue
-    const hay = `${l.title ?? ""} ${l.brand ?? ""} ${l.category ?? ""} ${l.subcategory ?? ""}`.toLowerCase()
-    if (!words.some((w) => hay.includes(w))) continue
+
+  const consider = (l: HeroListing) => {
+    if (out.length === SHELF || taken.has(l.id)) return
     const image = cardImage(readVariants(l.image_variants), l.thumbnail_url, 0)
-    if (!image) continue
+    if (!image) return
     taken.add(l.id)
     out.push({ id: l.id, image, slug: l.slug })
+  }
+
+  // Preferred first, in catalogue order (which is newest-first).
+  if (prefer.length > 0) {
+    for (const l of listings) {
+      if (out.length === SHELF) break
+      const hay = `${l.title ?? ""} ${l.brand ?? ""} ${l.category ?? ""} ${l.subcategory ?? ""}`.toLowerCase()
+      if (prefer.some((w) => hay.includes(w))) consider(l)
+    }
+  }
+  // Then anything still unclaimed.
+  for (const l of listings) {
+    if (out.length === SHELF) break
+    consider(l)
   }
   return out
 }
@@ -189,7 +232,8 @@ function pickShelf(
 export function HeroSlides({ listings }: { listings: HeroListing[] }) {
   const slides = useMemo<Slide[]>(() => {
     const taken = new Set<string>()
-    return COPY.map((c, i) => {
+    const out: Slide[] = []
+    COPY.forEach((c, i) => {
       const base = {
         key: `slide-${i}`,
         eyebrow: c.eyebrow,
@@ -200,15 +244,19 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         ground: c.ground,
         alt: c.alt,
       }
-      // The first slide keeps its editorial artwork whatever is listed: it is
-      // the one that has to be right on an empty marketplace, and it is the one
-      // image on the page that was actually composed for this shape.
-      if (i === 0) return { ...base, kind: "art" as const, image: c.fallback }
-      const items = pickShelf(listings, c.match, taken)
-      return items.length === SHELF
-        ? { ...base, kind: "shelf" as const, items }
-        : { ...base, kind: "art" as const, image: c.fallback }
+      // The one composed image. It is the slide that has to be right on an
+      // empty marketplace, and the only picture on this page that was made for
+      // this shape rather than cropped into it.
+      if ("art" in c) {
+        out.push({ ...base, kind: "art", image: c.art })
+        return
+      }
+      const items = pickShelf(listings, c.prefer, taken)
+      // Dropped rather than filled with the artwork again — see the note above
+      // pickShelf. Three copies of one photograph was the actual complaint.
+      if (items.length === SHELF) out.push({ ...base, kind: "shelf", items })
     })
+    return out
   }, [listings])
 
   const [index, setIndex] = useState(0)

@@ -27,9 +27,10 @@ import type { Metadata, Viewport } from "next"
  * not care where it came from, which makes them a runtime concern rather than
  * a build one.
  *
- * They load from a single stylesheet below, with `display=swap` and a
- * preconnect. The cost is one request; what it buys is that Google being slow
- * can no longer stop this product shipping.
+ * They load from a single stylesheet below, appended from script with the
+ * media="print" trick so it is NOT render-blocking — see the long note beside
+ * it. The cost is one request; what it buys is that Google being slow can
+ * neither stop this product shipping nor hold its first paint hostage.
  */
 import { Inter } from "next/font/google"
 import "./globals.css"
@@ -144,15 +145,35 @@ export default function RootLayout({
             __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
           }}
         />
-        {/* The five builder families — see the note at the top of this file for
-            why they are here rather than in next/font. `display=swap` so a slow
-            stylesheet never blanks text, and the preconnects so the request
-            starts before the CSS has finished parsing. */}
+        {/* ═══════════════════════════════════════════════════════════════════
+            THE FIVE BUILDER FAMILIES, LOADED SO THEY CANNOT BLANK THE PAGE
+            ═══════════════════════════════════════════════════════════════════
+
+            This was a plain <link rel="stylesheet"> to fonts.googleapis.com,
+            and that is RENDER-BLOCKING: the browser will not paint a single
+            pixel of the document until a cross-origin stylesheet in <head> has
+            been fetched and parsed. On a slow connection — or any moment
+            Google is slow from Romania — that is a WHITE SCREEN for the whole
+            of it, followed by the entire page appearing at once. Which is
+            exactly what "I refresh storelib.com and it's empty, then everything
+            bumps in" describes.
+
+            Blocking first paint on five families that NOTHING on the
+            marketplace uses is the worst possible trade. So the sheet is
+            appended from script with `media="print"` — a stylesheet that does
+            not apply to the screen is not on the critical path — and flipped to
+            `all` on load. Same one request, same families available to the
+            OnePage builder a few milliseconds later, and the marketplace paints
+            the instant its own CSS is ready.
+
+            The preconnects stay: they cost nothing and they warm the socket the
+            script is about to use. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Montserrat:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var bf=document.createElement('link');bf.rel='stylesheet';bf.media='print';bf.onload=function(){this.onload=null;this.media='all'};bf.href='https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Montserrat:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap';document.head.appendChild(bf)}catch(e){}`,
+          }}
         />
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
