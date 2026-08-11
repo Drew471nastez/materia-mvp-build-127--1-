@@ -148,7 +148,7 @@ export const checkoutDict: Record<"ro" | "en", Record<string, string>> = {
     "checkout.keep_access": "Păstrează accesul pentru totdeauna",
     "checkout.keep_access_subtitle": "Creează un cont pentru a-ți accesa achizițiile oricând, de pe orice dispozitiv.",
     "checkout.create_account": "Creează cont",
-    "checkout.log_in": "Autentificare",
+    "checkout.log_in": "Log in",
 
     // Email options
     "checkout.need_email_again": "Ai nevoie din nou de email?",

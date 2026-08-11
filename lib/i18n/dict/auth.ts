@@ -12,7 +12,7 @@ export const authDict: Record<"ro" | "en", Record<string, string>> = {
     "auth.password_placeholder": "Parolă",
     "auth.forgot_password": "Ai uitat parola?",
     "auth.back_to_login": "Înapoi la autentificare",
-    "auth.log_in": "Autentificare",
+    "auth.log_in": "Log in",
     "auth.signing_you_in": "Te conectăm...",
     "auth.loading": "Se încarcă...",
     "auth.redirecting": "Redirecționare...",

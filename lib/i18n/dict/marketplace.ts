@@ -13,7 +13,7 @@ export const marketplaceDict: Record<"ro" | "en", Record<string, string>> = {
     "marketplace.footer_home": "Acasă",
     "marketplace.footer_discover": "Descoperă",
     "marketplace.footer_blog": "Blog",
-    "marketplace.footer_sign_in": "Autentificare",
+    "marketplace.footer_sign_in": "Log in",
     "marketplace.footer_pricing": "Prețuri",
     "marketplace.footer_features": "Funcționalități",
     "marketplace.footer_support": "Asistență",
