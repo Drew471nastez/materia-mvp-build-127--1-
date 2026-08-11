@@ -33,6 +33,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'i.pinimg.com',
       },
+      // Editorial artwork for the home hero. A host that is not listed here is
+      // not "unoptimised" — next/image REFUSES it and the browser paints its own
+      // broken-image glyph, which on the first thing anybody sees is the worst
+      // possible place for one.
+      { protocol: 'https', hostname: 'contentful.depop.com' },
       // Avatars that arrive with an OAuth identity rather than an upload.
       //
       // A host that is not listed here is not "unoptimised" — next/image REFUSES
