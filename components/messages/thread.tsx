@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, Phone, PhoneMissed, RotateCw, Send, X } from "lucide-react"
+import { ArrowLeft, BadgeCheck, Check, CheckCheck, ImageIcon, Info, ImagePlus, RotateCw, Send, X } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { SafetyNotice } from "@/components/messages/safety-notice"
@@ -15,12 +15,7 @@ import { MessageActions } from "@/components/messages/message-actions"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { ThreadDetails } from "@/components/messages/thread-details"
 import { isEncodedImage } from "@/lib/messages/image-fallback"
-import { isEncodedVoice } from "@/lib/messages/voice-message"
-import { callSummary, type CallRecord } from "@/lib/messages/call-message"
-import { formatCallDuration } from "@/lib/calls/protocol"
-import { useCall } from "@/components/calls/call-host"
-import { VoiceRecorder } from "@/components/messages/voice-recorder"
-import { VoiceBubble } from "@/components/messages/voice-bubble"
+import { legacyMediaKind } from "@/lib/messages/legacy-media"
 import { shrinkImage } from "@/lib/messages/shrink-image"
 import { createClient } from "@/lib/supabase/client"
 import { navigateBlended } from "@/lib/nav-blend"
@@ -31,7 +26,7 @@ import { cn } from "@/lib/utils"
 type Msg = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image" | "voice" | "call"
+  kind: "text" | "offer" | "image" | "legacy"
   body: string | null
   /** Signed and short-lived by the time it reaches here — what is stored is an
    *  object path in a private bucket. On an optimistic bubble it is a local
@@ -1375,7 +1370,7 @@ export function MessageThread({
       if (row.sender_id === meRef.current) return
       // An image, or a text row that is really an image filed the fallback way:
       // either needs a signed link, and only the server can mint one.
-      if (row.kind === "image" || isEncodedImage(row.body) || isEncodedVoice(row.body)) return refetch()
+      if (row.kind === "image" || isEncodedImage(row.body)) return refetch()
       setThread((t) => {
         if (!t || t.messages.some((m) => m.id === row.id)) return t
         return { ...t, messages: [...t.messages, row as Msg] }
@@ -1626,109 +1621,6 @@ export function MessageThread({
    * stays: no waveform appearing a moment later, nothing changing shape when the
    * server's copy replaces the local one.
    */
-  const sendVoice = useCallback(
-    async (blob: Blob, ms: number, peaks: number[]) => {
-      if (uploading) return
-      const tempId = nextTempId()
-      const localUrl = URL.createObjectURL(blob)
-      setUploading(true)
-      stickBottom.current = true
-      setImageError(null)
-      setThread((t) =>
-        t
-          ? {
-              ...t,
-              messages: [
-                ...t.messages,
-                {
-                  id: tempId,
-                  sender_id: t.me,
-                  kind: "voice",
-                  body: null,
-                  image_url: null,
-                  voice: { path: localUrl, ms, peaks },
-                  offer_cents: null,
-                  offer_status: null,
-                  created_at: new Date().toISOString(),
-                  read_at: null,
-                  pending: true,
-                  localKey: tempId,
-                } as any,
-              ],
-            }
-          : t,
-      )
-      try {
-        const form = new FormData()
-        // A name with an extension, because some servers and some browsers
-        // decide the type from it when the blob's own is empty.
-        form.append("file", blob, "voice.webm")
-        form.append("ms", String(Math.round(ms)))
-        form.append("peaks", peaks.map((p) => String(Math.max(0, Math.min(9, Math.round(p))))).join(""))
-        const res = await fetch(`/api/messages/${id}/voice`, {
-          method: "POST",
-          credentials: "include",
-          body: form,
-        })
-        const data = await res.json().catch(() => null)
-        if (!res.ok || !data?.message) {
-          setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
-          setImageError(data?.error || "Nu am putut trimite înregistrarea.")
-          return
-        }
-        const message = data.message
-        // SWAPPED IN PLACE, NOT RELOADED.
-        //
-        // This called `load()` and let the refetch replace the optimistic row.
-        // It cannot: `load` deliberately KEEPS every pending row, because a poll
-        // that landed mid-send would otherwise eat a message still in flight —
-        // so the temp row was re-appended by the very call that was supposed to
-        // retire it, and sat at "Se trimite…" for ever with the real message
-        // beside it. Two bubbles for one recording, one of them permanently
-        // sending. The swap has to be done here, by the only code that knows
-        // this particular send is over — exactly as sendImage does it.
-        seen.current?.add(message.id)
-        stickBottom.current = true
-        setThread((t) =>
-          t
-            ? {
-                ...t,
-                messages: t.messages.map((m) =>
-                  m.id === tempId
-                    ? {
-                        // The stored row's body is the encoded sentinel and its
-                        // kind is "text" — the decode into a voice note happens
-                        // server-side on READ (lib/messages/thread.ts), and this
-                        // is a write's answer. So it is decoded here instead,
-                        // into what is already on screen.
-                        ...message,
-                        kind: "voice" as const,
-                        body: null,
-                        image_url: null,
-                        // The local recording keeps playing. It is the same
-                        // audio as the signed URL, already in memory, and the
-                        // next read replaces it with the signed one anyway.
-                        voice: { path: localUrl, ms, peaks },
-                        localKey: tempId,
-                      }
-                    : m,
-                ),
-              }
-            : t,
-        )
-        // Revoked when the screen goes, not here: this URL is the src the
-        // bubble has just committed to.
-        blobs.current.push(localUrl)
-        announce("msg")
-      } catch {
-        setThread((t) => (t ? { ...t, messages: t.messages.filter((m) => m.id !== tempId) } : t))
-        setImageError("Nu am putut trimite înregistrarea.")
-      } finally {
-        setUploading(false)
-      }
-    },
-    [announce, id, uploading],
-  )
 
   const sendImage = useCallback(
     async (file: File) => {
@@ -2036,10 +1928,6 @@ export function MessageThread({
   }
 
   const name = thread?.other?.display_name || thread?.other?.username || "Utilizator"
-  // The call machinery lives above every screen — see components/calls/call-host.
-  // Null only if this tree is somehow mounted outside it, which the button
-  // treats as "cannot call" rather than crashing a conversation over it.
-  const call = useCall()
   // A minute hand for the presence line.
   //
   // `presenceOf` turns a timestamp into "activ acum 3 min" at RENDER time, and
@@ -2182,35 +2070,6 @@ export function MessageThread({
               )}
             </span>
           </PartyLink>
-          {/* CALLING THEM.
-
-              In the header rather than the action sheet, because it is the one
-              thing here somebody reaches for in a hurry — a buyer standing
-              outside the door, a seller about to leave. Everything behind the
-              ⋯ is deliberate and can afford a second tap; this cannot.
-
-              Never for Storelib: a platform account has no phone to ring, and
-              a button that always fails is worse than no button. */}
-          {!thread?.official && thread?.other?.id && (
-            <button
-              type="button"
-              aria-label={`Sună pe ${name}`}
-              disabled={!call || call.busy}
-              onClick={() =>
-                call?.start(
-                  {
-                    id: thread.other!.id,
-                    name: thread.other!.display_name || thread.other!.username || "Utilizator",
-                    avatar: thread.other!.avatar_url ?? null,
-                  },
-                  thread.id,
-                )
-              }
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-500 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:duration-0 active:bg-neutral-100 active:text-[#7c3aed] disabled:opacity-40"
-            >
-              <Phone className="h-[19px] w-[19px]" />
-            </button>
-          )}
           {/* Everything you might want to DO about this conversation, behind one
               button, because none of it belongs in the header itself: a row of
               icons for report and block turns a conversation with a person into
@@ -2550,72 +2409,17 @@ export function MessageThread({
                         onAnswer={answer}
                         formatPrice={formatPrice}
                       />
-                    ) : m.kind === "call" ? (
-                      // A CALL IS A RECORD, NOT A REMARK.
-                      //
-                      // Drawn as a quiet chip rather than a bubble on either
-                      // side, because it is the one entry in a conversation
-                      // nobody wrote. Giving it the sender's colour would make
-                      // "you called and they did not answer" look like
-                      // something somebody said.
-                      <div
-                        className={cn(
-                          "flex max-w-[82%] items-center gap-2 rounded-full border px-3 py-1.5",
-                          (m as any).call?.ending === "missed" ||
-                            (m as any).call?.ending === "declined" ||
-                            (m as any).call?.ending === "failed"
-                            ? "border-rose-100 bg-rose-50/70 text-rose-600"
-                            : "border-neutral-150 bg-neutral-50 text-neutral-500",
-                        )}
-                      >
-                        {(m as any).call?.ending === "ended" ? (
-                          <Phone className="h-[15px] w-[15px] shrink-0" />
-                        ) : (
-                          <PhoneMissed className="h-[15px] w-[15px] shrink-0" />
-                        )}
-                        <span className="truncate text-[13.5px] font-medium">
-                          {callSummary((m as any).call as CallRecord, mine)}
-                        </span>
-                        {(m as any).call?.ms > 0 && (
-                          <span className="shrink-0 text-[13px] tabular-nums opacity-70">
-                            {formatCallDuration((m as any).call.ms)}
-                          </span>
-                        )}
-                      </div>
-                    ) : m.kind === "voice" ? (
-                      // Long-press still reaches the action sheet, exactly as it
-                      // does on a photograph — the bubble's own controls are
-                      // taps and drags, so a press that becomes neither is still
-                      // free to mean "do something to this message".
-                      <div
-                        onPointerDown={(e) => beginPress(m, e)}
-                        onPointerMove={movePress}
-                        onPointerUp={cancelPress}
-                        onPointerCancel={cancelPress}
-                        onContextMenu={(e) => e.preventDefault()}
-                        className={cn(
-                          // THE BUBBLE THE VOICE NOTE IS DRAWN ON.
-                          //
-                          // It had none — just a bare wrapper — and VoiceBubble
-                          // draws itself for a coloured ground: white play
-                          // button, white bars, white text when the message is
-                          // yours. On no ground at all that is white on white,
-                          // so a sent voice note was completely invisible and
-                          // the row showed nothing but its timestamp. Same
-                          // corners, same colours and the same `msg-bubble` as
-                          // every other kind of message, because it is one.
-                          "msg-bubble max-w-[82%] rounded-[20px] px-3 py-2",
-                          mine
-                            ? "rounded-br-md bg-[#7c3aed] text-white"
-                            : "rounded-bl-md bg-neutral-100 text-neutral-900",
-                        )}
-                      >
-                        <VoiceBubble
-                          src={(m as any).voice?.path ?? ""}
-                          ms={(m as any).voice?.ms ?? 0}
-                          peaks={(m as any).voice?.peaks ?? []}
-                          mine={mine}
-                        />
+                    ) : m.kind === "legacy" ? (
+                      /* A ROW FROM A FEATURE THAT NO LONGER EXISTS.
+
+                         Voice notes and voice calls were removed; the rows they
+                         wrote are still in these conversations and always will
+                         be. Drawn as a quiet chip that names what happened, with
+                         nothing to press — see lib/messages/legacy-media for why
+                         they are recognised at all rather than left to render as
+                         the raw sentinel they are stored as. */
+                      <div className="flex max-w-[82%] items-center gap-2 rounded-full border border-neutral-150 bg-neutral-50 px-3 py-1.5 text-neutral-400">
+                        <span className="truncate text-[13.5px] font-medium">{m.body}</span>
                       </div>
                     ) : m.kind === "image" ? (
                       <div
@@ -2865,7 +2669,6 @@ export function MessageThread({
               button sitting in the way of its own contents. That hole is what
               the overlap was: the timer and the waveform ran underneath the
               photo and mic buttons. */}
-          <VoiceRecorder disabled={uploading} onRecorded={(blob, ms, peaks) => void sendVoice(blob, ms, peaks)} />
           <input
             ref={fileRef}
             type="file"

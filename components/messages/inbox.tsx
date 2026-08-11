@@ -37,7 +37,7 @@ export type Row = {
   official?: boolean
   lastMessage: {
     sender_id: string
-    kind: "text" | "offer" | "image" | "voice" | "call"
+    kind: "text" | "offer" | "image" | "legacy"
     body: string | null
     offer_cents: number | null
     offer_status: "pending" | "accepted" | "declined" | null
@@ -1020,12 +1020,10 @@ function MessagesList({
           // hollow rectangle on one that lacks the font. The existing camera one
           // is left alone rather than changed under a feature that is not about
           // it — but a new line does not get to add a second.
-          r.lastMessage?.kind === "call"
-            ? // Already worded by callPreview, which knows the difference
-              // between a call that happened and one that was missed.
-              r.lastMessage.body || "Apel vocal"
-            : r.lastMessage?.kind === "voice"
-            ? "Mesaj vocal"
+          r.lastMessage?.kind === "legacy"
+            ? // Already worded by legacyMediaLabel — a removed feature's row,
+              // named rather than printed. See lib/messages/legacy-media.
+              r.lastMessage.body || "Mesaj"
             : r.lastMessage?.kind === "image"
             ? r.lastMessage.body || "📷 Fotografie"
             : r.lastMessage?.kind === "offer"

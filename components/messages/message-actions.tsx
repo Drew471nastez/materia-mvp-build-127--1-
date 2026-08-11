@@ -31,7 +31,7 @@ export type ActionableMessage = {
   body: string | null
   /** "voice" behaves as a photograph does here: there is nothing to copy, and
    *  everything else — unsend, report, the timestamp — applies unchanged. */
-  kind: "text" | "offer" | "image" | "voice" | "call"
+  kind: "text" | "offer" | "image" | "legacy"
   created_at: string
   read_at: string | null
   mine: boolean

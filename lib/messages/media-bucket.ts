@@ -4,7 +4,7 @@ import type { createAdminClient } from "@/lib/supabase/admin"
 
 /**
  * ===========================================================================
- *  THE ONE BUCKET BOTH KINDS OF ATTACHMENT LIVE IN
+ *  THE BUCKET MESSAGE PHOTOGRAPHS LIVE IN
  * ===========================================================================
  *
  * THE BUG THIS EXISTS TO CLOSE: sending a voice note failed with
@@ -52,10 +52,10 @@ import type { createAdminClient } from "@/lib/supabase/admin"
  * fix in the tree that appeared to have failed for no reason.
  */
 
-/** The bucket both photographs and voice notes are written to. Private. */
+/** The bucket message photographs are written to. Private. */
 export const MESSAGES_BUCKET = "messages"
 
-/** 10MB covers a phone photograph; the voice route caps itself lower. */
+/** 10MB covers a phone photograph. */
 export const MESSAGES_BUCKET_LIMIT = 10 * 1024 * 1024
 
 /**

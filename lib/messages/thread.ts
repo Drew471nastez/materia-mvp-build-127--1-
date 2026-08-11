@@ -6,8 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 import { announceThread } from "@/lib/messages/announce"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
-import { decodeVoiceBody } from "@/lib/messages/voice-message"
-import { decodeCallBody, type CallRecord } from "@/lib/messages/call-message"
+import { legacyMediaKind, legacyMediaLabel } from "@/lib/messages/legacy-media"
 import {
   STORELIB_AVATAR_URL,
   fetchProfilesWithOfficial,
@@ -49,17 +48,8 @@ function optionalAdminClient(): SupabaseClient | null {
 export type ThreadMessage = {
   id: string
   sender_id: string
-  kind: "text" | "offer" | "image" | "voice" | "call"
+  kind: "text" | "offer" | "image" | "legacy"
   body: string | null
-  /**
-   * A voice note, decoded out of the body. `path` is a signed, short-lived URL
-   * by the time this leaves here — what is STORED is the object path in the
-   * private bucket, exactly as for a photograph. See
-   * lib/messages/voice-message.ts.
-   */
-  voice?: { path: string; ms: number; peaks: number[] } | null
-  /** A finished call, decoded out of the body. See lib/messages/call-message. */
-  call?: CallRecord | null
   /** Unsent by its author. The row survives so the conversation keeps its shape;
    *  its contents do not. */
   deleted_at?: string | null
@@ -239,10 +229,56 @@ export async function readThread({
   }
 
   const admin = createAdminClient()
+
+  // Back into reading order after the descending fetch above.
+  const page = (messagesRes.data ?? []) as unknown as ThreadMessage[]
+  const hasMore = page.length > PAGE
+  const messages = page.slice(0, PAGE).reverse().map((m) => {
+    // Two things can be hiding inside a text body, and they are told apart by
+    // their own sentinels. Decoded here, once, so nothing downstream — the
+    // client, the inbox preview, the action sheet — has to know there are
+    // several ways a piece of media can be filed.
+    // Two features that were removed left rows behind — see
+    // lib/messages/legacy-media. Recognised so they read as a line about what
+    // happened rather than as the raw sentinel they are stored as.
+    const legacy = m.kind === "text" ? legacyMediaKind(m.body) : null
+    if (legacy) {
+      return { ...m, kind: "legacy" as const, body: legacyMediaLabel(legacy), image_url: null }
+    }
+    const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
+    if (encoded) {
+      return { ...m, kind: "image" as const, body: encoded.caption, image_url: encoded.path }
+    }
+    return { ...m, image_url: m.image_url ?? null }
+  })
+  // Photographs are signed in one round trip for the whole page.
+  const paths = [
+    ...messages
+      .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
+      .map((m) => m.image_url as string),
+  ]
+  /**
+   * SIGNED WHILE THE LISTING IS BEING FETCHED, NOT AFTER IT.
+   *
+   * This used to run below, once the listing, the profiles and the system id had
+   * all come back — so opening a conversation was two waits in a row that have
+   * nothing to say to each other: storage does not care what the listing is
+   * called and the listing does not care what the photographs are. On a phone
+   * that is the difference between one round trip and two before the first
+   * picture can start downloading.
+   *
+   * Started here and awaited with the rest. Nothing below it depends on the
+   * links until they are applied, which is the definition of work that should
+   * be running alongside something else.
+   */
+  const signing = paths.length
+    ? admin.storage.from("messages").createSignedUrls(paths, 15 * 60)
+    : Promise.resolve({ data: null })
+
   const otherId = convo.buyer_id === userId ? convo.seller_id : convo.buyer_id
   // No listing_id means a system thread: there is nothing to look up, and asking
   // products for a null id would only cost a round trip to learn that.
-  const [{ data: listing }, profiles, systemId] = await Promise.all([
+  const [{ data: listing }, profiles, systemId, { data: signed }] = await Promise.all([
     convo.listing_id
       ? admin
           .from("products")
@@ -252,6 +288,7 @@ export async function readThread({
       : Promise.resolve({ data: null }),
     fetchProfilesWithOfficial(admin, [otherId]),
     getSystemUserId(admin),
+    signing,
   ])
   const other = profiles.get(otherId) ?? null
 
@@ -262,65 +299,25 @@ export async function readThread({
   // A photo stored the fallback way is a text row with its path in the body.
   // Decoded here, once, so nothing downstream — the client, the inbox preview,
   // the action sheet — has to know there are two ways a photo can be filed.
-  // Back into reading order after the descending fetch above.
-  const page = (messagesRes.data ?? []) as unknown as ThreadMessage[]
-  const hasMore = page.length > PAGE
-  const messages = page.slice(0, PAGE).reverse().map((m) => {
-    // Two things can be hiding inside a text body, and they are told apart by
-    // their own sentinels. Decoded here, once, so nothing downstream — the
-    // client, the inbox preview, the action sheet — has to know there are
-    // several ways a piece of media can be filed.
-    const voice = m.kind === "text" ? decodeVoiceBody(m.body) : null
-    if (voice) {
-      return { ...m, kind: "voice" as const, body: null, image_url: null, voice }
-    }
-    // A third sentinel, and the same argument as the other two: a call record is
-    // not a new `kind` in the database, so nothing downstream has to be taught
-    // that one exists.
-    const call = m.kind === "text" ? decodeCallBody(m.body) : null
-    if (call) {
-      return { ...m, kind: "call" as const, body: null, image_url: null, call }
-    }
-    const encoded = m.kind === "text" ? decodeImageBody(m.body) : null
-    if (encoded) {
-      return { ...m, kind: "image" as const, body: encoded.caption, image_url: encoded.path }
-    }
-    return { ...m, image_url: m.image_url ?? null }
-  })
-  // Photographs and voice notes live in the same private bucket and are signed
-  // in the same round trip. Splitting them into two calls would double the
-  // latency of opening a thread to no end.
-  const paths = [
-    ...messages
-      .filter((m) => m.kind === "image" && m.image_url && !m.image_url.startsWith("http"))
-      .map((m) => m.image_url as string),
-    ...messages
-      .filter((m) => m.kind === "voice" && m.voice?.path && !m.voice.path.startsWith("http"))
-      .map((m) => (m.voice as { path: string }).path),
-  ]
   if (paths.length) {
-    // Fifteen minutes, not an hour.
-    //
-    // A signed URL is a bearer token: anyone who has the string can fetch that
-    // photograph, with no session and no membership check, for as long as it is
-    // valid. It leaks the way every URL leaks — a screenshot of the address
-    // bar, a "copy image address", a browser extension, an analytics script
-    // that records resource loads — and an hour of validity is an hour of
-    // somebody else being able to open a private picture.
-    //
-    // Nothing needs an hour. A thread re-reads itself every 2.5 to 30 seconds
-    // and re-signs on each read, so links are replaced continuously while the
-    // screen is open; the only thing this window has to cover is a tab left
-    // untouched with the socket down, and fifteen minutes covers that several
-    // times over. Shortening it costs nothing and removes 45 minutes of reach
-    // from every link that gets out.
-    const { data: signed } = await admin.storage.from("messages").createSignedUrls(paths, 15 * 60)
+    /**
+     * Fifteen minutes, not an hour.
+     *
+     * A signed URL is a bearer token: anyone who has the string can fetch that
+     * photograph, with no session and no membership check, for as long as it is
+     * valid. It leaks the way every URL leaks — a screenshot of the address bar,
+     * a "copy image address", a browser extension, an analytics script that
+     * records resource loads — and an hour of validity is an hour of somebody
+     * else being able to open a private picture.
+     *
+     * Nothing needs an hour. A thread re-reads itself every 2.5 to 30 seconds
+     * and re-signs on each read, so links are replaced continuously while the
+     * screen is open; the only thing this window has to cover is a tab left
+     * untouched with the socket down.
+     */
     const byPath = new Map((signed ?? []).map((s) => [s.path as string, s.signedUrl]))
     for (const m of messages) {
       if (m.kind === "image" && m.image_url) m.image_url = byPath.get(m.image_url) ?? null
-      if (m.kind === "voice" && m.voice?.path) {
-        m.voice = { ...m.voice, path: byPath.get(m.voice.path) ?? "" }
-      }
     }
   }
 
