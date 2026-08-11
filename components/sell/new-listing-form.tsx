@@ -36,6 +36,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { processListingImage, ImageRejected } from "@/lib/images/pipeline"
 import type { ImageVariant } from "@/lib/images/variants"
 import { indexAtPoint, moveItem, type Box } from "@/lib/sell/reorder"
+import { InfoTip } from "@/components/ui/info-tip"
 import { cn } from "@/lib/utils"
 
 type Photo = {
@@ -107,17 +108,29 @@ function OptionalTag() {
 }
 
 /** The heading of one card, with an optional right-hand slot (the photo
- *  count, so far). */
+ *  count, so far) and an optional sentence explaining what is being asked.
+ *
+ *  `info-tip-host` is what lets the mark fade up when the cursor is anywhere
+ *  near the heading rather than only when it is already on the mark — see the
+ *  rules in globals.css. */
 function SectionHeading({
   children,
   trailing,
+  info,
 }: {
   children: React.ReactNode
   trailing?: React.ReactNode
+  /** One sentence. Rendered behind a mark that appears on hover; see
+   *  components/ui/info-tip.tsx for why it is not a permanent line of grey
+   *  text under the heading. */
+  info?: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">{children}</h2>
+    <div className="info-tip-host flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-1.5 text-[16px] font-semibold tracking-[-0.015em] text-neutral-900">
+        {children}
+        {info && <InfoTip>{info}</InfoTip>}
+      </h2>
       {trailing}
     </div>
   )
@@ -2416,6 +2429,7 @@ export function NewListingForm({
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
+          info="Prima fotografie devine coperta anunțului în feed. Fotografiază la lumină naturală, pe fundal simplu, și arată eventualele defecte — anunțurile cu poze clare se vând de câteva ori mai repede."
         >
           Fotografii
         </SectionHeading>
@@ -2568,11 +2582,38 @@ export function NewListingForm({
               }}
               aria-label="Adaugă fotografii"
               className={cn(
-                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl border",
+                /* DASHED, and that is not a decoration.
+
+                   A solid hairline is the border every FILLED card on this form
+                   already wears — the price card, the details card, the tile a
+                   photograph lands in. So an empty slot drawn with the same
+                   solid line reads as a card that exists and happens to be
+                   blank, which is why the grid looked like three broken tiles
+                   rather than three places to put something.
+
+                   A dashed outline is the one border convention that means "not
+                   filled in yet", and it is what every drop target on the web
+                   has used for twenty years. The moment a photograph arrives the
+                   tile becomes solid, because by then it IS a card. */
+                "flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-2xl",
+                "border-2 border-dashed",
                 "transition-[transform,background-color,border-color] duration-150 active:scale-[0.97]",
                 n === 0
-                  ? "border-neutral-300 bg-neutral-50 active:border-neutral-400 active:bg-neutral-100"
-                  : "border-neutral-200 bg-neutral-50/60 active:border-neutral-300 active:bg-neutral-100",
+                  ? "border-neutral-300 bg-neutral-50/70 active:border-neutral-500 active:bg-neutral-100"
+                  : "border-neutral-200 bg-neutral-50/40 active:border-neutral-400 active:bg-neutral-100",
+                // IN INK, not in violet — and that is a rule about this grid
+                // rather than a preference. Every other tile here is a
+                // photograph, and a saturated accent laid over a wall of
+                // photographs competes with the only thing on the screen that
+                // is meant to be looked at. The cover badge and the cover ring
+                // are black for the same reason; an empty slot that lit up
+                // violet under the cursor would have been the one violet object
+                // in a grid that has deliberately never had one.
+                //
+                // A pointer still gets the state: on a row of identical
+                // rectangles, the one under the cursor being the only one
+                // darkened is what makes the grid legible as a set of targets.
+                "[@media(hover:hover)]:hover:border-neutral-400 [@media(hover:hover)]:hover:bg-neutral-100/70",
               )}
             >
               <span
@@ -2648,7 +2689,9 @@ export function NewListingForm({
       <div className="min-w-0">
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
-        <SectionHeading>Preț</SectionHeading>
+        <SectionHeading info="Cumpărătorul vede prețul cu comisionul de protecție inclus, așa că suma afișată în feed este puțin mai mare decât cea pe care o scrii aici. Tu primești exact cât ai cerut.">
+          Preț
+        </SectionHeading>
         {/* ONE FIELD. The comparison price is gone from the whole app — a
             second-hand marketplace has no list price to discount FROM, so the
             "was" figure was another number the same seller typed and the
@@ -2702,7 +2745,9 @@ export function NewListingForm({
 
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
-        <SectionHeading>Detalii</SectionHeading>
+        <SectionHeading info="Categoria decide ce se întreabă mai jos și unde apare anunțul în căutări. Alege-o prima — restul întrebărilor se potrivesc după ea.">
+          Detalii
+        </SectionHeading>
         {/* ═══════════════════════════════════════════════════════════════════
             THE CATEGORY IS THE ONLY QUESTION UNTIL IT IS ANSWERED
             ═══════════════════════════════════════════════════════════════════

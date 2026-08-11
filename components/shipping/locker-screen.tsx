@@ -9,6 +9,7 @@ import { ArrowLeft, List, Loader2, Map as MapIcon, Search } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { LocationPrompt } from "@/components/shipping/location-prompt"
 import { LockerDetails } from "@/components/shipping/locker-details"
+import { useWideViewport } from "@/lib/use-wide-viewport"
 import { LockerMapPicker } from "@/components/shipping/locker-map-picker"
 import type { LockerOption } from "@/components/shipping/locker-picker"
 import { useGeolocation } from "@/components/shipping/use-geolocation"
@@ -85,6 +86,8 @@ export function LockerScreen({
   const [error, setError] = useState<string | null>(null)
   /** Highlighted, not chosen. Selection happens in the sheet. */
   const [focused, setFocused] = useState<LockerOption | null>(null)
+  // Which of the two answers this screen has is on show — see the sheet below.
+  const wide = useWideViewport()
   const [view, setView] = useState<"map" | "list">("map")
   const geo = useGeolocation()
   const seq = useRef(0)
@@ -381,12 +384,19 @@ export function LockerScreen({
         </div>
       </div>
 
-      {/* ── The tapped locker, on mobile ───────────────────────────────────── */}
+      {/* ── The tapped locker, on mobile ─────────────────────────────────────
+
+          CLOSED on a wide screen, not merely hidden on one. This used to hand
+          the sheet `className="md:hidden"`, which hides the CARD and nothing
+          else — so on a desktop, clicking a locker opened a full-screen scrim
+          over the map with no panel on it, while the real desktop answer (the
+          docked card below) appeared underneath the dim. A component told not
+          to be here must not be opened here; a display rule cannot express
+          that, because the scrim is not the thing it is applied to. */}
       <BottomSheet
-        open={Boolean(focused) && view === "map"}
+        open={Boolean(focused) && view === "map" && !wide}
         onClose={() => setFocused(null)}
         label="Detalii easybox"
-        className="md:hidden"
       >
         {focused && (
           <div className="px-4 pb-2">

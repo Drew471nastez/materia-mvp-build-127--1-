@@ -562,7 +562,19 @@ check(
   (() => {
     // It is the decision people arrive with and the one they change most; it
     // was sitting under eight rows of pickers.
-    return form.indexOf("<SectionHeading>Preț</SectionHeading>") < form.indexOf("<SectionHeading>Detalii</SectionHeading>")
+    //
+    // Matched on the heading TEXT rather than on the exact element. This asked
+    // for the literal `<SectionHeading>Preț</SectionHeading>` and so began
+    // failing the day the component grew an `info` prop and the call sites went
+    // multi-line — with `indexOf` returning -1 for both sides, which compares
+    // false and reports the ordering as wrong. The ordering had not changed.
+    const at = (word: string) => {
+      const m = new RegExp(`<SectionHeading[^>]*>\\s*${word}\\s*<`).exec(form)
+      return m ? m.index : -1
+    }
+    const price = at("Preț")
+    const details = at("Detalii")
+    return price >= 0 && details >= 0 && price < details
   })(),
 )
 

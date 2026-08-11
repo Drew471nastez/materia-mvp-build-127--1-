@@ -410,6 +410,201 @@ check(
     "        finds it.",
 )
 
+// ---------------------------------------------------------------------------
+console.log("\nA sheet is a phone shape")
+// ---------------------------------------------------------------------------
+
+const sheet = code("components/ui/bottom-sheet.tsx")
+
+check(
+  "above 768px it is a centred dialog, not a panel glued to the bottom edge",
+  (() => {
+    // Every reason a sheet exists is a phone reason: the bottom edge is where a
+    // thumb reaches, the handle is for a flick, 86dvh is because the top of a
+    // phone is the status bar. On a 27-inch monitor none of those hold and what
+    // is left is a 512px panel stuck to the bottom of a 2000px window.
+    return (
+      /useWideViewport\(\)/.test(sheet) &&
+      /wide \? DIALOG_HIDDEN : SHEET_HIDDEN/.test(sheet) &&
+      /items-center justify-center/.test(sheet)
+    )
+  })(),
+  "        components/ui/bottom-sheet.tsx",
+)
+
+check(
+  "the drag is not merely inert on a pointer — it is not attached",
+  /onPointerDown=\{wide \? undefined : onPointerDown\}/.test(sheet),
+  "        A mouse-down that starts a gesture a pointer can never finish is how\n" +
+    "        a dialog ends up half-dismissed under a cursor that was selecting text.",
+)
+
+check(
+  "and the grab handle is replaced by a control a pointer can use",
+  /wide \? \(/.test(sheet) && /aria-label="Închide"/.test(sheet) && /data-sheet-handle/.test(sheet),
+  "        components/ui/bottom-sheet.tsx",
+)
+
+check(
+  "Escape closes it",
+  /e\.key === "Escape"/.test(sheet),
+  "        A phone has a back gesture and a scrim under a thumb. A keyboard has\n" +
+    "        neither, and the actions sheet has no visible close control at all.",
+)
+
+check(
+  "the dialog gets its own curve, not the sheet's spring",
+  (() => {
+    // A sheet's spring is front-loaded because it models an object thrown up
+    // from an edge. A dialog does not travel, so the same curve reads as
+    // something dropped rather than opened.
+    return /const DIALOG_IN =/.test(sheet) && /const DIALOG_OUT_MS = \d+/.test(sheet) && /outMs/.test(sheet)
+  })(),
+  "        components/ui/bottom-sheet.tsx",
+)
+
+check(
+  "a sheet row's hover is gated on there being a pointer, not on a width",
+  /\[@media\(hover:hover\)\]:hover:/.test(sheet),
+  "        `md:hover:` lights the row on tap on every tablet, which is the same\n" +
+    "        mistake as shipping the sheet itself to a desktop.",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nThe avatar in the corner of a thumbnail")
+// ---------------------------------------------------------------------------
+
+check(
+  "the corner badge is one element, not an avatar inside a shrink-to-fit box",
+  (() => {
+    // THE OVAL. An absolutely-positioned <span> shrinks to fit its contents,
+    // and its contents were an inline-block — which sits on a text baseline. So
+    // the box was 19px wide and 19px PLUS the descender tall, `rounded-full`
+    // resolved against two different numbers, and the white ring traced an egg.
+    return (
+      /size=\{19\}\s*\n\s*className="absolute -bottom-0\.5 -right-0\.5 ring-2 ring-white"/.test(deskList) &&
+      !/<span className="absolute -bottom-0\.5 -right-0\.5[^"]*rounded-full/.test(deskList)
+    )
+  })(),
+  "        components/messages/desktop-conversation-list.tsx",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nSeen, and the column that never heard about it")
+// ---------------------------------------------------------------------------
+
+const threadLib = code("lib/messages/thread.ts")
+
+check(
+  "reading a thread tells the reader's own inbox, not only the sender's thread",
+  (() => {
+    // Marking read changes two screens. The sender's thread learned it; the
+    // READER's conversation list did not, so the row you were at that moment
+    // reading stayed washed violet with an unread dot on it.
+    const block = threadLib.slice(threadLib.indexOf("announceThread(id, \"read\")"))
+    return /announceInbox\(userId\)/.test(block.slice(0, 900))
+  })(),
+  "        lib/messages/thread.ts — and only when rows actually changed, or an\n" +
+    "        open thread re-reading itself would ring it several times a minute.",
+)
+
+check(
+  "the desktop column is live, like the phone's has always been",
+  (() => {
+    // It was written before the inbox channel existed and was left on a
+    // twenty-second interval — which on a phone is nearly invisible and on a
+    // desktop is a column sitting beside the conversation it describes,
+    // disagreeing with it for up to twenty seconds.
+    return /channel\(`inbox:\$\{viewerId\}`/.test(deskList) && /removeChannel\(channel\)/.test(deskList)
+  })(),
+  "        components/messages/desktop-conversation-list.tsx",
+)
+
+check(
+  "and the conversation open beside it is never drawn as unread",
+  /const unread = r\.unread > 0 && !isActive/.test(deskList),
+  "        The server marks it read as the pane opens, but that is a round trip,\n" +
+    "        and for that round trip the row contradicted the screen next to it.",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nNotifications say things in one colour")
+// ---------------------------------------------------------------------------
+
+check(
+  "no violet on a notification verb",
+  (() => {
+    // A third of the sentences in the feed were coloured for no reason a reader
+    // could infer, a pixel away from the violet unread wash meaning something
+    // else. The accepted offer keeps its emerald: it is the only row in the
+    // list that means money is about to move.
+    const view = code("lib/messages/notification-view.ts")
+    return !/#7c3aed/.test(view) && /text-emerald-600/.test(view)
+  })(),
+  "        lib/messages/notification-view.ts",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nAn empty photo slot looks empty")
+// ---------------------------------------------------------------------------
+
+const sellForm = code("components/sell/new-listing-form.tsx")
+
+check(
+  "the picker's empty tiles are dashed, not the solid hairline a filled card wears",
+  /border-2 border-dashed/.test(sellForm),
+  "        A solid border is what every FILLED card on this form has, so an empty\n" +
+    "        slot drawn the same way reads as a broken card rather than a target.",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nThe \"i\" beside a heading")
+// ---------------------------------------------------------------------------
+
+const tip = code("components/ui/info-tip.tsx")
+
+check(
+  "the bubble is always mounted, so it can fade in both directions",
+  (() => {
+    // It is opened by a HOVER. An unmounted element can only pop, which would
+    // pop on every pass of the cursor.
+    return !/\{open && </.test(tip) && /role="tooltip"/.test(tip)
+  })(),
+  "        components/ui/info-tip.tsx",
+)
+
+check(
+  "and visibility is in the transition with a delay, or the fade never plays",
+  /visibility 0s linear 200ms/.test(css) && /visibility 0s linear 0s/.test(css),
+  "        A `visibility: hidden` applied at once cuts the exit short; applied\n" +
+    "        never, the closed bubble stays hit-testable and readable to a screen\n" +
+    "        reader.",
+)
+
+check(
+  "the mark is hidden at rest only where a pointer exists to reveal it",
+  (() => {
+    // A control invisible until an event that cannot happen is a control that
+    // does not exist. `@media (hover: hover)` rather than a breakpoint, because
+    // a tablet is a wide screen with no pointer.
+    const i = css.indexOf(".info-tip-mark {\n    opacity: 0;\n  }")
+    const guard = css.lastIndexOf("@media (hover: hover) and (pointer: fine)", i)
+    return i > 0 && guard > 0 && i - guard < 300 && /@media \(hover: none\) \{\s*\.info-tip-mark \{\s*opacity: 1;/.test(css)
+  })(),
+  "        app/globals.css",
+)
+
+check(
+  "a tap elsewhere closes it",
+  (() => {
+    // Hover handles this for free on a pointer. On touch there is no "untap",
+    // so without this the bubble sits over whatever the person tries to reach
+    // next and the form appears stuck.
+    return /addEventListener\("pointerdown", away\)/.test(tip)
+  })(),
+  "        components/ui/info-tip.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

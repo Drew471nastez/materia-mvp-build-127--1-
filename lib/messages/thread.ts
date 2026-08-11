@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 
-import { announceThread } from "@/lib/messages/announce"
+import { announceInbox, announceThread } from "@/lib/messages/announce"
 import { decodeImageBody } from "@/lib/messages/image-fallback"
 import { legacyMediaKind, legacyMediaLabel } from "@/lib/messages/legacy-media"
 import {
@@ -226,6 +226,25 @@ export async function readThread({
   const readRows = (readRes as { data?: unknown[] } | null)?.data
   if (markRead && Array.isArray(readRows) && readRows.length > 0) {
     void announceThread(id, "read")
+    /**
+     * AND THE READER'S OWN INBOX, which nothing was telling.
+     *
+     * Marking messages read changes two screens, not one. The sender's thread
+     * learns it above. The READER's conversation list is the other, and it is
+     * the one that was left stale: the unread wash and the violet dot on the row
+     * you are at that moment reading stayed lit until that list happened to poll
+     * — twenty seconds on a desktop, where the list is not somewhere you
+     * navigated away from but a column sitting six inches from the conversation
+     * it describes. Two panes of the same screen disagreeing about whether you
+     * have read something is the most literal possible version of "seen is
+     * buggy".
+     *
+     * Same doorbell as an arriving message, because it is the same question:
+     * something about my inbox changed, look again. Guarded by the same
+     * "rows actually changed" check as the line above, so an open thread
+     * re-reading itself every few seconds does not ring anything.
+     */
+    void announceInbox(userId)
   }
 
   const admin = createAdminClient()

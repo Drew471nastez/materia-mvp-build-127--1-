@@ -7,6 +7,7 @@ import { BadgeCheck, Bell, Bookmark, MessageSquare, Search } from "lucide-react"
 
 import { useLocale } from "@/components/locale-provider"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
+import { createClient } from "@/lib/supabase/client"
 import { hiddenConversations } from "@/lib/messages/hidden-conversations"
 import { useWideViewport } from "@/lib/use-wide-viewport"
 import type { InboxConversation } from "@/lib/messages/list"
@@ -156,13 +157,53 @@ export function DesktopConversationList({
     const tick = window.setInterval(maybeLoad, MIN_INTERVAL_MS)
     window.addEventListener("focus", maybeLoad)
     document.addEventListener("visibilitychange", onVisible)
+
+    /**
+     * LIVE, and this column was the one that never was.
+     *
+     * The phone's inbox has subscribed to `inbox:<user>` since the day that
+     * channel was added; this one was written earlier and was left on a
+     * twenty-second interval. On a phone that floor is nearly invisible,
+     * because the list is a screen you navigate to and it refreshes on the way
+     * in. On a desktop the list is NOT a screen you arrive at — it is a column
+     * sitting beside the conversation you are reading, permanently on display,
+     * for as long as the window is open. So for up to twenty seconds it showed:
+     *
+     *   · the unread dot on the thread you were at that moment reading,
+     *   · a reply that had already arrived and was visible in the pane beside
+     *     it, still absent from the row that describes it,
+     *   · and the previous last-message preview under a conversation whose
+     *     newest message was on screen four inches to the right.
+     *
+     * Two panes of one screen disagreeing, which is what "seen is buggy, never
+     * up to date" describes exactly. The server rings this on both events that
+     * change the list: a message arriving (announceInbox in the send route) and
+     * messages being READ (lib/messages/thread.ts, added with this).
+     *
+     * The interval stays. This is a doorbell, not a replacement for asking — a
+     * socket that never connects leaves the column no worse than it was.
+     */
+    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
+    if (viewerId) {
+      channel = createClient()
+        .channel(`inbox:${viewerId}`, { config: { broadcast: { self: false } } })
+        .on("broadcast", { event: "changed" }, () => {
+          // Straight past the freshness floor: something has definitely
+          // changed, which is the one case that floor exists to guess at.
+          lastLoadedAt.current = 0
+          maybeLoad()
+        })
+        .subscribe()
+    }
+
     return () => {
       alive = false
       window.clearInterval(tick)
       window.removeEventListener("focus", maybeLoad)
       document.removeEventListener("visibilitychange", onVisible)
+      if (channel) void createClient().removeChannel(channel)
     }
-  }, [wide])
+  }, [wide, viewerId])
 
   // The dot on the Notificări segment. One head count, on the screen that is
   // actually drawn — the phone's inbox is mounted at the same time and would
@@ -408,7 +449,16 @@ export function DesktopConversationList({
             {visible.map((r) => {
               const who = r.other?.display_name || r.other?.username || "Utilizator"
               const isActive = r.id === activeId
-              const unread = r.unread > 0
+              // THE ONE YOU ARE READING IS NOT UNREAD.
+              //
+              // The server marks it read the moment the pane beside this opens
+              // it, and this column now hears about that over the inbox channel
+              // — but "now" is a round trip, and for that round trip the row was
+              // washed violet with an unread dot on it while its entire contents
+              // were legible six inches to the right. The count is authoritative
+              // for every row except the open one, where the screen already
+              // knows better than the last payload does.
+              const unread = r.unread > 0 && !isActive
               return (
                 <li key={r.id} ref={isActive ? activeRef : undefined}>
                   <Link
@@ -469,18 +519,35 @@ export function DesktopConversationList({
                           className="rounded-xl"
                         />
                       )}
+                      {/* NO WRAPPER, and that is the whole of the oval bug.
+
+                          This used to be an absolutely-positioned <span> with
+                          the ring on it, holding the avatar. An absolute box
+                          shrinks to fit its contents — and its contents were an
+                          INLINE-BLOCK, which sits on a text baseline. So the box
+                          was 19px wide and 19px PLUS THE DESCENDER SPACE tall,
+                          `rounded-full` resolved against those two different
+                          numbers, and the white ring traced the result: an egg.
+                          Nothing was wrong with the avatar; it was the invisible
+                          line box around it.
+
+                          One element instead of two. The size is written as an
+                          inline width/height, so the circle is 19 by 19 by
+                          construction and there is no shrink-to-fit anywhere for
+                          a line box to widen. The ring is a box-shadow, so
+                          `overflow-hidden` inside cannot clip it.
+
+                          Nineteen pixels, and this was pulling the seller's
+                          full-resolution upload for each one — twenty rows of
+                          camera photograph to fill a corner badge. */}
                       {r.listing?.thumbnail_url && (
-                        <span className="absolute -bottom-0.5 -right-0.5 overflow-hidden rounded-full ring-2 ring-white">
-                          {/* Nineteen pixels, and this was pulling the seller's
-                              full-resolution upload for each one — twenty rows
-                              of camera photograph to fill a corner badge. */}
-                          <InitialAvatar
-                            name={who}
-                            url={r.other?.avatar_url}
-                            seed={r.other?.id}
-                            size={19}
-                          />
-                        </span>
+                        <InitialAvatar
+                          name={who}
+                          url={r.other?.avatar_url}
+                          seed={r.other?.id}
+                          size={19}
+                          className="absolute -bottom-0.5 -right-0.5 ring-2 ring-white"
+                        />
                       )}
                     </span>
 

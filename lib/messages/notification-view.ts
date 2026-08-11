@@ -38,10 +38,23 @@ export function ago(iso: string): string {
 }
 
 /**
- * The verb, and the one colour worth spending.
+ * The verb, and the one colour left.
  *
- * Only the rows that are good news or money get an accent — an accepted offer
- * is the only notification that means money is about to move.
+ * ---------------------------------------------------------------------------
+ * THE VIOLET IS GONE, and it was doing less than it looked like it was
+ * ---------------------------------------------------------------------------
+ * A like and a trending row used to render their verb in the brand violet. The
+ * intent was emphasis; the effect was a feed in which a third of the sentences
+ * were coloured for no reason a reader could infer — the violet did not mean
+ * "urgent", it did not mean "yours", and it did not mean "act on this". It was
+ * decoration on the one screen that is nothing but a list of sentences, and
+ * beside the violet unread wash behind the row it was two different violets
+ * saying two different things a pixel apart.
+ *
+ * The accepted offer keeps its emerald, and that is the distinction: it is the
+ * only notification in the list that means MONEY IS ABOUT TO MOVE. A colour
+ * that appears on one row in fifty is read as information. One that appears on
+ * every third row is read as a theme.
  */
 export function notifText(kind: Notif["kind"]): { verb: string; accent?: string } {
   switch (kind) {
@@ -56,12 +69,12 @@ export function notifText(kind: Notif["kind"]): { verb: string; accent?: string 
     case "message":
       return { verb: "ți-a trimis un mesaj" }
     case "like":
-      return { verb: "ți-a apreciat anunțul", accent: "text-[#7c3aed]" }
+      return { verb: "ți-a apreciat anunțul" }
     // The only row with no actor — nobody DID it, it is a fact about the
     // listing. The name slot renders "Storelib" through the same fallback the
     // other kinds use for a deleted account, which reads correctly here.
     case "trending":
-      return { verb: "anunțul tău este în tendințe", accent: "text-[#7c3aed]" }
+      return { verb: "anunțul tău este în tendințe" }
   }
 }
 
