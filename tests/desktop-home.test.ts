@@ -56,8 +56,12 @@ check(
     // personal rows interrupts the part of the page that is about you, and it
     // belongs where the browsing has run out.
     const order = [
-      "<HeroSlides",
+      // The personal row is ABOVE the hero: a returning shopper came back to
+      // carry on, and making them scroll past a campaign to reach the row that
+      // remembers what they were doing puts the house's business ahead of
+      // theirs. It is gated, so a first visit still opens on the hero.
       "Bazat pe vizualizările tale recente",
+      "<HeroSlides",
       "Vizualizate recent",
       "Sugestii pentru tine",
       "<YouMightBeInto",
@@ -302,19 +306,33 @@ check(
 )
 
 check(
-  "the middle slide is pale, and its ink flips with it",
+  "the tone reaches the shelf captions, not just the headline",
   (() => {
-    // Three dark panels in a row meant the carousel moved and nothing appeared
-    // to change — the only way to tell you had advanced was to read the
-    // headline again. Dark, light, dark is a rhythm you see at a glance.
+    // A pale ground shipped for one deploy and the three cards' captions stayed
+    // WHITE: "Guess / 372 RON" invisible on bone. The products were on the
+    // slide and their names and prices were not. A tone that covers the
+    // headline but not the things it introduces is a half-applied theme, and
+    // this is the guard that says so — whatever colour the grounds are today.
     return (
-      /ground: "#f2efe9"/.test(hero) &&
-      /tone: "dark"/.test(hero) &&
-      // Every piece of ink on the slide asks, not just the headline.
-      (hero.match(/s\.tone === "dark"/g) ?? []).length >= 4 &&
+      /tone=\{s\.tone\}/.test(hero) &&
+      /tone\?: "light" \| "dark"/.test(hero) &&
+      // Both caption lines ask, not just one of them — inside ShelfCard, since
+      // the copy half uses the same pattern for its headline and body.
+      (() => {
+        const card = hero.slice(hero.indexOf("function ShelfCard("), hero.indexOf("function HeroArrow("))
+        return (card.match(/tone === "dark" \? "text-neutral-(500|900)"/g) ?? []).length === 2
+      })() &&
       // And the arrow over a pale ground is dark, not a white smudge.
       /tone === "dark"[\s\S]{0,60}bg-neutral-900\/85 text-white/.test(hero)
     )
+  })(),
+)
+
+check(
+  "the three grounds are three different colours",
+  (() => {
+    const grounds = [...hero.matchAll(/ground: "(#[0-9a-f]{6})"/g)].map((m) => m[1])
+    return grounds.length === 3 && new Set(grounds).size === 3
   })(),
 )
 
@@ -360,13 +378,14 @@ check(
     return (
       /const MIN_HISTORY = 5/.test(home) &&
       /const personal = views\.length >= MIN_HISTORY/.test(home) &&
-      // Both rows inside the one gate, and the gate before the heading.
-      /\{personal && \(/.test(home) &&
+      // TWO gates now, not one block — the rows sit either side of the hero, so
+      // they cannot share a fragment. Each must carry its own.
+      (home.match(/\{personal && \(/g) ?? []).length === 2 &&
       home.indexOf("{personal && (") < home.indexOf("Bazat pe vizualizările tale recente") &&
-      home.indexOf("</>") > home.indexOf("Vizualizate recent") &&
-      // The pills are OUTSIDE it — that section is the one that carries an early
-      // visit and must never be gated on history it does not have.
-      home.indexOf("<YouMightBeInto") > home.indexOf("</>")
+      home.lastIndexOf("{personal && (") < home.indexOf("Vizualizate recent") &&
+      // The pills are OUTSIDE both — that section is the one that carries an
+      // early visit and must never be gated on history it does not have.
+      home.indexOf("<YouMightBeInto") > home.lastIndexOf("{personal && (")
     )
   })(),
   "        components/explore/home/desktop-home.tsx",

@@ -15,6 +15,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { useUrlSearchParams } from "@/lib/use-url-search-params"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { cn } from "@/lib/utils"
+import { DEPARTMENTS, categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,162 +28,76 @@ import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings,
 import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
+/** One glyph per department, so the Browse menu is not five identical rows. */
+const DEPARTMENT_ICONS: Record<string, typeof LayoutGrid> = {
+  women: Sparkles,
+  men: ShoppingBag,
+  kids: Gift,
+  entertainment: Music,
+  hobby: Lightbulb,
+}
+
 const LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
 
-// Desktop category bar with icons
-const DEFAULT_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid, badge: null },
-  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
-  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
-  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
-  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
-  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
+/**
+ * ===========================================================================
+ *  THE CATEGORY BAR AND THE BROWSE MENU ARE THE MARKETPLACE'S OWN TAXONOMY
+ * ===========================================================================
+ *
+ * These were three hand-written lists — All / Audio & Music / Business & Money
+ * / Other / Freebies / AI in the bar, and Design / Development / Marketing /
+ * Business / AI / Social Media / Music & Audio / Photography / Video & Film /
+ * Productivity in the Browse menu. Every one of them is a category from the
+ * DIGITAL-PRODUCTS product this codebase used to be. None of them is a thing
+ * anybody can list on Storelib.
+ *
+ * So a shopper's first navigation offered ten doors, all of which opened onto
+ * an empty room, while the five departments that actually hold the stock —
+ * the ones the sell form makes somebody choose from — appeared nowhere.
+ *
+ * They are DERIVED now, from lib/marketplace/listing-taxonomy, which is the
+ * same module the listing form's category picker reads. That is the point: a
+ * department added there appears in the bar and in the menu without anybody
+ * remembering to come here, and it is not possible for the two to disagree
+ * about what this marketplace sells.
+ */
+
+/** The bar under the header: "Toate" and the five departments. */
+const DEFAULT_CATEGORIES: Array<{ id: string; label: string; icon: typeof LayoutGrid }> = [
+  { id: "all", label: "Toate", icon: LayoutGrid },
+  ...DEPARTMENTS.map((d) => ({ id: d.id, label: d.label, icon: LayoutGrid })),
 ]
 
-// Mobile category pills - 6 categories as pill buttons with icons
-const MOBILE_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid, badge: null },
-  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
-  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
-  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
-  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
-  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
-]
+// The phone rail shows the same five. It was a second copy of the same literal
+// list, which is two places to forget.
+const MOBILE_CATEGORIES = DEFAULT_CATEGORIES
 
-// Categories with subcategories for the dropdown
-const CATEGORIES_WITH_SUBS = [
-  {
-    label: "Design",
-    href: "/explore?category=design",
-    icon: Sparkles,
-    subcategories: [
-      { label: "UI/UX Templates", href: "/explore?category=design&sub=ui-ux" },
-      { label: "Graphics & Illustrations", href: "/explore?category=design&sub=graphics" },
-      { label: "Fonts & Typography", href: "/explore?category=design&sub=fonts" },
-      { label: "Icons & Elements", href: "/explore?category=design&sub=icons" },
-      { label: "Mockups", href: "/explore?category=design&sub=mockups" },
-    ]
-  },
-  {
-    label: "Development",
-    href: "/explore?category=development",
-    icon: Code,
-    subcategories: [
-      { label: "Web Templates", href: "/explore?category=development&sub=web" },
-      { label: "Mobile Apps", href: "/explore?category=development&sub=mobile" },
-      { label: "Scripts & Plugins", href: "/explore?category=development&sub=scripts" },
-      { label: "APIs & Tools", href: "/explore?category=development&sub=apis" },
-      { label: "Code Snippets", href: "/explore?category=development&sub=snippets" },
-    ]
-  },
-  {
-    label: "Marketing",
-    href: "/explore?category=marketing",
-    icon: Megaphone,
-    subcategories: [
-      { label: "Email Templates", href: "/explore?category=marketing&sub=email" },
-      { label: "Ad Creatives", href: "/explore?category=marketing&sub=ads" },
-      { label: "Landing Pages", href: "/explore?category=marketing&sub=landing" },
-      { label: "SEO Tools", href: "/explore?category=marketing&sub=seo" },
-    ]
-  },
-  {
-    label: "Business",
-    href: "/explore?category=business",
-    icon: Briefcase,
-    subcategories: [
-      { label: "Spreadsheets", href: "/explore?category=business&sub=spreadsheets" },
-      { label: "Presentations", href: "/explore?category=business&sub=presentations" },
-      { label: "Documents & Contracts", href: "/explore?category=business&sub=documents" },
-      { label: "Finance Tools", href: "/explore?category=business&sub=finance" },
-    ]
-  },
-  {
-    label: "AI",
-    href: "/explore?category=ai",
-    icon: Bot,
-    isHot: true,
-    subcategories: [
-      { label: "AI Prompts", href: "/explore?category=ai&sub=prompts" },
-      { label: "ChatGPT Templates", href: "/explore?category=ai&sub=chatgpt" },
-      { label: "AI Art Prompts", href: "/explore?category=ai&sub=art-prompts" },
-      { label: "Automation Tools", href: "/explore?category=ai&sub=automation" },
-      { label: "AI Workflows", href: "/explore?category=ai&sub=workflows" },
-    ]
-  },
-  {
-    label: "Social Media",
-    href: "/explore?category=social-media",
-    icon: Share2,
-    subcategories: [
-      { label: "Instagram Templates", href: "/explore?category=social-media&sub=instagram" },
-      { label: "TikTok Content", href: "/explore?category=social-media&sub=tiktok" },
-      { label: "YouTube Assets", href: "/explore?category=social-media&sub=youtube" },
-      { label: "Social Media Kits", href: "/explore?category=social-media&sub=kits" },
-    ]
-  },
-  {
-    label: "Music & Audio",
-    href: "/explore?category=music",
-    icon: Music,
-    subcategories: [
-      { label: "Sound Effects", href: "/explore?category=music&sub=sfx" },
-      { label: "Music Loops", href: "/explore?category=music&sub=loops" },
-      { label: "Podcast Templates", href: "/explore?category=music&sub=podcast" },
-    ]
-  },
-  {
-    label: "Photography",
-    href: "/explore?category=photography",
-    icon: Camera,
-    subcategories: [
-      { label: "Presets & Filters", href: "/explore?category=photography&sub=presets" },
-      { label: "Stock Photos", href: "/explore?category=photography&sub=stock" },
-      { label: "Overlays & Textures", href: "/explore?category=photography&sub=overlays" },
-    ]
-  },
-  {
-    label: "Video & Film",
-    href: "/explore?category=video",
-    icon: Video,
-    subcategories: [
-      { label: "Video Templates", href: "/explore?category=video&sub=templates" },
-      { label: "Motion Graphics", href: "/explore?category=video&sub=motion" },
-      { label: "LUTs & Color Grades", href: "/explore?category=video&sub=luts" },
-    ]
-  },
-  {
-    label: "Productivity",
-    href: "/explore?category=productivity",
-    icon: Zap,
-    subcategories: [
-      { label: "Notion Templates", href: "/explore?category=productivity&sub=notion" },
-      { label: "Calendars & Planners", href: "/explore?category=productivity&sub=planners" },
-      { label: "Checklists", href: "/explore?category=productivity&sub=checklists" },
-    ]
-  },
-  {
-    label: "E-commerce",
-    href: "/explore?category=ecommerce",
-    icon: ShoppingBag,
-    subcategories: [
-      { label: "Shopify Themes", href: "/explore?category=ecommerce&sub=shopify" },
-      { label: "Product Mockups", href: "/explore?category=ecommerce&sub=mockups" },
-      { label: "Store Templates", href: "/explore?category=ecommerce&sub=stores" },
-    ]
-  },
-  {
-    label: "Education",
-    href: "/explore?category=education",
-    icon: Lightbulb,
-    subcategories: [
-      { label: "Online Courses", href: "/explore?category=education&sub=courses" },
-      { label: "Ebooks & Guides", href: "/explore?category=education&sub=ebooks" },
-      { label: "Worksheets", href: "/explore?category=education&sub=worksheets" },
-    ]
-  },
-]
+/**
+ * The Browse menu: the five departments, each drilling into its own groups.
+ *
+ * The groups come from `groupsForDepartment`, so "Femei" opens Haine / Pantofi
+ * / Genți / Accesorii / Frumusețe — the exact list the sell form offers under
+ * Femei — and `categoryShortLabel` takes the department off the front so the
+ * submenu reads "Haine" rather than "Femei · Haine" under a heading that
+ * already says Femei.
+ */
+const CATEGORIES_WITH_SUBS: Array<{
+  id: string
+  label: string
+  href: string
+  icon: typeof LayoutGrid
+  subcategories: Array<{ label: string; href: string }>
+}> = DEPARTMENTS.map((d) => ({
+  id: d.id,
+  label: d.label,
+  href: `/?category=${d.id}`,
+  icon: DEPARTMENT_ICONS[d.id] ?? LayoutGrid,
+  subcategories: groupsForDepartment(d.id).map((g) => ({
+    label: categoryShortLabel(g),
+    href: `/?category=${d.id}&sub=${g.id}`,
+  })),
+}))
 
 /* SEARCH_CATEGORIES and SearchProduct are gone with the dropdown they fed.
    They described a catalogue this app no longer sells: nine digital-goods
@@ -658,6 +573,9 @@ export function PlatformHeaderClient() {
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [selectedCategoryForSubs, setSelectedCategoryForSubs] = useState<string | null>(null)
+  /** True while the top level is arriving from a BACK press, so it plays the
+   *  pop rather than the push. Reset on the way in. */
+  const [poppedSub, setPoppedSub] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
 
@@ -977,9 +895,17 @@ export function PlatformHeaderClient() {
     }
   }
 
+  /**
+   * A DEPARTMENT IS A MARKETPLACE FILTER, NOT AN /explore CATEGORY.
+   *
+   * This sent every click to `/explore?category=…`, which is the legacy
+   * digital-goods browse page and knows nothing about Femei or Hobbyuri. Now
+   * that the bar carries the real departments, the only page that can answer
+   * them is the marketplace itself — the same URL the category tiles at the
+   * bottom of the home page have always used.
+   */
   const onCategoryClick = (cat: string) => {
-    const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
-    navigateToExploreCategory(url)
+    navigateToExploreCategory(cat === "all" ? "/" : `/?category=${encodeURIComponent(cat)}`)
   }
 
   // "/" is the marketplace, so it gets the category bar. It was excluded here
@@ -1338,33 +1264,56 @@ export function PlatformHeaderClient() {
               {/* Categories Megamenu Dropdown with dedicated subcategory view */}
               {categoriesDropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
+                  {/* ═══════════════════════════════════════════════════════
+                      THE TWO LEVELS PUSH, THEY DO NOT SWAP
+                      ═══════════════════════════════════════════════════════
+
+                      Picking a department replaced one list with another in a
+                      single frame, so the menu simply became a different menu
+                      and nothing said which direction you had gone — the Back
+                      button was the only evidence you were a level deep.
+
+                      The listing form solved this once already, in
+                      components/sell/picker-page.tsx: the arriving level slides
+                      in from the right while the leaving one steps 25% left and
+                      dims to 0.62, and the same pair runs backwards on the way
+                      out. `sub-push` / `sub-pop` in app/globals.css are that
+                      movement at the same 360ms and the same curve, so a
+                      drill-down in the header and a drill-down in the sell form
+                      are recognisably the same gesture rather than two
+                      animations that happen to live in one app.
+
+                      Only transform and opacity, for the reason picker-page
+                      gives: anything animating width or height across a subtree
+                      this size drops the whole menu onto the main thread. */}
                   <div className="max-h-[70vh] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
                     {/* Subcategory View */}
                     {selectedCategoryForSubs && selectedCategoryData ? (
-                      <div className="p-3">
+                      <div className="sub-push p-3">
                         <button
-                          onClick={() => setSelectedCategoryForSubs(null)}
+                          onClick={() => {
+                            // Mark the RETURN so the level underneath plays the
+                            // pop rather than the push — without this the list
+                            // you are going back to slides in from the right as
+                            // though you had gone deeper.
+                            setPoppedSub(true)
+                            setSelectedCategoryForSubs(null)
+                          }}
                           className="flex items-center gap-2 px-2 py-2 mb-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
                         >
                           <ChevronLeft className="h-4 w-4" />
-                          <span>Back to Categories</span>
+                          <span>Toate categoriile</span>
                         </button>
                         <div className="flex items-center gap-3 px-3 py-2 mb-2">
                           <selectedCategoryData.icon className="h-5 w-5 text-violet-500" />
                           <span className="text-base font-semibold text-gray-900">{selectedCategoryData.label}</span>
-                          {selectedCategoryData.isHot && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                              <Flame className="h-3 w-3" />
-                              Hot
-                            </span>
-                          )}
                         </div>
                         <Link
                           href={getCanonicalOrRelativePath(selectedCategoryData.href + '&scroll=recommended')}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
-                          <span>View All {selectedCategoryData.label}</span>
+                          <span>Vezi tot din {selectedCategoryData.label}</span>
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                         <div className="space-y-0.5 mt-2">
@@ -1382,8 +1331,8 @@ export function PlatformHeaderClient() {
                       </div>
                     ) : (
                       /* Main Categories List */
-                      <div className="p-3">
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
+                      <div className={cn("p-3", poppedSub && "sub-pop")}>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Categorii</h3>
                         <div className="space-y-0.5">
                           {CATEGORIES_WITH_SUBS.map((cat) => {
                             const Icon = cat.icon
@@ -1394,6 +1343,7 @@ export function PlatformHeaderClient() {
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   if (hasSubcats) {
+                                    setPoppedSub(false)
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
                                     navigateToExploreCategory(cat.href + '&scroll=recommended')
@@ -1405,12 +1355,6 @@ export function PlatformHeaderClient() {
                                 <div className="flex items-center gap-3">
                                   <Icon className="h-4 w-4 text-gray-400" />
                                   <span>{cat.label}</span>
-                                  {cat.isHot && (
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                                      <Flame className="h-3 w-3" />
-                                      Hot
-                                    </span>
-                                  )}
                                 </div>
                                 {hasSubcats && (
                                   <ChevronRight className="h-4 w-4 text-gray-400" />
@@ -1497,9 +1441,11 @@ export function PlatformHeaderClient() {
               anchorTo={searchBoxRef}
               query={query}
               onQueryChange={setQuery}
+              // The marketplace, not the legacy /explore browse page — the ids
+              // are departments now and only the feed knows what they mean.
               onSelectCategory={(id) => {
                 setSearchModalOpen(false)
-                router.push(id === "all" ? "/explore" : `/explore/${id}`)
+                router.push(id === "all" ? "/" : `/?category=${encodeURIComponent(id)}`)
               }}
             />
           </div>
@@ -1605,8 +1551,14 @@ export function PlatformHeaderClient() {
                       aria-label={t("wishlist")}
                     >
                       <Heart className="h-[22px] w-[22px]" />
+                      {/* 16px, down from 20. At h-5 the bubble was half the
+                          height of the heart it sat on and read as an alert
+                          rather than a count — on a black header a red disc
+                          that size is the loudest thing in the row. It only
+                          has to be legible at a glance, and two digits at
+                          9.5px are. */}
                       {wishlistCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        <span className="absolute -top-px -right-px flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9.5px] font-bold leading-none text-white">
                           {wishlistCount > 99 ? "99+" : wishlistCount}
                         </span>
                       )}
@@ -1951,12 +1903,6 @@ export function PlatformHeaderClient() {
                     <div className="flex items-center gap-3 px-2 py-2 mb-3">
                       <Icon className="h-5 w-5 text-violet-500" />
                       <span className="text-base font-semibold text-gray-900">{cat.label}</span>
-                      {cat.isHot && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                          <Flame className="h-3 w-3" />
-                          Hot
-                        </span>
-                      )}
                     </div>
                     <button
                       type="button"
@@ -2019,12 +1965,6 @@ export function PlatformHeaderClient() {
                       <div className="flex items-center gap-3 pointer-events-none">
                         <Icon className="h-5 w-5 text-gray-400" />
                         <span>{cat.label}</span>
-                        {cat.isHot && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                            <Flame className="h-3 w-3" />
-                            Hot
-                          </span>
-                        )}
                       </div>
                       <ChevronRight className="h-5 w-5 text-gray-400 pointer-events-none" />
                     </button>
@@ -2188,11 +2128,6 @@ export function PlatformHeaderClient() {
                       >
                         <Icon className="w-3.5 h-3.5" />
                         {cat.label}
-                        {cat.badge && (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
-                            {cat.badge}
-                          </span>
-                        )}
                       </button>
                     )
                   })}
@@ -2209,7 +2144,10 @@ export function PlatformHeaderClient() {
                     so the row read as stuck to the bottom of the black rather
                     than as the first thing on the white — which is what made it
                     look wrong without looking like anything in particular.
-                    `pt-4` gives it the same air underneath it already had.
+                    `pt-2.5` splits the difference: `pt-1` had the labels
+                    stuck to the black bar, `pt-4` left a band of white that
+                    read as a gap between two things rather than as the top of
+                    one. Ten pixels is the strip breathing, not a margin.
 
                     NO DIVIDERS HERE. They were tried and taken out: these six
                     are one flat list of filters over the same thing, and ruling
@@ -2220,7 +2158,7 @@ export function PlatformHeaderClient() {
                     Gaps are the right separator for a list; rules are for a
                     choice between unlike things. */}
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-4 pt-4 text-[14.5px]">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-3.5 pt-2.5 text-[14.5px]">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
@@ -2238,11 +2176,6 @@ export function PlatformHeaderClient() {
                         >
                           {isAll && <Icon className="w-[18px] h-[18px]" />}
                           {cat.label}
-                          {cat.badge && (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
-                              {cat.badge}
-                            </span>
-                          )}
                         </button>
                       )
                     })}

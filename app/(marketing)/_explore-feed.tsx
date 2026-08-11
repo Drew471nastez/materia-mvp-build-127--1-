@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
+import { DEPARTMENTS, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { getServerT } from "@/lib/i18n/server"
 import { DesktopHome } from "@/components/explore/home/desktop-home"
@@ -38,7 +39,7 @@ export const FEED_OG_IMAGE =
 
 export const FEED_OG_IMAGE_ALT = "Storelib - Buy & Sell Second-Hand Fashion"
 
-export type FeedSearchParams = { q?: string; category?: string }
+export type FeedSearchParams = { q?: string; category?: string; sub?: string }
 
 export async function ExploreFeed({
   searchParams,
@@ -56,6 +57,34 @@ export async function ExploreFeed({
   const searchQuery = (params?.q || "").toLowerCase()
   const rawCategory = (params?.category || "all").toLowerCase()
   const category = VALID_CATEGORY_IDS.includes(rawCategory) ? rawCategory : "all"
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A DEPARTMENT IN THE URL ACTUALLY FILTERS THE FEED
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `?category=` was validated against VALID_CATEGORY_IDS — the nine legacy
+   * digital-goods categories — so `?category=women`, which is what both the
+   * header bar and the home page's category tiles link to, failed that test
+   * and silently became "all". Five doors on the front page, all opening onto
+   * the same undifferentiated feed.
+   *
+   * Departments are checked separately because they are a different KIND of
+   * value: a department is not stored on a listing at all. What a listing
+   * carries in `category` is a GROUP id ("women-footwear"), so filtering by
+   * department means asking for every group inside it — which is exactly what
+   * groupsForDepartment returns, and exactly how the sell form assigned the
+   * value in the first place.
+   *
+   * `?sub=` narrows to one group, for the Browse menu's second level. It is
+   * validated against the same list rather than trusted, so a hand-typed id
+   * cannot reach the query.
+   */
+  const rawSub = (params?.sub || "").toLowerCase()
+  const departmentGroups = DEPARTMENTS.some((d) => d.id === rawCategory)
+    ? groupsForDepartment(rawCategory).map((g) => g.id)
+    : null
+  const subGroup = departmentGroups?.includes(rawSub) ? rawSub : null
 
   // Initialize data
   let productsWithCreators: any[] = []
@@ -95,6 +124,12 @@ export async function ExploreFeed({
       if (searchQuery) {
         q = q.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
       }
+      // One group when the Browse menu asked for one, every group in the
+      // department otherwise. Neither runs unless the id survived validation
+      // above, so `?category=all` and anything unrecognised still fetch the
+      // whole feed exactly as before.
+      if (subGroup) q = q.eq("category", subGroup)
+      else if (departmentGroups && departmentGroups.length > 0) q = q.in("category", departmentGroups)
       return q
     }
 

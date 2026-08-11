@@ -169,20 +169,28 @@ const COPY: SlideCopy[] = [
     cta: "Vezi noutățile",
     href: "/?q=",
     /**
-     * THE ONE LIGHT SLIDE, AND THAT IS THE POINT.
+     * WHY THIS IS DARK AGAIN.
      *
-     * It was a warm taupe, which put three dark panels in a row: the carousel
-     * moved and nothing about it appeared to change, so the only way to tell
-     * you had advanced was to read the headline again. A ground somebody has to
-     * READ to notice is not doing a ground's job.
+     * It was bone (#f2efe9) for one deploy, to break up three dark panels in a
+     * row. Two things were wrong with it and only one was taste.
      *
-     * Bone rather than white — #f2efe9 against the page's own white, so the
-     * slide still has an edge — and it is the middle of the three, so the strip
-     * goes dark, light, dark. That is a rhythm you see at a glance, and it is
-     * the cheapest possible way to make three slides feel like three slides.
+     * The real fault: this is a SHELF slide, and the shelf lives on the same
+     * ground. Flipping the ink covered the headline, the body and the button —
+     * and missed the three cards' captions, which stayed white. So a pale slide
+     * showed "Guess / 372 RON" in white on bone: the products were there and
+     * their names and prices were invisible. That is fixed properly now (the
+     * tone reaches ShelfCard), but it is why a pale ground is the one that has
+     * to earn its place rather than be assumed safe.
+     *
+     * The taste: bone next to the page's own near-white read as a hole in the
+     * page rather than a panel on it.
+     *
+     * Espresso instead. It is a WARM dark against two cool ones — slate and
+     * green — so the three still read as three, and every photograph on the
+     * shelf sits on it better than on a pale ground, because a listing photo is
+     * usually itself light.
      */
-    ground: "#f2efe9",
-    tone: "dark",
+    ground: "#3a2e29",
     prefer: [],
     alt: "Anunțuri adăugate recent",
   },
@@ -466,6 +474,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
                   <ShelfCard
                     key={it.id}
                     item={it}
+                    tone={s.tone}
                     tabbable={i === index}
                     /* THE THIRD ONE STANDS DOWN ON A NARROW WINDOW.
 
@@ -561,10 +570,18 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
  */
 function ShelfCard({
   item,
+  tone = "light",
   tabbable,
   className,
 }: {
   item: ShelfItem
+  /**
+   * THE CAPTIONS ARE PART OF THE INK, and forgetting that shipped a slide whose
+   * products were invisible: white "Guess / 372 RON" on a bone ground. A tone
+   * that reaches the headline but not the three things it is introducing is not
+   * a tone, it is a half-applied theme.
+   */
+  tone?: "light" | "dark"
   tabbable: boolean
   className?: string
 }) {
@@ -590,10 +607,20 @@ function ShelfCard({
           className="object-cover transition-transform duration-[500ms] ease-out group-hover/card:scale-[1.05]"
         />
       </span>
-      <span className="mt-2 block truncate text-[12.5px] font-medium leading-tight text-white/70">
+      <span
+        className={cn(
+          "mt-2 block truncate text-[12.5px] font-medium leading-tight",
+          tone === "dark" ? "text-neutral-500" : "text-white/70",
+        )}
+      >
         {item.brand || item.title}
       </span>
-      <span className="mt-0.5 block text-[14px] font-bold leading-tight text-white">
+      <span
+        className={cn(
+          "mt-0.5 block text-[14px] font-bold leading-tight",
+          tone === "dark" ? "text-neutral-900" : "text-white",
+        )}
+      >
         {item.priceCents == null
           ? " "
           : item.priceCents === 0
