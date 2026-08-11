@@ -27,7 +27,6 @@ export function ListingRow({
   href,
   seeMoreLabel = "Vezi mai multe",
   origin = "feed",
-  emptyNote,
 }: {
   title: string
   items: any[]
@@ -37,20 +36,6 @@ export function ListingRow({
   href?: string
   seeMoreLabel?: string
   origin?: "feed" | "member" | "search"
-  /**
-   * WHAT TO SAY WHEN THERE IS NOTHING YET, INSTEAD OF VANISHING.
-   *
-   * The two personal rows returned null on a first visit, so the home page a
-   * new visitor saw was hero → pills → suggestions: three of the seven sections
-   * missing, in an order that read as wrong rather than as empty. A section
-   * that disappears takes the SHAPE of the page with it, and the shape is the
-   * thing somebody learns on their second visit.
-   *
-   * So a row with a note holds its heading and says why it is empty. Without
-   * one it still collapses, because a section nobody can ever fill — "recently
-   * viewed" on a catalogue of four — is worth less than the space it takes.
-   */
-  emptyNote?: string
 }) {
   // FIVE. Six cards across 1400px leaves each one about 215px wide, and a
   // second-hand listing is sold by its photograph — at that width a jumper on a
@@ -58,17 +43,26 @@ export function ListingRow({
   // width the card was drawn for.
   const PER_ROW = 5
   const shown = items.slice(0, PER_ROW * rows)
-  // A row with one card in it is not a row. Below three it is drawn as its
-  // heading and a line, or not at all — an almost-empty shelf says less than
-  // either.
-  const empty = shown.length < 3
-  if (empty && !emptyNote) return null
+  /**
+   * NOTHING TO SHOW MEANS NOTHING IS DRAWN. NOT A HEADING, NOT A NOTE.
+   *
+   * There was a dashed box here saying "open a few listings and we'll show you
+   * things like them", so a first visit got two explanations of sections it did
+   * not have. That is a page apologising for itself: it takes the space of the
+   * content, promises something the visitor did not ask for, and pushes the
+   * things that ARE worth seeing below the fold to do it.
+   *
+   * A section with no content is not a section. It comes back, with its
+   * heading, the moment there is something in it — which is the second visit,
+   * and by then it is a row of listings rather than a paragraph.
+   */
+  if (shown.length < 3) return null
 
   return (
-    <section className="mt-10">
+    <section className="mt-14">
       <div className="mb-4 flex items-baseline justify-between gap-4">
         <h2 className="text-[22px] font-bold tracking-[-0.02em] text-neutral-900">{title}</h2>
-        {href && !empty && (
+        {href && (
           <SmartLink
             href={href}
             className="shrink-0 text-[14px] font-semibold text-[#7c3aed] transition-colors duration-200 hover:text-[#6d28d9]"
@@ -78,14 +72,6 @@ export function ListingRow({
         )}
       </div>
 
-      {empty ? (
-        /* A line, not a card-shaped hole. The section is here to hold its place
-           in the order and to say what will fill it — drawing five grey
-           rectangles would promise content that is not coming. */
-        <p className="rounded-2xl border border-dashed border-neutral-200 px-5 py-8 text-center text-[14px] font-medium leading-relaxed text-neutral-400">
-          {emptyNote}
-        </p>
-      ) : (
       <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
         {shown.map((product, i) => (
           <ProductCard
@@ -98,7 +84,6 @@ export function ListingRow({
           />
         ))}
       </div>
-      )}
     </section>
   )
 }

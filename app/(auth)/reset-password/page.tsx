@@ -350,7 +350,7 @@ function ResetPasswordContent() {
 
       // Sign out and redirect to login after 3 seconds
       setTimeout(async () => {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: "local" })
         if (isNativePlatform()) {
           try {
             (window as any).StorelibNative?.authDone?.()

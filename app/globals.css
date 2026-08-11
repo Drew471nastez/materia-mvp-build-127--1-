@@ -530,21 +530,51 @@ html.capacitor a.no-tap-fade:active {
  * `both` so the first frame is the start state — without it there is one frame
  * at full opacity before the animation begins, which is precisely the flash
  * this removes. */
-@keyframes home-arrive {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+ * ---------------------------------------------------------------------------
+ * AND IT IS GONE, BECAUSE IT WAS PAINTING THE FOOTER OVER THE PAGE
+ * ---------------------------------------------------------------------------
+ * Everything above was true and it still had to go. An opacity animation
+ * promotes its element to a composited layer, and this one's element was the
+ * WHOLE HOME PAGE — two thousand pixels of it — during the exact window in
+ * which that page changes height twice: once when the real content replaces the
+ * shell, and again a frame later when the recently-viewed sections appear from
+ * localStorage.
+ *
+ * A layer whose contents grow after it has been rasterised is how a browser
+ * ends up holding a stale tile, and the stale tile people were seeing was the
+ * FOOTER: drawn at the height the page had before the personal rows arrived,
+ * sitting across the middle of the listings, with cards visible above and below
+ * it. Not a layout bug — every element was in the right place; one of them was
+ * simply being painted from a picture of where it used to be.
+ *
+ * There is nothing left to cover, either. The desktop shell in
+ * app/(marketing)/(feed)/loading.tsx is the shape of the page now, so the swap
+ * is placeholders resolving in place rather than a cut between two layouts, and
+ * the two personal sections no longer appear-then-resize because they are not
+ * drawn at all until they have something in them.
+ *
+ * `.home-arrive` is left as a no-op rather than deleted so a cached HTML
+ * document from before this deploy does not go looking for a rule that has
+ * stopped existing. */
 .home-arrive {
-  animation: home-arrive 160ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .home-arrive {
-    animation: none;
-  }
+
+/* ===========================================================================
+ *  THE FOOTER ALWAYS PAINTS ABOVE THE PAGE IT ENDS
+ * ===========================================================================
+ * The belt to the braces above. `position: relative` with a z-index puts the
+ * footer in its own stacking context ahead of the flow content before it, so
+ * even if some future animation promotes a section into a layer, the dark band
+ * at the bottom of the document cannot end up UNDER a row of listings — or,
+ * as it appeared on screen, over one.
+ *
+ * `isolation: isolate` keeps that promise local: nothing inside the footer can
+ * be lifted out of it to compete with the page above. */
+.marketing-footer {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 /* ===========================================================================

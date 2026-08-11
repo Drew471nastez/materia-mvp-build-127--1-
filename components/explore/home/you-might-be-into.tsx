@@ -21,13 +21,25 @@ import { signalsFrom, type RecentView } from "@/lib/marketplace/recent-views"
  * from a listing, because that is when the signal changed.
  *
  * ---------------------------------------------------------------------------
- * IT DEGRADES INTO SOMETHING USEFUL RATHER THAN INTO NOTHING
+ * IT IS THE ONE SECTION THAT IS NEVER EMPTY, BY DESIGN
  * ---------------------------------------------------------------------------
- * A first-time visitor has no history, and a strip of pills that is empty on
- * every first visit is a strip that is empty for most visits. So the fallback
- * is the catalogue's OWN most common brands — still a real query, still
- * something for sale, just not personal yet.
+ * The two rows above and below it disappear entirely when there is no history —
+ * a row of five listings you have never looked at is not "based on your recent
+ * views", so it does not get drawn. This one is the opposite: it is the section
+ * that carries a first visit, so it must ALWAYS have something in it, and
+ * MIN = 6 is enforced rather than hoped for.
+ *
+ * The ladder down is: brand × the thing it was sold as (personal) → the
+ * categories you browsed → the catalogue's most common brands → the departments
+ * that actually have stock in them. The last two are broad on purpose. They are
+ * what everybody sees until this device has told us anything, and every one of
+ * them still lands on a page with real listings on it, which is the only rule
+ * that matters here.
  */
+/** The floor, and it is a requirement rather than a preference — see above. */
+const MIN = 6
+const MAX = 10
+
 export function YouMightBeInto({
   views,
   catalogue,
@@ -72,8 +84,9 @@ export function YouMightBeInto({
       if (leaf) push(leaf.split(" · ").pop() as string, leaf.split(" · ").pop() as string)
     }
 
-    // The fallback: what this marketplace actually has a lot of.
-    if (out.length < 4) {
+    // FALLBACK ONE: what this marketplace actually has a lot of. Broad, but
+    // every pill is a brand somebody is selling right now.
+    if (out.length < MIN) {
       const counts = new Map<string, number>()
       for (const p of catalogue) {
         const brand = (p?.brand || "").trim()
@@ -81,17 +94,44 @@ export function YouMightBeInto({
       }
       ;[...counts.entries()]
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
+        .slice(0, MAX)
         .forEach(([brand]) => push(brand, brand))
     }
 
-    return out.slice(0, 8)
+    /**
+     * FALLBACK TWO: the kinds of thing, from the listings themselves.
+     *
+     * A young catalogue can have fewer than six distinct brands — most
+     * second-hand listings have no brand at all — and stopping there is how the
+     * one section that must never be empty ends up with three pills. These come
+     * from the leaf category each listing was filed under, most stocked first,
+     * so "Pantofi" only appears when there are shoes.
+     */
+    if (out.length < MIN) {
+      const counts = new Map<string, number>()
+      for (const p of catalogue) {
+        const leaf = categoryLabelFor(p?.category, p?.subcategory)
+        const noun = leaf ? leaf.split(" · ").pop() : null
+        if (noun) counts.set(noun, (counts.get(noun) ?? 0) + 1)
+      }
+      ;[...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, MAX)
+        .forEach(([noun]) => push(noun, noun))
+    }
+
+    return out.slice(0, MAX)
   }, [views, catalogue])
 
-  if (pills.length < 3) return null
+  /**
+   * Below six it is not drawn — but by construction that only happens on a
+   * catalogue with almost nothing in it, where a strip of two pills would be
+   * advertising the emptiness rather than hiding it.
+   */
+  if (pills.length < MIN) return null
 
   return (
-    <section className="mt-10">
+    <section className="mt-14">
       <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">S-ar putea să te intereseze</h2>
       <div className="flex flex-wrap gap-2.5">
         {pills.map((p) => (

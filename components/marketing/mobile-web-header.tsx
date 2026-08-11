@@ -250,7 +250,7 @@ export function MobileWebHeader() {
   const handleSignOut = useCallback(async () => {
     setAccountOpen(false)
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     clearAuthSnapshot()
     if (isNativePlatform()) {
       nativeLogOut()
@@ -424,7 +424,7 @@ export function MobileWebHeader() {
                     href="/signup"
                     className={`ml-1 px-4 text-[13.5px] ${PILL_FILLED}`}
                   >
-                    Înregistrează-te
+                    Sign up
                   </Link>
                 </>
               )}
@@ -458,7 +458,7 @@ export function MobileWebHeader() {
               data-drawer-autofocus
               className={`h-12 justify-center text-[15px] ${PILL_FILLED}`}
             >
-              Vinde acum
+              Vinde
             </Link>
             <Link
               href="/signup"
@@ -472,7 +472,7 @@ export function MobileWebHeader() {
               onClick={closeMenu}
               className={`h-12 justify-center text-[15px] text-neutral-700 ${PILL_QUIET}`}
             >
-              Autentificare
+              Log in
             </Link>
           </div>
         )}

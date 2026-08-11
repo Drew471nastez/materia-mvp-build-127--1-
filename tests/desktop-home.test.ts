@@ -48,16 +48,19 @@ const detail = read("components/product/product-detail.tsx")
 console.log("\nThe sections, and their order")
 
 check(
-  "the page is hero, views, pills, recent, suggested, categories, more",
+  "the page is hero, views, recent, suggested, pills, categories, more",
   (() => {
     // Personal first: somebody who has been here before should see what they
-    // were doing before they see what we would like them to do.
+    // were doing before they see what we would like them to do. The pills are
+    // AFTER the suggestions — a strip of search chips in the middle of the
+    // personal rows interrupts the part of the page that is about you, and it
+    // belongs where the browsing has run out.
     const order = [
       "<HeroSlides",
       "Bazat pe vizualizările tale recente",
-      "<YouMightBeInto",
       "Vizualizate recent",
       "Sugestii pentru tine",
+      "<YouMightBeInto",
       "<ShopByCategory",
       "<MoreListings",
     ].map((s) => home.indexOf(s))
@@ -193,7 +196,27 @@ check(
   "the shelf's boxes are the card's own ratio, so nothing is cropped",
   (() => {
     const shelf = hero.slice(hero.indexOf('s.kind === "art"'))
-    return /h-\[184px\] flex-1/.test(shelf) && /sizes="200px"/.test(shelf)
+    return /h-\[236px\] aspect-\[3\/4\]/.test(shelf) && /sizes="200px"/.test(shelf)
+  })(),
+)
+
+check(
+  "the height is on the slide, so no half of it is left short",
+  (() => {
+    // It was on the image (`h-[240px]`) while the copy half sized itself from
+    // its contents (~285px), so the row was 285 tall, the photograph was 240,
+    // and a band of page-white ran under it for the full width. That is the
+    // cut edge people were seeing.
+    return (
+      /grid h-\[300px\] w-full shrink-0 grid-cols-/.test(hero) &&
+      /lg:h-\[320px\]/.test(hero) &&
+      // Both halves fill the row rather than stating their own height.
+      /<div className="relative h-full">/.test(hero) &&
+      /flex h-full items-center justify-center gap-3/.test(hero) &&
+      // The old fixed heights are gone from the CODE; the note explaining why
+      // still quotes them.
+      !/className="relative h-\[240px\]/.test(hero)
+    )
   })(),
 )
 
@@ -244,32 +267,24 @@ check(
 )
 
 check(
-  "the personal sections hold their place instead of vanishing",
+  "a personal section with nothing in it is not drawn at all",
   (() => {
-    // They returned null on a first visit, so a new visitor's home page was
-    // hero → pills → suggestions: three of seven sections missing, in an order
-    // that reads as wrong rather than as empty. A section that disappears takes
-    // the SHAPE of the page with it, and the shape is what somebody learns.
+    // A dashed box saying "open a few listings and we'll show you things like
+    // them" is a page apologising for itself: it takes the space of content,
+    // promises something nobody asked for, and pushes what IS worth seeing
+    // below the fold to do it.
     return (
-      /emptyNote\?: string/.test(row) &&
-      /if \(empty && !emptyNote\) return null/.test(row) &&
-      /emptyNote="Deschide câteva anunțuri/.test(home) &&
-      /emptyNote="Anunțurile pe care le deschizi apar aici/.test(home)
+      /if \(shown\.length < 3\) return null/.test(row) &&
+      !/emptyNote/.test(row) &&
+      !/emptyNote/.test(home) &&
+      !/border-dashed/.test(row)
     )
   })(),
 )
 
 check(
-  "an empty section is a line, not five card-shaped holes",
-  (() => {
-    // Grey rectangles would promise content that is not coming.
-    return /border-dashed/.test(row) && !/aspect-\[3\/4\][\s\S]{0,120}empty/.test(row)
-  })(),
-)
-
-check(
-  "and See more is not offered on a section with nothing in it",
-  /\{href && !empty && \(/.test(row),
+  "and the sections have more air between them",
+  /<section className="mt-14">/.test(row) && /mt-20 border-t border-neutral-100 pt-14/.test(tiles),
 )
 
 console.log("\nIt knows what this person was looking at")
@@ -392,10 +407,18 @@ check(
 )
 
 check(
-  "and a first-time visitor still gets real ones",
+  "and it is the one section that is never empty — six, always",
   (() => {
-    // A strip that is empty on every first visit is empty for most visits.
-    return /if \(out\.length < 4\)/.test(pills) && /catalogue/.test(pills)
+    // The two rows above it vanish entirely with no history, so this is what
+    // carries a first visit. Two fallbacks, both broad, both landing on pages
+    // that have listings on them: the catalogue's commonest brands, then the
+    // kinds of thing it actually stocks.
+    return (
+      /const MIN = 6/.test(pills) &&
+      (pills.match(/if \(out\.length < MIN\)/g) ?? []).length === 2 &&
+      /if \(pills\.length < MIN\) return null/.test(pills) &&
+      /categoryLabelFor\(p\?\.category, p\?\.subcategory\)/.test(pills)
+    )
   })(),
 )
 
@@ -446,7 +469,10 @@ check(
     return (
       /grid-cols-\[minmax\(0,0\.42fr\)_minmax\(0,0\.58fr\)\]/.test(loading) &&
       /xl:grid-cols-5/.test(loading) &&
-      /h-\[240px\]/.test(loading) &&
+      // The same hero height the real slide states — when these drift the
+      // placeholder stops holding the space it exists to hold.
+      /h-\[300px\]/.test(loading) &&
+      /lg:h-\[320px\]/.test(loading) &&
       /\[0, 1, 2, 3, 4\]\.map/.test(loading)
     )
   })(),
@@ -457,24 +483,36 @@ check(
   (() => {
     // A 1400x260 block flashing grey is the most distracting thing a loading
     // screen can do, and it is the first thing on the page.
-    const heroBlock = loading.slice(loading.indexOf("h-[240px]"), loading.indexOf("{[0, 1].map"))
+    const heroBlock = loading.slice(loading.indexOf("h-[300px]"), loading.indexOf("{[0, 1].map"))
     return !/animate-pulse/.test(heroBlock)
   })(),
 )
 
 check(
-  "and the real page arrives over it rather than replacing it in one frame",
+  "and nothing animates the whole page while it is still changing height",
   (() => {
-    // Two different trees, swapped in a single commit: without this the
-    // handover is a hard cut on two thousand pixels of content, which is the
-    // bump even when the skeleton underneath is exactly right.
+    // The 160ms opacity fade over the shell promoted two thousand pixels to a
+    // composited layer during the exact window in which that page grows — and
+    // a layer whose contents grow after it is rasterised is how the FOOTER
+    // ended up painted across the middle of the listings, at the height the
+    // page had before the personal rows arrived.
     const css = read("app/globals.css")
     return (
-      /className="home-arrive hidden md:block"/.test(home) &&
-      /@keyframes home-arrive/.test(css) &&
-      // Opacity only. A translate on a container this tall promotes the whole
-      // document to a layer and forces a full repaint at the end of it.
-      !/home-arrive[\s\S]{0,200}translate/.test(css)
+      !/home-arrive/.test(home) &&
+      !/@keyframes home-arrive/.test(css) &&
+      /\.home-arrive \{\s*\n\s*animation: none;/.test(css)
+    )
+  })(),
+)
+
+check(
+  "and the footer cannot be composited under the page it ends",
+  (() => {
+    const css = read("app/globals.css")
+    const footer = read("components/marketing/footer.tsx")
+    return (
+      /className="marketing-footer bg-\[#0f0f0f\] text-white"/.test(footer) &&
+      /\.marketing-footer \{[\s\S]{0,140}position: relative;[\s\S]{0,140}z-index: 1;[\s\S]{0,140}isolation: isolate;/.test(css)
     )
   })(),
 )

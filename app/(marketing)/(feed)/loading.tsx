@@ -162,7 +162,7 @@ export default function FeedLoading() {
         {/* The hero: two halves, the real height, no pulse on the ground —
             a 1400×260 block flashing grey is the single most distracting thing
             a loading screen can do, and it is the first thing on the page. */}
-        <div className="grid h-[240px] grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-2xl lg:h-[260px]">
+        <div className="grid h-[300px] grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-2xl lg:h-[320px]">
           <div className="flex flex-col justify-center gap-3 bg-neutral-200/70 px-8 lg:px-12">
             <div className="h-3 w-16 rounded bg-white/25" />
             <div className="h-7 w-3/4 rounded bg-white/25" />
@@ -172,8 +172,16 @@ export default function FeedLoading() {
           <div className="bg-neutral-100" />
         </div>
 
+        {/* TWO ROWS AND NO PILL STRIP BETWEEN THEM.
+
+            The strip moved: it is under the suggestions now rather than between
+            the personal rows, and it is below the fold — so a placeholder for it
+            here would be holding space the real page does not use up here. The
+            two personal sections above it are also no longer drawn at all on a
+            first visit, which is why this shell stops at two rows rather than
+            guessing which of them will exist. */}
         {[0, 1].map((row) => (
-          <div key={row} className="mt-10">
+          <div key={row} className="mt-14">
             <div className="mb-4 h-6 w-64 animate-pulse rounded bg-neutral-100" />
             <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
               {[0, 1, 2, 3, 4].map((i) => (
@@ -187,18 +195,6 @@ export default function FeedLoading() {
                 </div>
               ))}
             </div>
-            {/* The pill strip sits between the two rows, exactly as it does on
-                the page itself. */}
-            {row === 0 && (
-              <div className="mt-10">
-                <div className="mb-4 h-6 w-56 animate-pulse rounded bg-neutral-100" />
-                <div className="flex flex-wrap gap-2.5">
-                  {[112, 148, 96, 132, 104, 160].map((w, i) => (
-                    <div key={i} className="h-11 animate-pulse rounded-lg bg-neutral-100" style={{ width: w }} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>

@@ -1688,7 +1688,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     if (isNativePlatform()) {
       nativeLogOut()
     } else {
@@ -1776,7 +1776,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       if (response.ok) {
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: "local" })
         if (isNativePlatform()) {
           nativeLogOut()
         } else {

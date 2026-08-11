@@ -232,6 +232,83 @@ function run() {
     } catch {
       /* reported below */
     }
+  // ═════════════════════════════════════════════════════════════════════════
+  //  SIGNING OUT HERE SIGNS OUT *HERE*
+  // ═════════════════════════════════════════════════════════════════════════
+  //
+  // `supabase.auth.signOut()` defaults to `scope: "global"`, which REVOKES
+  // EVERY REFRESH TOKEN THE ACCOUNT HAS. Signing out on a laptop therefore
+  // killed the session on the iOS app, the Android app and every other browser
+  // at once — and left each of those devices holding a dead token, which they
+  // then spent a spinner trying to refresh. "It logs me out randomly and then
+  // loads forever" was both halves of that one default argument.
+  //
+  // Exactly one call site is allowed to be global, and it is the control that
+  // says so on the tin.
+  {
+    const offenders: string[] = []
+    let globals = 0
+    for (const file of FILES) {
+      const src = stripComments(readFileSync(file, "utf8"))
+      if (!src.includes("signOut(")) continue
+      for (const m of src.matchAll(/signOut\(([^)]*)\)/g)) {
+        const arg = m[1]
+        if (/scope:\s*['"]global['"]/.test(arg)) {
+          globals++
+          continue
+        }
+        if (/scope:\s*['"]local['"]/.test(arg)) continue
+        offenders.push(`${file} — signOut(${arg})`)
+      }
+    }
+    check(
+      "every signOut states its scope, and only one of them is global",
+      offenders.length === 0 && globals === 1,
+      offenders.length
+        ? `          A bare signOut() revokes the session on EVERY device this account\n` +
+          `          has, including the phone. Pass { scope: "local" } unless the\n` +
+          `          control is explicitly "sign out everywhere".\n` +
+          offenders.map((o) => `            ${o}`).join("\n")
+        : `          Expected exactly one deliberate scope: 'global' call, found ${globals}.`,
+    )
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  //  GETTING TO A SIGN-IN FORM IS NEVER A WAIT
+  // ═════════════════════════════════════════════════════════════════════════
+  //
+  // Somebody who has just been signed out is already annoyed; the app making
+  // them wait to fix it is the whole of "it takes forever and sometimes never
+  // loads". Three ceilings, and every one of them has to stay short.
+  {
+    const gate = readFileSync("lib/use-auth-gate.ts", "utf8")
+    const flag = readFileSync("lib/auth/auth-in-progress.ts", "utf8")
+    check(
+      "the session read on /login gives up after one second",
+      /readSessionBounded\(supabase, 1_000\)/.test(gate),
+      `          Four seconds of spinner on the one screen where a spinner is\n` +
+        `          never the answer.`,
+    )
+    check(
+      "a late session still redirects, so the short read costs nothing",
+      /onAuthStateChange\(\(_event, s\) => \{/.test(gate) && /if \(s\) setSession\(s\)/.test(gate),
+      `          Without this, shortening the read trades an infinite spinner for\n` +
+        `          a signed-in person being shown a login form and left on it.`,
+    )
+    check(
+      "and no ceiling in the sequence exceeds five seconds",
+      (() => {
+        const nums = [
+          ...gate.matchAll(/setTimeout\([^,]+,\s*([\d_]+)\)/g),
+          ...flag.matchAll(/MAX_AGE_MS = ([\d_]+)/g),
+        ].map((m) => Number(m[1].replace(/_/g, "")))
+        return nums.length > 0 && nums.every((n) => n <= 5_000)
+      })(),
+      `          The waits used to stack to about thirty seconds. Nothing in this\n` +
+        `          path may hold the screen longer than five.`,
+    )
+  }
+
     check("lib/auth/session-read.ts exists", src.length > 0)
     check(
       "and still explains the rule it exists to enforce",
