@@ -34,6 +34,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -51,10 +53,7 @@ function check(name: string, ok: boolean, detail?: string) {
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
-const code = (p: string) =>
-  read(p)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "")
+const code = (p: string) => stripComments(read(p))
 
 // ---------------------------------------------------------------------------
 console.log("\nThe official thread is read-only")

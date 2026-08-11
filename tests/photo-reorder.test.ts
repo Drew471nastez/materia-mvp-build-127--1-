@@ -21,6 +21,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
+
 import { indexAtPoint, moveItem, type Box } from "../lib/sell/reorder"
 import {
   brandDirectoryApplies,
@@ -46,7 +48,7 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const strip = stripComments
 
 const form = strip(read("components/sell/new-listing-form.tsx"))
 

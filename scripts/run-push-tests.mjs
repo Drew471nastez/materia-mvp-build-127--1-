@@ -42,6 +42,7 @@ const SUITES = [
   "tests/one-arrival.test.ts",
   "tests/messages-chrome.test.ts",
   "tests/desktop-home.test.ts",
+  "tests/identity.test.ts",
   "tests/sql-aggregate.test.ts",
 ]
 

@@ -147,6 +147,8 @@ export default async function MemberPage({ params }: MemberPageProps) {
         online,
         bio: profile.bio ?? null,
         coverUrl: profile.cover_url ?? null,
+        verified: profile.is_verified ?? false,
+        staff: profile.is_staff ?? false,
       }}
       listingsCount={listingsCount}
       followersCount={followersRes.count ?? 0}

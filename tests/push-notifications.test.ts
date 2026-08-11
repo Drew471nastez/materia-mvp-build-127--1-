@@ -24,11 +24,13 @@ import { tapTargetFor } from "../lib/push/tap-target"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
+
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 /** Source without comments — the prose here describes the very things being
  *  asserted absent, and matching raw source fails the test while the code is
  *  right. */
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const strip = stripComments
 
 // ── a tiny harness ──────────────────────────────────────────────────────────
 let passed = 0

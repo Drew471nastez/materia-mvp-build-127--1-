@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, Loader2 } from "lucide-react"
 
@@ -17,6 +17,7 @@ import { compressImage, PROFILE_IMAGE } from "@/lib/images/compress"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { navigateBlended } from "@/lib/nav-blend"
 import { beginTabLeave } from "@/lib/tab-leave"
+import { slugifyUsername } from "@/lib/profile/username"
 import { cn } from "@/lib/utils"
 
 /**
@@ -67,6 +68,26 @@ export function ProfileEditForm({
 }) {
   const router = useRouter()
   const [displayName, setDisplayName] = useState(initial.displayName ?? "")
+  /**
+   * THE HANDLE FOLLOWS THE NAME UNTIL SOMEBODY TOUCHES IT.
+   *
+   * Both readings of "should it change with the name" are right for different
+   * people, and the way every platform resolves that is the same: the handle is
+   * DERIVED while it has never been edited, and becomes its own field the
+   * moment it has. Somebody typing their name gets a handle without thinking
+   * about it; somebody who wants "rullz" instead types it once and the name can
+   * then change freely without taking it away again.
+   *
+   * `touched` starts true for an account that already HAS a handle it chose.
+   * Deriving over an existing username the first time somebody edits their
+   * display name would silently change the address every one of their listings
+   * is linked from — which is the one thing this must never do by itself.
+   */
+  const [handle, setHandle] = useState(username)
+  const [handleTouched, setHandleTouched] = useState(true)
+  const [handleState, setHandleState] = useState<
+    { status: "idle" | "checking" | "free" } | { status: "taken" | "invalid"; message: string; suggestions: string[] }
+  >({ status: "idle" })
   const [bio, setBio] = useState(initial.bio ?? "")
   const [cover, setCover] = useState<string | null>(initial.cover)
   const [avatar, setAvatar] = useState<string | null>(initial.avatar)
@@ -92,6 +113,65 @@ export function ProfileEditForm({
   const previewPhoto =
     preview.kind === "image" ? preview.url : preview.kind === "preset" ? coverImageUrl(preview.preset, 900) : null
   const name = displayName.trim() || username
+
+  /** What the name would produce, if the handle is still following it. */
+  useEffect(() => {
+    if (handleTouched) return
+    setHandle(slugifyUsername(displayName))
+  }, [displayName, handleTouched])
+
+  /**
+   * Asked as you type, and debounced — a request per keystroke over a table of
+   * every account is a request per keystroke over a table of every account.
+   *
+   * The check is skipped entirely while the handle is unchanged, because "is my
+   * own username taken" is a question with an unhelpful answer and the server
+   * excludes the caller anyway. `alive` closes the race where a slow answer for
+   * an old query lands after a fast one for the current text and overwrites it
+   * with a verdict about something nobody typed.
+   */
+  useEffect(() => {
+    const wanted = handle.trim()
+    if (!wanted || wanted.toLowerCase() === username.toLowerCase()) {
+      setHandleState({ status: "idle" })
+      return
+    }
+    setHandleState({ status: "checking" })
+    let alive = true
+    const timer = window.setTimeout(() => {
+      const q = new URLSearchParams({ q: wanted, name: displayName })
+      fetch(`/api/profile/username?${q}`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!alive || !d) return
+          if (!d.valid) {
+            setHandleState({
+              status: "invalid",
+              message: "Folosește 3-30 de litere mici, cifre sau linii, fără spații.",
+              suggestions: d.suggestions ?? [],
+            })
+          } else if (!d.available) {
+            setHandleState({
+              status: "taken",
+              message: "Numele de utilizator este deja luat.",
+              suggestions: d.suggestions ?? [],
+            })
+          } else {
+            setHandleState({ status: "free" })
+          }
+        })
+        .catch(() => {
+          // A failed check is not a verdict. Leaving it idle lets the save go
+          // through, where the server decides for real — refusing on a network
+          // blip would be the form inventing a rule.
+          if (alive) setHandleState({ status: "idle" })
+        })
+    }, 320)
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+    }
+  }, [handle, username, displayName])
 
   const back = useCallback(() => {
     void triggerHaptic("light")
@@ -162,6 +242,13 @@ export function ProfileEditForm({
           displayName: normaliseName(displayName),
           bio: normaliseBio(bio),
           cover,
+          // Only when it actually differs. Sending the current handle on every
+          // save is a uniqueness check, and a write, for a value nobody
+          // touched — and it is the path on which a race with yourself in
+          // another tab could refuse a save that changes only a bio.
+          ...(handle.trim() && handle.trim().toLowerCase() !== username.toLowerCase()
+            ? { username: handle.trim() }
+            : null),
         }),
       })
       const data = await res.json().catch(() => null)
@@ -355,7 +442,7 @@ export function ProfileEditForm({
           </div>
           <div className="min-w-0 flex-1 pt-3">
             <p className="truncate text-[17px] font-bold text-neutral-900">{name}</p>
-            <p className="truncate text-[13px] text-neutral-500">@{username}</p>
+            <p className="truncate text-[13px] text-neutral-500">@{handle || username}</p>
           </div>
         </div>
       </div>
@@ -397,6 +484,71 @@ export function ProfileEditForm({
           className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3.5 text-[16px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/40 focus:bg-white"
         />
         <Hint left="Numele afișat pe profil și pe articolele tale." right={`${MAX_NAME_CHARS - displayName.length}`} />
+      </Section>
+
+      <Section title="Nume de utilizator">
+        <div className="relative">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[16px] text-neutral-400"
+          >
+            @
+          </span>
+          <input
+            value={handle}
+            onChange={(e) => {
+              // SLUGIFIED AS YOU TYPE, not on blur and not on save.
+              //
+              // A field that accepts a space and removes it later is a field
+              // that tells you one thing and stores another. Doing it here also
+              // means the availability check below is asking about exactly the
+              // string that would be written.
+              setHandleTouched(true)
+              setHandle(slugifyUsername(e.target.value))
+            }}
+            inputMode="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            maxLength={30}
+            placeholder={slugifyUsername(displayName) || username}
+            className="h-12 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-8 pr-3.5 text-[16px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/40 focus:bg-white"
+          />
+        </div>
+
+        {handleState.status === "checking" && (
+          <p className="mt-1.5 px-1 text-[12.5px] font-medium text-neutral-400">Verificăm…</p>
+        )}
+        {handleState.status === "free" && (
+          <p className="mt-1.5 px-1 text-[12.5px] font-medium text-emerald-600">Este liber.</p>
+        )}
+        {(handleState.status === "taken" || handleState.status === "invalid") && (
+          <div className="mt-1.5 px-1">
+            <p className="text-[12.5px] font-medium text-amber-700">{handleState.message}</p>
+            {/* SOMETHING TO PRESS, not just a refusal.
+                Being told a handle is taken and left to invent another one is
+                the whole reason people give up on this field. The server only
+                offers candidates it has just checked are free. */}
+            {handleState.suggestions.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {handleState.suggestions.map((sug) => (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => {
+                      setHandleTouched(true)
+                      setHandle(sug)
+                    }}
+                    className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[12.5px] font-semibold text-neutral-700 transition-colors active:bg-neutral-100 [@media(hover:hover)]:hover:bg-neutral-50"
+                  >
+                    @{sug}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <Hint left="Adresa profilului tău. Fără spații, litere mici." right={`${30 - handle.length}`} />
       </Section>
 
       <Section title="Despre tine">

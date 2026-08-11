@@ -20,6 +20,8 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
+
 // Set up a browser BEFORE the module under test is used. auth-snapshot only
 // touches `window` inside its functions, never at load, so a static import is
 // safe as long as nothing is CALLED before this runs.
@@ -55,7 +57,7 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const strip = stripComments
 
 const detail = strip(read("components/product/product-detail.tsx"))
 const sheet = strip(read("components/product/manage-listing-sheet.tsx"))
