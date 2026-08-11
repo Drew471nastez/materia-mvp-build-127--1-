@@ -146,11 +146,17 @@ export function DesktopHome({ products }: { products: any[] }) {
         rows={1}
         href="/?q="
         seeMoreLabel="Vezi mai multe"
+        emptyNote="Deschide câteva anunțuri și îți arătăm aici lucruri asemănătoare."
       />
 
       <YouMightBeInto views={views} catalogue={products} />
 
-      <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} />
+      <ListingRow
+        title="Vizualizate recent"
+        items={sections.recentlyViewed}
+        rows={1}
+        emptyNote="Anunțurile pe care le deschizi apar aici, ca să te întorci la ele ușor."
+      />
 
       <ListingRow
         title="Sugestii pentru tine"

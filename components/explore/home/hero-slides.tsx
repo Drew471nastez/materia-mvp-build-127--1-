@@ -34,17 +34,16 @@ import { cn } from "@/lib/utils"
  * the one place on the site that has to speak to somebody who has not decided
  * to buy anything yet, and a product title cannot do that.
  *
- * So the words are written, and they are written to be read by everybody:
- * sneakers, denim and one-off pieces are the three things this catalogue is
- * actually full of, none of them is addressed to men or to women, and each one
- * gives a REASON rather than a name — priced so you can justify it, worn
- * exactly enough, not something everybody else has.
+ * So the words are written, and they are written to be read by everybody: a
+ * price you can justify, things that went up this week, things that exist once.
+ * None of the three is addressed to men or to women, and each gives a REASON
+ * rather than a name.
  *
- * The photographs still come from the catalogue where there are any, so what is
- * on the front page is stock this marketplace really holds. The button opens a
- * SEARCH rather than the single listing whose picture it borrowed — a slide
- * that promises "denim" and lands on one pair of jeans is a bait, and a search
- * is the honest version of the same promise.
+ * The photographs come from the catalogue, so what is on the front page is
+ * stock this marketplace really holds. The button opens a SEARCH rather than
+ * the single listing whose picture it borrowed — a slide that promises a
+ * category and lands on one item is a bait, and a search is the honest version
+ * of the same promise.
  */
 
 const AUTOPLAY_MS = 6000
@@ -70,11 +69,14 @@ type Slide = {
   body: string
   cta: string
   href: string
-  image: string
-  alt: string
   /** The left half. Chosen per slide so three in a row are not one colour. */
   ground: string
-}
+  alt: string
+} & (
+  | { kind: "art"; image: string }
+  /** Three real listings, each in its own 3:4 box. */
+  | { kind: "shelf"; items: { id: string; image: string; slug: string }[] }
+)
 
 /**
  * The three, written rather than generated.
@@ -88,15 +90,44 @@ type Slide = {
  * `fallback` is what it wears when the catalogue has nothing matching, and it is
  * the editorial artwork rather than a borrowed photograph of something else.
  */
-type SlideCopy = Omit<Slide, "key" | "image" | "alt"> & {
-  match: string[]
-  fallback: string
+type SlideCopy = {
+  eyebrow: string
+  title: string
+  body: string
+  cta: string
+  href: string
+  ground: string
   alt: string
-}
+} & (
+  /** The one composed image. */
+  | { art: string }
+  /** Preference for which listings fill this slide's shelf; it is a preference
+   *  and not a filter — see pickShelf. */
+  | { prefer: string[] }
+)
 
 const SNEAKERS_ART =
   "https://contentful.depop.com/itoh30v6uh9a/6kH5Llt5SlaiA1fsozElfZ/e824fe68ea258ea059a35a1f31616ba8/748x240__2_.jpg?fm=webp&w=1400"
 
+/**
+ * ---------------------------------------------------------------------------
+ * WHY THERE IS NO LONGER A SLIDE ABOUT JEANS
+ * ---------------------------------------------------------------------------
+ * "Blugi care au trecut proba timpului" over a stock photograph was copy
+ * written to sound like a campaign for a category this marketplace does not
+ * especially have. It read as generated, which on a second-hand site is the
+ * one thing that cannot be true — the whole proposition is that these are real
+ * objects owned by real people.
+ *
+ * What replaced it says something that is simply a FACT about the catalogue —
+ * these went up in the last few days; each of these exists once — and then
+ * proves it by showing the actual things rather than a picture of the idea of
+ * them. Nothing to disbelieve, nothing to write.
+ *
+ * The grounds are muted and natural for the same reason: three saturated
+ * panels in a row is a banner ad, and the photographs are the colour on this
+ * page.
+ */
 const COPY: SlideCopy[] = [
   {
     eyebrow: "Selecție",
@@ -105,64 +136,127 @@ const COPY: SlideCopy[] = [
     cta: "Vezi selecția",
     href: "/?q=sneakers",
     ground: "#3d4451",
-    match: ["sneaker", "adidasi", "adidași", "nike", "jordan", "shoes", "pantofi"],
-    fallback: SNEAKERS_ART,
+    art: SNEAKERS_ART,
     alt: "Sneakers second-hand",
   },
   {
-    eyebrow: "Denim",
-    title: "Blugi care au trecut proba timpului",
-    body: "Denim purtat exact cât trebuie — se poartă mai bine decât unul nou și costă mai puțin.",
-    cta: "Vezi denim",
-    href: "/?q=blugi",
-    ground: "#2b3a4a",
-    match: ["blugi", "denim", "jeans", "levi", "geac", "jachet"],
-    fallback: SNEAKERS_ART,
-    alt: "Blugi second-hand",
+    eyebrow: "Noutăți",
+    title: "Adăugate zilele astea",
+    body: "Piese urcate de curând de oameni din toată țara. Se vând o singură dată.",
+    cta: "Vezi noutățile",
+    href: "/?q=",
+    ground: "#5b5148",
+    prefer: [],
+    alt: "Anunțuri adăugate recent",
   },
   {
     eyebrow: "Unicat",
     title: "Lucruri pe care nu le are toată lumea",
-    body: "Fiecare anunț este un singur exemplar. Când pleacă, a plecat — și de aceea merită căutat.",
+    body: "Fiecare anunț este un singur exemplar. Când pleacă, a plecat.",
     cta: "Descoperă",
     href: "/?q=vintage",
-    ground: "#4a3f5c",
-    match: ["vintage", "retro", "unicat", "y2k", "second"],
-    fallback: SNEAKERS_ART,
+    ground: "#3f4a44",
+    prefer: ["vintage", "retro", "unicat", "y2k", "second", "handmade"],
     alt: "Piese vintage second-hand",
   },
 ]
 
-/** The first listing whose title, brand or category contains one of the words —
- *  and which has not already been taken by an earlier slide. */
-function pickImage(listings: HeroListing[], words: string[], taken: Set<string>): string | null {
-  const hit = listings.find((l) => {
-    if (taken.has(l.id)) return false
-    const hay = `${l.title ?? ""} ${l.brand ?? ""} ${l.category ?? ""} ${l.subcategory ?? ""}`.toLowerCase()
-    return words.some((w) => hay.includes(w))
-  })
-  if (!hit) return null
-  const img = cardImage(readVariants(hit.image_variants), hit.thumbnail_url, 0)
-  if (img) taken.add(hit.id)
-  return img
+/**
+ * ===========================================================================
+ *  WHY THE LISTING SLIDES ARE A SHELF AND NOT A PHOTOGRAPH
+ * ===========================================================================
+ *
+ * They used to stretch one listing's photo across the whole right half, and it
+ * was the worst thing on the page. A listing photograph is PORTRAIT — a jumper
+ * on a hanger, a pair of jeans on a floor, shot 3:4 by somebody holding a phone
+ * vertically. Putting that in a 820x260 slot with `object-cover` throws away
+ * three quarters of it and keeps a horizontal band from the middle, which is
+ * how the front page ended up showing two people's torsos and a picnic blanket.
+ * No crop rule fixes that; the aspect ratios are simply not the same shape.
+ *
+ * A shelf of three, each in its own 3:4 box, crops NOTHING. It also happens to
+ * be more honest and better looking: three real things somebody is selling,
+ * side by side, instead of one stock-looking lifestyle photograph that could
+ * have come from anywhere. Clean, and unmistakably this marketplace's.
+ *
+ * ---------------------------------------------------------------------------
+ * THE KEYWORDS ARE A PREFERENCE, NOT A FILTER
+ * ---------------------------------------------------------------------------
+ * They used to be a filter, and on the real catalogue that meant BOTH listing
+ * slides found fewer than three matches, both fell back to the artwork, and the
+ * front page showed the SAME photograph three times in a row. Three identical
+ * slides is worse than any crop.
+ *
+ * So each slide takes its preferred listings first and then tops up from
+ * whatever else is unused. A slide called "Unicat" showing a coat that is not
+ * literally tagged vintage is still telling the truth — it IS a single
+ * exemplar, that is the claim — whereas showing the same stock photo three
+ * times is not telling the truth about anything.
+ *
+ * A slide that STILL cannot fill three boxes is dropped from the carousel
+ * outright. One honest slide beats three copies of one.
+ */
+const SHELF = 3
+
+function pickShelf(
+  listings: HeroListing[],
+  prefer: string[],
+  taken: Set<string>,
+): { id: string; image: string; slug: string }[] {
+  const out: { id: string; image: string; slug: string }[] = []
+
+  const consider = (l: HeroListing) => {
+    if (out.length === SHELF || taken.has(l.id)) return
+    const image = cardImage(readVariants(l.image_variants), l.thumbnail_url, 0)
+    if (!image) return
+    taken.add(l.id)
+    out.push({ id: l.id, image, slug: l.slug })
+  }
+
+  // Preferred first, in catalogue order (which is newest-first).
+  if (prefer.length > 0) {
+    for (const l of listings) {
+      if (out.length === SHELF) break
+      const hay = `${l.title ?? ""} ${l.brand ?? ""} ${l.category ?? ""} ${l.subcategory ?? ""}`.toLowerCase()
+      if (prefer.some((w) => hay.includes(w))) consider(l)
+    }
+  }
+  // Then anything still unclaimed.
+  for (const l of listings) {
+    if (out.length === SHELF) break
+    consider(l)
+  }
+  return out
 }
 
 export function HeroSlides({ listings }: { listings: HeroListing[] }) {
   const slides = useMemo<Slide[]>(() => {
     const taken = new Set<string>()
-    return COPY.map((c, i) => ({
-      key: `slide-${i}`,
-      eyebrow: c.eyebrow,
-      title: c.title,
-      body: c.body,
-      cta: c.cta,
-      href: c.href,
-      ground: c.ground,
-      alt: c.alt,
-      // The first slide keeps its editorial artwork whatever is listed: it is
-      // the one that has to be right on an empty marketplace.
-      image: (i === 0 ? c.fallback : pickImage(listings, c.match, taken) ?? c.fallback),
-    }))
+    const out: Slide[] = []
+    COPY.forEach((c, i) => {
+      const base = {
+        key: `slide-${i}`,
+        eyebrow: c.eyebrow,
+        title: c.title,
+        body: c.body,
+        cta: c.cta,
+        href: c.href,
+        ground: c.ground,
+        alt: c.alt,
+      }
+      // The one composed image. It is the slide that has to be right on an
+      // empty marketplace, and the only picture on this page that was made for
+      // this shape rather than cropped into it.
+      if ("art" in c) {
+        out.push({ ...base, kind: "art", image: c.art })
+        return
+      }
+      const items = pickShelf(listings, c.prefer, taken)
+      // Dropped rather than filled with the artwork again — see the note above
+      // pickShelf. Three copies of one photograph was the actual complaint.
+      if (items.length === SHELF) out.push({ ...base, kind: "shelf", items })
+    })
+    return out
   }, [listings])
 
   const [index, setIndex] = useState(0)
@@ -262,19 +356,45 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
               </SmartLink>
             </div>
 
-            {/* The photograph, doing the one thing a photograph is for. */}
-            <div className="relative h-[240px] lg:h-[260px]">
-              <Image
-                src={s.image}
-                alt={s.alt}
-                fill
-                sizes="(min-width: 1024px) 820px, 60vw"
-                // Only the first slide is above the fold on arrival; the others
-                // are one transform away and can wait.
-                priority={i === 0}
-                className="object-cover"
-              />
-            </div>
+            {/* The right half: either artwork composed for this shape, or three
+                real listings each in its own box. Never one portrait photograph
+                stretched across a landscape slot — see the note above pickShelf. */}
+            {s.kind === "art" ? (
+              <div className="relative h-[240px] lg:h-[260px]">
+                <Image
+                  src={s.image}
+                  alt={s.alt}
+                  fill
+                  sizes="(min-width: 1024px) 820px, 60vw"
+                  // Only the first slide is above the fold on arrival; the
+                  // others are one transform away and can wait.
+                  priority={i === 0}
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div
+                className="flex h-[240px] items-center gap-3 px-6 lg:h-[260px] lg:gap-4 lg:px-8"
+                style={{ backgroundColor: s.ground }}
+              >
+                {s.items.map((it) => (
+                  <SmartLink
+                    key={it.id}
+                    href={`/products/${it.slug}`}
+                    tabIndex={i === index ? 0 : -1}
+                    className="relative h-[184px] flex-1 overflow-hidden rounded-xl bg-black/20 lg:h-[200px]"
+                  >
+                    <Image
+                      src={it.image}
+                      alt=""
+                      fill
+                      sizes="200px"
+                      className="object-cover transition-transform duration-[400ms] ease-out hover:scale-[1.04]"
+                    />
+                  </SmartLink>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

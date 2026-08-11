@@ -121,12 +121,12 @@ check(
 check(
   "each one gives a reason, and none of them is addressed to one sex",
   (() => {
-    // Sneakers, denim and one-off pieces: the three things this catalogue is
-    // full of, and a reason rather than a name — priced so you can justify it,
-    // worn exactly enough, not something everybody else has.
+    // A price you can justify, things that went up this week, things that
+    // exist once — a reason rather than a name, and nothing a copywriter had
+    // to invent about a category this catalogue may not have.
     return (
       /Sneakers sub 250 lei/.test(hero) &&
-      /Blugi care au trecut proba timpului/.test(hero) &&
+      /Adăugate zilele astea/.test(hero) &&
       /Lucruri pe care nu le are toată lumea/.test(hero) &&
       !/pentru ea\b/i.test(hero) &&
       !/pentru el\b/i.test(hero)
@@ -135,22 +135,66 @@ check(
 )
 
 check(
-  "a slide wears a photograph of what it is about, or the artwork",
+  "the denim campaign is gone — it read as written by a machine",
   (() => {
-    // A slide about denim must not be wearing a picture of a lamp; and a
-    // catalogue with no denim in it gets the editorial image rather than a
-    // borrowed photograph of something else.
+    // The COPY array only: the file's own notes are allowed to quote the
+    // headline they explain the removal of.
+    const copy = hero.slice(hero.indexOf("const COPY: SlideCopy[]"), hero.indexOf("const SHELF"))
+    return !/[Bb]lugi/.test(copy) && !/proba timpului/.test(copy) && !/denim/i.test(copy)
+  })(),
+)
+
+check(
+  "a listing slide is a shelf of three, not one photograph stretched wide",
+  (() => {
+    // A listing photograph is PORTRAIT — shot 3:4 by somebody holding a phone
+    // vertically. In an 820x260 slot with object-cover, three quarters of it is
+    // thrown away and a horizontal band from the middle is kept, which is how
+    // the front page ended up showing two torsos and a picnic blanket. No crop
+    // rule fixes that; the aspect ratios are not the same shape.
     return (
-      /function pickImage/.test(hero) &&
-      /words\.some\(\(w\) => hay\.includes\(w\)\)/.test(hero) &&
-      /pickImage\(listings, c\.match, taken\) \?\? c\.fallback/.test(hero)
+      /const SHELF = 3/.test(hero) &&
+      /kind: "shelf"/.test(hero) &&
+      /items\.length === SHELF/.test(hero) &&
+      !/pickImage/.test(hero)
     )
   })(),
 )
 
 check(
-  "and no two slides borrow the same listing's photograph",
-  /taken\.add\(hit\.id\)/.test(hero) && /if \(taken\.has\(l\.id\)\) return false/.test(hero),
+  "the keywords are a preference, so a shelf is not left empty by a filter",
+  (() => {
+    // As a FILTER they matched fewer than three listings each, both shelf
+    // slides fell back to the artwork, and the front page showed the SAME
+    // photograph three times. Preferred first, then top up from the rest.
+    const fn = hero.slice(hero.indexOf("function pickShelf"), hero.indexOf("export function HeroSlides"))
+    return (
+      /prefer\.some\(\(w\) => hay\.includes\(w\)\)/.test(fn) &&
+      // The top-up pass: a second walk of the catalogue with no word test.
+      /Then anything still unclaimed/.test(fn) &&
+      (fn.match(/for \(const l of listings\)/g) ?? []).length === 2
+    )
+  })(),
+)
+
+check(
+  "a shelf that still cannot be filled is dropped, never a third copy of the artwork",
+  /if \(items\.length === SHELF\) out\.push/.test(hero) &&
+    !/kind: "art" as const, image: c\.fallback/.test(hero) &&
+    (hero.match(/SNEAKERS_ART/g) ?? []).length === 2,
+)
+
+check(
+  "no two slides show the same listing",
+  /taken\.add\(l\.id\)/.test(hero) && /taken\.has\(l\.id\)/.test(hero),
+)
+
+check(
+  "the shelf's boxes are the card's own ratio, so nothing is cropped",
+  (() => {
+    const shelf = hero.slice(hero.indexOf('s.kind === "art"'))
+    return /h-\[184px\] flex-1/.test(shelf) && /sizes="200px"/.test(shelf)
+  })(),
 )
 
 check(
@@ -197,6 +241,35 @@ check(
 check(
   "an off-screen slide's button is out of the tab order",
   /tabIndex=\{i === index \? 0 : -1\}/.test(hero),
+)
+
+check(
+  "the personal sections hold their place instead of vanishing",
+  (() => {
+    // They returned null on a first visit, so a new visitor's home page was
+    // hero → pills → suggestions: three of seven sections missing, in an order
+    // that reads as wrong rather than as empty. A section that disappears takes
+    // the SHAPE of the page with it, and the shape is what somebody learns.
+    return (
+      /emptyNote\?: string/.test(row) &&
+      /if \(empty && !emptyNote\) return null/.test(row) &&
+      /emptyNote="Deschide câteva anunțuri/.test(home) &&
+      /emptyNote="Anunțurile pe care le deschizi apar aici/.test(home)
+    )
+  })(),
+)
+
+check(
+  "an empty section is a line, not five card-shaped holes",
+  (() => {
+    // Grey rectangles would promise content that is not coming.
+    return /border-dashed/.test(row) && !/aspect-\[3\/4\][\s\S]{0,120}empty/.test(row)
+  })(),
+)
+
+check(
+  "and See more is not offered on a section with nothing in it",
+  /\{href && !empty && \(/.test(row),
 )
 
 console.log("\nIt knows what this person was looking at")
@@ -418,6 +491,71 @@ check(
 check(
   "the home page is only drawn when there is nothing being searched for",
   /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} \/>\}/.test(feed),
+)
+
+console.log("\nA build cannot die on somebody else's font server")
+
+check(
+  "only the interface typeface is fetched at build time",
+  (() => {
+    // next/font/google fetches from fonts.gstatic.com AT BUILD TIME, and a blip
+    // there fails the whole build with "Can't resolve
+    // '@vercel/turbopack-next/internal/font/…'". Six families meant six chances
+    // per deploy to die on somebody else's network — and it took three of them
+    // in one afternoon, each on a different font, each with a diff that had
+    // nothing to do with typography. A failed build looks exactly like a change
+    // that was never pushed.
+    const layout = read("app/layout.tsx")
+    return (
+      /import \{ Inter \} from "next\/font\/google"/.test(layout) &&
+      // Comments name them; only the CODE must not import them.
+      !/from "next\/font\/google"[\s\S]*?(Plus_Jakarta_Sans|Space_Grotesk|DM_Sans\(|Poppins\(|Montserrat\()/.test(layout) &&
+      !/\bconst (plusJakartaSans|spaceGrotesk|dmSans|poppins|montserrat) =/.test(layout)
+    )
+  })(),
+)
+
+check(
+  "the five builder families still load, from a stylesheet",
+  (() => {
+    // They are used by NOTHING in the marketplace — the OnePage theme picker
+    // writes them as raw CSS family names, so they need the family to be
+    // available and do not care where it came from.
+    const layout = read("app/layout.tsx")
+    return (
+      /fonts\.googleapis\.com\/css2\?family=DM\+Sans/.test(layout) &&
+      /Montserrat/.test(layout) &&
+      /Poppins/.test(layout) &&
+      /Space\+Grotesk/.test(layout) &&
+      /display=swap/.test(layout) &&
+      /rel="preconnect" href="https:\/\/fonts\.gstatic\.com"/.test(layout)
+    )
+  })(),
+)
+
+check(
+  "and they cannot blank the page while Google thinks about it",
+  (() => {
+    // A cross-origin <link rel="stylesheet"> in <head> is RENDER-BLOCKING: not
+    // one pixel is painted until it lands. Blocking first paint on five
+    // families that nothing in the marketplace uses is how a refresh of
+    // storelib.com becomes a white screen followed by the whole page at once.
+    const layout = read("app/layout.tsx")
+    // Comments in here quote the tag they explain the removal of, so they are
+    // stripped before the head is searched for one.
+    const head = layout
+      .slice(layout.indexOf("<head>"), layout.indexOf("</head>"))
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    return (
+      // No blocking stylesheet tag anywhere in the head...
+      !/<link\s+rel="stylesheet"/.test(head) &&
+      !/rel="stylesheet"\s*\n?\s*href="https:\/\/fonts\.googleapis/.test(head) &&
+      // ...and the sheet is appended from script, print-first, flipped on load.
+      /bf\.media='print'/.test(head) &&
+      /this\.media='all'/.test(head) &&
+      /document\.head\.appendChild\(bf\)/.test(head)
+    )
+  })(),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

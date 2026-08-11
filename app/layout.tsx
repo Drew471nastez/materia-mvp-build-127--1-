@@ -1,6 +1,38 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { Inter, Plus_Jakarta_Sans, Space_Grotesk, DM_Sans, Poppins, Montserrat } from "next/font/google"
+/**
+ * ===========================================================================
+ *  ONE FONT THROUGH next/font, AND FIVE THROUGH A STYLESHEET
+ * ===========================================================================
+ *
+ * `next/font/google` FETCHES FROM fonts.gstatic.com AT BUILD TIME, and a blip
+ * there fails the whole build with
+ *
+ *   Module not found: Can't resolve '@vercel/turbopack-next/internal/font/…'
+ *
+ * This shipped six families, so every production build had six chances to die
+ * on somebody else's network — and it took three of them in one afternoon,
+ * each time on a different font, each time with a diff that had nothing to do
+ * with typography. A failed build looks exactly like a change that was never
+ * pushed, which is the worst way for this to fail.
+ *
+ * Inter stays: it IS the interface, it is what `font-sans` resolves to, and
+ * self-hosting it is worth a build-time dependency.
+ *
+ * The other five — Plus Jakarta Sans, Space Grotesk, DM Sans, Poppins,
+ * Montserrat — are used by NOTHING in the marketplace. They exist for the
+ * OnePage builder's theme picker, which writes them as raw CSS family names
+ * (`font_family: "'Poppins', sans-serif"`) rather than through the CSS
+ * variables next/font provides. So they need the family to be AVAILABLE and do
+ * not care where it came from, which makes them a runtime concern rather than
+ * a build one.
+ *
+ * They load from a single stylesheet below, appended from script with the
+ * media="print" trick so it is NOT render-blocking — see the long note beside
+ * it. The cost is one request; what it buys is that Google being slow can
+ * neither stop this product shipping nor hold its first paint hostage.
+ */
+import { Inter } from "next/font/google"
 import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
 import { BuyerProtectionHost } from "@/components/marketplace/buyer-protection"
@@ -27,45 +59,10 @@ const inter = Inter({
 // Secondary fonts — used only in OnePage theme system.
 // preload: false defers network requests until the font is actually referenced
 // in CSS, keeping initial page load fast. display: swap prevents FOIT.
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plus-jakarta-sans",
-  display: "swap",
-  preload: false,
-})
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-space-grotesk",
-  display: "swap",
-  preload: false,
-})
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-dm-sans",
-  display: "swap",
-  preload: false,
-})
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-poppins",
-  display: "swap",
-  preload: false,
-})
 
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-montserrat",
-  display: "swap",
-  preload: false,
-})
 
 export const metadata: Metadata = {
   title: {
@@ -148,8 +145,38 @@ export default function RootLayout({
             __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
           }}
         />
+        {/* ═══════════════════════════════════════════════════════════════════
+            THE FIVE BUILDER FAMILIES, LOADED SO THEY CANNOT BLANK THE PAGE
+            ═══════════════════════════════════════════════════════════════════
+
+            This was a plain <link rel="stylesheet"> to fonts.googleapis.com,
+            and that is RENDER-BLOCKING: the browser will not paint a single
+            pixel of the document until a cross-origin stylesheet in <head> has
+            been fetched and parsed. On a slow connection — or any moment
+            Google is slow from Romania — that is a WHITE SCREEN for the whole
+            of it, followed by the entire page appearing at once. Which is
+            exactly what "I refresh storelib.com and it's empty, then everything
+            bumps in" describes.
+
+            Blocking first paint on five families that NOTHING on the
+            marketplace uses is the worst possible trade. So the sheet is
+            appended from script with `media="print"` — a stylesheet that does
+            not apply to the screen is not on the critical path — and flipped to
+            `all` on load. Same one request, same families available to the
+            OnePage builder a few milliseconds later, and the marketplace paints
+            the instant its own CSS is ready.
+
+            The preconnects stay: they cost nothing and they warm the socket the
+            script is about to use. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var bf=document.createElement('link');bf.rel='stylesheet';bf.media='print';bf.onload=function(){this.onload=null;this.media='all'};bf.href='https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Montserrat:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap';document.head.appendChild(bf)}catch(e){}`,
+          }}
+        />
       </head>
-      <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
+      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         {/* ONE buyer-protection subpage for the whole application.
             
