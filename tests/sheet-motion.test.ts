@@ -1364,6 +1364,35 @@ check(
   })(),
 )
 
+check(
+  "a centred desktop dialog does not take the page out of its own scroller",
+  (() => {
+    // `lockScroll` sets `overflow: hidden` on the body. On a phone that is
+    // right: the panel covers the viewport. On a desktop it is a centred dialog
+    // with the page visible around it, header included — and making the body
+    // non-scrolling means a header that was STICKING to that scroller has
+    // nothing left to stick to. It returns to wherever it sits in the document,
+    // which on a scrolled page is above the fold. The header did not fade or
+    // slide; it stopped being pinned.
+    const picker = read("components/sell/picker-page.tsx")
+    return /window\.innerWidth >= 768\) return\s*\n\s*return lockScroll\(\)/.test(picker)
+  })(),
+  "        components/sell/picker-page.tsx — locking the body is for overlays\n" +
+    "        that cover the viewport, not for ones the page surrounds.",
+)
+
+check(
+  "the sell form has no loading shell of a shape it never becomes",
+  (() => {
+    // `mx-auto max-w-3xl` with a four-column photo grid, standing in for a form
+    // that is neither of those things at any width — so loading /products/new
+    // painted one layout and then replaced it with another. The page awaits
+    // nothing but its own search params, which is a microtask, so the shell was
+    // never buying a wait: it was adding an arrival.
+    return !existsSync(join(process.cwd(), "app/(marketing)/products/new/loading.tsx"))
+  })(),
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

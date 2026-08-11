@@ -423,11 +423,26 @@ const WORN: ListingField[] = ["brand", "size", "colour", "sources", "era", "styl
 const CARRIED: ListingField[] = ["brand", "colour", "sources", "era", "style"]
 /** Objects: a brand and a colour, and nothing about how they are styled. */
 const OBJECT: ListingField[] = ["brand", "colour"]
-/** Printed and recorded matter: a brand is a publisher or a label, and that is
- *  the only one of the six that means anything. */
-const MEDIA: ListingField[] = ["brand"]
-/** Collectibles: a brand is the maker or the set, and colour is meaningless. */
-const COLLECTIBLE: ListingField[] = ["brand"]
+/**
+ * Printed and recorded matter, and collectibles: NONE of the six.
+ *
+ * Both of these used to ask for a brand, on the reasoning that a brand is a
+ * publisher for a book and a maker for a boxed set. The reasoning is sound and
+ * the field is not, because the field is not a free-text box — it opens the
+ * BRAND DIRECTORY, which is fashion. Listing a paperback and being offered
+ * Nike, Adidas and Zara is not a slightly imprecise label; it is a question
+ * with no correct answer in it, on a form whose whole job is to be answerable.
+ *
+ * A publisher field and a maker field would each be right, and each needs a
+ * directory of its own before it can exist. Until then the title carries it —
+ * "Dune, Nemira, 2021" is how anybody writes a book listing anyway — and the
+ * form asks nothing it cannot accept an answer to.
+ *
+ * Colour and size were already absent from both for the same class of reason,
+ * so this is the third of the six going for the third time.
+ */
+const MEDIA: ListingField[] = []
+const COLLECTIBLE: ListingField[] = []
 
 const FIELDS_BY_GROUP: Record<string, ListingField[]> = {
   "women-clothing": WORN,

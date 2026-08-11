@@ -22,6 +22,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { indexAtPoint, moveItem, type Box } from "../lib/sell/reorder"
+import { fieldsFor } from "../lib/marketplace/listing-taxonomy"
 
 let passed = 0
 let failed = 0
@@ -990,6 +991,46 @@ check(
     // replaced to pick a colour.
     const picker = read("components/sell/picker-page.tsx")
     return /min-width: 768px/.test(picker) && /isDesktop/.test(picker)
+  })(),
+)
+
+check(
+  "a book is never asked for a fashion brand",
+  (() => {
+    // The brand row is not a free-text box: it opens the BRAND DIRECTORY, which
+    // is fashion. Listing a paperback and being offered Nike, Adidas and Zara is
+    // not a slightly imprecise label — it is a question with no correct answer
+    // in it, on a form whose whole job is to be answerable.
+    //
+    // Driven against the real table rather than grepped, because the point is
+    // which groups resolve to which fields, and that is exactly what a lookup
+    // can be wrong about while every line of it reads correctly.
+    const media = ["ent-books", "ent-magazines", "ent-music", "ent-video"]
+    const collectible = [
+      "hobby-cards", "hobby-boardgames", "hobby-puzzles", "hobby-miniatures",
+      "hobby-memorabilia", "hobby-coins", "hobby-stamps", "hobby-postcards",
+    ]
+    const offenders = [...media, ...collectible].filter((g) =>
+      fieldsFor(g).includes("brand"),
+    )
+    if (offenders.length) console.log(`        ${offenders.join(", ")}`)
+    return offenders.length === 0
+  })(),
+  "        lib/marketplace/listing-taxonomy.ts — a publisher field and a maker\n" +
+    "        field would each be right, and each needs its own directory first.",
+)
+
+check(
+  "and clothing still is, because there the directory is the right one",
+  (() => {
+    // The removal has to be about the groups the directory does not serve, not
+    // about the field. Taking brand off a pair of trainers would be a far worse
+    // bug than the one being fixed.
+    return (
+      fieldsFor("women-clothing").includes("brand") &&
+      fieldsFor("men-shoes").includes("brand") &&
+      fieldsFor("women-bags").includes("brand")
+    )
   })(),
 )
 
