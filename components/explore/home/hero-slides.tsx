@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
@@ -48,7 +48,6 @@ import { cn } from "@/lib/utils"
  * of the same promise.
  */
 
-const AUTOPLAY_MS = 6000
 /** Matched to the panel transitions elsewhere, so the page has one curve. */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 
@@ -84,6 +83,8 @@ type Slide = {
   href: string
   /** The left half. Chosen per slide so three in a row are not one colour. */
   ground: string
+  /** "dark" ink on a pale ground; "light" (the default) on a dark one. */
+  tone: "light" | "dark"
   alt: string
 } & (
   | { kind: "art"; image: string }
@@ -110,6 +111,15 @@ type SlideCopy = {
   cta: string
   href: string
   ground: string
+  /**
+   * Which way round the ink runs on this slide's ground.
+   *
+   * Defaults to "light" — white type — because two of the three grounds are
+   * dark. A slide that sets a pale ground must say `tone: "dark"` or its copy
+   * is white on bone, which is the sort of thing that ships because the person
+   * who changed the colour never scrolled to the slide.
+   */
+  tone?: "light" | "dark"
   alt: string
 } & (
   /** The one composed image. */
@@ -120,7 +130,7 @@ type SlideCopy = {
 )
 
 const SNEAKERS_ART =
-  "https://contentful.depop.com/itoh30v6uh9a/6kH5Llt5SlaiA1fsozElfZ/e824fe68ea258ea059a35a1f31616ba8/748x240__2_.jpg?fm=webp&w=1400"
+  "https://unfazed.ro/cdn/shop/collections/unfazed-desktop-collection-jordan-4-retro_6.jpg?v=1744359752&width=2048"
 
 /**
  * ---------------------------------------------------------------------------
@@ -158,7 +168,21 @@ const COPY: SlideCopy[] = [
     body: "Piese urcate de curând de oameni din toată țara. Se vând o singură dată.",
     cta: "Vezi noutățile",
     href: "/?q=",
-    ground: "#5b5148",
+    /**
+     * THE ONE LIGHT SLIDE, AND THAT IS THE POINT.
+     *
+     * It was a warm taupe, which put three dark panels in a row: the carousel
+     * moved and nothing about it appeared to change, so the only way to tell
+     * you had advanced was to read the headline again. A ground somebody has to
+     * READ to notice is not doing a ground's job.
+     *
+     * Bone rather than white — #f2efe9 against the page's own white, so the
+     * slide still has an edge — and it is the middle of the three, so the strip
+     * goes dark, light, dark. That is a rhythm you see at a glance, and it is
+     * the cheapest possible way to make three slides feel like three slides.
+     */
+    ground: "#f2efe9",
+    tone: "dark",
     prefer: [],
     alt: "Anunțuri adăugate recent",
   },
@@ -258,6 +282,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         cta: c.cta,
         href: c.href,
         ground: c.ground,
+        tone: c.tone ?? ("light" as const),
         alt: c.alt,
       }
       // The one composed image. It is the slide that has to be right on an
@@ -276,7 +301,6 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
   }, [listings])
 
   const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
   const count = slides.length
 
   const go = useCallback(
@@ -287,20 +311,25 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
   )
 
   /**
-   * AUTOPLAY THAT STOPS WHEN SOMEBODY IS LOOKING AT IT.
+   * ═══════════════════════════════════════════════════════════════════════
+   *  NOTHING MOVES UNLESS SOMEBODY MOVES IT
+   * ═══════════════════════════════════════════════════════════════════════
    *
-   * A carousel that moves under the cursor while you are reading the slide is
-   * the reason people hate carousels. It also stops when the tab is hidden —
-   * otherwise a background tab advances thirty slides and comes back somewhere
-   * arbitrary, having done thirty layout passes nobody watched.
+   * There was a six-second autoplay here, hedged with a pause-on-hover and a
+   * visibility check. Both hedges were admissions: the first says the thing is
+   * annoying while you read it, the second says it wastes work when nobody is
+   * watching. A control that needs two guards against its own default
+   * behaviour is a control whose default behaviour is wrong.
+   *
+   * It also cannot be made to feel good. The transform is smooth; what is not
+   * smooth is a page that changes under you while you are deciding whether to
+   * click something on it. Every attempt to "make the autoplay smoother" is an
+   * attempt to make an interruption feel less like one.
+   *
+   * So the strip is now driven only by the arrows, the dots and the arrow keys
+   * — and because nothing is racing a timer, the slide can take its time: 620ms
+   * on a long ease-out, which is the difference between a jump and a movement.
    */
-  useEffect(() => {
-    if (paused || count < 2) return
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") setIndex((i) => (i + 1) % count)
-    }, AUTOPLAY_MS)
-    return () => window.clearInterval(id)
-  }, [paused, count])
 
   /** Arrow keys, once the strip has focus. */
   const rootRef = useRef<HTMLDivElement>(null)
@@ -321,10 +350,6 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
       aria-label="Selecții"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
       className="group/hero relative overflow-hidden rounded-2xl"
     >
       {/* THE TRACK. One transform for the whole strip rather than a fade per
@@ -334,7 +359,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         className="flex"
         style={{
           transform: `translate3d(-${index * 100}%, 0, 0)`,
-          transition: `transform 520ms ${EASE}`,
+          transition: `transform 620ms ${EASE}`,
           willChange: "transform",
         }}
       >
@@ -358,25 +383,55 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
             className="grid h-[320px] w-full shrink-0 grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
             aria-hidden={i !== index}
           >
-            {/* The words, on a ground that cannot be argued with. */}
+            {/* The words, on a ground that cannot be argued with.
+
+                THE LEFT PADDING IS THE ARROW'S SEAT.
+
+                `pl-[72px]` is not styling — it is the gutter the previous
+                arrow was sitting IN somebody's headline for want of. The
+                arrow is vertically centred at the left edge, which is exactly
+                where a centred block of copy also is, so the only way the two
+                can share that edge is for the copy to start after it. Reserve
+                the space and the collision is impossible by construction,
+                rather than avoided by hoping the headline stays short. */}
             <div
-              className="flex flex-col justify-center px-6 py-8 lg:px-12"
+              className="flex flex-col justify-center py-8 pl-[72px] pr-6 lg:pl-[88px] lg:pr-12"
               style={{ backgroundColor: s.ground }}
             >
               {s.eyebrow && (
-                <p className="mb-2 truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-white/60">
+                <p
+                  className={cn(
+                    "mb-2 truncate text-[12px] font-semibold uppercase tracking-[0.08em]",
+                    s.tone === "dark" ? "text-neutral-500" : "text-white/60",
+                  )}
+                >
                   {s.eyebrow}
                 </p>
               )}
-              <h2 className="line-clamp-2 text-[22px] font-bold leading-[1.15] tracking-[-0.02em] text-white lg:text-[32px]">
+              <h2
+                className={cn(
+                  "line-clamp-2 text-[22px] font-bold leading-[1.15] tracking-[-0.02em] lg:text-[32px]",
+                  s.tone === "dark" ? "text-neutral-900" : "text-white",
+                )}
+              >
                 {s.title}
               </h2>
-              <p className="mt-2 line-clamp-2 max-w-[34ch] text-[13.5px] font-medium leading-relaxed text-white/70 lg:text-[14.5px]">
+              <p
+                className={cn(
+                  "mt-2 line-clamp-2 max-w-[34ch] text-[13.5px] font-medium leading-relaxed lg:text-[14.5px]",
+                  s.tone === "dark" ? "text-neutral-600" : "text-white/70",
+                )}
+              >
                 {s.body}
               </p>
               <SmartLink
                 href={s.href}
-                className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-lg bg-white px-6 text-[14.5px] font-semibold text-neutral-900 transition-colors duration-200 ease-out hover:bg-white/90"
+                className={cn(
+                  "mt-6 inline-flex h-11 w-fit items-center justify-center rounded-lg px-6 text-[14.5px] font-semibold transition-colors duration-200 ease-out",
+                  s.tone === "dark"
+                    ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                    : "bg-white text-neutral-900 hover:bg-white/90",
+                )}
                 // A slide that is off-screen must not be in the tab order: three
                 // hidden buttons before the first row of listings is three
                 // presses of Tab that appear to do nothing.
@@ -429,50 +484,52 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          THE CONTROLS, IN ONE CORNER, ON TOP OF NOTHING
+          BACK ON THE EDGES — WITH A SEAT RESERVED FOR THE LEFT ONE
           ═══════════════════════════════════════════════════════════════════
 
-          The arrows were vertically centred at the left and right edges, which
-          put the left one straight through the middle of the headline and the
-          body copy — a white disc sitting on the word it was covering. Every
-          fix that keeps an arrow at the left edge has the same problem, because
-          the left edge is where the words are: pushing it further out runs it
-          off the slide, pulling it in moves it deeper into the sentence, and
-          fading it until hover just means it appears on top of the text later.
+          They belong on the edges: that is where everybody's hand goes on a
+          carousel, and moving them into a corner made a familiar control into
+          one you have to find.
 
-          So they stop straddling the slide and become a PAIR, in the bottom
-          right — over the picture half, where the only thing underneath is a
-          photograph, and diagonally opposite the button so the two things you
-          can press are never in the same corner. The dots keep the bottom left,
-          under the copy where they have always been legible.
+          The reason they were moved is that the left one was drawn straight
+          through the headline. The answer is not to relocate the arrow but to
+          stop the copy claiming that strip: the left column now starts at 72px
+          (88 above 1024), so the arrow sits in a gutter the text can never
+          reach. Overlap is impossible by construction rather than avoided by
+          hoping headlines stay short.
 
-          Together they read as one control rather than two edges of the strip,
-          which is also how everybody expects a carousel to be driven. */}
+          The dots move to the same 72/88, so the copy, the button and the dots
+          share one left margin instead of three. */}
       {count > 1 && (
-        <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2 lg:bottom-5 lg:right-6">
-          <HeroArrow side="left" onClick={() => go(index - 1)} />
-          <HeroArrow side="right" onClick={() => go(index + 1)} />
-        </div>
+        <>
+          <HeroArrow side="left" tone={slides[index]?.tone} onClick={() => go(index - 1)} />
+          <HeroArrow side="right" tone="light" onClick={() => go(index + 1)} />
+        </>
       )}
 
       {/* The dots, over the ground rather than over the photograph — the one
           part of this that IS drawn on top of something, and it is drawn on the
-          half whose colour we chose. */}
+          half whose colour we chose, so they take that slide's ink. */}
       {count > 1 && (
-        <div className="absolute bottom-5 left-8 flex items-center gap-2 lg:left-12">
-          {slides.map((s, i) => (
-            <button
-              key={s.key}
-              type="button"
-              aria-label={`Slide ${i + 1} din ${count}`}
-              aria-current={i === index}
-              onClick={() => go(i)}
-              className={cn(
-                "h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out",
-                i === index ? "w-6 bg-white" : "w-1.5 bg-white/40 hover:bg-white/60",
-              )}
-            />
-          ))}
+        <div className="absolute bottom-5 left-[72px] flex items-center gap-2 lg:left-[88px]">
+          {slides.map((s, i) => {
+            const onPale = slides[index]?.tone === "dark"
+            return (
+              <button
+                key={s.key}
+                type="button"
+                aria-label={`Slide ${i + 1} din ${count}`}
+                aria-current={i === index}
+                onClick={() => go(i)}
+                className={cn(
+                  "h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out",
+                  i === index
+                    ? cn("w-6", onPale ? "bg-neutral-900" : "bg-white")
+                    : cn("w-1.5", onPale ? "bg-neutral-900/25 hover:bg-neutral-900/40" : "bg-white/40 hover:bg-white/60"),
+                )}
+              />
+            )
+          })}
         </div>
       )}
     </section>
@@ -556,7 +613,17 @@ function ShelfCard({
  * guessed it is there is a control most people never find. Muted white so they
  * read as chrome on any of the three grounds.
  */
-function HeroArrow({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+function HeroArrow({
+  side,
+  tone = "light",
+  onClick,
+}: {
+  side: "left" | "right"
+  /** The ink of the half this arrow sits over, so a white disc never lands on
+   *  a bone ground as an invisible smudge. */
+  tone?: "light" | "dark"
+  onClick: () => void
+}) {
   const Icon = side === "left" ? ChevronLeft : ChevronRight
   return (
     <button
@@ -564,10 +631,13 @@ function HeroArrow({ side, onClick }: { side: "left" | "right"; onClick: () => v
       onClick={onClick}
       aria-label={side === "left" ? "Slide-ul anterior" : "Slide-ul următor"}
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-full",
-        "bg-white/85 text-neutral-900 shadow-[0_2px_10px_rgba(0,0,0,0.18)] backdrop-blur-sm",
-        "transition-[background-color,transform] duration-200 ease-out",
-        "hover:bg-white active:scale-95",
+        "absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full",
+        "shadow-[0_2px_10px_rgba(0,0,0,0.16)] backdrop-blur-sm",
+        "transition-[background-color,transform] duration-200 ease-out active:scale-95",
+        tone === "dark"
+          ? "bg-neutral-900/85 text-white hover:bg-neutral-900"
+          : "bg-white/85 text-neutral-900 hover:bg-white",
+        side === "left" ? "left-4 lg:left-5" : "right-4 lg:right-5",
       )}
     >
       <Icon className="h-[18px] w-[18px]" strokeWidth={2.4} />

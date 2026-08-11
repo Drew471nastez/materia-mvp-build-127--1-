@@ -595,29 +595,42 @@ export function MobileSearchOverlay({
       )}
 
       {/* Tabs */}
+      {/* THREE TABS, SEPARATED BY A RULE.
+
+          Items / Categories / People are three different KINDS of result, not
+          three degrees of one — a person is not a narrower article. Spacing
+          alone left them reading as a row of words, so the hairlines say where
+          one choice ends and the next begins.
+
+          Drawn by the tab AFTER each one (`i > 0`) so there is never a stray
+          rule hanging off either end, and `self-center` keeps it to the height
+          of the label rather than the height of the button, which would put a
+          line through the active tab's purple underline. */}
       <div className={cn("shrink-0 flex items-stretch border-b border-neutral-100 px-2", anchored ? "pt-1.5" : "mt-2")}>
-        {TABS.map(([id, key]) => {
+        {TABS.map(([id, key], i) => {
           const active = tab === id
           return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "flex flex-1 flex-col items-center pb-2.5 pt-1 text-[15px] transition-colors duration-200",
-                active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
-              )}
-            >
-              <span className="relative inline-flex flex-col items-center">
-                {t(key)}
-                <span
-                  className={cn(
-                    "mt-2 h-[2px] w-full rounded-full bg-[#7c3aed] transition-all duration-300 ease-out",
-                    active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0",
-                  )}
-                />
-              </span>
-            </button>
+            <div key={id} className="flex flex-1 items-stretch">
+              {i > 0 && <span aria-hidden className="my-2 w-px shrink-0 self-center bg-neutral-200 h-4" />}
+              <button
+                type="button"
+                onClick={() => setTab(id)}
+                className={cn(
+                  "flex flex-1 flex-col items-center pb-2.5 pt-1 text-[15px] transition-colors duration-200",
+                  active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
+                )}
+              >
+                <span className="relative inline-flex flex-col items-center">
+                  {t(key)}
+                  <span
+                    className={cn(
+                      "mt-2 h-[2px] w-full rounded-full bg-[#7c3aed] transition-all duration-300 ease-out",
+                      active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0",
+                    )}
+                  />
+                </span>
+              </button>
+            </div>
           )
         })}
       </div>

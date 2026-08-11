@@ -2211,39 +2211,39 @@ export function PlatformHeaderClient() {
                     look wrong without looking like anything in particular.
                     `pt-4` gives it the same air underneath it already had.
 
-                    And the items are separated rather than merely spaced. Six
-                    words in a line at even gaps is a sentence; a hairline
-                    between each pair says they are six choices. The rule is
-                    drawn by the item AFTER it (`:not(:first-child)`), so there
-                    is never a stray divider hanging off either end however many
-                    categories there turn out to be. */}
+                    NO DIVIDERS HERE. They were tried and taken out: these six
+                    are one flat list of filters over the same thing, and ruling
+                    between them made a navigation bar out of a category rail.
+                    The rules belong in the search panel, where Articole /
+                    Categorii / Persoane really are three different KINDS of
+                    result — see components/explore/mobile-search-overlay.tsx.
+                    Gaps are the right separator for a list; rules are for a
+                    choice between unlike things. */}
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start whitespace-nowrap pb-4 pt-4 text-[14.5px]">
-                    {DEFAULT_CATEGORIES.map((cat, i) => {
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-4 pt-4 text-[14.5px]">
+                    {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
                       const isActive = activeCategoryId === cat.id
                       return (
-                        <div key={cat.id} className="flex items-center">
-                          {i > 0 && <span aria-hidden className="mx-3.5 h-4 w-px shrink-0 bg-neutral-200" />}
-                          <button
-                            type="button"
-                            onClick={() => onCategoryClick(cat.id)}
-                            className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
-                              isActive
-                                ? "text-neutral-900"
-                                : "text-neutral-500 hover:text-neutral-900"
-                            }`}
-                          >
-                            {isAll && <Icon className="w-[18px] h-[18px]" />}
-                            {cat.label}
-                            {cat.badge && (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
-                                {cat.badge}
-                              </span>
-                            )}
-                          </button>
-                        </div>
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => onCategoryClick(cat.id)}
+                          className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
+                            isActive
+                              ? "text-neutral-900"
+                              : "text-neutral-500 hover:text-neutral-900"
+                          }`}
+                        >
+                          {isAll && <Icon className="w-[18px] h-[18px]" />}
+                          {cat.label}
+                          {cat.badge && (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
+                              {cat.badge}
+                            </span>
+                          )}
+                        </button>
                       )
                     })}
                   </div>

@@ -116,7 +116,7 @@ check(
       /const COPY: SlideCopy\[\]/.test(hero) &&
       (hero.match(/eyebrow: "/g) ?? []).length === 3 &&
       !/title: listing\.title/.test(hero) &&
-      /contentful\.depop\.com/.test(hero)
+      /unfazed\.ro\/cdn\/shop\/collections/.test(hero)
     )
   })(),
 )
@@ -229,21 +229,23 @@ check(
 )
 
 check(
-  "there are arrows, and they are a pair in a corner rather than two edges",
+  "the arrows are on the edges, and the copy leaves them a seat",
   (() => {
-    // Centred at the left and right edges, the left one sat straight through
-    // the headline — and every fix that keeps an arrow at the left edge has
-    // that problem, because the left edge is where the words are. In the
-    // bottom right the only thing underneath is a photograph, and they are
-    // diagonally opposite the button so the two pressable things are never in
-    // the same corner.
+    // They belong on the edges — that is where everybody's hand goes. The
+    // reason the left one was drawn through the headline is that a centred
+    // block of copy occupies the same strip, so the fix is not to relocate the
+    // arrow but to stop the copy claiming that strip. Reserve 72/88px and the
+    // overlap is impossible by construction rather than avoided by hoping
+    // headlines stay short.
     return (
       /<HeroArrow side="left"/.test(hero) &&
       /<HeroArrow side="right"/.test(hero) &&
-      /absolute bottom-4 right-4 z-10 flex items-center gap-2/.test(hero) &&
-      // No longer straddling the slide, and no longer hidden until hover.
-      !/absolute top-1\/2 z-10 flex h-10 w-10 -translate-y-1\/2/.test(hero) &&
-      !/group-hover\/hero:opacity-100/.test(hero)
+      /absolute top-1\/2 z-10 flex h-9 w-9 -translate-y-1\/2/.test(hero) &&
+      /side === "left" \? "left-4 lg:left-5" : "right-4 lg:right-5"/.test(hero) &&
+      // The gutter, on the copy half AND under the dots, so all three share one
+      // left margin.
+      /pl-\[72px\] pr-6 lg:pl-\[88px\]/.test(hero) &&
+      /absolute bottom-5 left-\[72px\][\s\S]{0,80}lg:left-\[88px\]/.test(hero)
     )
   })(),
 )
@@ -280,12 +282,39 @@ check(
 )
 
 check(
-  "the carousel stops for the cursor and for a hidden tab",
+  "the carousel does not move unless somebody moves it",
   (() => {
-    // A carousel that moves while you are reading the slide is the reason
-    // people hate carousels; a background tab advancing thirty slides is thirty
-    // layout passes nobody watched.
-    return /onMouseEnter=\{\(\) => setPaused\(true\)\}/.test(hero) && /document\.visibilityState === "visible"/.test(hero)
+    // The autoplay was hedged with a pause-on-hover and a visibility check, and
+    // both hedges were admissions: one says it is annoying while you read, the
+    // other that it wastes work when nobody is watching. A control needing two
+    // guards against its own default has the wrong default.
+    return (
+      !/AUTOPLAY_MS/.test(hero) &&
+      !/setInterval/.test(hero) &&
+      !/setPaused/.test(hero) &&
+      !/visibilityState/.test(hero) &&
+      // Driven by the arrows, the dots and the arrow keys — and, with no timer
+      // to race, the slide can take 620ms instead of 520.
+      /transform 620ms \$\{EASE\}/.test(hero) &&
+      /if \(e\.key === "ArrowRight"\) go\(index \+ 1\)/.test(hero)
+    )
+  })(),
+)
+
+check(
+  "the middle slide is pale, and its ink flips with it",
+  (() => {
+    // Three dark panels in a row meant the carousel moved and nothing appeared
+    // to change — the only way to tell you had advanced was to read the
+    // headline again. Dark, light, dark is a rhythm you see at a glance.
+    return (
+      /ground: "#f2efe9"/.test(hero) &&
+      /tone: "dark"/.test(hero) &&
+      // Every piece of ink on the slide asks, not just the headline.
+      (hero.match(/s\.tone === "dark"/g) ?? []).length >= 4 &&
+      // And the arrow over a pale ground is dark, not a white smudge.
+      /tone === "dark"[\s\S]{0,60}bg-neutral-900\/85 text-white/.test(hero)
+    )
   })(),
 )
 
