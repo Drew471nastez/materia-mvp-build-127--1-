@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
  *
  *   POST /api/messages/:id/actions { action: "block"   }  → stop hearing from them
  *   POST /api/messages/:id/actions { action: "unblock" }
- *   POST /api/messages/:id/actions { action: "report", reason, detail? }
+ *   POST /api/messages/:id/actions { action: "report", reason, detail?, messageId? }
  *   POST /api/messages/:id/actions { action: "delete"  }  → leave the conversation
  *
  * One route because they are one decision made in one sheet, and splitting them
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
 
-  let payload: { action?: string; reason?: string; detail?: string }
+  let payload: { action?: string; reason?: string; detail?: string; messageId?: string }
   try {
     payload = await req.json()
   } catch {
@@ -83,6 +83,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     case "report": {
       const reason = typeof payload.reason === "string" && REASONS.has(payload.reason) ? payload.reason : "other"
       const detail = typeof payload.detail === "string" ? payload.detail.trim().slice(0, 2000) : null
+
+      /**
+       * WHICH MESSAGE, when the reporter said which message.
+       *
+       * The id is checked rather than trusted, and it is checked against THIS
+       * conversation — the one the caller has already proved membership of a
+       * few lines above. Without that, a valid session could file a report
+       * pointing at any message id in the database, and a moderator opening the
+       * queue would be shown a stranger's private conversation because somebody
+       * pasted its id into a query string.
+       *
+       * An id that does not belong here is dropped rather than refused: what
+       * arrives is still a genuine report about a thread the caller is in, and
+       * losing the pointer is a smaller failure than losing the report.
+       */
+      const wanted = typeof payload.messageId === "string" && UUID_RE.test(payload.messageId) ? payload.messageId : null
+      let messageId: string | null = null
+      if (wanted) {
+        const { data: row } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("id", wanted)
+          .eq("conversation_id", id)
+          .maybeSingle()
+        messageId = row?.id ?? null
+      }
+
       // Written with the service role on purpose: a report is a message to
       // moderation, and the reporter must not be able to read, edit or withdraw
       // anyone's but their own — which is exactly what the RLS policy allows and
@@ -93,6 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         reported_id: otherId,
         reason,
         detail,
+        message_id: messageId,
       })
       // 23505 is the one-report-per-person-per-thread index doing its job. From
       // where the user is standing they reported this conversation and it is

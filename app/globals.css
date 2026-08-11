@@ -4827,3 +4827,138 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
   background-color: inherit;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOVER, EVERYWHERE, AS ONE MOTION
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The complaint was that hover across the app feels "too direct" — cheap and
+   plastic — and it was right, for a reason worth writing down: a Tailwind
+   `hover:` utility does not animate anything. `hover:bg-[#6d28d9]` on a button
+   with no `transition-*` class is a background that CHANGES BETWEEN TWO FRAMES.
+   Most of the buttons in this app are exactly that, and the ones that do carry
+   a transition carry Tailwind's 150ms default, which on a colour change is
+   barely distinguishable from an instant one.
+
+   So this is not a restyle. Every hover state keeps the colour, the shadow and
+   the lift it already had; what it gains is the quarter-second and the curve
+   that make it read as a surface responding rather than a sprite swapping.
+   `cubic-bezier(0.33, 0.9, 0.35, 1)` is fast off the mark and settles long —
+   the shape of something with a little mass behind it.
+
+   ---------------------------------------------------------------------------
+   THE SELECTOR IS THE POINT
+   ---------------------------------------------------------------------------
+   `[class*="hover:"]` is every element in the app that has a hover state and
+   nothing else — which is exactly the set that was asked about, and a far
+   safer set than "every button". A blanket rule over buttons would reach into
+   animations that have nothing to do with hovering: the composer's send disc,
+   the tab bar's plus, the sheet transitions, all of which are timed against
+   each other and none of which asked. An element with no hover utility has no
+   hover animation to smooth.
+
+   ---------------------------------------------------------------------------
+   ASYMMETRIC, on purpose
+   ---------------------------------------------------------------------------
+   Arriving is faster than leaving — 150ms in, 260ms out. A control has to feel
+   like it noticed the cursor immediately or the whole interface feels laggy;
+   but one that snaps back the instant the pointer slides off looks like it was
+   never really lit. The press is faster still, because a press is the one event
+   the finger has already committed to.
+
+   ---------------------------------------------------------------------------
+   WHAT IT DELIBERATELY DOES NOT TOUCH
+   ---------------------------------------------------------------------------
+   An element that states its own timing keeps it: `:not([class*="duration-"])`
+   and `:not([class*="ease-"])`. The slow zoom on a card photograph is a
+   deliberate 500ms and stays 500ms. This fills in the silence where nothing was
+   specified at all, which is the overwhelming majority.
+
+   `:not([class*="transition-none"])` — a transition that was switched off was
+   switched off for a reason.
+
+   Pointer-only. On a touch screen :hover fires on tap and lingers until the
+   next one, which is what the @media (hover: none) block above already spends
+   forty lines suppressing; adding a quarter-second fade to a state that should
+   not be there at all would undo that work.                                   */
+@media (hover: hover) and (pointer: fine) {
+  [class*="hover:"]:not([class*="transition-none"]) {
+    transition-property: color, background-color, border-color, text-decoration-color, fill,
+      stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+  }
+
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="ease-"]) {
+    transition-timing-function: cubic-bezier(0.33, 0.9, 0.35, 1);
+  }
+
+  /* Leaving. */
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="duration-"]) {
+    transition-duration: 260ms;
+  }
+
+  /* Arriving. */
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="duration-"]):hover {
+    transition-duration: 150ms;
+  }
+
+  /* Pressed. */
+  [class*="hover:"]:not([class*="transition-none"]):not([class*="duration-"]):active {
+    transition-duration: 80ms;
+  }
+
+  /* ── A lift, not a jump ───────────────────────────────────────────────────
+     The other half of "plastic" is the SIZE of the bump. A 10% jump on a button
+     under the cursor is a cartoon, and on a 48px control it also shoves the
+     text beside it out of alignment for as long as the pointer is there.
+     Roughly halved: enough to confirm the pointer is on the right thing, not
+     enough to be a movement you sit and watch.
+
+     Tailwind v4 compiles these to the INDIVIDUAL `scale` and `translate`
+     properties rather than to one composed `transform`, which is what makes
+     this safe — overriding `scale` cannot clobber a `-translate-y-1/2` that is
+     centring the element, and none of this would have been possible in v3.
+
+     `group-hover:` is excluded by name. That is the slow zoom on a listing
+     photograph inside a card: a deliberate effect on an image that fills its
+     own frame, where 10% is right and 2.5% would be invisible. It is a
+     different thing that happens to be spelled similarly.                    */
+  [class*="hover:scale-110"]:not([class*="group-hover:scale"]):hover {
+    scale: 1.055;
+  }
+  [class*="hover:scale-105"]:not([class*="group-hover:scale"]):hover {
+    scale: 1.025;
+  }
+  [class*="hover:-translate-y-1"]:not([class*="group-hover:"]):hover {
+    translate: 0 -2px;
+  }
+}
+
+/* ── The menu beside a message ───────────────────────────────────────────────
+   Present on every bubble, which is forty times on a screen whose entire
+   content is the bubbles — so at full contrast it is a column of furniture
+   running down the middle of the conversation, and at zero it is a feature
+   nobody ever finds.
+
+   The difference that actually matters is whether there is a pointer. With a
+   mouse it fades in on the row under the cursor: you are already pointing at
+   the message you mean, so the control arrives exactly where you are looking
+   and nowhere else. On a touch screen there is no hover to reveal anything
+   with, so it is simply there — drawn light enough to sit under the text
+   rather than compete with it.
+
+   Focus reveals it too, or it would be a control a keyboard could tab to and
+   never see.                                                                  */
+.msg-dots {
+  opacity: 0;
+  transition: opacity 180ms cubic-bezier(0.33, 0.9, 0.35, 1);
+}
+.msg-row:hover > .msg-dots,
+.msg-dots:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .msg-dots {
+    opacity: 1;
+    color: #d4d4d4;
+  }
+}

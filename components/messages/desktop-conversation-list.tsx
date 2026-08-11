@@ -3,12 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Bookmark, MessageSquare, Search } from "lucide-react"
+import { BadgeCheck, Bell, Bookmark, MessageSquare, Search } from "lucide-react"
 
 import { useLocale } from "@/components/locale-provider"
+import { InitialAvatar } from "@/components/ui/initial-avatar"
 import { hiddenConversations } from "@/lib/messages/hidden-conversations"
 import { useWideViewport } from "@/lib/use-wide-viewport"
 import type { InboxConversation } from "@/lib/messages/list"
+import {
+  ago,
+  bucketOf,
+  BUCKET_LABEL,
+  notifHref,
+  notifText,
+  type Notif,
+} from "@/lib/messages/notification-view"
 import { cn } from "@/lib/utils"
 
 /**
@@ -44,10 +53,6 @@ import { cn } from "@/lib/utils"
  */
 
 type Row = InboxConversation
-
-function initials(name: string): string {
-  return name.trim().charAt(0).toUpperCase() || "?"
-}
 
 /**
  * "14:32" today, "ieri", "11 iul." this year, "11.07.24" before that.
@@ -94,6 +99,25 @@ export function DesktopConversationList({
   const hidden = useMemo(() => hiddenConversations(viewerId), [viewerId])
   const activeRef = useRef<HTMLLIElement>(null)
 
+  /**
+   * MESSAGES AND NOTIFICATIONS, in the column that has room for both.
+   *
+   * On a phone these are two halves of one screen behind a segmented control,
+   * and on a wide screen they were one half and nowhere: the desktop split view
+   * had a conversation list and no way to reach the activity feed at all, so
+   * every like, follow and accepted offer was a thing you could only see by
+   * making the window narrow. The switch is the phone's, in the phone's shape,
+   * because the two screens should not be teaching different controls.
+   *
+   * `notifs === null` means "not asked for yet". The feed is fetched on the
+   * FIRST switch rather than on mount — most visits to a desktop inbox are
+   * about replying to somebody, and a request for a list nobody has asked to
+   * see is a request per page load.
+   */
+  const [tab, setTab] = useState<"messages" | "notifications">("messages")
+  const [notifs, setNotifs] = useState<Notif[] | null>(null)
+  const [notifUnread, setNotifUnread] = useState(0)
+
   // The rows the server sent are milliseconds old, so the clock starts as if
   // they had just been fetched rather than at zero — the same rule the phone
   // inbox keeps, so the two cannot disagree about what "stale" means.
@@ -139,6 +163,80 @@ export function DesktopConversationList({
       document.removeEventListener("visibilitychange", onVisible)
     }
   }, [wide])
+
+  // The dot on the Notificări segment. One head count, on the screen that is
+  // actually drawn — the phone's inbox is mounted at the same time and would
+  // otherwise make the same request twice per page.
+  useEffect(() => {
+    if (!wide) return
+    let alive = true
+    fetch("/api/notifications/unread", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d) setNotifUnread(d.count ?? 0)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [wide])
+
+  // The first switch fetches the feed, and seeing it IS reading it: the batch
+  // is marked read server-side and the badge clears. The rows keep the unread
+  // styling they arrived with, so this viewing still shows what was new and
+  // only the next one renders them quiet — the same bargain the phone makes.
+  useEffect(() => {
+    if (!wide || tab !== "notifications" || notifs !== null) return
+    let alive = true
+    fetch("/api/notifications", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return
+        const items: Notif[] = d?.notifications ?? []
+        setNotifs(items)
+        setNotifUnread(0)
+        if (items.some((n) => !n.readAt)) {
+          fetch("/api/notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ action: "read-all" }),
+          }).catch(() => {})
+        }
+      })
+      .catch(() => {
+        // An empty feed and a failed read look the same from here, and that is
+        // the right failure: "Nicio notificare" is recoverable by switching
+        // away and back, an error state in a 340px column is not.
+        if (alive) setNotifs([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [wide, tab, notifs])
+
+  const readNotif = useCallback((id: string) => {
+    let wasUnread = false
+    setNotifs((prev) =>
+      prev
+        ? prev.map((n) => {
+            if (n.id !== id || n.readAt) return n
+            wasUnread = true
+            return { ...n, readAt: new Date().toISOString() }
+          })
+        : prev,
+    )
+    if (!wasUnread) return
+    setNotifUnread((u) => Math.max(0, u - 1))
+    fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ action: "read", id }),
+    }).catch(() => {
+      /* the next load reconciles */
+    })
+  }, [])
 
   // Opening a conversation from somewhere else — a notification, a listing, a
   // reload straight onto its URL — can land on a thread whose row is fifty
@@ -189,28 +287,88 @@ export function DesktopConversationList({
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="shrink-0 border-b border-neutral-100 px-4 pb-3 pt-5">
         <h1 className="text-[19px] font-bold tracking-[-0.01em] text-neutral-900">
-          {language === "ro" ? "Mesaje" : "Messages"}
+          {tab === "messages"
+            ? language === "ro"
+              ? "Mesaje"
+              : "Messages"
+            : language === "ro"
+              ? "Notificări"
+              : "Notifications"}
         </h1>
+
+        {/* THE SWITCH.
+
+            A track with one pill sliding across it, not two buttons that light
+            up: the pill is a continuous thing that MOVES from where you were to
+            where you are going, which is what makes the change read as one
+            control rather than as the column being replaced. Transform only —
+            no width, no left, nothing that costs a layout — so it stays on the
+            compositor at whatever refresh rate the screen runs.
+
+            The labels sit above the pill (z-10) and are never re-mounted, so
+            the text does not fade or jump; only the surface underneath them
+            travels. */}
+        <div className="relative mt-3 flex h-9 rounded-full bg-neutral-100 p-[3px]">
+          <span
+            aria-hidden
+            className="absolute inset-y-[3px] left-[3px] w-[calc(50%-3px)] rounded-full bg-white shadow-[0_1px_3px_rgba(15,15,15,0.10)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform"
+            style={{ transform: tab === "messages" ? "translateX(0%)" : "translateX(100%)" }}
+          />
+          {(
+            [
+              { key: "messages", ro: "Mesaje", en: "Messages" },
+              { key: "notifications", ro: "Notificări", en: "Notifications" },
+            ] as const
+          ).map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              aria-pressed={tab === s.key}
+              onClick={() => setTab(s.key)}
+              className={cn(
+                "relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] transition-colors duration-200",
+                tab === s.key ? "font-semibold text-neutral-900" : "font-medium text-neutral-500",
+              )}
+            >
+              {language === "ro" ? s.ro : s.en}
+              {/* A dot, not a count. The number is a fact about a list you are
+                  one click away from reading. */}
+              {s.key === "notifications" && notifUnread > 0 && (
+                <span className="h-[6px] w-[6px] rounded-full bg-[#7c3aed]" />
+              )}
+            </button>
+          ))}
+        </div>
+
         {/* A filter, not a search endpoint. With the whole list already in
             memory there is nothing to ask the server, and a column of forty
             conversations is exactly the length at which scanning stops working
-            and typing three letters starts. */}
-        <div className="relative mt-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={language === "ro" ? "Caută în mesaje" : "Search messages"}
-            aria-label={language === "ro" ? "Caută în mesaje" : "Search messages"}
-            className="h-9 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-3 text-[13.5px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/40 focus:bg-white"
-          />
-        </div>
+            and typing three letters starts.
+
+            Only over the conversations. A search box above a list it does not
+            filter is a control that appears broken. */}
+        {tab === "messages" && (
+          <div className="relative mt-2.5">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={language === "ro" ? "Caută în mesaje" : "Search messages"}
+              aria-label={language === "ro" ? "Caută în mesaje" : "Search messages"}
+              className="h-9 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-3 text-[13.5px] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-[#7c3aed]/40 focus:bg-white"
+            />
+          </div>
+        )}
       </div>
 
       {/* Its own scroll area. The pane beside it has another, and neither may
           move the other — that is the whole of what a split view is for: the
           list stays where you left it while you read down a conversation. */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {tab === "notifications" ? (
+          <DesktopNotifications items={notifs} onRead={readNotif} />
+        ) : (
+        <>
         {/* NULL IS NOT EMPTY, and this column had been treating it as both.
             `visible` starts from `rows ?? []`, so an inbox that has not answered
             yet — or one whose read failed, which the server now reports as a
@@ -289,34 +447,63 @@ export function DesktopConversationList({
                           alt=""
                           width={48}
                           height={48}
+                          quality={68}
                           className="h-12 w-12 rounded-xl object-cover"
                         />
                       ) : (
-                        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-[15px] font-semibold text-neutral-400">
-                          {initials(who)}
-                        </span>
+                        /* NO LISTING MEANS THE PERSON, NOT THEIR INITIAL.
+
+                           This fell straight from "no item photograph" to a grey
+                           letter, skipping the avatar entirely — so the Storelib
+                           thread, which is about no listing at all, showed a
+                           grey "S" while the same account wore its mark on the
+                           screen that row opens. The letter is the third answer
+                           here, not the second, and InitialAvatar already knows
+                           the order: photograph, then coloured initial, then a
+                           person glyph. */
+                        <InitialAvatar
+                          name={who}
+                          url={r.other?.avatar_url}
+                          seed={r.other?.id}
+                          size={48}
+                          className="rounded-xl"
+                        />
                       )}
                       {r.listing?.thumbnail_url && (
-                        <span className="absolute -bottom-0.5 -right-0.5 flex h-[19px] w-[19px] items-center justify-center overflow-hidden rounded-full bg-neutral-200 text-[9px] font-bold text-neutral-600 ring-2 ring-white">
-                          {r.other?.avatar_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={r.other.avatar_url} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            initials(who)
-                          )}
+                        <span className="absolute -bottom-0.5 -right-0.5 overflow-hidden rounded-full ring-2 ring-white">
+                          {/* Nineteen pixels, and this was pulling the seller's
+                              full-resolution upload for each one — twenty rows
+                              of camera photograph to fill a corner badge. */}
+                          <InitialAvatar
+                            name={who}
+                            url={r.other?.avatar_url}
+                            seed={r.other?.id}
+                            size={19}
+                          />
                         </span>
                       )}
                     </span>
 
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2">
-                        <span
-                          className={cn(
-                            "min-w-0 flex-1 truncate text-[13.5px] leading-tight",
-                            unread ? "font-bold text-neutral-900" : "font-semibold text-neutral-800",
+                        <span className="flex min-w-0 flex-1 items-center gap-1">
+                          <span
+                            className={cn(
+                              "min-w-0 truncate text-[13.5px] leading-tight",
+                              unread ? "font-bold text-neutral-900" : "font-semibold text-neutral-800",
+                            )}
+                          >
+                            {who}
+                          </span>
+                          {/* The same mark the conversation itself carries, and
+                              the same one the phone's inbox has always drawn. A
+                              list that leaves it off is quietly disagreeing with
+                              the screen it opens — and this is the one account
+                              somebody impersonating it would want that
+                              disagreement for. */}
+                          {r.official && (
+                            <BadgeCheck className="h-[15px] w-[15px] shrink-0 text-[#1d9bf0]" />
                           )}
-                        >
-                          {who}
                         </span>
                         <span
                           className={cn(
@@ -373,8 +560,132 @@ export function DesktopConversationList({
             })}
           </ul>
         )}
+        </>
+        )}
       </div>
     </div>
+  )
+}
+
+/**
+ * The activity feed, in a 340px column.
+ *
+ * Deliberately NOT the phone's list at a different width. That one is a card of
+ * 76px rows built for a thumb: a 48px avatar, the listing photograph on the
+ * right, generous air. Here the column sits beside an open conversation and is
+ * scanned rather than tapped, so it is a 36px avatar, one line of sentence and
+ * a time — the same information at the density everything else in this column
+ * uses. The MEANING is shared (lib/messages/notification-view.ts); only the
+ * geometry is local.
+ *
+ * Grouped by day bucket with the header drawn only when the bucket changes,
+ * which is the shape a conversation's day dividers have — so the two lists
+ * behind one switch stay recognisably one design.
+ */
+function DesktopNotifications({
+  items,
+  onRead,
+}: {
+  items: Notif[] | null
+  onRead: (id: string) => void
+}) {
+  const { language } = useLocale()
+
+  if (items === null) {
+    return (
+      <ul className="animate-pulse">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <li key={i} className="flex items-center gap-3 px-4 py-3">
+            <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-100" />
+            <span className="min-w-0 flex-1 space-y-2">
+              <span className="block h-3 w-32 rounded bg-neutral-100" />
+              <span className="block h-2.5 w-20 rounded bg-neutral-100" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+          <Bell className="h-5 w-5" />
+        </span>
+        <p className="text-[13.5px] leading-relaxed text-neutral-500">
+          {language === "ro" ? "Nicio notificare încă." : "No notifications yet."}
+        </p>
+      </div>
+    )
+  }
+
+  let lastBucket: string | null = null
+
+  return (
+    <ul>
+      {items.map((n) => {
+        const name = n.actor?.display_name || n.actor?.username || "Storelib"
+        const { verb, accent } = notifText(n.kind)
+        const unread = !n.readAt
+        const href = notifHref(n)
+        const bucket = bucketOf(n.createdAt)
+        const opensBucket = bucket !== lastBucket
+        lastBucket = bucket
+
+        const inner = (
+          <>
+            <InitialAvatar name={name} url={n.actor?.avatar_url} seed={n.actor?.id} size={36} />
+            <span className="min-w-0 flex-1">
+              <span
+                className={cn(
+                  "block text-[13px] leading-snug text-neutral-900",
+                  unread ? "font-medium" : "font-normal",
+                )}
+              >
+                <span className="font-semibold">{name}</span> <span className={accent}>{verb}</span>
+              </span>
+              <span className="mt-0.5 block text-[11.5px] text-neutral-400">{ago(n.createdAt)}</span>
+            </span>
+            {n.listing?.thumbnail_url && (
+              <Image
+                src={n.listing.thumbnail_url}
+                alt=""
+                width={36}
+                height={36}
+                quality={68}
+                className="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-black/[0.06]"
+              />
+            )}
+            {unread && <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-[#7c3aed]" />}
+          </>
+        )
+
+        const rowClass = cn(
+          "flex items-center gap-3 px-4 py-3 text-left transition-colors",
+          unread ? "bg-[#7c3aed]/[0.045] hover:bg-[#7c3aed]/[0.075]" : "hover:bg-neutral-50",
+        )
+
+        return (
+          <li key={n.id}>
+            {opensBucket && (
+              <p className="bg-neutral-50/70 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                {BUCKET_LABEL[bucket]}
+              </p>
+            )}
+            {href ? (
+              <Link href={href} prefetch={false} className={rowClass} onClick={() => onRead(n.id)}>
+                {inner}
+              </Link>
+            ) : (
+              <button type="button" className={cn(rowClass, "w-full")} onClick={() => onRead(n.id)}>
+                {inner}
+              </button>
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

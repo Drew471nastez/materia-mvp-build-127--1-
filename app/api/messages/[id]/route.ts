@@ -6,6 +6,7 @@ import { readSessionAuth } from "@/lib/auth/current-user"
 import { createNotification } from "@/lib/notifications"
 import { readThread } from "@/lib/messages/thread"
 import { announceInbox, announceThread } from "@/lib/messages/announce"
+import { isOfficialThread, OFFICIAL_THREAD_REFUSAL } from "@/lib/messages/official-thread"
 
 /**
  * One conversation.
@@ -86,15 +87,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // RLS proves membership: a conversation the caller isn't in reads as absent.
   // The party and listing columns come along so the notification below knows
-  // who to address without a second read. Writing to Storelib needs no special
-  // case — the caller is the buyer_id on that thread, so the same policy that
-  // lets them answer a seller lets them answer support.
+  // who to address without a second read.
   const { data: convo } = await supabase
     .from("conversations")
     .select("id, listing_id, buyer_id, seller_id")
     .eq("id", id)
     .maybeSingle()
   if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // Storelib announces; it does not correspond. The composer is not rendered on
+  // that thread, and this is the rule the missing composer was only ever a
+  // courtesy for. See lib/messages/official-thread.ts.
+  if (await isOfficialThread(createAdminClient(), convo)) {
+    return NextResponse.json({ error: OFFICIAL_THREAD_REFUSAL }, { status: 403 })
+  }
 
   // Blocking has to stop the messages, not just hide the thread.
   //

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import Link from "next/link"
 import { Bookmark, Settings, Share2 } from "lucide-react"
 
+import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
 
@@ -155,14 +156,15 @@ function PinnedAvatar({ name, url }: { name: string; url: string | null }) {
       aria-hidden
       className="block h-7 w-7 shrink-0 overflow-hidden rounded-full bg-neutral-100 ring-1 ring-neutral-200/80"
     >
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="h-full w-full object-cover" />
-      ) : (
+      {/* Twenty-eight pixels. The bar re-renders on every scroll frame, so
+          this is the last place in the app that should be holding a
+          full-resolution decode in memory. The letter below is unchanged — see
+          the note above for why it is a letter and not an emoji. */}
+      <AvatarPhoto url={url} size={28} className="h-full w-full object-cover">
         <span className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-neutral-400">
           {name.trim().charAt(0).toUpperCase()}
         </span>
-      )}
+      </AvatarPhoto>
     </span>
   )
 }

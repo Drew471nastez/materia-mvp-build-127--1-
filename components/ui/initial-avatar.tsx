@@ -48,6 +48,86 @@ function initialOf(name: string | null | undefined): string | null {
   return m ? m[0].toUpperCase() : null
 }
 
+/**
+ * Somebody's avatar, at the size it is actually drawn, over whatever the caller
+ * already had as its empty state.
+ *
+ * This exists because half the app's avatars were plain `<img src={avatar_url}>`
+ * — the member profile, its pinned header, the seller card on a listing, the
+ * reviews list — and a plain img downloads WHAT WAS UPLOADED. An avatar is a
+ * camera photograph somebody picked off their phone: two or three megabytes,
+ * three thousand pixels across, decoded in full and then drawn into a circle 32
+ * pixels wide. On a reviews list that is a dozen of them.
+ *
+ * next/image asks the optimizer for the size that will be shown, in AVIF, off a
+ * ladder that has rungs at 24/32/48/64/96 for exactly this (next.config.mjs).
+ * The same face becomes a couple of kilobytes and no longer competes with the
+ * page for decode time.
+ *
+ * `children` is the caller's OWN empty state, not this file's. The profile
+ * screens fall back to a grey initial and say so in their own comments; forcing
+ * InitialAvatar's coloured circle on them would change a design decision while
+ * claiming to be a performance fix. So the fallback is passed in, and it also
+ * covers a url that does not resolve — an account whose picture was deleted, an
+ * OAuth avatar on a host the optimizer is not configured for — which a bare img
+ * answered with the browser's broken-image glyph.
+ */
+export function AvatarPhoto({
+  url,
+  size,
+  className,
+  children,
+}: {
+  url: string | null | undefined
+  /** The largest size this is drawn at, in CSS pixels. The srcset is built from
+   *  it, and the optimizer serves 2x for retina off the same number. */
+  size: number
+  /**
+   * Required, with no default, and that is deliberate. This component's job is
+   * "the optimised photograph, or the caller's fallback" — it is not "fill your
+   * box". Every caller already owns a sized, clipped wrapper with its own
+   * radius and ring, and a default here would be a layout opinion applied
+   * invisibly to four screens that each state their own.
+   */
+  className: string
+  children: React.ReactNode
+}) {
+  const [broken, setBroken] = useState(false)
+  if (!url || broken) return <>{children}</>
+
+  // An SVG cannot go through the optimizer without `dangerouslyAllowSVG`, which
+  // would apply to every remote host in remotePatterns. Same reasoning as
+  // InitialAvatar below — see the long note there.
+  if (/\.svgx?(\?|$)/i.test(url)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt=""
+        width={size}
+        height={size}
+        loading="eager"
+        decoding="sync"
+        onError={() => setBroken(true)}
+        className={className}
+      />
+    )
+  }
+  return (
+    <Image
+      src={url}
+      alt=""
+      width={size}
+      height={size}
+      quality={68}
+      loading="eager"
+      decoding="sync"
+      onError={() => setBroken(true)}
+      className={className}
+    />
+  )
+}
+
 export function InitialAvatar({
   name,
   url,
@@ -99,7 +179,13 @@ export function InitialAvatar({
   const fallback = (
     <span
       aria-hidden
-      className="absolute inset-0 flex items-center justify-center rounded-full font-semibold"
+      // `rounded-[inherit]`, not `rounded-full`. The circle is this component's
+      // default, not its contract: the desktop conversation list draws a
+      // rounded square because the slot beside it holds a listing photograph at
+      // the same radius, and a hard-coded circle in here meant that caller got a
+      // circle inside a square with the corners showing through. Inheriting lets
+      // the shape be decided once, on the wrapper, by whoever is placing it.
+      className="absolute inset-0 flex items-center justify-center rounded-[inherit] font-semibold"
       style={{ background: bg, color: fg, fontSize: Math.round(size * 0.42) }}
     >
       {letter ?? (
@@ -153,7 +239,7 @@ export function InitialAvatar({
         loading="eager"
         decoding="sync"
         onError={() => setBroken(true)}
-        className="absolute inset-0 h-full w-full rounded-full object-cover"
+        className="absolute inset-0 h-full w-full rounded-[inherit] object-cover"
       />
     ) : (
       <Image
@@ -161,10 +247,27 @@ export function InitialAvatar({
         alt=""
         width={size}
         height={size}
+        /**
+         * THE SIZE ASKED FOR IS THE SIZE ON SCREEN, TWICE OVER.
+         *
+         * `width`/`height` are what next/image builds the srcset from, and the
+         * ladder in next.config.mjs has rungs at 24, 32, 48, 64 and 96 for
+         * exactly this — so a 28px avatar fetches a 32px file at 1x and a 64px
+         * one at 2x, instead of whatever the account happened to upload. That
+         * is the whole optimisation, and every avatar in the app that was a
+         * plain <img> was skipping it: a profile picture is typically a 1–3MB
+         * camera photograph, and a conversation list drew twenty of them at 48
+         * pixels across. AVIF at these sizes is a couple of kilobytes.
+         *
+         * Quality 68 rather than the default 75. At 48px there is no visible
+         * difference — there is barely a pixel per feature — and it is one of
+         * the levels next.config.mjs actually permits, so it cannot 400.
+         */
+        quality={68}
         loading="eager"
         decoding="sync"
         onError={() => setBroken(true)}
-        className="absolute inset-0 h-full w-full rounded-full object-cover"
+        className="absolute inset-0 h-full w-full rounded-[inherit] object-cover"
       />
     )
     return (

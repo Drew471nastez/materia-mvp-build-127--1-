@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { Star } from "lucide-react"
 
+import { AvatarPhoto } from "@/components/ui/initial-avatar"
+
 /**
  * The "Evaluări" tab of a profile: every review this seller has received,
  * across every creator row their account holds.
@@ -139,14 +141,11 @@ export function SellerReviewsList({
         <li key={r.id} className="rounded-2xl border border-neutral-200/70 p-4">
           <div className="flex items-center gap-2.5">
             <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-100">
-              {r.buyer?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={r.buyer.avatar_url} alt="" className="h-full w-full object-cover" />
-              ) : (
+              <AvatarPhoto url={r.buyer?.avatar_url} size={32} className="h-full w-full object-cover">
                 <span className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-neutral-400">
                   {(r.buyer?.display_name || "C").charAt(0).toUpperCase()}
                 </span>
-              )}
+              </AvatarPhoto>
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] font-semibold text-neutral-900">

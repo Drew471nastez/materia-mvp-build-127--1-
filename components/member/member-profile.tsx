@@ -22,6 +22,7 @@ import { useLocale } from "@/components/locale-provider"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
 import { consumeNavHint } from "@/lib/screen-transition"
+import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { coverImageUrl, defaultCoverFor, resolveCover } from "@/lib/profile/covers"
 import { cn } from "@/lib/utils"
 
@@ -810,8 +811,15 @@ export function MemberProfile({
               // real transition.
               className="no-tap-fade block h-[88px] w-[88px] cursor-zoom-in overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white transition-transform active:scale-[0.96] md:h-28 md:w-28 lg:h-32 lg:w-32"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={member.avatarUrl} alt="" className="h-full w-full object-cover" />
+              {/* 128px at the widest breakpoint, which is what the srcset is
+                  built from — not the two-megabyte camera photograph somebody
+                  uploaded, which is what a bare <img> was fetching here and on
+                  every other screen this face appears on. */}
+              <AvatarPhoto url={member.avatarUrl} size={128} className="h-full w-full object-cover">
+                <span className="flex h-full w-full items-center justify-center text-[32px] font-semibold text-neutral-400 md:text-[38px] lg:text-[44px]">
+                  {name.charAt(0).toUpperCase()}
+                </span>
+              </AvatarPhoto>
             </button>
           ) : (
             <span className="block h-[88px] w-[88px] overflow-hidden rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:h-28 md:w-28 lg:h-32 lg:w-32">

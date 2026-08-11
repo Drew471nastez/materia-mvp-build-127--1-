@@ -11,6 +11,14 @@ import { MessagesEmptyState } from "@/components/messages/empty-state"
 import { IosSpinner } from "@/components/explore/ios-spinner"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { InitialAvatar } from "@/components/ui/initial-avatar"
+import {
+  ago,
+  bucketOf,
+  BUCKET_LABEL,
+  notifHref,
+  notifText,
+  type Notif,
+} from "@/lib/messages/notification-view"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import {
   hiddenConversations,
@@ -45,25 +53,6 @@ export type Row = {
   unread: number
 }
 
-type Notif = {
-  id: string
-  kind: "follow" | "offer_received" | "offer_accepted" | "offer_declined" | "message" | "like" | "trending"
-  createdAt: string
-  readAt: string | null
-  conversationId: string | null
-  actor: { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null
-  listing: { id: string; title: string; slug: string; thumbnail_url: string | null } | null
-}
-
-function ago(iso: string): string {
-  const mins = Math.max(1, Math.round((Date.now() - Date.parse(iso)) / 60000))
-  if (mins < 60) return `${mins} min`
-  const hours = Math.round(mins / 60)
-  if (hours < 24) return `${hours} h`
-  const days = Math.round(hours / 24)
-  if (days < 7) return `${days} z`
-  return `${Math.round(days / 7)} săpt`
-}
 
 /** One avatar treatment for both lists. The "?" this used to fall back to is
  *  gone — see components/ui/initial-avatar.tsx. */
@@ -1181,53 +1170,10 @@ function MessagesList({
   )
 }
 
-/**
- * One sentence per event. The accepted offer gets the emerald because it is
- * the only notification that means money is about to move.
- */
-function notifText(kind: Notif["kind"]): { verb: string; accent?: string } {
-  switch (kind) {
-    case "follow":
-      return { verb: "a început să te urmărească" }
-    case "offer_received":
-      return { verb: "ți-a trimis o ofertă" }
-    case "offer_accepted":
-      return { verb: "ți-a acceptat oferta", accent: "text-emerald-600" }
-    case "offer_declined":
-      return { verb: "ți-a refuzat oferta" }
-    case "message":
-      return { verb: "ți-a trimis un mesaj" }
-    case "like":
-      return { verb: "ți-a apreciat anunțul", accent: "text-[#7c3aed]" }
-    // The only row with no actor — nobody DID it, it is a fact about the
-    // listing. The name slot renders "Storelib" through the same fallback the
-    // other kinds use for a deleted account, which reads correctly here.
-    case "trending":
-      return { verb: "anunțul tău este în tendințe", accent: "text-[#7c3aed]" }
-  }
-}
-
-function notifHref(n: Notif): string | null {
-  if (n.kind === "follow") return n.actor?.username ? `/member/${n.actor.username}` : null
-  if (n.conversationId) return `/messages/${n.conversationId}`
-  return n.listing?.slug ? `/products/${n.listing.slug}` : null
-}
-
-/** "Astăzi" / "Săptămâna aceasta" / "Mai demult" — the three buckets people
- *  actually think in. Anything older than a month never arrives here; the API
- *  cuts it, because a follow from March is an archive rather than a notice. */
-function bucketOf(iso: string): "today" | "week" | "older" {
-  const age = Date.now() - Date.parse(iso)
-  if (age < 24 * 60 * 60 * 1000) return "today"
-  if (age < 7 * 24 * 60 * 60 * 1000) return "week"
-  return "older"
-}
-
-const BUCKET_LABEL: Record<string, string> = {
-  today: "Astăzi",
-  week: "Săptămâna aceasta",
-  older: "Mai demult",
-}
+/* One sentence per event. The verb, the destination, the bucket and the
+   relative time all live in lib/messages/notification-view.ts now — the desktop
+   split view grew a notifications tab of its own, and two copies of notifHref
+   is two answers to where a follow notification goes. */
 
 function NotificationsList({
   items,

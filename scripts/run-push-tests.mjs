@@ -40,6 +40,7 @@ const SUITES = [
   "tests/own-listing.test.ts",
   "tests/nav-chrome.test.ts",
   "tests/one-arrival.test.ts",
+  "tests/messages-chrome.test.ts",
   "tests/sql-aggregate.test.ts",
 ]
 
