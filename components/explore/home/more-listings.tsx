@@ -23,7 +23,9 @@ import { ProductCard } from "@/components/explore/product-card"
  * client (the feed hands down a hundred), so "load more" is a slice moving,
  * which is why it can be instant and why it works with the network off.
  */
-const PER_ROW = 6
+/** Five across, matching every other row on the page — see the note in
+ *  listing-row.tsx for why not six. */
+const PER_ROW = 5
 const ROWS_PER_PAGE = 2
 const PAGE = PER_ROW * ROWS_PER_PAGE
 
@@ -61,7 +63,7 @@ export function MoreListings({ items }: { items: any[] }) {
     <section className="mt-12 pb-16">
       <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">Mai multe anunțuri</h2>
 
-      <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
         {items.slice(0, shown).map((product) => (
           <ProductCard key={product.id} product={product} origin="feed" />
         ))}

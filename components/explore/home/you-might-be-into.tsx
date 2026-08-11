@@ -92,7 +92,7 @@ export function YouMightBeInto({
 
   return (
     <section className="mt-10">
-      <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">Ai putea fi interesat de</h2>
+      <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">S-ar putea să te intereseze</h2>
       <div className="flex flex-wrap gap-2.5">
         {pills.map((p) => (
           <SmartLink

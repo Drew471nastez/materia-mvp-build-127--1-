@@ -40,6 +40,10 @@ import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } fr
  * you can read rather than as a black box, and when it has nothing to go on it
  * says so by drawing fewer sections rather than by inventing worse ones.
  */
+/** Cards per row on a desktop, and the number every exclusion below counts in.
+ *  Stated once here rather than repeated as 5, 15 and 5 — they are one fact. */
+const ROW = 5
+
 export function DesktopHome({ products }: { products: any[] }) {
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
@@ -105,7 +109,11 @@ export function DesktopHome({ products }: { products: any[] }) {
      * newest-first — so a visitor with no history gets "the newest things",
      * which is the correct answer to "suggested for you" when nothing is known.
      */
-    const usedInBased = new Set(basedOnViews.slice(0, 6).map((p) => p.id))
+    // FIVE and FIFTEEN, matching what the rows actually draw — see PER_ROW in
+    // listing-row.tsx. When these two numbers drift from the grid, the last
+    // section either repeats a card that is already on the screen or hides one
+    // that never made it there, and both are invisible until somebody counts.
+    const usedInBased = new Set(basedOnViews.slice(0, ROW).map((p) => p.id))
     const suggested = candidates
       .filter((p) => !usedInBased.has(p.id))
       .map((p, i) => ({ p, score: affinity(p), i }))
@@ -115,8 +123,8 @@ export function DesktopHome({ products }: { products: any[] }) {
     /** What the last section shows: everything not already on the screen. */
     const alreadyShown = new Set<string>([
       ...usedInBased,
-      ...suggested.slice(0, 18).map((p) => p.id),
-      ...recentlyViewed.slice(0, 6).map((p: any) => p.id),
+      ...suggested.slice(0, ROW * 3).map((p) => p.id),
+      ...recentlyViewed.slice(0, ROW).map((p: any) => p.id),
     ])
     const rest = products.filter((p) => !alreadyShown.has(p.id))
 
@@ -124,13 +132,16 @@ export function DesktopHome({ products }: { products: any[] }) {
   }, [products, views])
 
   return (
-    <div className="hidden md:block">
+    // `home-arrive` is a 160ms opacity fade over the loading shell, which is
+    // otherwise replaced in a single commit — a hard cut on two thousand pixels
+    // of content. See the note in app/globals.css.
+    <div className="home-arrive hidden md:block">
       <HeroSlides listings={products} />
 
       {/* Personal first. Somebody who has been here before should see what they
           were doing before they see what we would like them to do. */}
       <ListingRow
-        title="Pe baza vizualizărilor tale"
+        title="Bazat pe vizualizările tale recente"
         items={sections.basedOnViews}
         rows={1}
         href="/?q="

@@ -54,7 +54,7 @@ check(
     // were doing before they see what we would like them to do.
     const order = [
       "<HeroSlides",
-      "Pe baza vizualizărilor tale",
+      "Bazat pe vizualizările tale recente",
       "<YouMightBeInto",
       "Vizualizate recent",
       "Sugestii pentru tine",
@@ -68,7 +68,7 @@ check(
 check(
   "one row for the personal sections, three for the wider net",
   (() => {
-    const based = home.slice(home.indexOf("Pe baza vizualizărilor tale"))
+    const based = home.slice(home.indexOf("Bazat pe vizualizările tale recente"))
     const suggested = home.slice(home.indexOf("Sugestii pentru tine"))
     return /rows=\{1\}/.test(based.slice(0, 260)) && /rows=\{3\}/.test(suggested.slice(0, 260))
   })(),
@@ -104,20 +104,74 @@ check(
 )
 
 check(
-  "three slides: one editorial, two from the catalogue",
+  "all three slides are written, not generated from a listing title",
   (() => {
+    // Two of them used the LISTING'S OWN TITLE as the headline, so the front
+    // page of the marketplace read "Eu2" in 32px — a name that means something
+    // to the person who typed it and nothing to anybody else.
     return (
-      /const EDITORIAL: Slide/.test(hero) &&
-      /contentful\.depop\.com/.test(hero) &&
-      /listings\s*\n?\s*\.slice\(0, 2\)/.test(hero) &&
-      /return \[EDITORIAL, \.\.\.fromCatalogue\]/.test(hero)
+      /const COPY: SlideCopy\[\]/.test(hero) &&
+      (hero.match(/eyebrow: "/g) ?? []).length === 3 &&
+      !/title: listing\.title/.test(hero) &&
+      /contentful\.depop\.com/.test(hero)
     )
   })(),
 )
 
 check(
-  "a slide with no photograph is dropped rather than drawn empty",
-  /if \(!image\) return null/.test(hero),
+  "each one gives a reason, and none of them is addressed to one sex",
+  (() => {
+    // Sneakers, denim and one-off pieces: the three things this catalogue is
+    // full of, and a reason rather than a name — priced so you can justify it,
+    // worn exactly enough, not something everybody else has.
+    return (
+      /Sneakers sub 250 lei/.test(hero) &&
+      /Blugi care au trecut proba timpului/.test(hero) &&
+      /Lucruri pe care nu le are toată lumea/.test(hero) &&
+      !/pentru ea\b/i.test(hero) &&
+      !/pentru el\b/i.test(hero)
+    )
+  })(),
+)
+
+check(
+  "a slide wears a photograph of what it is about, or the artwork",
+  (() => {
+    // A slide about denim must not be wearing a picture of a lamp; and a
+    // catalogue with no denim in it gets the editorial image rather than a
+    // borrowed photograph of something else.
+    return (
+      /function pickImage/.test(hero) &&
+      /words\.some\(\(w\) => hay\.includes\(w\)\)/.test(hero) &&
+      /pickImage\(listings, c\.match, taken\) \?\? c\.fallback/.test(hero)
+    )
+  })(),
+)
+
+check(
+  "and no two slides borrow the same listing's photograph",
+  /taken\.add\(hit\.id\)/.test(hero) && /if \(taken\.has\(l\.id\)\) return false/.test(hero),
+)
+
+check(
+  "the button opens a search, not the one listing whose picture it borrowed",
+  (() => {
+    // A slide that promises "denim" and lands on one pair of jeans is a bait.
+    return !/href: `\/products\/\$\{listing\.slug\}`/.test(hero) && (hero.match(/href: "\/\?q=/g) ?? []).length === 3
+  })(),
+)
+
+check(
+  "there are arrows, on both sides",
+  (() => {
+    // Dots say which of three you are on; they do not say you can move. On a
+    // desktop, where there is no swipe, waiting was the only option.
+    return (
+      /<HeroArrow side="left"/.test(hero) &&
+      /<HeroArrow side="right"/.test(hero) &&
+      /group-hover\/hero:opacity-100 focus-visible:opacity-100/.test(hero)
+    )
+  })(),
 )
 
 check(
@@ -211,8 +265,27 @@ check(
 check(
   "the two recommendation rows cannot restate each other",
   (() => {
-    // Eighteen cards repeating the six above them is worse than one row.
-    return /const usedInBased = new Set\(basedOnViews\.slice\(0, 6\)/.test(home) && /!usedInBased\.has\(p\.id\)/.test(home)
+    // Fifteen cards repeating the five above them is worse than one row.
+    return /const usedInBased = new Set\(basedOnViews\.slice\(0, ROW\)/.test(home) && /!usedInBased\.has\(p\.id\)/.test(home)
+  })(),
+)
+
+check(
+  "five cards per row, and the exclusion arithmetic counts in fives",
+  (() => {
+    // Six across 1400px is 215px a card, and a second-hand listing is sold by
+    // its photograph. When the exclusions drift from the grid the last section
+    // either repeats a card already on the screen or hides one that never made
+    // it there — both invisible until somebody counts.
+    return (
+      /const PER_ROW = 5/.test(row) &&
+      /const PER_ROW = 5/.test(more) &&
+      /xl:grid-cols-5/.test(row) &&
+      /xl:grid-cols-5/.test(more) &&
+      /const ROW = 5/.test(home) &&
+      /suggested\.slice\(0, ROW \* 3\)/.test(home) &&
+      !/xl:grid-cols-6/.test(row + more)
+    )
   })(),
 )
 
@@ -290,12 +363,46 @@ check(
 console.log("\nAnd the desktop stops flashing a skeleton of the wrong page")
 
 check(
-  "there is no desktop skeleton",
+  "the desktop shell is the shape of the page that is coming",
   (() => {
-    // It guessed the wrong shape AND guessed there would be a wait: ten grey
-    // cards for two hundred milliseconds reads as a glitch, and the page still
-    // jumps afterwards because the real layout is a hero and five rows.
-    return !/md:block/.test(loading) && !/xl:grid-cols-5/.test(loading)
+    // Removing it entirely was worse: a refresh drew the header, a category bar
+    // and then the FOOTER — an empty document is a short one — and a second
+    // later the real page shoved the footer two thousand pixels down. A
+    // placeholder has one job, and one that holds the wrong space does the
+    // opposite of it.
+    return (
+      /grid-cols-\[minmax\(0,0\.42fr\)_minmax\(0,0\.58fr\)\]/.test(loading) &&
+      /xl:grid-cols-5/.test(loading) &&
+      /h-\[240px\]/.test(loading) &&
+      /\[0, 1, 2, 3, 4\]\.map/.test(loading)
+    )
+  })(),
+)
+
+check(
+  "the hero placeholder does not pulse",
+  (() => {
+    // A 1400x260 block flashing grey is the most distracting thing a loading
+    // screen can do, and it is the first thing on the page.
+    const heroBlock = loading.slice(loading.indexOf("h-[240px]"), loading.indexOf("{[0, 1].map"))
+    return !/animate-pulse/.test(heroBlock)
+  })(),
+)
+
+check(
+  "and the real page arrives over it rather than replacing it in one frame",
+  (() => {
+    // Two different trees, swapped in a single commit: without this the
+    // handover is a hard cut on two thousand pixels of content, which is the
+    // bump even when the skeleton underneath is exactly right.
+    const css = read("app/globals.css")
+    return (
+      /className="home-arrive hidden md:block"/.test(home) &&
+      /@keyframes home-arrive/.test(css) &&
+      // Opacity only. A translate on a container this tall promotes the whole
+      // document to a layer and forces a full repaint at the end of it.
+      !/home-arrive[\s\S]{0,200}translate/.test(css)
+    )
   })(),
 )
 

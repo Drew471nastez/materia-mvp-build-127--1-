@@ -37,7 +37,11 @@ export function ListingRow({
   seeMoreLabel?: string
   origin?: "feed" | "member" | "search"
 }) {
-  const PER_ROW = 6
+  // FIVE. Six cards across 1400px leaves each one about 215px wide, and a
+  // second-hand listing is sold by its photograph — at that width a jumper on a
+  // hanger is a thumbnail rather than a picture. Five is 265px, which is the
+  // width the card was drawn for.
+  const PER_ROW = 5
   const shown = items.slice(0, PER_ROW * rows)
   // A row with one card in it is not a row. Below three the section is drawn as
   // nothing: an almost-empty shelf says less than no shelf.
@@ -57,7 +61,7 @@ export function ListingRow({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
         {shown.map((product, i) => (
           <ProductCard
             key={product.id}

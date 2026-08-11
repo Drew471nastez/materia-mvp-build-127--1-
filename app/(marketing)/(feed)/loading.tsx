@@ -135,29 +135,73 @@ export default function FeedLoading() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          NOTHING FOR THE DESKTOP, ON PURPOSE.
+          THE DESKTOP SHELL, IN THE SHAPE OF THE PAGE THAT IS COMING
           ═══════════════════════════════════════════════════════════════════
 
-          There was a ten-card grid here, and it was worse than a blank page for
-          two reasons that both come from it being a GUESS.
+          There was a ten-card grid here. It was removed for being a flash of
+          the WRONG shape, and removing it made things worse in a way that is
+          worth writing down: with nothing at all, a refresh drew the header, a
+          category bar and then the FOOTER — because an empty document is a
+          short one — and a second later the real page arrived and shoved the
+          footer two thousand pixels down. A blank page that jumps is not an
+          improvement on a skeleton that jumps; it is the same jump with less
+          warning.
 
-          It guessed the wrong shape. The desktop home page is a split hero,
-          five personalised rows, a category strip and a load-more grid — so the
-          skeleton promised one thing and ten cards of grey arrived somewhere
-          else entirely. A placeholder whose only job is to hold the position of
-          what is coming is worth nothing when it holds the wrong position; the
-          page still jumps, and now it jumps AFTER having flashed.
+          The fix was never "skeleton or no skeleton". It was that a placeholder
+          has exactly one job — hold the space its content will take — and one
+          that holds the wrong space does the opposite of its job. So this one
+          is measured against components/explore/home: the hero is 260px and
+          split 42/58, the rows are five across at the card's own 3:4, the pill
+          strip is a row of lozenges, and the headings are where the headings
+          are. Nothing moves when the real page replaces it.
 
-          And it guessed there would be a wait. A desktop visitor is on a
-          machine and a connection where this route resolves in a couple of
-          hundred milliseconds. A skeleton with a pulse animation shown for two
-          hundred milliseconds is a flash of grey, which reads as a glitch
-          rather than as loading — the exact complaint that removed it.
+          Two rows and a strip, not the whole page. Below the fold there is
+          nothing to hold still, and every extra element here is markup shipped
+          on the critical path to be thrown away. */}
+      <div className="mx-auto hidden w-full max-w-[1400px] px-4 pb-8 pt-4 sm:px-6 sm:pt-5 md:block lg:px-8">
+        {/* The hero: two halves, the real height, no pulse on the ground —
+            a 1400×260 block flashing grey is the single most distracting thing
+            a loading screen can do, and it is the first thing on the page. */}
+        <div className="grid h-[240px] grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] overflow-hidden rounded-2xl lg:h-[260px]">
+          <div className="flex flex-col justify-center gap-3 bg-neutral-200/70 px-8 lg:px-12">
+            <div className="h-3 w-16 rounded bg-white/25" />
+            <div className="h-7 w-3/4 rounded bg-white/25" />
+            <div className="h-4 w-5/6 rounded bg-white/20" />
+            <div className="mt-3 h-11 w-36 rounded-lg bg-white/30" />
+          </div>
+          <div className="bg-neutral-100" />
+        </div>
 
-          The phone shell above stays: the app has no browser chrome to say a
-          navigation happened, the route is the most expensive in the product,
-          and a tap on Acasă with nothing on screen is a tap that looks dropped.
-          Different device, different problem, different answer. */}
+        {[0, 1].map((row) => (
+          <div key={row} className="mt-10">
+            <div className="mb-4 h-6 w-64 animate-pulse rounded bg-neutral-100" />
+            <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex flex-col">
+                  <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-neutral-100" />
+                  <div className="flex flex-col gap-1.5 px-0.5 pt-2.5">
+                    <div className="h-3 w-20 animate-pulse rounded bg-neutral-100" />
+                    <div className="h-3.5 w-full animate-pulse rounded bg-neutral-100" />
+                    <div className="h-4 w-14 animate-pulse rounded bg-neutral-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* The pill strip sits between the two rows, exactly as it does on
+                the page itself. */}
+            {row === 0 && (
+              <div className="mt-10">
+                <div className="mb-4 h-6 w-56 animate-pulse rounded bg-neutral-100" />
+                <div className="flex flex-wrap gap-2.5">
+                  {[112, 148, 96, 132, 104, 160].map((w, i) => (
+                    <div key={i} className="h-11 animate-pulse rounded-lg bg-neutral-100" style={{ width: w }} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </>
   )
 }
