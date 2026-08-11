@@ -871,7 +871,15 @@ check(
     // they are five synonyms for "used", and the difference between them is the
     // difference between an accurate listing and a return.
     const at = form.indexOf('open={sheet === "condition"}')
-    return /<OptionRow/.test(form.slice(at, at + 500)) && /const CONDITION_HINTS: Record<string, string> = \{/.test(form)
+    // The hints moved into the taxonomy when the ladder gained a second
+    // vocabulary — a book is never "nepurtat" — so each rung now carries its
+    // own. What this check is about is unchanged: a LIST, with an
+    // explanation on every rung rather than five bare labels.
+    return (
+      /<OptionRow/.test(form.slice(at, at + 500)) &&
+      /hint=\{c\.hint\}/.test(form) &&
+      /conditionsFor\(group\)\.map/.test(form)
+    )
   })(),
 )
 

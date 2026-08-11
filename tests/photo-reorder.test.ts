@@ -26,6 +26,7 @@ import {
   brandDirectoryApplies,
   fieldsFor,
   SIZES,
+  conditionsFor,
   sizesFor,
 } from "../lib/marketplace/listing-taxonomy"
 
@@ -1109,6 +1110,63 @@ check(
       !brandDirectoryApplies("ent-books") &&
       !brandDirectoryApplies(null)
     )
+  })(),
+)
+
+check(
+  "a book is not asked whether it still has its tag on",
+  (() => {
+    // The five rungs are right for everything; the WORDS were right for
+    // clothing only. "Nou, cu etichetă", "Nepurtat", "Purtat de câteva ori" —
+    // asked of a paperback, a board game or a lipstick, none of which is ever
+    // worn and none of which has a tag.
+    const book = conditionsFor("ent-books")
+    const words = book.map((c) => `${c.label} ${c.hint}`).join(" ")
+    return (
+      !/etichet/i.test(words) &&
+      !/purtat/i.test(words) &&
+      /sigilat/i.test(words) &&
+      /folosit/i.test(words)
+    )
+  })(),
+  "        lib/marketplace/listing-taxonomy.ts — same ladder, same ids, the\n" +
+    "        vocabulary the thing is actually sold in.",
+)
+
+check(
+  "clothing keeps the tag language, because there it is the right language",
+  (() => {
+    const shirt = conditionsFor("women-clothing").map((c) => `${c.label} ${c.hint}`).join(" ")
+    return /etichet/i.test(shirt) && /purtat/i.test(shirt) && !/sigilat/i.test(shirt)
+  })(),
+)
+
+check(
+  "and relabelling never becomes a second set of stored values",
+  (() => {
+    // Every listing ever filed carries one of these ids and the feed filters on
+    // them. Two vocabularies is a relabelling; two ID SETS would mean a
+    // listing's condition changing meaning the day its category was edited.
+    const ids = (g: string) => conditionsFor(g).map((c) => c.id).join(",")
+    return (
+      ids("ent-books") === ids("women-clothing") &&
+      ids("hobby-coins") === ids("men-shoes") &&
+      // And an unknown group answers in the wording every existing listing was
+      // written against, rather than retroactively restating them.
+      ids(undefined as unknown as string) === ids("women-clothing") &&
+      conditionsFor(null).some((c) => /etichet/i.test(c.label))
+    )
+  })(),
+)
+
+check(
+  "the buyer reads the same sentence the seller chose",
+  (() => {
+    // The seller picks "Nou, sigilat" on a board game; if the product page
+    // resolves that id against the clothing list it prints "Nou, cu etichetă"
+    // — the listing saying something the seller did not.
+    const detail = read("components/product/product-detail.tsx")
+    return /labelOf\(conditionsFor\(product\.category\), product\.condition\)/.test(detail)
   })(),
 )
 

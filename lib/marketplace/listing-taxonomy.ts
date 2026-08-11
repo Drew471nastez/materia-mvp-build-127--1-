@@ -581,13 +581,71 @@ export function categoryLabelFor(groupId?: string | null, itemId?: string | null
 // exactly this ladder. I invented a different set (brand_new, like_new, …) and
 // every publish was rejected by the database. Matching the constraint is the fix;
 // widening it would fork the vocabulary for every listing that already exists.
-export const CONDITIONS: Option[] = [
-  { id: "new_with_tags", label: "Nou, cu etichetă" },
-  { id: "new_without_tags", label: "Nou, fără etichetă" },
-  { id: "very_good", label: "Foarte bună" },
-  { id: "good", label: "Bună" },
-  { id: "satisfactory", label: "Acceptabilă" },
-]
+/**
+ * ===========================================================================
+ *  CONDITION, IN THE WORDS THE THING IS ACTUALLY SOLD IN
+ * ===========================================================================
+ *
+ * The five rungs are right for everything on this marketplace. The WORDS were
+ * right for clothing only: "Nou, cu etichetă" and hints reading "Nepurtat" and
+ * "Purtat de câteva ori" — asked of a paperback, a board game or a lipstick,
+ * none of which is ever worn and none of which has a tag on it.
+ *
+ * Same ladder, same five ids, different language. The ids matter more than they
+ * look: every listing ever filed carries one, the feed filters on them, and a
+ * second set would mean a listing's condition changing meaning the day its
+ * category was edited. So this is a relabelling, not a second taxonomy.
+ *
+ * Two vocabularies, because there are two ways a thing arrives new: with the
+ * tag still on it, or still sealed in the box. Everything below the top two
+ * rungs is about use, and "folosit" covers a book, a toy and a guitar equally
+ * well where "purtat" covers none of them.
+ */
+const CONDITION_IDS = [
+  "new_with_tags",
+  "new_without_tags",
+  "very_good",
+  "good",
+  "satisfactory",
+] as const
+
+export type ConditionId = (typeof CONDITION_IDS)[number]
+
+const WORN_WORDS: Record<ConditionId, { label: string; hint: string }> = {
+  new_with_tags: { label: "Nou, cu etichetă", hint: "Nepurtat, cu eticheta originală" },
+  new_without_tags: { label: "Nou, fără etichetă", hint: "Nepurtat, dar fără etichetă" },
+  very_good: { label: "Foarte bună", hint: "Purtat de câteva ori, fără urme vizibile" },
+  good: { label: "Bună", hint: "Purtat, cu urme mici de folosire" },
+  satisfactory: { label: "Acceptabilă", hint: "Urme vizibile sau un defect descris în anunț" },
+}
+
+const USED_WORDS: Record<ConditionId, { label: string; hint: string }> = {
+  new_with_tags: { label: "Nou, sigilat", hint: "Nedesfăcut, în ambalajul original" },
+  new_without_tags: { label: "Nou, desigilat", hint: "Nefolosit, dar fără ambalaj" },
+  very_good: { label: "Foarte bună", hint: "Folosit de câteva ori, fără urme vizibile" },
+  good: { label: "Bună", hint: "Folosit, cu urme mici de uzură" },
+  satisfactory: { label: "Acceptabilă", hint: "Urme vizibile sau un defect descris în anunț" },
+}
+
+/**
+ * The ladder, worded for what is being listed.
+ *
+ * Clothing, shoes, bags and accessories get the tag language; everything else
+ * gets the box language. An unknown group gets the clothing wording, because
+ * that is what every listing filed before this existed was written against and
+ * changing it retroactively would be a worse answer than an imprecise one.
+ */
+export function conditionsFor(groupId?: string | null): (Option & { hint: string })[] {
+  const fields = groupId ? FIELDS_BY_GROUP[groupId] : undefined
+  const words = fields === WORN || fields === CARRIED || fields === undefined ? WORN_WORDS : USED_WORDS
+  return CONDITION_IDS.map((id) => ({ id, label: words[id].label, hint: words[id].hint }))
+}
+
+/** The clothing wording, which is what a stored value resolves against. */
+export const CONDITIONS: Option[] = CONDITION_IDS.map((id) => ({
+  id,
+  label: WORN_WORDS[id].label,
+}))
 
 export const COLOURS: (Option & { hex: string })[] = [
   { id: "black", label: "Negru", hex: "#111111" },

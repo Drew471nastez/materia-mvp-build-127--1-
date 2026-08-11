@@ -7,6 +7,7 @@ import {
   CATEGORY_INDEX,
   COLOURS,
   CONDITIONS,
+  conditionsFor,
   ERAS,
   LISTING_CATEGORIES,
   MAX_PHOTOS,
@@ -506,13 +507,6 @@ function PickerNote({ children }: { children: React.ReactNode }) {
  * difference between a listing that is described accurately and one that comes
  * back. The hint is where the meaning goes.
  */
-const CONDITION_HINTS: Record<string, string> = {
-  new_with_tags: "Nepurtat, cu eticheta originală",
-  new_without_tags: "Nepurtat, dar fără etichetă",
-  very_good: "Purtat de câteva ori, fără urme vizibile",
-  good: "Purtat, cu urme mici de folosire",
-  satisfactory: "Urme vizibile sau un defect descris în anunț",
-}
 
 /**
  * The four things the sheet can be doing, and the class for each.
@@ -2736,7 +2730,7 @@ export function NewListingForm({
         >
           <div className="overflow-hidden">
             <div className={cn("transition-opacity duration-200 ease-out", group ? "opacity-100 delay-[120ms]" : "opacity-0")}>
-              <Field label="Stare" value={label(CONDITIONS, condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
+              <Field label="Stare" value={label(conditionsFor(group), condition)} onClick={() => setSheet("condition")} error={gapFor("condition")} anchor={(el) => setGapEl("condition", el)} />
               {asks("brand") && (
                 <Field label="Brand" value={brand} onClick={() => setSheet("brand")} error={gapFor("brand")} anchor={(el) => setGapEl("brand", el)} />
               )}
@@ -2994,11 +2988,14 @@ export function NewListingForm({
           what it means. */}
       <PickerPage open={sheet === "condition"} title="Stare" onClose={() => setSheet(null)}>{() => (
         <>
-        {CONDITIONS.map((c) => (
+        {/* Worded for what is being listed: a book is never "nepurtat" and has
+            no tag on it. Same five rungs and the same five ids either way —
+            see conditionsFor. */}
+        {conditionsFor(group).map((c) => (
           <OptionRow
             key={c.id}
             label={c.label}
-            hint={CONDITION_HINTS[c.id]}
+            hint={c.hint}
             selected={condition === c.id}
             onClick={() => setCondition(c.id)}
           />
