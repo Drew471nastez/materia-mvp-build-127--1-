@@ -318,6 +318,26 @@ check(
 )
 
 check(
+  "and it is a whole turn, not a tilt",
+  (() => {
+    // 495 = 360 + 135: once all the way round, landing on the × it has always
+    // landed on. A + that tips 135 degrees is a state change; a + that goes
+    // round once is a gesture answered.
+    //
+    // One number rather than a spin composed with a tilt, because a transition
+    // interpolates the VALUE — chaining them would need two declarations and
+    // would arrive at the same place having cost a second animation. It also
+    // means the close unwinds the identical turn in reverse, which a reversible
+    // transition gives for free.
+    const css = read("app/globals.css")
+    const open = /\.plus-turn\[data-open="true"\] \{[\s\S]*?\}/.exec(css)?.[0] ?? ""
+    const deg = Number(/rotate\((\d+)deg\)/.exec(open)?.[1])
+    return Number.isFinite(deg) && deg >= 360 && (deg - 135) % 360 === 0
+  })(),
+  "        A rotation nobody can see finish is a rotation nobody can see.",
+)
+
+check(
   "nothing about the purple circle scales under a finger",
   (() => {
     // `group-active:scale-95` on a 200ms transform: two and a half pixels of

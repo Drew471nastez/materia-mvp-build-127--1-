@@ -2260,7 +2260,11 @@ check(
       !/transition:[^;]*(color|background|box-shadow|filter|opacity)/.test(rule) &&
       // Promoted BEFORE the press, not at the first frame of the turn.
       /transform: translateZ\(0\) rotate\(0deg\)/.test(rule) &&
-      /transform: translateZ\(0\) rotate\(135deg\)/.test(open) &&
+      // The angle itself is asserted in tests/sheet-motion.test.ts ("a whole
+      // turn, not a tilt"). What this check is about is the PROMOTION being
+      // present in both states — left off the open state, the layer is torn
+      // down and rebuilt every time it turns back.
+      /transform: translateZ\(0\) rotate\(\d+deg\)/.test(open) &&
       /backface-visibility: hidden/.test(rule) &&
       /transform-origin: 50% 50%/.test(rule)
     )

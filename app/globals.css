@@ -1072,7 +1072,7 @@ html.capacitor a.no-tap-fade:active {
      bounce: an overshoot here lands within a few frames of the sheet passing
      over the icon, which is the twitch that was deliberately removed once
      already. */
-  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
   /* The translateZ is not decoration. It puts this glyph on its own GPU layer
      BEFORE the press rather than at the first frame of the turn, so the layer
      is created while nothing is moving instead of during the animation — which
@@ -1091,7 +1091,28 @@ html.capacitor a.no-tap-fade:active {
   transform-origin: 50% 50%;
 }
 .plus-turn[data-open="true"] {
-  transform: translateZ(0) rotate(135deg);
+  /* A FULL TURN, AND THEN THE CROSS.
+
+     495 = 360 + 135. The glyph spins once all the way round and lands as the ×
+     it has always landed as, rather than taking the short way there — a + that
+     tips 135 degrees is a state change, and a + that goes round once is a
+     gesture answered. Nothing else about the button changes: it is the same
+     element, the same single property, the same curve as the sheet, and the
+     same layer it was already promoted onto.
+
+     Written as one number instead of a spin plus a tilt because a transition
+     interpolates the VALUE: two chained rotations would need two declarations
+     and would land at the same place having cost a second animation. And the
+     close unwinds it — 495 back to 0 is the same turn in reverse, which is what
+     a reversible transition gives for free and a keyframe animation does not.
+
+     It still has to finish inside the window it has. The sheet climbs from the
+     bottom of the screen and this button is at the bottom of the screen, so the
+     covering starts within a few frames of the route committing; 300ms is what
+     fits, and is why this is a brisk spin rather than a languid one. A slower
+     turn would be a better animation that nobody ever sees the end of, which is
+     the mistake this button has already been through once. */
+  transform: translateZ(0) rotate(495deg);
 }
 @media (prefers-reduced-motion: reduce) {
   .plus-turn { transition: none; }
