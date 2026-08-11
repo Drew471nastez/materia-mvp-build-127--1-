@@ -509,18 +509,6 @@ export function MobileSearchOverlay({
         pointerEvents: shown ? "auto" : "none",
       }}
     >
-      {/* The dim. `fixed` rather than `absolute` when anchored, because the
-          panel is now a small box inside the header and an absolute scrim would
-          only cover the panel's own footprint. Behind it (z-[89]) so the panel
-          sits on top of its own dim, and it takes the click that closes. */}
-      {anchored && (
-        <div
-          aria-hidden
-          className="fixed inset-0 z-[94] bg-black/25"
-          onClick={onClose}
-        />
-      )}
-
       {/* `display: contents` on a phone, so the children stay direct flex items
           of the full-screen column exactly as they were and not one pixel of
           the existing layout moves. Anchored, this is the panel. */}
@@ -661,8 +649,37 @@ export function MobileSearchOverlay({
     </div>
   )
 
+  /**
+   * THE DIM IS A SIBLING OF THE PANEL, NOT A CHILD OF IT.
+   *
+   * It was inside — `fixed inset-0 z-[94]` within the panel's own
+   * `fixed z-[95]` wrapper — and that wrapper is positioned WITH a z-index,
+   * which makes it a stacking context. So the scrim's 94 and the panel's 90
+   * were compared against each other rather than against the page, the scrim
+   * won, and it painted a 25% black wash OVER the search panel: the whole box
+   * came up grey, and every click aimed at a tab or a result landed on the
+   * scrim and closed it.
+   *
+   * As siblings the two numbers mean what they look like they mean. Nothing
+   * else about either element changed.
+   */
+  const layer =
+    anchored && box ? (
+      <>
+        <div
+          aria-hidden
+          className="fixed inset-0 z-[94] bg-black/25"
+          style={{ opacity: shown ? 1 : 0, transition: "opacity 220ms cubic-bezier(0.33,0,0.67,1)" }}
+          onClick={onClose}
+        />
+        {body}
+      </>
+    ) : (
+      body
+    )
+
   // Out of the header's stacking context entirely. See `anchorTo`.
-  return anchored && typeof document !== "undefined" ? createPortal(body, document.body) : body
+  return anchored && typeof document !== "undefined" ? createPortal(layer, document.body) : layer
 }
 
 /* ---------------- Items tab ---------------- */

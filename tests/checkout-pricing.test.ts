@@ -641,13 +641,17 @@ check(
     // the seller's own, un-grossed-up number is stated somewhere on this form,
     // and that the field itself is not pre-filled with the buyer's.
     const form = read("components/sell/new-listing-form.tsx")
-    // Their PAYOUT, which is stronger than what this used to ask for. It
-    // required the gross price to appear somewhere, which was true of a
-    // sentence saying "you still receive 130" — accurate before the commission
-    // was surfaced, and misleading after it, because 130 is not what lands.
-    const statesPayout = /sellerReceivesCents\(priceCents\)/.test(form)
+    // THE FIELD is the seller's number, and the line under it names both: the
+    // price they typed and the price a buyer is quoted, in that order.
+    //
+    // This has been rewritten twice as the line changed shape, and the rule
+    // underneath has not moved: the seller must never be shown the inclusive
+    // figure AS THEIR OWN. What changed is only which of the two is the natural
+    // thing to assert — a payout figure while one was displayed, their own
+    // price now that the line states it directly.
+    const statesTheirPrice = /formatPlatformMoney\(priceCents\)/.test(form)
     const fieldIsTheirs = /value=\{price\}/.test(form) && !/value=\{formatPlatformMoney\(buyerPaysCents/.test(form)
-    return statesPayout && fieldIsTheirs
+    return statesTheirPrice && fieldIsTheirs
   })(),
 )
 
