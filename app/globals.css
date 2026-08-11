@@ -5069,6 +5069,10 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
 .info-tip-bubble {
   position: fixed;
   z-index: 120;
+  /* Sized by its contents up to the ceiling the component sets. `max-content`
+     is what stops a two-word label from being laid out across a full line box;
+     the inline max-width then wraps anything longer. */
+  width: max-content;
   padding: 9px 12px;
   border-radius: 12px;
   background: #111111;
