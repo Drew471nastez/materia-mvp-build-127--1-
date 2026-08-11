@@ -707,10 +707,20 @@ check(
     // Prices are quoted inclusive of the protection fee everywhere a buyer
     // reads them, so without this a seller types 130, opens the feed, and finds
     // their own listing at 141 with no explanation anywhere.
+    //
+    // Both numbers, and an explanation reachable from the same place. The copy
+    // is deliberately not pinned: this used to require the exact sentence and
+    // failed when the line became a labelled row with the reasoning behind an
+    // info mark, which states more than the sentence did rather than less.
+    //
+    // The number itself, formatted for display — not a mention of the helper.
+    // A copy check is not enough here: the same sentence appears in the info
+    // text beside the heading, so a version of this that only looked for the
+    // words passed with the figure deleted.
     return (
-      /buyerPaysCents\(priceCents\)/.test(form) &&
-      /Cumpărătorii văd/.test(form) &&
-      /Tu primești în continuare/.test(form)
+      /formatPlatformMoney\(buyerPaysCents\(priceCents\)\)/.test(form) &&
+      /formatPlatformMoney\(priceCents\)/.test(form) &&
+      /taxa de protecție/.test(form)
     )
   })(),
 )

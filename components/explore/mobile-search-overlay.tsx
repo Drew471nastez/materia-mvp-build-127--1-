@@ -10,6 +10,7 @@ import { SmartLink } from "@/components/smart-link"
 import { IosSpinner } from "./ios-spinner"
 import { cn } from "@/lib/utils"
 import { claimSurface } from "@/lib/surface-bg"
+import { useWideViewport } from "@/lib/use-wide-viewport"
 
 type SearchTab = "items" | "categories" | "people"
 
@@ -183,6 +184,30 @@ export function MobileSearchOverlay({
   const router = useRouter()
   const { searches, add: addSearch, remove: removeSearch, clear: clearSearches } = useRecentSearches()
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  ONE SEARCH, TWO SHAPES — and it used to be one shape and a stub
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * This is the marketplace's real search: items, categories and people behind
+   * three tabs, recent queries, and the popular-expansion table that turns
+   * "jordan" into the eight things people actually look for. It was
+   * `md:hidden`, so a desktop browser could not reach any of it.
+   *
+   * What a desktop got instead was the header's own dropdown, which predates
+   * the marketplace entirely: nine digital-goods categories (Design,
+   * Development, Marketing, AI…), results linking to /p/ product pages,
+   * prices in dollars, "Product by", and English copy on a Romanian site. It
+   * was not a smaller version of this — it was a different product's search,
+   * left running.
+   *
+   * So the same component now draws a centred panel above 768px. Same tabs,
+   * same suggestions, same recents, same everything; a phone gets the full
+   * screen it needs and a desktop gets a panel under the header, because a
+   * 2000px window blanked to white for a search box is the same category of
+   * mistake as a bottom sheet on a monitor.
+   */
+  const wide = useWideViewport()
   const [mounted, setMounted] = useState(open)
   const [shown, setShown] = useState(false)
   const [tab, setTab] = useState<SearchTab>("items")
@@ -366,7 +391,13 @@ export function MobileSearchOverlay({
 
   return (
     <div
-      className="md:hidden fixed inset-0 z-[90] flex flex-col bg-white"
+      className={cn(
+        "fixed inset-0 z-[90]",
+        // A phone IS the panel: full bleed, its own white ground, laid out as
+        // the column the children already expect. A desktop is a scrim with a
+        // panel in it, so the ground moves inwards one level.
+        wide ? "flex justify-center px-6 pt-[76px]" : "flex flex-col bg-white",
+      )}
       style={{
         // Full-screen — never resizes, so no bottom gap/displacement.
         height: "100dvh",
@@ -395,8 +426,27 @@ export function MobileSearchOverlay({
         pointerEvents: shown ? "auto" : "none",
       }}
     >
+      {/* The dim, on the shape that has something behind it to dim. */}
+      {wide && (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-black/30"
+          onClick={onClose}
+        />
+      )}
+
+      {/* `display: contents` on a phone, so the children stay direct flex items
+          of the full-screen column exactly as they were and not one pixel of
+          the existing layout moves. On a desktop this is the panel. */}
+      <div
+        className={
+          wide
+            ? "relative flex max-h-[min(660px,78vh)] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_28px_80px_-16px_rgba(15,15,15,0.38),0_2px_10px_rgba(15,15,15,0.08)]"
+            : "contents"
+        }
+      >
       {/* Header: search field + close */}
-      <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
+      <div className="shrink-0 px-4" style={{ paddingTop: wide ? "0.85rem" : "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
           <form
             className="relative flex-1"
@@ -470,7 +520,10 @@ export function MobileSearchOverlay({
       {/* Content — padded by the keyboard height so results never hide under it */}
       <div
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide"
-        style={{ scrollbarWidth: "none", paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)` }}
+        style={{
+          scrollbarWidth: "none",
+          paddingBottom: wide ? 10 : `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)`,
+        }}
       >
         <div key={`${tab}-${trimmed ? "q" : "e"}`} className="animate-in fade-in-0 duration-200 ease-out">
           {tab === "items" && (
@@ -489,6 +542,7 @@ export function MobileSearchOverlay({
             <PeopleTab trimmed={trimmed} people={people} loading={peopleLoading} onClose={onClose} t={t} />
           )}
         </div>
+      </div>
       </div>
     </div>
   )

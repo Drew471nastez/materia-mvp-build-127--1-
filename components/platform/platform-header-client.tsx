@@ -4,7 +4,7 @@ import type React from "react"
 
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
@@ -12,6 +12,8 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
 import { goToSellFormAsPage, isSellFormRoute } from "@/lib/marketplace/sell-route"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { useUrlSearchParams } from "@/lib/use-url-search-params"
+import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -182,26 +184,11 @@ const CATEGORIES_WITH_SUBS = [
   },
 ]
 
-// Simple search categories for search modal
-const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
-  label: cat.label,
-  href: cat.href,
-  icon: cat.icon,
-  isHot: cat.isHot,
-}))
-
-// Product type for search results
-type SearchProduct = {
-  id: string
-  title: string
-  slug: string
-  thumbnail_url?: string
-  price_cents: number
-  creator?: {
-    display_name?: string
-    slug?: string
-  }
-}
+/* SEARCH_CATEGORIES and SearchProduct are gone with the dropdown they fed.
+   They described a catalogue this app no longer sells: nine digital-goods
+   categories, and a product shaped like a download with a `creator` and a
+   dollar price. Search is the marketplace overlay now, which reads listings.
+   See components/explore/mobile-search-overlay.tsx. */
 
 type Profile = {
   display_name?: string | null
@@ -609,7 +596,17 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
 export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
+  /**
+   * READ OFF THE ADDRESS BAR, not through useSearchParams().
+   *
+   * That hook opts this component into Suspense, and the boundary above it
+   * (components/marketing/conditional-header.tsx) falls back to a bare black
+   * bar. So every navigation that made this re-suspend blanked the entire
+   * header — logo, search, messages, wishlist, cart, Vinde acum, avatar — and
+   * then filled it back in, which is the flash on pressing Vinde acum. The
+   * button was never involved. See lib/use-url-search-params.ts.
+   */
+  const searchParams = useUrlSearchParams()
   const { t } = useLocale()
 
   const [user, setUser] = useState<User | null>(() => {
@@ -654,15 +651,11 @@ export function PlatformHeaderClient() {
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "")
   const [searchModalOpen, setSearchModalOpen] = useState(false)
-  const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
-  const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [selectedCategoryForSubs, setSelectedCategoryForSubs] = useState<string | null>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
 
@@ -713,73 +706,12 @@ export function PlatformHeaderClient() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Live search with debounce
-  const handleSearchChange = useCallback((value: string) => {
-    setQuery(value)
+  /* The debounced `products` lookup that lived here is gone with the dropdown
+     it filled. It queried `products` joined to `creators` for digital goods,
+     which is not what this marketplace sells and is not what the overlay asks
+     for. Search runs inside components/explore/mobile-search-overlay.tsx, once,
+     for every screen. */
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    if (value.trim().length < 1) {
-      setSearchResults([])
-      setSearchLoading(false)
-      return
-    }
-
-    setSearchLoading(true)
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from("products")
-          .select(`
-            id,
-            title,
-            slug,
-            thumbnail_url,
-            price_cents,
-            creator_id,
-            creators!inner (
-              display_name,
-              slug
-            )
-          `)
-          .ilike("title", `%${value}%`)
-          .eq("status", "published")
-          .limit(8)
-
-        if (!error && data) {
-          const results = data.map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            slug: p.slug,
-            thumbnail_url: p.thumbnail_url,
-            price_cents: p.price_cents,
-            creator: p.creators ? {
-              display_name: p.creators.display_name,
-              slug: p.creators.slug,
-            } : undefined,
-          }))
-          setSearchResults(results)
-        }
-      } catch (err) {
-        console.error("Search error:", err)
-      } finally {
-        setSearchLoading(false)
-      }
-    }, 300)
-  }, [])
-
-  // Cleanup search timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [])
 
   const fetchWishlistCount = useCallback(async () => {
     try {
@@ -1440,138 +1372,33 @@ export function PlatformHeaderClient() {
             </div>
           </div>
 
-          {/* Desktop Search - Centered with Modal (10% larger) */}
-          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
-            <div className="relative w-full">
-              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
-              <Input
-                ref={searchInputRef}
-                value={query}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onFocus={() => setSearchModalOpen(true)}
-                placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-0 focus-visible:border-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("")
-                    setSearchResults([])
-                    searchInputRef.current?.focus()
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+          {/* THE MARKETPLACE'S SEARCH, not the digital-goods one.
 
-            {/* Search Modal Dropdown */}
-            {searchModalOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setSearchModalOpen(false)}
-                />
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[70vh] overflow-y-auto">
-                  {!query && (
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {SEARCH_CATEGORIES.map((cat) => (
-                          <Link
-                            key={cat.label}
-                            href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                            onClick={(e) => {
-                              onCanonicalNav(e, cat.href + '&scroll=recommended')
-                              setSearchModalOpen(false)
-                            }}
-                            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
-                          >
-                            {cat.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              What was here was a field with its own dropdown: nine categories
+              from the product this app used to be (Design, Development,
+              Marketing, AI…), results linking to /p/ pages, dollar prices,
+              "Product by", English copy on a Romanian site. None of it had been
+              updated when the marketplace replaced it, so a desktop browser was
+              searching a catalogue that is no longer the catalogue.
 
-                  {searchLoading && (
-                    <div className="p-6 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                      <span className="ml-2 text-sm text-gray-500">Searching...</span>
-                    </div>
-                  )}
-
-                  {!searchLoading && searchResults.length > 0 && (
-                    <div className="p-2">
-                      <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
-                      {searchResults.map((product) => (
-                        <Link
-                          key={product.id}
-                          href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
-                          onClick={(e) => {
-                            onCanonicalNav(e, `/p/${product.slug}`)
-                            setSearchModalOpen(false)
-                          }}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
-                        >
-                          {product.thumbnail_url ? (
-                            <Image
-                              src={product.thumbnail_url}
-                              alt={product.title}
-                              width={48}
-                              height={48}
-                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                              <Search className="w-5 h-5 text-gray-400" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                            {product.creator?.display_name && (
-                              <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
-                            )}
-                          </div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-                    <div className="p-6 text-center">
-                      <p className="text-sm text-gray-500">No products found for "{query}"</p>
-                    </div>
-                  )}
-
-                  {!query && (
-                    <div className="p-4 bg-gray-50 text-center">
-                      <p className="text-xs text-gray-500">Start typing to search products</p>
-                    </div>
-                  )}
-
-                  {query.trim() && (
-                    <div className="p-3 border-t border-gray-100 bg-gray-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                          setSearchModalOpen(false)
-                        }}
-                        className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                      >
-                        View all results for "{query}"
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+              The real search already exists and every phone has been using it:
+              items, categories and people behind three tabs, recent queries and
+              the popular-expansion table. It was `md:hidden`. So this is a
+              TRIGGER now, and the overlay it opens is that one — see
+              components/explore/mobile-search-overlay.tsx, which grew a desktop
+              shape rather than a desktop copy. */}
+          <div className="hidden md:flex flex-1 max-w-xl mx-4">
+            <button
+              type="button"
+              onClick={() => setSearchModalOpen(true)}
+              aria-label={t("search_placeholder")}
+              className={`relative h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-left text-[15px] text-white/50 transition-colors hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+            >
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
+              <span className="flex h-full items-center truncate">
+                {query || t("search_placeholder")}
+              </span>
+            </button>
           </div>
 
           {/* Mobile Header for Non-Homepage pages */}
@@ -1834,142 +1661,27 @@ export function PlatformHeaderClient() {
 
         </div>
 
-        {/* Mobile Search Bar Trigger is now rendered below in white UI section */}
+        {/* ONE SEARCH IN THIS HEADER, on every width.
 
-        {/* Mobile Search Top Sheet Modal */}
-        <MobileTopSheet
-          isOpen={searchModalOpen}
+            What stood here was a second copy of the digital-goods search, in a
+            top sheet, bound to the same `searchModalOpen` as the desktop
+            dropdown above: the same nine Design/Development/Marketing chips,
+            the same /p/ links and dollar prices. Two implementations of a
+            catalogue this app no longer sells.
+
+            The marketplace overlay answers both now. It draws a full screen on
+            a phone and a centred panel on a desktop, and it is the same one the
+            mobile web header and the feed already open, so there is exactly one
+            place where "what does search do" is decided. */}
+        <MobileSearchOverlay
+          open={searchModalOpen}
           onClose={() => setSearchModalOpen(false)}
-        >
-          <div className="px-4 pt-4 pb-2">
-            {/* Search Input inside modal */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
-              <Input
-                value={query}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-                autoFocus
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("")
-                    setSearchResults([])
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer z-10"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Categories */}
-            {!query && (
-              <div className="pb-4 border-b border-gray-100">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
-                <div className="flex flex-wrap gap-2">
-                  {SEARCH_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.label}
-                      type="button"
-                      onClick={() => {
-                        navigateToExploreCategory(cat.href + '&scroll=recommended')
-                        setSearchModalOpen(false)
-                      }}
-                      className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Loading */}
-            {searchLoading && (
-              <div className="py-8 flex items-center justify-center">
-                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                <span className="ml-2 text-sm text-gray-500">Searching...</span>
-              </div>
-            )}
-
-            {/* Search Results */}
-            {!searchLoading && searchResults.length > 0 && (
-              <div className="pt-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
-                <div className="space-y-0.5">
-                  {searchResults.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => {
-                        navigateReliably(`/p/${product.slug}`)
-                        setSearchModalOpen(false)
-                      }}
-                      className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
-                    >
-                      {product.thumbnail_url ? (
-                        <Image
-                          src={product.thumbnail_url}
-                          alt={product.title}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <Search className="w-5 h-5 text-gray-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                        {product.creator?.display_name && (
-                          <p className="text-xs text-gray-500 truncate">by {product.creator.display_name}</p>
-                        )}
-                      </div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* No results */}
-            {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-              <div className="py-8 text-center">
-                <p className="text-sm text-gray-500">No products found for "{query}"</p>
-              </div>
-            )}
-
-            {/* Hint text */}
-            {!query && !searchLoading && (
-              <div className="py-4 text-center">
-                <p className="text-xs text-gray-500">Start typing to search products</p>
-              </div>
-            )}
-
-            {/* View all results button */}
-            {query.trim() && (
-              <div className="pt-3 mt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                    setSearchModalOpen(false)
-                  }}
-                  className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
-                >
-                  View all results for "{query}"
-                </button>
-              </div>
-            )}
-          </div>
-        </MobileTopSheet>
+          onSelectCategory={(id) => {
+            setSearchModalOpen(false)
+            router.push(id === "all" ? "/explore" : `/explore/${id}`)
+          }}
+          initialQuery={query}
+        />
 
         {/* Mobile & Desktop Categories are now rendered below in white UI section */}
       </div>

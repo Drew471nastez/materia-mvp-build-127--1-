@@ -2351,7 +2351,7 @@ export function NewListingForm({
           </h1>
           <p className="mt-1 text-[14.5px] font-medium text-neutral-500">
             {editId
-              ? "Modifică ce vrei și salvează — anunțul rămâne la aceeași adresă."
+              ? "Modifică ce vrei și salvează. Anunțul rămâne la aceeași adresă."
               : "Completează detaliile și anunțul tău apare instant în feed."}
           </p>
         </div>
@@ -2429,7 +2429,6 @@ export function NewListingForm({
               {photos.length > 0 ? `${photos.length}/${MAX_PHOTOS}` : `max ${MAX_PHOTOS}`}
             </span>
           }
-          info="Prima fotografie devine coperta anunțului în feed. Fotografiază la lumină naturală, pe fundal simplu, și arată eventualele defecte — anunțurile cu poze clare se vând de câteva ori mai repede."
         >
           Fotografii
         </SectionHeading>
@@ -2657,7 +2656,13 @@ export function NewListingForm({
       {/* ---- Title + description ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
         <div ref={(el) => setGapEl("title", el)}>
-        <label className="block text-[15px] font-semibold text-neutral-900">Titlu</label>
+        <label className="info-tip-host flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900">
+          Titlu
+          <InfoTip>
+            Scrie ce ai scrie dacă ai căuta tu articolul: marca, modelul și mărimea. Titlurile
+            care spun exact ce este apar în mai multe căutări.
+          </InfoTip>
+        </label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -2669,7 +2674,13 @@ export function NewListingForm({
         </div>
 
         <div ref={(el) => setGapEl("description", el)} className="mt-6">
-        <label className="block text-[15px] font-semibold text-neutral-900">Descriere</label>
+        <label className="info-tip-host flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900">
+          Descriere
+          <InfoTip>
+            Spune starea reală, materialul și cum vine pe corp. Menționează orice defect: un
+            cumpărător care știe ce primește nu deschide o reclamație.
+          </InfoTip>
+        </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -2689,7 +2700,7 @@ export function NewListingForm({
       <div className="min-w-0">
       {/* ---- Price ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
-        <SectionHeading info="Cumpărătorul vede prețul cu comisionul de protecție inclus, așa că suma afișată în feed este puțin mai mare decât cea pe care o scrii aici. Tu primești exact cât ai cerut.">
+        <SectionHeading info="Tu primești exact suma pe care o scrii aici. Cumpărătorul plătește puțin mai mult, pentru că prețul afișat în feed include taxa de protecție a plății.">
           Preț
         </SectionHeading>
         {/* ONE FIELD. The comparison price is gone from the whole app — a
@@ -2734,20 +2745,45 @@ export function NewListingForm({
           </div>
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
+        {/* WHAT THE BUYER WILL SEE, AS SOON AS THERE IS A NUMBER TO SEE IT FROM.
+
+            This was a sentence in grey: "Cumpărătorii văd 141 RON — prețul tău
+            plus taxa de protecție. Tu primești în continuare 130 RON." It is
+            three facts and a dash, set at 12.5px under the field, and the one
+            that matters — the figure a buyer will actually be quoted — was in
+            the middle of it.
+
+            A row instead: label on the left, number on the right, in the shape
+            every total in this app already uses. The explanation moves behind
+            the mark, where the other two on this form are, so the line is a
+            fact you can read at a glance and a sentence you can ask for.
+
+            It fades and rises rather than appearing, because it arrives as you
+            type — an element that pops in mid-keystroke reads as the form
+            jumping. See `.price-total-in`. */}
         {Number.isFinite(priceCents) && priceCents > 0 && (
-          <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-neutral-400">
-            Cumpărătorii văd{" "}
-            <span className="font-semibold text-neutral-600">{formatPlatformMoney(buyerPaysCents(priceCents))}</span> —
-            prețul tău plus taxa de protecție. Tu primești în continuare {formatPlatformMoney(priceCents)}.
-          </p>
+          <div
+            key={priceCents}
+            className="info-tip-host price-total-in mt-3 flex items-center justify-between gap-3 rounded-xl bg-neutral-50 px-3.5 py-2.5"
+          >
+            <span className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-500">
+              Cumpărătorul plătește
+              <InfoTip>
+                Prețul afișat în feed include taxa de protecție a plății, care acoperă livrarea
+                urmărită și rambursarea dacă articolul nu ajunge sau nu e cum a fost descris. Ție
+                ți se virează {formatPlatformMoney(priceCents)}, exact cât ai cerut.
+              </InfoTip>
+            </span>
+            <span className="shrink-0 text-[15px] font-semibold tabular-nums text-neutral-900">
+              {formatPlatformMoney(buyerPaysCents(priceCents))}
+            </span>
+          </div>
         )}
       </section>
 
       {/* ---- Details ---- */}
       <section className="mb-3.5 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5 md:mb-5">
-        <SectionHeading info="Categoria decide ce se întreabă mai jos și unde apare anunțul în căutări. Alege-o prima — restul întrebărilor se potrivesc după ea.">
-          Detalii
-        </SectionHeading>
+        <SectionHeading>Detalii</SectionHeading>
         {/* ═══════════════════════════════════════════════════════════════════
             THE CATEGORY IS THE ONLY QUESTION UNTIL IT IS ANSWERED
             ═══════════════════════════════════════════════════════════════════
@@ -3019,7 +3055,7 @@ export function NewListingForm({
             }}
             className="mt-2 flex w-full items-center gap-3 border-t border-neutral-100 px-4 py-4 text-left text-[15px] font-medium text-neutral-600 transition-colors duration-150 active:bg-neutral-100"
           >
-            <span className="flex-1">Nu găsesc brandul — Altele</span>
+            <span className="flex-1">Nu găsesc brandul · Altele</span>
             {brand === "Altele" && <Check className="h-[19px] w-[19px] shrink-0 text-[#7c3aed]" strokeWidth={2.8} />}
           </button>
         </div>

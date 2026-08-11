@@ -49,7 +49,7 @@ export function SearchTrigger({ query, onOpen }: { query?: string; onOpen: () =>
       ) : (
         <AnimatedSearchPlaceholder
           active
-          prefix={`${t("mfeed.search_for")} `}
+          prefix={t("mfeed.search_for")}
           quoted
           className="absolute left-10 right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500"
         />

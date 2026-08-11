@@ -544,8 +544,17 @@ check(
     // The price field is what the SELLER is asking and what their payout is
     // computed from. Showing them the inclusive figure would tell somebody
     // typing 130 that they are earning 141.
+    //
+    // Matched on the FIGURE rather than on the sentence around it. This asked
+    // for the literal "Tu primești în continuare {formatPlatformMoney(
+    // priceCents)}" and so failed the moment that line became a row with the
+    // explanation behind a mark. The rule was never about the words: it is that
+    // the seller's own, un-grossed-up number is stated somewhere on this form,
+    // and that the field itself is not pre-filled with the buyer's.
     const form = read("components/sell/new-listing-form.tsx")
-    return /Tu primești în continuare \{formatPlatformMoney\(priceCents\)\}/.test(form)
+    const statesPayout = /formatPlatformMoney\(priceCents\)/.test(form)
+    const fieldIsTheirs = /value=\{price\}/.test(form) && !/value=\{formatPlatformMoney\(buyerPaysCents/.test(form)
+    return statesPayout && fieldIsTheirs
   })(),
 )
 

@@ -4956,10 +4956,20 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
 .msg-dots:focus-visible {
   opacity: 1;
 }
+/* NOT ON A TOUCH SCREEN AT ALL.
+   The gesture already exists there and everybody already knows it: press and
+   hold a message. That opens the same sheet this button opens, it has done so
+   since the sheet was written, and it is what people do without being told.
+   So on a phone the dots are forty pieces of furniture running down the middle
+   of a screen whose entire content is the messages, offering a second door to a
+   room that already has one.
+
+   A pointer is the case with no gesture — a mouse cannot press-and-hold, and
+   there is nothing to discover by trying. That is where the button earns its
+   place, and it is revealed by the hover that a pointer makes possible. */
 @media (hover: none) {
   .msg-dots {
-    opacity: 1;
-    color: #d4d4d4;
+    display: none;
   }
 }
 
@@ -5040,35 +5050,49 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
     visibility 0s linear 0s;
 }
 
-/* On a pointer the mark itself is what fades up, and it fades up with the
-   HEADING rather than only with itself — a control you have to already be
-   hovering in order to see is a control nobody discovers. `.info-tip-host` is
-   the heading row; the group-hover utilities cannot express "reveal a
-   descendant of a sibling" without one.
+/* THE MARK IS ALWAYS THERE. THE SENTENCE IS WHAT HOVER REVEALS.
 
-   The box is occupied at rest either way. Opacity, never display: a heading
-   that reflows when a cursor crosses it is worse than a mark that is always
-   there.                                                                      */
+   It used to fade up under the cursor, and that was the wrong half to hide. A
+   mark you cannot see is a mark you cannot know to point at: the only way to
+   discover it was to happen to move a cursor across a heading and notice
+   something appear, which is not a way anyone finds anything. And it made the
+   two gestures one — the same movement that revealed the control also opened
+   it, so there was never a state where you could see that help existed and
+   choose whether to read it.
+
+   Present at rest, quiet enough to sit inside a label without competing with
+   it, and darkening slightly under the pointer so it reads as a control rather
+   than as punctuation. Hovering it opens the sentence. Same on a touch screen,
+   where the tap does what the hover does.                                     */
+.info-tip-mark {
+  opacity: 1;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .info-tip-mark {
-    opacity: 0;
-  }
-  .info-tip-host:hover .info-tip-mark,
-  .info-tip:hover .info-tip-mark,
-  .info-tip-mark:focus-visible,
-  .info-tip-mark-open {
-    opacity: 1;
+  .info-tip-mark:hover,
+  .info-tip-host:hover .info-tip-mark {
+    background-color: rgba(124, 58, 237, 0.18);
   }
   .info-tip-mark:hover {
-    background-color: rgba(124, 58, 237, 0.18);
     transform: scale(1.08);
   }
 }
 
-/* No hover to reveal it with, so it is simply there — quiet enough to sit in a
-   heading without competing with it. */
-@media (hover: none) {
-  .info-tip-mark {
-    opacity: 1;
+/* The buyer-pays total, which arrives while somebody is still typing the price.
+   A row that pops into existence mid-keystroke reads as the form jumping; the
+   same row rising two pixels under a fade reads as an answer settling. Keyed on
+   the price in the JSX, so it replays when the number changes rather than only
+   when the row first appears.                                                 */
+@keyframes price-total-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.price-total-in {
+  animation: price-total-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }

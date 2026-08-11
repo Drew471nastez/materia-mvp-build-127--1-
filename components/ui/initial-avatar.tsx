@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -153,12 +153,42 @@ export function InitialAvatar({
   // deleted its picture, an OAuth avatar moved, a host is not on the optimizer's
   // allowlist. In all of them the right answer is the letter, immediately.
   const [broken, setBroken] = useState(false)
+  /**
+   * WHETHER THE PHOTOGRAPH HAS PIXELS YET — and why the answer changes what is
+   * drawn underneath it.
+   *
+   * The coloured initial used to sit under every avatar, photograph or not. On
+   * a warm cache that is invisible. On a cold one it is the bump: a saturated
+   * violet disc with a letter in it, held for as long as the network takes,
+   * REPLACED IN ONE FRAME by a face. Two confident, completely different images
+   * of the same person, one after the other — which reads as the app changing
+   * its mind rather than as something loading.
+   *
+   * A letter is the right answer when there is no photograph. It is the wrong
+   * answer while there is one on the way, and the difference is knowable: the
+   * url tells us which case this is. So an account WITH a picture waits behind a
+   * quiet grey shimmer, the way every other unloaded thing in this app waits,
+   * and the face fades onto it. An account without one gets its initial
+   * immediately and never shimmers, because nothing is coming.
+   */
+  const [loaded, setLoaded] = useState(false)
+
+  /**
+   * A cached image can finish loading BEFORE React attaches its onLoad, and
+   * then the event never fires — leaving the shimmer up forever over a
+   * photograph that is sitting right there. `complete` is the browser's own
+   * record of that, read at the moment the node exists, which is the only place
+   * the race can be closed.
+   */
+  const settle = useCallback((node: HTMLImageElement | null) => {
+    if (node?.complete) setLoaded(true)
+  }, [])
 
   const letter = initialOf(name)
   const { bg, fg } = hueFor(seed || name || "storelib")
 
   /**
-   * THE LETTER IS ALWAYS UNDERNEATH, even when there is a photograph.
+   * SOMETHING IS ALWAYS UNDERNEATH, and never a hole.
    *
    * The photo used to be the only thing rendered whenever a url existed, and
    * that is the white flash in the conversation list: an <img> paints NOTHING
@@ -168,14 +198,14 @@ export function InitialAvatar({
    * the faces popped in one by one. The bytes were cached; the PAINT is what
    * cannot be cached across a remount.
    *
-   * So the coloured initial — which is pure CSS and paints on the first frame,
-   * always — sits underneath, and the photograph simply covers it whenever it
-   * is ready. On a warm cache that is a frame or two of colour nobody registers;
-   * on a cold load it is a plausible identity instead of a hole; on a broken
-   * url it is the fallback this component already believed in. Nothing waits
-   * for an onLoad event, because a load event that fails to fire must never be
-   * able to leave somebody invisible.
+   * What sits under it is chosen by whether a photograph is coming. See
+   * `loaded` above: a shimmer while one is on its way, the coloured initial
+   * when there is none or when the url turned out not to resolve. Both paint on
+   * the first frame, so there is no hole in either case, and neither is ever
+   * swapped for the other in a way that reads as a decision being reversed.
    */
+  const waiting = !!url && !broken && !loaded
+
   const fallback = (
     <span
       aria-hidden
@@ -185,10 +215,20 @@ export function InitialAvatar({
       // the same radius, and a hard-coded circle in here meant that caller got a
       // circle inside a square with the corners showing through. Inheriting lets
       // the shape be decided once, on the wrapper, by whoever is placing it.
-      className="absolute inset-0 flex items-center justify-center rounded-[inherit] font-semibold"
-      style={{ background: bg, color: fg, fontSize: Math.round(size * 0.42) }}
+      className={cn(
+        "absolute inset-0 flex items-center justify-center rounded-[inherit] font-semibold",
+        // The same shimmer every other unloaded thing in the app uses, so an
+        // avatar that is still coming looks like a page that is still coming
+        // rather than like a person who has been assigned a colour.
+        waiting && "animate-pulse bg-neutral-150",
+      )}
+      style={
+        waiting
+          ? { background: "#eeeeee", color: "transparent" }
+          : { background: bg, color: fg, fontSize: Math.round(size * 0.42) }
+      }
     >
-      {letter ?? (
+      {waiting ? null : letter ?? (
         // No name at all. A person, not a question mark — the app not knowing
         // somebody's name is not a question it should be asking the reader.
         <svg viewBox="0 0 24 24" fill="none" width={Math.round(size * 0.52)} height={Math.round(size * 0.52)}>
@@ -232,14 +272,19 @@ export function InitialAvatar({
     const photo = /\.svgx?(\?|$)/i.test(url) ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img
+        ref={settle}
         src={url}
         alt=""
         width={size}
         height={size}
         loading="eager"
         decoding="sync"
+        onLoad={() => setLoaded(true)}
         onError={() => setBroken(true)}
-        className="absolute inset-0 h-full w-full rounded-[inherit] object-cover"
+        className={cn(
+          "absolute inset-0 h-full w-full rounded-[inherit] object-cover transition-opacity duration-200 ease-out",
+          loaded ? "opacity-100" : "opacity-0",
+        )}
       />
     ) : (
       <Image
@@ -266,8 +311,27 @@ export function InitialAvatar({
         quality={68}
         loading="eager"
         decoding="sync"
+        /**
+         * FETCHED BEFORE THE PAGE'S PHOTOGRAPHS, not after them.
+         *
+         * A browser gives every image the same priority by default, so a 48px
+         * face queued behind eight listing photographs waits for all of them —
+         * which is the whole of "it takes a long time to load the profile
+         * picture". It is two kilobytes and it is the thing being waited for;
+         * the listing photographs are a hundred times larger and nobody is
+         * blocked on them.
+         */
+        fetchPriority="high"
+        ref={settle}
+        onLoad={() => setLoaded(true)}
         onError={() => setBroken(true)}
-        className="absolute inset-0 h-full w-full rounded-[inherit] object-cover"
+        className={cn(
+          // 200ms is deliberately short. This is a cross-fade over a shimmer,
+          // not an entrance: long enough that the face is not swapped in
+          // between two frames, short enough that it never reads as an effect.
+          "absolute inset-0 h-full w-full rounded-[inherit] object-cover transition-opacity duration-200 ease-out",
+          loaded ? "opacity-100" : "opacity-0",
+        )}
       />
     )
     return (

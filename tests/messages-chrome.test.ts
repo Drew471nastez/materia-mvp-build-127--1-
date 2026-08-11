@@ -397,17 +397,24 @@ check(
 )
 
 check(
-  "the per-message menu is revealed by a pointer and permanent without one",
+  "the per-message menu exists only where there is no gesture for it",
   (() => {
+    // A touch screen already has the gesture, everybody already knows it, and
+    // it opens this exact sheet: press and hold a message. So on a phone the
+    // dots are forty pieces of furniture running down the middle of a screen
+    // whose entire content is the messages, offering a second door to a room
+    // that already has one.
+    //
+    // A pointer is the case with no gesture — a mouse cannot press and hold —
+    // which is where the button earns its place and where a hover exists to
+    // reveal it.
     return (
       /\.msg-row:hover > \.msg-dots/.test(css) &&
       /\.msg-dots:focus-visible/.test(css) &&
-      /@media \(hover: none\) \{\s*\.msg-dots \{\s*opacity: 1;/.test(css)
+      /@media \(hover: none\) \{\s*\.msg-dots \{\s*display: none;/.test(css)
     )
   })(),
-  "        Forty of these run down the middle of a screen whose whole content\n" +
-    "        is the messages. At full contrast it is furniture; at zero nobody\n" +
-    "        finds it.",
+  "        app/globals.css",
 )
 
 // ---------------------------------------------------------------------------
@@ -582,14 +589,18 @@ check(
 )
 
 check(
-  "the mark is hidden at rest only where a pointer exists to reveal it",
+  "the mark is always visible; the sentence is what hover reveals",
   (() => {
-    // A control invisible until an event that cannot happen is a control that
-    // does not exist. `@media (hover: hover)` rather than a breakpoint, because
-    // a tablet is a wide screen with no pointer.
-    const i = css.indexOf(".info-tip-mark {\n    opacity: 0;\n  }")
-    const guard = css.lastIndexOf("@media (hover: hover) and (pointer: fine)", i)
-    return i > 0 && guard > 0 && i - guard < 300 && /@media \(hover: none\) \{\s*\.info-tip-mark \{\s*opacity: 1;/.test(css)
+    // The first version of this faded the MARK up under the cursor, and that
+    // was the wrong half to hide: a mark you cannot see is a mark you cannot
+    // know to point at, and the same movement that revealed it also opened it —
+    // so there was never a state where you could see that help existed and
+    // choose whether to read it.
+    return (
+      /\.info-tip-mark \{\s*opacity: 1;\s*\}/.test(css) &&
+      !/\.info-tip-mark \{\s*opacity: 0;/.test(css) &&
+      /\.info-tip:hover > \.info-tip-bubble/.test(css)
+    )
   })(),
   "        app/globals.css",
 )
@@ -603,6 +614,134 @@ check(
     return /addEventListener\("pointerdown", away\)/.test(tip)
   })(),
   "        components/ui/info-tip.tsx",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nThe header does not blank itself")
+// ---------------------------------------------------------------------------
+
+const platformHeader = code("components/platform/platform-header-client.tsx")
+const conditional = code("components/marketing/conditional-header.tsx")
+
+check(
+  "the header never suspends, so there is no fallback to flash",
+  (() => {
+    // useSearchParams() opts its component into Suspense, and the boundary above
+    // this one fell back to a BARE BLACK BAR — no logo, no search, no icons, no
+    // avatar. Every navigation that re-suspended blanked the whole header and
+    // filled it back in, which is the flash on pressing Vinde acum. The button
+    // was never involved.
+    return (
+      !/useSearchParams/.test(platformHeader) &&
+      /useUrlSearchParams\(\)/.test(platformHeader) &&
+      !/<Suspense/.test(conditional)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "and a query-only navigation still updates it",
+  (() => {
+    // `window.location.search` is a snapshot. A new PATH re-renders through
+    // usePathname and back/forward fires popstate, but ?category=a becoming
+    // ?category=b fires nothing at all — the App Router calls history.pushState
+    // and the History API has no event for a programmatic push.
+    const hook = code("lib/use-url-search-params.ts")
+    return (
+      /popstate/.test(hook) &&
+      /usePathname\(\)/.test(hook) &&
+      /history\[name\]/.test(hook) &&
+      /pushState", "replaceState/.test(hook)
+    )
+  })(),
+  "        lib/use-url-search-params.ts",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nOne search, and it is the marketplace's")
+// ---------------------------------------------------------------------------
+
+check(
+  "the desktop header opens the real search, not the digital-goods one",
+  (() => {
+    // What was there predated the marketplace entirely: nine Design/Development/
+    // Marketing chips, results linking to /p/ pages, dollar prices, "Product by",
+    // English copy on a Romanian site. A different product's search, left running.
+    return (
+      /<MobileSearchOverlay[\s/>]/.test(platformHeader) &&
+      !/Start typing to search products/.test(platformHeader) &&
+      !/Product by /.test(platformHeader)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "and that search has a desktop shape rather than a desktop copy",
+  (() => {
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    // `md:hidden` was why a desktop could not reach any of it. One component,
+    // two shapes — the alternative is two implementations of what search means.
+    return !/md:hidden fixed inset-0/.test(overlay) && /useWideViewport\(\)/.test(overlay)
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nLoading that does not announce itself")
+// ---------------------------------------------------------------------------
+
+check(
+  "an avatar with a photograph coming waits behind a shimmer, not a coloured letter",
+  (() => {
+    // The letter used to sit under every avatar. On a cold load that is a
+    // saturated violet disc with an initial in it, held for the length of the
+    // network, replaced in ONE FRAME by a face: two confident and completely
+    // different pictures of the same person, which reads as the app changing its
+    // mind rather than as something loading.
+    const av = code("components/ui/initial-avatar.tsx")
+    return (
+      /const waiting = !!url && !broken && !loaded/.test(av) &&
+      /waiting && "animate-pulse/.test(av) &&
+      /loaded \? "opacity-100" : "opacity-0"/.test(av)
+    )
+  })(),
+  "        components/ui/initial-avatar.tsx",
+)
+
+check(
+  "and a cached photograph does not leave the shimmer up forever",
+  (() => {
+    // A cached image can finish loading BEFORE React attaches onLoad, and then
+    // the event never fires. `complete` is the browser's own record of that.
+    const av = code("components/ui/initial-avatar.tsx")
+    return /node\?\.complete\) setLoaded\(true\)/.test(av)
+  })(),
+  "        components/ui/initial-avatar.tsx",
+)
+
+check(
+  "a face is fetched before the page's photographs, not behind them",
+  /fetchPriority="high"/.test(code("components/ui/initial-avatar.tsx")),
+  "        A 2KB avatar queued behind eight listing photographs waits for all of\n" +
+    "        them, and it is the thing being waited for.",
+)
+
+// ---------------------------------------------------------------------------
+console.log("\nThe typed placeholder has a space in it")
+// ---------------------------------------------------------------------------
+
+check(
+  "the gap before the quote is a layout fact, not a character",
+  (() => {
+    // `<span>Caută </span><span>„…"</span>` renders as `Caută„…"`: HTML collapses
+    // whitespace at the end of an inline box before the next one. The string was
+    // correct at every call site and the DOM ate it.
+    const ph = code("components/explore/animated-search-placeholder.tsx")
+    return /gap-\[0\.3em\]/.test(ph) && !/prefix = "Search for ",/.test(ph)
+  })(),
+  "        components/explore/animated-search-placeholder.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
