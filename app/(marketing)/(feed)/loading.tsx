@@ -35,11 +35,15 @@ export default function FeedLoading() {
     <>
       {/* `mobile-feed-shell` is what makes this an overlay in the app and a
           plain block under the site header on mobile web — the same class the
-          real feed uses, so the two occupy the same box in both. */}
-      <div
-        className="mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white"
-        style={{ height: "100dvh" }}
-      >
+          real feed uses, so the two occupy the same box in both.
+
+          The height comes from that class too, and it used to be inline here.
+          An inline declaration outranks the stylesheet, so on a phone browser
+          this shell took the rule's `top: var(--web-header-h)` and refused its
+          matching `height: calc(100dvh - var(--web-header-h))` — a full viewport
+          starting below the header and therefore hanging off the bottom of the
+          screen by the header's height. See app/globals.css. */}
+      <div className="mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white">
         {/* Search + filter + view switcher. Drawn rather than skeletonised: the
             row is three constants, and three grey pills where three controls
             are about to be is more of a change than the controls themselves. */}

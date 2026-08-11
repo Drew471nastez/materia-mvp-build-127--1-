@@ -340,11 +340,51 @@ check(
 )
 
 check(
+  "and neither personal row appears until five listings have been collected",
+  (() => {
+    // They used to appear on the FIRST listing anybody opened. "Vizualizate
+    // recent" with one card in it is a row four fifths empty — the grid is five
+    // across — telling somebody about a page they were on ten seconds ago; and
+    // "Bazat pe vizualizările tale recente" is worse for being FULL, because one
+    // view is enough for the ranking to produce five cards under a heading that
+    // claims to know what you are into.
+    //
+    // Five is one full row of the grid below, so the first time either is drawn
+    // it is drawn complete.
+    //
+    // Counted on the HISTORY, not on either row's own contents: the second row
+    // can produce a hundred candidates from a single view, so gating it on its
+    // own length would gate nothing. And on `views` rather than on
+    // `recentlyViewed`, so a sold listing dropping out of the catalogue cannot
+    // take the rows away from somebody who has browsed plenty.
+    return (
+      /const MIN_HISTORY = 5/.test(home) &&
+      /const personal = views\.length >= MIN_HISTORY/.test(home) &&
+      // Both rows inside the one gate, and the gate before the heading.
+      /\{personal && \(/.test(home) &&
+      home.indexOf("{personal && (") < home.indexOf("Bazat pe vizualizările tale recente") &&
+      home.indexOf("</>") > home.indexOf("Vizualizate recent") &&
+      // The pills are OUTSIDE it — that section is the one that carries an early
+      // visit and must never be gated on history it does not have.
+      home.indexOf("<YouMightBeInto") > home.indexOf("</>")
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
+)
+
+check(
   "and a personal row needs a FULL row before it claims to know you",
   (() => {
     // "Sugestii pentru tine" with three cards is a quiet day. "Bazat pe
     // vizualizările tale recente" with three is the marketplace announcing it
     // has been watching you and then producing almost nothing.
+    //
+    // A SECOND condition, not a restatement of the one above. That gate is on
+    // the history — has this device opened five listings — and this one is on
+    // the row: are there five cards to draw. Neither implies the other. Five
+    // views of listings that have since sold leave the recently-viewed row with
+    // two cards in it, and a single view is enough for the ranking to produce
+    // fifty candidates for the row above.
     return (
       /minItems = 3/.test(row) &&
       (home.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
@@ -600,6 +640,74 @@ check(
 check(
   "the home page is only drawn when there is nothing being searched for",
   /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} \/>\}/.test(feed),
+)
+
+console.log("\nCrossing between the profile and the home page does not bump")
+
+check(
+  "the feed's height is in the stylesheet, so the web rule can subtract from it",
+  (() => {
+    // Both the feed and its loading shell carried `style={{height:"100dvh"}}`,
+    // which is the stylesheet's own rule with one point of specificity nothing
+    // can outrank — an inline declaration beats every selector short of
+    // `!important`. So on a phone BROWSER the shell took `top: var(--web-header-h)`
+    // and REFUSED the matching `height: calc(100dvh - var(--web-header-h))`: a
+    // full viewport starting below the header and therefore hanging off the
+    // bottom of the screen by exactly the header's height, with the tab-bar
+    // spacer and the last row of listings down there.
+    //
+    // `inset: 0` supplies the other three sides; an over-constrained fixed box
+    // drops `bottom` in favour of a stated height, which is why the height has
+    // to be stated at all rather than simply deleted.
+    const css = read("app/globals.css")
+    const shell = read("components/explore/mobile-feed.tsx")
+    return (
+      !/style=\{\{ height: "100dvh" \}\}/.test(shell) &&
+      !/style=\{\{ height: "100dvh" \}\}/.test(loading) &&
+      /\.mobile-feed-shell \{\s*\n\s*height: 100dvh;\s*\n\s*\}/.test(css) &&
+      /html:not\(\.capacitor\) \.mobile-feed-shell \{\s*\n\s*top: var\(--web-header-h, 0px\);\s*\n\s*height: calc\(100dvh - var\(--web-header-h, 0px\)\);/.test(
+        css,
+      )
+    )
+  })(),
+  "        components/explore/mobile-feed.tsx, app/(marketing)/(feed)/loading.tsx, app/globals.css",
+)
+
+check(
+  "and the header's height is republished by the commit that reshapes it",
+  (() => {
+    // THE BUMP. The mobile web header is not one height: isCompactHeader drops
+    // the search row on /profile, /settings, /messages and the order pages, so
+    // crossing between your account and the feed changes it by a whole row —
+    // about 56px. The feed is `position: fixed` with `top: var(--web-header-h)`,
+    // so that number is where the home screen starts.
+    //
+    // It was published from a mount-only layout effect plus a ResizeObserver.
+    // A route change re-renders the header taller or shorter WITHOUT remounting
+    // it, so the effect did not re-run and the only thing left to notice was the
+    // observer — which fires from the browser's rendering steps rather than from
+    // the commit that caused the change. The value was right in the end and
+    // wrong at the moment it mattered: the feed arrived inset by the height of
+    // the header you had just LEFT, then settled onto the height of the one you
+    // are looking at.
+    //
+    // `compact` is the whole of what a route can change about the geometry, so
+    // the republish is keyed on it rather than on the pathname — it fires when
+    // the height actually moves and not on every navigation. The observer stays
+    // for what a render cannot predict: a font landing, an orientation change,
+    // a safe-area inset appearing on a standalone install.
+    const header = read("components/marketing/mobile-web-header.tsx")
+    return (
+      /const publishHeaderHeight = useCallback\(/.test(header) &&
+      /useLayoutEffect\(\(\) => \{\s*\n\s*publishHeaderHeight\(\)\s*\n\s*\}, \[compact, publishHeaderHeight\]\)/.test(
+        header,
+      ) &&
+      // Still measured rather than written down twice, and still observed.
+      /getBoundingClientRect\(\)\.height/.test(header) &&
+      /new ResizeObserver\(publishHeaderHeight\)/.test(header)
+    )
+  })(),
+  "        components/marketing/mobile-web-header.tsx",
 )
 
 console.log("\nA build cannot die on somebody else's font server")

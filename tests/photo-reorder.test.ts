@@ -724,10 +724,18 @@ check(
     // seller's line is `sellerReceivesCents` now, not the gross price: the
     // commission is five percent and it comes off this side, so "you still
     // receive 130" was accurate before that was surfaced and wrong after it.
+    //
+    // "incl." used to be required here and is not any more. It was the tail of a
+    // sentence that was never written — an abbreviation of "inclusiv" with
+    // nothing after it — and it went when the row was cut down to a caption. The
+    // guard is on the two FIGURES and the way to the explanation, which is what
+    // this check was ever about; requiring a particular abbreviation is
+    // requiring the wording, and the note above says why that was already
+    // abandoned once.
     return (
       /formatPlatformMoney\(buyerPaysCents\(priceCents\)\)/.test(form) &&
       /formatPlatformMoney\(priceCents\)/.test(form) &&
-      /incl\./.test(form) &&
+      /cumpărătorul/.test(form) &&
       /openBuyerProtection\(\)/.test(form)
     )
   })(),

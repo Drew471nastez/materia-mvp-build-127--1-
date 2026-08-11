@@ -2808,25 +2808,49 @@ export function NewListingForm({
           )}
         </div>
         {gapFor("price") && <GapNote>{gapFor("price")}</GapNote>}
-        {/* THE BADGE, AND WHAT PRESSING IT OPENS.
+        {/* THE TWO NUMBERS, AND WHAT PRESSING THEM OPENS.
 
-            Four shapes now, and the corrections are worth keeping: a grey
+            Five shapes now, and the corrections are worth keeping: a grey
             sentence buried the figure that mattered mid-paragraph; two large
             rows set the platform's cut out as a line item in the biggest type
             on the card; a neutral caption said the right two numbers but read
-            as a footnote nobody would press.
+            as a footnote nobody would press; and then a filled violet panel with
+            a shield and a chevron, which is the one this replaces.
 
-            What it is: the number they typed, the number a buyer is quoted, and
-            a shield in the brand violet — because this one IS a control. The
-            explanation is not written here at all. It opens the same
-            "Protecția cumpărătorului" screen the feed, the listing page and the
-            wishlist already open from their own shields (openBuyerProtection),
-            which is a full-screen subpage on a phone and a centred dialog on a
-            desktop. One explanation of the fee, in one place, reached the same
-            way from every surface that quotes it.
+            ---------------------------------------------------------------------
+            WHY THE PANEL WENT
+            ---------------------------------------------------------------------
+            It was a tinted, full-width, two-and-a-half-line box under a field
+            somebody is still typing into, and it was the loudest thing in the
+            Preț section — louder than the price field itself. A row that shouts
+            gets read as a warning, and this is not one: nothing has gone wrong,
+            nothing needs deciding, it is a restatement of the number just typed
+            plus the number a buyer will see. That is a caption, and captions are
+            quiet.
+
+            So the colour, the padding, the panel and the chevron are gone and
+            the words are cut: "550 RON pentru tine · cumpărătorul vede 582 RON
+            incl." became "Primești 550 RON · cumpărătorul vede 582 RON". The
+            dangling "incl." was an abbreviation of a sentence that was not there,
+            and leading with the verb puts the seller's own figure first without
+            spending three words getting to it.
+
+            BOTH NUMBERS STAY. The seller's is what they came to set; the buyer's
+            is the one that surprises them later on the listing page, and a form
+            that hides it is a form that lets them find out afterwards.
+
+            STILL A CONTROL, and the explanation is still not written here. It
+            opens the same "Protecția cumpărătorului" screen the feed, the
+            listing page and the wishlist open from their own shields
+            (openBuyerProtection) — a full-screen subpage on a phone, a centred
+            dialog on a desktop. One explanation of the fee, in one place,
+            reached the same way from every surface that quotes it. What says it
+            is pressable is the shield and the text darkening under a finger,
+            which is enough on a line this short; a chevron on a caption is a
+            piece of furniture pointing at itself.
 
             NO `key`: keyed on the price it was rebuilt per keystroke, so the
-            entrance replayed on every character and the badge strobed under the
+            entrance replayed on every character and the row strobed under the
             field. `tabular-nums` keeps the digits from shuffling sideways as
             they change in place. */}
         {Number.isFinite(priceCents) && priceCents >= MIN_LISTING_PRICE_CENTS && (
@@ -2834,20 +2858,26 @@ export function NewListingForm({
             type="button"
             onClick={() => openBuyerProtection()}
             aria-label="Cum funcționează protecția plății"
-            className="price-total-in mt-2.5 flex w-full items-center gap-2 rounded-xl bg-[#7c3aed]/[0.07] px-3 py-2.5 text-left transition-colors duration-200 active:bg-[#7c3aed]/[0.12] [@media(hover:hover)]:hover:bg-[#7c3aed]/[0.11]"
+            className="price-total-in mt-2 flex items-start gap-1.5 text-left text-[12px] leading-snug text-neutral-500 transition-colors duration-200 active:text-neutral-800 [@media(hover:hover)]:hover:text-neutral-800"
           >
-            <ShieldCheck className="h-[15px] w-[15px] shrink-0 text-[#7c3aed]" strokeWidth={2.3} />
-            <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-neutral-600">
-              <span className="font-semibold tabular-nums text-neutral-900">
+            <ShieldCheck
+              className="mt-[1px] h-[13px] w-[13px] shrink-0 text-[#7c3aed]/70"
+              strokeWidth={2.2}
+            />
+            {/* The spaces around the middle are written into the string rather
+                than left between JSX children: HTML collapses a trailing space
+                in an inline span away entirely, and "…RON· cumpărătorul" is the
+                bug that produced. */}
+            <span className="min-w-0">
+              Primești{" "}
+              <span className="font-semibold tabular-nums text-neutral-800">
                 {formatPlatformMoney(priceCents)}
-              </span>{" "}
-              pentru tine · cumpărătorul vede{" "}
-              <span className="font-semibold tabular-nums text-neutral-900">
+              </span>
+              {" · cumpărătorul vede "}
+              <span className="font-semibold tabular-nums text-neutral-800">
                 {formatPlatformMoney(buyerPaysCents(priceCents))}
-              </span>{" "}
-              incl.
+              </span>
             </span>
-            <ChevronRight className="h-[15px] w-[15px] shrink-0 text-[#7c3aed]/60" />
           </button>
         )}
       </section>

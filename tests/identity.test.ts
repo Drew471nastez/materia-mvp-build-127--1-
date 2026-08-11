@@ -275,13 +275,34 @@ check(
 )
 
 check(
-  "the one account with both is addressed by its email, not a pasted uuid",
+  "the staff account is addressed by its email, not a pasted uuid",
   (() => {
-    const seed = messagingSql.slice(messagingSql.indexOf("set is_verified = true"))
+    const seed = messagingSql.slice(messagingSql.indexOf("set is_verified"))
     return (
       /lower\(u\.email\) = lower\('nastees112@gmail\.com'\)/.test(messagingSql) &&
       /from auth\.users u/.test(messagingSql) &&
       seed.length > 0
+    )
+  })(),
+  "        supabase/sql/RUN_MESSAGING_ALL.sql",
+)
+
+check(
+  "an admin carries the Storelib mark and NOT the blue check",
+  (() => {
+    // Two marks after one name reads as decoration, and the check is the one
+    // that says "this account is who it claims to be" — a statement worth making
+    // about a shop somebody could be mistaken for, and worth nothing beside a
+    // mark that already says the person works here.
+    //
+    // Written as `false` rather than by deleting the grants: the column already
+    // holds `true` for both of these in the live database, so a file that merely
+    // stopped granting it would leave the badge exactly where it is. Every
+    // statement that touches either account must say so.
+    const grants = messagingSql.match(/set is_verified\s*=\s*\w+,\s*\n\s*is_staff\s*=\s*\w+/g) ?? []
+    return (
+      grants.length === 2 &&
+      grants.every((g) => /is_verified\s*=\s*false/.test(g) && /is_staff\s*=\s*true/.test(g))
     )
   })(),
   "        supabase/sql/RUN_MESSAGING_ALL.sql",
@@ -480,9 +501,26 @@ check(
 )
 
 check(
-  "the other account has both marks too",
+  "the second staff account is named too, by the handle it was given as",
   /lower\(username\) = lower\('ZarraBianco'\)/.test(messagingSql),
   "        supabase/sql/RUN_MESSAGING_ALL.sql",
+)
+
+check(
+  "and the seal itself is still drawn — it is the admins who stop wearing it",
+  (() => {
+    // The blue check is a capability the product keeps: `profiles.is_verified`
+    // is still read, still passed down, and still rendered. Removing the
+    // component instead of the two grants would have thrown away the badge for
+    // every seller who is ever verified in order to take it off two accounts.
+    const profile = code("components/member/member-profile.tsx")
+    return (
+      /function VerifiedSeal/.test(badges) &&
+      /verified && <VerifiedSeal/.test(badges) &&
+      /verified=\{member\.verified\}/.test(profile)
+    )
+  })(),
+  "        components/marketplace/profile-badges.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
