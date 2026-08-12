@@ -691,6 +691,38 @@ check(
 )
 
 check(
+  "the hero image is drawn at its own ratio, so nothing is cropped",
+  (() => {
+    // The source is 1356x798 (1.70). It was in `aspect-[4/3]` (1.33) with
+    // object-cover, so a fifth of the composition was cut off the sides, taking
+    // most of both outer cards with it.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /const HERO_RATIO = "1356 \/ 798"/.test(hero2) &&
+      /aspectRatio: HERO_RATIO/.test(hero2) &&
+      !/aspect-\[4\/3\]/.test(hero2)
+    )
+  })(),
+)
+
+check(
+  "and the three tiles are one set rather than three heights",
+  (() => {
+    // "Anunț în câteva minute" wrapped while "Zero comision" did not, so three
+    // boxes that are the same object had three different heights and their
+    // icons and titles all started at different places. A grid can equalise the
+    // BOXES; only the copy can make them look like a set.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    const titles = [...hero2.matchAll(/title: "([^"]+)", body:/g)].map((m) => m[1])
+    return (
+      /flex h-full flex-col rounded-xl/.test(hero2) &&
+      titles.length === 6 &&
+      titles.every((t) => t.split(" ").length <= 3)
+    )
+  })(),
+)
+
+check(
   "the marketing hero is signed-out only",
   (() => {
     // Somebody with an account already knows what Storelib is. Telling them on
