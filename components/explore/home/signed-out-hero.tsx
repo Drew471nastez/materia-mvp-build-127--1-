@@ -127,7 +127,7 @@ const COPY: Record<
  *   column — which is what lets it fill rather than be capped.
  */
 const HERO_IMAGE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(1).png"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(2).png"
 
 /** Its real ratio, so `object-contain` has nothing to letterbox and
  *  `object-cover` would have nothing to crop. */
@@ -190,20 +190,26 @@ export function SignedOutHero() {
           <div className="relative inline-flex rounded-full bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05]">
             <span
               aria-hidden
-              /* LIGHT GREY, and the purple moved to the button below it.
-                 
-                 Both carrying it was the mistake: a purple thumb and a purple
-                 CTA in the same 400px of copy are two things claiming to be the
-                 primary action, and the eye has to pick. The switch is a
-                 SETTING — it changes what the panel says, it does not go
-                 anywhere — so it reads in the interface's quiet grey, and the
-                 one thing that navigates gets the colour.
-                 
+              /* BLACK, and the purple stays on the button below it.
+
+                 Grey was tried and it was too quiet: on a near-white track on a
+                 near-white panel, a neutral-200 thumb is three greys within a
+                 few percent of each other, and at a glance the switch did not
+                 look switched. Black is the only value on this panel with
+                 enough distance from the ground to read as a selected state
+                 from across the page.
+
+                 It still does not compete with the CTA, because they are
+                 different KINDS of thing: the switch is monochrome and the
+                 button is the only colour, so the eye separates them by hue
+                 rather than by weight. What could not work is both being
+                 purple — two things claiming to be the primary action.
+
                  420ms on an overshoot curve. A thumb sliding between two stops
                  is the one movement where a slight overrun reads as physical
                  rather than as a wobble — it is a switch being thrown, and a
                  switch does not decelerate gently into place. */
-              className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-neutral-200 shadow-[0_1px_2px_rgba(15,15,15,0.08)] transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.32,0.5,1)]"
+              className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-neutral-900 shadow-[0_1px_3px_rgba(15,15,15,0.22)] transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.32,0.5,1)]"
               style={{ transform: side === "sell" ? "translateX(100%)" : "translateX(0)" }}
             />
             {(["buy", "sell"] as const).map((s) => (
@@ -212,9 +218,14 @@ export function SignedOutHero() {
                 type="button"
                 onClick={() => setSide(s)}
                 aria-pressed={side === s}
+                /* White on the selected side, because the thumb underneath it
+                   is now black. The colour has to change on the same 200ms the
+                   thumb is travelling on, or the word goes unreadable for a
+                   fifth of a second while a black pill slides under black
+                   text. */
                 className={cn(
                   "relative z-10 w-[100px] rounded-full py-2 text-[14px] font-semibold transition-colors duration-200",
-                  side === s ? "text-neutral-900" : "text-neutral-500 hover:text-neutral-800",
+                  side === s ? "text-white" : "text-neutral-500 hover:text-neutral-800",
                 )}
               >
                 {s === "buy" ? "Cumpără" : "Vinde"}

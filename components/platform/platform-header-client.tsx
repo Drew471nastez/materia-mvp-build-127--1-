@@ -1672,19 +1672,31 @@ export function PlatformHeaderClient() {
                     word — the returning half needs recognising, not selling to
                     — and Sign up is the only solid object in the pair, which
                     makes it the thing a first-time visitor's eye lands on.
-                    A hairline between them says they belong together.
+
+                    THE HAIRLINE IS GONE, AND THE GAP DOES ITS JOB.
+                    A rule between two things is what you reach for when they
+                    are NOT obviously related — it is a separator, and drawing
+                    one here argued against the very point of the control. Two
+                    words a few pixels apart, one of them filled, already read
+                    as one object; the rule was pushing them apart and then
+                    asking a line to hold them together.
+
+                    And Log in is at FULL WHITE now, not 85%. It was the word
+                    a returning shopper is looking for, dimmed — which put the
+                    only two things in the pair at the same low contrast as
+                    each other, and made the half most people need the harder
+                    one to find.
 
                     It sits exactly where the avatar sits when you are signed
                     in, so the row never changes shape. */}
                 {!user && (
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-2">
                     <Link
                       href="/login"
-                      className="px-4 text-[14.5px] font-semibold text-white/85 transition-colors duration-200 hover:text-white"
+                      className="px-2 text-[15px] font-semibold text-white transition-opacity duration-200 hover:opacity-70"
                     >
                       {t("log_in")}
                     </Link>
-                    <span aria-hidden className="mr-3 h-5 w-px bg-white/20" />
                     {/* Solid dark grey rather than white. The bar is pure
                         black, so a filled neutral is a real object on it — and
                         it stays out of the way of the one purple button beside

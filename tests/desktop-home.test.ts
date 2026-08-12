@@ -703,16 +703,32 @@ check(
 )
 
 check(
-  "the switch is grey and the button is purple, not both",
+  "the switch is black and the button is purple, and neither is the other",
   (() => {
-    // A purple thumb and a purple CTA in the same 400px of copy are two things
-    // claiming to be the primary action. The switch is a SETTING — it changes
-    // what the panel says, it does not go anywhere — so it is grey, and the one
-    // thing that navigates gets the colour.
+    // Grey was too quiet: a neutral-200 thumb on a white track on a near-white
+    // panel is three greys within a few percent of each other, and the switch
+    // did not look switched. Black has the distance to read as selected.
+    //
+    // It still does not compete with the CTA, because they are different KINDS
+    // of thing — the switch is monochrome, the button is the only colour on
+    // the panel — so the eye separates them by hue rather than by weight. What
+    // cannot happen is BOTH being purple: two things claiming to be primary.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     const thumb = hero2.slice(hero2.indexOf("absolute inset-y-1 left-1"), hero2.indexOf("absolute inset-y-1 left-1") + 200)
     const cta = hero2.slice(hero2.indexOf("mt-8 inline-flex h-[52px]"), hero2.indexOf("mt-8 inline-flex h-[52px]") + 200)
-    return /bg-neutral-200/.test(thumb) && !/7c3aed/.test(thumb) && /bg-\[#7c3aed\]/.test(cta)
+    return /bg-neutral-900/.test(thumb) && !/7c3aed/.test(thumb) && /bg-\[#7c3aed\]/.test(cta)
+  })(),
+)
+
+check(
+  "and the selected word turns white on the same tick the thumb turns black",
+  (() => {
+    // The thumb is black now, so near-black text on the selected side would be
+    // unreadable — and it has to change on the SAME duration the thumb travels
+    // on, or the word disappears for a fifth of a second mid-slide.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    const labels = hero2.slice(hero2.indexOf('"relative z-10 w-[100px]'), hero2.indexOf('"relative z-10 w-[100px]') + 260)
+    return /side === s \? "text-white"/.test(labels) && /transition-colors duration-200/.test(labels)
   })(),
 )
 
@@ -764,6 +780,39 @@ check(
       /flex h-full flex-col rounded-xl/.test(hero2) &&
       titles.length === 6 &&
       titles.every((t) => t.split(" ").length <= 3)
+    )
+  })(),
+)
+
+check(
+  "Log in and Sign up are one control with no rule drawn through it",
+  (() => {
+    /**
+     * A hairline between two things is a SEPARATOR — it is what you draw when
+     * they are not obviously related. Drawing one here argued against the
+     * point of the control: it pushed the two halves apart and then asked a
+     * line to hold them together. Two words a few pixels apart, one of them
+     * filled, already read as one object.
+     *
+     * And Log in is at full white. It was the half most people actually need,
+     * dimmed to 85% — which put both halves at the same low contrast and made
+     * the returning shopper's word the harder one to find.
+     */
+    const hdr = code("components/platform/platform-header-client.tsx")
+    const i = hdr.indexOf('href="/login"')
+    if (i < 0) return false
+    const pair = hdr.slice(i - 220, i + 600)
+    return (
+      // No rule between them, anywhere in the pair.
+      !/w-px/.test(pair) &&
+      // They are held together by the gap on their shared row instead.
+      /flex items-center gap-2/.test(pair) &&
+      // Log in is opaque, not 85%.
+      /text-white transition-opacity/.test(pair) &&
+      !/text-white\/85/.test(pair) &&
+      // And Sign up is still the only filled object of the two.
+      /href="\/signup"/.test(pair) &&
+      /bg-neutral-800/.test(pair)
     )
   })(),
 )
