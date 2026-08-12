@@ -767,6 +767,76 @@ check(
 )
 
 check(
+  "the hero says what the product now says, on both sides of the toggle",
+  (() => {
+    // Copy is pinned here for one reason: these six tiles and two paragraphs
+    // are the entire pitch, they are the only strings on the site a stranger
+    // reads before deciding whether to stay, and they have been rewritten four
+    // times. A guard is the difference between a considered revision and a
+    // half-applied one — the state this file was in twice, where a headline had
+    // been changed and the tile under it still argued with it.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      // Buy: not only fashion, and no "lucruri care au mai trăit o dată".
+      /Haine, sneakers, cărți, muzică, și obiecte de colecție, vândute de oameni din toată țara\./.test(hero2) &&
+      /title: "Lucruri diferite", body: "Găsești ceva nou de fiecare dată\."/.test(hero2) &&
+      /title: "Adăugate zilnic", body: "Listări noi, în fiecare zi\."/.test(hero2) &&
+      /title: "Cumpărături protejate", body: "Plătești simplu și în siguranță\."/.test(hero2) &&
+      // Sell: the promise is the money kept, not the minutes spent.
+      /Publici rapid, găsești un cumpărător și păstrezi banii din vânzare\./.test(hero2) &&
+      /cta: "Începe să vinzi"/.test(hero2) &&
+      /title: "Publici rapid", body: "Câteva poze, un preț și gata\."/.test(hero2) &&
+      /title: "Zero comision", body: "Primești prețul pe care îl setezi\."/.test(hero2) &&
+      /title: "Livrare simplă", body: "AWB-ul este generat pentru tine\."/.test(hero2) &&
+      // And the sentences they replaced are gone from the CODE.
+      !/Un exemplar din fiecare/.test(hero2) &&
+      !/De la vânzători reali/.test(hero2) &&
+      !/prețul pe care îl ceri este prețul pe care îl primești/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "and only the tile that means it opens the protection panel",
+  (() => {
+    // It was `i === 2` — the third tile, on both sides — which was true while
+    // both third tiles said "Cum funcționează" and both meant the same page.
+    // They do not any more: the seller's third tile is about AWB labels, and an
+    // underlined line reading "AWB-ul este generat pentru tine" that opens a
+    // page about buyer protection is a link that lies about where it goes.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /const opensPanel = tile\.opensProtection === true/.test(hero2) &&
+      !/const opensPanel = i === 2/.test(hero2) &&
+      // Exactly one tile carries it, and it is the one about paying safely.
+      (hero2.match(/opensProtection: true/g) ?? []).length === 1 &&
+      /body: "Plătești simplu și în siguranță\.", opensProtection: true/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "the hero has an edge without becoming a card",
+  (() => {
+    // A flat tint with a hairline ring read as a region of the background
+    // rather than as something placed on it, so the page opened on a large pale
+    // rectangle with no edge. A one-pixel contact shadow is what says "this
+    // sits on top"; the wide ambient one is pulled 24px in so it never reads as
+    // a drop shadow. Nothing above ~0.12 alpha — an edge, not an elevation.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /shadow-\[0_1px_2px_rgba\(15,15,15,0\.04\),0_18px_40px_-24px_rgba\(15,15,15,0\.12\)\]/.test(hero2) &&
+      // And the tiles are one step quieter, because two objects at the same
+      // elevation stacked on each other flattens both.
+      /shadow-\[0_1px_2px_rgba\(15,15,15,0\.035\)\]/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
   "the home page is only drawn when there is nothing being searched for",
   /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} signedIn=\{signedIn\} \/>\}/.test(feed),
 )

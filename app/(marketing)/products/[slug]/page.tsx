@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ProductDetail } from "@/components/product/product-detail"
 import { PUBLIC_PAGE } from "@/lib/marketplace/listing-status"
+import { EMPTY_SELLER_STATS, readSellerStats } from "@/lib/profile/seller-stats"
 
 // NOT force-dynamic, and it deliberately does not read searchParams.
 //
@@ -117,15 +118,44 @@ async function load(slug: string) {
     plain = bare.data
   }
   let profile: any = null
+  /**
+   * THE SELLER'S SCORE TRAVELS WITH THE SELLER.
+   *
+   * The card above the buy button said a name and offered a Follow button, and
+   * nothing else — so the one screen where somebody is actually deciding whether
+   * to send a stranger money was the screen with the least to go on. The rating
+   * and the sales count are read here rather than by the client, because a
+   * figure that arrives after the card has been read is a figure nobody reads.
+   *
+   * Alongside the profile: both are keyed off the same id and neither waits on
+   * the other. `EMPTY_SELLER_STATS` when there is no seller at all, which is a
+   * shape the component draws as nothing.
+   */
+  let stats = EMPTY_SELLER_STATS
   if (plain?.user_id) {
-    const { data } = await admin
-      .from("profiles")
-      .select("id, display_name, avatar_url, username")
-      .eq("id", plain.user_id)
-      .maybeSingle()
-    profile = data
+    const [profileRes, statsRes] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, display_name, avatar_url, username")
+        .eq("id", plain.user_id)
+        .maybeSingle(),
+      readSellerStats({ admin, userId: plain.user_id }),
+    ])
+    profile = profileRes.data
+    stats = statsRes
   }
-  return { ...product, creator: plain ? withPaymentFlag({ ...plain, profile }) : null }
+  return {
+    ...product,
+    creator: plain
+      ? withPaymentFlag({
+          ...plain,
+          profile,
+          seller_rating: stats.rating,
+          seller_reviews: stats.reviews,
+          seller_sold: stats.sold,
+        })
+      : null,
+  }
 }
 
 export async function generateMetadata({

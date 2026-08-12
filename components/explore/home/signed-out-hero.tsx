@@ -65,7 +65,7 @@ const COPY: Record<
     body: string
     cta: string
     href: string
-    tiles: { icon: typeof Fingerprint; title: string; body: string }[]
+    tiles: { icon: typeof Fingerprint; title: string; body: string; opensProtection?: boolean }[]
   }
 > = {
   buy: {
@@ -82,24 +82,27 @@ const COPY: Record<
      * four kinds of thing, two of which are not clothing at all.
      */
     title: "Cumpără second-hand. Fă-l al tău.",
-    body: "Haine, pantofi, cărți, muzică și obiecte de colecție — lucruri care au mai trăit o dată, de la oameni din toată țara.",
+    body: "Haine, sneakers, cărți, muzică, și obiecte de colecție, vândute de oameni din toată țara.",
     cta: "Vezi ce e de vânzare",
     href: "/?q=",
     tiles: [
-      { icon: Fingerprint, title: "Lucruri unicat", body: "Un exemplar din fiecare." },
-      { icon: PackagePlus, title: "Adăugate zilnic", body: "De la vânzători reali." },
-      { icon: ShieldCheck, title: "Plată protejată", body: "Cum funcționează" },
+      { icon: Fingerprint, title: "Lucruri diferite", body: "Găsești ceva nou de fiecare dată." },
+      { icon: PackagePlus, title: "Adăugate zilnic", body: "Listări noi, în fiecare zi." },
+      // The only tile that opens something. Safety is the one claim on this
+      // panel a stranger has no reason to take on trust, and the fastest way to
+      // be believed about it is to show the terms rather than describe them.
+      { icon: ShieldCheck, title: "Cumpărături protejate", body: "Plătești simplu și în siguranță.", opensProtection: true },
     ],
   },
   sell: {
     title: "Vinde ce nu mai folosești. Fără comision.",
-    body: "Publici în câteva minute, iar prețul pe care îl ceri este prețul pe care îl primești.",
-    cta: "Publică un anunț",
+    body: "Publici rapid, găsești un cumpărător și păstrezi banii din vânzare.",
+    cta: "Începe să vinzi",
     href: "/products/new",
     tiles: [
-      { icon: Camera, title: "Publici rapid", body: "Câteva poze și un preț." },
-      { icon: Wallet, title: "Zero comision", body: "Primești cât ai cerut." },
-      { icon: Truck, title: "Livrare cu AWB", body: "Cum funcționează" },
+      { icon: Camera, title: "Publici rapid", body: "Câteva poze, un preț și gata." },
+      { icon: Wallet, title: "Zero comision", body: "Primești prețul pe care îl setezi." },
+      { icon: Truck, title: "Livrare simplă", body: "AWB-ul este generat pentru tine." },
     ],
   },
 }
@@ -136,7 +139,25 @@ export function SignedOutHero() {
        * is what the listing cards, the slideshow and the category tiles all
        * already use.
        */
-      className="relative mb-8 overflow-hidden rounded-2xl ring-1 ring-black/[0.04]"
+      /**
+       * A LITTLE DEPTH, AND DELIBERATELY A LITTLE.
+       *
+       * The panel was a flat tint with a hairline ring: correct on a #f5f5f5
+       * page in the sense that it did not shout, and slightly too correct — at
+       * that weight it read as a region of the background rather than as
+       * something placed on it, so the page opened on a large pale rectangle
+       * with no edge.
+       *
+       * Two shadows and a very slightly darker ring. The first is a one-pixel
+       * contact shadow, which is what actually says "this sits on top"; the
+       * second is a wide, heavily-offset ambient one at 12% — spread over 40px
+       * and pulled 24px in, so it never reads as a drop shadow, only as the
+       * ground being a touch darker underneath. Nothing here is above ~0.12
+       * alpha, which is about a five percent change in perceived separation:
+       * enough that the edge exists, not enough to make a card out of a
+       * section.
+       */
+      className="relative mb-8 overflow-hidden rounded-2xl ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.04),0_18px_40px_-24px_rgba(15,15,15,0.12)]"
       /**
        * VERY LIGHT, AND BARELY PURPLE.
        *
@@ -210,16 +231,27 @@ export function SignedOutHero() {
               reach the tallest tile — without it a shorter tile is a shorter
               box, which is the raggedness this row had. */}
           <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {c.tiles.map((tile, i) => {
+            {c.tiles.map((tile) => {
               const Icon = tile.icon
-              // The last tile's line is the buyer-protection page, on both
-              // sides — a seller wants to know what the buyer is promised as
-              // much as the buyer does.
-              const opensPanel = i === 2
+              /**
+               * WHICH TILE OPENS THE PROTECTION PANEL IS A PROPERTY OF THE TILE,
+               * not of its position.
+               *
+               * It was `i === 2` — the third one, on both sides — which was true
+               * while both third tiles said "Cum funcționează" and both meant
+               * the same page. They do not any more: the seller's third tile is
+               * about AWB labels, and an underlined line reading "AWB-ul este
+               * generat pentru tine" that opens a page about buyer protection is
+               * a link that lies about where it goes.
+               */
+              const opensPanel = tile.opensProtection === true
               return (
                 <div
                   key={tile.title}
-                  className="flex h-full flex-col rounded-xl bg-white/70 px-4 py-4 ring-1 ring-black/[0.05] backdrop-blur-[2px]"
+                  // The same treatment one step quieter: these sit ON the panel
+                  // that now sits on the page, and two objects at the same
+                  // elevation stacked on each other is what flattens both.
+                  className="flex h-full flex-col rounded-xl bg-white/75 px-4 py-4 ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.035)] backdrop-blur-[2px]"
                 >
                   <Icon className="h-[19px] w-[19px] shrink-0 text-neutral-400" strokeWidth={1.8} />
                   <p className="mt-3 text-[14px] font-bold leading-tight tracking-[-0.01em] text-neutral-900">

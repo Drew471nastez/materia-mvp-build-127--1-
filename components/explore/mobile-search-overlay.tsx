@@ -16,9 +16,25 @@ import { lockScroll } from "@/lib/scroll-lock"
 
 type SearchTab = "items" | "categories" | "people"
 
+/**
+ * TWO TABS, NOT THREE — Categorii IS TEMPORARILY OUT.
+ *
+ * A tab earns its place by answering a question the other tabs cannot. Articole
+ * and Persoane do: "what is for sale" and "who is selling", and neither is
+ * reachable from the other. Categorii did not, and the reason is that the
+ * categories are already everywhere else on this surface — the rail sits
+ * directly under this panel on the desktop header, the department menu is one
+ * press away, and every listing card carries its own. A third of the width of
+ * a search panel spent on a list you can see behind it is a third of the width
+ * spent on nothing.
+ *
+ * TEMPORARILY, and written that way on purpose. `CategoriesTab` below is left
+ * intact and `SearchTab` still names it, so putting the row back is one line
+ * here rather than a rebuild — this is a decision about whether the tab is
+ * pulling its weight today, not a deletion of the feature.
+ */
 const TABS: ReadonlyArray<readonly [SearchTab, string]> = [
   ["items", "mfeed.tab_items"],
-  ["categories", "mfeed.tab_categories"],
   ["people", "mfeed.tab_people"],
 ]
 
@@ -619,12 +635,14 @@ export function MobileSearchOverlay({
       )}
 
       {/* Tabs */}
-      {/* THREE TABS, SEPARATED BY A RULE.
+      {/* TWO TABS, SEPARATED BY A RULE. (Three, until Categorii came out —
+          see the note on TABS above, and note that this row is rendered FROM
+          that array, so it is already correct at either length.)
 
-          Items / Categories / People are three different KINDS of result, not
-          three degrees of one — a person is not a narrower article. Spacing
-          alone left them reading as a row of words, so the hairlines say where
-          one choice ends and the next begins.
+          Items and People are two different KINDS of result, not two degrees of
+          one — a person is not a narrower article. Spacing alone left them
+          reading as a row of words, so the hairline says where one choice ends
+          and the next begins.
 
           Drawn by the tab AFTER each one (`i > 0`) so there is never a stray
           rule hanging off either end, and `self-center` keeps it to the height
@@ -689,6 +707,9 @@ export function MobileSearchOverlay({
               t={t}
             />
           )}
+          {/* Not reachable while Categorii is out of TABS, and kept rather than
+              removed so putting the tab back is one line. `tab` is only ever
+              set from that array. */}
           {tab === "categories" && <CategoriesTab onPick={pickCategory} t={t} />}
           {tab === "people" && (
             <PeopleTab trimmed={trimmed} people={people} loading={peopleLoading} onClose={onClose} t={t} />

@@ -2873,6 +2873,113 @@ check(
   "        lib/marketplace/use-pinned-bar.ts",
 )
 
+console.log("\nWhat a seller's name is worth")
+
+check(
+  "the score is two numbers a stranger had to pay for",
+  (() => {
+    // None of the three counts on a profile answers "should I send this person
+    // money". Followers measure popularity; listings measure effort, which is
+    // free. A completed sale is the only number here that required a stranger to
+    // have already trusted them once and not regretted it, and a review is what
+    // that stranger said afterwards.
+    //
+    // Counted from `products.status = 'sold'` rather than from `orders`: orders
+    // span digital goods, refunds and cancellations, and a refunded order is not
+    // a sale anybody should be credited with.
+    const stats = strip(read("lib/profile/seller-stats.ts"))
+    return (
+      /export async function readSellerStats/.test(stats) &&
+      /\.eq\("status", "sold"\)/.test(stats) &&
+      /from\("reviews"\)[\s\S]{0,80}?\.in\("creator_id", creatorIds\)/.test(stats) &&
+      // EVERY creator row, not "the" one — the trap lib/profile/listings.ts
+      // documents at length, where a `.maybeSingle()` returns an error rather
+      // than a row for any account that has been through both paths that create
+      // one, and the profile silently reports zero for its most active seller.
+      /from\("creators"\)\.select\("id"\)\.eq\("user_id", userId\)/.test(stats) &&
+      !/maybeSingle/.test(stats)
+    )
+  })(),
+  "        lib/profile/seller-stats.ts",
+)
+
+check(
+  "nothing is drawn at zero, and each half disappears on its own",
+  (() => {
+    // "0,0 ★" reads as RATED BADLY rather than as unrated, and "0 vândute" is an
+    // accusation printed under somebody's name. So a brand-new seller's header
+    // is one line shorter than an established one, and that difference is the
+    // honest signal.
+    //
+    // Independently, because somebody can shift twenty things before anybody
+    // writes a word — and hiding that until a review arrives would withhold the
+    // stronger of the two: a sale costs a stranger real money to produce, a
+    // review costs a tap.
+    const score = strip(read("components/marketplace/seller-score.tsx"))
+    const stats = strip(read("lib/profile/seller-stats.ts"))
+    return (
+      /if \(!hasRating && !hasSold\) return null/.test(score) &&
+      /const hasRating = typeof rating === "number" && Number\.isFinite\(rating\) && \(reviews \?\? 0\) > 0/.test(score) &&
+      /const hasSold = soldCount > 0/.test(score) &&
+      // null for "unrated", never 0 — the reader has to preserve the difference
+      // or the component cannot act on it.
+      /if \(ratings\.length === 0\) return \{ rating: null, reviews: 0, sold \}/.test(stats) &&
+      /rating: number \| null/.test(stats)
+    )
+  })(),
+  "        components/marketplace/seller-score.tsx",
+)
+
+check(
+  "one star, not five, and the sample size next to the average it belongs to",
+  (() => {
+    // Five glyphs to communicate one number that is written immediately after
+    // them, wide enough to push the sales count onto a second line on a phone.
+    // One filled star ahead of the figure is what every marketplace, hotel
+    // listing and app store uses in this position: the star says "this number is
+    // a rating", it does not show the rating.
+    //
+    // And an average with no sample size beside it is the oldest way to make one
+    // five-star review look like a reputation.
+    const score = strip(read("components/marketplace/seller-score.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /fill-amber-400 text-amber-400/.test(score) &&
+      // Not the five-star row this replaced.
+      !/Array\.from\(\{ length: 5 \}/.test(score) &&
+      !/function Stars/.test(profile) &&
+      // The count is inside the rating group, before the separator.
+      /\{ratingLabel\(reviews \?\? 0, language\)\}/.test(score) &&
+      score.indexOf("ratingLabel(reviews") < score.indexOf("soldLabel(soldCount")
+    )
+  })(),
+  "        components/marketplace/seller-score.tsx",
+)
+
+check(
+  "and it is on the profile AND on the listing, from the same server read",
+  (() => {
+    // The profile is where somebody is browsing; the LISTING is where they are
+    // deciding, and that card said a name and offered a Follow button and
+    // nothing else. Both read it on the server: a figure that arrives after the
+    // card has been read is a figure nobody reads, and it was a layout shift on
+    // every visit to every seller.
+    const profileScreen = strip(read("app/(marketing)/member/[username]/_member-screen.tsx"))
+    const profilePage = strip(read("app/(marketing)/profile/page.tsx"))
+    const listingPage = strip(read("app/(marketing)/products/[slug]/page.tsx"))
+    const detailSrc = strip(read("components/product/product-detail.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      [profileScreen, profilePage, listingPage].every((src) => /readSellerStats\(\{ admin/.test(src)) &&
+      /<SellerScore/.test(profile) &&
+      /<SellerScore/.test(detailSrc) &&
+      // One implementation of the query, not a copy per page.
+      !/async function loadReviewsSummary/.test(profilePage)
+    )
+  })(),
+  "        lib/profile/seller-stats.ts",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

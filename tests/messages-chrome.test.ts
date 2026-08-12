@@ -776,6 +776,78 @@ check(
   "        components/platform/platform-header-client.tsx",
 )
 
+console.log("\nThe header only offers what an account has")
+
+check(
+  "the heart and the bag are signed-in only",
+  (() => {
+    // To a stranger they are two icons leading to two empty rooms — and worse
+    // than empty, because the heart carried a COUNT: the guest wishlist hangs
+    // off a cookie, so a first-time visitor arrived at a black bar advertising
+    // that they had two saved items and a shopping bag, on a site they had never
+    // used. A number about you, on a page that has never met you.
+    //
+    // Messages was already gated this way; this is the same rule applied to its
+    // two neighbours. Both the desktop pair and the phone one.
+    const header = code("components/platform/platform-header-client.tsx")
+    const wish = header.indexOf("aria-label={t(\"wishlist\")}")
+    const bag = header.indexOf("aria-label={t(\"bag\")}")
+    const before = (at: number) => header.slice(Math.max(0, at - 600), at)
+    return (
+      wish > 0 &&
+      bag > 0 &&
+      /\{user && \(/.test(before(wish)) &&
+      /\{user && \(/.test(before(bag)) &&
+      // And the phone icon, which is a separate element in the mobile row.
+      /\{user && \(\s*\n\s*<Link\s*\n\s*href=\{getCanonicalOrRelativePath\(wishlistHref\)\}/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "and the two buttons in the bar are buttons, not lozenges",
+  (() => {
+    // A fully rounded button reads as a chip — something to toggle or dismiss —
+    // and Vinde is the primary action of the whole marketplace. Eight pixels is
+    // what every other real control on this site already uses, and it stops the
+    // row being two lozenges beside a rectangular search field.
+    const header = code("components/platform/platform-header-client.tsx")
+    return (
+      /className="h-10 rounded-lg px-5 text-\[14\.5px\] font-semibold bg-\[#7c3aed\]/.test(header) &&
+      /inline-flex h-10 items-center justify-center rounded-lg border border-white\/15 bg-neutral-800/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the search panel is Articole and Persoane — Categorii is out, not deleted",
+  (() => {
+    // A tab earns its place by answering a question the others cannot. Articole
+    // and Persoane do. Categorii did not: the rail sits directly under this
+    // panel, the department menu is one press away, and every card carries its
+    // own — so a third of the width of a search panel went on a list you can see
+    // behind it.
+    //
+    // TEMPORARY, and the code says so: CategoriesTab and the "categories" member
+    // of SearchTab both stay, so putting the row back is one line rather than a
+    // rebuild.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const tabs = overlay.slice(overlay.indexOf("const TABS"), overlay.indexOf("const POPULAR_EXPANSIONS"))
+    return (
+      (tabs.match(/mfeed\.tab_/g) ?? []).length === 2 &&
+      /mfeed\.tab_items/.test(tabs) &&
+      /mfeed\.tab_people/.test(tabs) &&
+      !/mfeed\.tab_categories/.test(tabs) &&
+      // Kept, so this is a decision rather than a demolition.
+      /function CategoriesTab/.test(overlay) &&
+      /type SearchTab = "items" \| "categories" \| "people"/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
 check(
   "the search tabs are ruled apart; the category rail is not",
   (() => {

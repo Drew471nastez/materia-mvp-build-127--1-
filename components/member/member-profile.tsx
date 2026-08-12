@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import Image from "next/image"
-import { Bookmark, Settings, Share2, Star } from "lucide-react"
+import { Bookmark, Settings, Share2 } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { FollowButton } from "@/components/explore/follow-button"
@@ -25,6 +25,7 @@ import { beginTabLeave } from "@/lib/tab-leave"
 import { consumeNavHint } from "@/lib/screen-transition"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { ProfileBadges } from "@/components/marketplace/profile-badges"
+import { SellerScore } from "@/components/marketplace/seller-score"
 import { coverImageUrl, defaultCoverFor, resolveCover } from "@/lib/profile/covers"
 import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { cn } from "@/lib/utils"
@@ -103,16 +104,6 @@ function joinedLabel(iso: string | null, locale: string): string | null {
   }
 }
 
-/** Romanian counts need three forms (1 recenzie / 3 recenzii / 20 de recenzii),
- *  which a flat dictionary key can't express — so the plural rule lives here. */
-function reviewsLabel(count: number, language: string): string {
-  if (language === "ro") {
-    if (count === 1) return "1 recenzie"
-    return count < 20 ? `${count} recenzii` : `${count} de recenzii`
-  }
-  return count === 1 ? "1 review" : `${count} reviews`
-}
-
 export type ReviewsSummary = { average: number; count: number }
 
 /**
@@ -176,27 +167,14 @@ function useSellerReviews(sellerId: string | null): ReviewsSummary | null {
   return summary
 }
 
-/** Five stars with a fractional amber fill — the grey row underneath is always
- *  complete, and the coloured row is clipped to the average, so 4.3 reads as
- *  4.3 rather than snapping to a whole star. */
-function Stars({ value }: { value: number }) {
-  const pct = (Math.min(5, Math.max(0, value)) / 5) * 100
-  const row = (
-    <span className="flex gap-px">
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} className="h-[14px] w-[14px] shrink-0 fill-current" strokeWidth={0} />
-      ))}
-    </span>
-  )
-  return (
-    <span className="relative inline-flex text-neutral-200" aria-hidden="true">
-      {row}
-      <span className="absolute inset-y-0 left-0 overflow-hidden text-amber-400" style={{ width: `${pct}%` }}>
-        {row}
-      </span>
-    </span>
-  )
-}
+/**
+ * The five-star row and `reviewsLabel` used to live here, and both are gone
+ * with the strip that used them. The rating under a name is one filled star and
+ * a figure now — see components/marketplace/seller-score.tsx, which explains why
+ * five glyphs to communicate a number written immediately after them is the
+ * wrong shape in this position, and which is shared with the listing page so the
+ * two cannot drift.
+ */
 
 /**
  * One cell of the stats card. The height is fixed rather than derived from the
@@ -360,6 +338,7 @@ export function MemberProfile({
   isOwner = false,
   reviews: reviewsFromServer,
   initialTab = "listings",
+  soldCount = 0,
 }: {
   member: MemberSummary
   /** Exact total from the server — the grid itself is capped, so it may show fewer. */
@@ -389,6 +368,15 @@ export function MemberProfile({
    * and it is the difference between an address and a redirect.
    */
   initialTab?: "listings" | "saved"
+  /**
+   * How many listings this account has marked sold.
+   *
+   * Counted on the server beside the reviews — see lib/profile/seller-stats.ts
+   * — because it and the rating are one line on the screen and would otherwise
+   * arrive at two different moments. Zero draws nothing at all: "0 vândute"
+   * under somebody's name is an accusation, not a statistic.
+   */
+  soldCount?: number
 }) {
   const { t, language } = useLocale()
 
@@ -1213,20 +1201,28 @@ export function MemberProfile({
           entire point. */}
       <span ref={nameEndRef} aria-hidden className="block h-0 w-full" />
 
-      {/* Reviews strip — appears only once the seller has at least one
-          review, so a new seller isn't introduced by an empty zero. */}
-      {reviews && (
-        <div className="mt-2 flex items-center gap-1.5">
-          <Stars value={reviews.average} />
-          <span className="text-[12.5px] font-semibold text-neutral-700 tabular-nums">
-            {reviews.average.toLocaleString(language === "ro" ? "ro-RO" : "en-GB", {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            })}
-          </span>
-          <span className="truncate text-[12.5px] text-neutral-400">({reviewsLabel(reviews.count, language)})</span>
-        </div>
-      )}
+      {/* ⭐ 4,9 (12) · 63 vândute — the line that answers "should I send this
+          person money", which none of the three counts in the card below does.
+          Followers measure popularity and listings measure effort; a completed
+          sale is the only number here a stranger had to pay for.
+
+          Each half disappears on its own and the whole line with them, so a
+          brand-new seller's header is simply one line shorter — see
+          components/marketplace/seller-score.tsx for why that is the honest
+          answer rather than a zero or a row of empty stars.
+
+          It replaces a five-star row with a partial fill. That is right when
+          the rating IS the block; as a line under a name it is five glyphs for
+          one number written immediately after them, and it was wide enough to
+          push the sales count onto a second line on a phone. */}
+      <SellerScore
+        rating={reviews?.average ?? null}
+        reviews={reviews?.count ?? 0}
+        sold={soldCount}
+        language={language}
+        size="md"
+        className="mt-2"
+      />
 
       {/* WHO THIS PERSON IS, in their own words.
           
