@@ -129,8 +129,19 @@ const COPY: Record<
  *   And it is big enough for the slot — 1356 wide against a ~600px
  *   column — which is what lets it fill rather than be capped.
  */
-const HERO_IMAGE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(2).png"
+/**
+ * ONE ARTWORK PER SIDE OF THE TOGGLE.
+ *
+ * The panel already swaps its headline, its line, its button and its three
+ * tiles when you press Vinde — everything except the picture, which went on
+ * showing a shopper's composition while the copy talked about publishing a
+ * listing. That is the one element on the panel that was not answering the
+ * control, and it is the largest.
+ */
+const HERO_IMAGE: Record<Side, string> = {
+  buy: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(2).png",
+  sell: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(4).png",
+}
 
 /** Its real ratio, so `object-contain` has nothing to letterbox and
  *  `object-cover` would have nothing to crop. */
@@ -339,26 +350,80 @@ export function SignedOutHero() {
               context menu either, so "Save image as…" never appears, and it
               cannot be the start of a selection. Nothing here is interactive,
               so there is nothing to lose by taking the events away. */}
-          <Image
-            src={HERO_IMAGE}
-            alt=""
-            fill
-            /* The real rendered widths, so the optimizer picks the smallest rung
-               that covers them rather than the largest it has. */
-            sizes="(min-width: 1024px) 620px, (min-width: 768px) 90vw, 100vw"
-            priority
-            /* 75 is the top of the list next.config permits, and it is the right
-               end of that list for this: a composite with flat colour fields and
-               small type on the book covers shows banding and ringing long
-               before a photograph would. */
-            quality={75}
-            draggable={false}
-            /* `object-contain`, not cover. The ratio matches so neither would
-               crop today, but contain is the one that stays correct if the box
-               ever drifts — and on artwork with its own shadows, a silent crop
-               takes the shadow off one edge and nobody notices for a month. */
-            className="pointer-events-none select-none object-contain [-webkit-user-drag:none]"
-          />
+          {/* ═══════════════════════════════════════════════════════════════
+              BOTH ARE MOUNTED, AND OPACITY DECIDES WHICH ONE YOU SEE
+              ═══════════════════════════════════════════════════════════
+
+              Swapping `src` on one element is not a cross-fade — the browser
+              tears the first picture down, requests the second, and shows
+              whatever is behind them in between. On a half-panel this size that
+              is a white hole for as long as the network takes, every time
+              somebody presses the toggle.
+
+              Two elements, both `priority`, both decoded before either is
+              needed, and only their opacity changes. The switch is then a
+              composited cross-fade with nothing to fetch, which is the whole
+              of "it should change smoothly between Cumpără and Vinde", and it
+              costs one extra image on a panel that is only ever drawn to people
+              with no account.
+
+              `aria-hidden` on the inactive one, so a screen reader is not read
+              two decorative images; `alt=""` means neither is announced anyway,
+              and this is belt as well as braces. */}
+          {(["buy", "sell"] as const).map((s) => (
+            <div
+              key={s}
+              aria-hidden={side !== s}
+              className={cn(
+                "absolute inset-0 transition-opacity duration-[420ms] ease-out",
+                side === s ? "opacity-100" : "opacity-0",
+              )}
+            >
+              {/* THE DRIFT.
+                  
+                  Nine seconds, five pixels, and a curve that is symmetric at
+                  both ends so the loop has no seam. It is deliberately below the
+                  threshold where you would call it an animation: what it buys is
+                  that the panel is not a photograph of an interface — a page
+                  where nothing at all moves reads as a screenshot, and this is
+                  the first thing somebody who has never been here looks at.
+                  
+                  Five pixels over four and a half seconds is about one pixel a
+                  second. You cannot watch it move; you notice that it has moved.
+                  Any faster and it becomes a thing on the page competing with
+                  the headline beside it, which is the failure mode of every
+                  floating hero image ever shipped.
+                  
+                  `transform` only, so it is the compositor's business and never
+                  the layout's — this element is `absolute inset-0` inside a
+                  ratio box, so nothing can be pushed by it either way. It stops
+                  entirely under `prefers-reduced-motion`; a continuous loop is
+                  exactly what that preference is about. */}
+              <div className="hero-art-drift absolute inset-0">
+                <Image
+                  src={HERO_IMAGE[s]}
+                  alt=""
+                  fill
+                  /* The real rendered widths, so the optimizer picks the smallest
+                     rung that covers them rather than the largest it has. */
+                  sizes="(min-width: 1024px) 620px, (min-width: 768px) 90vw, 100vw"
+                  priority
+                  /* 75 is the top of the list next.config permits, and it is the
+                     right end of that list for this: a composite with flat colour
+                     fields and small type on the book covers shows banding and
+                     ringing long before a photograph would. */
+                  quality={75}
+                  draggable={false}
+                  /* `object-contain`, not cover. The ratio matches so neither
+                     would crop today, but contain is the one that stays correct
+                     if the box ever drifts — and on artwork with its own
+                     shadows, a silent crop takes the shadow off one edge and
+                     nobody notices for a month. */
+                  className="pointer-events-none select-none object-contain [-webkit-user-drag:none]"
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

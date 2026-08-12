@@ -813,10 +813,19 @@ check(
      * dimmed to 85% — which put both halves at the same low contrast and made
      * the returning shopper's word the harder one to find.
      */
+    /**
+     * SLICED BY THE BLOCK, NOT BY A WINDOW AROUND ONE LINK.
+     *
+     * It used to take 220 characters before `href="/login"` and 600 after,
+     * which held both halves only because Log in happened to be written first.
+     * The moment the two were reordered the window no longer contained Sign up
+     * and the guard failed on a change it has no opinion about — a test that
+     * breaks when the thing it is not testing moves.
+     */
     const hdr = code("components/platform/platform-header-client.tsx")
-    const i = hdr.indexOf('href="/login"')
-    if (i < 0) return false
-    const pair = hdr.slice(i - 220, i + 600)
+    const start = hdr.indexOf('{!user && (\n                  <div className="flex items-center gap-2">')
+    if (start < 0) return false
+    const pair = hdr.slice(start, hdr.indexOf("</div>", hdr.indexOf('href="/login"')))
     return (
       // No rule between them, anywhere in the pair.
       !/w-px/.test(pair) &&
@@ -827,7 +836,12 @@ check(
       !/text-white\/85/.test(pair) &&
       // And Sign up is still the only filled object of the two.
       /href="\/signup"/.test(pair) &&
-      /bg-neutral-800/.test(pair)
+      /bg-neutral-800/.test(pair) &&
+      // SIGN UP LEADS. Most of the traffic on a page carrying the signed-out
+      // hero has never been here, and the filled object was sitting at the very
+      // end of the row against the edge of the window. Log in is the last word,
+      // which is where somebody who already has an account looks anyway.
+      pair.indexOf('href="/signup"') < pair.indexOf('href="/login"')
     )
   })(),
 )
@@ -1027,6 +1041,64 @@ check(
     )
   })(),
   "        components/explore/home/hero-slides.tsx",
+)
+
+check(
+  "the artwork answers the toggle, and both are mounted so the swap is a fade",
+  (() => {
+    // The panel swaps its headline, its line, its button and its three tiles
+    // when you press Vinde — everything except the picture, which went on
+    // showing a shopper's composition while the copy talked about publishing a
+    // listing. That is the one element on the panel not answering the control,
+    // and it is the largest.
+    //
+    // Swapping `src` on ONE element is not a cross-fade: the browser tears the
+    // first picture down, requests the second, and shows whatever is behind them
+    // in between — a white hole on half the panel, every press. Two elements
+    // both `priority`, only their opacity changing, is a composited fade with
+    // nothing to fetch.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /const HERO_IMAGE: Record<Side, string> = \{/.test(hero2) &&
+      /Untitled%20design%20\(4\)\.png/.test(hero2) &&
+      /\(\["buy", "sell"\] as const\)\.map\(\(s\) => \(/.test(hero2.slice(hero2.indexOf("aspectRatio: HERO_RATIO"))) &&
+      /side === s \? "opacity-100" : "opacity-0"/.test(hero2) &&
+      /transition-opacity duration-\[420ms\]/.test(hero2) &&
+      // Both decoded before either is needed — the whole reason there is nothing
+      // to fetch at the moment of the press.
+      (hero2.match(/priority/g) ?? []).length >= 1 &&
+      /src=\{HERO_IMAGE\[s\]\}/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "and it drifts, slowly enough that you notice it has moved rather than watch it move",
+  (() => {
+    // Five pixels over nine seconds — roughly one pixel a second. Deliberately
+    // below the threshold where anybody would call it an animation: what it buys
+    // is that the first screen is not a photograph of an interface. Anything
+    // faster becomes an object competing with the headline beside it, which is
+    // the failure mode of every floating hero image ever shipped.
+    //
+    // A pendulum, so its end IS its beginning and the loop has no seam, and
+    // eased at both ends because the eye is very good at spotting constant
+    // velocity and very bad at spotting eased velocity.
+    const css = read("app/globals.css")
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /@keyframes hero-art-drift \{[\s\S]{0,200}?translate3d\(0, -5px, 0\)/.test(css) &&
+      /animation: hero-art-drift 9s ease-in-out infinite/.test(css) &&
+      // transform ONLY — no paint, no layout, and nothing it could push.
+      !/@keyframes hero-art-drift \{[\s\S]{0,220}?(margin|top:|height)/.test(css) &&
+      // A continuous loop is precisely what the preference is about: stopped,
+      // not slowed.
+      /@media \(prefers-reduced-motion: reduce\) \{\s*\n\s*\.hero-art-drift \{\s*\n\s*animation: none;/.test(css) &&
+      /className="hero-art-drift absolute inset-0"/.test(hero2)
+    )
+  })(),
+  "        app/globals.css, components/explore/home/signed-out-hero.tsx",
 )
 
 check(

@@ -1789,14 +1789,23 @@ export function PlatformHeaderClient() {
 
                     It sits exactly where the avatar sits when you are signed
                     in, so the row never changes shape. */}
+                {/* SIGN UP LEADS, LOG IN FOLLOWS.
+                
+                    The pair used to read Log in → Sign up, which is the order
+                    every product ships by habit and the wrong one for this bar:
+                    the row is already read right to left by anybody looking for
+                    their account, and the filled object was sitting at the very
+                    end of it, against the edge of the window. Leading with it
+                    puts the two halves in the order of how many people each is
+                    for — most of the traffic on a page carrying the signed-out
+                    hero has never been here — and leaves Log in as the last
+                    word, which is where somebody who already has an account
+                    looks anyway.
+                    
+                    It sits exactly where the avatar sits when you are signed in,
+                    so the row never changes shape. */}
                 {!user && (
                   <div className="flex items-center gap-2">
-                    <Link
-                      href="/login"
-                      className="px-2 text-[15px] font-semibold text-white transition-opacity duration-200 hover:opacity-70"
-                    >
-                      {t("log_in")}
-                    </Link>
                     {/* Solid dark grey rather than white. The bar is pure
                         black, so a filled neutral is a real object on it — and
                         it stays out of the way of the one purple button beside
@@ -1807,6 +1816,12 @@ export function PlatformHeaderClient() {
                       className="inline-flex h-10 items-center justify-center rounded-lg border border-white/15 bg-neutral-800 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 hover:bg-neutral-700"
                     >
                       {t("sign_up")}
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="px-2 text-[15px] font-semibold text-white transition-opacity duration-200 hover:opacity-70"
+                    >
+                      {t("log_in")}
                     </Link>
                   </div>
                 )}

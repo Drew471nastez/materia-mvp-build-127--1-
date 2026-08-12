@@ -4236,6 +4236,58 @@ html[data-keyboard="open"] .thread-composer {
 @media (min-width: 768px) {
   .profile-cover { height: 210px; }
 }
+/* ── THE HERO ARTWORK BREATHES ───────────────────────────────────────────────
+ *
+ * Five pixels, over nine seconds, forever.
+ *
+ * It is deliberately below the threshold where anybody would call it an
+ * animation, and that is the specification rather than a compromise. What it
+ * buys is that the panel is not a photograph of an interface: a first screen on
+ * which literally nothing moves reads as a screenshot, and this is the first
+ * thing somebody who has never been to Storelib looks at.
+ *
+ * Five pixels over four and a half seconds is roughly one pixel a second. You
+ * cannot watch it move; you notice that it has moved. Anything faster becomes an
+ * object on the page competing with the headline beside it, which is the failure
+ * mode of every floating hero image ever shipped.
+ *
+ * `translate3d` and nothing else. The element it sits on is `absolute inset-0`
+ * inside a fixed-ratio box, so there is no layout for this to disturb even if it
+ * wanted to, and a transform on its own is composited — no paint, no main-thread
+ * work per frame, and it keeps running at the display's refresh rate while the
+ * page under it is fetching a hundred listings.
+ *
+ * `ease-in-out` at both ends with the midpoint at 50%: the loop is a pendulum,
+ * so its end IS its beginning and there is no seam to see. A linear version of
+ * the same travel is visibly mechanical at this speed, which is worse than not
+ * doing it — the eye is very good at spotting constant velocity and very bad at
+ * spotting eased velocity.
+ */
+@keyframes hero-art-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -5px, 0);
+  }
+}
+.hero-art-drift {
+  animation: hero-art-drift 9s ease-in-out infinite;
+  /* Promoted once, for the life of the loop. This is the one element on the
+     page where `will-change` is unambiguously right: the animation never stops,
+     so there is no window in which the hint is stale. */
+  will-change: transform;
+}
+/* A continuous loop is precisely what this preference is about. Not slowed —
+   stopped, and the artwork sits where it started. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-art-drift {
+    animation: none;
+    will-change: auto;
+  }
+}
+
 /* ── THE BAND ESCAPES THE COLUMN ─────────────────────────────────────────────
  *
  * The page is a centred 1100px measure, and on a desktop the cover was inside
