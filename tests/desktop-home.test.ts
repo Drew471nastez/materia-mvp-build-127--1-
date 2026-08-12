@@ -885,7 +885,11 @@ check(
       /Haine, sneakers, cărți, muzică, și obiecte de colecție, vândute de oameni din toată țara\./.test(hero2) &&
       /title: "Lucruri diferite", body: "Găsești ceva nou de fiecare dată\."/.test(hero2) &&
       /title: "Adăugate zilnic", body: "Listări noi, în fiecare zi\."/.test(hero2) &&
-      /title: "Cumpărături protejate", body: "Plătești simplu și în siguranță\."/.test(hero2) &&
+      // "Cumpărături protejate" is "Safe Buying" — the one English string kept
+      // on this panel, deliberately, because it is the phrase the payment
+      // industry has trained everybody to look for and the Romanian is a
+      // mouthful nobody scans.
+      /title: "Safe Buying", body: "Plătești simplu și în siguranță\."/.test(hero2) &&
       // Sell: the promise is the money kept, not the minutes spent.
       /Publici rapid, găsești un cumpărător și păstrezi banii din vânzare\./.test(hero2) &&
       /cta: "Începe să vinzi"/.test(hero2) &&
@@ -915,7 +919,7 @@ check(
       !/const opensPanel = i === 2/.test(hero2) &&
       // Exactly one tile carries it, and it is the one about paying safely.
       (hero2.match(/opensProtection: true/g) ?? []).length === 1 &&
-      /body: "Plătești simplu și în siguranță\.", opensProtection: true/.test(hero2)
+      /title: "Safe Buying", body: "Plătești simplu și în siguranță\.", opensProtection: true/.test(hero2)
     )
   })(),
   "        components/explore/home/signed-out-hero.tsx",
@@ -1063,7 +1067,14 @@ check(
       /Untitled%20design%20\(4\)\.png/.test(hero2) &&
       /\(\["buy", "sell"\] as const\)\.map\(\(s\) => \(/.test(hero2.slice(hero2.indexOf("aspectRatio: HERO_RATIO"))) &&
       /side === s \? "opacity-100" : "opacity-0"/.test(hero2) &&
-      /transition-opacity duration-\[420ms\]/.test(hero2) &&
+      // THE OUTGOING ONE LEAVES FASTER THAN THE INCOMING ONE ARRIVES. Both at
+      // one duration meant that halfway through the switch you were looking at
+      // two whole compositions at half strength — three cards dissolving into
+      // three different cards, all six on screen. Nothing moves, but everything
+      // LOOKS like it does, which is what "the images move too much when I
+      // change side" was. Cutting the overlap is the fix, not slowing the fade.
+      /transitionDuration: side === s \? "340ms" : "200ms"/.test(hero2) &&
+      /transitionDelay: side === s \? "90ms" : "0ms"/.test(hero2) &&
       // Both decoded before either is needed — the whole reason there is nothing
       // to fetch at the moment of the press.
       (hero2.match(/priority/g) ?? []).length >= 1 &&
@@ -1095,7 +1106,13 @@ check(
       // A continuous loop is precisely what the preference is about: stopped,
       // not slowed.
       /@media \(prefers-reduced-motion: reduce\) \{\s*\n\s*\.hero-art-drift \{\s*\n\s*animation: none;/.test(css) &&
-      /className="hero-art-drift absolute inset-0"/.test(hero2)
+      // ONE animation, on the box the two layers SHARE. It was on each layer:
+      // two animations of the same length are in phase only until something
+      // desynchronises them, and during a switch that is the two compositions
+      // drifting fractionally apart while they cross-fade — movement invented
+      // by the code rather than present in the artwork.
+      /className="hero-art-drift relative w-full"/.test(hero2) &&
+      (hero2.match(/hero-art-drift/g) ?? []).length === 1
     )
   })(),
   "        app/globals.css, components/explore/home/signed-out-hero.tsx",

@@ -977,10 +977,19 @@ check(
     // a route with no such bar and a #f6f6f7 background, that strip is a band
     // of white between the header and the page, curving at the corners because
     // it is the lip of something that is not there.
+    //
+    // ONE CONDITION NOW, NOT TWO. The lip and the bar were two sibling blocks
+    // each carrying its own copy of this test; they are wrapped in a single
+    // sticky container so they can slide away together — sliding one without
+    // the other leaves a white lip with rounded corners floating over the page,
+    // which is the seam the lip exists to remove. The invariant is unchanged
+    // and is now impossible to half-apply.
     const header = read("components/platform/platform-header-client.tsx")
     return (
       /const isSellRoute = pathname\.startsWith\("\/products\/new"\) \|\| pathname\.startsWith\("\/products\/edit"\)/.test(header) &&
-      (header.match(/\{!isSellRoute && \(showCategories/g) ?? []).length === 2
+      (header.match(/\{!isSellRoute && \(showCategories/g) ?? []).length === 1 &&
+      // And the lip is inside the wrapper the condition guards, not beside it.
+      /className="platform-subbar sticky z-\[35\]"[\s\S]{0,320}?bg-black h-\[20px\]/.test(header)
     )
   })(),
 )

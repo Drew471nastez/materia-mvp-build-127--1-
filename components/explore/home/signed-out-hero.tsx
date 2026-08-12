@@ -91,7 +91,7 @@ const COPY: Record<
       // The only tile that opens something. Safety is the one claim on this
       // panel a stranger has no reason to take on trust, and the fastest way to
       // be believed about it is to show the terms rather than describe them.
-      { icon: ShieldCheck, title: "Cumpărături protejate", body: "Plătești simplu și în siguranță.", opensProtection: true },
+      { icon: ShieldCheck, title: "Safe Buying", body: "Plătești simplu și în siguranță.", opensProtection: true },
     ],
   },
   sell: {
@@ -211,7 +211,20 @@ export function SignedOutHero() {
        * a default white card.
        */
       style={{
-        background: "linear-gradient(115deg, #fbfafc 0%, #f4f2fa 42%, #eff0f5 78%, #f6f5f8 100%)",
+        /* ACCENTUATED, and only a little.
+         *
+         * It was #fbfafc → #f4f2fa → #eff0f5 → #f6f5f8: four stops within about
+         * three percent of each other, which is a gradient you have to be told
+         * is there. On a #f5f5f5 page that made the panel a very slightly
+         * different white rather than a surface with light falling across it.
+         *
+         * Roughly double the chroma and a wider spread between the lightest and
+         * the darkest stop — the lilac through the middle is now legible as
+         * lilac and the cool grey at 76% is legible as cool. It is still nowhere
+         * near a coloured banner: the darkest stop is #e6e8f2, which is four
+         * percent below the page it sits on, and the photographs and the
+         * listings are still the only real colour on the screen. */
+        background: "linear-gradient(115deg, #fcfbff 0%, #efeafb 40%, #e6e8f2 76%, #f5f3fb 100%)",
       }}
     >
       <div className="grid items-center gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-12 lg:py-14">
@@ -337,7 +350,17 @@ export function SignedOutHero() {
             nothing is blown up. Below 1024 it goes UNDER the copy rather than
             beside it — at that width a half column is 300px and this is a
             composition of three tiles, not a thumbnail. */}
-        <div className="relative w-full" style={{ aspectRatio: HERO_RATIO }}>
+        {/* ONE DRIFT FOR BOTH LAYERS, on the box they share.
+        
+            It was on each layer, which is two animations where one will do —
+            and two animations of the same length started at the same moment are
+            in phase only until something desynchronises them. During a switch
+            that would be the two compositions drifting fractionally apart while
+            they cross-fade, which is movement invented by the code rather than
+            present in the artwork. On the parent there is nothing to keep in
+            step: the pictures cannot drift relative to each other because they
+            are not being animated at all. */}
+        <div className="hero-art-drift relative w-full" style={{ aspectRatio: HERO_RATIO }}>
           {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
               
               `draggable={false}` stops the browser's own drag-to-copy, which is
@@ -374,10 +397,33 @@ export function SignedOutHero() {
             <div
               key={s}
               aria-hidden={side !== s}
-              className={cn(
-                "absolute inset-0 transition-opacity duration-[420ms] ease-out",
-                side === s ? "opacity-100" : "opacity-0",
-              )}
+              /**
+               * THE OUTGOING ONE LEAVES FASTER THAN THE INCOMING ONE ARRIVES.
+               *
+               * Both at 420ms meant that halfway through the switch you were
+               * looking at two whole compositions at half strength each — three
+               * cards dissolving into three different cards, all six visible at
+               * once. Nothing is moving, but everything LOOKS like it is, which
+               * is exactly "the images move too much when I change side".
+               *
+               * Cutting the overlap is the fix, not slowing the fade down: the
+               * one going away is gone in 200ms while the one arriving takes
+               * 340 and is held back 90ms behind it. For most of the transition
+               * only one picture is meaningfully on screen, so what you see is a
+               * replacement rather than a blend.
+               *
+               * The two canvases are identical — both 1356x798, both drawn into
+               * the same ratio box with `object-contain` — so there is no
+               * geometry to correct here. Everything that read as movement was
+               * the overlap.
+               */
+              style={{
+                transitionProperty: "opacity",
+                transitionDuration: side === s ? "340ms" : "200ms",
+                transitionDelay: side === s ? "90ms" : "0ms",
+                transitionTimingFunction: side === s ? "cubic-bezier(0.22,0.61,0.16,1)" : "linear",
+              }}
+              className={cn("absolute inset-0", side === s ? "opacity-100" : "opacity-0")}
             >
               {/* THE DRIFT.
                   
@@ -399,7 +445,7 @@ export function SignedOutHero() {
                   ratio box, so nothing can be pushed by it either way. It stops
                   entirely under `prefers-reduced-motion`; a continuous loop is
                   exactly what that preference is about. */}
-              <div className="hero-art-drift absolute inset-0">
+              <div className="absolute inset-0">
                 <Image
                   src={HERO_IMAGE[s]}
                   alt=""

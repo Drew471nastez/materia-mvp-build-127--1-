@@ -13,6 +13,7 @@ import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/
 import { goToSellFormAsPage, isSellFormRoute } from "@/lib/marketplace/sell-route"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { savedShelfHref } from "@/lib/marketplace/saved-items"
+import { useHideOnScrollDown } from "@/lib/marketplace/use-hide-on-scroll-down"
 import { useUrlSearchParams } from "@/lib/use-url-search-params"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
@@ -1119,6 +1120,20 @@ export function PlatformHeaderClient() {
    * The observer catches what a render cannot predict: the category row opening,
    * the logo's font landing, a window resize crossing the md breakpoint.
    */
+  /**
+   * Whether the category bar below the header is currently out of the way.
+   *
+   * Closed over by the bar's `data-hidden`, which is the only thing that reads
+   * it — the CSS does the rest. Six departments pinned to the top of the screen
+   * for the whole length of a marketplace is six words of navigation taking a
+   * slice off every page, and you are scrolling because you want listings.
+   *
+   * Never disabled: the bar only renders on routes where the black header above
+   * it is `sticky`, so there is no arrangement in which this pins under
+   * something that has scrolled away.
+   */
+  const subbarHidden = useHideOnScrollDown()
+
   const headerRootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = headerRootRef.current
@@ -2267,16 +2282,47 @@ export function PlatformHeaderClient() {
     </header>
       </div>
 
-      {/* Concave transition from black header to white category bar */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          THE CATEGORY BAR IS STICKY, AND IT GETS OUT OF THE WAY
+          ═══════════════════════════════════════════════════════════════════
+
+          Two elements that were always one object: the 20px concave lip that
+          rounds the black header into the white, and the bar itself. They are
+          wrapped together now because they have to move together — sliding one
+          without the other leaves a white lip with rounded corners floating
+          over the page, which is the seam this lip exists to remove.
+
+          STICKY UNDER THE HEADER, not at the top of the window. The black bar
+          is `sticky top-0`, so this pins to `--platform-header-h` — the height
+          that header publishes for itself — and the two read as one piece of
+          chrome however tall the header happens to be.
+
+          AND IT HIDES ON THE WAY DOWN. Six departments pinned to the top of the
+          screen for the entire length of a marketplace is six words of
+          navigation permanently taking a slice off every page — you are
+          scrolling because you want to see LISTINGS. Scroll up and it is back
+          before you have finished the gesture, which is the shape every app in
+          this category uses and the reason it works: the moment you reverse is
+          the moment you are looking for a way somewhere else.
+
+          `transform` and nothing else, so the travel is the compositor's and
+          never the layout's, and `position: sticky` keeps the element's space at
+          its real place in the document — hiding it can therefore never open a
+          gap in the middle of the page, which is what `fixed` would have done.
+
+          It slides UP, behind the header, which is opaque and one z-index above
+          it. So it does not fade or shrink; it goes under something. */}
       {!isSellRoute && (showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
-        <div className="relative z-[35] bg-black h-[20px]">
+        <div
+          className="platform-subbar sticky z-[35]"
+          data-hidden={subbarHidden ? "true" : "false"}
+          style={{ top: "var(--platform-header-h, 0px)" }}
+        >
+        <div className="relative bg-black h-[20px]">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
-      )}
 
-      {/* White UI section for search bar and category pills (below the black header) */}
-      {!isSellRoute && (showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
-        <div className={`relative z-[35] w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
+        <div className={`relative w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
             {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
@@ -2386,6 +2432,7 @@ export function PlatformHeaderClient() {
               </nav>
             )}
           </div>
+        </div>
         </div>
       )}
 

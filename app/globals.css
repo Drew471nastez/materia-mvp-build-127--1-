@@ -4236,6 +4236,49 @@ html[data-keyboard="open"] .thread-composer {
 @media (min-width: 768px) {
   .profile-cover { height: 210px; }
 }
+/* ── THE CATEGORY BAR, AND HOW IT LEAVES ─────────────────────────────────────
+ *
+ * Driven by `useHideOnScrollDown` through one attribute — see the note in that
+ * hook for the dead band, the rAF read and the overscroll clamp, all of which
+ * are about this NOT flickering.
+ *
+ * TRANSFORM ONLY. The element is `position: sticky`, so its space stays where
+ * it really is in the document and hiding it can never open a gap in the middle
+ * of a page; and a translate is composited, so a bar leaving does not cost a
+ * layout on the frame a grid of photographs is scrolling past it.
+ *
+ * IT GOES UP, BEHIND THE HEADER. The black bar above is z-40 and opaque, this
+ * is z-35 — so what you see is a bar sliding UNDER something rather than fading,
+ * shrinking or collapsing, which is the only one of those that does not need
+ * the page below it to move.
+ *
+ * ASYMMETRIC ON PURPOSE. Leaving is 220ms on a curve that starts immediately:
+ * it is answering a scroll you have already made and the sooner it is out of
+ * the way the sooner you can see what you came for. Arriving is 300ms and eases
+ * out, because that one is a surface you are about to read and it should settle
+ * rather than arrive. Same shape as `.profile-pinned`, for the same reason.
+ */
+.platform-subbar {
+  transform: translate3d(0, 0, 0);
+  transition: transform 300ms cubic-bezier(0.22, 0.61, 0.16, 1);
+  will-change: transform;
+}
+.platform-subbar[data-hidden="true"] {
+  /* Its own height plus a little, so the border-bottom clears the header too —
+     a one-pixel line left showing under a black bar is the whole illusion
+     gone. */
+  transform: translate3d(0, calc(-100% - 2px), 0);
+  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Nothing travels. The bar is still hidden going down and still shown coming
+   back — the preference is about movement, not about state, and leaving a
+   permanent bar there instead would be answering a different request. */
+@media (prefers-reduced-motion: reduce) {
+  .platform-subbar {
+    transition: none;
+  }
+}
+
 /* ── THE HERO ARTWORK BREATHES ───────────────────────────────────────────────
  *
  * Five pixels, over nine seconds, forever.

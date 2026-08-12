@@ -993,6 +993,71 @@ check(
 )
 
 check(
+  "the category bar pins under the header and gets out of the way going down",
+  (() => {
+    // Six departments pinned to the top of the screen for the whole length of a
+    // marketplace is six words of navigation taking a slice off every page —
+    // and you are scrolling because you want to see LISTINGS. Scroll up and it
+    // is back before the gesture is finished, which is the shape every app in
+    // this category uses and the reason it works: the moment you reverse is the
+    // moment you are looking for a way somewhere else.
+    //
+    // `sticky`, not `fixed`: sticky keeps the element's space where it really is
+    // in the document, so hiding it can never open a gap in the middle of a
+    // page. And `--platform-header-h` rather than a number, so the two read as
+    // one piece of chrome however tall the header happens to be.
+    const header = code("components/platform/platform-header-client.tsx")
+    const css = read("app/globals.css")
+    return (
+      /className="platform-subbar sticky z-\[35\]"/.test(header) &&
+      /data-hidden=\{subbarHidden \? "true" : "false"\}/.test(header) &&
+      /style=\{\{ top: "var\(--platform-header-h, 0px\)" \}\}/.test(header) &&
+      /const subbarHidden = useHideOnScrollDown\(\)/.test(header) &&
+      // Transform only — a translate is composited, so a bar leaving costs no
+      // layout on the frame a grid of photographs is scrolling past it.
+      /\.platform-subbar\[data-hidden="true"\] \{\s*\n[\s\S]{0,240}?transform: translate3d\(0, calc\(-100% - 2px\), 0\)/.test(css) &&
+      // Leaving is quicker than arriving: it is answering a scroll you have
+      // already made, while the other is a surface you are about to read.
+      /\.platform-subbar \{[\s\S]{0,200}?transition: transform 300ms/.test(css) &&
+      /transition: transform 220ms/.test(css)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx, app/globals.css",
+)
+
+check(
+  "and it cannot flicker, cost a frame, or hide when there is nowhere to scroll",
+  (() => {
+    // The three ways this pattern is normally shipped broken:
+    //
+    //   A naïve version flips whenever the sign of the delta changes, so a
+    //   one-pixel jitter — a trackpad settling, a rubber-band easing back, the
+    //   browser correcting after an image loads — snaps the bar in and out while
+    //   nobody is scrolling. The dead band is measured from the last DECISION,
+    //   not the last event, which makes it a hysteresis rather than a delay.
+    //
+    //   A handler that works runs on every frame of every flick. This one reads
+    //   `scrollY` and returns; the comparison is once per animation frame at
+    //   most and the state is only SET when the answer changes.
+    //
+    //   And iOS reports positions past the end of the document during an
+    //   overscroll, then reports them coming back — which reads as "scrolled up"
+    //   and pops the bar out during a bounce nobody asked anything of.
+    const hook = code("lib/marketplace/use-hide-on-scroll-down.ts")
+    return (
+      /const THRESHOLD = 12/.test(hook) &&
+      /if \(Math\.abs\(delta\) < THRESHOLD\) return/.test(hook) &&
+      /addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(hook) &&
+      /frame = requestAnimationFrame\(read\)/.test(hook) &&
+      /if \(frame\) return/.test(hook) &&
+      /const max = Math\.max\(0, document\.documentElement\.scrollHeight - window\.innerHeight\)/.test(hook) &&
+      /if \(y <= REVEAL_ABOVE\)/.test(hook)
+    )
+  })(),
+  "        lib/marketplace/use-hide-on-scroll-down.ts",
+)
+
+check(
   "and a result opens the marketplace profile, not the digital storefront",
   (() => {
     // /u/ is the store-builder storefront; /member/ is the marketplace profile
