@@ -719,28 +719,68 @@ check(
 console.log("\nThe profile is the seller's desk")
 
 check(
-  "two tabs, not three: what you are selling, and what people said about you",
+  "what you are selling, what you kept, and what people said about you",
   (() => {
-    // Ciorne was the wrong shape for what a draft is. A draft is not a
-    // different KIND of thing needing its own room; it is one of your
-    // listings, in a state — and behind a tab it made the shelf disagree with
-    // itself about how many listings you had.
+    // Ciorne was a tab once and it was the wrong shape for what a draft is. A
+    // draft is not a different KIND of thing needing its own room; it is one of
+    // your listings, in a state — and behind a tab it made the shelf disagree
+    // with itself about how many listings you had.
+    //
+    // Salvate is a different case and belongs: it is a set of listings that IS
+    // about this person and is not derivable from anything else on the page.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /const \[shelfTab, setShelfTab\] = useState<"listings" \| "reviews">\("listings"\)/.test(profile) &&
+      /type ShelfTabId = "listings" \| "saved" \| "reviews"/.test(profile) &&
+      /const \[shelfTab, setShelfTab\] = useState<ShelfTabId>\("listings"\)/.test(profile) &&
       !/Ciorne/.test(profile) &&
       /function ShelfTab\(/.test(profile) &&
-      /Evaluări/.test(profile)
+      /Evaluări/.test(profile) &&
+      /label: language === "ro" \? "Salvate" : "Saved"/.test(profile)
     )
   })(),
 )
 
 check(
-  "the tabs share the full measure, centred",
+  "and Salvate is on YOUR profile and on nobody else's",
   (() => {
+    // A wishlist says what somebody wants, what they can afford and what size
+    // they are. Every marketplace in this category keeps it private, and the
+    // plumbing agrees: /api/wishlist answers for whoever holds the cookie and
+    // has no form that reads another account's list — so the tab on a
+    // stranger's profile would not leak THEIR saved items, it would show the
+    // reader their OWN under somebody else's name. That is the worse of the two
+    // failures, because it is confidently wrong.
+    //
+    // Two independent gates, and both are wanted: the tab is not in the strip
+    // for anybody else, and the panel refuses to render even if some future
+    // state change put "saved" in `shelfTab` anyway.
     const profile = strip(read("components/member/member-profile.tsx"))
-    return /flex flex-1 items-baseline justify-center/.test(profile)
+    const shelf = strip(read("components/member/saved-shelf.tsx"))
+    return (
+      /if \(isOwner\) list\.push\(\{ id: "saved"/.test(profile) &&
+      /\{isOwner && savedSeen && \(/.test(profile) &&
+      // And the component itself never asks for a user id — there is no
+      // parameter through which somebody else's list could be requested.
+      !/userId/.test(shelf) &&
+      !/memberId/.test(shelf)
+    )
   })(),
+  "        components/member/member-profile.tsx, components/member/saved-shelf.tsx",
+)
+
+check(
+  "the tabs share the full measure on a phone and are labels on a desktop",
+  (() => {
+    // `flex-1` on a 1100px column made each tab five hundred pixels wide with
+    // one word floating in the middle of it. Nothing on a desktop tab strip is
+    // full-width: the strip is a set of labels, not a row of thumb targets.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /flex flex-1 items-baseline justify-center/.test(profile) &&
+      /md:flex-none md:justify-start/.test(profile)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
 )
 
 check(
@@ -842,11 +882,14 @@ check(
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
       /const shownTab = pending \?\? shelfTab/.test(profile) &&
-      /active=\{shownTab === "listings"\}/.test(profile) &&
-      /active=\{shownTab === "reviews"\}/.test(profile) &&
+      // The strip is rendered from the tab list now rather than written out
+      // three times, so the optimistic read is in one place instead of three.
+      /active=\{shownTab === tb\.id\}/.test(profile) &&
       // The panels are the slow half, and must NOT read the optimistic value.
+      // All three of them.
       /shelf-panel", shelfTab === "reviews"/.test(profile) &&
-      /shelf-panel", shelfTab === "listings"/.test(profile)
+      /shelf-panel", shelfTab === "listings"/.test(profile) &&
+      /shelf-panel", shelfTab === "saved"/.test(profile)
     )
   })(),
 )
@@ -962,15 +1005,31 @@ check(
   "the underline travels rather than two borders swapping colour",
   (() => {
     // The one thing a tab strip has to communicate is that these are the same
-    // control in two positions, and a border that simply becomes black
+    // control in several positions, and a border that simply becomes black
     // somewhere else says the opposite. One bar, moved by transform.
+    //
+    // MEASURED, NOT A FRACTION. It was `w-1/2` translated by `100%`, which is
+    // exact for two tabs of equal width and wrong for everything else — a third
+    // tab makes it half a strip too wide, and the desktop strip sizes tabs to
+    // their labels, so the three words are three different widths on the same
+    // line. Neither is expressible as a fraction of anything, so the active tab
+    // is read from the DOM and the bar is given its left and its width.
+    //
     // `shownTab`, not `shelfTab`: the bar belongs to the strip, which answers
     // the finger immediately, rather than to the panels, which wait for the
-    // scroll to finish. It still travels by transform and it is still one bar.
+    // scroll to finish.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /transform: `translate3d\(\$\{shownTab === "reviews" \? 100 : 0\}%, 0, 0\)`/.test(profile) &&
-      /absolute -bottom-px left-0 h-\[2px\] w-1\/2/.test(profile)
+      /\[data-tab="\$\{shownTab\}"\]/.test(profile) &&
+      /setBar\(\(prev\) =>/.test(profile) &&
+      /transform: `translate3d\(\$\{bar\.left\}px, 0, 0\)`, width: bar\.width/.test(profile) &&
+      // One bar, still. Not one per tab.
+      (profile.match(/absolute -bottom-px left-0 h-\[2px\]/g) ?? []).length === 1 &&
+      !/w-1\/2/.test(profile) &&
+      // Nothing is drawn before it has been measured: an element that has never
+      // been laid out has no width to animate from, so the alternative is a
+      // two-pixel line growing out of the left edge on every first paint.
+      /\{bar && \(/.test(profile)
     )
   })(),
 )
@@ -1225,8 +1284,15 @@ console.log("\nSwitching tabs says which way you went")
 check(
   "the incoming panel arrives from the side its tab is on",
   (() => {
+    // From the ORDER of the tabs, not from their names. With three of them
+    // "reviews" is to the right of Salvate and Salvate is to the right of
+    // Anunțuri, and a test on one id cannot say that — `next === "reviews"`
+    // called every move away from Salvate a move to the left, including the one
+    // that goes right.
     return (
-      /setDir\(next === "reviews" \? "right" : "left"\)/.test(profileSrc) &&
+      /const fromIndex = tabs\.findIndex/.test(profileSrc) &&
+      /const toIndex = tabs\.findIndex/.test(profileSrc) &&
+      /setDir\(toIndex > fromIndex \? "right" : "left"\)/.test(profileSrc) &&
       /shelf-panel-in-right/.test(css) &&
       /shelf-panel-in-left/.test(css)
     )
@@ -1244,13 +1310,14 @@ check(
 )
 
 check(
-  "both tabs replay their animation, not just one of them",
+  "every tab replays its animation, not just one of them",
   (() => {
     // The reviews panel had the class written straight on it, so it played once
     // — on the mount — and every switch back to it after that was a cut, while
-    // listings animated every time.
+    // listings animated every time. Two tabs behaving differently is worse than
+    // neither animating, and with three of them it is worse again.
     return (
-      (profileSrc.match(/panelIn\("(listings|reviews)"\)/g) ?? []).length === 2 &&
+      (profileSrc.match(/panelIn\("(listings|saved|reviews)"\)/g) ?? []).length === 3 &&
       !/className="shelf-panel-in"/.test(profileSrc)
     )
   })(),
@@ -2381,6 +2448,164 @@ check(
       /pinned, left: leftListing \} = usePinnedBar/.test(listing)
     )
   })(),
+)
+
+console.log("\nThe Salvate tab draws the same list the feed does")
+
+check(
+  "one cache, one request, one mapper — for both screens",
+  (() => {
+    // The cache, the sessionStorage mirror, the in-flight guard and the
+    // wishlist-row mapper were four module-scoped values inside mobile-feed.tsx,
+    // which was right while the feed was the only screen that drew the list. A
+    // second copy for the profile would have been a second cache and a second
+    // request, and two tabs under the same heading disagreeing about what is in
+    // it.
+    const store = strip(read("lib/marketplace/saved-items.ts"))
+    const feed = strip(read("components/explore/mobile-feed.tsx"))
+    const shelf = strip(read("components/member/saved-shelf.tsx"))
+    return (
+      /export function loadSavedItems/.test(store) &&
+      /export function mapWishlistItem/.test(store) &&
+      /const SAVED_SS_KEY = "storelib_saved_items_v1"/.test(store) &&
+      // Both callers import it, and neither keeps a copy.
+      /from "@\/lib\/marketplace\/saved-items"/.test(feed) &&
+      /from "@\/lib\/marketplace\/saved-items"/.test(shelf) &&
+      !/function mapWishlistItem/.test(feed) &&
+      !/let savedItemsCache/.test(feed) &&
+      !/storelib_saved_items_v1/.test(feed)
+    )
+  })(),
+  "        lib/marketplace/saved-items.ts",
+)
+
+check(
+  "un-saving a card does not empty the list under your finger",
+  (() => {
+    // Tapping the heart on a card you are looking at is not a request for the
+    // card to vanish and everything below it to jump up a row. The heart
+    // unfills — that reads the live wishlist store — and the card leaves on the
+    // next open, which is what `savedVisit` rebuilds from a cache that has been
+    // pruned in the meantime.
+    const shelf = strip(read("components/member/saved-shelf.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /const pruned = cached\.filter\(\(p\) => p\?\.id && savedIds\.has\(p\.id\)\)/.test(shelf) &&
+      /persistSavedCache\(pruned\)/.test(shelf) &&
+      // The visible snapshot is only ever replaced on a fresh visit.
+      /if \(reloadSignal === 0\) return/.test(shelf) &&
+      /setSavedVisit\(\(n\) => n \+ 1\)/.test(profile)
+    )
+  })(),
+  "        components/member/saved-shelf.tsx",
+)
+
+check(
+  "and it lays its cards out exactly like the panel beside it",
+  (() => {
+    // Two panels under one tab strip that grid their cards differently read as
+    // two pages, and switching between them would move every card on the screen.
+    const shelf = strip(read("components/member/saved-shelf.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const grid = "grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4"
+    return shelf.includes(grid) && profile.includes(grid)
+  })(),
+  "        components/member/saved-shelf.tsx",
+)
+
+check(
+  "your own /member/<handle> knows it is yours",
+  (() => {
+    // The public page and /profile render the SAME component, and the same
+    // person reaches either — from a link they sent themselves, from a search
+    // result, from their own bio. Without this the screen treated that as
+    // somebody else: a Follow button pointing at your own account, and no
+    // Salvate tab, because a wishlist is only drawn for the person it belongs
+    // to.
+    //
+    // The listing reads stay on the admin client, so the public view is
+    // unchanged for an anonymous visitor; this is the one question that needs
+    // the session.
+    const page = strip(read("app/(marketing)/member/[username]/page.tsx"))
+    return (
+      /isOwner = !!user && user\.id === profile\.id/.test(page) &&
+      /<MemberProfile\s*\n\s*isOwner=\{isOwner\}/.test(page) &&
+      // And a missing session is the normal state of a public page, never a 500.
+      /\} catch \{/.test(page.slice(page.indexOf("let isOwner = false")))
+    )
+  })(),
+  "        app/(marketing)/member/[username]/page.tsx",
+)
+
+console.log("\nAnd the profile is not a phone layout on a large screen")
+
+check(
+  "the shell draws the tab strip the real screen has, not a heading it lost",
+  (() => {
+    // The shell drew a 22px row reading "Articolele mele", which the shelf
+    // stopped being some time ago. What replaces it is a strip of three tabs
+    // about ten pixels taller with a hairline under it, so every arrival on the
+    // account tab moved the whole grid down by the difference the instant the
+    // real screen landed.
+    // Comment-stripped for the negative: the note in that file quotes the
+    // heading it explains the removal of, which is the trap this repository has
+    // now sprung on itself four times.
+    const shell = strip(read("app/(marketing)/profile/loading.tsx"))
+    return (
+      !/Articolele mele/.test(shell) &&
+      /\["Anunțuri", "Salvate", "Evaluări"\]\.map/.test(shell) &&
+      /relative flex items-stretch gap-0 border-b border-neutral-200\/80 md:gap-9/.test(shell) &&
+      /md:flex-none md:justify-start md:pb-3 md:text-\[16px\]/.test(shell)
+    )
+  })(),
+  "        app/(marketing)/profile/loading.tsx",
+)
+
+check(
+  "and its grid matches the real one at every breakpoint, not only on a phone",
+  (() => {
+    // It matched on a phone and drifted on a desktop — md:gap-x-4 against the
+    // real md:gap-x-5, gap-y-6 against gap-y-8, pb-12 against pb-16 and no
+    // md:mt-6 at all — so the wider the screen, the more the cards moved at the
+    // swap.
+    const shell = read("app/(marketing)/profile/loading.tsx")
+    const profile = read("components/member/member-profile.tsx")
+    const grid = "md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4"
+    return shell.includes(grid) && profile.includes(grid) && !/md:gap-x-4 md:pb-12/.test(shell)
+  })(),
+  "        app/(marketing)/profile/loading.tsx",
+)
+
+check(
+  "the cover is not a 5:1 letterbox once there is room for a cover",
+  (() => {
+    // The column is capped at 1100px, so at 210 the banner is a phone strip
+    // stretched sideways with none of the height given back. Every desktop
+    // profile banner people are used to sits between 3:1 and 4:1, and the
+    // reason is not taste: at 5:1 an uploaded photograph is cropped to a band,
+    // and a band of somebody's picture is rarely the part worth showing.
+    const css = read("app/globals.css")
+    return (
+      /@media \(min-width: 1024px\) \{\s*\n\s*\.profile-cover \{ height: 250px; \}/.test(css) &&
+      /@media \(min-width: 1280px\) \{\s*\n\s*\.profile-cover \{ height: 280px; \}/.test(css)
+    )
+  })(),
+  "        app/globals.css",
+)
+
+check(
+  "and the header's controls grow with the header they sit in",
+  (() => {
+    // An eight-pixel-tall pill and a 36px round button beside a 128px avatar on
+    // a 280px banner are the phone controls that came along for the ride.
+    const profile = read("components/member/member-profile.tsx")
+    return (
+      /md:h-10 md:px-5 md:text-\[14px\]/.test(profile) &&
+      /md:h-10 md:w-10 md:hover:bg-black\/35/.test(profile) &&
+      /md:right-4 md:top-4/.test(profile)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

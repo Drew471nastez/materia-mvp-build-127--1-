@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { MemberProfile, type MemberListing } from "@/components/member/member-profile"
 import { readProfileRow } from "@/lib/profile/read"
 import { readSellerListings } from "@/lib/profile/listings"
@@ -182,8 +183,40 @@ export default async function MemberPage({ params }: MemberPageProps) {
     admin.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id),
   ])
 
+  /**
+   * IS THIS ADDRESS YOU?
+   *
+   * /member/<handle> is a public page and /profile is the private one, but they
+   * render the SAME component and the same person can arrive at either — from a
+   * share link they sent themselves, from a search result, from their own bio.
+   * Without this the screen treated that as somebody else: a Follow button
+   * pointing at your own account, owner-only marks on your own listings absent,
+   * and — the reason this was added — no Salvate tab, because a wishlist is only
+   * ever drawn for the person it belongs to.
+   *
+   * The reads above stay on the admin client: a profile and its published
+   * listings are public data and must render identically for an anonymous
+   * visitor. This is the one question that needs the SESSION, and it is asked
+   * after them so a signed-out visitor pays nothing for it beyond a cookie read.
+   *
+   * Wrapped, because a missing or expired session is the normal state of this
+   * page rather than a failure, and it must never be able to 500 a public
+   * profile.
+   */
+  let isOwner = false
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    isOwner = !!user && user.id === profile.id
+  } catch {
+    /* signed out, or no auth cookie — the public view is the correct fallback */
+  }
+
   return (
     <MemberProfile
+      isOwner={isOwner}
       member={{
         id: profile.id,
         username: profile.username || username,

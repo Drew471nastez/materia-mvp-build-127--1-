@@ -50,7 +50,10 @@ export default function ProfileLoading() {
       <div className="relative flex items-start gap-4 md:gap-6">
         <div className="-mt-11 h-[88px] w-[88px] shrink-0 animate-pulse rounded-full bg-neutral-100 shadow-[0_6px_18px_-8px_rgba(15,15,15,0.35)] ring-4 ring-white md:-mt-14 md:h-28 md:w-28 lg:h-32 lg:w-32" />
         <div className="flex min-w-0 flex-1 justify-end pt-3">
-          <span className="inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800">
+          {/* The same pill, at the same size at every breakpoint — it grows
+              from md up on the real screen, and a shell that keeps it at the
+              phone size is a control that changes height at the swap. */}
+          <span className="inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800 md:h-10 md:px-5 md:text-[14px]">
             Editează profilul
           </span>
         </div>
@@ -85,13 +88,43 @@ export default function ProfileLoading() {
       </div>
 
       <div className="mt-6 flex min-h-0 flex-1 flex-col md:mt-8">
-        <div className="flex h-[22px] items-baseline justify-between gap-3">
-          <h2 className="truncate text-[15px] font-semibold leading-[22px] tracking-[-0.01em] text-neutral-900">
-            Articolele mele
-          </h2>
+        {/* THE TAB STRIP, NOT A HEADING.
+
+            This drew a 22px row containing the words "Articolele mele" — which
+            the shelf stopped being some time ago. What replaces it is a strip of
+            three tabs about ten pixels taller with a hairline under it, so every
+            arrival on the account tab moved the whole grid down by the
+            difference the instant the real screen landed.
+
+            Drawn rather than skeletonised, and drawn at the real geometry:
+            equal columns on a phone, labels at the start of the line from md up,
+            the underline already under the first because the shelf always opens
+            on Anunțuri. Every class here has a counterpart in ShelfTab — see
+            components/member/member-profile.tsx.
+
+            The COUNT beside Anunțuri is deliberately absent: it is not knowable
+            until the page it is standing in for has loaded, and a digit that
+            appears at the swap is a smaller change than a digit that appears and
+            is wrong. The underline is measured from the tab on the real screen,
+            so it simply lands correct. */}
+        <div className="relative flex items-stretch gap-0 border-b border-neutral-200/80 md:gap-9">
+          {["Anunțuri", "Salvate", "Evaluări"].map((label, i) => (
+            <span
+              key={label}
+              className={`relative flex flex-1 items-baseline justify-center gap-1.5 pb-2.5 pt-1 text-[15px] md:flex-none md:justify-start md:pb-3 md:text-[16px] ${
+                i === 0 ? "font-semibold text-neutral-900" : "font-medium text-neutral-400"
+              }`}
+            >
+              {label}
+            </span>
+          ))}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:grid-cols-3 md:gap-x-4 md:pb-12 lg:grid-cols-4">
+        {/* The grid's own spacing, at every breakpoint. It matched on a phone
+            and drifted on a desktop — md:gap-x-4 against the real md:gap-x-5,
+            gap-y-6 against gap-y-8, pb-12 against pb-16 and no md:mt-6 at all —
+            so the wider the screen, the more the cards moved at the swap. */}
+        <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 pb-10 md:mt-6 md:grid-cols-3 md:gap-x-5 md:gap-y-8 md:pb-16 lg:grid-cols-4">
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="space-y-2">
               <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-neutral-100" />

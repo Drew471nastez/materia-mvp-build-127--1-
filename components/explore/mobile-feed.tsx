@@ -20,6 +20,13 @@ import {
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
+import {
+  invalidateSavedItems,
+  loadSavedItems,
+  peekSavedCache,
+  persistSavedCache,
+  readSavedCache,
+} from "@/lib/marketplace/saved-items"
 import { warmListingImage } from "@/lib/warm-image"
 import { signalArrival } from "@/lib/nav-blend"
 import { consumeNavHint } from "@/lib/screen-transition"
@@ -60,9 +67,6 @@ const TABS: ReadonlyArray<readonly [Tab, string]> = [
   ["saved", "mfeed.saved"],
 ]
 
-// Module-scoped cache of the user's saved listings (full product objects). Kept
-// outside React (and mirrored to sessionStorage) so the Saved tab renders
-// instantly — no spinner on tab switches, and none across a same-session reload.
 // The people you follow, kept across tab switches so returning to Following
 // doesn't show a skeleton for something you were just looking at.
 let followingCache: FollowedPerson[] | null = null
@@ -70,51 +74,19 @@ let followingCache: FollowedPerson[] | null = null
 /** Where the For You grid was left, so a back navigation returns to it. */
 const FEED_SCROLL_KEY = "storelib_feed_scroll_v1"
 
-const SAVED_SS_KEY = "storelib_saved_items_v1"
-let savedItemsCache: any[] | null = null
-let savedItemsInflight: Promise<any[]> | null = null
-
-function persistSavedCache(list: any[] | null) {
-  savedItemsCache = list
-  try {
-    if (list) sessionStorage.setItem(SAVED_SS_KEY, JSON.stringify(list))
-    else sessionStorage.removeItem(SAVED_SS_KEY)
-  } catch {
-    /* storage unavailable */
-  }
-}
-
-/** Best-effort synchronous read so the tab can paint before any fetch resolves. */
-function readSavedCache(): any[] | null {
-  if (savedItemsCache) return savedItemsCache
-  try {
-    const raw = sessionStorage.getItem(SAVED_SS_KEY)
-    const parsed = raw ? JSON.parse(raw) : null
-    if (Array.isArray(parsed)) {
-      savedItemsCache = parsed
-      return parsed
-    }
-  } catch {
-    /* ignore */
-  }
-  return null
-}
-
-function loadSavedItems(): Promise<any[]> {
-  if (savedItemsInflight) return savedItemsInflight
-  savedItemsInflight = fetch("/api/wishlist", { credentials: "include" })
-    .then((r) => (r.ok ? r.json() : { items: [] }))
-    .then((data) => {
-      const mapped = ((data?.items ?? []) as any[]).map(mapWishlistItem).filter(Boolean)
-      persistSavedCache(mapped)
-      return mapped
-    })
-    .catch(() => savedItemsCache ?? [])
-    .finally(() => {
-      savedItemsInflight = null
-    })
-  return savedItemsInflight
-}
+/**
+ * THE SAVED LIST IS NOT OWNED BY THIS FILE ANY MORE.
+ *
+ * The cache, the sessionStorage mirror, the in-flight guard and the wishlist-row
+ * mapper were four module-scoped values here, which was right while this was the
+ * only screen that drew the list. Your own profile has a Salvate tab now (see
+ * components/member/saved-shelf.tsx), and a second copy of all of it would have
+ * meant a second cache, a second request, and two tabs under the same heading
+ * disagreeing about what is in it.
+ *
+ * lib/marketplace/saved-items.ts is the same code, moved, so both screens are
+ * literally reading the same array.
+ */
 
 /**
  * Depop/Vinted-style mobile marketplace surface — a clean 2-column grid.
@@ -1378,30 +1350,11 @@ export function MobileFeed({
   )
 }
 
-/** Reshapes a /api/wishlist GET item into the ProductCard product shape. */
-function mapWishlistItem(item: any) {
-  const p = item?.products
-  if (!p?.id) return null
-  const prof = p.creator_profile
-  return {
-    id: p.id,
-    title: p.title,
-    slug: p.slug,
-    price_cents: p.price_cents,
-    thumbnail_url: p.thumbnail_url ?? null,
-    gallery_urls: p.gallery_urls ?? null,
-    type: p.type,
-    category: p.category ?? null,
-    saves_count: p.saves_count ?? 0,
-    creator: {
-      id: p.creators?.id,
-      slug: p.creators?.slug,
-      profile: prof
-        ? { display_name: prof.display_name, username: prof.username, avatar_url: prof.avatar_url }
-        : null,
-    },
-  }
-}
+/* `mapWishlistItem` — reshaping a /api/wishlist row into the ProductCard
+   product shape — moved to lib/marketplace/saved-items.ts with the cache it
+   feeds, so the profile's Salvate tab draws from the same mapper. A card built
+   from a slightly different shape is a card with a missing seller name or a
+   price that formats as NaN, and that is not a thing to have two of. */
 
 /**
  * The "Saved" tab. The visible list is derived from `savedIds` — the wishlist
@@ -1526,9 +1479,10 @@ function SavedTab({
   // Guarded so an unloaded (empty) store never wipes the cache.
   useEffect(() => {
     if (savedIds.size > 0) savedLoadedRef.current = true
-    if (!savedLoadedRef.current || !savedItemsCache) return
-    const pruned = savedItemsCache.filter((p) => p?.id && savedIds.has(p.id))
-    if (pruned.length !== savedItemsCache.length) persistSavedCache(pruned)
+    const cached = peekSavedCache()
+    if (!savedLoadedRef.current || !cached) return
+    const pruned = cached.filter((p) => p?.id && savedIds.has(p.id))
+    if (pruned.length !== cached.length) persistSavedCache(pruned)
   }, [savedIds])
 
   // Pull-to-refresh → refetch, then rebuild + rise-in animation. The current
@@ -1536,7 +1490,7 @@ function SavedTab({
   useEffect(() => {
     if (reloadSignal === 0) return
     let cancelled = false
-    savedItemsInflight = null // force past the in-flight guard for a fresh request
+    invalidateSavedItems() // force past the in-flight guard for a fresh request
     loadSavedItems().then((list) => {
       if (cancelled) return
       setSnapshot(list)
