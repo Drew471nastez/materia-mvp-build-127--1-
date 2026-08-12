@@ -860,6 +860,85 @@ check(
 )
 
 check(
+  "one letter is enough to search, and the panel never empties while you type",
+  (() => {
+    // It was `trimmed.length < 2` in two places, so typing the first letter of
+    // somebody's name cleared both lists and drew the "search members by name"
+    // hint — the panel telling you to do the thing you were visibly in the
+    // middle of doing. Two characters is a sensible floor for full text over a
+    // million documents; it is the wrong floor for a name lookup over a
+    // marketplace's members.
+    //
+    // And nothing is cleared between keystrokes any more. The old effect emptied
+    // both arrays and set `loading` BEFORE the debounce had elapsed, so a single
+    // fast word flashed hint → spinner → results. The only thing that empties
+    // the panel now is emptying the field.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /if \(trimmed\.length < 1\) \{/.test(overlay) &&
+      /if \(!trimmed\) \{\s*\n\s*setTitles\(\[\]\)/.test(overlay) &&
+      !/trimmed\.length < 2/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
+  "an answer already given comes back on the same frame, with no spinner flicker",
+  (() => {
+    // Search is the one surface where the same request is made over and over by
+    // definition — "jordan" is typed as j, jo, jor, jord — and half of it is
+    // then deleted and retyped. A session-lived cache means BACKSPACE IS FREE,
+    // which is most of what "typing feels smooth" means in a search box, and a
+    // hit skips the debounce entirely.
+    //
+    // The spinner is armed on a timer rather than on the keystroke: a response
+    // that returns in 90ms with a spinner shown at 0ms is a spinner nobody can
+    // read and everybody sees flicker.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /const searchCache = new Map<string, \{ titles: string\[\]; people: Person\[\] \}>\(\)/.test(overlay) &&
+      /const hit = searchCache\.get\(key\)/.test(overlay) &&
+      /function rememberSearch/.test(overlay) &&
+      // Only a COMPLETE answer is cached — half of one would be served in full
+      // next time and the missing half never fetched again.
+      /if \(nextTitles && nextPeople\) rememberSearch\(key, nextTitles, nextPeople\)/.test(overlay) &&
+      /const spinner = setTimeout\(\(\) => setPeopleLoading\(true\), 260\)/.test(overlay) &&
+      // And the debounce is short enough that it is not itself the wait.
+      /\}, 120\)/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
+  "eight faces in a dropdown are eight thumbnails, not eight camera photographs",
+  (() => {
+    // A bare `<img src={avatar}>` downloads WHAT WAS UPLOADED: two or three
+    // megabytes, three thousand pixels across, decoded in full and painted into
+    // a circle forty-four pixels wide — eight of them, fetched the moment
+    // somebody types a letter, on the surface whose whole job is to answer
+    // before they finish typing.
+    //
+    // And they arrive staggered rather than in one frame: eight rows appearing
+    // together is a block of text; the same eight 22ms apart is a list filling
+    // in. Capped, so the last is never more than a tenth of a second behind the
+    // first.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const rowSrc = overlay.slice(overlay.indexOf("function PersonRow"))
+    const listSrc = overlay.slice(overlay.indexOf("function PeopleTab"), overlay.indexOf("function PersonRow"))
+    return (
+      /<AvatarPhoto url=\{avatar\} size=\{44\}/.test(rowSrc) &&
+      !/<img/.test(rowSrc) &&
+      !/loading="lazy"/.test(rowSrc) &&
+      /animationDelay: `\$\{Math\.min\(i, 4\) \* 22\}ms`/.test(listSrc) &&
+      /animate-in fade-in-0 slide-in-from-bottom-1/.test(listSrc)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
   "and a result opens the marketplace profile, not the digital storefront",
   (() => {
     // /u/ is the store-builder storefront; /member/ is the marketplace profile

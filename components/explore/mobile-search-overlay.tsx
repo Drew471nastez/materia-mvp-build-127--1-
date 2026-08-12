@@ -10,6 +10,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { DEPARTMENTS } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
 import { SellerScore } from "@/components/marketplace/seller-score"
+import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { IosSpinner } from "./ios-spinner"
 import { cn } from "@/lib/utils"
 import { claimSurface } from "@/lib/surface-bg"
@@ -169,6 +170,36 @@ function buildKeywordSuggestions(raw: string, realTitles: string[]): string[] {
   const exact = raw.trim()
   const rest = out.filter((s) => s.toLowerCase() !== exact.toLowerCase())
   return [exact, ...rest].slice(0, 8)
+}
+
+/**
+ * EVERY ANSWER THIS SESSION HAS ALREADY HAD.
+ *
+ * Search is the one surface where the same request is made over and over by
+ * definition: "jordan" is typed as j, jo, jor, jord… and then half of it is
+ * deleted and retyped. Keeping the answers means the panel can respond on the
+ * frame a key is pressed for every query it has seen, which is what makes
+ * backspacing feel instant rather than like a fresh search.
+ *
+ * Module scope rather than component state: the overlay unmounts every time it
+ * closes, and a cache that dies with it would be empty exactly when somebody
+ * reopens the search to refine what they just typed.
+ *
+ * Capped and evicted oldest-first. A Map iterates in insertion order, so the
+ * first key is the oldest one — no timestamps, no sorting.
+ */
+const SEARCH_CACHE_MAX = 40
+const searchCache = new Map<string, { titles: string[]; people: Person[] }>()
+
+function rememberSearch(key: string, titles: string[], people: Person[]): void {
+  // Delete before set, so re-answering an old query moves it to the back of the
+  // eviction queue instead of leaving it at the front.
+  searchCache.delete(key)
+  searchCache.set(key, { titles, people })
+  if (searchCache.size > SEARCH_CACHE_MAX) {
+    const oldest = searchCache.keys().next().value
+    if (oldest !== undefined) searchCache.delete(oldest)
+  }
 }
 
 interface Person {
@@ -463,39 +494,100 @@ export function MobileSearchOverlay({
 
   const trimmed = query.trim()
 
-  // Debounced live fetch: product titles (for keyword suggestions) + people.
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  RESULTS FROM THE FIRST LETTER, AND NO EMPTY FRAME BETWEEN LETTERS
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * FROM THE FIRST. It was `trimmed.length < 2`, so typing "a" cleared both
+   * lists and drew the "search members by name" hint — the panel telling you to
+   * do the thing you were visibly in the middle of doing. Two characters is a
+   * sensible floor for a full-text query over a million documents; it is the
+   * wrong floor for a name lookup over a marketplace's members, where one letter
+   * is a real prefix and the endpoint already ranks and caps what comes back.
+   *
+   * ONE HUNDRED AND TWENTY MILLISECONDS, down from 220. A debounce exists to
+   * stop a request per keystroke, and 120 does that — nobody types faster than
+   * eight characters a second — while 220 is long enough to feel like the panel
+   * is deciding whether to bother.
+   *
+   * AND A CACHE, which is what actually makes it feel instant. Every answer is
+   * kept for the session, keyed by the query, so BACKSPACE IS FREE: deleting a
+   * letter shows the previous list on the same frame, with no request and no
+   * spinner, which is most of what "typing feels smooth" means in a search box.
+   * A cache hit skips the debounce entirely.
+   *
+   * NOTHING IS EVER CLEARED WHILE YOU TYPE. The old code emptied both arrays on
+   * every keystroke below the floor and set `loading` before the debounce had
+   * even elapsed, so the panel flashed hint → spinner → results for a single
+   * fast word. The previous results stay on screen until the next set replaces
+   * them; the only thing that empties the panel is emptying the field.
+   */
   useEffect(() => {
-    if (!open || trimmed.length < 2) {
+    if (!open) return
+    if (!trimmed) {
       setTitles([])
       setPeople([])
       setPeopleLoading(false)
       return
     }
+
+    const key = trimmed.toLowerCase()
+    const hit = searchCache.get(key)
+    if (hit) {
+      setTitles(hit.titles)
+      setPeople(hit.people)
+      setPeopleLoading(false)
+      return
+    }
+
     const ctrl = new AbortController()
-    setPeopleLoading(true)
+    /**
+     * The spinner is armed on a TIMER, not on the keystroke.
+     *
+     * A response that comes back in 90ms with a spinner shown at 0ms is a
+     * spinner nobody could read and everybody sees flicker. Below this it never
+     * appears at all — and it only ever appears when there is nothing on screen
+     * to keep looking at, because `PeopleTab` draws it only for an empty list.
+     */
+    const spinner = setTimeout(() => setPeopleLoading(true), 260)
+
     const timer = setTimeout(async () => {
       try {
         const [itemsRes, peopleRes] = await Promise.all([
           fetch(`/api/v2/search?q=${encodeURIComponent(trimmed)}&limit=8`, { signal: ctrl.signal }).catch(() => null),
           fetch(`/api/v2/search/people?q=${encodeURIComponent(trimmed)}&limit=8`, { signal: ctrl.signal }).catch(() => null),
         ])
+        if (ctrl.signal.aborted) return
+
+        let nextTitles: string[] | null = null
+        let nextPeople: Person[] | null = null
+
         if (itemsRes?.ok) {
           const data = await itemsRes.json()
-          setTitles(((data?.results ?? []) as any[]).map((r) => r?.title).filter(Boolean))
+          nextTitles = ((data?.results ?? []) as any[]).map((r) => r?.title).filter(Boolean)
+          setTitles(nextTitles)
         }
         if (peopleRes?.ok) {
           const data = await peopleRes.json()
-          setPeople((data?.people ?? []) as Person[])
+          nextPeople = (data?.people ?? []) as Person[]
+          setPeople(nextPeople)
         }
+
+        // Only a COMPLETE answer is cached. Half of one would be served in full
+        // next time, and the missing half would never be fetched again.
+        if (nextTitles && nextPeople) rememberSearch(key, nextTitles, nextPeople)
       } catch {
-        /* aborted / offline — keep prior */
+        /* aborted / offline — keep whatever is on screen */
       } finally {
         if (!ctrl.signal.aborted) setPeopleLoading(false)
       }
-    }, 220)
+    }, 120)
+
     return () => {
       ctrl.abort()
       clearTimeout(timer)
+      clearTimeout(spinner)
     }
   }, [open, trimmed])
 
@@ -956,7 +1048,15 @@ function PeopleTab({
   onClose: () => void
   t: (k: string) => string
 }) {
-  if (trimmed.length < 2) {
+  /**
+   * The hint is for an EMPTY field, and for nothing else.
+   *
+   * It was `< 2`, so typing the first letter of somebody's name replaced the
+   * results with an instruction to search for them — the panel telling you to do
+   * the thing you were visibly in the middle of doing. One character is a real
+   * prefix over a members table; the endpoint ranks and caps what comes back.
+   */
+  if (trimmed.length < 1) {
     return (
       <div className="search-empty flex flex-col items-center justify-center px-8 text-center">
         <Store className="mb-3 h-7 w-7 text-neutral-300" />
@@ -980,8 +1080,30 @@ function PeopleTab({
   }
   return (
     <div className="px-1 py-2">
-      {people.map((p) => (
-        <PersonRow key={p.id} person={p} onClose={onClose} t={t} />
+      {people.map((p, i) => (
+        /**
+         * A SHORT STAGGER, and a very short one.
+         *
+         * Eight rows appearing in the same frame is a block of text arriving;
+         * the same eight arriving 22ms apart reads as a list filling in, which
+         * is the difference between a panel that popped and one that responded.
+         *
+         * Capped at the fifth row so the last one is never more than a tenth of
+         * a second behind the first — a stagger that keeps accumulating turns
+         * into a queue you are waiting through. Opacity and a two-pixel rise
+         * only: both are composited, and nothing here can move the row above it.
+         *
+         * Keyed on the person's id, so a list that changes under a keystroke
+         * replays only for the rows that are actually new — React keeps the
+         * ones that were already there, and they do not flicker.
+         */
+        <div
+          key={p.id}
+          className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200 ease-out"
+          style={{ animationDelay: `${Math.min(i, 4) * 22}ms`, animationFillMode: "both" }}
+        >
+          <PersonRow person={p} onClose={onClose} t={t} />
+        </div>
       ))}
     </div>
   )
@@ -992,7 +1114,6 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
   const username = person.profile?.username || person.slug || ""
   const avatar = person.profile?.avatar_url
   const count = person.products_count ?? 0
-  const [failed, setFailed] = useState(false)
 
   return (
     /**
@@ -1012,22 +1133,36 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
       onClick={onClose}
       className="flex w-full items-center gap-3 px-4 py-2.5 transition-colors active:bg-neutral-50"
     >
-      {avatar && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatar}
-          alt={name}
-          width={44}
-          height={44}
-          onError={() => setFailed(true)}
-          className="h-11 w-11 shrink-0 rounded-full object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[16px] font-semibold text-neutral-500">
-          {name.charAt(0).toUpperCase()}
-        </span>
-      )}
+      {/**
+       * THROUGH THE OPTIMISER, at the size it is actually drawn.
+       *
+       * It was a bare `<img src={avatar}>`, and a bare img downloads WHAT WAS
+       * UPLOADED: an avatar is a camera photograph somebody picked off their
+       * phone — two or three megabytes, three thousand pixels across — decoded
+       * in full and then painted into a circle forty-four pixels wide. Eight of
+       * those, fetched the moment somebody types a letter, on the one surface
+       * whose whole job is to answer before they finish typing.
+       *
+       * `AvatarPhoto` asks for the size that will be shown, in AVIF, off the
+       * ladder next.config.mjs keeps rungs on for exactly this. The same face
+       * becomes a couple of kilobytes and stops competing with the request that
+       * is fetching the next set of results.
+       *
+       * `loading="lazy"` is gone with it and is not missed: these are eight rows
+       * in a panel that is already on screen, so lazy-loading them is deferring
+       * the only thing the panel is for.
+       *
+       * The fallback is the caller's own — the grey initial this row already had
+       * — and it also covers a URL that does not resolve, which a bare img
+       * answered with the browser's broken-image glyph.
+       */}
+      <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-neutral-200">
+        <AvatarPhoto url={avatar} size={44} className="h-full w-full object-cover">
+          <span className="flex h-full w-full items-center justify-center text-[16px] font-semibold text-neutral-500">
+            {name.charAt(0).toUpperCase()}
+          </span>
+        </AvatarPhoto>
+      </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[15px] font-semibold text-neutral-900">{name}</span>
         <span className="truncate text-[12px] text-neutral-500">
