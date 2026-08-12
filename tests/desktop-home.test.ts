@@ -945,6 +945,84 @@ check(
 )
 
 check(
+  "the ground falls from the top edge and keeps falling",
+  (() => {
+    // It was 115deg — a diagonal, and on a panel twice as wide as it is tall a
+    // diagonal spends most of its travel horizontally. That put the lightest
+    // part of the ground behind the headline and the darkest behind the
+    // artwork: the two things on this panel that least want a ground drawing
+    // attention to itself.
+    //
+    // The angle is pinned near vertical, but the real invariant is the one
+    // under it: EVERY STOP IS DARKER THAN THE ONE BEFORE. Each earlier setting
+    // ended on a lighter stop than its neighbour, because a diagonal wants to
+    // come back up in the far corner — and one stop that goes back up is a band
+    // across a panel this size, which is what a gradient must never look like.
+    // Read off the values rather than matched against a string, so the check
+    // survives a re-tint and only fails on a re-shape.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    const decl = /linear-gradient\((\d+)deg,([^"]+)\)/.exec(hero2)
+    if (!decl) return false
+    const angle = Number(decl[1])
+    const lum = [...decl[2].matchAll(/#([0-9a-f]{6})/gi)].map((m) => {
+      const v = parseInt(m[1], 16)
+      return ((v >> 16) & 255) + ((v >> 8) & 255) + (v & 255)
+    })
+    return (
+      // Top to bottom, with enough lean that it is light falling rather than a
+      // mechanical band, and not so much that it turns back into a sweep.
+      angle >= 160 &&
+      angle <= 180 &&
+      // Five stops, because a near-flat ramp over six hundred pixels is exactly
+      // where 8-bit sRGB bands and the extra stops cost nothing.
+      lum.length >= 5 &&
+      lum.every((v, i) => i === 0 || v < lum[i - 1]) &&
+      // Still a ground, not a tint: the darkest stop stays within about six
+      // percent of the #f5f5f5 page it sits on.
+      lum[lum.length - 1] > 245 * 3 * 0.94
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "the artwork takes the slack rather than the panel's height",
+  (() => {
+    // Two asks that read as opposites — a bigger picture in a shorter panel —
+    // and they are only opposites if the picture is what makes the panel tall.
+    // It is not: the copy column runs to something over 450px at 1400px wide
+    // while the artwork at a half column is about 350, and `items-center`
+    // centres the shorter of the two. That ~100px of slack either side of the
+    // picture is the panel's height being set entirely by the left-hand side.
+    //
+    // So the artwork grows into slack it already had, and the height comes off
+    // the copy column's rhythm, where it was actually being spent.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      // 45/55, not 50/50. Past 55 the left column starts reflowing, and
+      // reflowing the left column makes the panel TALLER — the opposite of the
+      // other half of this change.
+      /lg:grid-cols-\[minmax\(0,0\.45fr\)_minmax\(0,0\.55fr\)\]/.test(hero2) &&
+      // The shorter column is what gets centred, which is what makes the slack
+      // exist at all.
+      /grid items-center/.test(hero2) &&
+      // Five percent off the panel, spread over three places rather than taken
+      // out of the padding alone — 41px of air above a 42px headline is a panel
+      // with its contents against the edges, not a shorter panel.
+      /lg:py-\[46px\]/.test(hero2) &&
+      // And the gap that carries meaning is untouched: the space between the
+      // button and the tiles is what separates "what to do" from "what you get".
+      /mt-8 inline-flex h-\[52px\]/.test(hero2) &&
+      // `sizes` moved with the column. A hint left behind by a layout change is
+      // the quiet kind of wrong — the picture still fits, it is just upscaled
+      // from a rung too small for it.
+      /\(min-width: 1024px\) 680px/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
   "a stranger gets a different page, not the same one with a banner",
   (() => {
     // A visitor with no account is answering a different question. The member's
@@ -1064,7 +1142,15 @@ check(
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
       /const HERO_IMAGE: Record<Side, string> = \{/.test(hero2) &&
-      /Untitled%20design%20\(4\)\.png/.test(hero2) &&
+      // Two different files. The seller's has been replaced once already —
+      // (4) became (5) — and what this pins is not which file it is but that
+      // the two sides do not point at the same one, which is the state this
+      // whole block exists to prevent and the state a careless edit returns it
+      // to. Both are 1356x798 RGBA with transparent corners; an asset off that
+      // ratio letterboxes inside the box rather than cropping, which is why the
+      // ratio guard above and this one are separate checks.
+      /Untitled%20design%20\(2\)\.png/.test(hero2) &&
+      /Untitled%20design%20\(5\)\.png/.test(hero2) &&
       /\(\["buy", "sell"\] as const\)\.map\(\(s\) => \(/.test(hero2.slice(hero2.indexOf("aspectRatio: HERO_RATIO"))) &&
       /side === s \? "opacity-100" : "opacity-0"/.test(hero2) &&
       // THE OUTGOING ONE LEAVES FASTER THAN THE INCOMING ONE ARRIVES. Both at
