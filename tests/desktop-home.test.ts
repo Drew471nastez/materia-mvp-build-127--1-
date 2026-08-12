@@ -42,6 +42,18 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const code = (p: string) => stripComments(read(p))
 
 const home = read("components/explore/home/desktop-home.tsx")
+/**
+ * The file returns TWO layouts and every guard below that reasons about ORDER
+ * has to say which one it means. A stranger and a member are answering
+ * different questions — see the note above `SIGNED_OUT_TOP_ROWS` — so the
+ * sections are in different orders, and an `indexOf` over the whole file finds
+ * whichever branch is written first, which is not a fact about either page.
+ *
+ * `home` stays the whole file for the guards that are about CONSTANTS
+ * (MIN_HISTORY, ROW, the gates), because those are shared.
+ */
+const signedOutView = home.slice(home.indexOf("if (!signedIn) {"), home.indexOf("NO ENTRANCE ANIMATION"))
+const memberView = home.slice(home.indexOf("NO ENTRANCE ANIMATION"))
 const hero = read("components/explore/home/hero-slides.tsx")
 const row = read("components/explore/home/listing-row.tsx")
 const pills = read("components/explore/home/you-might-be-into.tsx")
@@ -73,7 +85,7 @@ check(
       "<YouMightBeInto",
       "<ShopByCategory",
       "<MoreListings",
-    ].map((s) => home.indexOf(s))
+    ].map((s) => memberView.indexOf(s))
     return order.every((i) => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1])
   })(),
 )
@@ -81,8 +93,8 @@ check(
 check(
   "one row for the personal sections, three for the wider net",
   (() => {
-    const based = home.slice(home.indexOf("Bazat pe vizualizările tale recente"))
-    const suggested = home.slice(home.indexOf("Sugestii pentru tine"))
+    const based = memberView.slice(memberView.indexOf("Bazat pe vizualizările tale recente"))
+    const suggested = memberView.slice(memberView.indexOf("Sugestii pentru tine"))
     return /rows=\{1\}/.test(based.slice(0, 260)) && /rows=\{3\}/.test(suggested.slice(0, 260))
   })(),
 )
@@ -414,12 +426,12 @@ check(
       /const personal = views\.length >= MIN_HISTORY/.test(home) &&
       // TWO gates now, not one block — the rows sit either side of the hero, so
       // they cannot share a fragment. Each must carry its own.
-      (home.match(/\{personal && \(/g) ?? []).length === 2 &&
-      home.indexOf("{personal && (") < home.indexOf("Bazat pe vizualizările tale recente") &&
-      home.lastIndexOf("{personal && (") < home.indexOf("Vizualizate recent") &&
+      (memberView.match(/\{personal && \(/g) ?? []).length === 2 &&
+      memberView.indexOf("{personal && (") < memberView.indexOf("Bazat pe vizualizările tale recente") &&
+      memberView.lastIndexOf("{personal && (") < memberView.indexOf("Vizualizate recent") &&
       // The pills are OUTSIDE both — that section is the one that carries an
       // early visit and must never be gated on history it does not have.
-      home.indexOf("<YouMightBeInto") > home.lastIndexOf("{personal && (")
+      memberView.indexOf("<YouMightBeInto") > memberView.lastIndexOf("{personal && (")
     )
   })(),
   "        components/explore/home/desktop-home.tsx",
@@ -440,8 +452,11 @@ check(
     // fifty candidates for the row above.
     return (
       /minItems = 3/.test(row) &&
-      (home.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
-      !/minItems/.test(home.slice(home.indexOf("Sugestii pentru tine"), home.indexOf("<YouMightBeInto")))
+      (memberView.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
+      // The signed-out page's own recently-viewed row asks for the same full
+      // row, for the same reason.
+      (signedOutView.match(/minItems=\{ROW\}/g) ?? []).length === 1 &&
+      !/minItems/.test(memberView.slice(memberView.indexOf("Sugestii pentru tine"), memberView.indexOf("<YouMightBeInto")))
     )
   })(),
 )
@@ -909,6 +924,64 @@ check(
     )
   })(),
   "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "a stranger gets a different page, not the same one with a banner",
+  (() => {
+    // A visitor with no account is answering a different question. The member's
+    // question is "what is new since I was last here", and the layout below
+    // answers it by leading with their own history. A stranger has no history —
+    // the personal rows are empty by definition on a first visit — so the same
+    // layout hands them a hero, a gap where two sections would be, and a wall of
+    // listings under a heading that says "for you" about somebody it has never
+    // met.
+    //
+    // The order, written out rather than derived:
+    //   the proposition, then either their own history OR two rows of the newest
+    //   things, then the editorial, then the queries, then the categories, then
+    //   three more rows, then everything else a page at a time.
+    const order = [
+      "<SignedOutHero />",
+      "Vizualizate recent",
+      "<HeroSlides",
+      "<YouMightBeInto",
+      "<ShopByCategory",
+      "<MoreListings",
+    ].map((s) => signedOutView.indexOf(s))
+    return (
+      signedOutView.length > 400 &&
+      order.every((i) => i > 0) &&
+      order.every((v, i) => i === 0 || v > order[i - 1]) &&
+      // The hero is UNDER the proposition here, not above it: it is a promotion
+      // and it has to earn the scroll rather than open the page twice.
+      signedOutView.indexOf("<SignedOutHero />") < signedOutView.indexOf("<HeroSlides")
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "and with no history it is two rows of suggestions, then three more — never the same cards twice",
+  (() => {
+    // "Sugestii pentru tine" at two rows is the same promise made honestly: ten
+    // of the newest things, not a claim to know anybody. The lower block is
+    // three rows and CONTINUES the list — two identical grids under one heading
+    // twice on a page is worse than one grid, and slicing is the whole of what
+    // makes "another Sugestii pentru tine" worth having.
+    const homeAll = read("components/explore/home/desktop-home.tsx")
+    return (
+      /const SIGNED_OUT_TOP_ROWS = 2/.test(homeAll) &&
+      /const suggestedTop = sections\.suggested\.slice\(0, ROW \* SIGNED_OUT_TOP_ROWS\)/.test(homeAll) &&
+      /sections\.suggested\.slice\(ROW \* SIGNED_OUT_TOP_ROWS\)/.test(homeAll) &&
+      // Two blocks, and the upper one is the fallback for having no history.
+      (signedOutView.match(/title="Sugestii pentru tine"/g) ?? []).length === 2 &&
+      /\{personal \? \(/.test(signedOutView) &&
+      /rows=\{SIGNED_OUT_TOP_ROWS\}/.test(signedOutView) &&
+      /items=\{suggestedRest\}\s*\n\s*rows=\{3\}/.test(signedOutView)
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
 )
 
 check(

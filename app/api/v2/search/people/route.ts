@@ -4,31 +4,58 @@ import { createAdminClient } from "@/lib/supabase/admin"
 /**
  * GET /api/v2/search/people?q=term&limit=8
  *
- * Seller ("people") search for the marketplace search surfaces — the People
- * section of the search dropdown and the People tab on /explore.
+ * ===========================================================================
+ *  PEOPLE SEARCH, AND WHY IT USED TO FIND ALMOST NOBODY
+ * ===========================================================================
  *
- * Matches, in one pass:
- * - profiles.username        (GIN trigram, idx_profiles_username_trgm)
- * - profiles.display_name    (GIN trigram, idx_profiles_display_name_trgm)
- * - creators.slug            (GIN trigram, idx_creators_slug_trgm)
- * - creators.niche_tags      (array containment, single-token queries only)
+ * Typing a member's name into the Persoane tab returned an empty panel for most
+ * of the people on this marketplace, and the reason was structural rather than
+ * a bug in the matching: the query started from `creators`.
  *
- * Every index above already exists (20260225_search_trigram.sql), so this needs
- * no migration and no RPC. Ranking is applied in JS over a bounded candidate
- * pool rather than in SQL, because PostgREST cannot ORDER BY an expression —
- * and the pool is capped at 60 rows, so the sort is free.
+ *   const [profileMatches, creatorMatches] = …          // find ids
+ *   admin.from("creators").select(…).or(idFilters)      // ← hydrate from HERE
  *
- * Response items are shaped for <CreatorCard> (components/explore/creator-card.tsx)
- * so they can be rendered without any mapping, plus a `rank` for debugging:
+ * A `creators` row is a SELLER record. It is written by the seller onboarding
+ * and by /api/listings on somebody's first listing, so anybody who has never
+ * listed anything does not have one — which on a second-hand marketplace is
+ * most accounts, including every buyer, every new sign-up and everybody who
+ * came to browse. They matched in step one, had no row to hydrate in step two,
+ * and vanished.
  *
- *   { people: [{ id, slug, headline, bio, niche_tags, products_count,
- *                profile: { display_name, avatar_url, username }, rank }],
- *     total, query }
+ * Then this, on the rows that did survive:
  *
- * Fails soft by design: any DB error (missing column, missing index, PostgREST
- * aggregate unsupported) degrades to fewer/no results with a 200. Search must
- * never take the page down. The only non-200 is a 400 for a missing query,
- * matching /api/v2/search.
+ *   if (hasCounts && productsCount < 1) continue        // "never surface an
+ *                                                       //  empty store"
+ *
+ * Correct for a directory of shops. Wrong for a search box whose tab is called
+ * PEOPLE: somebody looking up a name is looking for a person, and answering
+ * "they do not exist" because that person has not published anything this week
+ * is the search lying about the database.
+ *
+ * ---------------------------------------------------------------------------
+ * SO IT STARTS FROM `profiles`
+ * ---------------------------------------------------------------------------
+ * A profile is what a member IS on this product — it is what /member/<handle>
+ * renders, what a username addresses, and the only row every account has. The
+ * creators row is now a JOIN for decoration (how many listings, what they have
+ * sold, how they were rated) rather than the thing being searched, and a member
+ * without one simply has zeroes.
+ *
+ * `username IS NOT NULL` is the one exclusion left, and it is not a policy: a
+ * member with no handle has no address to link to, and a row that navigates
+ * nowhere is worse than a row that is not there.
+ *
+ * ---------------------------------------------------------------------------
+ * AND THE ROWS CARRY A SCORE
+ * ---------------------------------------------------------------------------
+ * ⭐ 4,9 · 63 vândute, batched — two `in()` queries over the page that is
+ * actually being returned, never one per row. It is the same pair of numbers
+ * lib/profile/seller-stats.ts computes for a profile, and the same rules: null
+ * for unrated, zero for never-sold, and the component draws neither.
+ *
+ * Fails soft by design: any database error degrades to fewer or no results with
+ * a 200. Search must never take the page down. The only non-200 is a 400 for a
+ * missing query, matching /api/v2/search.
  */
 
 /** Hard ceiling on the returned list. */
@@ -44,31 +71,26 @@ const MAX_CANDIDATES = 60
 /** Guards the id lists interpolated into the PostgREST `in.(...)` filter. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-interface ProfileEmbed {
+interface ProfileRow {
+  id: string
+  username: string | null
   display_name: string | null
   avatar_url: string | null
-  username: string | null
-}
-
-interface CreatorRow {
-  id: string
-  user_id: string | null
-  slug: string | null
-  headline: string | null
-  bio: string | null
-  niche_tags: string[] | null
-  profile: ProfileEmbed | ProfileEmbed[] | null
-  products?: { count: number }[] | null
 }
 
 interface PersonResult {
+  /** The auth user id. Stable, and what every other endpoint keys people by. */
   id: string
+  /** Kept for callers that still read it; the handle is the real address. */
   slug: string
-  headline: string | null
-  bio: string | null
-  niche_tags: string[] | null
+  headline: null
+  bio: null
+  niche_tags: null
   products_count: number
-  profile: ProfileEmbed
+  sold_count: number
+  rating: number | null
+  reviews_count: number
+  profile: { display_name: string | null; avatar_url: string | null; username: string }
   rank: number
 }
 
@@ -91,21 +113,14 @@ function sanitizeTerm(raw: string): string {
     .trim()
 }
 
-/** Embedded to-one relations arrive as an object, but tolerate an array too. */
-function firstProfile(profile: CreatorRow["profile"]): ProfileEmbed | null {
-  if (!profile) return null
-  return Array.isArray(profile) ? profile[0] ?? null : profile
-}
-
 /**
- * Relevance score. Ordered by how confident the match is that this is the seller
- * the shopper meant: an exact @handle beats a prefix beats a substring.
+ * Relevance. Ordered by how confident the match is that this is the person the
+ * shopper meant: an exact @handle beats a prefix beats a substring.
  */
 function scorePerson(person: Omit<PersonResult, "rank">, term: string): number {
   const needle = term.toLowerCase()
   const username = (person.profile.username || "").toLowerCase()
   const displayName = (person.profile.display_name || "").toLowerCase()
-  const slug = (person.slug || "").toLowerCase()
 
   let score = 0
 
@@ -113,18 +128,17 @@ function scorePerson(person: Omit<PersonResult, "rank">, term: string): number {
   else if (displayName === needle) score = 3.5
   else if (username.startsWith(needle)) score = 3
   else if (displayName.startsWith(needle)) score = 2.5
-  else if (slug.startsWith(needle)) score = 2
   // Match at any word boundary in a multi-word name ("levi" in "Vintage Levi Co").
   else if (displayName.split(/\s+/).some((word) => word.startsWith(needle))) score = 1.5
-  else if (username.includes(needle) || displayName.includes(needle) || slug.includes(needle)) score = 1
+  else if (username.includes(needle) || displayName.includes(needle)) score = 1
 
-  // A tag hit is corroborating evidence, never the whole story.
-  if (person.niche_tags?.some((tag) => tag.toLowerCase() === needle)) score += 0.75
-
-  // Log-scaled so a 400-listing shop can't bury an exact handle match.
+  // Being an active seller is a TIE-BREAK, never a gate. Log-scaled so a shop
+  // with four hundred listings cannot bury an exact handle match, and small
+  // enough that it can only ever reorder people who matched equally well.
   score += Math.min(Math.log10(person.products_count + 1) * 0.3, 0.6)
+  score += Math.min(Math.log10(person.sold_count + 1) * 0.2, 0.4)
 
-  // Completeness nudge — a seller with a face renders better in the dropdown.
+  // Completeness nudge — a member with a face renders better in the dropdown.
   if (person.profile.avatar_url) score += 0.15
 
   return score
@@ -150,124 +164,118 @@ export async function GET(request: Request) {
     const admin = createAdminClient()
     const pattern = `%${term}%`
 
-    // ── Step 1: candidate discovery ──────────────────────────────────────────
-    // Two independent trigram lookups, in parallel. Either may fail on its own
-    // (missing column on an un-migrated database) without sinking the other.
-    const creatorFilters = [`slug.ilike.${pattern}`]
+    // ── Step 1: the people ───────────────────────────────────────────────────
+    // One table, and it is the one every account has a row in. `not.is.null` on
+    // the handle rather than a filter applied afterwards, so the candidate pool
+    // is 60 LINKABLE members instead of 60 rows some of which are discarded.
+    const { data: profileRows, error } = await admin
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
+      .not("username", "is", null)
+      .limit(MAX_CANDIDATES)
 
-    // Array containment needs `{...}` syntax; a term with a space would have to be
-    // quoted inside the filter, which collides with PostgREST's own quoting. Tags
-    // are single words in practice ("vintage", "denim"), so restrict it to those.
-    if (!term.includes(" ")) {
-      creatorFilters.push(`niche_tags.cs.{${term.toLowerCase()}}`)
-    }
-
-    const [profileMatches, creatorMatches] = await Promise.all([
-      admin
-        .from("profiles")
-        .select("id")
-        .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
-        .limit(MAX_CANDIDATES),
-      admin.from("creators").select("id").or(creatorFilters.join(",")).limit(MAX_CANDIDATES),
-    ])
-
-    const userIds = ((profileMatches.data as { id: string }[] | null) || [])
-      .map((row) => row.id)
-      .filter((id) => UUID_RE.test(id))
-
-    const creatorIds = ((creatorMatches.data as { id: string }[] | null) || [])
-      .map((row) => row.id)
-      .filter((id) => UUID_RE.test(id))
-
-    if (userIds.length === 0 && creatorIds.length === 0) {
+    if (error) {
+      console.error("[v2/search/people] profiles lookup failed:", error.message)
       return NextResponse.json({ people: [], total: 0, query })
     }
 
-    // ── Step 2: hydrate the union ────────────────────────────────────────────
-    const idFilters: string[] = []
-    if (creatorIds.length > 0) idFilters.push(`id.in.(${creatorIds.join(",")})`)
-    if (userIds.length > 0) idFilters.push(`user_id.in.(${userIds.join(",")})`)
-
-    const baseSelect =
-      "id, user_id, slug, headline, bio, niche_tags, profile:profiles!creators_user_id_fkey(display_name, avatar_url, username)"
-
-    // products(count) is a PostgREST aggregate; the eq() narrows the embedded rows
-    // so the count only covers live listings.
-    const countedSelect = `${baseSelect}, products:products(count)`
-
-    let rows: CreatorRow[] = []
-    let hasCounts = true
-
-    const counted = await admin
-      .from("creators")
-      .select(countedSelect)
-      .or(idFilters.join(","))
-      .eq("products.status", "published")
-      .limit(MAX_CANDIDATES)
-
-    if (counted.error) {
-      // Older PostgREST without embedded aggregates — retry without the count and
-      // accept that the "has at least one listing" filter can't be applied.
-      hasCounts = false
-      const plain = await admin
-        .from("creators")
-        .select(baseSelect)
-        .or(idFilters.join(","))
-        .limit(MAX_CANDIDATES)
-
-      if (plain.error) {
-        console.error("[v2/search/people] Hydrate failed:", plain.error.message)
-        return NextResponse.json({ people: [], total: 0, query })
-      }
-      rows = (plain.data as unknown as CreatorRow[] | null) || []
-    } else {
-      rows = (counted.data as unknown as CreatorRow[] | null) || []
+    const profiles = ((profileRows as ProfileRow[] | null) || []).filter(
+      (row) => row.username && UUID_RE.test(row.id),
+    )
+    if (profiles.length === 0) {
+      return NextResponse.json({ people: [], total: 0, query })
     }
 
-    // ── Step 3: normalise, filter, rank ──────────────────────────────────────
-    const people: PersonResult[] = []
+    const userIds = profiles.map((p) => p.id)
 
-    for (const row of rows) {
-      const profile = firstProfile(row.profile)
+    // ── Step 2: what each of them sells, in one pass ─────────────────────────
+    // Every creator row per user — an account can hold more than one, which is
+    // the trap lib/profile/listings.ts documents at length — then every product
+    // for all of those creators at once. Two queries for the whole page rather
+    // than two per person.
+    const listed = new Map<string, number>()
+    const sold = new Map<string, number>()
+    const creatorToUser = new Map<string, string>()
 
-      // /u/[username] is the only seller route, so a seller with no username has
-      // nowhere to link to — CreatorCard would render a dead "#".
-      if (!profile?.username) continue
+    const { data: creatorRows } = await admin
+      .from("creators")
+      .select("id, user_id")
+      .in("user_id", userIds)
 
-      const productsCount = row.products?.[0]?.count ?? 0
+    for (const row of (creatorRows as { id: string; user_id: string | null }[] | null) ?? []) {
+      if (row.id && row.user_id) creatorToUser.set(row.id, row.user_id)
+    }
 
-      // Never surface an empty store. Only enforceable when counts came back.
-      if (hasCounts && productsCount < 1) continue
+    if (creatorToUser.size > 0) {
+      const { data: productRows } = await admin
+        .from("products")
+        .select("creator_id, status")
+        .in("creator_id", [...creatorToUser.keys()])
+        .in("status", ["published", "sold"])
+        .limit(5000)
 
+      for (const row of (productRows as { creator_id: string; status: string }[] | null) ?? []) {
+        const owner = creatorToUser.get(row.creator_id)
+        if (!owner) continue
+        if (row.status === "sold") sold.set(owner, (sold.get(owner) ?? 0) + 1)
+        else listed.set(owner, (listed.get(owner) ?? 0) + 1)
+      }
+    }
+
+    // ── Step 3: how they were rated, also in one pass ────────────────────────
+    const ratingSum = new Map<string, number>()
+    const ratingCount = new Map<string, number>()
+
+    if (creatorToUser.size > 0) {
+      const { data: reviewRows } = await admin
+        .from("reviews")
+        .select("creator_id, rating")
+        .in("creator_id", [...creatorToUser.keys()])
+        .limit(5000)
+
+      for (const row of (reviewRows as { creator_id: string; rating: unknown }[] | null) ?? []) {
+        const owner = creatorToUser.get(row.creator_id)
+        const value = Number(row.rating)
+        // A null, a zero or an unparseable value is not a review anybody left.
+        if (!owner || !Number.isFinite(value) || value <= 0) continue
+        ratingSum.set(owner, (ratingSum.get(owner) ?? 0) + value)
+        ratingCount.set(owner, (ratingCount.get(owner) ?? 0) + 1)
+      }
+    }
+
+    // ── Step 4: rank ─────────────────────────────────────────────────────────
+    const people: PersonResult[] = profiles.map((row) => {
+      const reviews = ratingCount.get(row.id) ?? 0
       const person = {
         id: row.id,
-        slug: row.slug || "",
-        headline: row.headline ?? null,
-        bio: row.bio ?? null,
-        niche_tags: row.niche_tags ?? null,
-        products_count: productsCount,
+        slug: row.username as string,
+        headline: null,
+        bio: null,
+        niche_tags: null,
+        products_count: listed.get(row.id) ?? 0,
+        sold_count: sold.get(row.id) ?? 0,
+        // null rather than 0 for "nobody has rated them" — the difference the
+        // whole score component is built on. See seller-score.tsx.
+        rating: reviews > 0 ? Math.min(5, Math.max(0, (ratingSum.get(row.id) ?? 0) / reviews)) : null,
+        reviews_count: reviews,
         profile: {
-          display_name: profile.display_name ?? null,
-          avatar_url: profile.avatar_url ?? null,
-          username: profile.username,
+          display_name: row.display_name ?? null,
+          avatar_url: row.avatar_url ?? null,
+          username: row.username as string,
         },
       }
+      return { ...person, rank: scorePerson(person, term) }
+    })
 
-      people.push({ ...person, rank: scorePerson(person, term) })
-    }
-
-    people.sort((a, b) => b.rank - a.rank || b.products_count - a.products_count)
+    people.sort((a, b) => b.rank - a.rank || b.sold_count - a.sold_count || b.products_count - a.products_count)
 
     const results = people.slice(0, limit)
 
-    return NextResponse.json({
-      people: results,
-      total: results.length,
-      query,
-    })
+    return NextResponse.json({ people: results, total: results.length, query })
   } catch (error) {
-    // Deliberately a 200: a dead people search should quietly render nothing, not
-    // break the dropdown the product results are also rendering into.
+    // Deliberately a 200: a dead people search should quietly render nothing,
+    // not break the dropdown the product results are also rendering into.
     console.error("[v2/search/people] Error:", error)
     return NextResponse.json({ people: [], total: 0, query })
   }

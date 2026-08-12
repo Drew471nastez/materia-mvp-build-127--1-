@@ -9,6 +9,7 @@ import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { DEPARTMENTS } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
+import { SellerScore } from "@/components/marketplace/seller-score"
 import { IosSpinner } from "./ios-spinner"
 import { cn } from "@/lib/utils"
 import { claimSurface } from "@/lib/surface-bg"
@@ -175,13 +176,19 @@ interface Person {
   slug?: string
   headline?: string | null
   products_count?: number | null
+  /** Batched by the endpoint over the page it returns, so the row can draw the
+   *  same ⭐ 4,9 · 63 vândute line the profile does at no extra request. `null`
+   *  rating means unrated — never 0; see components/marketplace/seller-score.tsx. */
+  sold_count?: number | null
+  rating?: number | null
+  reviews_count?: number | null
   profile?: { display_name?: string | null; avatar_url?: string | null; username?: string | null } | null
 }
 
 /**
  * Full-screen mobile search surface (Depop-style). Opens with a smooth blend,
- * three tabs — Items / Categories / People — recent searches, platform-aware
- * keyword suggestions, category tiles and live member search.
+ * two tabs — Items / People, see the note on TABS — recent searches,
+ * platform-aware keyword suggestions and live member search.
  */
 export function MobileSearchOverlay({
   open,
@@ -988,8 +995,19 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
   const [failed, setFailed] = useState(false)
 
   return (
+    /**
+     * /member/<handle>, NOT /u/<handle>.
+     *
+     * They are two different pages and the search was sending people to the
+     * wrong one. /u/ is the DIGITAL creator storefront with its store-builder
+     * theming; /member/ is the second-hand marketplace profile — the avatar,
+     * the name, the listings grid, the Salvate and Evaluări tabs, the score.
+     * Somebody who typed a name into a marketplace search and pressed a result
+     * expects the second, and on an account that never went through seller
+     * onboarding the first is an empty shop.
+     */
     <SmartLink
-      href={username ? `/u/${username}` : "#"}
+      href={username ? `/member/${encodeURIComponent(username)}` : "#"}
       useClientNav
       onClick={onClose}
       className="flex w-full items-center gap-3 px-4 py-2.5 transition-colors active:bg-neutral-50"
@@ -1016,6 +1034,17 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
           {username ? `@${username}` : ""}
           {count > 0 ? ` · ${count} ${t("mfeed.items_count")}` : ""}
         </span>
+        {/* The same line the profile and the listing page carry, and drawn by
+            the same component so it cannot say something different here. The
+            endpoint batches both numbers over the page it returns — see
+            app/api/v2/search/people/route.ts — so this costs no extra request,
+            and a member with neither renders nothing at all. */}
+        <SellerScore
+          rating={person.rating ?? null}
+          reviews={person.reviews_count ?? 0}
+          sold={person.sold_count ?? 0}
+          className="mt-0.5"
+        />
       </span>
     </SmartLink>
   )

@@ -1303,18 +1303,33 @@ export function PlatformHeaderClient() {
                       setExpandedCategory(null)
                       setSelectedCategoryForSubs(null)
                     }}
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
+                    /* THE ICON, WITHOUT THE WORD.
+                    
+                       It read "Categories" in English on a Romanian
+                       marketplace, immediately left of a field whose
+                       placeholder is "Caută orice" — one bar, two languages,
+                       and the only untranslated string on it. Translating it
+                       was the obvious repair and the wrong one: "Categorii" is
+                       nine characters of chrome next to a hamburger that
+                       already means exactly that, and it was eating width the
+                       search field could use.
+                    
+                       A square target with a tooltip and an aria-label instead.
+                       The three lines are the most universally understood glyph
+                       in an interface, this one opens a menu of categories, and
+                       the tooltip says so for anybody who hesitates. */
+                    aria-label="Categorii"
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-white/15 text-white"
                         : "text-white/80 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <Menu className="w-[18px] h-[18px]" />
-                    <span>Categories</span>
+                    <Menu className="w-[20px] h-[20px]" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                  Browse all categories
+                  Categorii
                 </TooltipContent>
               </Tooltip>
 
@@ -1457,7 +1472,13 @@ export function PlatformHeaderClient() {
               field at every width without measuring anything. This is the shape
               the old dropdown had right; what was wrong with it was its
               CONTENTS, which are now the marketplace's. */}
-          <div ref={searchBoxRef} className="relative hidden md:flex flex-1 max-w-xl mx-4">
+          {/* 518px, down from `max-w-xl` (576). Ten percent off a field that had
+              grown into the widest object in the bar: at 576 it ran most of the
+              way between the logo and the icons on a 1400px measure, which made
+              the header read as a search page with some navigation attached
+              rather than as navigation with a search in it. It is still by some
+              distance the largest control up there. */}
+          <div ref={searchBoxRef} className="relative hidden md:flex flex-1 max-w-[518px] mx-4">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
             <input
               value={query}
@@ -1654,8 +1675,19 @@ export function PlatformHeaderClient() {
 
                 )}
 
-                {/* Bag — same rule as the heart above. */}
-                {user && (
+                {/* THE BAG STAYS FOR EVERYBODY, and the heart does not.
+                    
+                    They looked like the same case and are not. A wishlist is a
+                    record of what YOU have done — it is only ever a list of your
+                    own decisions, so on a page that has never met you it is
+                    either empty or, worse, carrying a count from a cookie you do
+                    not know you have.
+                    
+                    A basket is a step in buying something, and buying does not
+                    require an account here: the cart works signed out and the
+                    sign-in happens at checkout. Hiding it would be hiding the
+                    only place a guest's items are, from the guest whose items
+                    they are. */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
@@ -1670,7 +1702,6 @@ export function PlatformHeaderClient() {
                     {t("bag")}
                   </TooltipContent>
                 </Tooltip>
-                )}
 
                 {/* Sell now — the one filled action in the row, in brand purple.
                     A seller who's finished onboarding gets their dashboard here
