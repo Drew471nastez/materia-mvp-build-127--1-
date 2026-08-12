@@ -2711,6 +2711,38 @@ check(
 )
 
 check(
+  "and /wishlist is a door into it, decided on the server",
+  (() => {
+    // "Every bookmark points at the tab" is a promise the CLIENT cannot keep on
+    // its own. A link in a header can only build the handle URL if the component
+    // drawing it knows the handle at the moment of the click — and on a cold
+    // load the auth snapshot has not been read, on a fresh sign-in it has not
+    // been written, and there are half a dozen other doors (the account drawer,
+    // the settings hub, the library, the dashboard sidebar, an old bookmark, a
+    // link in an email) written against this address before the tab existed.
+    // All of them arrive here.
+    //
+    // THE PAGE STAYS, because saving does not require an account: the list hangs
+    // off the guest cookie, and a guest has no profile to put a tab on. So does
+    // a signed-in account whose profile row has no handle yet — the state of
+    // every account for the seconds between signing up and the row being
+    // written.
+    const page = strip(read("app/(marketing)/wishlist/page.tsx"))
+    return (
+      /const tab = await savedTabHref\(\)\s*\n\s*if \(tab\) redirect\(tab\)/.test(page) &&
+      /savedShelfHref\(handle\)/.test(page) &&
+      // No handle, no redirect — and the guest path is what is left.
+      /if \(!handle\) return null/.test(page) &&
+      /if \(!user\) return null/.test(page) &&
+      /<WishlistContent showDiscoverMoreCta \/>/.test(page) &&
+      // An auth call that times out must not take the page down with it.
+      /\} catch \{\s*\n\s*return null\s*\n\s*\}/.test(page)
+    )
+  })(),
+  "        app/(marketing)/wishlist/page.tsx",
+)
+
+check(
   "every bookmark in the chrome points at it, through one function",
   (() => {
     // /wishlist is a different page with different chrome showing the same
