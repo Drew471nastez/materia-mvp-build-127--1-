@@ -211,20 +211,28 @@ export function SignedOutHero() {
        * a default white card.
        */
       style={{
-        /* ACCENTUATED, and only a little.
+        /* ACCENTUATED, AND THEN WALKED MOST OF THE WAY BACK.
          *
-         * It was #fbfafc → #f4f2fa → #eff0f5 → #f6f5f8: four stops within about
-         * three percent of each other, which is a gradient you have to be told
-         * is there. On a #f5f5f5 page that made the panel a very slightly
-         * different white rather than a surface with light falling across it.
+         * Three settings, in order. It began at #fbfafc → #f4f2fa → #eff0f5 →
+         * #f6f5f8: four stops within about three percent of each other, a
+         * gradient you have to be told is there, and on a #f5f5f5 page that is
+         * a slightly different white rather than a surface with light on it.
          *
-         * Roughly double the chroma and a wider spread between the lightest and
-         * the darkest stop — the lilac through the middle is now legible as
-         * lilac and the cool grey at 76% is legible as cool. It is still nowhere
-         * near a coloured banner: the darkest stop is #e6e8f2, which is four
-         * percent below the page it sits on, and the photographs and the
-         * listings are still the only real colour on the screen. */
-        background: "linear-gradient(115deg, #fcfbff 0%, #efeafb 40%, #e6e8f2 76%, #f5f3fb 100%)",
+         * Then roughly double the chroma — #fcfbff → #efeafb → #e6e8f2 →
+         * #f5f3fb — and it overshot in the other direction: the lilac read as a
+         * colour rather than as light, and a panel with a colour on it competes
+         * with the photographs, which are the only thing on this page that is
+         * supposed to have one.
+         *
+         * This is the two mixed, about sixty percent of the way back to the
+         * quiet one. The chroma is a little over half what the loud version
+         * had, so the middle is still visibly warmer than the right-hand side
+         * and the whole thing still reads as chosen — but the darkest stop is
+         * #ebedf4, two percent below the page rather than four, which is the
+         * difference between a shadow across a surface and a tint applied to
+         * it. Any change here is a change to that ratio: the gradient's job is
+         * to be noticed only once, when you first look at the page. */
+        background: "linear-gradient(115deg, #fbfafd 0%, #f2effa 41%, #ebedf4 77%, #f6f4f9 100%)",
       }}
     >
       <div className="grid items-center gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-12 lg:py-14">

@@ -1131,8 +1131,46 @@ export function PlatformHeaderClient() {
    * Never disabled: the bar only renders on routes where the black header above
    * it is `sticky`, so there is no arrangement in which this pins under
    * something that has scrolled away.
+   *
+   * THE FLOOR IS THE BAR'S OWN HEIGHT, and that is the whole of the second
+   * argument. `position: sticky` leaves the element's space in the document,
+   * and for this bar that space is at the very top of the page — so hiding it
+   * while any of that space is still on screen shows the band it vacated:
+   * white, bar-height, between a black header and a #f5f5f5 page. Once the page
+   * has moved by the bar's height the header covers that band completely, so
+   * below that point the bar simply stays. Measured rather than written down,
+   * because the height is exactly the kind of number that changes.
    */
-  const subbarHidden = useHideOnScrollDown()
+  const showSubbar =
+    !isSellRoute &&
+    (showCategories ||
+      (!pathname.startsWith("/features") &&
+        !pathname.startsWith("/blog") &&
+        !pathname.startsWith("/pricing") &&
+        !isFaqRoute &&
+        !isSellerOrProductPage))
+
+  const [subbarH, setSubbarH] = useState(0)
+  const subbarRef = useRef<HTMLDivElement>(null)
+  const subbarHidden = useHideOnScrollDown(true, subbarH)
+
+  useLayoutEffect(() => {
+    const el = subbarRef.current
+    if (!showSubbar || !el) {
+      setSubbarH(0)
+      return
+    }
+    const measure = () => setSubbarH(Math.round(el.getBoundingClientRect().height))
+    measure()
+    if (typeof ResizeObserver === "undefined") return
+    // The bar changes height without remounting — the mobile search trigger
+    // appearing on a route change, a resize crossing md, the category row
+    // opening. A mount-only read would leave the floor set to whatever the bar
+    // was on the route before this one.
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [showSubbar])
 
   const headerRootRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -2311,15 +2349,35 @@ export function PlatformHeaderClient() {
           gap in the middle of the page, which is what `fixed` would have done.
 
           It slides UP, behind the header, which is opaque and one z-index above
-          it. So it does not fade or shrink; it goes under something. */}
-      {!isSellRoute && (showCategories || (!pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
+          it. So it does not fade or shrink; it goes under something.
+
+          AND IT MEASURES ITSELF, because of the one place sticky is not free.
+          A sticky element keeps its space in the document, and that space is at
+          the TOP of the page — so the moment this hides while any of that space
+          is still on screen, what you see under the black header is the band it
+          vacated: white, the height of the bar, sitting above a #f5f5f5 page.
+          It was on screen for the first sixty pixels of every scroll, which is
+          exactly the part of the page people flick through fastest.
+
+          `subbarH` is the floor. The bar may not hide until it has been
+          scrolled far enough that the header covers the space it left, and the
+          bar reports its own height for that rather than trusting a number
+          somebody wrote down while it was a different height. */}
+      {showSubbar && (
         <div
+          ref={subbarRef}
           className="platform-subbar sticky z-[35]"
           data-hidden={subbarHidden ? "true" : "false"}
           style={{ top: "var(--platform-header-h, 0px)" }}
         >
-        <div className="relative bg-black h-[20px]">
-          <div className="absolute inset-0 bg-white rounded-t-[20px]" />
+        {/* SIXTEEN, NOT TWENTY — and the radius came with it. The lip is the
+            bar's top padding (see the note on the desktop nav below), so its
+            height is half of what makes this bar as tall as it is, and a
+            `rounded-t-[20px]` curve inside a 16px box is a curve with its
+            bottom cut off: black wedges either side of the white. Height and
+            radius are the same number here and always were. */}
+        <div className="relative bg-black h-[16px]">
+          <div className="absolute inset-0 bg-white rounded-t-[16px]" />
         </div>
 
         <div className={`relative w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
@@ -2341,8 +2399,10 @@ export function PlatformHeaderClient() {
             {/* Mobile Category Pills - White/Light UI */}
             {showCategories && (
               /* Same lip above, same arithmetic — see the note on the desktop nav
-                 below. pt-0 lets the 20px concave block be the top padding, and
-                 pb-4 comes close to matching it under a 36px pill. */
+                 below. pt-0 lets the concave block be the top padding, and pb-4
+                 is now exactly it: 16 above, 16 below. It used to be 16 under a
+                 20px lip, which is the one place the old bar was already a
+                 little lopsided. */
               <div className="md:hidden px-0 pt-0 pb-4 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   {MOBILE_CATEGORIES.map((cat) => {
@@ -2379,19 +2439,27 @@ export function PlatformHeaderClient() {
                     three were guesses at the wrong number, because the white
                     above these labels does not start where this element starts.
 
-                    A SEPARATE 20px BLOCK sits above it: the concave transition,
-                    `bg-black h-[20px]` with a `rounded-t-[20px]` white overlay,
+                    A SEPARATE BLOCK sits above it: the concave transition,
+                    `bg-black h-[16px]` with a `rounded-t-[16px]` white overlay,
                     which is what makes the corners curve where the black bar
-                    meets the white. Its twenty pixels are white too, so the gap
-                    above the labels has always been LIP + whatever was set
-                    here, while the gap below was only what was set here.
-                    pt-2.5 therefore read as 30 above against 14 below — the
-                    lopsided band of white in the screenshot, and the reason no
-                    value of `pt` alone was ever going to centre this.
+                    meets the white. Its pixels are white too, so the gap above
+                    the labels has always been LIP + whatever was set here,
+                    while the gap below was only what was set here. pt-2.5
+                    therefore read as 30 above against 14 below — the lopsided
+                    band of white in the screenshot, and the reason no value of
+                    `pt` alone was ever going to centre this.
 
                     So the padding-top is ZERO and the lip IS the top padding.
-                    `pb-5` matches it, and the row is centred in the white for
-                    the first time: 20 above, 20 below.
+                    `pb-4` matches it and the row is centred in the white: 16
+                    above, 16 below.
+
+                    IT WAS 20/20, and both came down together. Eight pixels off
+                    a sixty-pixel bar is a bar you notice is smaller without
+                    being able to say what changed, which is the size of the
+                    change that was asked for. Going to 16 on one side only
+                    would have been four pixels of dead white under the labels
+                    and nothing above them — the exact fault this note exists to
+                    record.
 
                     If that block's height ever changes, this has to change with
                     it. They are one measurement written in two places, which is
@@ -2406,7 +2474,7 @@ export function PlatformHeaderClient() {
                     Gaps are the right separator for a list; rules are for a
                     choice between unlike things. */}
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-5 pt-0 text-[14.5px]">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap pb-4 pt-0 text-[14.5px]">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
