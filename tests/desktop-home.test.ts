@@ -691,14 +691,95 @@ check(
 )
 
 check(
+  "the shell knows which of the two home pages is coming",
+  (() => {
+    // A signed-out visitor opens on a full-bleed hero a signed-in one never
+    // sees. Drawn for everybody it flashes a 500px panel that then vanishes;
+    // drawn for nobody the commonest first visit gets a shell holding none of
+    // the space its page takes. loading.tsx cannot be async, so the answer has
+    // to be on <html> before first paint or it does not exist.
+    const css = read("app/globals.css")
+    const layout = read("app/layout.tsx")
+    return (
+      /data-auth/.test(layout) &&
+      /sb-'\+_r\+'-auth-token/.test(layout) &&
+      // The chunked form counts, or a large session draws the wrong shell.
+      /_k\+'\.0'/.test(layout) &&
+      /feed-shell-signed-out/.test(loading) &&
+      /html\[data-auth="out"\] \.feed-shell-signed-out/.test(css) &&
+      // Default hidden: a missing attribute means the script never ran, and a
+      // shell that is too short is the cheaper mistake.
+      /\.feed-shell-signed-out \{\s*\n\s*display: none;/.test(css)
+    )
+  })(),
+)
+
+check(
+  "the hero is full-bleed but its words keep the page's measure",
+  (() => {
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      // No radius, no ring, no side margin on the ground...
+      /className="relative mb-8 border-b border-black\/\[0\.05\]"/.test(hero2) &&
+      // ...and the contents re-constrained to the same 1400px as the listings.
+      /mx-auto grid max-w-\[1400px\] items-center/.test(hero2)
+    )
+  })(),
+)
+
+check(
+  "and the hero image cannot be dragged off the page",
+  (() => {
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return /draggable=\{false\}/.test(hero2) && /pointer-events-none select-none/.test(hero2)
+  })(),
+)
+
+check(
+  "the hero image is drawn at its own ratio, so nothing is cropped",
+  (() => {
+    // The source is 1356x798 (1.70). It was in `aspect-[4/3]` (1.33) with
+    // object-cover, so a fifth of the composition was cut off the sides, taking
+    // most of both outer cards with it.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /const HERO_RATIO = "1356 \/ 798"/.test(hero2) &&
+      /aspectRatio: HERO_RATIO/.test(hero2) &&
+      !/aspect-\[4\/3\]/.test(hero2)
+    )
+  })(),
+)
+
+check(
+  "and the three tiles are one set rather than three heights",
+  (() => {
+    // "Anunț în câteva minute" wrapped while "Zero comision" did not, so three
+    // boxes that are the same object had three different heights and their
+    // icons and titles all started at different places. A grid can equalise the
+    // BOXES; only the copy can make them look like a set.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    const titles = [...hero2.matchAll(/title: "([^"]+)", body:/g)].map((m) => m[1])
+    return (
+      /flex h-full flex-col rounded-xl/.test(hero2) &&
+      titles.length === 6 &&
+      titles.every((t) => t.split(" ").length <= 3)
+    )
+  })(),
+)
+
+check(
   "the marketing hero is signed-out only",
   (() => {
     // Somebody with an account already knows what Storelib is. Telling them on
     // every visit is the site failing to recognise them.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      /\{!signedIn && <SignedOutHero \/>\}/.test(home) &&
-      /signedIn = false \}: \{ products: any\[\]; signedIn\?: boolean \}/.test(home) &&
+      // Rendered from the FEED, outside the 1400px measure, so it can be
+      // genuinely full-bleed rather than reaching for a 100vw trick that
+      // overflows by the width of the scrollbar.
+      /\{!searchQuery && !signedIn && \(/.test(feed) &&
+      /<SignedOutHero \/>/.test(feed) &&
+      !/<SignedOutHero/.test(home) &&
       /signedIn=\{signedIn\}/.test(feed) &&
       /auth\.getUser\(\)/.test(feed) &&
       // No invented metrics. The reference carries "49M+ items for sale"; a

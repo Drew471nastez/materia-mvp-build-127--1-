@@ -66,6 +66,14 @@ const AUTOPLAY_MS = 5000
  * something that moves on its own: an unprompted movement that begins at full
  * speed reads as a jerk, because nothing preceded it. This one eases in AND
  * out, so the strip gathers itself, travels, and arrives.
+ *
+ * 480ms, down from 720. The curve was right and the length was not: an
+ * ease-in-out spends its middle third at full speed and its outer thirds slow,
+ * so at 720 the two ends are long enough to WATCH — the strip appears to
+ * hesitate before it goes and again before it lands. The same shape at 480 has
+ * the same three phases and none of them outstays the eye. It is also the one
+ * animation on this page nobody asked for, which is the argument for it being
+ * at the short end of what reads as deliberate.
  */
 const SLIDE_EASE = "cubic-bezier(0.65, 0, 0.35, 1)"
 
@@ -411,7 +419,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         className="flex"
         style={{
           transform: `translate3d(-${index * 100}%, 0, 0)`,
-          transition: `transform 720ms ${SLIDE_EASE}`,
+          transition: `transform 480ms ${SLIDE_EASE}`,
           willChange: "transform",
         }}
       >
