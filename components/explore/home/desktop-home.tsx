@@ -6,6 +6,7 @@ import { HeroSlides } from "./hero-slides"
 import { ListingRow } from "./listing-row"
 import { MoreListings } from "./more-listings"
 import { ShopByCategory } from "./shop-by-category"
+import { SignedOutHero } from "./signed-out-hero"
 import { YouMightBeInto } from "./you-might-be-into"
 import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } from "@/lib/marketplace/recent-views"
 
@@ -83,7 +84,7 @@ const ROW = 5
  */
 const MIN_HISTORY = 5
 
-export function DesktopHome({ products }: { products: any[] }) {
+export function DesktopHome({ products, signedIn = false }: { products: any[]; signedIn?: boolean }) {
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
    *
@@ -190,6 +191,14 @@ export function DesktopHome({ products }: { products: any[] }) {
      * the middle of the listings. The shell is the right shape now, so there is
      * nothing left for a fade to hide. See app/globals.css. */
     <div className="hidden md:block">
+      {/* WHAT THIS PLACE IS, FOR SOMEBODY WHO HAS NEVER BEEN.
+          
+          Signed out only, and it is the first thing on the page — above even
+          the personal row, which a signed-out visitor cannot have anyway.
+          Somebody with an account already knows what Storelib is; telling them
+          on every visit is the site failing to recognise them. */}
+      {!signedIn && <SignedOutHero />}
+
       {/* ═══════════════════════════════════════════════════════════════════
           ABOVE THE HERO — BUT ONLY ONCE IT HAS SOMETHING TO SAY
           ═══════════════════════════════════════════════════════════════════

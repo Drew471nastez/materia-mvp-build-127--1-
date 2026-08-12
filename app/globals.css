@@ -5259,3 +5259,42 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
     animation: none;
   }
 }
+
+/* ===========================================================================
+ *  THE HERO'S DOT, FILLING IN TIME WITH THE SLIDE IT BELONGS TO
+ * ===========================================================================
+ *
+ * The duration is NOT here. It is passed inline from AUTOPLAY_MS in
+ * components/explore/home/hero-slides.tsx, which is the same constant the
+ * advance timer uses — so the bar cannot finish early or still be running when
+ * the slide changes. Writing 5s in this file would be a second copy of that
+ * number, and the first person to tune one would silently desynchronise them.
+ *
+ * `linear`, unambiguously: this is a clock, and a clock that eases is a clock
+ * that lies about how much time is left. Every other animation in the app has a
+ * curve because it is a movement; this one is a measurement.
+ *
+ * `both` so the bar is at zero width on its first painted frame rather than
+ * flashing full and snapping back.
+ */
+@keyframes hero-dot-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.hero-dot-fill {
+  animation-name: hero-dot-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+/* Reduced motion still gets the position, just not the countdown — the dot is
+   simply full for the slide it belongs to. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-dot-fill {
+    animation: none;
+    width: 100%;
+  }
+}

@@ -16,6 +16,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
 import { signalsFrom, type RecentView } from "../lib/marketplace/recent-views"
 
 let passed = 0
@@ -34,6 +35,11 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+/** Comments are not code. Several files here quote the exact pattern they were
+ *  written to remove — the setInterval that was replaced, the invented metric
+ *  that is not on the page — and a guard that reads them fails on the prose
+ *  explaining the fix. */
+const code = (p: string) => stripComments(read(p))
 
 const home = read("components/explore/home/desktop-home.tsx")
 const hero = read("components/explore/home/hero-slides.tsx")
@@ -286,22 +292,50 @@ check(
 )
 
 check(
-  "the carousel does not move unless somebody moves it",
+  "five seconds a slide, on a timeout rather than an interval",
   (() => {
-    // The autoplay was hedged with a pause-on-hover and a visibility check, and
-    // both hedges were admissions: one says it is annoying while you read, the
-    // other that it wastes work when nobody is watching. A control needing two
-    // guards against its own default has the wrong default.
+    // An INTERVAL lives across slides, so pressing next at 4.9s gives the slide
+    // you just chose 100ms. One timeout per slide, torn down whenever the index
+    // or the turn changes, is what makes a press reset the countdown.
     return (
-      !/AUTOPLAY_MS/.test(hero) &&
-      !/setInterval/.test(hero) &&
-      !/setPaused/.test(hero) &&
-      !/visibilityState/.test(hero) &&
-      // Driven by the arrows, the dots and the arrow keys — and, with no timer
-      // to race, the slide can take 620ms instead of 520.
-      /transform 620ms \$\{EASE\}/.test(hero) &&
+      /const AUTOPLAY_MS = 5000/.test(hero) &&
+      !/setInterval/.test(code("components/explore/home/hero-slides.tsx")) &&
+      /window\.setTimeout\(\(\) => \{[\s\S]{0,160}go\(index \+ 1\)/.test(hero) &&
+      /\}, \[index, turn, count, go\]\)/.test(hero) &&
+      // A background tab does not advance thirty slides.
+      /document\.visibilityState === "visible"/.test(hero) &&
+      // And it is still drivable by hand.
       /if \(e\.key === "ArrowRight"\) go\(index \+ 1\)/.test(hero)
     )
+  })(),
+)
+
+check(
+  "the dots are the clock, off the SAME constant as the timer",
+  (() => {
+    // A bar that finishes early, or is still running when the slide changes, is
+    // worse than no bar. One constant, used by the timer and by the fill.
+    const css = read("app/globals.css")
+    return (
+      /animationDuration: `\$\{AUTOPLAY_MS\}ms`/.test(hero) &&
+      /key=\{turn\}/.test(hero) &&
+      /@keyframes hero-dot-fill/.test(css) &&
+      // Linear: this is a measurement, not a movement. An eased clock lies
+      // about how much time is left.
+      /animation-timing-function: linear/.test(css) &&
+      // The duration must NOT be restated in the stylesheet.
+      !/hero-dot-fill[\s\S]{0,200}animation-duration/.test(css)
+    )
+  })(),
+)
+
+check(
+  "and a press restarts the countdown rather than inheriting it",
+  (() => {
+    // React only replays a CSS animation on a NEW element. An index alone
+    // cannot express "same slide, clock reset" — 0 → 1 → 0 reuses slide 0's bar
+    // and inherits however far through it already was.
+    return /const \[turn, setTurn\] = useState\(0\)/.test(hero) && /setTurn\(\(t\) => t \+ 1\)/.test(hero)
   })(),
 )
 
@@ -657,8 +691,28 @@ check(
 )
 
 check(
+  "the marketing hero is signed-out only",
+  (() => {
+    // Somebody with an account already knows what Storelib is. Telling them on
+    // every visit is the site failing to recognise them.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /\{!signedIn && <SignedOutHero \/>\}/.test(home) &&
+      /signedIn = false \}: \{ products: any\[\]; signedIn\?: boolean \}/.test(home) &&
+      /signedIn=\{signedIn\}/.test(feed) &&
+      /auth\.getUser\(\)/.test(feed) &&
+      // No invented metrics. The reference carries "49M+ items for sale"; a
+      // front page opening with a figure it cannot stand behind has told its
+      // first lie to everybody who ever visits.
+      !/\dM\+/.test(hero2) &&
+      !/[0-9][0-9,.]*\+\s*(items|articole|anunțuri)/i.test(hero2)
+    )
+  })(),
+)
+
+check(
   "the home page is only drawn when there is nothing being searched for",
-  /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} \/>\}/.test(feed),
+  /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} signedIn=\{signedIn\} \/>\}/.test(feed),
 )
 
 console.log("\nCrossing between the profile and the home page does not bump")

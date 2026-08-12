@@ -78,7 +78,12 @@ export function ListingRow({
         {href && (
           <SmartLink
             href={href}
-            className="shrink-0 text-[14px] font-semibold text-[#7c3aed] transition-colors duration-200 hover:text-[#6d28d9]"
+            // NOT the brand purple. Purple is what this interface uses for the thing
+            // it wants you to press — the compose button, Publish — and four
+            // section headings each carrying a purple link turns a page of
+            // listings into a page of calls to action. A "see more" beside a
+            // heading is a way out, not an instruction.
+            className="shrink-0 text-[14px] font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 transition-colors duration-200 hover:text-neutral-900 hover:decoration-neutral-500"
           >
             {seeMoreLabel}
           </SmartLink>

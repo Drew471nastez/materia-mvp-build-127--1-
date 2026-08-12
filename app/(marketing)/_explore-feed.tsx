@@ -227,6 +227,25 @@ export async function ExploreFeed({
     /* cookies unavailable */
   }
 
+  /**
+   * SIGNED IN OR NOT — the one thing the desktop home needs that it cannot
+   * work out for itself. The marketing hero above the slideshow is for people
+   * who have never been here; showing it to somebody with an account is the
+   * site failing to recognise them on every visit.
+   *
+   * `getUser()` rather than `getSession()`: this decides what is RENDERED, and
+   * a session read from a cookie the server has not verified is not something
+   * to render a page from. The page is already force-dynamic, so the round trip
+   * costs nothing that was not already being spent.
+   */
+  let signedIn = false
+  try {
+    const { data } = await (await createClient()).auth.getUser()
+    signedIn = !!data.user
+  } catch {
+    /* treat an unreadable session as signed out — the hero is the safe side */
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f5f5]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       {/* JSON-LD structured data */}
@@ -272,7 +291,7 @@ export async function ExploreFeed({
 
             Nothing is fetched: it is handed the same array the feed already
             built, and cuts it seven ways. See components/explore/home. */}
-        {!searchQuery && <DesktopHome products={productsWithCreators} />}
+        {!searchQuery && <DesktopHome products={productsWithCreators} signedIn={signedIn} />}
       </div>
     </main>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
@@ -50,6 +50,24 @@ import { cn } from "@/lib/utils"
 
 /** Matched to the panel transitions elsewhere, so the page has one curve. */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+
+/**
+ * How long a slide holds, and how long the dot takes to fill. ONE constant for
+ * both — a bar that finishes before the slide changes, or is still running when
+ * it does, is worse than no bar, and two numbers drift the first time either is
+ * tuned.
+ */
+const AUTOPLAY_MS = 5000
+
+/**
+ * The slide's own travel, and it is NOT the panel curve above.
+ *
+ * `EASE` starts fast and settles — right for a sheet answering a tap, wrong for
+ * something that moves on its own: an unprompted movement that begins at full
+ * speed reads as a jerk, because nothing preceded it. This one eases in AND
+ * out, so the strip gathers itself, travels, and arrives.
+ */
+const SLIDE_EASE = "cubic-bezier(0.65, 0, 0.35, 1)"
 
 export type HeroListing = {
   id: string
@@ -310,34 +328,54 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
 
   const [index, setIndex] = useState(0)
   const count = slides.length
+  /**
+   * Bumped on every DELIBERATE move, and never by the timer.
+   *
+   * It is what the dots' fill animation is keyed on: pressing an arrow has to
+   * restart the countdown from zero, and it can only do that if React throws
+   * the running animation away and mounts a new one. An index alone cannot say
+   * "the same slide, but the clock was reset" — going 0 → 1 → 0 would reuse
+   * slide 0's element and inherit however far through its fill had already got.
+   */
+  const [turn, setTurn] = useState(0)
 
   const go = useCallback(
     (next: number) => {
       setIndex(((next % count) + count) % count)
+      setTurn((t) => t + 1)
     },
     [count],
   )
 
   /**
    * ═══════════════════════════════════════════════════════════════════════
-   *  NOTHING MOVES UNLESS SOMEBODY MOVES IT
+   *  FIVE SECONDS, AND THE DOTS SHOW THEM PASSING
    * ═══════════════════════════════════════════════════════════════════════
    *
-   * There was a six-second autoplay here, hedged with a pause-on-hover and a
-   * visibility check. Both hedges were admissions: the first says the thing is
-   * annoying while you read it, the second says it wastes work when nobody is
-   * watching. A control that needs two guards against its own default
-   * behaviour is a control whose default behaviour is wrong.
+   * The timer is deliberately NOT a `setInterval` that lives across slides. It
+   * is one timeout per slide, torn down and rebuilt whenever the index or the
+   * turn changes — which is what makes pressing an arrow reset the countdown
+   * rather than advancing into a tick that was already half spent. An interval
+   * gives you the opposite: press next at 4.9s and the slide you just chose
+   * lasts 100ms.
    *
-   * It also cannot be made to feel good. The transform is smooth; what is not
-   * smooth is a page that changes under you while you are deciding whether to
-   * click something on it. Every attempt to "make the autoplay smoother" is an
-   * attempt to make an interruption feel less like one.
+   * It is the same clock the dots draw: AUTOPLAY_MS is used once here and once
+   * in the fill animation below, so the bar cannot finish early or run past the
+   * change. Two constants would drift the first time either was tuned.
    *
-   * So the strip is now driven only by the arrows, the dots and the arrow keys
-   * — and because nothing is racing a timer, the slide can take its time: 620ms
-   * on a long ease-out, which is the difference between a jump and a movement.
+   * A hidden tab does not advance. Thirty slides pass in a background tab
+   * otherwise, and you come back to an arbitrary one having paid for thirty
+   * layout passes nobody watched.
    */
+  useEffect(() => {
+    if (count < 2) return
+    const id = window.setTimeout(() => {
+      if (document.visibilityState === "visible") go(index + 1)
+      else setTurn((t) => t + 1)
+    }, AUTOPLAY_MS)
+    return () => window.clearTimeout(id)
+  }, [index, turn, count, go])
+
 
   /** Arrow keys, once the strip has focus. */
   const rootRef = useRef<HTMLDivElement>(null)
@@ -358,7 +396,13 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
       aria-label="Selecții"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      className="group/hero relative overflow-hidden rounded-2xl"
+      /* JUST ENOUGH TO SIT ON THE PAGE.
+         
+         Two shadows rather than one: a 1px hairline at 6% that draws the edge,
+         and a wide soft one at 8% that lifts it. A single large shadow at a
+         weight you can see reads as a floating card and turns the top of the
+         page into a component; this reads as the page having a surface. */
+      className="group/hero relative overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,15,15,0.06),0_12px_28px_-12px_rgba(15,15,15,0.18)]"
     >
       {/* THE TRACK. One transform for the whole strip rather than a fade per
           slide: a crossfade of two 1400px images is two full-width layers being
@@ -367,7 +411,7 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         className="flex"
         style={{
           transform: `translate3d(-${index * 100}%, 0, 0)`,
-          transition: `transform 620ms ${EASE}`,
+          transition: `transform 720ms ${SLIDE_EASE}`,
           willChange: "transform",
         }}
       >
@@ -516,31 +560,61 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
         </>
       )}
 
-      {/* The dots, over the ground rather than over the photograph — the one
-          part of this that IS drawn on top of something, and it is drawn on the
-          half whose colour we chose, so they take that slide's ink. */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          THE DOTS ARE THE CLOCK
+          ═══════════════════════════════════════════════════════════════════
+
+          A dot that only says WHICH of three you are on leaves the movement
+          unexplained: the slide changes, and nothing on the screen was
+          building up to it. The active one is a track with a bar that fills
+          over exactly AUTOPLAY_MS — the same constant the timer uses — so the
+          change is something you watched arrive rather than something that
+          happened to you.
+
+          `key={turn}` on the bar is what makes it honest. Pressing an arrow
+          must restart the fill from zero, and React will only replay a CSS
+          animation on a NEW element; reusing the old one inherits however far
+          through it already was. An index alone cannot express "same slide,
+          clock reset" — 0 → 1 → 0 would reuse slide 0's bar.
+
+          `animation-play-state` is left alone deliberately: the timer does not
+          pause on hover, so a bar that did would be lying about when the change
+          is coming.
+
+          They keep the bottom left, on the ground whose colour we chose, and
+          take that slide's ink. */}
       {count > 1 && (
         <div className="absolute bottom-5 left-[72px] flex items-center gap-2 lg:left-[88px]">
           {slides.map((s, i) => {
             const onPale = slides[index]?.tone === "dark"
+            const active = i === index
             return (
               <button
                 key={s.key}
                 type="button"
                 aria-label={`Slide ${i + 1} din ${count}`}
-                aria-current={i === index}
+                aria-current={active}
                 onClick={() => go(i)}
                 className={cn(
-                  "h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out",
-                  i === index
-                    ? cn("w-6", onPale ? "bg-neutral-900" : "bg-white")
+                  "h-1.5 overflow-hidden rounded-full transition-[width,background-color] duration-300 ease-out",
+                  active
+                    ? cn("w-8", onPale ? "bg-neutral-900/20" : "bg-white/30")
                     : cn("w-1.5", onPale ? "bg-neutral-900/25 hover:bg-neutral-900/40" : "bg-white/40 hover:bg-white/60"),
                 )}
-              />
+              >
+                {active && (
+                  <span
+                    key={turn}
+                    className={cn("hero-dot-fill block h-full rounded-full", onPale ? "bg-neutral-900" : "bg-white")}
+                    style={{ animationDuration: `${AUTOPLAY_MS}ms` }}
+                  />
+                )}
+              </button>
             )
           })}
         </div>
       )}
+
     </section>
   )
 }

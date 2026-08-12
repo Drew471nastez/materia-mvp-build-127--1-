@@ -39,6 +39,7 @@ const nextConfig = {
       // possible place for one.
       { protocol: 'https', hostname: 'contentful.depop.com' },
       { protocol: 'https', hostname: 'unfazed.ro' },
+      { protocol: 'https', hostname: 'assets.depop.com' },
       // Avatars that arrive with an OAuth identity rather than an upload.
       //
       // A host that is not listed here is not "unoptimised" — next/image REFUSES
