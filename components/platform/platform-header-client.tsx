@@ -5,13 +5,14 @@ import type React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
 import { goToSellFormAsPage, isSellFormRoute } from "@/lib/marketplace/sell-route"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { useUrlSearchParams } from "@/lib/use-url-search-params"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { cn } from "@/lib/utils"
@@ -839,10 +840,19 @@ export function PlatformHeaderClient() {
     return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
   }, [user, hasCompletedSellerOnboarding])
 
-  // One wishlist, one URL. Signed-in users were sent to /library/wishlist and
-  // everyone else to /wishlist — same list, two addresses, and the library one is
-  // seller tooling rather than somewhere a shopper should end up.
-  const wishlistHref = useMemo(() => "/wishlist", [])
+  // One wishlist, one URL — but that URL is now the SAVED TAB ON YOUR PROFILE
+  // rather than a page of its own. See savedShelfHref: the list lives in a tab
+  // beside your listings and your reviews, so the bookmark in this bar should
+  // land on it rather than on a separate screen with different chrome showing
+  // the same items. /wishlist is still there and is still the fallback for
+  // anybody whose handle this header does not know — a guest, or a session that
+  // has not resolved yet.
+  //
+  // `profile` is seeded from the persisted auth snapshot before the first paint
+  // (see its useState above), so a returning visitor's bookmark points at their
+  // own profile immediately rather than at /wishlist for the frame before the
+  // session resolves.
+  const wishlistHref = useMemo(() => savedShelfHref(profile?.username), [profile?.username])
 
   // profiles.avatar_url is the single source of truth.
   // Both /app/settings and Store Builder sync to it. No cache-busting params needed.
@@ -1085,9 +1095,56 @@ export function PlatformHeaderClient() {
     ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
     : null
 
+  /**
+   * THIS BAR'S HEIGHT, ON THE ROOT, FOR THE THINGS THAT HAVE TO START BELOW IT.
+   *
+   * The twin of `--web-header-h` in mobile-web-header.tsx, and it exists for
+   * the same reason: something else on the page is `position: fixed` and has to
+   * know where this ends. Here it is the profile's pinned bar, which used to
+   * park itself at `top: 0` on top of seventy-one pixels of black header and
+   * leave the bottom third of it showing as a strip.
+   *
+   * A LAYOUT effect, so the value is published before the browser paints the
+   * route it was mounted by. As a passive effect the first painted frame of
+   * every navigation has the previous route's number in it, and a fixed element
+   * positioned from a stale variable is a visible jump one frame later — the
+   * bug mobile-web-header.tsx records at length.
+   *
+   * ZERO WHEN THIS BAR IS NOT DRAWN, which is most of the product: the shell
+   * around it is `display: none` below 48rem and inside the app, and a hidden
+   * element measures zero — so the readers fall back to the top of the screen
+   * without any of them having to ask whether this header exists.
+   *
+   * The observer catches what a render cannot predict: the category row opening,
+   * the logo's font landing, a window resize crossing the md breakpoint.
+   */
+  const headerRootRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = headerRootRef.current
+    if (!el) return
+    const publish = () => {
+      document.documentElement.style.setProperty(
+        "--platform-header-h",
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      )
+    }
+    publish()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      // Zeroed rather than removed: an explicit 0px is one style write, while a
+      // removal invalidates custom-property inheritance for the whole document
+      // on a frame that is already committing a route. And a stale height left
+      // behind would push a bar down past a header that is no longer there.
+      document.documentElement.style.setProperty("--platform-header-h", "0px")
+    }
+  }, [])
+
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
+      <div ref={headerRootRef} id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isSellerOrProductPage ? "relative" : "sticky top-0")}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div

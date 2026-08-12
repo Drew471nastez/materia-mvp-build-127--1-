@@ -26,6 +26,7 @@ import { consumeNavHint } from "@/lib/screen-transition"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { ProfileBadges } from "@/components/marketplace/profile-badges"
 import { coverImageUrl, defaultCoverFor, resolveCover } from "@/lib/profile/covers"
+import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { cn } from "@/lib/utils"
 
 /**
@@ -226,6 +227,68 @@ function Stat({ value, label, lang }: { value: number; label: string; lang: stri
  * control in two positions. It costs one transform.
  */
 /**
+ * ===========================================================================
+ *  THE PAGE TRAVELLING TO THE SHELF
+ * ===========================================================================
+ *
+ * Two journeys, one movement. Switching tabs brings the strip UP to the top of
+ * the viewport before the panels swap; landing on /member/<handle>/saved brings
+ * it DOWN, because the URL asked for a tab that starts a screenful below the
+ * fold. Same curve, same duration, same cancel-on-touch — they are the same
+ * gesture for the same reason, and two easings for one gesture is how a screen
+ * ends up feeling assembled rather than designed.
+ *
+ * WRITTEN AS A rAF LOOP RATHER THAN `behavior: "smooth"`, and the reason is the
+ * callback. A tab switch must swap its panels when the scroll ENDS, and there is
+ * no reliable way to be told that: `scrollend` is not on Safari, and a timer
+ * beside a native smooth scroll is a guess at a duration the browser chooses.
+ * Driving it here makes the end a fact.
+ *
+ * `run` is a shared counter, not one per call. A second glide starting while the
+ * first is in flight — impatient tapping, a switch during the arrival — must
+ * cancel the first rather than fight it for `window.scrollTo`, and a counter
+ * both of them increment is what makes the loser notice it has lost.
+ *
+ * A finger on the screen cancels it and finishes immediately. A page that keeps
+ * gliding somewhere while you are trying to scroll it yourself is the one thing
+ * worse than the jump this replaces.
+ */
+const SCROLL_MS = 380
+
+function glideBy(distance: number, run: { current: number }, done?: () => void): void {
+  const from = window.scrollY
+  const started = performance.now()
+  const id = ++run.current
+
+  // Eases out for most of its length, so it is a scroll you can follow to its
+  // destination — which is the whole difference between being taken somewhere
+  // and being put there.
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+
+  const stop = () => {
+    if (id !== run.current) return
+    run.current++
+    window.removeEventListener("touchstart", stop)
+    window.removeEventListener("wheel", stop)
+    done?.()
+  }
+  window.addEventListener("touchstart", stop, { passive: true, once: true })
+  window.addEventListener("wheel", stop, { passive: true, once: true })
+
+  const step = (now: number) => {
+    if (id !== run.current) return
+    const t = Math.min(1, (now - started) / SCROLL_MS)
+    window.scrollTo(0, from + distance * ease(t))
+    if (t < 1) {
+      requestAnimationFrame(step)
+      return
+    }
+    stop()
+  }
+  requestAnimationFrame(step)
+}
+
+/**
  * The three panels the shelf can be showing.
  *
  * "saved" exists only on your own profile — see the note on the tab list in
@@ -296,6 +359,7 @@ export function MemberProfile({
   listings,
   isOwner = false,
   reviews: reviewsFromServer,
+  initialTab = "listings",
 }: {
   member: MemberSummary
   /** Exact total from the server — the grid itself is capped, so it may show fewer. */
@@ -316,6 +380,15 @@ export function MemberProfile({
    *  paint instead of appearing a moment after the rest of the header, and the
    *  client makes no request at all. */
   reviews?: ReviewsSummary | null
+  /**
+   * Which tab the URL asked for — see app/(marketing)/member/[username]/saved.
+   *
+   * It seeds the state rather than being applied by an effect, so the panel the
+   * address names is the one in the FIRST paint. Landing on Anunțuri and being
+   * moved to Salvate a frame later is a page correcting itself in front of you,
+   * and it is the difference between an address and a redirect.
+   */
+  initialTab?: "listings" | "saved"
 }) {
   const { t, language } = useLocale()
 
@@ -378,7 +451,13 @@ export function MemberProfile({
    * /wishlist; it stays, because a whole page for the list is still worth
    * having, but it is no longer the only door.
    */
-  const [shelfTab, setShelfTab] = useState<ShelfTabId>("listings")
+  const [shelfTab, setShelfTab] = useState<ShelfTabId>(() =>
+    // Seeded, not applied afterwards: the panel the address names is in the
+    // first paint. `isOwner` is checked here as well as in the tab list because
+    // this is state and the list is markup — a "saved" tab id with no tab to
+    // match it would leave the strip with no underline at all.
+    initialTab === "saved" && isOwner ? "saved" : "listings",
+  )
   /**
    * The strip, in order, with the counts that sit beside the words.
    *
@@ -432,8 +511,11 @@ export function MemberProfile({
   const [reviewsSeen, setReviewsSeen] = useState(false)
   /** The same rule for Salvate: mounted on first visit, `hidden` after. Its list
    *  comes from a cache the feed's own tab has usually already filled, so the
-   *  first open is normally instant too — see lib/marketplace/saved-items.ts. */
-  const [savedSeen, setSavedSeen] = useState(false)
+   *  first open is normally instant too — see lib/marketplace/saved-items.ts.
+   *
+   *  Already true when the ADDRESS is the saved one: the panel has to exist in
+   *  the first paint, not be mounted by an effect after it. */
+  const [savedSeen, setSavedSeen] = useState(() => initialTab === "saved" && !!isOwner)
   /**
    * Bumped every time Salvate is opened, so the panel rebuilds from the cache.
    *
@@ -486,17 +568,10 @@ export function MemberProfile({
    *   3. The panel swaps on arrival, with its own slide, onto a page that has
    *      stopped moving.
    *
-   * Written as a rAF loop rather than `behavior: "smooth"` because the swap has
-   * to happen when the scroll ENDS and there is no reliable way to be told that:
-   * `scrollend` is not on Safari, and a timer next to a native smooth scroll is
-   * a guess at a duration the browser chooses. Driving it here means the end is
-   * a fact rather than an estimate.
-   *
-   * A finger on the screen cancels it and commits immediately — a page that
-   * keeps gliding somewhere while you are trying to scroll it yourself is the
-   * one thing worse than the jump this replaces.
+   * The travel itself is `glideBy` at the top of this file — shared with the
+   * arrival scroll that lands on /member/<handle>/saved, and the note there
+   * covers the rAF loop, the shared run counter and the cancel-on-touch.
    */
-  const SCROLL_MS = 380
   const scrollRun = useRef(0)
 
   /** What the STRIP shows. The panels follow `shelfTab`, which lands later. */
@@ -596,40 +671,62 @@ export function MemberProfile({
         return
       }
 
-      const from = window.scrollY
-      const distance = top // negative: we are going up
-      const started = performance.now()
-      const run = ++scrollRun.current
-
-      // The curve the whole app arrives on. A scroll that eases out for most of
-      // its length is one you can follow to its destination, which is the entire
-      // difference between being taken somewhere and being put there.
-      const ease = (t: number) => 1 - Math.pow(1 - t, 3)
-
-      const stop = () => {
-        if (run !== scrollRun.current) return
-        scrollRun.current++
-        window.removeEventListener("touchstart", stop)
-        window.removeEventListener("wheel", stop)
-        commit()
-      }
-      window.addEventListener("touchstart", stop, { passive: true, once: true })
-      window.addEventListener("wheel", stop, { passive: true, once: true })
-
-      const step = (now: number) => {
-        if (run !== scrollRun.current) return
-        const t = Math.min(1, (now - started) / SCROLL_MS)
-        window.scrollTo(0, from + distance * ease(t))
-        if (t < 1) {
-          requestAnimationFrame(step)
-          return
-        }
-        stop()
-      }
-      requestAnimationFrame(step)
+      glideBy(top, scrollRun, commit)
     },
     [pending, shelfTab, tabs],
   )
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  LANDING ON /member/<handle>/saved
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * The URL asked for a tab, so the tab is already the one showing — `shelfTab`
+   * is seeded from `initialTab` and its panel is mounted before the first paint.
+   * What is left is that the strip is a screenful down the page, under the
+   * cover, the avatar, the name and the stats: arriving at the top of a profile
+   * having asked for its Salvate tab is arriving at the wrong place and being
+   * expected to scroll.
+   *
+   * So the page glides to the strip, once, on arrival. The SAME glide a tab
+   * switch uses — same curve, same duration, same cancel-on-touch — because it
+   * is the same movement for the same reason, and two easings for one gesture is
+   * how a screen ends up feeling assembled.
+   *
+   * Deferred by two frames rather than run on mount. The grid below the strip is
+   * what gives the document its height, and a scroll aimed at a page that is
+   * still laying out is a scroll that gets clamped: `rAF` twice puts this after
+   * the first paint, when the target has stopped moving.
+   *
+   * `scrollY < 4` is the guard that keeps a restored position safe. Coming BACK
+   * to this page — a back gesture, a bfcache restore — the browser has already
+   * put you where you were, and gliding somewhere else on top of that is the
+   * page overriding a decision that was already correct.
+   */
+  const arrived = useRef(false)
+  useEffect(() => {
+    if (arrived.current || initialTab === "listings") return
+    arrived.current = true
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        const el = shelfRef.current
+        if (!el || window.scrollY > 4) return
+        const top = el.getBoundingClientRect().top - pinnedOffset()
+        if (top <= 1) return
+        if (reduced) {
+          window.scrollTo(0, window.scrollY + top)
+          return
+        }
+        glideBy(top, scrollRun)
+      })
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      if (second) cancelAnimationFrame(second)
+    }
+  }, [initialTab])
 
   // A tab strip left mid-flight by an unmount would otherwise keep scrolling a
   // page that is no longer here.
@@ -819,6 +916,7 @@ export function MemberProfile({
       {/* Everything the cover was carrying, once the cover has gone. */}
       <ProfilePinnedHeader
         name={name}
+        username={member.username}
         verified={member.verified}
         staff={member.staff}
         avatarUrl={member.avatarUrl}
@@ -840,7 +938,16 @@ export function MemberProfile({
           the matching padding pull it into the inset so the colour starts where
           the SCREEN does. On the web there is a header above it and the inset
           is zero, so it simply starts under that — which is the difference
-          between the two the app has always had. */}
+          between the two the app has always had.
+
+          FULL-BLEED ON A DESKTOP TOO, which it was not: it was a 1100px rounded
+          card floating in the middle of a 2560px screen with white either side.
+          A cover is the top of the page, not a widget ON the page, and every
+          profile banner anybody has ever seen runs edge to edge — the rounded
+          version reads as a phone layout that has been centred rather than as a
+          desktop one. `profile-cover-bleed` in app/globals.css is what escapes
+          the column; everything else on the page stays in it, which is the whole
+          arrangement: a band across the window, the content centred under it. */}
       <div
         // `profile-cover-live` is what separates the real cover from the pale
         // one the loading shell draws in the same place: it carries the short
@@ -849,7 +956,7 @@ export function MemberProfile({
         // this element happens to have an inline `style` depends on whether the
         // cover is a preset or an uploaded photograph, and that is not what the
         // rule is about.
-        className="profile-cover profile-cover-live relative -mx-4 overflow-hidden md:-mx-8 md:rounded-3xl"
+        className="profile-cover profile-cover-bleed profile-cover-live relative -mx-4 overflow-hidden"
         // THE TINT IS ALWAYS PAINTED, under whatever the cover turns out to be.
         //
         // The box used to be `bg-neutral-100` while a cover image loaded, so an
@@ -877,8 +984,25 @@ export function MemberProfile({
             alt=""
             fill
             priority
-            sizes="(min-width: 1100px) 1100px, 100vw"
-            className="profile-cover-photo object-cover"
+            // ONE HUNDRED PERCENT OF THE WINDOW, because that is now what it
+            // covers. It said `(min-width: 1100px) 1100px` while the cover was a
+            // capped card, and a `sizes` that under-states the box is the one
+            // way to make next/image actively worse than a plain <img>: the
+            // browser picks a 1100-wide candidate, stretches it across 2560, and
+            // the banner is soft on exactly the screens that can show detail.
+            sizes="100vw"
+            // NOT DRAGGABLE, NOT LONG-PRESSABLE, NOT RIGHT-CLICKABLE. The same
+            // treatment the Storelib mark gets and for the same reason it is
+            // written down there: none of this is security — anything on a
+            // screen can be screenshotted — it is the difference between "you
+            // have to mean it" and "it happens by accident". A drag on a
+            // full-width banner is very easy to start by accident while
+            // scrolling with a mouse, and it ends with the file in whatever
+            // window was underneath.
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
+            className="profile-cover-photo select-none object-cover [-webkit-touch-callout:none] [-webkit-user-drag:none]"
             onLoad={(e) => e.currentTarget.classList.add("is-loaded")}
           />
         )}
@@ -908,27 +1032,45 @@ export function MemberProfile({
             `--cover-inset` is the safe-area inset on a phone and zero
             everywhere else, so on the web this is simply `top-2.5`. See
             `.profile-cover` in app/globals.css. */}
-        <div
-          className="absolute right-2.5 top-2.5 flex items-center gap-1.5 md:right-4 md:top-4 md:gap-2"
-          style={{ marginTop: "var(--cover-inset, 0px)" }}
-        >
-          <CoverButton label="Distribuie" onClick={share}>
-            <Share2 className="h-[17px] w-[17px]" />
-          </CoverButton>
-          {/* THREE, not four. The pencil is gone: "Editează profilul" is a
-              full labelled button one row below, and an icon meaning the same
-              thing a centimetre away from it is the same door twice — while
-              being, of the four, the one whose glyph says least. */}
-          {isOwner && (
-            <>
-              <CoverButton label="Salvate" href="/wishlist">
-                <Bookmark className="h-[17px] w-[17px]" />
+        {/* ALIGNED WITH THE COLUMN, NOT WITH THE WINDOW.
+
+            Now that the band runs edge to edge, `right-4` would park these
+            against the far corner of a 2560px screen — seven hundred pixels
+            away from the content they belong to, which is a control that has
+            floated off rather than one placed. This layer is the page's own
+            measure laid over the cover, so they sit exactly above the right-hand
+            edge of the avatar-and-name column below. On a phone the measure is
+            the screen and nothing about this changes. */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="relative mx-auto h-full w-full max-w-[1100px] px-4 md:px-8">
+            <div
+              className="pointer-events-auto absolute right-4 top-2.5 flex items-center gap-1.5 md:right-8 md:top-4 md:gap-2"
+              style={{ marginTop: "var(--cover-inset, 0px)" }}
+            >
+              <CoverButton label="Distribuie" onClick={share}>
+                <Share2 className="h-[17px] w-[17px]" />
               </CoverButton>
-              <CoverButton label="Setări" href="/settings">
-                <Settings className="h-[17px] w-[17px]" />
-              </CoverButton>
-            </>
-          )}
+              {/* THREE, not four. The pencil is gone: "Editează profilul" is a
+                  full labelled button one row below, and an icon meaning the
+                  same thing a centimetre away from it is the same door twice —
+                  while being, of the four, the one whose glyph says least. */}
+              {isOwner && (
+                <>
+                  {/* Straight to the tab a few hundred pixels below, which is
+                      where it now lives. It used to leave the profile entirely
+                      for /wishlist — a different page, different chrome, the
+                      same items. The handle is known here for certain: this
+                      only renders on your own profile. */}
+                  <CoverButton label="Salvate" href={savedShelfHref(member.username)}>
+                    <Bookmark className="h-[17px] w-[17px]" />
+                  </CoverButton>
+                  <CoverButton label="Setări" href="/settings">
+                    <Settings className="h-[17px] w-[17px]" />
+                  </CoverButton>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

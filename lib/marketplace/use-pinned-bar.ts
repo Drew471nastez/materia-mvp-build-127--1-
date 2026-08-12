@@ -157,14 +157,59 @@ export function usePinnedBar<T extends HTMLElement>() {
 }
 
 /**
- * How much of the top of the screen a pinned bar is currently covering.
+ * ===========================================================================
+ *  HOW MUCH OF THE TOP OF THE SCREEN IS SPOKEN FOR
+ * ===========================================================================
  *
- * Measured rather than stated, because its height is 52px plus whatever the
- * device's status-bar inset happens to be — a number only CSS knows. Zero when
- * no bar is up, which is the case where scrolling to y=0 is correct.
+ * Anything scrolling something INTO view has to know what is already sitting on
+ * top of it, or it puts the thing it was aiming for underneath a bar.
+ *
+ * It used to measure the profile's own pinned bar and nothing else, which was
+ * complete on a phone — in the app there is no site header at all, and the bar
+ * is the only fixed thing above the page. On the WEB it is not: the marketplace
+ * header is `sticky top-0` on a desktop and the mobile browser has its own
+ * sticky header, and both of those are covering the top of the viewport
+ * whether or not a profile bar happens to be up. Aiming at y=0 with a 71px
+ * black header parked there lands the tab strip behind it.
+ *
+ * So it is the LOWEST EDGE of everything currently occupying the top, not one
+ * element's height. Three candidates, any of which may be absent:
+ *
+ *   #platform-header-root   the desktop marketplace header, sticky
+ *   .web-only-header        the phone browser's header, sticky
+ *   .profile-pinned[shown]  the profile's own bar, fixed, when it is up
+ *
+ * `bottom` rather than `height`, and that is the correction that matters: an
+ * element's height is where it ends only if it starts at zero. The profile bar
+ * sits BELOW the site header on a desktop (see `.profile-pinned` in
+ * app/globals.css), so its height is about two thirds of what it actually
+ * covers.
+ *
+ * Anything not on screen contributes nothing: a sticky header scrolled out of
+ * view, or a bar that has slid up, has a negative `bottom`, and `Math.max`
+ * with a floor of zero is the whole of that test.
  */
+const TOP_CHROME = [
+  "#platform-header-root",
+  ".web-only-header",
+  '.profile-pinned[data-shown="true"]',
+]
+
 export function pinnedOffset(): number {
   if (typeof document === "undefined") return 0
-  const bar = document.querySelector<HTMLElement>('.profile-pinned[data-shown="true"]')
-  return bar ? bar.getBoundingClientRect().height : 0
+  let lowest = 0
+  for (const selector of TOP_CHROME) {
+    const el = document.querySelector<HTMLElement>(selector)
+    if (!el) continue
+    // An element that is `display: none` — the desktop header on a phone, the
+    // phone header on a desktop — reports a zero-height rect at the origin,
+    // which contributes nothing on its own and needs no separate test.
+    const { top, bottom } = el.getBoundingClientRect()
+    // Only what is actually pinned to the TOP. A sticky header that has been
+    // scrolled past sits above the viewport; one that has not been reached yet
+    // sits below the fold and is not covering the destination either.
+    if (top > 4 || bottom <= 0) continue
+    if (bottom > lowest) lowest = bottom
+  }
+  return lowest
 }
