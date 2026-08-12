@@ -210,27 +210,44 @@ export function DesktopHome({ products, signedIn = false }: { products: any[]; s
    *                             above it. It is a promotion and it has to earn
    *                             the scroll, not open the page twice.
    *   4  YouMightBeInto         queries worth trying next.
-   *   5  ShopByCategory         five doors, for somebody who has none of their
+   *   5  Sugestii pentru tine   two rows, BETWEEN the pills and the tiles. Both
+   *                             of those are ways of narrowing — queries and
+   *                             departments — and back to back they make the
+   *                             middle of the page two rows of navigation with
+   *                             nothing to look at between them.
+   *   6  ShopByCategory         five doors, for somebody who has none of their
    *                             own yet.
-   *   6  Sugestii pentru tine   three rows, CONTINUING the list rather than
-   *                             repeating it — see `suggestedTop`/`suggestedRest`
-   *                             below. Two identical grids under one heading
-   *                             twice on a page is worse than one grid.
-   *   7  MoreListings           everything else, a page at a time.
+   *   7  Sugestii pentru tine   three rows, CONTINUING the list rather than
+   *                             repeating it — see the three slices below. The
+   *                             heading appears up to three times on this page
+   *                             and that is a decision about the page; it is
+   *                             only defensible while the CONTENTS differ, which
+   *                             is what the slicing guarantees.
+   *   8  MoreListings           everything else, a page at a time.
    *
    * A member gets the layout after this one, unchanged.
    */
   const SIGNED_OUT_TOP_ROWS = 2
-  const suggestedTop = sections.suggested.slice(0, ROW * SIGNED_OUT_TOP_ROWS)
+  const SIGNED_OUT_MID_ROWS = 2
   /**
-   * What the lower Sugestii block draws.
+   * THREE SUGGESTION BLOCKS ON A SIGNED-OUT PAGE, AND NONE OF THEM REPEATS.
    *
-   * Sliced past whatever the upper one took, so the two blocks under the same
-   * heading are never the same cards — which is what "another Sugestii pentru
-   * tine" has to mean to be worth having. When there IS history the upper block
-   * is not drawn at all and this one starts from the top of the list.
+   * The top one stands in for the personal row when this device has no history;
+   * the middle and the lower one are the two the page asks for either side of
+   * the categories. They carry the same heading, which is a deliberate choice
+   * about the page rather than an accident of the code — and it is only
+   * defensible while the CONTENTS differ, so the list is cut into three
+   * consecutive slices and no card can appear twice.
+   *
+   * `topTaken` is what the first block consumed, which is nothing when it was
+   * not drawn — that is the whole of "the middle block starts wherever the top
+   * one stopped", and writing it as an offset rather than as two branches is
+   * what keeps the three slices provably disjoint.
    */
-  const suggestedRest = personal ? sections.suggested : sections.suggested.slice(ROW * SIGNED_OUT_TOP_ROWS)
+  const topTaken = personal ? 0 : ROW * SIGNED_OUT_TOP_ROWS
+  const suggestedTop = sections.suggested.slice(0, topTaken)
+  const suggestedMid = sections.suggested.slice(topTaken, topTaken + ROW * SIGNED_OUT_MID_ROWS)
+  const suggestedRest = sections.suggested.slice(topTaken + ROW * SIGNED_OUT_MID_ROWS)
 
   if (!signedIn) {
     return (
@@ -249,9 +266,25 @@ export function DesktopHome({ products, signedIn = false }: { products: any[]; s
           />
         )}
 
-        <HeroSlides listings={products} />
+        {/* The same conditional gap as the member layout: a row above it means
+            the hero needs the page's rhythm, and nothing above it means it does
+            not. */}
+        <HeroSlides listings={products} className="mt-14" />
 
         <YouMightBeInto views={views} catalogue={products} />
+
+        {/* BETWEEN THE PILLS AND THE CATEGORIES, not after them. The pills are
+            queries and the tiles are departments — both are ways of NARROWING,
+            and putting them back to back makes the middle of the page two rows
+            of navigation with nothing to look at between them. A grid of things
+            for sale in between is what a marketplace home page is for. */}
+        <ListingRow
+          title="Sugestii pentru tine"
+          items={suggestedMid}
+          rows={SIGNED_OUT_MID_ROWS}
+          href="/?q="
+          seeMoreLabel="Vezi mai multe"
+        />
 
         <ShopByCategory catalogue={products} />
 
@@ -310,20 +343,24 @@ export function DesktopHome({ products, signedIn = false }: { products: any[]; s
           visit still opens on the hero and nothing has moved for the person who
           has not earned the row yet. */}
       {personal && (
-        <div className="mb-2">
-          <ListingRow
-            title="Bazat pe vizualizările tale recente"
-            items={sections.basedOnViews}
-            rows={1}
-            // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
-            minItems={ROW}
-            href="/?q="
-            seeMoreLabel="Vezi mai multe"
-          />
-        </div>
+        <ListingRow
+          title="Bazat pe vizualizările tale recente"
+          items={sections.basedOnViews}
+          rows={1}
+          // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
+          minItems={ROW}
+          href="/?q="
+          seeMoreLabel="Vezi mai multe"
+        />
       )}
 
-      <HeroSlides listings={products} />
+      {/* THE GAP IS CONDITIONAL, because the hero is sometimes the first thing
+          on this page and sometimes the second. With a row above it, it needs
+          the same `mt-14` every other section has — without one the row's cards
+          butted straight against the slideshow, which is the "no space at all,
+          looks horrible" in the screenshot. At the top of the page there is
+          nothing above it to be separated from. */}
+      <HeroSlides listings={products} className={personal ? "mt-14" : undefined} />
 
       {/* What you were actually looking at, under the promotion.
 

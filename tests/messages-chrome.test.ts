@@ -939,6 +939,60 @@ check(
 )
 
 check(
+  "the desktop field types its suggestions, the same way the phone does",
+  (() => {
+    // The phone has had the typing placeholder since it shipped; the desktop had
+    // a static "Caută orice", which is the same field saying less on the surface
+    // with more room to say it. A search box that shows what people actually
+    // search for is the cheapest onboarding a marketplace has — it answers "what
+    // is on here" before anybody has typed anything.
+    //
+    // It cannot be the `placeholder` attribute: animating one per character
+    // means rewriting the attribute every frame. So the attribute is empty, the
+    // overlay is a sibling, and `aria-label` still carries the field's name.
+    const header = code("components/platform/platform-header-client.tsx")
+    return (
+      /<AnimatedSearchPlaceholder\s*\n\s*active=\{!query && !searchModalOpen\}/.test(header) &&
+      /placeholder=""/.test(header) &&
+      /aria-label=\{t\("search_placeholder"\)\}/.test(header) &&
+      // A click landing on the placeholder text instead of the field is the one
+      // way an overlay like this is worse than the attribute it replaces.
+      /pointer-events-none absolute left-11 right-11/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "a face resolves out of the grey, and only pulses if it is actually slow",
+  (() => {
+    // Eight avatars requested the instant somebody types a letter arrive over
+    // the network in whatever order they arrive, and each one popped into a flat
+    // grey circle at full opacity the moment its bytes landed — eight
+    // independent pops, which is the "glitchy" in "the avatars are hard to load
+    // and glitch".
+    //
+    // The fade is unconditional; the pulse waits. A skeleton shown immediately
+    // is a skeleton on every CACHED avatar — visible for one frame, which is a
+    // flicker rather than a loading state.
+    const avatar = code("components/ui/initial-avatar.tsx")
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /const SKELETON_AFTER_MS = 240/.test(avatar) &&
+      /setTimeout\(\(\) => setSlow\(true\), SKELETON_AFTER_MS\)/.test(avatar) &&
+      /skeleton && !loaded && "opacity-0"/.test(avatar) &&
+      /skeleton && "relative transition-opacity duration-\[260ms\] ease-out"/.test(avatar) &&
+      /slow && "animate-pulse"/.test(avatar) &&
+      // Opt-in, so the four screens that already paint their own neutral are
+      // untouched — and turned on where the eight-at-once case actually is.
+      /skeleton = false/.test(avatar) &&
+      /<AvatarPhoto url=\{avatar\} size=\{44\} skeleton/.test(overlay)
+    )
+  })(),
+  "        components/ui/initial-avatar.tsx",
+)
+
+check(
   "and a result opens the marketplace profile, not the digital storefront",
   (() => {
     // /u/ is the store-builder storefront; /member/ is the marketplace profile

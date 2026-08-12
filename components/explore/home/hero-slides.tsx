@@ -303,7 +303,16 @@ function pickShelf(listings: HeroListing[], prefer: string[], taken: Set<string>
   return out
 }
 
-export function HeroSlides({ listings }: { listings: HeroListing[] }) {
+export function HeroSlides({
+  listings,
+  className,
+}: {
+  listings: HeroListing[]
+  /** The gap above it. See the note on the section's own className below — this
+   *  section is sometimes the first thing on the page and sometimes the fourth,
+   *  and only the caller knows which. */
+  className?: string
+}) {
   const slides = useMemo<Slide[]>(() => {
     const taken = new Set<string>()
     const out: Slide[] = []
@@ -410,7 +419,16 @@ export function HeroSlides({ listings }: { listings: HeroListing[] }) {
          and a wide soft one at 8% that lifts it. A single large shadow at a
          weight you can see reads as a floating card and turns the top of the
          page into a component; this reads as the page having a surface. */
-      className="group/hero relative overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,15,15,0.06),0_12px_28px_-12px_rgba(15,15,15,0.18)]"
+      /* THE OUTER SPACING IS THE CALLER'S, and it has to be: this is the only
+         section on the home page that is sometimes the FIRST thing on it and
+         sometimes the fourth. Baking `mt-14` in would put a gap above the top
+         of the page; leaving it at nothing — which is what it was — butts the
+         previous row's cards straight against the slideshow with no space at
+         all between them, which is what it did. */
+      className={cn(
+        "group/hero relative overflow-hidden rounded-2xl shadow-[0_1px_2px_rgba(15,15,15,0.06),0_12px_28px_-12px_rgba(15,15,15,0.18)]",
+        className,
+      )}
     >
       {/* THE TRACK. One transform for the whole strip rather than a fade per
           slide: a crossfade of two 1400px images is two full-width layers being

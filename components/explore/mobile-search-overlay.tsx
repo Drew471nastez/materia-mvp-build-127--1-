@@ -1156,8 +1156,9 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
        * — and it also covers a URL that does not resolve, which a bare img
        * answered with the browser's broken-image glyph.
        */}
-      <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-neutral-200">
-        <AvatarPhoto url={avatar} size={44} className="h-full w-full object-cover">
+      {/* `relative`, because the skeleton below positions against this box. */}
+      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-neutral-200">
+        <AvatarPhoto url={avatar} size={44} skeleton className="h-full w-full object-cover">
           <span className="flex h-full w-full items-center justify-center text-[16px] font-semibold text-neutral-500">
             {name.charAt(0).toUpperCase()}
           </span>

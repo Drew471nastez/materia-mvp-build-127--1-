@@ -136,6 +136,15 @@ const BY_ID = new Map(COVER_PRESETS.map((p) => [p.id, p]))
  * it is four lines and spreads short similar strings (which uuids are) evenly;
  * nothing here is security-sensitive.
  */
+/**
+ * The colour of a cover nobody has set.
+ *
+ * One value for every such account, deliberately — see the note in
+ * `resolveCover`. A shade below the page so the band has an edge without
+ * becoming an object, and neutral so it cannot be mistaken for a choice.
+ */
+export const EMPTY_COVER_TINT = "#f1f1f2"
+
 export function defaultCoverFor(userId: string): CoverPreset {
   let h = 0x811c9dc5
   for (let i = 0; i < userId.length; i++) {
@@ -182,15 +191,38 @@ export function resolveCover(coverUrl: string | null | undefined, userId: string
    * cover is supposed to say something about the shop; a stock photo assigned
    * by a hash says the opposite, and says it louder the more accounts exist.
    *
-   * `none` is a plain tinted band with an upload button on it. The tint is
-   * still derived from the id, because a band has to be SOME colour and a
-   * stable one per account is better than one grey for everybody.
+   * `none` is a plain band with an upload button on it.
    *
-   * Existing `lib:` values still resolve above, so nobody who deliberately
-   * chose a preset loses it — it simply cannot be chosen again, and the picker
-   * is gone from the editor.
+   * ---------------------------------------------------------------------------
+   * AND THE BAND IS NEUTRAL, NOT A COLOUR PICKED FROM THE ID
+   * ---------------------------------------------------------------------------
+   * It used to be `defaultCoverFor(userId).tint` — the mean colour of one of the
+   * twelve stock photographs, chosen by hashing the account id — and the
+   * argument for it was that a band has to be SOME colour and a stable one per
+   * account beats one grey for everybody.
+   *
+   * That argument is wrong in the same way the stock photograph was, one step
+   * quieter. Those tints are #8cab3b, #b6a6a2, #6f6867: an olive, a dusty pink,
+   * a warm brown. They do not read as "no cover has been set", they read as a
+   * COLOUR SOMEBODY CHOSE — and nobody chose them. A profile that assigns a
+   * personal-looking decision to an account that never made one is telling the
+   * visitor something untrue about the person, and telling the owner they have a
+   * cover when they do not.
+   *
+   * `#f1f1f2` is the page's own neutral, one step down. It reads as an empty
+   * frame, which is exactly what it is, and it is the same on every account that
+   * has not set one — so "has a cover" and "has not" are legible at a glance
+   * instead of being twelve colours and a photograph.
+   *
+   * The band itself STAYS. The avatar straddles its lower edge and the header is
+   * built around that; removing it would not be "no cover", it would be a
+   * different header with the picture hanging off the top of the page.
+   *
+   * Existing `lib:` values still resolve above, so nobody who deliberately chose
+   * a preset loses it — it simply cannot be chosen again, and the picker is gone
+   * from the editor. `defaultCoverFor` is kept for them.
    */
-  return { kind: "none", tint: defaultCoverFor(userId).tint }
+  return { kind: "none", tint: EMPTY_COVER_TINT }
 }
 
 /** The longest a bio may be. Long enough for three sentences, short enough that

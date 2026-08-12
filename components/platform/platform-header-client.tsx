@@ -15,6 +15,7 @@ import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { useUrlSearchParams } from "@/lib/use-url-search-params"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
+import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { cn } from "@/lib/utils"
 import { DEPARTMENTS, categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 
@@ -1497,9 +1498,39 @@ export function PlatformHeaderClient() {
               onKeyDown={(e) => {
                 if (e.key === "Escape") setSearchModalOpen(false)
               }}
-              placeholder={t("search_placeholder")}
+              /**
+               * NO NATIVE PLACEHOLDER — the animated one below stands in for it.
+               *
+               * The phone has had the typing placeholder since it shipped (see
+               * SearchTrigger in components/marketplace/search-row.tsx) and the
+               * desktop had a static "Caută orice", which is the same field
+               * saying less on the surface with more room to say it. A search box
+               * that shows you what people actually search for is the cheapest
+               * onboarding a marketplace has: it answers "what is on here" before
+               * anybody has typed anything.
+               *
+               * It cannot be the `placeholder` attribute — animating one
+               * per-character means rewriting the attribute every frame — so the
+               * attribute is empty and the overlay is a sibling. `aria-label`
+               * still carries the field's name, which is what a screen reader was
+               * reading anyway.
+               */
+              placeholder=""
               aria-label={t("search_placeholder")}
               className={`h-11 w-full border border-white/15 bg-white/10 pl-11 pr-4 text-[15px] text-white outline-none transition-colors placeholder:text-white/50 focus:border-violet-500 focus:bg-white/[0.14] ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+            />
+            {/* MOUNTED ALWAYS, TOGGLED BY `active`. Unmounting resets the phrase
+                cursor, so every focus and blur would restart the loop from
+                "jordan 4 retro"; while inactive it renders nothing and holds no
+                timers. It is `pointer-events-none` because the thing under it is
+                the input — a click landing on the placeholder text instead of the
+                field is the one way an overlay like this can be worse than the
+                attribute it replaces. */}
+            <AnimatedSearchPlaceholder
+              active={!query && !searchModalOpen}
+              prefix={t("mfeed.search_for")}
+              quoted
+              className="pointer-events-none absolute left-11 right-11 top-1/2 z-10 -translate-y-1/2 text-[15px] text-white/50"
             />
             {query && (
               <button

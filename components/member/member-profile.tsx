@@ -1071,10 +1071,17 @@ export function MemberProfile({
             a cover that runs up under the status bar has to carry its own
             floor. Deeper and taller than a decorative scrim, because it is not
             decoration: it is what makes the top of the phone readable. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/45 via-black/15 to-transparent"
-        />
+        {/* ONLY OVER A PHOTOGRAPH. It is a floor for white glyphs — the clock,
+            the battery, the signal bars, and the three controls below — over a
+            picture whose brightness nobody here chose. An account with no cover
+            has a pale neutral band (see EMPTY_COVER_TINT), and a black gradient
+            across the top of that is a smudge protecting nothing. */}
+        {coverPhoto && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/45 via-black/15 to-transparent"
+          />
+        )}
 
         {/* The controls, in the cover rather than in a row above it, and pushed
             clear of the clock.

@@ -3063,6 +3063,48 @@ check(
   "        lib/profile/seller-stats.ts",
 )
 
+console.log("\nA cover nobody set")
+
+check(
+  "an unset cover is a neutral band, not a colour picked from the account id",
+  (() => {
+    // It was the mean colour of one of twelve stock photographs, hashed off the
+    // user id: #8cab3b, #b6a6a2, #6f6867 — an olive, a dusty pink, a warm brown.
+    // Those do not read as "no cover has been set", they read as a colour
+    // SOMEBODY CHOSE, and nobody chose them. A profile that assigns a
+    // personal-looking decision to an account that never made one is telling the
+    // visitor something untrue about the person.
+    //
+    // The band itself stays: the avatar straddles its lower edge and the header
+    // is built around that, so removing it would not be "no cover" — it would be
+    // a different header with the picture hanging off the top of the page.
+    const covers = strip(read("lib/profile/covers.ts"))
+    return (
+      /export const EMPTY_COVER_TINT = "#f1f1f2"/.test(covers) &&
+      /return \{ kind: "none", tint: EMPTY_COVER_TINT \}/.test(covers) &&
+      !/return \{ kind: "none", tint: defaultCoverFor\(userId\)\.tint \}/.test(covers) &&
+      // And nothing newly assigns a stock photograph. `defaultCoverFor` is kept
+      // only for the accounts that deliberately chose a preset before the picker
+      // was removed.
+      /export function defaultCoverFor/.test(covers)
+    )
+  })(),
+  "        lib/profile/covers.ts",
+)
+
+check(
+  "and the scrim is only drawn over an actual photograph",
+  (() => {
+    // It is a floor for white glyphs — the clock, the battery, the three
+    // controls — over a picture whose brightness nobody here chose. Across the
+    // top of a pale neutral band it is a smudge protecting nothing.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const at = profile.indexOf("bg-gradient-to-b from-black/45")
+    return at > 0 && /\{coverPhoto && \(/.test(profile.slice(Math.max(0, at - 400), at))
+  })(),
+  "        components/member/member-profile.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

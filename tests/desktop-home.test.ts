@@ -962,26 +962,71 @@ check(
 )
 
 check(
-  "and with no history it is two rows of suggestions, then three more — never the same cards twice",
+  "three suggestion blocks, cut from one list so no card appears twice",
   (() => {
-    // "Sugestii pentru tine" at two rows is the same promise made honestly: ten
-    // of the newest things, not a claim to know anybody. The lower block is
-    // three rows and CONTINUES the list — two identical grids under one heading
-    // twice on a page is worse than one grid, and slicing is the whole of what
-    // makes "another Sugestii pentru tine" worth having.
+    // "Sugestii pentru tine" at two rows stands in for the personal row when
+    // there is no history — the same promise made honestly: ten of the newest
+    // things, not a claim to know anybody. The other two sit either side of the
+    // category tiles.
+    //
+    // The heading therefore appears up to three times on one page, which is a
+    // decision about the page rather than an accident — and it is only
+    // defensible while the CONTENTS differ. Three consecutive slices of one
+    // list, offset by what the block before it took, is what makes that
+    // provable rather than hoped for.
     const homeAll = read("components/explore/home/desktop-home.tsx")
     return (
       /const SIGNED_OUT_TOP_ROWS = 2/.test(homeAll) &&
-      /const suggestedTop = sections\.suggested\.slice\(0, ROW \* SIGNED_OUT_TOP_ROWS\)/.test(homeAll) &&
-      /sections\.suggested\.slice\(ROW \* SIGNED_OUT_TOP_ROWS\)/.test(homeAll) &&
-      // Two blocks, and the upper one is the fallback for having no history.
-      (signedOutView.match(/title="Sugestii pentru tine"/g) ?? []).length === 2 &&
+      /const SIGNED_OUT_MID_ROWS = 2/.test(homeAll) &&
+      // `topTaken` is 0 when the first block was not drawn, which is the whole
+      // of "the middle block starts wherever the top one stopped" — written as
+      // an offset rather than as two branches, so the slices cannot overlap.
+      /const topTaken = personal \? 0 : ROW \* SIGNED_OUT_TOP_ROWS/.test(homeAll) &&
+      /const suggestedTop = sections\.suggested\.slice\(0, topTaken\)/.test(homeAll) &&
+      /const suggestedMid = sections\.suggested\.slice\(topTaken, topTaken \+ ROW \* SIGNED_OUT_MID_ROWS\)/.test(homeAll) &&
+      /const suggestedRest = sections\.suggested\.slice\(topTaken \+ ROW \* SIGNED_OUT_MID_ROWS\)/.test(homeAll) &&
+      (signedOutView.match(/title="Sugestii pentru tine"/g) ?? []).length === 3 &&
       /\{personal \? \(/.test(signedOutView) &&
-      /rows=\{SIGNED_OUT_TOP_ROWS\}/.test(signedOutView) &&
       /items=\{suggestedRest\}\s*\n\s*rows=\{3\}/.test(signedOutView)
     )
   })(),
   "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "and the grid between the pills and the tiles, not two rows of navigation in a row",
+  (() => {
+    // The pills are queries and the tiles are departments — both are ways of
+    // NARROWING, and back to back they make the middle of the page two rows of
+    // navigation with nothing to look at between them.
+    const order = ["<YouMightBeInto", "items={suggestedMid}", "<ShopByCategory", "items={suggestedRest}", "<MoreListings"].map(
+      (needle) => signedOutView.indexOf(needle),
+    )
+    return order.every((i) => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1])
+  })(),
+  "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "the hero takes the page's rhythm when something is above it, and none when nothing is",
+  (() => {
+    // It had no top margin at all while every other section has `mt-14`, so a
+    // listing row directly above it butted its cards against the slideshow with
+    // no space between them. Baking the margin in would have put a gap above
+    // the top of the page on the visit where the hero IS the first thing.
+    const homeAll = read("components/explore/home/desktop-home.tsx")
+    const slides = read("components/explore/home/hero-slides.tsx")
+    return (
+      // The section merges a caller className rather than stating its own.
+      /className=\{cn\(\s*\n\s*"group\/hero relative overflow-hidden rounded-2xl/.test(slides) &&
+      /className\?: string/.test(slides) &&
+      // Member: only when the personal row above it was drawn.
+      /<HeroSlides listings=\{products\} className=\{personal \? "mt-14" : undefined\} \/>/.test(homeAll) &&
+      // Signed out: always, because something is always above it there.
+      /<HeroSlides listings=\{products\} className="mt-14" \/>/.test(homeAll)
+    )
+  })(),
+  "        components/explore/home/hero-slides.tsx",
 )
 
 check(

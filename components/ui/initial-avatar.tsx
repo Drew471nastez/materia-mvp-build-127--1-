@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -24,6 +24,14 @@ import { cn } from "@/lib/utils"
  * that changes on reload is worse than no colour at all. Six hues, all pinned to
  * the same lightness so white text sits legibly on any of them.
  */
+
+/**
+ * How long a face is allowed to take before the circle admits it is waiting.
+ *
+ * Long enough that a cached avatar — decoded inside the same frame — never
+ * reaches it, short enough that a slow one does not sit as a dead grey disc.
+ */
+const SKELETON_AFTER_MS = 240
 
 const HUES = [
   { bg: "#7c3aed", fg: "#ffffff" }, // brand violet
@@ -77,6 +85,7 @@ export function AvatarPhoto({
   size,
   className,
   children,
+  skeleton = false,
 }: {
   url: string | null | undefined
   /** The largest size this is drawn at, in CSS pixels. The srcset is built from
@@ -91,8 +100,48 @@ export function AvatarPhoto({
    */
   className: string
   children: React.ReactNode
+  /**
+   * DRAW A PLACEHOLDER WHILE THE PHOTOGRAPH IS STILL COMING, AND FADE IT IN.
+   *
+   * Opt-in, and off by default, because it changes what the caller's box
+   * contains: every existing caller owns a sized, clipped wrapper that already
+   * paints its own neutral, and turning this on everywhere would put a second
+   * opinion inside four screens that each state their own.
+   *
+   * It exists for the search panel, where eight faces are requested the instant
+   * somebody types a letter and arrive over the network in whatever order they
+   * arrive. Without it each one pops into a flat grey circle at full opacity the
+   * moment its bytes land — eight independent pops, which is the "glitchy" in
+   * "the avatars are hard to load and glitch".
+   *
+   * Two parts, and the second is the one that matters:
+   *
+   *   ALWAYS  the image fades in over 260ms instead of appearing. A photograph
+   *           that resolves out of the grey it was sitting on is one movement;
+   *           the same photograph switched on is an event.
+   *
+   *   ONLY IF SLOW  the grey starts to pulse, after 240ms. A skeleton shown
+   *           immediately is a skeleton on every cached avatar — visible for one
+   *           frame, which is a flicker rather than a loading state. Below the
+   *           threshold there is a still neutral circle, which is what the
+   *           caller's wrapper was already painting.
+   */
+  skeleton?: boolean
 }) {
   const [broken, setBroken] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [slow, setSlow] = useState(false)
+
+  /**
+   * Armed on mount and cleared the moment the image lands, so a cached avatar —
+   * which loads inside the same frame — never starts the timer's payload.
+   */
+  useEffect(() => {
+    if (!skeleton || loaded) return
+    const timer = setTimeout(() => setSlow(true), SKELETON_AFTER_MS)
+    return () => clearTimeout(timer)
+  }, [skeleton, loaded])
+
   if (!url || broken) return <>{children}</>
 
   // An SVG cannot go through the optimizer without `dangerouslyAllowSVG`, which
@@ -114,17 +163,33 @@ export function AvatarPhoto({
     )
   }
   return (
-    <Image
-      src={url}
-      alt=""
-      width={size}
-      height={size}
-      quality={68}
-      loading="eager"
-      decoding="sync"
-      onError={() => setBroken(true)}
-      className={className}
-    />
+    <>
+      {/* Behind the photograph, and gone the moment it has pixels. `inset-0`
+          against the caller's own wrapper, which is already sized and clipped —
+          this adds no box of its own and cannot change any layout. */}
+      {skeleton && !loaded && (
+        <span
+          aria-hidden
+          className={cn("absolute inset-0 bg-neutral-200/90", slow && "animate-pulse")}
+        />
+      )}
+      <Image
+        src={url}
+        alt=""
+        width={size}
+        height={size}
+        quality={68}
+        loading="eager"
+        decoding="sync"
+        onError={() => setBroken(true)}
+        onLoad={() => setLoaded(true)}
+        className={cn(
+          className,
+          skeleton && "relative transition-opacity duration-[260ms] ease-out",
+          skeleton && !loaded && "opacity-0",
+        )}
+      />
+    </>
   )
 }
 
