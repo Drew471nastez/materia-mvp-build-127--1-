@@ -140,7 +140,20 @@ async function openSession(host: string): Promise<string> {
   // `getSetCookie` is the only accessor that returns ALL Set-Cookie headers —
   // `headers.get("set-cookie")` folds them into one comma-joined string that
   // cannot be split correctly, because cookie Expires values contain commas.
-  const jar = res.headers.getSetCookie?.() ?? []
+  //
+  // TYPED AT THE CALL SITE, because this repository is on TypeScript 5.0 and
+  // `getSetCookie` was added to lib.dom.d.ts in 5.2. The runtime has it — Node
+  // 20's fetch, and every browser since 2023 — and the optional call below was
+  // already guarding for the ones that do not. Only the DECLARATION is missing,
+  // so `tsc` refused the property and took `pnpm test:push` down with it while
+  // `pnpm build` passed, because Turbopack does not typecheck.
+  //
+  // A local widening rather than `as any` or a `lib` bump: `as any` would take
+  // the return type with it and silently make `jar` untyped, and raising the
+  // whole project's DOM lib to fix one property is a change to every file's
+  // globals to satisfy one line.
+  const headers = res.headers as Headers & { getSetCookie?: () => string[] }
+  const jar = headers.getSetCookie?.() ?? []
   const pairs = jar
     .map((line) => line.split(";")[0]?.trim())
     .filter((p): p is string => !!p && p.includes("="))
