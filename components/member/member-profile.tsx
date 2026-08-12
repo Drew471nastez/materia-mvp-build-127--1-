@@ -487,10 +487,12 @@ export function MemberProfile({
    *     sixty cards is three thousand pixels of scroll. The reviews panel is
    *     three hundred. Switching left the browser scrolled past the end of a
    *     document that had just shrunk, so it painted nothing and then clamped —
-   *     which is exactly "empty space, then it jumps back". The strip is
-   *     brought to the top of the viewport BEFORE the swap now, which is what
-   *     every app in this category does and the only thing that removes the
-   *     clamp rather than hiding it.
+   *     which is exactly "empty space, then it jumps back". The page is brought
+   *     to the strip on every switch now, which is what every app in this
+   *     category does and the only thing that removes the clamp rather than
+   *     hiding it. The ORDER that travel happens in changed later — see "THE
+   *     PANEL CHANGES FIRST" below — but the travel itself is why the clamp is
+   *     gone.
    *
    *  2. THE OUTGOING PANEL WAS RE-MOUNTED TO ANIMATE IT AWAY. A depth crossfade
    *     needs both layers in the DOM, so leaving the grid meant mounting sixty
