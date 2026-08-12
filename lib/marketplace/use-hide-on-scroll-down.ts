@@ -50,6 +50,19 @@ import { useEffect, useState } from "react"
  *     otherwise a short flick down at the very top of a page hides chrome that
  *     has not been scrolled past yet. `REVEAL_ABOVE` is that floor.
  *
+ *     Callers can RAISE that floor, and for a sticky bar one of them must.
+ *     Sticky leaves the element's space in the document, and for chrome pinned
+ *     under a header that space is at the very top of the page — so hiding it
+ *     while any of that space is still on screen does not show the page, it
+ *     shows the empty band the bar came out of. Pass the bar's own height and
+ *     the band is behind the header by the time anything is allowed to move.
+ *
+ *     This is the one thing sticky does not give you for free, and it is worth
+ *     being precise about why it is still the right choice: `fixed` has no such
+ *     band, but `fixed` also takes the bar out of flow, which means every page
+ *     under it needs padding that matches a bar whose height they cannot see.
+ *     One floor in one hook against that, on every page.
+ *
  *   · Overscroll at the bottom on iOS reports scroll positions past the end of
  *     the document, then reports them coming back — which reads as "scrolled
  *     up" and pops the bar out during a bounce nobody asked anything of.
@@ -62,7 +75,14 @@ const THRESHOLD = 12
 /** Above this the bar is always shown, whatever the direction. */
 const REVEAL_ABOVE = 24
 
-export function useHideOnScrollDown(enabled = true): boolean {
+/**
+ * @param enabled     false pins the bar open — for routes where it must not move.
+ * @param revealAbove Raise the always-shown floor. For a sticky bar, pass its
+ *                    own height; see the third note above for why. Never lowers
+ *                    it: `REVEAL_ABOVE` is the minimum whatever is passed, so a
+ *                    0 from a bar that has not measured itself yet is harmless.
+ */
+export function useHideOnScrollDown(enabled = true, revealAbove = 0): boolean {
   const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
@@ -71,6 +91,7 @@ export function useHideOnScrollDown(enabled = true): boolean {
       return
     }
 
+    const floor = Math.max(REVEAL_ABOVE, revealAbove)
     let last = window.scrollY
     let frame = 0
 
@@ -81,7 +102,7 @@ export function useHideOnScrollDown(enabled = true): boolean {
       const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
       const y = Math.min(Math.max(0, window.scrollY), max)
 
-      if (y <= REVEAL_ABOVE) {
+      if (y <= floor) {
         last = y
         setHidden(false)
         return
@@ -108,7 +129,7 @@ export function useHideOnScrollDown(enabled = true): boolean {
       window.removeEventListener("scroll", onScroll)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [enabled])
+  }, [enabled, revealAbove])
 
   return hidden
 }

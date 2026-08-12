@@ -972,24 +972,27 @@ check(
 check(
   "the sell routes are not given a white lip they have no bar for",
   (() => {
-    // Under the black header the shell draws a 20px strip with a white
+    // Under the black header the shell draws a short strip with a white
     // rounded-t overlay — the concave transition into the white search bar. On
     // a route with no such bar and a #f6f6f7 background, that strip is a band
     // of white between the header and the page, curving at the corners because
     // it is the lip of something that is not there.
     //
-    // ONE CONDITION NOW, NOT TWO. The lip and the bar were two sibling blocks
-    // each carrying its own copy of this test; they are wrapped in a single
-    // sticky container so they can slide away together — sliding one without
-    // the other leaves a white lip with rounded corners floating over the page,
-    // which is the seam the lip exists to remove. The invariant is unchanged
-    // and is now impossible to half-apply.
+    // ONE CONDITION NOW, NOT TWO — and it has a name. The lip and the bar were
+    // two sibling blocks each carrying its own copy of this test; they are
+    // wrapped in a single sticky container so they can slide away together —
+    // sliding one without the other leaves a white lip with rounded corners
+    // floating over the page, which is the seam the lip exists to remove. The
+    // condition itself is now `showSubbar`, one const read in two places: the
+    // JSX and the effect that measures the bar for the hide-on-scroll floor.
+    // The invariant is unchanged and is now impossible to half-apply.
     const header = read("components/platform/platform-header-client.tsx")
     return (
       /const isSellRoute = pathname\.startsWith\("\/products\/new"\) \|\| pathname\.startsWith\("\/products\/edit"\)/.test(header) &&
-      (header.match(/\{!isSellRoute && \(showCategories/g) ?? []).length === 1 &&
+      /const showSubbar =\s*\n\s*!isSellRoute &&/.test(header) &&
+      (header.match(/\{showSubbar && \(/g) ?? []).length === 1 &&
       // And the lip is inside the wrapper the condition guards, not beside it.
-      /className="platform-subbar sticky z-\[35\]"[\s\S]{0,320}?bg-black h-\[20px\]/.test(header)
+      /className="platform-subbar sticky z-\[35\]"[\s\S]{0,900}?bg-black h-\[16px\]/.test(header)
     )
   })(),
 )

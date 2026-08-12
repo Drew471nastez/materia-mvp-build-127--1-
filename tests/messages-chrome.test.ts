@@ -758,18 +758,24 @@ check(
     /**
      * Three values were tried here and all three were guesses at the wrong
      * number, because the white above these labels does not start where the
-     * nav starts: a separate `bg-black h-[20px]` block with a
-     * `rounded-t-[20px]` white overlay sits above it, drawing the concave
-     * corner where the black bar meets the white. Its twenty pixels are white
-     * too, so a `pt` here lands on TOP of them — pt-2.5 read as 30 above
-     * against 14 below.
+     * nav starts: a separate `bg-black h-[16px]` block with a
+     * `rounded-t-[16px]` white overlay sits above it, drawing the concave
+     * corner where the black bar meets the white. Its pixels are white too, so
+     * a `pt` here lands on TOP of them — pt-2.5 read as 30 above against 14
+     * below.
+     *
+     * FOUR NUMBERS, ALL THE SAME. The lip's height, the lip's radius, the
+     * desktop row's bottom padding and the mobile rail's. The bar came down
+     * from 20 to 16 and every one of them had to come with it: 16 on one side
+     * only is dead white under the labels, and a 20px radius in a 16px box is
+     * a curve with its bottom cut off.
      *
      * The lip is the top padding. This guard fails if somebody reintroduces a
      * pt, or changes the lip without changing the padding that matches it.
      */
     const header = code("components/platform/platform-header-client.tsx")
-    const lip = /bg-black h-\[20px\]"/.test(header) && /bg-white rounded-t-\[20px\]/.test(header)
-    const strip = /gap-7 whitespace-nowrap pb-5 pt-0 text-\[14\.5px\]/.test(header)
+    const lip = /bg-black h-\[16px\]"/.test(header) && /bg-white rounded-t-\[16px\]/.test(header)
+    const strip = /gap-7 whitespace-nowrap pb-4 pt-0 text-\[14\.5px\]/.test(header)
     const rail = /md:hidden px-0 pt-0 pb-4 overflow-x-auto/.test(header)
     return lip && strip && rail
   })(),
@@ -1012,7 +1018,16 @@ check(
       /className="platform-subbar sticky z-\[35\]"/.test(header) &&
       /data-hidden=\{subbarHidden \? "true" : "false"\}/.test(header) &&
       /style=\{\{ top: "var\(--platform-header-h, 0px\)" \}\}/.test(header) &&
-      /const subbarHidden = useHideOnScrollDown\(\)/.test(header) &&
+      // AND IT MEASURES ITSELF. Sticky keeps the element's space in the
+      // document, and this bar's space is at the very top of the page — so
+      // hiding it before the page has moved by its own height shows the band it
+      // vacated: white, bar-height, under a black header, above a #f5f5f5 page.
+      // The floor is the measured height, not a number somebody wrote down
+      // while the bar was 20px taller than it is now.
+      /const subbarHidden = useHideOnScrollDown\(true, subbarH\)/.test(header) &&
+      /ro\.observe\(el\)/.test(header) &&
+      /setSubbarH\(Math\.round\(el\.getBoundingClientRect\(\)\.height\)\)/.test(header) &&
+      /<div\s*\n\s*ref=\{subbarRef\}/.test(header) &&
       // Transform only — a translate is composited, so a bar leaving costs no
       // layout on the frame a grid of photographs is scrolling past it.
       /\.platform-subbar\[data-hidden="true"\] \{\s*\n[\s\S]{0,240}?transform: translate3d\(0, calc\(-100% - 2px\), 0\)/.test(css) &&
@@ -1051,7 +1066,11 @@ check(
       /frame = requestAnimationFrame\(read\)/.test(hook) &&
       /if \(frame\) return/.test(hook) &&
       /const max = Math\.max\(0, document\.documentElement\.scrollHeight - window\.innerHeight\)/.test(hook) &&
-      /if \(y <= REVEAL_ABOVE\)/.test(hook)
+      // The floor is raisable and can only go up: a caller passing 0 — a sticky
+      // bar that has not measured itself yet — still gets the 24px minimum.
+      /const floor = Math\.max\(REVEAL_ABOVE, revealAbove\)/.test(hook) &&
+      /if \(y <= floor\)/.test(hook) &&
+      /\}, \[enabled, revealAbove\]\)/.test(hook)
     )
   })(),
   "        lib/marketplace/use-hide-on-scroll-down.ts",

@@ -262,8 +262,19 @@ export async function ExploreFeed({
         }}
       />
 
-      {/* Semantic page structure for SEO - matches header max-width (1400px) */}
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
+      {/* Semantic page structure for SEO - matches header max-width (1400px).
+
+          THE TOP PADDING IS THE GAP UNDER THE CATEGORY BAR. Nothing else sits
+          between them: the bar ends, this padding runs, and the hero starts.
+          It was 16/20; it is 14/17, fifteen percent off — the bar got shorter
+          in the same pass (see components/platform/platform-header-client.tsx)
+          and the gap under it had to come in with it, or the space reads as
+          bigger than it was before even though the bar is smaller.
+
+          Round numbers only up to a point: 13.6 and 17 are the arithmetic, and
+          a half pixel of padding is a half pixel the browser rounds somewhere
+          you cannot predict. */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-[14px] pb-6 sm:pt-[17px] sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">{t("feed.seo_h1")}</h1>
 
