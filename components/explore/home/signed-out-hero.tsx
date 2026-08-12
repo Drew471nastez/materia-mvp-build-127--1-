@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Shirt, Sparkles, ShieldCheck, Camera, Wallet, Truck } from "lucide-react"
+import { Fingerprint, PackagePlus, ShieldCheck, Camera, Wallet, Truck } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { openBuyerProtection } from "@/components/marketplace/buyer-protection"
@@ -65,22 +65,34 @@ const COPY: Record<
     body: string
     cta: string
     href: string
-    tiles: { icon: typeof Shirt; title: string; body: string }[]
+    tiles: { icon: typeof Fingerprint; title: string; body: string }[]
   }
 > = {
   buy: {
-    title: "Cumpără second-hand. Poartă-l cum vrei.",
-    body: "Haine, pantofi și obiecte care au mai trăit o dată — de la oameni din toată țara.",
+    /**
+     * NOT ONLY FASHION.
+     *
+     * "Poartă-l cum vrei" and "ce nu mai porți" both say WEAR, and the taxonomy
+     * this marketplace actually ships has Divertisment and Hobbyuri și colecții
+     * in it — books, records, film, collectables. A front page that only
+     * addresses clothes tells everybody selling a record player that they are
+     * in the wrong place.
+     *
+     * So the verbs are neutral and the list is explicit: the second line names
+     * four kinds of thing, two of which are not clothing at all.
+     */
+    title: "Cumpără second-hand. Fă-l al tău.",
+    body: "Haine, pantofi, cărți, muzică și obiecte de colecție — lucruri care au mai trăit o dată, de la oameni din toată țara.",
     cta: "Vezi ce e de vânzare",
     href: "/?q=",
     tiles: [
-      { icon: Shirt, title: "Piese unicat", body: "Un exemplar din fiecare." },
-      { icon: Sparkles, title: "Adăugate zilnic", body: "De la vânzători reali." },
+      { icon: Fingerprint, title: "Lucruri unicat", body: "Un exemplar din fiecare." },
+      { icon: PackagePlus, title: "Adăugate zilnic", body: "De la vânzători reali." },
       { icon: ShieldCheck, title: "Plată protejată", body: "Cum funcționează" },
     ],
   },
   sell: {
-    title: "Vinde ce nu mai porți. Fără comision.",
+    title: "Vinde ce nu mai folosești. Fără comision.",
     body: "Publici în câteva minute, iar prețul pe care îl ceri este prețul pe care îl primești.",
     cta: "Publică un anunț",
     href: "/products/new",
@@ -111,7 +123,19 @@ export function SignedOutHero() {
 
   return (
     <section
-      className="relative mb-6 overflow-hidden rounded-2xl ring-1 ring-black/[0.04]"
+      /**
+       * FULL-BLEED: no radius, no ring, no side margin.
+       *
+       * It stopped 8px short of the window on both sides and had 16px of grey
+       * above it, which is what made it read as the first CARD on the page
+       * rather than as the top of it. The border-bottom is the only edge it
+       * needs — the page below is the same near-white, and a hairline is what
+       * separates two surfaces of the same colour.
+       *
+       * `mb-8` rather than `mb-6`: a little more air before the slideshow, so
+       * the promotion and the carousel are not read as one stack.
+       */
+      className="relative mb-8 border-b border-black/[0.05]"
       /**
        * VERY LIGHT, AND BARELY PURPLE.
        *
@@ -127,7 +151,10 @@ export function SignedOutHero() {
         background: "linear-gradient(115deg, #fbfafc 0%, #f4f2fa 42%, #eff0f5 78%, #f6f5f8 100%)",
       }}
     >
-      <div className="grid items-center gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-12 lg:py-14">
+      {/* Re-constrained to the SAME measure and the SAME padding as the
+          listings below, so the headline starts on the page's own left margin.
+          Full-bleed is about the ground, not about the words. */}
+      <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-8 lg:py-16">
         <div className="min-w-0">
           {/* THE TOGGLE. A track with a sliding thumb rather than two buttons
               that swap colour: the thumb moving is what says these are two
@@ -135,7 +162,18 @@ export function SignedOutHero() {
           <div className="relative inline-flex rounded-full bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05]">
             <span
               aria-hidden
-              className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-neutral-900 transition-transform duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+              /* THE BRAND PURPLE, and it is the right place for it: this is
+                 the one control on the panel that changes what you are looking
+                 at, and purple is what this interface uses for the thing it
+                 wants you to press. The CTA under it stays near-black so the
+                 two are not competing.
+
+                 420ms on an overshoot curve rather than 320ms on an ease-out.
+                 A thumb sliding between two stops is the one movement where a
+                 slight overrun reads as physical rather than as a wobble — it
+                 is a switch being thrown, and a switch does not decelerate
+                 gently into place. */
+              className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-[#7c3aed] shadow-[0_1px_3px_rgba(124,58,237,0.45)] transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.32,0.5,1)]"
               style={{ transform: side === "sell" ? "translateX(100%)" : "translateX(0)" }}
             />
             {(["buy", "sell"] as const).map((s) => (
@@ -211,13 +249,26 @@ export function SignedOutHero() {
             column is 300px and this is a composition of three cards, not a
             thumbnail. */}
         <div className="relative w-full" style={{ aspectRatio: HERO_RATIO }}>
+          {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
+              
+              `draggable={false}` stops the browser's own drag-to-copy, which is
+              what lifts a ghost of the picture off the page the moment somebody
+              swipes across it — easy to do by accident on a panel this size, and
+              it looks broken every time.
+              
+              `pointer-events-none` is the other half and does more than it
+              looks: with no pointer events the image cannot be the target of a
+              context menu either, so "Save image as…" never appears, and it
+              cannot be the start of a selection. Nothing here is interactive,
+              so there is nothing to lose by taking the events away. */}
           <Image
             src={HERO_IMAGE}
             alt=""
             fill
             sizes="(min-width: 1024px) 640px, (min-width: 768px) 90vw, 100vw"
             priority
-            className="rounded-xl object-cover"
+            draggable={false}
+            className="pointer-events-none select-none rounded-xl object-cover [-webkit-user-drag:none]"
           />
         </div>
       </div>

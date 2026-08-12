@@ -5317,3 +5317,33 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
     width: 100%;
   }
 }
+
+/* ===========================================================================
+ *  THE HOME SHELL HAS TWO SHAPES, AND THE PAGE PICKS ONE BEFORE IT PAINTS
+ * ===========================================================================
+ *
+ * A signed-out visitor opens storelib.com on a full-bleed marketing hero that a
+ * signed-in one never sees. One placeholder cannot hold both: drawn for
+ * everybody it flashes a 500px panel that then disappears for most people;
+ * drawn for nobody, the commonest first visit there is — somebody arriving
+ * without an account — gets a shell that holds none of the space its page is
+ * about to take, and the whole thing jumps when the real hero lands.
+ *
+ * `loading.tsx` cannot be async, so it cannot ask the server which one to draw.
+ * The head script in app/layout.tsx puts the answer on <html> as `data-auth`
+ * before the first pixel, and this is what reads it.
+ *
+ * DEFAULT HIDDEN, shown only on a positive "out". The attribute is missing only
+ * when the script did not run at all — storage disabled, private mode, a very
+ * old browser — and in that case NOT drawing the hero is the cheaper mistake:
+ * a shell that is too short pushes content down once, while one that is too
+ * tall leaves a hole where a panel was promised.
+ */
+.feed-shell-signed-out {
+  display: none;
+}
+@media (min-width: 768px) {
+  html[data-auth="out"] .feed-shell-signed-out {
+    display: block;
+  }
+}

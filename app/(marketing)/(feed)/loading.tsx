@@ -162,7 +162,48 @@ export default function FeedLoading() {
           Two rows and a strip, not the whole page. Below the fold there is
           nothing to hold still, and every extra element here is markup shipped
           on the critical path to be thrown away. */}
-      <div className="mx-auto hidden w-full max-w-[1400px] px-4 pb-8 pt-4 sm:px-6 sm:pt-5 md:block lg:px-8">
+      {/* ═══════════════════════════════════════════════════════════════════
+          THE SIGNED-OUT SHELL, WHICH IS A DIFFERENT PAGE
+          ═══════════════════════════════════════════════════════════════════
+
+          A signed-out visitor opens on a full-bleed marketing hero that a
+          signed-in one never sees, so one placeholder cannot serve both: draw
+          the hero for everybody and it flashes a 500px panel that then vanishes
+          for most people; draw it for nobody and the most common first visit in
+          the world — somebody arriving with no account — gets a shell that
+          holds none of the space its page is about to take.
+
+          `loading.tsx` CANNOT be async, so it cannot ask the server. The answer
+          is on <html> as `data-auth`, set from localStorage by the head script
+          in app/layout.tsx before first paint, and `.feed-shell-signed-out` in
+          globals.css shows this block only when that says "out". */}
+      <div className="feed-shell-signed-out hidden w-full border-b border-black/[0.05] md:block"
+           style={{ background: "linear-gradient(115deg, #fbfafc 0%, #f4f2fa 42%, #eff0f5 78%, #f6f5f8 100%)" }}>
+        <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-8 lg:py-16">
+          <div>
+            {/* The toggle, the headline, the line, the button — drawn at their
+                real sizes. No pulse: this is the first thing on the page and a
+                500px block flashing grey is the most distracting thing a
+                loading screen can do. */}
+            <div className="h-10 w-[212px] rounded-full bg-white/70 ring-1 ring-black/[0.05]" />
+            <div className="mt-7 h-[42px] w-[85%] rounded bg-neutral-900/[0.07]" />
+            <div className="mt-2 h-[42px] w-[62%] rounded bg-neutral-900/[0.07]" />
+            <div className="mt-4 h-4 w-[70%] rounded bg-neutral-900/[0.05]" />
+            <div className="mt-2 h-4 w-[46%] rounded bg-neutral-900/[0.05]" />
+            <div className="mt-8 h-[52px] w-[210px] rounded-xl bg-neutral-900/[0.12]" />
+            <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-[102px] rounded-xl bg-white/70 ring-1 ring-black/[0.05]" />
+              ))}
+            </div>
+          </div>
+          {/* The picture's own ratio, so the shell is the height the page will
+              be — see HERO_RATIO in components/explore/home/signed-out-hero. */}
+          <div className="w-full rounded-xl bg-neutral-900/[0.05]" style={{ aspectRatio: "1356 / 798" }} />
+        </div>
+      </div>
+
+      <div className="mx-auto hidden w-full max-w-[1400px] px-4 pb-8 pt-8 sm:px-6 md:block lg:px-8">
         {/* The hero: two halves, the real height, no pulse on the ground —
             a 1400×260 block flashing grey is the single most distracting thing
             a loading screen can do, and it is the first thing on the page. */}
