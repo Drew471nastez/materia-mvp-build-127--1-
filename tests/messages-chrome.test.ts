@@ -776,6 +776,152 @@ check(
   "        components/platform/platform-header-client.tsx",
 )
 
+console.log("\nThe header only offers what an account has")
+
+check(
+  "the heart is signed-in only, and the bag is not",
+  (() => {
+    // THE WISHLIST. To a stranger it is an icon leading to an empty room — and
+    // worse than empty, because it carried a COUNT: the guest list hangs off a
+    // cookie, so a first-time visitor arrived at a black bar advertising that
+    // they had two saved items, on a site they had never used. A number about
+    // you, on a page that has never met you. Both the desktop icon and the
+    // phone one.
+    //
+    // THE BAG STAYS. They looked like the same case and are not: a wishlist is
+    // a record of what you have done, while a basket is a step in buying
+    // something — and buying does not require an account here, the cart works
+    // signed out and the sign-in happens at checkout. Hiding it would be hiding
+    // the only place a guest's items are, from the guest whose items they are.
+    const header = code("components/platform/platform-header-client.tsx")
+    const wish = header.indexOf("aria-label={t(\"wishlist\")}")
+    const bag = header.indexOf("aria-label={t(\"bag\")}")
+    const before = (at: number) => header.slice(Math.max(0, at - 700), at)
+    return (
+      wish > 0 &&
+      bag > 0 &&
+      /\{user && \(/.test(before(wish)) &&
+      !/\{user && \(/.test(before(bag)) &&
+      // And the phone icon, which is a separate element in the mobile row.
+      /\{user && \(\s*\n\s*<Link\s*\n\s*href=\{getCanonicalOrRelativePath\(wishlistHref\)\}/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the categories control is a glyph, and the field gave back ten percent",
+  (() => {
+    // It read "Categories" in English on a Romanian marketplace, immediately
+    // left of a field whose placeholder is "Caută orice" — one bar, two
+    // languages. Translating it was the obvious repair and the wrong one:
+    // "Categorii" is nine characters of chrome beside a hamburger that already
+    // means exactly that, and it was eating width the search field could use.
+    //
+    // The field then gave some back anyway. At `max-w-xl` (576) it ran most of
+    // the way between the logo and the icons on a 1400px measure, which made
+    // the header read as a search page with some navigation attached.
+    const header = code("components/platform/platform-header-client.tsx")
+    const button = header.slice(header.indexOf("setCategoriesDropdownOpen(!categoriesDropdownOpen)"))
+    return (
+      /aria-label="Categorii"/.test(button.slice(0, 900)) &&
+      !/<span>Categories<\/span>/.test(header) &&
+      /flex h-10 w-10 items-center justify-center rounded-lg/.test(button.slice(0, 900)) &&
+      /relative hidden md:flex flex-1 max-w-\[518px\] mx-4/.test(header) &&
+      !/max-w-xl mx-4/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "people search starts from profiles, so it can find somebody who has never sold",
+  (() => {
+    // It hydrated from `creators`, and a creators row is a SELLER record —
+    // written by the seller onboarding and by /api/listings on somebody's first
+    // listing. Anybody who has never listed anything does not have one, which
+    // on a second-hand marketplace is most accounts: every buyer, every new
+    // sign-up, everybody who came to browse. They matched the name lookup, had
+    // no row to hydrate, and vanished.
+    //
+    // Then `if (hasCounts && productsCount < 1) continue` removed the rest.
+    // Correct for a directory of shops; wrong for a tab called PEOPLE.
+    const route = code("app/api/v2/search/people/route.ts")
+    return (
+      /from\("profiles"\)[\s\S]{0,200}?\.or\(`username\.ilike/.test(route) &&
+      /\.not\("username", "is", null\)/.test(route) &&
+      // The seller record is a JOIN for decoration now, not the thing searched.
+      !/if \(hasCounts && productsCount < 1\) continue/.test(route) &&
+      // Batched over the returned page — never one query per row.
+      /\.in\("creator_id", \[\.\.\.creatorToUser\.keys\(\)\]\)/.test(route)
+    )
+  })(),
+  "        app/api/v2/search/people/route.ts",
+)
+
+check(
+  "and a result opens the marketplace profile, not the digital storefront",
+  (() => {
+    // /u/ is the store-builder storefront; /member/ is the marketplace profile
+    // — the avatar, the listings grid, the Salvate and Evaluări tabs, the
+    // score. Somebody who typed a name into a marketplace search expects the
+    // second, and on an account that never went through seller onboarding the
+    // first is an empty shop.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const rowSrc = overlay.slice(overlay.indexOf("function PersonRow"))
+    return (
+      /href=\{username \? `\/member\/\$\{encodeURIComponent\(username\)\}` : "#"\}/.test(rowSrc) &&
+      !/`\/u\/\$\{username\}`/.test(rowSrc) &&
+      // And it carries the same score line the profile and the listing do.
+      /<SellerScore/.test(rowSrc)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
+  "and the two buttons in the bar are buttons, not lozenges",
+  (() => {
+    // A fully rounded button reads as a chip — something to toggle or dismiss —
+    // and Vinde is the primary action of the whole marketplace. Eight pixels is
+    // what every other real control on this site already uses, and it stops the
+    // row being two lozenges beside a rectangular search field.
+    const header = code("components/platform/platform-header-client.tsx")
+    return (
+      /className="h-10 rounded-lg px-5 text-\[14\.5px\] font-semibold bg-\[#7c3aed\]/.test(header) &&
+      /inline-flex h-10 items-center justify-center rounded-lg border border-white\/15 bg-neutral-800/.test(header)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the search panel is Articole and Persoane — Categorii is out, not deleted",
+  (() => {
+    // A tab earns its place by answering a question the others cannot. Articole
+    // and Persoane do. Categorii did not: the rail sits directly under this
+    // panel, the department menu is one press away, and every card carries its
+    // own — so a third of the width of a search panel went on a list you can see
+    // behind it.
+    //
+    // TEMPORARY, and the code says so: CategoriesTab and the "categories" member
+    // of SearchTab both stay, so putting the row back is one line rather than a
+    // rebuild.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const tabs = overlay.slice(overlay.indexOf("const TABS"), overlay.indexOf("const POPULAR_EXPANSIONS"))
+    return (
+      (tabs.match(/mfeed\.tab_/g) ?? []).length === 2 &&
+      /mfeed\.tab_items/.test(tabs) &&
+      /mfeed\.tab_people/.test(tabs) &&
+      !/mfeed\.tab_categories/.test(tabs) &&
+      // Kept, so this is a decision rather than a demolition.
+      /function CategoriesTab/.test(overlay) &&
+      /type SearchTab = "items" \| "categories" \| "people"/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
 check(
   "the search tabs are ruled apart; the category rail is not",
   (() => {

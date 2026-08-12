@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { MemberProfile, type MemberListing } from "@/components/member/member-profile"
 import { readProfileRow } from "@/lib/profile/read"
 import { readSellerListings } from "@/lib/profile/listings"
+import { readSellerStats } from "@/lib/profile/seller-stats"
 
 /**
  * ===========================================================================
@@ -200,9 +201,22 @@ export async function MemberScreen({
   // The social shape of the profile — how many follow them, how many they
   // follow. head:true counts cost the database an index scan and the wire
   // nothing, and both run alongside each other.
-  const [followersRes, followingRes] = await Promise.all([
+  const [followersRes, followingRes, stats] = await Promise.all([
     admin.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
     admin.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id),
+    /**
+     * THE RATING AND THE SALES COUNT, ON THE SERVER.
+     *
+     * This page used to pass neither, so the stars were fetched by the client
+     * once the header was already on screen — the one thing on the profile that
+     * arrived after the profile did, and a layout shift on every visit to every
+     * seller. /profile has always counted them server-side; this is the same
+     * read, shared, so the two pages cannot disagree about somebody's score.
+     *
+     * Alongside the follower counts rather than after them: three independent
+     * counts against ids already in hand.
+     */
+    readSellerStats({ admin, userId: profile.id }),
   ])
 
   /**
@@ -273,6 +287,11 @@ export async function MemberScreen({
       followersCount={followersRes.count ?? 0}
       followingCount={followingRes.count ?? 0}
       listings={listings}
+      // `null` and `undefined` mean different things to MemberProfile: undefined
+      // is "nobody has counted, go and ask", null is "counted, there are none".
+      // Passing null is what stops the client hook firing at all.
+      reviews={stats.rating === null ? null : { average: stats.rating, count: stats.reviews }}
+      soldCount={stats.sold}
     />
   )
 }

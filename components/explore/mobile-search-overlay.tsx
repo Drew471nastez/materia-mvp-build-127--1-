@@ -9,6 +9,7 @@ import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { DEPARTMENTS } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
+import { SellerScore } from "@/components/marketplace/seller-score"
 import { IosSpinner } from "./ios-spinner"
 import { cn } from "@/lib/utils"
 import { claimSurface } from "@/lib/surface-bg"
@@ -16,9 +17,25 @@ import { lockScroll } from "@/lib/scroll-lock"
 
 type SearchTab = "items" | "categories" | "people"
 
+/**
+ * TWO TABS, NOT THREE — Categorii IS TEMPORARILY OUT.
+ *
+ * A tab earns its place by answering a question the other tabs cannot. Articole
+ * and Persoane do: "what is for sale" and "who is selling", and neither is
+ * reachable from the other. Categorii did not, and the reason is that the
+ * categories are already everywhere else on this surface — the rail sits
+ * directly under this panel on the desktop header, the department menu is one
+ * press away, and every listing card carries its own. A third of the width of
+ * a search panel spent on a list you can see behind it is a third of the width
+ * spent on nothing.
+ *
+ * TEMPORARILY, and written that way on purpose. `CategoriesTab` below is left
+ * intact and `SearchTab` still names it, so putting the row back is one line
+ * here rather than a rebuild — this is a decision about whether the tab is
+ * pulling its weight today, not a deletion of the feature.
+ */
 const TABS: ReadonlyArray<readonly [SearchTab, string]> = [
   ["items", "mfeed.tab_items"],
-  ["categories", "mfeed.tab_categories"],
   ["people", "mfeed.tab_people"],
 ]
 
@@ -159,13 +176,19 @@ interface Person {
   slug?: string
   headline?: string | null
   products_count?: number | null
+  /** Batched by the endpoint over the page it returns, so the row can draw the
+   *  same ⭐ 4,9 · 63 vândute line the profile does at no extra request. `null`
+   *  rating means unrated — never 0; see components/marketplace/seller-score.tsx. */
+  sold_count?: number | null
+  rating?: number | null
+  reviews_count?: number | null
   profile?: { display_name?: string | null; avatar_url?: string | null; username?: string | null } | null
 }
 
 /**
  * Full-screen mobile search surface (Depop-style). Opens with a smooth blend,
- * three tabs — Items / Categories / People — recent searches, platform-aware
- * keyword suggestions, category tiles and live member search.
+ * two tabs — Items / People, see the note on TABS — recent searches,
+ * platform-aware keyword suggestions and live member search.
  */
 export function MobileSearchOverlay({
   open,
@@ -619,12 +642,14 @@ export function MobileSearchOverlay({
       )}
 
       {/* Tabs */}
-      {/* THREE TABS, SEPARATED BY A RULE.
+      {/* TWO TABS, SEPARATED BY A RULE. (Three, until Categorii came out —
+          see the note on TABS above, and note that this row is rendered FROM
+          that array, so it is already correct at either length.)
 
-          Items / Categories / People are three different KINDS of result, not
-          three degrees of one — a person is not a narrower article. Spacing
-          alone left them reading as a row of words, so the hairlines say where
-          one choice ends and the next begins.
+          Items and People are two different KINDS of result, not two degrees of
+          one — a person is not a narrower article. Spacing alone left them
+          reading as a row of words, so the hairline says where one choice ends
+          and the next begins.
 
           Drawn by the tab AFTER each one (`i > 0`) so there is never a stray
           rule hanging off either end, and `self-center` keeps it to the height
@@ -689,6 +714,9 @@ export function MobileSearchOverlay({
               t={t}
             />
           )}
+          {/* Not reachable while Categorii is out of TABS, and kept rather than
+              removed so putting the tab back is one line. `tab` is only ever
+              set from that array. */}
           {tab === "categories" && <CategoriesTab onPick={pickCategory} t={t} />}
           {tab === "people" && (
             <PeopleTab trimmed={trimmed} people={people} loading={peopleLoading} onClose={onClose} t={t} />
@@ -967,8 +995,19 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
   const [failed, setFailed] = useState(false)
 
   return (
+    /**
+     * /member/<handle>, NOT /u/<handle>.
+     *
+     * They are two different pages and the search was sending people to the
+     * wrong one. /u/ is the DIGITAL creator storefront with its store-builder
+     * theming; /member/ is the second-hand marketplace profile — the avatar,
+     * the name, the listings grid, the Salvate and Evaluări tabs, the score.
+     * Somebody who typed a name into a marketplace search and pressed a result
+     * expects the second, and on an account that never went through seller
+     * onboarding the first is an empty shop.
+     */
     <SmartLink
-      href={username ? `/u/${username}` : "#"}
+      href={username ? `/member/${encodeURIComponent(username)}` : "#"}
       useClientNav
       onClick={onClose}
       className="flex w-full items-center gap-3 px-4 py-2.5 transition-colors active:bg-neutral-50"
@@ -995,6 +1034,17 @@ function PersonRow({ person, onClose, t }: { person: Person; onClose: () => void
           {username ? `@${username}` : ""}
           {count > 0 ? ` · ${count} ${t("mfeed.items_count")}` : ""}
         </span>
+        {/* The same line the profile and the listing page carry, and drawn by
+            the same component so it cannot say something different here. The
+            endpoint batches both numbers over the page it returns — see
+            app/api/v2/search/people/route.ts — so this costs no extra request,
+            and a member with neither renders nothing at all. */}
+        <SellerScore
+          rating={person.rating ?? null}
+          reviews={person.reviews_count ?? 0}
+          sold={person.sold_count ?? 0}
+          className="mt-0.5"
+        />
       </span>
     </SmartLink>
   )

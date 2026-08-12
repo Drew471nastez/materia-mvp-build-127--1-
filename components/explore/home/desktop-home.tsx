@@ -181,6 +181,96 @@ export function DesktopHome({ products, signedIn = false }: { products: any[]; s
    */
   const personal = views.length >= MIN_HISTORY
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   *  THE SIGNED-OUT PAGE IS A DIFFERENT PAGE, NOT THE SAME ONE WITH A BANNER
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * A visitor with no account is answering a different question from a member.
+   * The member's question is "what is new since I was last here", and the page
+   * below answers it by leading with their own history. A stranger has no
+   * history — the personal rows are empty by definition on a first visit — so
+   * the same layout hands them a hero, then a gap where two sections would be,
+   * then a wall of listings under a heading that says "for you" about somebody
+   * it has never met.
+   *
+   * So this order is written out rather than derived, and every position in it
+   * is doing a job:
+   *
+   *   1  SignedOutHero          what this place is. The only screen it belongs
+   *                             on, and the first thing on it.
+   *   2  the personal row       Vizualizate recent, IF this device has browsed
+   *                             — a signed-out visitor can still be a returning
+   *                             one, and a second visit should not look like a
+   *                             first. When there is no history it is Sugestii
+   *                             pentru tine at TWO rows, which is the same
+   *                             promise made honestly: ten of the newest things,
+   *                             not a claim to know anybody.
+   *   3  HeroSlides             the editorial, under the proposition rather than
+   *                             above it. It is a promotion and it has to earn
+   *                             the scroll, not open the page twice.
+   *   4  YouMightBeInto         queries worth trying next.
+   *   5  ShopByCategory         five doors, for somebody who has none of their
+   *                             own yet.
+   *   6  Sugestii pentru tine   three rows, CONTINUING the list rather than
+   *                             repeating it — see `suggestedTop`/`suggestedRest`
+   *                             below. Two identical grids under one heading
+   *                             twice on a page is worse than one grid.
+   *   7  MoreListings           everything else, a page at a time.
+   *
+   * A member gets the layout after this one, unchanged.
+   */
+  const SIGNED_OUT_TOP_ROWS = 2
+  const suggestedTop = sections.suggested.slice(0, ROW * SIGNED_OUT_TOP_ROWS)
+  /**
+   * What the lower Sugestii block draws.
+   *
+   * Sliced past whatever the upper one took, so the two blocks under the same
+   * heading are never the same cards — which is what "another Sugestii pentru
+   * tine" has to mean to be worth having. When there IS history the upper block
+   * is not drawn at all and this one starts from the top of the list.
+   */
+  const suggestedRest = personal ? sections.suggested : sections.suggested.slice(ROW * SIGNED_OUT_TOP_ROWS)
+
+  if (!signedIn) {
+    return (
+      <div className="hidden md:block">
+        <SignedOutHero />
+
+        {personal ? (
+          <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} minItems={ROW} />
+        ) : (
+          <ListingRow
+            title="Sugestii pentru tine"
+            items={suggestedTop}
+            rows={SIGNED_OUT_TOP_ROWS}
+            href="/?q="
+            seeMoreLabel="Vezi mai multe"
+          />
+        )}
+
+        <HeroSlides listings={products} />
+
+        <YouMightBeInto views={views} catalogue={products} />
+
+        <ShopByCategory catalogue={products} />
+
+        <ListingRow
+          title="Sugestii pentru tine"
+          items={suggestedRest}
+          rows={3}
+          href="/?q="
+          seeMoreLabel="Vezi mai multe"
+        />
+
+        {/* The button first and the observer after — see more-listings.tsx.
+            Pure infinite scroll takes the footer away and loads pages nobody
+            asked for; a pure button asks for a press every twelve cards. */}
+        <MoreListings items={sections.rest.length > 0 ? sections.rest : products} />
+      </div>
+    )
+  }
+
   return (
     /* NO ENTRANCE ANIMATION ON THIS CONTAINER, deliberately.
      *

@@ -1303,18 +1303,33 @@ export function PlatformHeaderClient() {
                       setExpandedCategory(null)
                       setSelectedCategoryForSubs(null)
                     }}
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
+                    /* THE ICON, WITHOUT THE WORD.
+                    
+                       It read "Categories" in English on a Romanian
+                       marketplace, immediately left of a field whose
+                       placeholder is "Caută orice" — one bar, two languages,
+                       and the only untranslated string on it. Translating it
+                       was the obvious repair and the wrong one: "Categorii" is
+                       nine characters of chrome next to a hamburger that
+                       already means exactly that, and it was eating width the
+                       search field could use.
+                    
+                       A square target with a tooltip and an aria-label instead.
+                       The three lines are the most universally understood glyph
+                       in an interface, this one opens a menu of categories, and
+                       the tooltip says so for anybody who hesitates. */
+                    aria-label="Categorii"
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-white/15 text-white"
                         : "text-white/80 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <Menu className="w-[18px] h-[18px]" />
-                    <span>Categories</span>
+                    <Menu className="w-[20px] h-[20px]" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                  Browse all categories
+                  Categorii
                 </TooltipContent>
               </Tooltip>
 
@@ -1457,7 +1472,13 @@ export function PlatformHeaderClient() {
               field at every width without measuring anything. This is the shape
               the old dropdown had right; what was wrong with it was its
               CONTENTS, which are now the marketplace's. */}
-          <div ref={searchBoxRef} className="relative hidden md:flex flex-1 max-w-xl mx-4">
+          {/* 518px, down from `max-w-xl` (576). Ten percent off a field that had
+              grown into the widest object in the bar: at 576 it ran most of the
+              way between the logo and the icons on a 1400px measure, which made
+              the header read as a search page with some navigation attached
+              rather than as navigation with a search in it. It is still by some
+              distance the largest control up there. */}
+          <div ref={searchBoxRef} className="relative hidden md:flex flex-1 max-w-[518px] mx-4">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
             <input
               value={query}
@@ -1537,7 +1558,11 @@ export function PlatformHeaderClient() {
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
 
-              {/* Wishlist — h-11 w-11 = 44px tap target */}
+              {/* Wishlist — h-11 w-11 = 44px tap target. Signed-in only, for
+                  the reason spelled out beside the desktop pair below: a saved
+                  count shown to somebody who has never been here is the
+                  interface guessing out loud. */}
+              {user && (
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                 className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
@@ -1550,6 +1575,7 @@ export function PlatformHeaderClient() {
                   </span>
                 )}
               </Link>
+              )}
 
               {/* Mobile Avatar or Sign In button — use h-11 w-11 wrapper for 44px tap target */}
               {user ? (
@@ -1599,7 +1625,28 @@ export function PlatformHeaderClient() {
                   </Tooltip>
                 )}
 
-                {/* Wishlist */}
+                {/* ═══════════════════════════════════════════════════════════
+                    THE HEART AND THE BAG ARE FOR PEOPLE WHO HAVE AN ACCOUNT
+                    ═══════════════════════════════════════════════════════════
+
+                    Both were drawn to everybody, and to a stranger they are two
+                    icons that lead to two empty rooms. Worse than empty: the
+                    heart carried a COUNT — the guest wishlist hangs off a cookie
+                    — so a first-time visitor could arrive at a black bar
+                    advertising that they had two saved items and a shopping bag,
+                    on a site they had never used. A number about you, on a page
+                    that has never met you, is the interface guessing out loud.
+
+                    The row is also a pitch when it is empty. Signed out, what is
+                    left is search, Vinde, Log in and Sign up: the two things a
+                    stranger can do and the two ways in. Signed in, the icons are
+                    back and they mean something, because by then there is a list
+                    behind each of them.
+
+                    Messages was already gated this way and has been since it was
+                    added — "there's nothing to show otherwise", a few lines up.
+                    This is the same rule finally applied to its two neighbours. */}
+                {user && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
@@ -1626,7 +1673,21 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Bag */}
+                )}
+
+                {/* THE BAG STAYS FOR EVERYBODY, and the heart does not.
+                    
+                    They looked like the same case and are not. A wishlist is a
+                    record of what YOU have done — it is only ever a list of your
+                    own decisions, so on a page that has never met you it is
+                    either empty or, worse, carrying a count from a cookie you do
+                    not know you have.
+                    
+                    A basket is a step in buying something, and buying does not
+                    require an account here: the cart works signed out and the
+                    sign-in happens at checkout. Hiding it would be hiding the
+                    only place a guest's items are, from the guest whose items
+                    they are. */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
@@ -1649,7 +1710,15 @@ export function PlatformHeaderClient() {
                     marketplace header, and sending an onboarded seller to a
                     dashboard instead is what stopped it ever reaching the
                     listing form. */}
-                <Button asChild className="h-10 rounded-full px-5 text-[14.5px] font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.6)] transition-transform active:scale-[0.97]">
+                {/* EIGHT PIXELS, NOT A PILL. A fully rounded button reads as a
+                    chip — something to toggle or dismiss — and this is the
+                    primary action of the whole marketplace. A modest radius is
+                    what every other real control on this site already uses: the
+                    hero's CTA, the search field's panel, the listing cards. It
+                    also stops the two buttons in this row being lozenges beside
+                    a rectangular search field, which is what made the bar read
+                    as three unrelated shapes. */}
+                <Button asChild className="h-10 rounded-lg px-5 text-[14.5px] font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.6)] transition-transform active:scale-[0.97]">
                   <Link href={startSellingHref} onClick={(e) => onCanonicalNav(e, startSellingHref)}>
                     <span className="flex items-center gap-1.5">
                       <Plus className="h-4 w-4" strokeWidth={3} />
@@ -1704,7 +1773,7 @@ export function PlatformHeaderClient() {
                         white pill here would be two things shouting. */}
                     <Link
                       href="/signup"
-                      className="inline-flex h-10 items-center justify-center rounded-full border border-white/15 bg-neutral-800 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 hover:bg-neutral-700"
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-white/15 bg-neutral-800 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 hover:bg-neutral-700"
                     >
                       {t("sign_up")}
                     </Link>

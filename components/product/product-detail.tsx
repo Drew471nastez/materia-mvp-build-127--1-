@@ -36,6 +36,7 @@ import {
 } from "@/lib/marketplace/listing-taxonomy"
 import { ImageViewer } from "@/components/messages/image-viewer"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
+import { SellerScore } from "@/components/marketplace/seller-score"
 import { cn } from "@/lib/utils"
 import { sellEditHref } from "@/lib/marketplace/sell-route"
 
@@ -888,6 +889,25 @@ export function ProductDetail({ product }: { product: any }) {
                 {seller?.username && (
                   <span className="block truncate text-[13px] text-neutral-500">@{seller.username}</span>
                 )}
+                {/* ⭐ 4,9 (12) · 63 vândute — UNDER THE HANDLE, on the card the
+                    buy button is directly above.
+
+                    This is where the question actually gets asked. A buyer on a
+                    profile is browsing; a buyer on a listing is deciding, and
+                    until now the only thing this card said about the person was
+                    their name and a Follow button. The score is the reason to
+                    press Cumpără or to keep looking, and it belongs beside the
+                    face rather than a tap away on their profile.
+
+                    Nothing is drawn for a seller with no sales and no reviews,
+                    so the card is exactly what it was for a new account — see
+                    components/marketplace/seller-score.tsx. */}
+                <SellerScore
+                  rating={product.creator?.seller_rating ?? null}
+                  reviews={product.creator?.seller_reviews ?? 0}
+                  sold={product.creator?.seller_sold ?? 0}
+                  className="mt-1"
+                />
               </span>
             </SmartLink>
             {/* Following yourself is the same non-action as buying from

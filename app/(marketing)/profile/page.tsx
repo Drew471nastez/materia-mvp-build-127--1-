@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readProfileRow } from "@/lib/profile/read"
 import { readSellerListings } from "@/lib/profile/listings"
+import { readSellerStats } from "@/lib/profile/seller-stats"
 import { MemberProfile, type MemberListing, type ReviewsSummary } from "@/components/member/member-profile"
 
 /**
@@ -107,14 +108,20 @@ export default async function ProfilePage() {
     created_at: r.created_at ?? null,
   }))
 
-  const [followersRes, followingRes, reviews] = await Promise.all([
+  const [followersRes, followingRes, stats] = await Promise.all([
     admin.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),
     admin.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id),
     // The stars used to be fetched by the client, once the header was already
     // on screen — the one thing on this page that arrived after the page did.
     // Counted here it is simply part of the first paint, and MemberProfile
     // makes no request at all.
-    loadReviewsSummary(admin, user.id),
+    //
+    // The sales count comes with them rather than in a query of its own: they
+    // are one line on the screen, so counting them separately would be two round
+    // trips to draw one row. `loadReviewsSummary` lived in this file and was a
+    // copy of half of this; it is lib/profile/seller-stats.ts now, shared with
+    // /member/<handle>, so the two pages cannot disagree about somebody's score.
+    readSellerStats({ admin, userId: user.id }),
   ])
 
   // A brand-new account can reach this page before its profiles row is written,
@@ -152,41 +159,16 @@ export default async function ProfilePage() {
       followersCount={followersRes.count ?? 0}
       followingCount={followingRes.count ?? 0}
       listings={listings}
-      reviews={reviews}
+      reviews={stats.rating === null ? null : { average: stats.rating, count: stats.reviews }}
+      soldCount={stats.sold}
     />
   )
 }
 
-/**
- * Average stars and how many, or null when there is nothing to say yet.
- *
- * Reviews hang off a CREATORS row rather than off the auth user, and an account
- * can hold more than one of those — see lib/profile/listings.ts for why, and
- * for the bug that came of assuming otherwise. So this takes the auth id and
- * counts across every creator row it owns; a buyer who has never listed
- * anything has none, which costs one cheap query and returns null.
- *
- * Everything else here is best-effort: the strip is decoration, and a profile
- * must never fail to render because a ratings table did.
- */
-async function loadReviewsSummary(
-  admin: ReturnType<typeof createAdminClient>,
-  userId: string,
-): Promise<ReviewsSummary | null> {
-  try {
-    const { data: creators } = await admin.from("creators").select("id").eq("user_id", userId)
-    const ids = (creators ?? []).map((c: any) => c.id).filter(Boolean)
-    if (ids.length === 0) return null
-    const { data, error } = await admin.from("reviews").select("rating").in("creator_id", ids).limit(2000)
-    if (error || !data?.length) return null
-    const ratings = data.map((r: any) => Number(r?.rating)).filter((n) => Number.isFinite(n) && n > 0)
-    if (!ratings.length) return null
-    const average = ratings.reduce((a, b) => a + b, 0) / ratings.length
-    return { average: Math.min(5, Math.max(0, average)), count: ratings.length }
-  } catch {
-    return null
-  }
-}
+/* `loadReviewsSummary` lived here and counted the stars for this page alone.
+ * It is lib/profile/seller-stats.ts now — same query, plus the sales count that
+ * shares its line, read by /member/<handle> as well so the two routes cannot
+ * report different scores for the same person. */
 
 /**
  * The signed-out state, in the inbox's own empty-screen language — same circle,

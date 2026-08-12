@@ -42,6 +42,18 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const code = (p: string) => stripComments(read(p))
 
 const home = read("components/explore/home/desktop-home.tsx")
+/**
+ * The file returns TWO layouts and every guard below that reasons about ORDER
+ * has to say which one it means. A stranger and a member are answering
+ * different questions — see the note above `SIGNED_OUT_TOP_ROWS` — so the
+ * sections are in different orders, and an `indexOf` over the whole file finds
+ * whichever branch is written first, which is not a fact about either page.
+ *
+ * `home` stays the whole file for the guards that are about CONSTANTS
+ * (MIN_HISTORY, ROW, the gates), because those are shared.
+ */
+const signedOutView = home.slice(home.indexOf("if (!signedIn) {"), home.indexOf("NO ENTRANCE ANIMATION"))
+const memberView = home.slice(home.indexOf("NO ENTRANCE ANIMATION"))
 const hero = read("components/explore/home/hero-slides.tsx")
 const row = read("components/explore/home/listing-row.tsx")
 const pills = read("components/explore/home/you-might-be-into.tsx")
@@ -73,7 +85,7 @@ check(
       "<YouMightBeInto",
       "<ShopByCategory",
       "<MoreListings",
-    ].map((s) => home.indexOf(s))
+    ].map((s) => memberView.indexOf(s))
     return order.every((i) => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1])
   })(),
 )
@@ -81,8 +93,8 @@ check(
 check(
   "one row for the personal sections, three for the wider net",
   (() => {
-    const based = home.slice(home.indexOf("Bazat pe vizualizările tale recente"))
-    const suggested = home.slice(home.indexOf("Sugestii pentru tine"))
+    const based = memberView.slice(memberView.indexOf("Bazat pe vizualizările tale recente"))
+    const suggested = memberView.slice(memberView.indexOf("Sugestii pentru tine"))
     return /rows=\{1\}/.test(based.slice(0, 260)) && /rows=\{3\}/.test(suggested.slice(0, 260))
   })(),
 )
@@ -414,12 +426,12 @@ check(
       /const personal = views\.length >= MIN_HISTORY/.test(home) &&
       // TWO gates now, not one block — the rows sit either side of the hero, so
       // they cannot share a fragment. Each must carry its own.
-      (home.match(/\{personal && \(/g) ?? []).length === 2 &&
-      home.indexOf("{personal && (") < home.indexOf("Bazat pe vizualizările tale recente") &&
-      home.lastIndexOf("{personal && (") < home.indexOf("Vizualizate recent") &&
+      (memberView.match(/\{personal && \(/g) ?? []).length === 2 &&
+      memberView.indexOf("{personal && (") < memberView.indexOf("Bazat pe vizualizările tale recente") &&
+      memberView.lastIndexOf("{personal && (") < memberView.indexOf("Vizualizate recent") &&
       // The pills are OUTSIDE both — that section is the one that carries an
       // early visit and must never be gated on history it does not have.
-      home.indexOf("<YouMightBeInto") > home.lastIndexOf("{personal && (")
+      memberView.indexOf("<YouMightBeInto") > memberView.lastIndexOf("{personal && (")
     )
   })(),
   "        components/explore/home/desktop-home.tsx",
@@ -440,8 +452,11 @@ check(
     // fifty candidates for the row above.
     return (
       /minItems = 3/.test(row) &&
-      (home.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
-      !/minItems/.test(home.slice(home.indexOf("Sugestii pentru tine"), home.indexOf("<YouMightBeInto")))
+      (memberView.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
+      // The signed-out page's own recently-viewed row asks for the same full
+      // row, for the same reason.
+      (signedOutView.match(/minItems=\{ROW\}/g) ?? []).length === 1 &&
+      !/minItems/.test(memberView.slice(memberView.indexOf("Sugestii pentru tine"), memberView.indexOf("<YouMightBeInto")))
     )
   })(),
 )
@@ -839,6 +854,134 @@ check(
       !/[0-9][0-9,.]*\+\s*(items|articole|anunțuri)/i.test(hero2)
     )
   })(),
+)
+
+check(
+  "the hero says what the product now says, on both sides of the toggle",
+  (() => {
+    // Copy is pinned here for one reason: these six tiles and two paragraphs
+    // are the entire pitch, they are the only strings on the site a stranger
+    // reads before deciding whether to stay, and they have been rewritten four
+    // times. A guard is the difference between a considered revision and a
+    // half-applied one — the state this file was in twice, where a headline had
+    // been changed and the tile under it still argued with it.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      // Buy: not only fashion, and no "lucruri care au mai trăit o dată".
+      /Haine, sneakers, cărți, muzică, și obiecte de colecție, vândute de oameni din toată țara\./.test(hero2) &&
+      /title: "Lucruri diferite", body: "Găsești ceva nou de fiecare dată\."/.test(hero2) &&
+      /title: "Adăugate zilnic", body: "Listări noi, în fiecare zi\."/.test(hero2) &&
+      /title: "Cumpărături protejate", body: "Plătești simplu și în siguranță\."/.test(hero2) &&
+      // Sell: the promise is the money kept, not the minutes spent.
+      /Publici rapid, găsești un cumpărător și păstrezi banii din vânzare\./.test(hero2) &&
+      /cta: "Începe să vinzi"/.test(hero2) &&
+      /title: "Publici rapid", body: "Câteva poze, un preț și gata\."/.test(hero2) &&
+      /title: "Zero comision", body: "Primești prețul pe care îl setezi\."/.test(hero2) &&
+      /title: "Livrare simplă", body: "AWB-ul este generat pentru tine\."/.test(hero2) &&
+      // And the sentences they replaced are gone from the CODE.
+      !/Un exemplar din fiecare/.test(hero2) &&
+      !/De la vânzători reali/.test(hero2) &&
+      !/prețul pe care îl ceri este prețul pe care îl primești/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "and only the tile that means it opens the protection panel",
+  (() => {
+    // It was `i === 2` — the third tile, on both sides — which was true while
+    // both third tiles said "Cum funcționează" and both meant the same page.
+    // They do not any more: the seller's third tile is about AWB labels, and an
+    // underlined line reading "AWB-ul este generat pentru tine" that opens a
+    // page about buyer protection is a link that lies about where it goes.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /const opensPanel = tile\.opensProtection === true/.test(hero2) &&
+      !/const opensPanel = i === 2/.test(hero2) &&
+      // Exactly one tile carries it, and it is the one about paying safely.
+      (hero2.match(/opensProtection: true/g) ?? []).length === 1 &&
+      /body: "Plătești simplu și în siguranță\.", opensProtection: true/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "the hero has an edge without becoming a card",
+  (() => {
+    // A flat tint with a hairline ring read as a region of the background
+    // rather than as something placed on it, so the page opened on a large pale
+    // rectangle with no edge. A one-pixel contact shadow is what says "this
+    // sits on top"; the wide ambient one is pulled 24px in so it never reads as
+    // a drop shadow. Nothing above ~0.12 alpha — an edge, not an elevation.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /shadow-\[0_1px_2px_rgba\(15,15,15,0\.04\),0_18px_40px_-24px_rgba\(15,15,15,0\.12\)\]/.test(hero2) &&
+      // And the tiles are one step quieter, because two objects at the same
+      // elevation stacked on each other flattens both.
+      /shadow-\[0_1px_2px_rgba\(15,15,15,0\.035\)\]/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "a stranger gets a different page, not the same one with a banner",
+  (() => {
+    // A visitor with no account is answering a different question. The member's
+    // question is "what is new since I was last here", and the layout below
+    // answers it by leading with their own history. A stranger has no history —
+    // the personal rows are empty by definition on a first visit — so the same
+    // layout hands them a hero, a gap where two sections would be, and a wall of
+    // listings under a heading that says "for you" about somebody it has never
+    // met.
+    //
+    // The order, written out rather than derived:
+    //   the proposition, then either their own history OR two rows of the newest
+    //   things, then the editorial, then the queries, then the categories, then
+    //   three more rows, then everything else a page at a time.
+    const order = [
+      "<SignedOutHero />",
+      "Vizualizate recent",
+      "<HeroSlides",
+      "<YouMightBeInto",
+      "<ShopByCategory",
+      "<MoreListings",
+    ].map((s) => signedOutView.indexOf(s))
+    return (
+      signedOutView.length > 400 &&
+      order.every((i) => i > 0) &&
+      order.every((v, i) => i === 0 || v > order[i - 1]) &&
+      // The hero is UNDER the proposition here, not above it: it is a promotion
+      // and it has to earn the scroll rather than open the page twice.
+      signedOutView.indexOf("<SignedOutHero />") < signedOutView.indexOf("<HeroSlides")
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "and with no history it is two rows of suggestions, then three more — never the same cards twice",
+  (() => {
+    // "Sugestii pentru tine" at two rows is the same promise made honestly: ten
+    // of the newest things, not a claim to know anybody. The lower block is
+    // three rows and CONTINUES the list — two identical grids under one heading
+    // twice on a page is worse than one grid, and slicing is the whole of what
+    // makes "another Sugestii pentru tine" worth having.
+    const homeAll = read("components/explore/home/desktop-home.tsx")
+    return (
+      /const SIGNED_OUT_TOP_ROWS = 2/.test(homeAll) &&
+      /const suggestedTop = sections\.suggested\.slice\(0, ROW \* SIGNED_OUT_TOP_ROWS\)/.test(homeAll) &&
+      /sections\.suggested\.slice\(ROW \* SIGNED_OUT_TOP_ROWS\)/.test(homeAll) &&
+      // Two blocks, and the upper one is the fallback for having no history.
+      (signedOutView.match(/title="Sugestii pentru tine"/g) ?? []).length === 2 &&
+      /\{personal \? \(/.test(signedOutView) &&
+      /rows=\{SIGNED_OUT_TOP_ROWS\}/.test(signedOutView) &&
+      /items=\{suggestedRest\}\s*\n\s*rows=\{3\}/.test(signedOutView)
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
 )
 
 check(
