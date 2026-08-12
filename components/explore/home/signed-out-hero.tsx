@@ -104,18 +104,55 @@ const COPY: Record<
   },
 }
 
-/** Composed for this shape, and the one image on the page that was. */
-const HERO_IMAGE = "https://assets.depop.com/web/assets/dual-homepage/hero/2026-07/buyer-desktop@2x.webp"
+/**
+ * ===========================================================================
+ *  THE HERO ARTWORK — OURS, AND WHAT IT NEEDS FROM THE LAYOUT
+ * ===========================================================================
+ *
+ * Three facts about this file decide everything below, and all three were read
+ * off the asset rather than assumed:
+ *
+ *   400 x 200, so 2:1 exactly. The box states that ratio, which is why nothing
+ *   is cropped — a mismatch is what took a fifth off the previous artwork.
+ *
+ *   RGBA with a FULLY TRANSPARENT ground (corners sampled at 0,0,0,0). That is
+ *   why it sits directly on the gradient with no card, no radius and no
+ *   background of its own: the composition already carries its own rounded
+ *   tiles and its own drop shadows, and putting it in a second box would be a
+ *   card inside a card. It also means the format must keep alpha — AVIF and
+ *   WebP both do, and next.config lists exactly those two, so there is no path
+ *   here that flattens it onto black.
+ *
+ *   And it is SMALL for the slot. See MAX_W.
+ */
+const HERO_IMAGE =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design.png"
+
+/** Its real ratio, so `object-contain` has nothing to letterbox and
+ *  `object-cover` would have nothing to crop. */
+const HERO_RATIO = "400 / 200"
 
 /**
- * THE SOURCE IS 1356x798. NOT 4:3.
+ * WHY THE PICTURE IS CAPPED AT ITS OWN WIDTH INSTEAD OF FILLING ITS COLUMN.
  *
- * It was drawn in `aspect-[4/3]` with `object-cover`, which is a 1.33 box
- * holding a 1.70 picture — so a fifth of the composition was cropped off the
- * sides, taking most of both outer cards with it. Stating the real ratio is the
- * whole fix; `object-cover` then has nothing to remove.
+ * The source is 400px wide and the column is about 600px at 1440. Next's
+ * optimizer NEVER upscales past the original — asking it for w=640 and w=1080
+ * returns the identical 9KB file — so no `quality` setting can put back detail
+ * that is not in the source. Letting it fill would simply be the browser
+ * enlarging a small picture: measured at 520px wide it came back soft, the
+ * browser having picked a 324px candidate and stretched it 1.6x.
+ *
+ * 400 is the only cap that renders 1:1, and 1:1 is the only version of this
+ * that is actually sharp. Centred in the column, so the cap reads as
+ * composition rather than as a picture that failed to fill its space — which
+ * works here precisely because the artwork is transparent and already carries
+ * its own tiles and shadows.
+ *
+ * A 2x display still enlarges it twofold and nothing in this file can prevent
+ * that. The fix is a bigger export: at 1200x600 this cap can go up to the full
+ * column and the problem disappears.
  */
-const HERO_RATIO = "1356 / 798"
+const MAX_W = 400
 
 export function SignedOutHero() {
   const [side, setSide] = useState<Side>("buy")
@@ -242,11 +279,14 @@ export function SignedOutHero() {
           </div>
         </div>
 
-        {/* The photograph, at its own ratio so nothing is cut. Below 1024 it
-            goes UNDER the copy rather than beside it — at that width a half
-            column is 300px and this is a composition of three cards, not a
-            thumbnail. */}
-        <div className="relative w-full" style={{ aspectRatio: HERO_RATIO }}>
+        {/* The artwork, at its own ratio so nothing is cut and capped so
+            nothing is blown up. Below 1024 it goes UNDER the copy rather than
+            beside it — at that width a half column is 300px and this is a
+            composition of three tiles, not a thumbnail. */}
+        <div
+          className="relative mx-auto w-full"
+          style={{ aspectRatio: HERO_RATIO, maxWidth: MAX_W }}
+        >
           {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
               
               `draggable={false}` stops the browser's own drag-to-copy, which is
@@ -263,10 +303,21 @@ export function SignedOutHero() {
             src={HERO_IMAGE}
             alt=""
             fill
-            sizes="(min-width: 1024px) 640px, (min-width: 768px) 90vw, 100vw"
+            /* The real rendered widths, so the optimizer picks the smallest rung
+               that covers them rather than the largest it has. */
+            sizes="(min-width: 1024px) 400px, (min-width: 768px) 90vw, 100vw"
             priority
+            /* 75 is the top of the list next.config permits, and it is the right
+               end of that list for this: a composite with flat colour fields and
+               small type on the book covers shows banding and ringing long
+               before a photograph would. */
+            quality={75}
             draggable={false}
-            className="pointer-events-none select-none rounded-xl object-cover [-webkit-user-drag:none]"
+            /* `object-contain`, not cover. The ratio matches so neither would
+               crop today, but contain is the one that stays correct if the box
+               ever drifts — and on artwork with its own shadows, a silent crop
+               takes the shadow off one edge and nobody notices for a month. */
+            className="pointer-events-none select-none object-contain [-webkit-user-drag:none]"
           />
         </div>
       </div>

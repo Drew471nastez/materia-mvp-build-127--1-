@@ -718,9 +718,20 @@ check(
     // most of both outer cards with it.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      /const HERO_RATIO = "1356 \/ 798"/.test(hero2) &&
+      // The artwork is 400x200 — its own ratio, stated, so nothing is cropped.
+      /const HERO_RATIO = "400 \/ 200"/.test(hero2) &&
       /aspectRatio: HERO_RATIO/.test(hero2) &&
-      !/aspect-\[4\/3\]/.test(hero2)
+      !/aspect-\[4\/3\]/.test(hero2) &&
+      // It is transparent RGBA, so it sits on the gradient with no card of its
+      // own — a radius or a background here would be a card inside a card.
+      !/rounded-xl object-/.test(hero2) &&
+      /object-contain/.test(hero2) &&
+      // And capped rather than filled: the optimizer never upscales past the
+      // source, so letting a 400px file fill a 600px column is a soft picture
+      // no `quality` can rescue.
+      /const MAX_W = 400/.test(hero2) &&
+      /maxWidth: MAX_W/.test(hero2) &&
+      /quality=\{75\}/.test(hero2)
     )
   })(),
 )
