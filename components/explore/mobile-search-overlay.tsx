@@ -7,10 +7,12 @@ import { Search, Clock, ArrowUpLeft, X, Store } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
 import { CATEGORIES } from "@/lib/marketplace/categories"
+import { DEPARTMENTS } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
 import { IosSpinner } from "./ios-spinner"
 import { cn } from "@/lib/utils"
 import { claimSurface } from "@/lib/surface-bg"
+import { lockScroll } from "@/lib/scroll-lock"
 
 type SearchTab = "items" | "categories" | "people"
 
@@ -356,16 +358,38 @@ export function MobileSearchOverlay({
     return () => surface.release()
   }, [mounted])
 
-  // Lock the page behind the sheet so the underlying feed can't scroll through.
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE PAGE ONLY HOLDS STILL WHEN THE PANEL IS THE WHOLE SCREEN
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * This locked the body unconditionally, and on a desktop that is two visible
+   * faults for the price of one:
+   *
+   *   THE FLASH. `overflow: hidden` removes the scrollbar, so the viewport
+   *   gains ~15px and the ENTIRE page reflows wider the instant the field is
+   *   clicked — and snaps back when the panel closes. Every element on the page
+   *   moves, twice, because somebody clicked a search box.
+   *
+   *   THE JUMP. Locking the document scroller while the page is scrolled down
+   *   can leave the browser with nothing to hold the position against, and it
+   *   restores to the top. That is the "it randomly scrolls me up".
+   *
+   * Neither is a bug on a PHONE, where the panel is a full-screen sheet and the
+   * feed behind it genuinely must not slide under your thumb. Anchored, the
+   * panel is a small dropdown hanging off the field: the page behind it is
+   * still the thing you are looking at, and it should behave exactly as it did
+   * a moment ago — scroll included.
+   *
+   * `lockScroll()` rather than a raw write, because this used to save and
+   * restore its own value and that is the pattern lib/scroll-lock.ts exists to
+   * replace: two overlapping overlays each restoring what they captured is how
+   * a page ends up locked with nothing on screen to unlock it.
+   */
   useEffect(() => {
-    if (!mounted) return
-    const body = document.body
-    const prevOverflow = body.style.overflow
-    body.style.overflow = "hidden"
-    return () => {
-      body.style.overflow = prevOverflow
-    }
-  }, [mounted])
+    if (!mounted || anchored) return
+    return lockScroll()
+  }, [mounted, anchored])
 
   // Keep the sheet FULL-SCREEN (no displacement/gaps) and instead pad the results
   // list by the keyboard height, so the last items always scroll clear of the
@@ -595,29 +619,42 @@ export function MobileSearchOverlay({
       )}
 
       {/* Tabs */}
+      {/* THREE TABS, SEPARATED BY A RULE.
+
+          Items / Categories / People are three different KINDS of result, not
+          three degrees of one — a person is not a narrower article. Spacing
+          alone left them reading as a row of words, so the hairlines say where
+          one choice ends and the next begins.
+
+          Drawn by the tab AFTER each one (`i > 0`) so there is never a stray
+          rule hanging off either end, and `self-center` keeps it to the height
+          of the label rather than the height of the button, which would put a
+          line through the active tab's purple underline. */}
       <div className={cn("shrink-0 flex items-stretch border-b border-neutral-100 px-2", anchored ? "pt-1.5" : "mt-2")}>
-        {TABS.map(([id, key]) => {
+        {TABS.map(([id, key], i) => {
           const active = tab === id
           return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={cn(
-                "flex flex-1 flex-col items-center pb-2.5 pt-1 text-[15px] transition-colors duration-200",
-                active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
-              )}
-            >
-              <span className="relative inline-flex flex-col items-center">
-                {t(key)}
-                <span
-                  className={cn(
-                    "mt-2 h-[2px] w-full rounded-full bg-[#7c3aed] transition-all duration-300 ease-out",
-                    active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0",
-                  )}
-                />
-              </span>
-            </button>
+            <div key={id} className="flex flex-1 items-stretch">
+              {i > 0 && <span aria-hidden className="my-2 w-px shrink-0 self-center bg-neutral-200 h-4" />}
+              <button
+                type="button"
+                onClick={() => setTab(id)}
+                className={cn(
+                  "flex flex-1 flex-col items-center pb-2.5 pt-1 text-[15px] transition-colors duration-200",
+                  active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400",
+                )}
+              >
+                <span className="relative inline-flex flex-col items-center">
+                  {t(key)}
+                  <span
+                    className={cn(
+                      "mt-2 h-[2px] w-full rounded-full bg-[#7c3aed] transition-all duration-300 ease-out",
+                      active ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0",
+                    )}
+                  />
+                </span>
+              </button>
+            </div>
           )
         })}
       </div>
@@ -827,15 +864,24 @@ function Row({
 
 /* ---------------- Categories tab ---------------- */
 
+/**
+ * THE DEPARTMENTS THIS MARKETPLACE ACTUALLY HAS.
+ *
+ * This tab listed the nine legacy digital-goods categories — Design,
+ * Development, Marketing, AI — none of which anybody can list on Storelib. So
+ * the search panel's middle tab offered nine ways to reach an empty page.
+ *
+ * `DEPARTMENTS` is the same list the sell form's category picker reads, so what
+ * you can browse for here is exactly what somebody could have listed.
+ */
 function CategoriesTab({ onPick, t }: { onPick: (id: string) => void; t: (k: string) => string }) {
-  const cats = CATEGORIES.filter((c) => c.id !== "all")
   return (
     <div className="px-4 py-4">
       <p className="pb-3 text-[13px] font-semibold text-neutral-500">{t("mfeed.browse_categories")}</p>
       <div className="grid grid-cols-2 gap-2.5">
         <CategoryTile id="all" label={t("category.all")} Icon={CATEGORIES[0].icon} onPick={onPick} />
-        {cats.map((c) => (
-          <CategoryTile key={c.id} id={c.id} label={t(`category.${c.id}`)} Icon={c.icon} onPick={onPick} />
+        {DEPARTMENTS.map((d) => (
+          <CategoryTile key={d.id} id={d.id} label={d.label} Icon={CATEGORIES[0].icon} onPick={onPick} />
         ))}
       </div>
     </div>

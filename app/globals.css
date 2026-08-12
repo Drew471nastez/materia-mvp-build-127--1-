@@ -5225,3 +5225,95 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
     display: none;
   }
 }
+
+/* ===========================================================================
+ *  A DRILL-DOWN IN THE HEADER MOVES LIKE A DRILL-DOWN IN THE SELL FORM
+ * ===========================================================================
+ *
+ * The Browse menu replaced one list with another in a single frame: the menu
+ * became a different menu and nothing said which direction you had travelled.
+ * The Back button was the only evidence you were a level deep, which is the
+ * same complaint that produced components/sell/picker-page.tsx in the first
+ * place.
+ *
+ * These are that file's numbers, deliberately: 360ms on
+ * cubic-bezier(0.32, 0.72, 0, 1), the arriving level entering from 100% and the
+ * returning one from -25% at 0.62 opacity. Copying the VALUES rather than
+ * importing the component is the right trade here — the picker is a
+ * full-screen, portalled, stage-machine thing built for a phone, and a 320px
+ * dropdown needs none of that — but the values must not drift, or the app has
+ * two grammars for one gesture.
+ *
+ * Transform and opacity only. Anything animating width or height across a list
+ * this long drops the menu onto the main thread, which is exactly what the
+ * animation exists to hide.
+ */
+@keyframes sub-push {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes sub-pop {
+  from {
+    transform: translate3d(-25%, 0, 0);
+    opacity: 0.62;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+.sub-push {
+  animation: sub-push 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.sub-pop {
+  animation: sub-pop 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sub-push,
+  .sub-pop {
+    animation: none;
+  }
+}
+
+/* ===========================================================================
+ *  THE HERO'S DOT, FILLING IN TIME WITH THE SLIDE IT BELONGS TO
+ * ===========================================================================
+ *
+ * The duration is NOT here. It is passed inline from AUTOPLAY_MS in
+ * components/explore/home/hero-slides.tsx, which is the same constant the
+ * advance timer uses — so the bar cannot finish early or still be running when
+ * the slide changes. Writing 5s in this file would be a second copy of that
+ * number, and the first person to tune one would silently desynchronise them.
+ *
+ * `linear`, unambiguously: this is a clock, and a clock that eases is a clock
+ * that lies about how much time is left. Every other animation in the app has a
+ * curve because it is a movement; this one is a measurement.
+ *
+ * `both` so the bar is at zero width on its first painted frame rather than
+ * flashing full and snapping back.
+ */
+@keyframes hero-dot-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.hero-dot-fill {
+  animation-name: hero-dot-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+/* Reduced motion still gets the position, just not the countdown — the dot is
+   simply full for the slide it belongs to. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-dot-fill {
+    animation: none;
+    width: 100%;
+  }
+}

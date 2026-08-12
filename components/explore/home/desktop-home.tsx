@@ -6,6 +6,7 @@ import { HeroSlides } from "./hero-slides"
 import { ListingRow } from "./listing-row"
 import { MoreListings } from "./more-listings"
 import { ShopByCategory } from "./shop-by-category"
+import { SignedOutHero } from "./signed-out-hero"
 import { YouMightBeInto } from "./you-might-be-into"
 import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } from "@/lib/marketplace/recent-views"
 
@@ -19,17 +20,20 @@ import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } fr
  * home page actually has: a promotion, then what you were looking at, then what
  * that suggests, then a way in by category, then everything else.
  *
- *   hero                 three slides, two of them real listings
  *   based on your views  what is like the things you opened     — hidden if none
+ *   hero                 three slides, two of them real listings
  *   recently viewed      the things themselves                  — hidden if none
  *   suggested for you    three rows, the wider net
  *   you might be into    queries worth trying next              — never empty
  *   by category          five doors
  *   more listings        everything left, two rows at a time
  *
- * The two marked "hidden if none" are not drawn AT ALL on a device with no
- * history — not as a heading, not as a placeholder. So a first visit is four
- * sections and every one of them is full, and a second visit is six.
+ * The two marked "hidden if none" are not drawn AT ALL until this device has
+ * opened MIN_HISTORY listings — not as a heading, not as a placeholder. So a
+ * first visit OPENS ON THE HERO and is four full sections; a returning one
+ * opens on the row that remembers what they were doing, and the hero drops to
+ * second. The house's promotion goes first only while there is nothing better
+ * to lead with.
  *
  * ---------------------------------------------------------------------------
  * EVERY ROW IS DERIVED, AND NOTHING IS FETCHED
@@ -80,7 +84,7 @@ const ROW = 5
  */
 const MIN_HISTORY = 5
 
-export function DesktopHome({ products }: { products: any[] }) {
+export function DesktopHome({ products, signedIn = false }: { products: any[]; signedIn?: boolean }) {
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
    *
@@ -187,28 +191,37 @@ export function DesktopHome({ products }: { products: any[] }) {
      * the middle of the listings. The shell is the right shape now, so there is
      * nothing left for a fade to hide. See app/globals.css. */
     <div className="hidden md:block">
-      <HeroSlides listings={products} />
+      {/* WHAT THIS PLACE IS, FOR SOMEBODY WHO HAS NEVER BEEN.
+          
+          Signed out only, and it is the first thing on the page — above even
+          the personal row, which a signed-out visitor cannot have anyway.
+          Somebody with an account already knows what Storelib is; telling them
+          on every visit is the site failing to recognise them. */}
+      {!signedIn && <SignedOutHero />}
 
-      {/* Personal first. Somebody who has been here before should see what they
-          were doing before they see what we would like them to do.
+      {/* ═══════════════════════════════════════════════════════════════════
+          ABOVE THE HERO — BUT ONLY ONCE IT HAS SOMETHING TO SAY
+          ═══════════════════════════════════════════════════════════════════
 
-          BOTH OF THESE VANISH COMPLETELY until this device has collected
-          MIN_HISTORY listings — no heading, no placeholder, nothing. An early
-          visit is not a page with two apologies on it; it is the hero, then
-          suggestions, then the pills, then the categories, and these two arrive
-          once there is enough browsing behind them to fill a row and mean
-          something.
+          The hero is a promotion. It is what the marketplace wants to show
+          somebody it knows nothing about, and it is the right first thing on
+          exactly that visit and no other.
 
-          TWO CONDITIONS, AND THEY ARE NOT THE SAME ONE TWICE. `personal` is
-          about the HISTORY — has this device opened five listings — and
-          `minItems` is about the ROW — are there five cards to draw. Neither
-          implies the other: five views of listings that have since sold leave
-          the recently-viewed row with two cards in it, and a single view is
-          enough for the ranking below to produce fifty candidates for the row
-          above. See the note beside MIN_HISTORY, and minItems in
-          listing-row.tsx. */}
+          For a returning shopper it is the wrong first thing: they came back to
+          carry on, and making them scroll past a campaign to reach the row that
+          remembers what they were doing puts the house's business ahead of
+          theirs. So once this device has enough history, that row takes the top
+          of the page and the hero moves under it.
+
+          `mb-2` rather than the row's own `mt-14`, because at the top of the
+          page there is nothing above it to be separated from — the section's
+          margin is for the gap between sections, and this one has none.
+
+          This is the same `personal` gate as the sections below, so an early
+          visit still opens on the hero and nothing has moved for the person who
+          has not earned the row yet. */}
       {personal && (
-        <>
+        <div className="mb-2">
           <ListingRow
             title="Bazat pe vizualizările tale recente"
             items={sections.basedOnViews}
@@ -218,14 +231,29 @@ export function DesktopHome({ products }: { products: any[] }) {
             href="/?q="
             seeMoreLabel="Vezi mai multe"
           />
+        </div>
+      )}
 
-          <ListingRow
-            title="Vizualizate recent"
-            items={sections.recentlyViewed}
-            rows={1}
-            minItems={ROW}
-          />
-        </>
+      <HeroSlides listings={products} />
+
+      {/* What you were actually looking at, under the promotion.
+
+          VANISHES COMPLETELY until this device has collected MIN_HISTORY
+          listings — no heading, no placeholder, nothing.
+
+          TWO CONDITIONS, AND THEY ARE NOT THE SAME ONE TWICE. `personal` is
+          about the HISTORY — has this device opened five listings — and
+          `minItems` is about the ROW — are there five cards to draw. Neither
+          implies the other: five views of listings that have since sold leave
+          this row with two cards in it. See the note beside MIN_HISTORY, and
+          minItems in listing-row.tsx. */}
+      {personal && (
+        <ListingRow
+          title="Vizualizate recent"
+          items={sections.recentlyViewed}
+          rows={1}
+          minItems={ROW}
+        />
       )}
 
       <ListingRow

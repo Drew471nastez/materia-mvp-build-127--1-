@@ -16,6 +16,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { stripComments } from "./_source"
 import { signalsFrom, type RecentView } from "../lib/marketplace/recent-views"
 
 let passed = 0
@@ -34,6 +35,11 @@ function check(name: string, ok: boolean, detail?: string) {
 }
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+/** Comments are not code. Several files here quote the exact pattern they were
+ *  written to remove — the setInterval that was replaced, the invented metric
+ *  that is not on the page — and a guard that reads them fails on the prose
+ *  explaining the fix. */
+const code = (p: string) => stripComments(read(p))
 
 const home = read("components/explore/home/desktop-home.tsx")
 const hero = read("components/explore/home/hero-slides.tsx")
@@ -56,8 +62,12 @@ check(
     // personal rows interrupts the part of the page that is about you, and it
     // belongs where the browsing has run out.
     const order = [
-      "<HeroSlides",
+      // The personal row is ABOVE the hero: a returning shopper came back to
+      // carry on, and making them scroll past a campaign to reach the row that
+      // remembers what they were doing puts the house's business ahead of
+      // theirs. It is gated, so a first visit still opens on the hero.
       "Bazat pe vizualizările tale recente",
+      "<HeroSlides",
       "Vizualizate recent",
       "Sugestii pentru tine",
       "<YouMightBeInto",
@@ -116,7 +126,7 @@ check(
       /const COPY: SlideCopy\[\]/.test(hero) &&
       (hero.match(/eyebrow: "/g) ?? []).length === 3 &&
       !/title: listing\.title/.test(hero) &&
-      /contentful\.depop\.com/.test(hero)
+      /unfazed\.ro\/cdn\/shop\/collections/.test(hero)
     )
   })(),
 )
@@ -229,21 +239,23 @@ check(
 )
 
 check(
-  "there are arrows, and they are a pair in a corner rather than two edges",
+  "the arrows are on the edges, and the copy leaves them a seat",
   (() => {
-    // Centred at the left and right edges, the left one sat straight through
-    // the headline — and every fix that keeps an arrow at the left edge has
-    // that problem, because the left edge is where the words are. In the
-    // bottom right the only thing underneath is a photograph, and they are
-    // diagonally opposite the button so the two pressable things are never in
-    // the same corner.
+    // They belong on the edges — that is where everybody's hand goes. The
+    // reason the left one was drawn through the headline is that a centred
+    // block of copy occupies the same strip, so the fix is not to relocate the
+    // arrow but to stop the copy claiming that strip. Reserve 72/88px and the
+    // overlap is impossible by construction rather than avoided by hoping
+    // headlines stay short.
     return (
       /<HeroArrow side="left"/.test(hero) &&
       /<HeroArrow side="right"/.test(hero) &&
-      /absolute bottom-4 right-4 z-10 flex items-center gap-2/.test(hero) &&
-      // No longer straddling the slide, and no longer hidden until hover.
-      !/absolute top-1\/2 z-10 flex h-10 w-10 -translate-y-1\/2/.test(hero) &&
-      !/group-hover\/hero:opacity-100/.test(hero)
+      /absolute top-1\/2 z-10 flex h-9 w-9 -translate-y-1\/2/.test(hero) &&
+      /side === "left" \? "left-4 lg:left-5" : "right-4 lg:right-5"/.test(hero) &&
+      // The gutter, on the copy half AND under the dots, so all three share one
+      // left margin.
+      /pl-\[72px\] pr-6 lg:pl-\[88px\]/.test(hero) &&
+      /absolute bottom-5 left-\[72px\][\s\S]{0,80}lg:left-\[88px\]/.test(hero)
     )
   })(),
 )
@@ -280,12 +292,81 @@ check(
 )
 
 check(
-  "the carousel stops for the cursor and for a hidden tab",
+  "five seconds a slide, on a timeout rather than an interval",
   (() => {
-    // A carousel that moves while you are reading the slide is the reason
-    // people hate carousels; a background tab advancing thirty slides is thirty
-    // layout passes nobody watched.
-    return /onMouseEnter=\{\(\) => setPaused\(true\)\}/.test(hero) && /document\.visibilityState === "visible"/.test(hero)
+    // An INTERVAL lives across slides, so pressing next at 4.9s gives the slide
+    // you just chose 100ms. One timeout per slide, torn down whenever the index
+    // or the turn changes, is what makes a press reset the countdown.
+    return (
+      /const AUTOPLAY_MS = 5000/.test(hero) &&
+      !/setInterval/.test(code("components/explore/home/hero-slides.tsx")) &&
+      /window\.setTimeout\(\(\) => \{[\s\S]{0,160}go\(index \+ 1\)/.test(hero) &&
+      /\}, \[index, turn, count, go\]\)/.test(hero) &&
+      // A background tab does not advance thirty slides.
+      /document\.visibilityState === "visible"/.test(hero) &&
+      // And it is still drivable by hand.
+      /if \(e\.key === "ArrowRight"\) go\(index \+ 1\)/.test(hero)
+    )
+  })(),
+)
+
+check(
+  "the dots are the clock, off the SAME constant as the timer",
+  (() => {
+    // A bar that finishes early, or is still running when the slide changes, is
+    // worse than no bar. One constant, used by the timer and by the fill.
+    const css = read("app/globals.css")
+    return (
+      /animationDuration: `\$\{AUTOPLAY_MS\}ms`/.test(hero) &&
+      /key=\{turn\}/.test(hero) &&
+      /@keyframes hero-dot-fill/.test(css) &&
+      // Linear: this is a measurement, not a movement. An eased clock lies
+      // about how much time is left.
+      /animation-timing-function: linear/.test(css) &&
+      // The duration must NOT be restated in the stylesheet.
+      !/hero-dot-fill[\s\S]{0,200}animation-duration/.test(css)
+    )
+  })(),
+)
+
+check(
+  "and a press restarts the countdown rather than inheriting it",
+  (() => {
+    // React only replays a CSS animation on a NEW element. An index alone
+    // cannot express "same slide, clock reset" — 0 → 1 → 0 reuses slide 0's bar
+    // and inherits however far through it already was.
+    return /const \[turn, setTurn\] = useState\(0\)/.test(hero) && /setTurn\(\(t\) => t \+ 1\)/.test(hero)
+  })(),
+)
+
+check(
+  "the tone reaches the shelf captions, not just the headline",
+  (() => {
+    // A pale ground shipped for one deploy and the three cards' captions stayed
+    // WHITE: "Guess / 372 RON" invisible on bone. The products were on the
+    // slide and their names and prices were not. A tone that covers the
+    // headline but not the things it introduces is a half-applied theme, and
+    // this is the guard that says so — whatever colour the grounds are today.
+    return (
+      /tone=\{s\.tone\}/.test(hero) &&
+      /tone\?: "light" \| "dark"/.test(hero) &&
+      // Both caption lines ask, not just one of them — inside ShelfCard, since
+      // the copy half uses the same pattern for its headline and body.
+      (() => {
+        const card = hero.slice(hero.indexOf("function ShelfCard("), hero.indexOf("function HeroArrow("))
+        return (card.match(/tone === "dark" \? "text-neutral-(500|900)"/g) ?? []).length === 2
+      })() &&
+      // And the arrow over a pale ground is dark, not a white smudge.
+      /tone === "dark"[\s\S]{0,60}bg-neutral-900\/85 text-white/.test(hero)
+    )
+  })(),
+)
+
+check(
+  "the three grounds are three different colours",
+  (() => {
+    const grounds = [...hero.matchAll(/ground: "(#[0-9a-f]{6})"/g)].map((m) => m[1])
+    return grounds.length === 3 && new Set(grounds).size === 3
   })(),
 )
 
@@ -331,13 +412,14 @@ check(
     return (
       /const MIN_HISTORY = 5/.test(home) &&
       /const personal = views\.length >= MIN_HISTORY/.test(home) &&
-      // Both rows inside the one gate, and the gate before the heading.
-      /\{personal && \(/.test(home) &&
+      // TWO gates now, not one block — the rows sit either side of the hero, so
+      // they cannot share a fragment. Each must carry its own.
+      (home.match(/\{personal && \(/g) ?? []).length === 2 &&
       home.indexOf("{personal && (") < home.indexOf("Bazat pe vizualizările tale recente") &&
-      home.indexOf("</>") > home.indexOf("Vizualizate recent") &&
-      // The pills are OUTSIDE it — that section is the one that carries an early
-      // visit and must never be gated on history it does not have.
-      home.indexOf("<YouMightBeInto") > home.indexOf("</>")
+      home.lastIndexOf("{personal && (") < home.indexOf("Vizualizate recent") &&
+      // The pills are OUTSIDE both — that section is the one that carries an
+      // early visit and must never be gated on history it does not have.
+      home.indexOf("<YouMightBeInto") > home.lastIndexOf("{personal && (")
     )
   })(),
   "        components/explore/home/desktop-home.tsx",
@@ -609,8 +691,28 @@ check(
 )
 
 check(
+  "the marketing hero is signed-out only",
+  (() => {
+    // Somebody with an account already knows what Storelib is. Telling them on
+    // every visit is the site failing to recognise them.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /\{!signedIn && <SignedOutHero \/>\}/.test(home) &&
+      /signedIn = false \}: \{ products: any\[\]; signedIn\?: boolean \}/.test(home) &&
+      /signedIn=\{signedIn\}/.test(feed) &&
+      /auth\.getUser\(\)/.test(feed) &&
+      // No invented metrics. The reference carries "49M+ items for sale"; a
+      // front page opening with a figure it cannot stand behind has told its
+      // first lie to everybody who ever visits.
+      !/\dM\+/.test(hero2) &&
+      !/[0-9][0-9,.]*\+\s*(items|articole|anunțuri)/i.test(hero2)
+    )
+  })(),
+)
+
+check(
   "the home page is only drawn when there is nothing being searched for",
-  /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} \/>\}/.test(feed),
+  /\{!searchQuery && <DesktopHome products=\{productsWithCreators\} signedIn=\{signedIn\} \/>\}/.test(feed),
 )
 
 console.log("\nCrossing between the profile and the home page does not bump")

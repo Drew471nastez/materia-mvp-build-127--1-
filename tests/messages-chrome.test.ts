@@ -753,6 +753,49 @@ check(
 )
 
 check(
+  "the category strip is centred in the white, lip included",
+  (() => {
+    /**
+     * Three values were tried here and all three were guesses at the wrong
+     * number, because the white above these labels does not start where the
+     * nav starts: a separate `bg-black h-[20px]` block with a
+     * `rounded-t-[20px]` white overlay sits above it, drawing the concave
+     * corner where the black bar meets the white. Its twenty pixels are white
+     * too, so a `pt` here lands on TOP of them — pt-2.5 read as 30 above
+     * against 14 below.
+     *
+     * The lip is the top padding. This guard fails if somebody reintroduces a
+     * pt, or changes the lip without changing the padding that matches it.
+     */
+    const header = code("components/platform/platform-header-client.tsx")
+    const lip = /bg-black h-\[20px\]"/.test(header) && /bg-white rounded-t-\[20px\]/.test(header)
+    const strip = /gap-7 whitespace-nowrap pb-5 pt-0 text-\[14\.5px\]/.test(header)
+    const rail = /md:hidden px-0 pt-0 pb-4 overflow-x-auto/.test(header)
+    return lip && strip && rail
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the search tabs are ruled apart; the category rail is not",
+  (() => {
+    // Articole / Categorii / Persoane are three different KINDS of result — a
+    // person is not a narrower article — so a rule between them says where one
+    // choice ends. The six category labels are one flat list of filters over
+    // the same thing, and ruling between those turned a rail into a navbar.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const header = code("components/platform/platform-header-client.tsx")
+    const strip = header.slice(header.indexOf("DEFAULT_CATEGORIES.map"), header.indexOf("DEFAULT_CATEGORIES.map") + 1400)
+    return (
+      /my-2 w-px shrink-0 self-center bg-neutral-200/.test(overlay) &&
+      /\{i > 0 && <span aria-hidden/.test(overlay) &&
+      !/w-px/.test(strip)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
   "the header's field is not reset by its own re-renders",
   (() => {
     /**

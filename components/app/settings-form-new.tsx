@@ -1568,28 +1568,63 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const displayName = `${firstName} ${lastName}`.trim()
 
     try {
-      // Check if username is taken by another user
-      const { data: existingUsers } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", cleanUsername)
-        .neq("id", profile.id)
-        .limit(1)
-
-      if (existingUsers && existingUsers.length > 0) {
-        setError("This username is already taken")
-        setIsLoading(false)
-        return
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  THE HANDLE GOES THROUGH THE SERVER. EVERYTHING ELSE STAYS HERE.
+       * ═══════════════════════════════════════════════════════════════════
+       *
+       * What was here could not save a handle and could not tell you it had
+       * failed, for two separate reasons:
+       *
+       *   `update().eq("id", …)` MATCHING NOTHING IS NOT AN ERROR. An account
+       *   whose row RLS will not let the anon key write — or one with no
+       *   `profiles` row at all — got `error === null` and a green tick, and
+       *   nothing was written. That is the "I change my username and it
+       *   doesn't save" report, and lib/profile/write.ts is the fix: it
+       *   notices the zero-row case and inserts.
+       *
+       *   The uniqueness check above used `.eq()`, which is CASE-SENSITIVE,
+       *   while /member/[username] resolves case-INsensitively. So "Andrew"
+       *   passed a check that "andrew" already held, both rows existed, and
+       *   one of the two profiles became unreachable.
+       *
+       * It also skipped `isValidUsername` entirely on the way to the database
+       * — the check at the top of this file runs on keystrokes and sets an
+       * error message, but nothing here consulted it before writing — so a
+       * reserved word could be claimed by pressing save with the warning
+       * showing.
+       *
+       * PATCH /api/profile does all four things and is the only writer of a
+       * handle in the app now. It returns the STORED value, which is what
+       * `creators.slug` is synced to below: syncing to the typed value is how
+       * a profile at /andrewrullz ends up with a store at /Andrew Rullz.
+       */
+      let storedUsername = cleanUsername
+      if (cleanUsername !== (profile.username ?? "")) {
+        const res = await fetch("/api/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ displayName, username: cleanUsername }),
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) {
+          setError(data?.error ?? "Could not save your username")
+          setIsLoading(false)
+          return
+        }
+        if (typeof data?.username === "string" && data.username) storedUsername = data.username
+        setUsername(storedUsername)
       }
 
       // Track old username for redirects (only if actually changing)
       const oldUsername = profile.username
-      if (oldUsername && oldUsername !== cleanUsername) {
+      if (oldUsername && oldUsername !== storedUsername) {
         try {
           await supabase.from("username_history").insert({
             user_id: profile.id,
             old_username: oldUsername,
-            new_username: cleanUsername,
+            new_username: storedUsername,
           })
         } catch {} // Non-fatal
       }
@@ -1598,7 +1633,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         .from("profiles")
         .update({
           display_name: displayName,
-          username: cleanUsername,
+          // NOT `username` — the request above owns it. Writing it again from
+          // here would put the unvalidated value back over the validated one.
           first_name: firstName,
           last_name: lastName,
           address_line1: addressLine1 || null,
@@ -1613,7 +1649,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (profileError) throw profileError
 
       const { error: creatorError } = await supabase.from("creators").update({
-        slug: cleanUsername,
+        // The STORED handle — see the note above. Syncing to the typed value is
+        // how a profile at /andrewrullz ends up with a store at a different one.
+        slug: storedUsername,
         support_email: supportEmail || null,
         payout_currency: payoutCurrency,
         statement_descriptor: normalizeStatementDescriptor(statementDescriptor || profile?.username || (creator as any)?.display_name || "STORE"),
@@ -1622,11 +1660,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (creatorError) throw creatorError
 
       // Sync OnePage slug to match new username
-      if (oldUsername && oldUsername !== cleanUsername) {
+      if (oldUsername && oldUsername !== storedUsername) {
         try {
           await supabase
             .from("onepages")
-            .update({ slug: cleanUsername })
+            .update({ slug: storedUsername })
             .eq("owner_id", profile.id)
         } catch {} // Non-fatal
       }
@@ -1646,7 +1684,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       initialValues.current = {
         firstName,
         lastName,
-        username: cleanUsername,
+        username: storedUsername,
         avatarUrl,
         addressLine1,
         city,
