@@ -523,6 +523,76 @@ check(
   "        components/marketplace/profile-badges.tsx",
 )
 
+check(
+  "nothing writes a handle from the browser",
+  (() => {
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  THE BUG: A SAVE THAT SUCCEEDS AND WRITES NOTHING
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * Two settings forms did this:
+     *
+     *     await supabase.from("profiles").update({ username }).eq("id", userId)
+     *     if (error) throw error
+     *     setSaveSuccess(true)
+     *
+     * `update().eq()` MATCHING ZERO ROWS IS NOT AN ERROR. An account whose row
+     * RLS will not let the anon key touch — or one with no `profiles` row at
+     * all — gets `error === null`, a green tick, and no change. Reload, and the
+     * old handle is still there.
+     *
+     * That is the whole of "I change my username and it doesn't save", and
+     * lib/profile/write.ts exists for it: update, notice nothing matched,
+     * INSERT — behind the service role, with the id from the session.
+     *
+     * The browser path also skipped every gate the server applies: slugify,
+     * isValidUsername (reserved words), and a CASE-INSENSITIVE uniqueness
+     * check. One of the two forms checked uniqueness with `.eq()`, which is
+     * case-sensitive, while /member/[username] resolves case-insensitively —
+     * so "Andrew" passed a check that "andrew" already held.
+     *
+     * PATCH /api/profile is the only writer of a handle now. This fails if a
+     * second one ever appears.
+     */
+    const offenders: string[] = []
+    for (const f of [
+      "app/library/settings/buyer-settings.tsx",
+      "components/app/settings-form-new.tsx",
+      "components/settings/settings-hub.tsx",
+      "components/member/profile-edit-form.tsx",
+    ]) {
+      const src = code(f)
+      // `username` as a KEY of an update object — `username:` or the shorthand
+      // `{ …, username }`. The lookbehind excludes `profile?.username`, which
+      // is a READ of somebody's handle inside an unrelated update and is fine.
+      if (/\.update\(\s*\{[^{}]*(?<![\w.])username\s*[:,}]/s.test(src)) offenders.push(f)
+    }
+    return offenders.length === 0
+  })(),
+  "        a handle must be written by PATCH /api/profile, never by the browser",
+)
+
+check(
+  "and the forms use the handle the server stored, not the one they typed",
+  (() => {
+    // It has been through slugifyUsername, so "Andrew Rullz" comes back as
+    // "andrewrullz". `creators.slug` and the OnePage slug are synced to it —
+    // syncing to the typed value is how a profile and a store end up at two
+    // different addresses.
+    const route = code("app/api/profile/route.ts")
+    const seller = code("components/app/settings-form-new.tsx")
+    const buyer = code("app/library/settings/buyer-settings.tsx")
+    return (
+      /username: row\.username \?\? null/.test(route) &&
+      /let storedUsername = cleanUsername/.test(seller) &&
+      /slug: storedUsername/.test(seller) &&
+      /setUsername\(data\.username\)/.test(buyer)
+    )
+  })(),
+  "        components/app/settings-form-new.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

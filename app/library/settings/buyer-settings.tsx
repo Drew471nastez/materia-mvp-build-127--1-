@@ -166,18 +166,64 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     return () => vv.removeEventListener("resize", onResize)
   }, [])
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  WHY THIS SAID "SAVED" AND SAVED NOTHING
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * It was a browser-side write:
+   *
+   *     await supabase.from("profiles").update({ display_name, username }).eq("id", userId)
+   *     if (error) throw error
+   *     setSaveSuccess(true)
+   *
+   * `update().eq()` that matches ZERO ROWS IS NOT AN ERROR. It reports success
+   * with an empty result — so an account whose row RLS will not let the anon
+   * key touch, or an account with no `profiles` row at all (the signup trigger
+   * predates some accounts), got `error === null`, the green tick, and no
+   * change whatsoever. Reloading showed the old handle, which is exactly the
+   * report: "I change the username and it doesn't save."
+   *
+   * lib/profile/write.ts exists for this and says so at length. It updates,
+   * notices that nothing matched, and INSERTS — and it runs behind the service
+   * role on the server, where the id comes from the session rather than from a
+   * form.
+   *
+   * THREE GATES CAME WITH IT, and this form had none of them:
+   *
+   *   · slugify — this wrote whatever was typed, so "Andrew Rullz" went in with
+   *     a space and a capital and then did not resolve at /member/andrew rullz.
+   *   · isValidUsername — no reserved-word check at all, so "storelib",
+   *     "admin" and "login" were all claimable from this screen.
+   *   · uniqueness — not checked in any form here, so two accounts could hold
+   *     the same handle and the second one's profile became unreachable.
+   *
+   * PATCH /api/profile is the one path that does all of it, and it is now the
+   * only way a handle is written anywhere in the app.
+   */
   const handleSaveProfile = useCallback(async () => {
     setSaving(true)
     setSaveError("")
     setSaveSuccess(false)
     try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("profiles")
-        .update({ display_name: name, username })
-        .eq("id", userId)
-
-      if (error) throw error
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ displayName: name, username }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        // The server's own reason. "Failed to save" over "that handle is taken"
+        // is the difference between something you can fix and something you
+        // can only retry.
+        setSaveError(data?.error ?? "Failed to save. Please try again.")
+        return
+      }
+      // The stored handle, which has been slugified and may differ from what
+      // was typed. Showing the typed one would leave the field disagreeing with
+      // the profile until the next reload.
+      if (typeof data?.username === "string" && data.username) setUsername(data.username)
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
       router.refresh()
@@ -186,7 +232,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     } finally {
       setSaving(false)
     }
-  }, [name, username, userId, router])
+  }, [name, username, router])
 
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

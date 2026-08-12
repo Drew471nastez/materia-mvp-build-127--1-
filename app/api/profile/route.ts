@@ -236,12 +236,27 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Nu am putut salva profilul.", detail: written.message }, { status: 500 })
   }
 
-  const row = written.row as { display_name?: string | null; bio?: string | null; cover_url?: string | null }
+  const row = written.row as {
+    display_name?: string | null
+    bio?: string | null
+    cover_url?: string | null
+    username?: string | null
+  }
   const skipped = written.skipped
 
   return NextResponse.json({
     ok: true,
     displayName: row.display_name ?? null,
+    /**
+     * THE HANDLE AS STORED, which is not necessarily the handle as sent.
+     *
+     * It has been through `slugifyUsername`, so "Andrew Rullz" arrives here as
+     * "andrewrullz". A caller that has anything else keyed on the handle — the
+     * settings form syncs `creators.slug` to it — must use THIS value and not
+     * the one it typed, or the two drift apart on the first name with a space
+     * or a capital in it.
+     */
+    username: row.username ?? null,
     bio: row.bio ?? null,
     cover: row.cover_url ?? null,
     // Which fields had nowhere to go, so the form can say so rather than
