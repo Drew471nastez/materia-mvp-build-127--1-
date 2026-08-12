@@ -623,32 +623,44 @@ check(
 console.log("\nAnd the desktop stops flashing a skeleton of the wrong page")
 
 check(
-  "the desktop shell is the shape of the page that is coming",
+  "the desktop shell is late, and it is three shapes rather than thirty",
   (() => {
-    // Removing it entirely was worse: a refresh drew the header, a category bar
-    // and then the FOOTER — an empty document is a short one — and a second
-    // later the real page shoved the footer two thousand pixels down. A
-    // placeholder has one job, and one that holds the wrong space does the
-    // opposite of it.
+    /**
+     * A loading.tsx fallback is shown the INSTANT a navigation starts, so a
+     * route that resolves quickly — most of them — flashed a skeleton for two
+     * or three frames. That is worse than nothing: something appears and
+     * disappears and you learn nothing from either.
+     *
+     * The 400ms delay is what makes it "only when the wait is real", and
+     * `both` is what holds it at opacity 0 through that delay — without the
+     * fill mode the element paints fully opaque until the animation begins,
+     * which is the exact flash it removes.
+     *
+     * The MOBILE shell must NOT be delayed: in the app it is the answer to
+     * tapping a tab, and 400ms of nothing after a tap is the "switching to home
+     * is slow" report it was built to fix.
+     */
+    const css = read("app/globals.css")
     return (
-      /grid-cols-\[minmax\(0,0\.42fr\)_minmax\(0,0\.58fr\)\]/.test(loading) &&
-      /xl:grid-cols-5/.test(loading) &&
-      // The same hero height the real slide states — when these drift the
-      // placeholder stops holding the space it exists to hold.
-      /h-\[320px\]/.test(loading) &&
-      /lg:h-\[340px\]/.test(loading) &&
-      /\[0, 1, 2, 3, 4\]\.map/.test(loading)
+      /feed-shell-late mx-auto/.test(loading) &&
+      /animation: feed-shell-late 220ms ease-out 400ms both/.test(css) &&
+      // Simple: one hero block, one heading, one row — and no pulse.
+      !/animate-pulse/.test(loading.slice(loading.indexOf("feed-shell-late"))) &&
+      // The phone shell keeps its own detail and its own immediacy.
+      !/feed-shell-late[\s\S]*mobile-feed-shell/.test(loading) &&
+      /mobile-feed-shell/.test(loading)
     )
   })(),
 )
 
 check(
-  "the hero placeholder does not pulse",
+  "and nothing in it pulses",
   (() => {
-    // A 1400x260 block flashing grey is the most distracting thing a loading
-    // screen can do, and it is the first thing on the page.
-    const heroBlock = loading.slice(loading.indexOf("h-[320px]"), loading.indexOf("{[0, 1].map"))
-    return !/animate-pulse/.test(heroBlock)
+    // A 1400px block flashing grey is the most distracting thing a loading
+    // screen can do, and by the time this is on screen somebody is already
+    // waiting — a calm signal reads better than an animated one.
+    const desktop = loading.slice(loading.indexOf("feed-shell-late"))
+    return !/animate-pulse/.test(desktop)
   })(),
 )
 
@@ -687,43 +699,6 @@ check(
     // The app has no browser chrome to say a navigation happened, and this is
     // the most expensive route in the product.
     return /mobile-feed-shell md:hidden fixed inset-0/.test(loading)
-  })(),
-)
-
-check(
-  "the shell knows which of the two home pages is coming",
-  (() => {
-    // A signed-out visitor opens on a full-bleed hero a signed-in one never
-    // sees. Drawn for everybody it flashes a 500px panel that then vanishes;
-    // drawn for nobody the commonest first visit gets a shell holding none of
-    // the space its page takes. loading.tsx cannot be async, so the answer has
-    // to be on <html> before first paint or it does not exist.
-    const css = read("app/globals.css")
-    const layout = read("app/layout.tsx")
-    return (
-      /data-auth/.test(layout) &&
-      /sb-'\+_r\+'-auth-token/.test(layout) &&
-      // The chunked form counts, or a large session draws the wrong shell.
-      /_k\+'\.0'/.test(layout) &&
-      /feed-shell-signed-out/.test(loading) &&
-      /html\[data-auth="out"\] \.feed-shell-signed-out/.test(css) &&
-      // Default hidden: a missing attribute means the script never ran, and a
-      // shell that is too short is the cheaper mistake.
-      /\.feed-shell-signed-out \{\s*\n\s*display: none;/.test(css)
-    )
-  })(),
-)
-
-check(
-  "the hero is full-bleed but its words keep the page's measure",
-  (() => {
-    const hero2 = code("components/explore/home/signed-out-hero.tsx")
-    return (
-      // No radius, no ring, no side margin on the ground...
-      /className="relative mb-8 border-b border-black\/\[0\.05\]"/.test(hero2) &&
-      // ...and the contents re-constrained to the same 1400px as the listings.
-      /mx-auto grid max-w-\[1400px\] items-center/.test(hero2)
-    )
   })(),
 )
 
@@ -774,12 +749,12 @@ check(
     // every visit is the site failing to recognise them.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      // Rendered from the FEED, outside the 1400px measure, so it can be
-      // genuinely full-bleed rather than reaching for a 100vw trick that
-      // overflows by the width of the scrollbar.
-      /\{!searchQuery && !signedIn && \(/.test(feed) &&
-      /<SignedOutHero \/>/.test(feed) &&
-      !/<SignedOutHero/.test(home) &&
+      // Back inside the page's measure: full-bleed was tried and reverted —
+      // edge to edge it stopped being one of the page's sections and became a
+      // header, which made the listings under it look inset rather than making
+      // the hero look wide.
+      /\{!signedIn && <SignedOutHero \/>\}/.test(home) &&
+      /mb-8 overflow-hidden rounded-2xl ring-1/.test(hero2) &&
       /signedIn=\{signedIn\}/.test(feed) &&
       /auth\.getUser\(\)/.test(feed) &&
       // No invented metrics. The reference carries "49M+ items for sale"; a

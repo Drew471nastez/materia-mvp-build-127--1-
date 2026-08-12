@@ -5,7 +5,6 @@ import { DEPARTMENTS, groupsForDepartment } from "@/lib/marketplace/listing-taxo
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { getServerT } from "@/lib/i18n/server"
 import { DesktopHome } from "@/components/explore/home/desktop-home"
-import { SignedOutHero } from "@/components/explore/home/signed-out-hero"
 
 // Shared implementation of the marketplace feed.
 //
@@ -263,33 +262,8 @@ export async function ExploreFeed({
         }}
       />
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          THE SIGNED-OUT HERO IS OUTSIDE THE MEASURE, ON PURPOSE
-          ═══════════════════════════════════════════════════════════════════
-
-          Everything below is inside `max-w-[1400px]` with page padding, which
-          is right for a grid of listings and wrong for this: a marketing panel
-          that stops 8px short of the window on both sides and has 16px of grey
-          above it reads as the first CARD on the page rather than as the top of
-          it.
-
-          Rendered here rather than inside DesktopHome so it can be genuinely
-          full-bleed — no `100vw` trick, which overflows by the width of the
-          scrollbar and gives the whole document a horizontal scroll. Its own
-          contents are re-constrained to the same 1400px and the same padding,
-          so the headline still lines up with the listings underneath.
-
-          `hidden md:block` for the same reason DesktopHome carries it: on a
-          phone the feed is a full-screen overlay and anything drawn here is
-          drawn behind it. */}
-      {!searchQuery && !signedIn && (
-        <div className="hidden md:block">
-          <SignedOutHero />
-        </div>
-      )}
-
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-8 pb-6 sm:pb-8">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">{t("feed.seo_h1")}</h1>
 

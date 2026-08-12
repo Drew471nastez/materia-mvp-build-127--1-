@@ -124,18 +124,19 @@ export function SignedOutHero() {
   return (
     <section
       /**
-       * FULL-BLEED: no radius, no ring, no side margin.
+       * A PANEL ON THE PAGE, not a band across the window.
        *
-       * It stopped 8px short of the window on both sides and had 16px of grey
-       * above it, which is what made it read as the first CARD on the page
-       * rather than as the top of it. The border-bottom is the only edge it
-       * needs — the page below is the same near-white, and a hairline is what
-       * separates two surfaces of the same colour.
+       * Full-bleed was tried and reverted. Edge to edge, this stopped being one
+       * of the page's sections and became a header — and the page it heads is a
+       * grid of listings on a 1400px measure, so a ground running out past that
+       * measure on both sides made the listings look inset rather than making
+       * the hero look wide.
        *
-       * `mb-8` rather than `mb-6`: a little more air before the slideshow, so
-       * the promotion and the carousel are not read as one stack.
+       * Rounded, inset, on the same measure as everything under it. The radius
+       * is what the listing cards, the slideshow and the category tiles all
+       * already use.
        */
-      className="relative mb-8 border-b border-black/[0.05]"
+      className="relative mb-8 overflow-hidden rounded-2xl ring-1 ring-black/[0.04]"
       /**
        * VERY LIGHT, AND BARELY PURPLE.
        *
@@ -151,10 +152,7 @@ export function SignedOutHero() {
         background: "linear-gradient(115deg, #fbfafc 0%, #f4f2fa 42%, #eff0f5 78%, #f6f5f8 100%)",
       }}
     >
-      {/* Re-constrained to the SAME measure and the SAME padding as the
-          listings below, so the headline starts on the page's own left margin.
-          Full-bleed is about the ground, not about the words. */}
-      <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-8 lg:py-16">
+      <div className="grid items-center gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-12 lg:py-14">
         <div className="min-w-0">
           {/* THE TOGGLE. A track with a sliding thumb rather than two buttons
               that swap colour: the thumb moving is what says these are two
