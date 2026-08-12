@@ -447,7 +447,10 @@ check(
 check(
   "an address that used to be yours still finds you",
   (() => {
-    const page = code("app/(marketing)/member/[username]/page.tsx")
+    // The screen moved to _member-screen.tsx when the Salvate tab got an
+    // address of its own — /member/<handle> and /member/<handle>/saved are two
+    // routes over one implementation, and this redirect is part of that one.
+    const page = code("app/(marketing)/member/[username]/_member-screen.tsx")
     const patchRoute = code("app/api/profile/route.ts")
     return (
       /profile_username_history/.test(patchRoute) &&
@@ -464,7 +467,7 @@ check(
   (() => {
     // This is what makes it safe for a released handle to be claimed by
     // somebody else: the new owner is found first and the redirect never runs.
-    const page = code("app/(marketing)/member/[username]/page.tsx")
+    const page = code("app/(marketing)/member/[username]/_member-screen.tsx")
     return /if \(!profile\) \{[\s\S]{0,900}?profile_username_history/.test(page)
   })(),
 )

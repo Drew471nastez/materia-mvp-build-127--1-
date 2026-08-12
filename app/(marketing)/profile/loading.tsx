@@ -35,15 +35,22 @@ export default function ProfileLoading() {
           stepped through both. See member-profile.tsx. */}
       <SurfaceClaim colour="#ffffff" />
 
-      {/* `.profile-cover` carries the geometry — the same class the real screen
-          uses, so the band cannot change height or position at the swap.
-          
+      {/* `.profile-cover` carries the geometry and `.profile-cover-bleed` the
+          escape from the centred column — the same two classes the real screen
+          uses, so the band cannot change height, width or position at the swap.
+          Without the second one the shell drew a 1100px rounded card and the
+          real cover replaced it with a band across the whole window, which is
+          the largest element on the page changing shape on arrival.
+
           Still, and pale. A pulsing grey band that then snaps to a saturated
           gradient is two jarring things where there should be none: the pulse
           draws the eye to the top of the screen, and the snap happens there
           while it is looking. A calm neutral that the real cover dissolves into
           is the whole handover — see the fade on `.profile-cover-live`. */}
-      <div aria-hidden className="profile-cover relative -mx-4 overflow-hidden bg-neutral-200 md:-mx-8 md:rounded-3xl" />
+      <div
+        aria-hidden
+        className="profile-cover profile-cover-bleed relative -mx-4 overflow-hidden bg-neutral-200"
+      />
 
       {/* The avatar straddles the cover's bottom edge, so its negative margin
           has to match the real one exactly or everything under it steps. */}

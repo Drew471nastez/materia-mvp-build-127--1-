@@ -7,6 +7,7 @@ import { Bookmark, Settings, Share2 } from "lucide-react"
 
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
 import { ProfileBadges } from "@/components/marketplace/profile-badges"
+import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { beginTabLeave } from "@/lib/tab-leave"
 
@@ -47,6 +48,7 @@ import { beginTabLeave } from "@/lib/tab-leave"
 export function ProfilePinnedHeader({
   instant,
   name,
+  username,
   verified,
   staff,
   avatarUrl,
@@ -55,6 +57,9 @@ export function ProfilePinnedHeader({
   onShare,
 }: {
   name: string
+  /** Whose profile this bar stands in for — the bookmark below points at their
+   *  Salvate tab, and it only renders when that is you. */
+  username: string
   /** The same two marks the header above carries. A bar that stands in for
    *  the identity has to stand in for all of it — a name that is verified up
    *  the page and unmarked in the bar is the bar disagreeing with the page it
@@ -127,7 +132,9 @@ export function ProfilePinnedHeader({
           </PinnedButton>
           {isOwner && (
             <>
-              <PinnedButton label="Salvate" href="/wishlist">
+              {/* The tab on the page this bar is standing in for, not the
+                  separate /wishlist screen it used to leave for. */}
+              <PinnedButton label="Salvate" href={savedShelfHref(username)}>
                 <Bookmark className="h-[18px] w-[18px]" />
               </PinnedButton>
               <PinnedButton label="Setări" href="/settings">

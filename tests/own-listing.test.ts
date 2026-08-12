@@ -731,7 +731,12 @@ check(
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
       /type ShelfTabId = "listings" \| "saved" \| "reviews"/.test(profile) &&
-      /const \[shelfTab, setShelfTab\] = useState<ShelfTabId>\("listings"\)/.test(profile) &&
+      // Seeded from the URL rather than corrected by an effect: the panel the
+      // address names has to be in the FIRST paint, or landing on
+      // /member/<handle>/saved is landing on Anunțuri and being moved a frame
+      // later, which is a page correcting itself in front of you.
+      /const \[shelfTab, setShelfTab\] = useState<ShelfTabId>\(\(\) =>/.test(profile) &&
+      /initialTab === "saved" && isOwner \? "saved" : "listings"/.test(profile) &&
       !/Ciorne/.test(profile) &&
       /function ShelfTab\(/.test(profile) &&
       /Evaluări/.test(profile) &&
@@ -842,19 +847,57 @@ check(
     // invariant more strictly than the jump did rather than less: `commit` is
     // the ONLY thing that moves the panels, and on the animated path it is
     // reachable only from the end of the scroll.
+    // The travel itself moved out to `glideBy` at module scope when landing on
+    // /member/<handle>/saved needed the same movement in the other direction.
+    // Same curve, same duration, same cancel-on-touch; two easings for one
+    // gesture is how a screen ends up feeling assembled.
     const profile = strip(read("components/member/member-profile.tsx"))
-    const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const panelIn ="))
+    const glide = profile.slice(profile.indexOf("function glideBy("), profile.indexOf("type ShelfTabId"))
+    const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const arrived ="))
     return (
       go.length > 200 &&
+      glide.length > 200 &&
       // One place changes the panel, and it is the one the scroll calls.
       (go.match(/setShelfTab\(/g) ?? []).length === 1 &&
       /const commit = \(\) => \{[\s\S]{0,200}?setShelfTab\(/.test(go) &&
-      // The animated branch never commits inline — only `stop()` does, and
-      // `stop()` is what the final frame runs.
-      /if \(t < 1\) \{\s*\n\s*requestAnimationFrame\(step\)\s*\n\s*return\s*\n\s*\}\s*\n\s*stop\(\)/.test(go) &&
-      /const stop = \(\) => \{[\s\S]{0,320}?commit\(\)/.test(go)
+      // …and the ONLY way `commit` reaches the animated path is as the glide's
+      // completion callback. Passed by reference, never invoked inline.
+      /glideBy\(top, scrollRun, commit\)/.test(go) &&
+      // The glide never finishes early: only `stop()` calls back, and `stop()`
+      // is what the final frame runs.
+      /if \(t < 1\) \{\s*\n\s*requestAnimationFrame\(step\)\s*\n\s*return\s*\n\s*\}\s*\n\s*stop\(\)/.test(glide) &&
+      /const stop = \(\) => \{[\s\S]{0,320}?done\?\.\(\)/.test(glide)
     )
   })(),
+)
+
+check(
+  "landing on /saved glides to the strip instead of arriving above it",
+  (() => {
+    // The URL asked for a tab that starts a screenful down the page, under the
+    // cover, the avatar, the name and the stats. Arriving at the top of the
+    // profile is arriving at the wrong place and being expected to scroll.
+    //
+    // Two frames of delay, not zero: the grid below the strip is what gives the
+    // document its height, and a scroll aimed at a page that is still laying out
+    // is a scroll that gets clamped.
+    //
+    // And it yields to a restored position. Coming BACK here — a back gesture, a
+    // bfcache restore — the browser has already put you where you were, and
+    // gliding somewhere else on top of that is the page overriding a decision
+    // that was already correct.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const block = profile.slice(profile.indexOf("const arrived = useRef(false)"))
+    return (
+      /if \(arrived\.current \|\| initialTab === "listings"\) return/.test(block) &&
+      /requestAnimationFrame\(\(\) => \{\s*\n\s*second = requestAnimationFrame/.test(block) &&
+      /if \(!el \|\| window\.scrollY > 4\) return/.test(block) &&
+      /glideBy\(top, scrollRun\)/.test(block) &&
+      // The same offset a tab switch aims at, so both land in the same place.
+      /getBoundingClientRect\(\)\.top - pinnedOffset\(\)/.test(block)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
 )
 
 check(
@@ -1352,7 +1395,10 @@ check(
     // whose glyph says least.
     return (
       /Distribuie/.test(pinnedSrc) &&
-      /href="\/wishlist"/.test(pinnedSrc) &&
+      // The bookmark points at the Salvate TAB on the profile this bar is
+      // standing in for, not at the separate /wishlist page it used to leave
+      // for — a different screen with different chrome showing the same items.
+      /href=\{savedShelfHref\(username\)\}/.test(pinnedSrc) &&
       /href="\/settings"/.test(pinnedSrc) &&
       !/Pencil/.test(pinnedSrc) &&
       !/Pencil/.test(profileSrc)
@@ -2526,7 +2572,7 @@ check(
     // The listing reads stay on the admin client, so the public view is
     // unchanged for an anonymous visitor; this is the one question that needs
     // the session.
-    const page = strip(read("app/(marketing)/member/[username]/page.tsx"))
+    const page = strip(read("app/(marketing)/member/[username]/_member-screen.tsx"))
     return (
       /isOwner = !!user && user\.id === profile\.id/.test(page) &&
       /<MemberProfile\s*\n\s*isOwner=\{isOwner\}/.test(page) &&
@@ -2534,7 +2580,7 @@ check(
       /\} catch \{/.test(page.slice(page.indexOf("let isOwner = false")))
     )
   })(),
-  "        app/(marketing)/member/[username]/page.tsx",
+  "        app/(marketing)/member/[username]/_member-screen.tsx",
 )
 
 console.log("\nAnd the profile is not a phone layout on a large screen")
@@ -2602,10 +2648,197 @@ check(
     return (
       /md:h-10 md:px-5 md:text-\[14px\]/.test(profile) &&
       /md:h-10 md:w-10 md:hover:bg-black\/35/.test(profile) &&
-      /md:right-4 md:top-4/.test(profile)
+      // Aligned with the CONTENT COLUMN, not with the window: now that the
+      // cover runs edge to edge, `right-4` would park them against the far
+      // corner of a 2560px screen, seven hundred pixels from the page they
+      // belong to.
+      /max-w-\[1100px\] px-4 md:px-8/.test(profile) &&
+      /md:right-8 md:top-4/.test(profile)
     )
   })(),
   "        components/member/member-profile.tsx",
+)
+
+console.log("\nThe saved tab has an address")
+
+check(
+  "/member/<handle>/saved is a route, and it is the same screen",
+  (() => {
+    // A tab you cannot link to does not exist as far as the rest of the product
+    // is concerned: the bookmark in the header has nowhere to point, "my saved
+    // things" cannot be shared, and the back button after a switch takes you off
+    // the page instead of back to the tab you were on.
+    //
+    // TWO ROUTES, ONE IMPLEMENTATION. Every read — the profile row, the
+    // listings, the saves, the follower counts, the rename history — is
+    // identical for both, and a second copy of two hundred lines of it would be
+    // two pages that drift within a release.
+    const saved = strip(read("app/(marketing)/member/[username]/saved/page.tsx"))
+    const base = strip(read("app/(marketing)/member/[username]/page.tsx"))
+    const screen = strip(read("app/(marketing)/member/[username]/_member-screen.tsx"))
+    return (
+      /<MemberScreen username=\{username\} initialTab="saved" \/>/.test(saved) &&
+      /<MemberScreen username=\{username\} \/>/.test(base) &&
+      // The screen is where the work is; the routes are four lines each.
+      base.length < 1200 &&
+      saved.length < 1600 &&
+      screen.length > 4000 &&
+      /export async function MemberScreen/.test(screen)
+    )
+  })(),
+  "        app/(marketing)/member/[username]/saved/page.tsx",
+)
+
+check(
+  "and somebody else's /saved is a redirect, not a page",
+  (() => {
+    // Anybody can type the URL. What they must not get is a page: the tab draws
+    // the READER'S wishlist, so served to a visitor it would show them their own
+    // saved items under somebody else's name.
+    //
+    // A redirect rather than a 404 — the address is not wrong, it is a real
+    // profile with a tab that is not theirs to see, and the profile is what they
+    // were asking for.
+    const screen = strip(read("app/(marketing)/member/[username]/_member-screen.tsx"))
+    const saved = strip(read("app/(marketing)/member/[username]/saved/page.tsx"))
+    return (
+      /if \(initialTab === "saved" && !isOwner\) \{\s*\n\s*redirect\(/.test(screen) &&
+      // And it is not offered to a crawler either.
+      /robots: \{ index: false, follow: false \}/.test(saved)
+    )
+  })(),
+  "        app/(marketing)/member/[username]/_member-screen.tsx",
+)
+
+check(
+  "every bookmark in the chrome points at it, through one function",
+  (() => {
+    // /wishlist is a different page with different chrome showing the same
+    // items. It stays as the FALLBACK — a guest has a wishlist (it hangs off the
+    // guest cookie) and no profile to put it on — but the handle is what the
+    // bookmark uses when there is one, and the day this route changes it changes
+    // once.
+    const store = strip(read("lib/marketplace/saved-items.ts"))
+    const platform = strip(read("components/platform/platform-header-client.tsx"))
+    const web = strip(read("components/marketing/mobile-web-header.tsx"))
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const pinned = strip(read("components/member/profile-pinned-header.tsx"))
+    return (
+      /export function savedShelfHref/.test(store) &&
+      /return handle \? `\/member\/\$\{encodeURIComponent\(handle\)\}\/saved` : "\/wishlist"/.test(store) &&
+      [platform, web, profile, pinned].every((src) => /savedShelfHref\(/.test(src)) &&
+      // None of them still hard-codes the old destination.
+      ![platform, web, profile, pinned].some((src) => /href=\{?"\/wishlist"/.test(src))
+    )
+  })(),
+  "        lib/marketplace/saved-items.ts",
+)
+
+console.log("\nThe profile does not look like a phone page on a desktop")
+
+check(
+  "the cover runs edge to edge, and the shell's does too",
+  (() => {
+    // It was a 1100px rounded card floating in the middle of a 2560px window
+    // with white either side. A cover is the top of the page, not a widget on
+    // it. The `50% - 50vw` pair cancels to half the window whatever the column's
+    // padding happens to be, so no number is written down twice.
+    const css = read("app/globals.css")
+    const profile = read("components/member/member-profile.tsx")
+    const shell = read("app/(marketing)/profile/loading.tsx")
+    return (
+      /\.profile-cover-bleed \{\s*\n\s*width: 100vw;\s*\n\s*margin-left: calc\(50% - 50vw\);/.test(css) &&
+      /profile-cover profile-cover-bleed/.test(profile) &&
+      // The SHELL too, or the largest element on the page changes shape on
+      // arrival: a rounded card replaced by a band across the whole window.
+      /profile-cover profile-cover-bleed/.test(shell) &&
+      // And the rounding is gone with it — a corner radius on something with no
+      // visible corners is a rule waiting to be wrong.
+      !/md:rounded-3xl/.test(profile) &&
+      !/md:rounded-3xl/.test(shell)
+    )
+  })(),
+  "        app/globals.css, components/member/member-profile.tsx",
+)
+
+check(
+  "and the banner cannot be dragged out of the page or long-pressed",
+  (() => {
+    // A drag on a full-width banner is very easy to start by accident while
+    // scrolling with a mouse, and it ends with the file in whatever window was
+    // underneath. None of this is security — the same note is on the Storelib
+    // mark — it is the difference between "you have to mean it" and "it happens
+    // by accident".
+    //
+    // `sizes` is part of the same change: it said `(min-width: 1100px) 1100px`
+    // while the cover was a capped card, and a `sizes` that under-states the box
+    // makes next/image actively worse than a plain <img> — the browser picks a
+    // 1100-wide candidate and stretches it across 2560.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const at = profile.indexOf("{coverPhoto && (")
+    const cover = profile.slice(at, profile.indexOf("A floor under the controls", at) + 1 || at + 1600)
+    return (
+      /draggable=\{false\}/.test(cover) &&
+      /onDragStart=/.test(cover) &&
+      /onContextMenu=/.test(cover) &&
+      /-webkit-user-drag:none/.test(cover) &&
+      /sizes="100vw"/.test(cover) &&
+      /priority/.test(cover)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
+)
+
+check(
+  "the pinned bar sits under the site header instead of halfway over it",
+  (() => {
+    // At `top: 0` it was 52px of white parked on 71px of black marketplace
+    // header, so the bottom third of the header showed as a strip running under
+    // the bar. That is the cheap-looking seam — not a colour, a bar sitting
+    // halfway over another bar.
+    //
+    // The two variables are published by the two headers that can be up there
+    // and are mutually exclusive — each is display:none at the width the other
+    // is shown, and a hidden element measures zero — so the sum is the max with
+    // no third value to keep in step. In the app both are zero and this is
+    // `top: 0`, exactly as before.
+    const css = read("app/globals.css")
+    const platform = strip(read("components/platform/platform-header-client.tsx"))
+    return (
+      /top: calc\(var\(--web-header-h, 0px\) \+ var\(--platform-header-h, 0px\)\)/.test(css) &&
+      // Published before paint, from the commit that mounted the header.
+      /useLayoutEffect\(\(\) => \{[\s\S]{0,400}?"--platform-header-h"/.test(platform) &&
+      /new ResizeObserver\(publish\)/.test(platform) &&
+      // And it passes BEHIND the header rather than over it: the hidden state is
+      // one bar-height of travel, so for the length of the slide the top of it
+      // overlaps the header it is about to sit under.
+      /html:not\(\.capacitor\) \.profile-pinned \{\s*\n\s*z-index: 39;/.test(css)
+    )
+  })(),
+  "        app/globals.css, components/platform/platform-header-client.tsx",
+)
+
+check(
+  "and anything scrolling into view knows what is parked on top of it",
+  (() => {
+    // `pinnedOffset` measured the profile's own bar and nothing else, which was
+    // complete in the app — there is no site header there — and wrong on the
+    // web, where the marketplace header is sticky and covering the top of the
+    // viewport whether or not a profile bar happens to be up. Aiming at y=0 with
+    // 71px of black header parked there lands the tab strip behind it.
+    //
+    // `bottom`, not `height`: an element's height is where it ends only if it
+    // starts at zero, and the profile bar no longer does.
+    const hook = strip(read("lib/marketplace/use-pinned-bar.ts"))
+    return (
+      /#platform-header-root/.test(hook) &&
+      /\.web-only-header/.test(hook) &&
+      /\.profile-pinned\[data-shown="true"\]/.test(hook) &&
+      /const \{ top, bottom \} = el\.getBoundingClientRect\(\)/.test(hook) &&
+      !/getBoundingClientRect\(\)\.height/.test(hook)
+    )
+  })(),
+  "        lib/marketplace/use-pinned-bar.ts",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

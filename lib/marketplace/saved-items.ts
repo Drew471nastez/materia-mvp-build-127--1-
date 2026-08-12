@@ -40,6 +40,29 @@
  * for nobody else. See components/member/saved-shelf.tsx.
  */
 
+/**
+ * WHERE THE BOOKMARK GOES.
+ *
+ * The saved list is a TAB on your profile — beside your listings and your
+ * reviews — and it has an address: /member/<handle>/saved. Every bookmark and
+ * heart in the product's chrome points there rather than at /wishlist, so
+ * pressing it lands you on your own profile with that tab open instead of on a
+ * separate page wearing different chrome and showing the same items.
+ *
+ * /wishlist has NOT been deleted and is the honest fallback, because there are
+ * two states in which there is no handle to build a URL from: a guest, who has
+ * a wishlist (it hangs off the `materia_guest_id` cookie) and no profile to put
+ * it on, and a session that has not resolved yet. Sending either of those to
+ * /member/undefined/saved is worse than sending them to the page that works.
+ *
+ * One function rather than the same template string in four headers: the day
+ * this route changes, it changes once.
+ */
+export function savedShelfHref(username?: string | null): string {
+  const handle = (username ?? "").trim()
+  return handle ? `/member/${encodeURIComponent(handle)}/saved` : "/wishlist"
+}
+
 const SAVED_SS_KEY = "storelib_saved_items_v1"
 
 let cache: any[] | null = null

@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { SearchTrigger } from "@/components/marketplace/search-row"
 import { CATEGORIES } from "@/lib/marketplace/categories"
+import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { useLocale } from "@/components/locale-provider"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -436,8 +437,14 @@ export function MobileWebHeader() {
                   >
                     <MessageCircle className="h-[22px] w-[22px]" />
                   </Link>
+                  {/* The saved list is a TAB on your profile, and this lands on
+                      it. `auth` is seeded from the persisted snapshot before the
+                      first paint, so a returning visitor gets their own handle
+                      here immediately; without one — a guest, or a session still
+                      resolving — savedShelfHref falls back to /wishlist, which
+                      is the page that works for both. */}
                   <Link
-                    href="/wishlist"
+                    href={savedShelfHref(auth.username)}
                     aria-label="Favorite"
                     className={ICON_BTN}
                   >

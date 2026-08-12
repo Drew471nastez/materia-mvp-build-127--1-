@@ -529,7 +529,8 @@ html.capacitor a.no-tap-fade:active {
  *
  * `both` so the first frame is the start state — without it there is one frame
  * at full opacity before the animation begins, which is precisely the flash
- * this removes. */
+ * this removes.
+ *
  * ---------------------------------------------------------------------------
  * AND IT IS GONE, BECAUSE IT WAS PAINTING THE FOOTER OVER THE PAGE
  * ---------------------------------------------------------------------------
@@ -596,7 +597,27 @@ html.capacitor a.no-tap-fade:active {
  */
 .profile-pinned {
   position: fixed;
-  top: 0;
+  /* BELOW WHATEVER SITE CHROME IS ALREADY PINNED UP THERE, not over it.
+   *
+   * At `top: 0` this bar is 52px of white parked on top of a 71px black
+   * marketplace header, so on a desktop the header was two thirds covered and
+   * the remaining third showed as a black strip running under the bar. That is
+   * the cheap-looking seam: not a colour or a shadow, a bar sitting halfway
+   * over another bar.
+   *
+   * Covering it completely would be worse. The site header is the only
+   * navigation a browser has — the app has a tab bar, the web has this — and a
+   * profile is not a screen that gets to take it away for as long as you are
+   * scrolled down one.
+   *
+   * The two variables are published by the two headers that can be up there
+   * (see MobileWebHeader and PlatformHeaderClient), and they are mutually
+   * exclusive: each is `display: none` at the width the other is shown, and a
+   * hidden element measures zero. So the SUM is the max, with no coordination
+   * between the two components and no third value to keep in step. Inside the
+   * app both are zero and this is `top: 0`, exactly as before.
+   */
+  top: calc(var(--web-header-h, 0px) + var(--platform-header-h, 0px));
   left: 0;
   right: 0;
   z-index: 60;
@@ -676,6 +697,28 @@ html.capacitor a.no-tap-fade:active {
   .profile-pinned {
     transition: none;
   }
+}
+
+/* ── ...AND ON THE WEB IT PASSES BEHIND THE SITE HEADER, NOT IN FRONT ────────
+ *
+ * The offset above puts the bar below the site header at rest. Its hidden state
+ * is `translateY(-100%)`, which is one bar-height of travel — so for the length
+ * of the slide the top of it is overlapping the header it is about to sit under,
+ * and at z-60 it was painting a half-faded white strip over black for the three
+ * hundred milliseconds of the arrival.
+ *
+ * Below the header in paint order there is nothing to see: the bar emerges from
+ * under an opaque surface, which is what "sliding out from behind the header"
+ * means and is why every app that does this puts it there. 39, because the
+ * marketplace header is 40 and the phone browser's is 55; everything on the page
+ * itself is far below both.
+ *
+ * `html:not(.capacitor)` because the app has no site header at all — there is
+ * nothing above this bar to pass behind, and dropping it out of the sixties
+ * there would only put it under things it is supposed to cover.
+ */
+html:not(.capacitor) .profile-pinned {
+  z-index: 39;
 }
 
 /* The picker's header, catching up with the list under it. Opacity and
@@ -4193,6 +4236,39 @@ html[data-keyboard="open"] .thread-composer {
 @media (min-width: 768px) {
   .profile-cover { height: 210px; }
 }
+/* ── THE BAND ESCAPES THE COLUMN ─────────────────────────────────────────────
+ *
+ * The page is a centred 1100px measure, and on a desktop the cover was inside
+ * it: a rounded card floating in the middle of a 2560px window with white either
+ * side. A cover is the TOP OF THE PAGE, not a widget on it, and every profile
+ * banner anybody has seen runs edge to edge — the capped version reads as a
+ * phone layout that has been centred rather than as a desktop one.
+ *
+ * `margin-inline: calc(50% - 50vw)` with `width: 100vw` is what gets out. The
+ * 50% is half this element's containing block — the column's content box, which
+ * is centred — so the two terms cancel to exactly half the window whatever the
+ * padding above it happens to be, and no number is written down twice.
+ *
+ * IT OVERHANGS BY HALF A SCROLLBAR ON EACH SIDE, and that is deliberate rather
+ * than tolerated: `vw` includes the scrollbar and the layout does not, so 100vw
+ * is a few pixels wider than the space there is. Splitting the difference means
+ * the band reaches both edges instead of falling short of one, and <main> in the
+ * marketing layout is `overflow-x: clip`, so what hangs over is cut rather than
+ * scrolled to. A width of `100%` of some ancestor would need that ancestor to
+ * exist; this needs nothing.
+ *
+ * `border-radius: 0` because a corner radius on something that has no visible
+ * corners is a rule waiting to be wrong the day the page gains a margin.
+ */
+@media (min-width: 768px) {
+  .profile-cover-bleed {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
+  }
+}
+
 /* AND TALLER AGAIN ON A LARGE SCREEN.
  *
  * The column is capped at 1100px, so at 210 the cover is a 5.2:1 letterbox — a
