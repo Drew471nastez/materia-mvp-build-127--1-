@@ -895,7 +895,10 @@ check(
       /cta: "Începe să vinzi"/.test(hero2) &&
       /title: "Publici rapid", body: "Câteva poze, un preț și gata\."/.test(hero2) &&
       /title: "Zero comision", body: "Primești prețul pe care îl setezi\."/.test(hero2) &&
-      /title: "Livrare simplă", body: "AWB-ul este generat pentru tine\."/.test(hero2) &&
+      // Shortened from "AWB-ul este generat pentru tine." — and it is the one
+      // tile body on the panel with no full stop, which is the copy as written
+      // rather than a slip.
+      /title: "Livrare simplă", body: "AWB generat automat"/.test(hero2) &&
       // And the sentences they replaced are gone from the CODE.
       !/Un exemplar din fiecare/.test(hero2) &&
       !/De la vânzători reali/.test(hero2) &&
@@ -911,8 +914,8 @@ check(
     // It was `i === 2` — the third tile, on both sides — which was true while
     // both third tiles said "Cum funcționează" and both meant the same page.
     // They do not any more: the seller's third tile is about AWB labels, and an
-    // underlined line reading "AWB-ul este generat pentru tine" that opens a
-    // page about buyer protection is a link that lies about where it goes.
+    // underlined line reading "AWB generat automat" that opens a page about
+    // buyer protection is a link that lies about where it goes.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
       /const opensPanel = tile\.opensProtection === true/.test(hero2) &&

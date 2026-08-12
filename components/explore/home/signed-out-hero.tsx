@@ -102,7 +102,7 @@ const COPY: Record<
     tiles: [
       { icon: Camera, title: "Publici rapid", body: "Câteva poze, un preț și gata." },
       { icon: Wallet, title: "Zero comision", body: "Primești prețul pe care îl setezi." },
-      { icon: Truck, title: "Livrare simplă", body: "AWB-ul este generat pentru tine." },
+      { icon: Truck, title: "Livrare simplă", body: "AWB generat automat" },
     ],
   },
 }
