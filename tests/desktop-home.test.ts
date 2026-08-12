@@ -703,6 +703,20 @@ check(
 )
 
 check(
+  "the switch is grey and the button is purple, not both",
+  (() => {
+    // A purple thumb and a purple CTA in the same 400px of copy are two things
+    // claiming to be the primary action. The switch is a SETTING — it changes
+    // what the panel says, it does not go anywhere — so it is grey, and the one
+    // thing that navigates gets the colour.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    const thumb = hero2.slice(hero2.indexOf("absolute inset-y-1 left-1"), hero2.indexOf("absolute inset-y-1 left-1") + 200)
+    const cta = hero2.slice(hero2.indexOf("mt-8 inline-flex h-[52px]"), hero2.indexOf("mt-8 inline-flex h-[52px]") + 200)
+    return /bg-neutral-200/.test(thumb) && !/7c3aed/.test(thumb) && /bg-\[#7c3aed\]/.test(cta)
+  })(),
+)
+
+check(
   "and the hero image cannot be dragged off the page",
   (() => {
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
@@ -718,19 +732,20 @@ check(
     // most of both outer cards with it.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      // The artwork is 400x200 — its own ratio, stated, so nothing is cropped.
-      /const HERO_RATIO = "400 \/ 200"/.test(hero2) &&
+      // The artwork's own ratio, stated, so nothing is cropped.
+      /const HERO_RATIO = "1356 \/ 798"/.test(hero2) &&
       /aspectRatio: HERO_RATIO/.test(hero2) &&
       !/aspect-\[4\/3\]/.test(hero2) &&
       // It is transparent RGBA, so it sits on the gradient with no card of its
       // own — a radius or a background here would be a card inside a card.
       !/rounded-xl object-/.test(hero2) &&
       /object-contain/.test(hero2) &&
-      // And capped rather than filled: the optimizer never upscales past the
-      // source, so letting a 400px file fill a 600px column is a soft picture
-      // no `quality` can rescue.
-      /const MAX_W = 400/.test(hero2) &&
-      /maxWidth: MAX_W/.test(hero2) &&
+      // NO width cap: this export is 1356 wide against a ~600px column, so it
+      // fills. The previous one was 400 wide and had to be capped at 1:1,
+      // because the optimizer never upscales past the source and no `quality`
+      // setting can put back detail that is not in the file.
+      !/MAX_W/.test(hero2) &&
+      !/maxWidth/.test(hero2) &&
       /quality=\{75\}/.test(hero2)
     )
   })(),

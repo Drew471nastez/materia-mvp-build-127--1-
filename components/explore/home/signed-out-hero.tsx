@@ -123,36 +123,29 @@ const COPY: Record<
  *   WebP both do, and next.config lists exactly those two, so there is no path
  *   here that flattens it onto black.
  *
- *   And it is SMALL for the slot. See MAX_W.
+ *   And it is big enough for the slot — 1356 wide against a ~600px
+ *   column — which is what lets it fill rather than be capped.
  */
 const HERO_IMAGE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design.png"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(1).png"
 
 /** Its real ratio, so `object-contain` has nothing to letterbox and
  *  `object-cover` would have nothing to crop. */
-const HERO_RATIO = "400 / 200"
+const HERO_RATIO = "1356 / 798"
 
 /**
- * WHY THE PICTURE IS CAPPED AT ITS OWN WIDTH INSTEAD OF FILLING ITS COLUMN.
+ * THERE IS NO WIDTH CAP ANY MORE, AND THAT IS THE POINT.
  *
- * The source is 400px wide and the column is about 600px at 1440. Next's
- * optimizer NEVER upscales past the original — asking it for w=640 and w=1080
- * returns the identical 9KB file — so no `quality` setting can put back detail
- * that is not in the source. Letting it fill would simply be the browser
- * enlarging a small picture: measured at 520px wide it came back soft, the
- * browser having picked a 324px candidate and stretched it 1.6x.
+ * The previous export was 400x200 — smaller than the ~600px column it sits in.
+ * Next's optimizer never upscales past the source, so no `quality` setting
+ * could put back detail that was not in the file, and the only way to keep it
+ * sharp was to cap the render at 400 and centre it in a column half empty.
  *
- * 400 is the only cap that renders 1:1, and 1:1 is the only version of this
- * that is actually sharp. Centred in the column, so the cap reads as
- * composition rather than as a picture that failed to fill its space — which
- * works here precisely because the artwork is transparent and already carries
- * its own tiles and shadows.
- *
- * A 2x display still enlarges it twofold and nothing in this file can prevent
- * that. The fix is a bigger export: at 1200x600 this cap can go up to the full
- * column and the problem disappears.
+ * This one is 1356x798. It covers the column at 1x and still has headroom at
+ * 2x, so it simply fills its half and the browser picks the rung it needs. The
+ * cap is GONE rather than raised: a cap that never binds is a number somebody
+ * has to reason about later for no reason.
  */
-const MAX_W = 400
 
 export function SignedOutHero() {
   const [side, setSide] = useState<Side>("buy")
@@ -197,18 +190,20 @@ export function SignedOutHero() {
           <div className="relative inline-flex rounded-full bg-white/80 p-1 shadow-[0_1px_2px_rgba(15,15,15,0.05)] ring-1 ring-black/[0.05]">
             <span
               aria-hidden
-              /* THE BRAND PURPLE, and it is the right place for it: this is
-                 the one control on the panel that changes what you are looking
-                 at, and purple is what this interface uses for the thing it
-                 wants you to press. The CTA under it stays near-black so the
-                 two are not competing.
-
-                 420ms on an overshoot curve rather than 320ms on an ease-out.
-                 A thumb sliding between two stops is the one movement where a
-                 slight overrun reads as physical rather than as a wobble — it
-                 is a switch being thrown, and a switch does not decelerate
-                 gently into place. */
-              className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-[#7c3aed] shadow-[0_1px_3px_rgba(124,58,237,0.45)] transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.32,0.5,1)]"
+              /* LIGHT GREY, and the purple moved to the button below it.
+                 
+                 Both carrying it was the mistake: a purple thumb and a purple
+                 CTA in the same 400px of copy are two things claiming to be the
+                 primary action, and the eye has to pick. The switch is a
+                 SETTING — it changes what the panel says, it does not go
+                 anywhere — so it reads in the interface's quiet grey, and the
+                 one thing that navigates gets the colour.
+                 
+                 420ms on an overshoot curve. A thumb sliding between two stops
+                 is the one movement where a slight overrun reads as physical
+                 rather than as a wobble — it is a switch being thrown, and a
+                 switch does not decelerate gently into place. */
+              className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-neutral-200 shadow-[0_1px_2px_rgba(15,15,15,0.08)] transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.32,0.5,1)]"
               style={{ transform: side === "sell" ? "translateX(100%)" : "translateX(0)" }}
             />
             {(["buy", "sell"] as const).map((s) => (
@@ -219,7 +214,7 @@ export function SignedOutHero() {
                 aria-pressed={side === s}
                 className={cn(
                   "relative z-10 w-[100px] rounded-full py-2 text-[14px] font-semibold transition-colors duration-200",
-                  side === s ? "text-white" : "text-neutral-500 hover:text-neutral-800",
+                  side === s ? "text-neutral-900" : "text-neutral-500 hover:text-neutral-800",
                 )}
               >
                 {s === "buy" ? "Cumpără" : "Vinde"}
@@ -238,7 +233,12 @@ export function SignedOutHero() {
 
           <SmartLink
             href={c.href}
-            className="mt-8 inline-flex h-[52px] items-center justify-center rounded-xl bg-neutral-900 px-8 text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(15,15,15,0.16),0_8px_20px_-8px_rgba(15,15,15,0.4)] transition-[background-color,transform] duration-200 ease-out hover:bg-neutral-800 active:scale-[0.985]"
+            /* THE PURPLE LIVES HERE NOW. It is the only thing on the panel
+               that navigates, so it is the only thing that should look like it
+               does — and the shadow is tinted with the same hue rather than
+               black, which is what stops a coloured button reading as a
+               rectangle with a grey smudge under it. */
+            className="mt-8 inline-flex h-[52px] items-center justify-center rounded-xl bg-[#7c3aed] px-8 text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(76,29,149,0.24),0_8px_20px_-8px_rgba(124,58,237,0.55)] transition-[background-color,transform] duration-200 ease-out hover:bg-[#6d28d9] active:scale-[0.985]"
           >
             {c.cta}
           </SmartLink>
@@ -283,10 +283,7 @@ export function SignedOutHero() {
             nothing is blown up. Below 1024 it goes UNDER the copy rather than
             beside it — at that width a half column is 300px and this is a
             composition of three tiles, not a thumbnail. */}
-        <div
-          className="relative mx-auto w-full"
-          style={{ aspectRatio: HERO_RATIO, maxWidth: MAX_W }}
-        >
+        <div className="relative w-full" style={{ aspectRatio: HERO_RATIO }}>
           {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
               
               `draggable={false}` stops the browser's own drag-to-copy, which is
@@ -305,7 +302,7 @@ export function SignedOutHero() {
             fill
             /* The real rendered widths, so the optimizer picks the smallest rung
                that covers them rather than the largest it has. */
-            sizes="(min-width: 1024px) 400px, (min-width: 768px) 90vw, 100vw"
+            sizes="(min-width: 1024px) 620px, (min-width: 768px) 90vw, 100vw"
             priority
             /* 75 is the top of the list next.config permits, and it is the right
                end of that list for this: a composite with flat colour fields and
