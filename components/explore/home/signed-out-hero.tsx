@@ -112,7 +112,7 @@ const COPY: Record<
  * Three facts about this file decide everything below, and all three were read
  * off the asset rather than assumed:
  *
- *   400 x 200, so 2:1 exactly. The box states that ratio, which is why nothing
+ *   1356 x 798, so 1.70:1. The box states that ratio, which is why nothing
  *   is cropped — a mismatch is what took a fifth off the previous artwork.
  *
  *   RGBA with a FULLY TRANSPARENT ground (corners sampled at 0,0,0,0). That is

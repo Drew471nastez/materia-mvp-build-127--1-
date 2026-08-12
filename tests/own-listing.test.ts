@@ -801,6 +801,88 @@ check(
 )
 
 check(
+  "the strip and the panel can never disagree about which tab you are on",
+  (() => {
+    /**
+     * There were TWO tab values: `pending`, which the strip drew immediately,
+     * and `shelfTab`, which the panels followed once the scroll landed. For the
+     * length of that glide the underline sat under Salvate while the grid still
+     * showed Anunțuri — the page disagreeing with itself about which tab you
+     * were on, which is the whole of "the switch is not accurate".
+     *
+     * One value now, read by both.
+     */
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /const shownTab = shelfTab/.test(profile) &&
+      !/const \[pending, setPending\]/.test(profile) &&
+      !/pending \?\? shelfTab/.test(profile)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
+)
+
+check(
+  "two quick taps land on the tab you tapped last",
+  (() => {
+    /**
+     * THE RACE. Tapping Salvate from far down the page started a glide whose
+     * completion callback set the tab. Tapping Evaluări while it ran committed
+     * immediately — the strip is near the top by then — and THEN the first
+     * glide finished and called its own callback, putting the tab back to
+     * Salvate. The last tab you asked for was not the tab you got.
+     *
+     * The swap no longer waits on the scroll, so the scroll has no callback to
+     * strand: `glideBy` is called with two arguments here, not three.
+     */
+    const profile = strip(read("components/member/member-profile.tsx"))
+    const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const goToTab = useCallback") + 3000)
+    return /glideBy\(top, scrollRun\)/.test(go) && !/glideBy\(top, scrollRun, commit\)/.test(go) && !/const commit = /.test(go)
+  })(),
+  "        components/member/member-profile.tsx",
+)
+
+check(
+  "the slide direction is decided in the handler, not inside a state updater",
+  (() => {
+    // `setDir` used to run INSIDE a `setShelfTab` updater. An updater must be
+    // pure and React may invoke it more than once — StrictMode does exactly
+    // that — so the direction the panel slid from was decided by a side effect
+    // in a function that is allowed to run twice.
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /setDir\(toIndex > fromIndex \? "right" : "left"\)\s*\n/.test(profile) &&
+      !/setShelfTab\(\(cur\) => \{[\s\S]{0,200}setDir\(/.test(profile)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
+)
+
+check(
+  "the underline is measured with rects and re-measured when a label reflows",
+  (() => {
+    /**
+     * `offsetLeft`/`offsetWidth` are ROUNDED TO INTEGERS, and the strip is a
+     * flex row with a 36px gap and text-sized labels — so boundaries land on
+     * fractional pixels and the bar sat up to a pixel off the word.
+     *
+     * And the ResizeObserver watched only the strip. The strip is a full-width
+     * block: when a label reflows (the font landing, a count arriving beside
+     * "Evaluări") the TABS move but the strip's box does not, so it never fired
+     * and the bar was left under where the word used to be.
+     */
+    const profile = strip(read("components/member/member-profile.tsx"))
+    return (
+      /getBoundingClientRect\(\)[\s\S]{0,220}t\.left - s\.left/.test(profile) &&
+      !/el\.offsetLeft/.test(profile) &&
+      /querySelectorAll<HTMLElement>\("\[data-tab\]"\)\.forEach\(\(el\) => ro\.observe\(el\)\)/.test(profile) &&
+      /fonts\?\.ready/.test(profile)
+    )
+  })(),
+  "        components/member/member-profile.tsx",
+)
+
+check(
   "switching panels re-mounts nothing",
   (() => {
     // A depth crossfade needs both layers in the DOM, so leaving the grid meant
@@ -831,46 +913,49 @@ check(
 )
 
 check(
-  "and the strip is brought to the top before the panel changes",
+  "the panel changes first, and the scroll is measured against what it produced",
   (() => {
-    // THE INVARIANT, unchanged: the swap must never happen while the page is
-    // still scrolled past where the shorter panel will end. Otherwise the
-    // browser is left beyond the end of a document that just shrank — it paints
-    // nothing, then clamps, which is the second of empty page followed by a
-    // jump.
-    //
-    // WHAT CHANGED is how the strip gets there. It used to be an instant
-    // `scrollBy` fired on the same tick as the swap, and two thousand pixels
-    // erased between one frame and the next is not a transition anybody can
-    // follow — press Evaluări and the screen you were reading is simply gone.
-    // The travel is animated now and the swap waits for it, which satisfies this
-    // invariant more strictly than the jump did rather than less: `commit` is
-    // the ONLY thing that moves the panels, and on the animated path it is
-    // reachable only from the end of the scroll.
-    // The travel itself moved out to `glideBy` at module scope when landing on
-    // /member/<handle>/saved needed the same movement in the other direction.
-    // Same curve, same duration, same cancel-on-touch; two easings for one
-    // gesture is how a screen ends up feeling assembled.
+    /**
+     * THE OLD INVARIANT AND WHY IT IS SATISFIED DIFFERENTLY.
+     *
+     * The swap used to wait for the scroll, so that the page could never be
+     * left beyond the end of a document that had just shrunk. That was a real
+     * hazard and the ordering did address it — but it also made the strip
+     * disagree with the panel for the length of the glide, and it let two quick
+     * taps land on the wrong tab.
+     *
+     * The swap happens first now, and the hazard does not return, for a reason
+     * that is worth writing down: THE STRIP HAS TO BE ON SCREEN TO BE TAPPED.
+     * So the scroll position when a switch begins is bounded by where the strip
+     * is, and the document cannot shrink out from under it by more than the
+     * panel's own height. The glide then runs on a page that has already
+     * settled, because the target is measured two frames after the swap —
+     * after layout, and after the browser has clamped if it was going to.
+     *
+     * The travel itself is `glideBy` at module scope, shared with the arrival
+     * scroll that lands on /member/<handle>/saved. Same curve, same duration,
+     * same cancel-on-touch; two easings for one gesture is how a screen ends up
+     * feeling assembled.
+     */
     const profile = strip(read("components/member/member-profile.tsx"))
     const glide = profile.slice(profile.indexOf("function glideBy("), profile.indexOf("type ShelfTabId"))
     const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const arrived ="))
+    const swap = go.indexOf("setShelfTab(next)")
+    const measured = go.indexOf("getBoundingClientRect")
     return (
-      go.length > 200 &&
-      glide.length > 200 &&
-      // One place changes the panel, and it is the one the scroll calls.
-      (go.match(/setShelfTab\(/g) ?? []).length === 1 &&
-      /const commit = \(\) => \{[\s\S]{0,200}?setShelfTab\(/.test(go) &&
-      // …and the ONLY way `commit` reaches the animated path is as the glide's
-      // completion callback. Passed by reference, never invoked inline.
-      /glideBy\(top, scrollRun, commit\)/.test(go) &&
-      // The glide never finishes early: only `stop()` calls back, and `stop()`
-      // is what the final frame runs.
-      /if \(t < 1\) \{\s*\n\s*requestAnimationFrame\(step\)\s*\n\s*return\s*\n\s*\}\s*\n\s*stop\(\)/.test(glide) &&
-      /const stop = \(\) => \{[\s\S]{0,320}?done\?\.\(\)/.test(glide)
+      // The tab is set in the handler, before anything is measured.
+      swap > 0 &&
+      measured > 0 &&
+      swap < measured &&
+      // Two frames between the swap and the measurement.
+      /requestAnimationFrame\(\(\) => \{\s*\n\s*requestAnimationFrame\(/.test(go) &&
+      // And the glide is still the shared one.
+      /const id = \+\+run\.current/.test(glide) &&
+      /requestAnimationFrame\(step\)/.test(glide)
     )
   })(),
+  "        components/member/member-profile.tsx",
 )
-
 check(
   "landing on /saved glides to the strip instead of arriving above it",
   (() => {
@@ -903,40 +988,36 @@ check(
 check(
   "a page already at the strip does not travel, and neither does a reduced-motion one",
   (() => {
-    // Switching while you can still see the strip must not move the page at all,
-    // and somebody who has asked for less motion gets the old instant behaviour
-    // rather than a 380ms glide they opted out of. Both fall through to the same
-    // immediate commit.
+    // Switching while you can still see the strip must not move the page at
+    // all, and somebody who has asked for less motion gets an instant
+    // correction rather than a 380ms glide they opted out of. The swap has
+    // already happened by this point either way — this only decides travel.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
       /\(prefers-reduced-motion: reduce\)/.test(profile) &&
-      /if \(top >= -1 \|\| reduced\) \{[\s\S]{0,220}?commit\(\)\s*\n\s*return/.test(profile) &&
+      /if \(top >= -1 \|\| reduced\) \{[\s\S]{0,220}?return/.test(profile) &&
       /if \(top < 0\) window\.scrollBy\(\{ top, behavior: "auto" \}\)/.test(profile)
     )
   })(),
 )
-
 check(
-  "the tab answers the finger, and the panel answers the scroll",
+  "the tab and the panel answer the same tap, on the same frame",
   (() => {
-    // A 380ms glide with the underline still sitting on the tab you left is a
-    // tap that did nothing for a third of a second. The strip is optimistic —
-    // it draws `pending` — while the panels wait for the travel to finish.
+    // The strip used to draw an optimistic `pending` while the panels waited
+    // for the scroll — which answered the finger immediately and made the page
+    // disagree with itself for a third of a second. One value now: the strip
+    // and all three panels read `shelfTab`, and React batches the swap with the
+    // direction and the mount flags, so they cannot be a frame apart.
     const profile = strip(read("components/member/member-profile.tsx"))
     return (
-      /const shownTab = pending \?\? shelfTab/.test(profile) &&
-      // The strip is rendered from the tab list now rather than written out
-      // three times, so the optimistic read is in one place instead of three.
+      /const shownTab = shelfTab/.test(profile) &&
       /active=\{shownTab === tb\.id\}/.test(profile) &&
-      // The panels are the slow half, and must NOT read the optimistic value.
-      // All three of them.
       /shelf-panel", shelfTab === "reviews"/.test(profile) &&
       /shelf-panel", shelfTab === "listings"/.test(profile) &&
       /shelf-panel", shelfTab === "saved"/.test(profile)
     )
   })(),
 )
-
 check(
   "a finger on the screen wins the scroll back",
   (() => {
@@ -961,11 +1042,13 @@ check(
     // appears. The tab lands populated rather than landing and then filling in.
     const profile = strip(read("components/member/member-profile.tsx"))
     const go = profile.slice(profile.indexOf("const goToTab = useCallback"), profile.indexOf("const panelIn ="))
-    const commitEnd = go.indexOf("setPending(null)")
-    return commitEnd > 0 && go.indexOf('if (next === "reviews") setReviewsSeen(true)') > commitEnd
+    return (
+      go.indexOf('if (next === "reviews") setReviewsSeen(true)') > 0 &&
+      // On the same tick as the swap, and before anything is measured.
+      go.indexOf('if (next === "reviews") setReviewsSeen(true)') < go.indexOf("getBoundingClientRect")
+    )
   })(),
 )
-
 check(
   "the reviews tab covers every creator row the account holds",
   (() => {

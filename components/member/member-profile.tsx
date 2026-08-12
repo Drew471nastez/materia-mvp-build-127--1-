@@ -543,30 +543,36 @@ export function MemberProfile({
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
-   *  THE PAGE GLIDES UP, AND THE PANEL CHANGES WHEN IT GETS THERE
+   *  THE PANEL CHANGES FIRST, AND THEN THE PAGE GLIDES TO IT
    * ═══════════════════════════════════════════════════════════════════════════
    *
-   * It used to be `behavior: "auto"` — a hard jump — fired on the same tick as
-   * the swap. The note that replaced a smooth scroll with that jump was half
-   * right: a smooth scroll running AT THE SAME TIME as the panel change really
-   * is two things happening at once, and it really does read as a glitch,
-   * because the document shrinks by three thousand pixels underneath a scroll
-   * animation that was aimed at the old height.
+   * This used to be the other way round, with a `pending` tab for the STRIP and
+   * the real one landing when the scroll finished. The reasoning was sound —
+   * swapping panels mid-scroll changes the document height under an animation
+   * aimed at the old one — but the order it produced was not, and it cost three
+   * things:
    *
-   * The wrong conclusion was that the scroll had to be instant. What it had to
-   * be was FIRST. Two thousand pixels of travel erased between one frame and the
-   * next is not a transition anybody can follow — you press Evaluări and the
-   * screen you were reading is simply gone, which is the blink.
+   *   THE STRIP LIED FOR THE LENGTH OF THE GLIDE. The underline sat under
+   *   Salvate while the grid underneath still showed Anunțuri. That is the
+   *   whole of "the switch is not accurate": for ~380ms the page disagreed with
+   *   itself about which tab you were on.
    *
-   * So the two are sequenced rather than merged:
+   *   TWO TAPS COULD LAND ON THE WRONG TAB. Tap Salvate from far down the page
+   *   and a glide starts. Tap Evaluări while it runs and — because the strip is
+   *   near the top by then — that one commits IMMEDIATELY. Then the first
+   *   glide finishes and calls its own commit, setting the tab back to Salvate.
+   *   The last tab you asked for is not the tab you get.
    *
-   *   1. The underline moves NOW. `pending` is what the tab strip draws, so the
-   *      tap is answered on the frame it lands and nothing waits on the scroll.
-   *   2. The page glides to the strip over ~380ms, with both panels still
-   *      exactly as they were — so the document keeps the height the animation
-   *      was aimed at and nothing can clamp.
-   *   3. The panel swaps on arrival, with its own slide, onto a page that has
-   *      stopped moving.
+   *   AND `setDir` RAN INSIDE A `setShelfTab` UPDATER. A state updater must be
+   *   pure; React may call it more than once for a single update and does
+   *   exactly that in StrictMode, so the direction the panel slid from was
+   *   decided by a side effect in a function that is allowed to run twice.
+   *
+   * Committing first fixes all three, and it does NOT reintroduce the height
+   * problem it was written to avoid — because the scroll target is measured
+   * AFTER the swap has been laid out. The old order measured against a height
+   * that was about to change; this one measures the page the tab actually
+   * produces, and the document then holds still for the whole glide.
    *
    * The travel itself is `glideBy` at the top of this file — shared with the
    * arrival scroll that lands on /member/<handle>/saved, and the note there
@@ -574,9 +580,9 @@ export function MemberProfile({
    */
   const scrollRun = useRef(0)
 
-  /** What the STRIP shows. The panels follow `shelfTab`, which lands later. */
-  const [pending, setPending] = useState<null | ShelfTabId>(null)
-  const shownTab = pending ?? shelfTab
+  /** The strip and the panels read the SAME value. There is no second one to
+   *  drift from it — see the note above. */
+  const shownTab = shelfTab
 
   /**
    * Where each tab sits, so the underline is never derived from a fraction.
@@ -603,51 +609,94 @@ export function MemberProfile({
   useLayoutEffect(() => {
     const strip = stripRef.current
     if (!strip) return
+
+    /**
+     * RECTS, NOT `offsetLeft`.
+     *
+     * `offsetLeft` and `offsetWidth` are ROUNDED TO INTEGERS. The strip is a
+     * flex row with a 36px gap and labels sized by their text, so tab
+     * boundaries land on fractional pixels all the time — and a bar placed from
+     * rounded numbers sits up to a pixel off the word it is underlining, on
+     * every tab, at most widths. `getBoundingClientRect` is fractional, and
+     * measuring the tab against the STRIP's own rect rather than the viewport
+     * keeps it correct however the page is scrolled.
+     */
     const measure = () => {
       const el = strip.querySelector<HTMLElement>(`[data-tab="${shownTab}"]`)
       if (!el) return
-      const next = { left: el.offsetLeft, width: el.offsetWidth }
-      setBar((prev) => (prev && prev.left === next.left && prev.width === next.width ? prev : next))
+      const s = strip.getBoundingClientRect()
+      const t = el.getBoundingClientRect()
+      const next = { left: t.left - s.left, width: t.width }
+      setBar((prev) =>
+        prev && Math.abs(prev.left - next.left) < 0.5 && Math.abs(prev.width - next.width) < 0.5 ? prev : next,
+      )
     }
     measure()
-    // Covers the two things a render cannot predict and both of which move these
-    // numbers: the window changing width, and the interface font landing after
-    // the first paint and re-measuring every label in the strip.
-    if (typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(measure)
-    ro.observe(strip)
-    return () => ro.disconnect()
+
+    /**
+     * AND EVERY TAB IS OBSERVED, NOT JUST THE STRIP.
+     *
+     * The strip is a full-width block: when a label reflows — the interface
+     * font landing after first paint, a count arriving beside "Evaluări", a
+     * language change — the TABS move but the strip's own box does not, so an
+     * observer watching only the strip never fires and the bar is left under
+     * where the word used to be. That is the underline being "not accurate",
+     * and it is invisible until you look for it because it is a pixel or two.
+     */
+    const cleanups: (() => void)[] = []
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(measure)
+      ro.observe(strip)
+      strip.querySelectorAll<HTMLElement>("[data-tab]").forEach((el) => ro.observe(el))
+      cleanups.push(() => ro.disconnect())
+    }
+
+    // The font is the one reflow that can land long after everything else and
+    // moves every label at once. `fonts.ready` is the direct signal for it; the
+    // observers above would catch it too, but only if the strip's own box
+    // happened to change.
+    let alive = true
+    void (document as any).fonts?.ready?.then?.(() => {
+      if (alive) measure()
+    })
+    cleanups.push(() => {
+      alive = false
+    })
+
+    return () => cleanups.forEach((fn) => fn())
   }, [shownTab, tabs])
 
   const goToTab = useCallback(
     (next: ShelfTabId) => {
+      // Re-tapping the tab you are already on.
+      if (next === shelfTab) return
       void triggerHaptic("light")
-      const current = pending ?? shelfTab
-      // Re-tapping the tab you are on, or the one already on its way in.
-      if (next === current) return
 
-      // The direction the strip is travelling, from the order the tabs are in
+      // The direction the strip is travelling, from the ORDER the tabs are in
       // rather than from their names — with three of them "reviews" is to the
       // right of Salvate and Salvate is to the right of Anunțuri, and a test on
       // one id cannot say that.
-      const fromIndex = tabs.findIndex((tb) => tb.id === current)
+      const fromIndex = tabs.findIndex((tb) => tb.id === shelfTab)
       const toIndex = tabs.findIndex((tb) => tb.id === next)
 
-      const commit = () => {
-        setShelfTab((cur) => {
-          if (cur === next) return cur
-          setDir(toIndex > fromIndex ? "right" : "left")
-          return next
-        })
-        setPending(null)
-      }
-
-      setPending(next)
-      // Mounted at the TAP, not at the swap. The panel is `hidden` either way so
-      // it costs no layout and adds no height — but its reviews request is a
-      // round trip, and starting it here means it runs during the 380ms glide
-      // instead of on the frame the panel appears. The tab lands populated
-      // rather than landing and then filling in.
+      /**
+       * EVERYTHING THAT DECIDES WHAT IS ON SCREEN HAPPENS ON THIS TICK.
+       *
+       * React batches these, so the next render has the new tab, the new
+       * direction and the new mount flags together — the strip and the panel
+       * cannot be a frame out of step with each other, which is exactly what
+       * they used to be for the length of the scroll.
+       *
+       * `setDir` is a call in an event handler, not a line inside a state
+       * updater. That is the whole of its correctness: an updater must be pure
+       * and may be invoked twice, and a side effect in one is a coin flip.
+       */
+      setDir(toIndex > fromIndex ? "right" : "left")
+      // Mounted on the SAME tick as the swap. The panel is `hidden` when it is
+      // not the active one, so it costs no layout and adds no height — but the
+      // reviews request is a round trip, and starting it here means it is in
+      // flight while the page glides rather than beginning on the frame the
+      // panel appears.
       if (next === "reviews") setReviewsSeen(true)
       if (next === "saved") {
         setSavedSeen(true)
@@ -655,25 +704,41 @@ export function MemberProfile({
         // note on `savedVisit`.
         setSavedVisit((n) => n + 1)
       }
+      setShelfTab(next)
 
-      const el = shelfRef.current
-      const top = el ? el.getBoundingClientRect().top - pinnedOffset() : 0
-      const reduced =
-        typeof window !== "undefined" &&
-        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      /**
+       * AND THE SCROLL IS MEASURED AFTER THE SWAP HAS BEEN LAID OUT.
+       *
+       * Two frames, not one. The first `rAF` lands after React has committed
+       * the new tab; the browser lays out and, if the arriving panel is
+       * shorter, clamps the scroll position in the same pass. The second lets
+       * that settle. Only then is `getBoundingClientRect()` describing the page
+       * the tab actually produced — measuring before the swap is how a glide
+       * ends up aimed at a height that no longer exists.
+       */
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = shelfRef.current
+          if (!el) return
+          const top = el.getBoundingClientRect().top - pinnedOffset()
+          const reduced =
+            typeof window !== "undefined" &&
+            window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
-      // Already in view, or somebody has asked for less motion: there is nothing
-      // to travel, so the swap is the whole interaction and waiting for an
-      // animation that is not going to run would only be a delay.
-      if (top >= -1 || reduced) {
-        if (top < 0) window.scrollBy({ top, behavior: "auto" })
-        commit()
-        return
-      }
-
-      glideBy(top, scrollRun, commit)
+          // Already in view, or somebody has asked for less motion: there is
+          // nothing to travel, so the swap was the whole interaction.
+          if (top >= -1 || reduced) {
+            if (top < 0) window.scrollBy({ top, behavior: "auto" })
+            return
+          }
+          // No completion callback any more — nothing is waiting on the scroll,
+          // which is why a superseded glide can no longer set the tab back to
+          // one you have already moved on from.
+          glideBy(top, scrollRun)
+        })
+      })
     },
-    [pending, shelfTab, tabs],
+    [shelfTab, tabs],
   )
 
   /**
