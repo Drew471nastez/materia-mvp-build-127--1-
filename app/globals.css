@@ -5319,31 +5319,38 @@ html.capacitor.native-feed-bg:not(.app-layout) body {
 }
 
 /* ===========================================================================
- *  THE HOME SHELL HAS TWO SHAPES, AND THE PAGE PICKS ONE BEFORE IT PAINTS
+ *  A PLACEHOLDER THAT ONLY APPEARS IF THERE IS SOMETHING TO WAIT FOR
  * ===========================================================================
  *
- * A signed-out visitor opens storelib.com on a full-bleed marketing hero that a
- * signed-in one never sees. One placeholder cannot hold both: drawn for
- * everybody it flashes a 500px panel that then disappears for most people;
- * drawn for nobody, the commonest first visit there is — somebody arriving
- * without an account — gets a shell that holds none of the space its page is
- * about to take, and the whole thing jumps when the real hero lands.
+ * A `loading.tsx` fallback is shown the instant a navigation starts, so a route
+ * that resolves quickly — most of them — flashed a skeleton for two or three
+ * frames. That is worse than nothing: you see something appear and disappear
+ * and learn nothing from either, and on the home page it was two thousand
+ * pixels of grey doing it.
  *
- * `loading.tsx` cannot be async, so it cannot ask the server which one to draw.
- * The head script in app/layout.tsx puts the answer on <html> as `data-auth`
- * before the first pixel, and this is what reads it.
+ * So the shell starts invisible and fades in after 400ms. If the page arrives
+ * first the fallback unmounts having never been seen; if it does not, the wait
+ * is real and a placeholder is the right answer to it. `both` is what holds
+ * opacity at 0 through the delay — without it the element paints fully opaque
+ * until the animation begins, which is the flash this removes.
  *
- * DEFAULT HIDDEN, shown only on a positive "out". The attribute is missing only
- * when the script did not run at all — storage disabled, private mode, a very
- * old browser — and in that case NOT drawing the hero is the cheaper mistake:
- * a shell that is too short pushes content down once, while one that is too
- * tall leaves a hole where a panel was promised.
+ * Not applied to the mobile shell, deliberately: in the app that one is the
+ * answer to TAPPING A TAB, and 400ms of nothing after a tap is the "switching
+ * to home is slow" report it exists to fix.
  */
-.feed-shell-signed-out {
-  display: none;
+@keyframes feed-shell-late {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-@media (min-width: 768px) {
-  html[data-auth="out"] .feed-shell-signed-out {
-    display: block;
+.feed-shell-late {
+  animation: feed-shell-late 220ms ease-out 400ms both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-shell-late {
+    animation-duration: 1ms;
   }
 }

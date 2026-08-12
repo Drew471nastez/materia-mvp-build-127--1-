@@ -163,85 +163,37 @@ export default function FeedLoading() {
           nothing to hold still, and every extra element here is markup shipped
           on the critical path to be thrown away. */}
       {/* ═══════════════════════════════════════════════════════════════════
-          THE SIGNED-OUT SHELL, WHICH IS A DIFFERENT PAGE
+          THE DESKTOP SHELL: LATE, AND PLAIN
           ═══════════════════════════════════════════════════════════════════
 
-          A signed-out visitor opens on a full-bleed marketing hero that a
-          signed-in one never sees, so one placeholder cannot serve both: draw
-          the hero for everybody and it flashes a 500px panel that then vanishes
-          for most people; draw it for nobody and the most common first visit in
-          the world — somebody arriving with no account — gets a shell that
-          holds none of the space its page is about to take.
+          IT ONLY APPEARS IF THE WAIT IS REAL. `.feed-shell-late` in
+          app/globals.css holds this at opacity 0 for 400ms and then fades it
+          in, so a load that resolves in 150ms — most of them — never shows a
+          placeholder at all. A skeleton that flashes for two frames is not
+          reassurance, it is a flicker: you see something appear and vanish and
+          learn nothing from either.
 
-          `loading.tsx` CANNOT be async, so it cannot ask the server. The answer
-          is on <html> as `data-auth`, set from localStorage by the head script
-          in app/layout.tsx before first paint, and `.feed-shell-signed-out` in
-          globals.css shows this block only when that says "out". */}
-      <div className="feed-shell-signed-out hidden w-full border-b border-black/[0.05] md:block"
-           style={{ background: "linear-gradient(115deg, #fbfafc 0%, #f4f2fa 42%, #eff0f5 78%, #f6f5f8 100%)" }}>
-        <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-8 lg:py-16">
-          <div>
-            {/* The toggle, the headline, the line, the button — drawn at their
-                real sizes. No pulse: this is the first thing on the page and a
-                500px block flashing grey is the most distracting thing a
-                loading screen can do. */}
-            <div className="h-10 w-[212px] rounded-full bg-white/70 ring-1 ring-black/[0.05]" />
-            <div className="mt-7 h-[42px] w-[85%] rounded bg-neutral-900/[0.07]" />
-            <div className="mt-2 h-[42px] w-[62%] rounded bg-neutral-900/[0.07]" />
-            <div className="mt-4 h-4 w-[70%] rounded bg-neutral-900/[0.05]" />
-            <div className="mt-2 h-4 w-[46%] rounded bg-neutral-900/[0.05]" />
-            <div className="mt-8 h-[52px] w-[210px] rounded-xl bg-neutral-900/[0.12]" />
-            <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-[102px] rounded-xl bg-white/70 ring-1 ring-black/[0.05]" />
-              ))}
-            </div>
-          </div>
-          {/* The picture's own ratio, so the shell is the height the page will
-              be — see HERO_RATIO in components/explore/home/signed-out-hero. */}
-          <div className="w-full rounded-xl bg-neutral-900/[0.05]" style={{ aspectRatio: "1356 / 798" }} />
+          AND IT IS THREE SHAPES, NOT THIRTY. The previous version drew the hero
+          split 46/54, a signed-out variant behind an auth check, five card
+          stubs with three text lines each, twice. All of it in service of
+          holding the exact layout — which matters when a skeleton is on screen
+          for one frame during a swap, and matters far less once it only appears
+          to somebody who is already waiting. What that person needs is a calm
+          signal that the page is coming, and a plain one is easier to read than
+          an intricate one.
+
+          The mobile shell above is NOT delayed and is deliberately left as it
+          is: in the app it is the answer to tapping a tab, and 400ms of nothing
+          after a tap is the "switching to home is slow" complaint it was built
+          to fix. Different job, different rules. */}
+      <div className="feed-shell-late mx-auto hidden w-full max-w-[1400px] px-4 pb-8 pt-4 sm:px-6 sm:pt-5 md:block lg:px-8">
+        <div className="h-[320px] w-full rounded-2xl bg-neutral-200/50 lg:h-[340px]" />
+        <div className="mt-14 h-6 w-56 rounded bg-neutral-200/50" />
+        <div className="mt-4 grid grid-cols-3 gap-x-4 lg:grid-cols-4 xl:grid-cols-5">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="aspect-[3/4] w-full rounded-xl bg-neutral-200/50" />
+          ))}
         </div>
-      </div>
-
-      <div className="mx-auto hidden w-full max-w-[1400px] px-4 pb-8 pt-8 sm:px-6 md:block lg:px-8">
-        {/* The hero: two halves, the real height, no pulse on the ground —
-            a 1400×260 block flashing grey is the single most distracting thing
-            a loading screen can do, and it is the first thing on the page. */}
-        <div className="grid h-[320px] grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] overflow-hidden rounded-2xl lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
-          <div className="flex flex-col justify-center gap-3 bg-neutral-200/70 px-8 lg:px-12">
-            <div className="h-3 w-16 rounded bg-white/25" />
-            <div className="h-7 w-3/4 rounded bg-white/25" />
-            <div className="h-4 w-5/6 rounded bg-white/20" />
-            <div className="mt-3 h-11 w-36 rounded-lg bg-white/30" />
-          </div>
-          <div className="bg-neutral-100" />
-        </div>
-
-        {/* TWO ROWS AND NO PILL STRIP BETWEEN THEM.
-
-            The strip moved: it is under the suggestions now rather than between
-            the personal rows, and it is below the fold — so a placeholder for it
-            here would be holding space the real page does not use up here. The
-            two personal sections above it are also no longer drawn at all on a
-            first visit, which is why this shell stops at two rows rather than
-            guessing which of them will exist. */}
-        {[0, 1].map((row) => (
-          <div key={row} className="mt-14">
-            <div className="mb-4 h-6 w-64 animate-pulse rounded bg-neutral-100" />
-            <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex flex-col">
-                  <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-neutral-100" />
-                  <div className="flex flex-col gap-1.5 px-0.5 pt-2.5">
-                    <div className="h-3 w-20 animate-pulse rounded bg-neutral-100" />
-                    <div className="h-3.5 w-full animate-pulse rounded bg-neutral-100" />
-                    <div className="h-4 w-14 animate-pulse rounded bg-neutral-100" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
     </>
   )

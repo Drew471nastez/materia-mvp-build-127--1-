@@ -139,24 +139,10 @@ export default function RootLayout({
                colour. The server reads this from a cookie, but WKWebView drops
                JS-set cookies across app restarts — which is exactly why the app
                used to open on the grid and then jump to reels a second later.
-               Re-writing the cookie here repairs it for every later request.
-            4. Signed in or not, as `data-auth` on <html>, BEFORE first paint.
-               app/(marketing)/(feed)/loading.tsx has to draw a different shell
-               for a signed-out visitor — that page opens with a full-bleed
-               marketing hero which a signed-in one never sees — and a
-               loading.tsx cannot be async, so it cannot ask the server. It has
-               to be decided here or not at all.
-
-               This is EVIDENCE, never authorisation: it says a session token is
-               stored on this device, which is enough to choose between two
-               placeholder shapes and is not enough to unlock anything. Every
-               real permission is still a JWT against row-level security. The
-               key is derived the same way lib/auth/session-read.ts derives it,
-               and the chunked form (`<key>.0`) counts — missing that would draw
-               the signed-out shell for anybody with a large session. */}
+               Re-writing the cookie here repairs it for every later request. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}try{var _r=(${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL||"")}).split('//')[1];_r=_r?_r.split('.')[0]:'';var _k='sb-'+_r+'-auth-token';var _in=!!(_r&&(localStorage.getItem(_k)||localStorage.getItem(_k+'.0')));document.documentElement.setAttribute('data-auth',_in?'in':'out')}catch(e){}`,
+            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
           }}
         />
         {/* ═══════════════════════════════════════════════════════════════════
