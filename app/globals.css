@@ -4193,6 +4193,25 @@ html[data-keyboard="open"] .thread-composer {
 @media (min-width: 768px) {
   .profile-cover { height: 210px; }
 }
+/* AND TALLER AGAIN ON A LARGE SCREEN.
+ *
+ * The column is capped at 1100px, so at 210 the cover is a 5.2:1 letterbox — a
+ * phone banner that has been stretched sideways and not given any of the height
+ * back. Every profile banner people are used to on a desktop sits between 3:1
+ * and 4:1, and the reason is not taste: at 5:1 an uploaded photograph is being
+ * cropped to a strip, and a strip of somebody's picture is rarely the part of it
+ * worth showing.
+ *
+ * 250 at lg is 4.4:1 and 280 at xl is 3.9:1, and both are affordable in a way
+ * they are not on a phone — the argument for 140 there is that the first
+ * screenful has to say something, and a desktop screenful has room for the
+ * cover, the name, the stats and the first row of the grid at any of these. */
+@media (min-width: 1024px) {
+  .profile-cover { height: 250px; }
+}
+@media (min-width: 1280px) {
+  .profile-cover { height: 280px; }
+}
 
 /* The profile paints its own white, because the canvas behind it is no longer
    white: `SurfaceClaim` sets the root to the wash's top colour so the strip

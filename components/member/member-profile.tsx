@@ -1,7 +1,7 @@
 "use client"
 
 import { SurfaceClaim } from "@/components/surface-claim"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
 import { createPortal } from "react-dom"
 import Link from "next/link"
@@ -15,6 +15,7 @@ import { ImageViewer } from "@/components/messages/image-viewer"
 import { ownerListingHref, ownerStatusBadge } from "@/lib/marketplace/listing-status"
 import { pinnedOffset, usePinnedBar } from "@/lib/marketplace/use-pinned-bar"
 import { SellerReviewsList } from "@/components/member/seller-reviews-list"
+import { SavedShelf } from "@/components/member/saved-shelf"
 import { ProfilePinnedHeader } from "@/components/member/profile-pinned-header"
 import { ManageListingSheet } from "@/components/product/manage-listing-sheet"
 import { MoreHorizontal } from "lucide-react"
@@ -224,12 +225,24 @@ function Stat({ value, label, lang }: { value: number; label: string; lang: stri
  * one thing a tab strip has to communicate is that these two are the same
  * control in two positions. It costs one transform.
  */
+/**
+ * The three panels the shelf can be showing.
+ *
+ * "saved" exists only on your own profile — see the note on the tab list in
+ * MemberProfile for why a wishlist is not somebody else's business, and why a
+ * tab for it on a stranger's page would show the reader their own list rather
+ * than leaking anybody's.
+ */
+type ShelfTabId = "listings" | "saved" | "reviews"
+
 function ShelfTab({
+  id,
   active,
   onClick,
   count,
   children,
 }: {
+  id: string
   active: boolean
   onClick: () => void
   count: number | null
@@ -238,16 +251,31 @@ function ShelfTab({
   return (
     <button
       type="button"
+      // Read by the underline, which measures the active tab rather than
+      // computing a fraction — see the note beside `bar` in MemberProfile.
+      data-tab={id}
       onClick={onClick}
       aria-selected={active}
       role="tab"
       className={cn(
-        // flex-1 and centred: the names share the full measure, the way the
-        // feed's own Pentru tine / Urmărești / Salvate strip does — not a
-        // cluster parked at one end of the line.
+        // ── ON A PHONE: equal columns, centred ────────────────────────────
+        // The names share the full measure the way the feed's own
+        // Pentru tine / Urmărești / Salvate strip does, because at 375px there
+        // is no room for anything else and thirds are the convention.
         "relative flex flex-1 items-baseline justify-center gap-1.5 pb-2.5 pt-1 text-[15px]",
-        "transition-[color,transform] duration-150 active:scale-[0.97]",
+        // ── ON A DESKTOP: the size of the word, at the start of the line ───
+        // `flex-1` on a 1100px column made each tab five hundred pixels wide
+        // with one word floating in the middle of it, and the underline half
+        // the page across. That is the single loudest "a phone layout has been
+        // stretched" tell on this screen: nothing on a desktop tab strip is
+        // full-width, because the strip is a set of labels rather than a row of
+        // targets sized for a thumb.
+        "md:flex-none md:justify-start md:pb-3 md:text-[16px]",
+        "transition-[color,transform] duration-150 active:scale-[0.97] md:active:scale-100",
         active ? "font-semibold text-neutral-900" : "font-medium text-neutral-400 active:text-neutral-600",
+        // A pointer gets the hover a pointer expects; a finger gets nothing,
+        // because :hover on touch sticks after the tap.
+        !active && "[@media(hover:hover)]:hover:text-neutral-600",
       )}
     >
       {children}
@@ -275,7 +303,14 @@ export function MemberProfile({
   followersCount: number
   followingCount: number
   listings: MemberListing[]
-  /** True only on /profile, where the person reading is the person shown. */
+  /**
+   * The person reading is the person shown.
+   *
+   * Always true on /profile, and true on /member/<handle> when the session says
+   * that handle is yours — the two routes render this same component and the
+   * same person can arrive at either. It decides the Edit button over Follow,
+   * the per-listing ⋯ menu, and whether the Salvate tab exists at all.
+   */
   isOwner?: boolean
   /** Already counted on the server. Passing it means the stars are in the first
    *  paint instead of appearing a moment after the rest of the header, and the
@@ -283,6 +318,18 @@ export function MemberProfile({
   reviews?: ReviewsSummary | null
 }) {
   const { t, language } = useLocale()
+
+  /**
+   * The stars, and the number beside Evaluări in the strip.
+   *
+   * Read up here rather than beside the header it decorates, because the tab
+   * list below needs the count and the tab list has to exist before `goToTab`
+   * closes over it. `reviewsFromServer` is what /profile and /member both pass;
+   * the hook is the fallback for any caller that does not, and it is handed
+   * `null` — which makes it fetch nothing at all — whenever the server answered.
+   */
+  const fetchedReviews = useSellerReviews(reviewsFromServer === undefined ? member.id : null)
+  const reviews = reviewsFromServer === undefined ? fetchedReviews : reviewsFromServer
 
   /**
    * Arriving back here from a listing.
@@ -301,18 +348,54 @@ export function MemberProfile({
    * the session on precisely the machines that opted out of it.
    */
   /**
-   * THE SHELF'S TWO TABS — Anunțuri and Evaluări.
+   * THE SHELF'S TABS — Anunțuri, Salvate, Evaluări.
    *
-   * Ciorne was a third, and it was the wrong shape for what a draft is. A draft
+   * Ciorne was one once, and it was the wrong shape for what a draft is. A draft
    * is not a different KIND of thing needing its own room; it is one of your
    * listings, in a state. Behind a tab it made the shelf disagree with itself
    * about how many listings you had, and a draft started yesterday was
    * somewhere you had to remember to go and look. It sits in the grid now with
    * a Ciornă badge, and tapping it reopens the form exactly where you left it.
    *
-   * Two tabs left: what you are selling, and what people said about you.
+   * What is left is three questions about the same person: what they are
+   * selling, what they have kept, and what people said about them.
+   *
+   * ---------------------------------------------------------------------------
+   * SALVATE IS DRAWN ON YOUR OWN PROFILE AND NOWHERE ELSE
+   * ---------------------------------------------------------------------------
+   * A wishlist says what somebody wants, what they can afford and what size they
+   * are, which is more than most people would publish deliberately and none of
+   * it something they were asked about. Every marketplace in this category keeps
+   * it private, and the plumbing here agrees: /api/wishlist answers for whoever
+   * is holding the cookie and has no form that reads another account's list. So
+   * the tab on a stranger's profile would not leak their saved items — it would
+   * show YOUR OWN under THEIR name, which is the worse of the two failures
+   * because it is confidently wrong.
+   *
+   * It follows `isOwner`, which is true on /profile and on /member/<your own
+   * handle> — see the session check in that page. The Salvate shortcut in the
+   * cover was the only way to this list before and it left the profile for
+   * /wishlist; it stays, because a whole page for the list is still worth
+   * having, but it is no longer the only door.
    */
-  const [shelfTab, setShelfTab] = useState<"listings" | "reviews">("listings")
+  const [shelfTab, setShelfTab] = useState<ShelfTabId>("listings")
+  /**
+   * The strip, in order, with the counts that sit beside the words.
+   *
+   * Built rather than written out three times because the underline, the
+   * direction of the slide and the panels all have to agree about which tabs
+   * exist and in what order — and on somebody else's profile there are two of
+   * them, not three. Three copies of that condition is how a strip ends up with
+   * an underline that lands between two tabs.
+   */
+  const tabs = useMemo(() => {
+    const list: { id: ShelfTabId; label: string; count: number | null }[] = [
+      { id: "listings", label: language === "ro" ? "Anunțuri" : "Listings", count: listingsCount > 0 ? listingsCount : null },
+    ]
+    if (isOwner) list.push({ id: "saved", label: language === "ro" ? "Salvate" : "Saved", count: null })
+    list.push({ id: "reviews", label: "Evaluări", count: reviews?.count ? reviews.count : null })
+    return list
+  }, [isOwner, language, listingsCount, reviews?.count])
   /**
    * ═══════════════════════════════════════════════════════════════════════════
    *  WHY SWITCHING TABS GLITCHED, AND WHY IT IS INSTANT NOW
@@ -347,6 +430,19 @@ export function MemberProfile({
   /** The reviews panel is mounted on first visit and never unmounted after —
    *  the second switch and every one after it costs nothing at all. */
   const [reviewsSeen, setReviewsSeen] = useState(false)
+  /** The same rule for Salvate: mounted on first visit, `hidden` after. Its list
+   *  comes from a cache the feed's own tab has usually already filled, so the
+   *  first open is normally instant too — see lib/marketplace/saved-items.ts. */
+  const [savedSeen, setSavedSeen] = useState(false)
+  /**
+   * Bumped every time Salvate is opened, so the panel rebuilds from the cache.
+   *
+   * Un-saving a card does not empty the list under your finger — the heart
+   * unfills and the card stays. This is what makes it gone the NEXT time you
+   * look, which is the only moment a list can reorder without it happening to
+   * something somebody was reading.
+   */
+  const [savedVisit, setSavedVisit] = useState(0)
 
   /**
    * WHICH WAY THE SWITCH WENT.
@@ -404,19 +500,68 @@ export function MemberProfile({
   const scrollRun = useRef(0)
 
   /** What the STRIP shows. The panels follow `shelfTab`, which lands later. */
-  const [pending, setPending] = useState<null | "listings" | "reviews">(null)
+  const [pending, setPending] = useState<null | ShelfTabId>(null)
   const shownTab = pending ?? shelfTab
 
+  /**
+   * Where each tab sits, so the underline is never derived from a fraction.
+   *
+   * It used to be `w-1/2` translated by `100%`, which is exact for two tabs of
+   * equal width and wrong for everything else — a third tab makes it half a
+   * strip too wide, and the desktop layout below sizes tabs to their labels, so
+   * "Anunțuri", "Salvate" and "Evaluări" are three different widths on the same
+   * line. Neither is expressible as a fraction of anything.
+   *
+   * So the active tab is MEASURED and the bar is given its left and its width.
+   * That is one read per switch on an element that is already in the DOM, and it
+   * is correct for any number of tabs at any width in any language — including
+   * the one that matters here, where the same three words are longer in English
+   * than in Romanian.
+   *
+   * `null` until the first measurement, and the bar is not rendered until then:
+   * an element that has never been laid out has no width to animate FROM, so
+   * without this the first paint of every profile would be a two-pixel line
+   * growing out of the left edge.
+   */
+  const stripRef = useRef<HTMLDivElement>(null)
+  const [bar, setBar] = useState<{ left: number; width: number } | null>(null)
+  useLayoutEffect(() => {
+    const strip = stripRef.current
+    if (!strip) return
+    const measure = () => {
+      const el = strip.querySelector<HTMLElement>(`[data-tab="${shownTab}"]`)
+      if (!el) return
+      const next = { left: el.offsetLeft, width: el.offsetWidth }
+      setBar((prev) => (prev && prev.left === next.left && prev.width === next.width ? prev : next))
+    }
+    measure()
+    // Covers the two things a render cannot predict and both of which move these
+    // numbers: the window changing width, and the interface font landing after
+    // the first paint and re-measuring every label in the strip.
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(measure)
+    ro.observe(strip)
+    return () => ro.disconnect()
+  }, [shownTab, tabs])
+
   const goToTab = useCallback(
-    (next: "listings" | "reviews") => {
+    (next: ShelfTabId) => {
       void triggerHaptic("light")
+      const current = pending ?? shelfTab
       // Re-tapping the tab you are on, or the one already on its way in.
-      if (next === (pending ?? shelfTab)) return
+      if (next === current) return
+
+      // The direction the strip is travelling, from the order the tabs are in
+      // rather than from their names — with three of them "reviews" is to the
+      // right of Salvate and Salvate is to the right of Anunțuri, and a test on
+      // one id cannot say that.
+      const fromIndex = tabs.findIndex((tb) => tb.id === current)
+      const toIndex = tabs.findIndex((tb) => tb.id === next)
 
       const commit = () => {
-        setShelfTab((current) => {
-          if (current === next) return current
-          setDir(next === "reviews" ? "right" : "left")
+        setShelfTab((cur) => {
+          if (cur === next) return cur
+          setDir(toIndex > fromIndex ? "right" : "left")
           return next
         })
         setPending(null)
@@ -429,6 +574,12 @@ export function MemberProfile({
       // instead of on the frame the panel appears. The tab lands populated
       // rather than landing and then filling in.
       if (next === "reviews") setReviewsSeen(true)
+      if (next === "saved") {
+        setSavedSeen(true)
+        // Opening the tab is what rebuilds the list from the cache — see the
+        // note on `savedVisit`.
+        setSavedVisit((n) => n + 1)
+      }
 
       const el = shelfRef.current
       const top = el ? el.getBoundingClientRect().top - pinnedOffset() : 0
@@ -477,7 +628,7 @@ export function MemberProfile({
       }
       requestAnimationFrame(step)
     },
-    [pending, shelfTab],
+    [pending, shelfTab, tabs],
   )
 
   // A tab strip left mid-flight by an unmount would otherwise keep scrolling a
@@ -487,7 +638,7 @@ export function MemberProfile({
   /** The class that plays on whichever panel is arriving. Removed from the
    *  inactive one, which is what lets the animation replay on every switch
    *  rather than only on the mount that first added it. */
-  const panelIn = (tab: "listings" | "reviews") =>
+  const panelIn = (tab: ShelfTabId) =>
     shelfTab !== tab || !dir ? undefined : dir === "right" ? "shelf-panel-in-right" : "shelf-panel-in-left"
 
   /**
@@ -555,9 +706,6 @@ export function MemberProfile({
     const t = window.setTimeout(() => setReturning(false), 360)
     return () => window.clearTimeout(t)
   }, [])
-
-  const fetchedReviews = useSellerReviews(reviewsFromServer === undefined ? member.id : null)
-  const reviews = reviewsFromServer === undefined ? fetchedReviews : reviewsFromServer
 
   // Straight from the server, with nothing mirrored in local state.
   //
@@ -761,7 +909,7 @@ export function MemberProfile({
             everywhere else, so on the web this is simply `top-2.5`. See
             `.profile-cover` in app/globals.css. */}
         <div
-          className="absolute right-2.5 top-2.5 flex items-center gap-1.5"
+          className="absolute right-2.5 top-2.5 flex items-center gap-1.5 md:right-4 md:top-4 md:gap-2"
           style={{ marginTop: "var(--cover-inset, 0px)" }}
         >
           <CoverButton label="Distribuie" onClick={share}>
@@ -873,7 +1021,10 @@ export function MemberProfile({
                 beginTabLeave()
               }}
               className={cn(
-                "no-tap-fade relative inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800",
+                // Scaled with the header it sits in from md up. At 1100px an
+                // eight-pixel-tall pill beside a 128px avatar is the phone
+                // control that came along for the ride.
+                "no-tap-fade relative inline-flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-white px-3.5 text-[12.5px] font-semibold text-neutral-800 md:h-10 md:px-5 md:text-[14px]",
                 "after:absolute after:-inset-x-3 after:-inset-y-2.5 after:content-['']",
                 // NO PRESS-SCALE. It shrank to 0.94 and sprang back — a bump
                 // big enough to read as the button flinching, on a control that
@@ -992,30 +1143,38 @@ export function MemberProfile({
         {/* The tab strip. Underline marks the current one — the same mark
             every app in this category uses — and the listing count keeps its
             place next to the word it counts. */}
-        <div className="relative flex items-stretch border-b border-neutral-200/80">
-          <ShelfTab
-            active={shownTab === "listings"}
-            onClick={() => goToTab("listings")}
-            count={listingsCount > 0 ? listingsCount : null}
-          >
-            {language === "ro" ? "Anunțuri" : "Listings"}
-          </ShelfTab>
-          <ShelfTab
-            active={shownTab === "reviews"}
-            onClick={() => goToTab("reviews")}
-            count={reviews?.count ? reviews.count : null}
-          >
-            Evaluări
-          </ShelfTab>
-          {/* ONE BAR THAT TRAVELS, not two borders swapping which is black.
-              Half the strip wide, moved by its own width — so it lands exactly
-              under either tab whatever the measure is — and moved by transform,
-              so it is the compositor's problem and not the layout's. */}
-          <span
-            aria-hidden
-            className="absolute -bottom-px left-0 h-[2px] w-1/2 rounded-full bg-neutral-900 transition-transform duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-            style={{ transform: `translate3d(${shownTab === "reviews" ? 100 : 0}%, 0, 0)` }}
-          />
+        <div
+          ref={stripRef}
+          role="tablist"
+          // Equal columns on a phone, a row of labels at the start of the line
+          // from md up. See the note in ShelfTab for why full-width tabs are the
+          // wrong shape on a desktop.
+          className="relative flex items-stretch gap-0 border-b border-neutral-200/80 md:gap-9"
+        >
+          {tabs.map((tb) => (
+            <ShelfTab
+              key={tb.id}
+              id={tb.id}
+              active={shownTab === tb.id}
+              onClick={() => goToTab(tb.id)}
+              count={tb.count}
+            >
+              {tb.label}
+            </ShelfTab>
+          ))}
+          {/* ONE BAR THAT TRAVELS, not three borders swapping which is black.
+              Placed and sized from the measured tab rather than from a fraction
+              of the strip — see `bar` above — and moved by transform, so travel
+              is the compositor's problem. Width has to transition too now that
+              the tabs are not all the same size; it is the one property here
+              that costs layout, on a two-pixel line. */}
+          {bar && (
+            <span
+              aria-hidden
+              className="absolute -bottom-px left-0 h-[2px] rounded-full bg-neutral-900 transition-[transform,width] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+              style={{ transform: `translate3d(${bar.left}px, 0, 0)`, width: bar.width }}
+            />
+          )}
         </div>
 
         {/* BOTH PANELS, ONE HIDDEN. `hidden` is display:none, so the inactive
@@ -1049,6 +1208,24 @@ export function MemberProfile({
                 // skeleton, no second layout a second later.
                 knownCount={reviews === undefined ? undefined : (reviews?.count ?? 0)}
               />
+            </div>
+          )}
+        </div>
+
+        {/* SALVATE — the same three rules as the panel above it: mounted on
+            first visit, `hidden` rather than unmounted afterwards, and the
+            arrival animation is conditional so it replays on every switch
+            instead of only on the mount that first added it.
+
+            `isOwner &&` is belt as well as braces: the tab is not in `tabs` for
+            anybody else, so `shelfTab` can never be "saved" on a stranger's
+            profile — but this panel draws the READER'S saved items and there
+            must be no arrangement of state in which it appears under somebody
+            else's name. See the note on the tab list above. */}
+        <div className={cn("shelf-panel", shelfTab === "saved" ? "block" : "hidden")}>
+          {isOwner && savedSeen && (
+            <div key="saved" className={panelIn("saved")}>
+              <SavedShelf reloadSignal={savedVisit} />
             </div>
           )}
         </div>
@@ -1237,8 +1414,10 @@ function CoverButton({
   onClick?: () => void
   children: React.ReactNode
 }) {
+  // A hair larger from md up, where the cover it sits on is 250-280px tall and a
+  // 36px control reads as a phone widget parked in the corner of a banner.
   const cls =
-    "flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-md ring-1 ring-white/25 transition-transform active:scale-[0.92] md:hover:bg-black/35"
+    "flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-md ring-1 ring-white/25 transition-transform active:scale-[0.92] md:h-10 md:w-10 md:hover:bg-black/35"
   if (href) {
     return (
       <Link
