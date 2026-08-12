@@ -140,7 +140,14 @@ const COPY: Record<
  */
 const HERO_IMAGE: Record<Side, string> = {
   buy: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(2).png",
-  sell: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(4).png",
+  /* (4) → (5). Checked against the buy side before it went in, because the
+     three facts above are what the ratio box, the `object-contain` and the
+     absence of any background of its own all rest on: 1356x798, RGBA, and all
+     four corners sampled at 0,0,0,0. Same canvas, same ratio, same transparent
+     ground — so this is a swap of the file and nothing else. An asset a few
+     pixels off would letterbox inside the box rather than crop, which is the
+     failure that hides for a month. */
+  sell: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(5).png",
 }
 
 /** Its real ratio, so `object-contain` has nothing to letterbox and
@@ -211,31 +218,61 @@ export function SignedOutHero() {
        * a default white card.
        */
       style={{
-        /* ACCENTUATED, AND THEN WALKED MOST OF THE WAY BACK.
+        /* IT FALLS NOW, RATHER THAN SWEEPING ACROSS.
          *
-         * Three settings, in order. It began at #fbfafc → #f4f2fa → #eff0f5 →
-         * #f6f5f8: four stops within about three percent of each other, a
-         * gradient you have to be told is there, and on a #f5f5f5 page that is
-         * a slightly different white rather than a surface with light on it.
+         * 115deg was a diagonal, and a diagonal on a panel twice as wide as it
+         * is tall spends most of its travel on the horizontal: the left-hand
+         * side was lighter than the right-hand side, which put the brightest
+         * part of the ground directly behind the headline and the darkest part
+         * behind the artwork — the two things on this panel that least want a
+         * ground drawing attention to itself.
          *
-         * Then roughly double the chroma — #fcfbff → #efeafb → #e6e8f2 →
-         * #f5f3fb — and it overshot in the other direction: the lilac read as a
-         * colour rather than as light, and a panel with a colour on it competes
-         * with the photographs, which are the only thing on this page that is
-         * supposed to have one.
+         * 170deg is top to bottom with ten degrees of lean, and the lean is the
+         * whole of the difference between this and a mechanical band. Light
+         * enters at the top edge and the panel darkens the whole way down,
+         * which is the one direction a surface can be lit from without anybody
+         * reading it as a gradient — it is just where the light is.
          *
-         * This is the two mixed, about sixty percent of the way back to the
-         * quiet one. The chroma is a little over half what the loud version
-         * had, so the middle is still visibly warmer than the right-hand side
-         * and the whole thing still reads as chosen — but the darkest stop is
-         * #ebedf4, two percent below the page rather than four, which is the
-         * difference between a shadow across a surface and a tint applied to
-         * it. Any change here is a change to that ratio: the gradient's job is
-         * to be noticed only once, when you first look at the page. */
-        background: "linear-gradient(115deg, #fbfafd 0%, #f2effa 41%, #ebedf4 77%, #f6f4f9 100%)",
+         * MONOTONIC, AND THAT IS NEW. Every previous setting here ended on a
+         * lighter stop than the one before it, because a diagonal wants to come
+         * back up in the far corner. Falling light does not: 253 → 250 → 245 →
+         * 240 → 235, five stops so the ramp has no step in it, ending four
+         * percent under the #f5f5f5 page. Five stops rather than three because
+         * a near-flat ramp over six hundred pixels is exactly where 8-bit sRGB
+         * bands, and the extra stops are free.
+         *
+         * The chroma is where the last pass left it — present at about the
+         * strength of a shadow. This changed the DIRECTION, not the amount. */
+        background:
+          "linear-gradient(170deg, #fdfcff 0%, #faf8fd 22%, #f5f3fa 46%, #f0eef6 72%, #ebebf3 100%)",
       }}
     >
-      <div className="grid items-center gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,0.5fr)] lg:gap-12 lg:px-12 lg:py-14">
+      {/* ═══════════════════════════════════════════════════════════════════
+          BIGGER ARTWORK IN A SHORTER PANEL, WHICH IS ONLY A CONTRADICTION IF
+          THE ARTWORK IS WHAT MAKES IT TALL
+          ═══════════════════════════════════════════════════════════════════
+
+          It is not. The copy column is: a toggle, a 42px headline, a
+          paragraph, a 52px button and a row of tiles come to something over
+          450px, while the picture at a half column is about 350. `items-center`
+          then centres the shorter of the two, and the ~100px of slack either
+          side of the artwork is the panel's height being set entirely by the
+          left-hand side.
+
+          So the two asks do not fight each other. The artwork grows into slack
+          it already had — 45/55 instead of 50/50, which is a tenth more width
+          and a tenth more height on a 1.7:1 box — and the height comes off the
+          copy column's own rhythm, where it was actually being spent.
+
+          THE 55 IS NOT FREE, and the number was picked by what it costs the
+          other side rather than by what it gives this one. A half column at
+          1400px is ~596px and 45% is ~536px: the headline still breaks in two
+          at 42px, and the tile bodies still run to the same two lines they
+          already ran to, because a third of 536 minus the padding is still
+          more than twenty characters. Anything past 55 starts reflowing the
+          left-hand side, and reflowing the left-hand side makes the panel
+          TALLER — the opposite of the other half of this. */}
+      <div className="grid items-center gap-10 px-6 py-9 sm:px-8 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:gap-12 lg:px-12 lg:py-[46px]">
         <div className="min-w-0">
           {/* THE TOGGLE. A track with a sliding thumb rather than two buttons
               that swap colour: the thumb moving is what says these are two
@@ -287,8 +324,18 @@ export function SignedOutHero() {
           </div>
 
           {/* `text-balance` so a two-line headline breaks into two even lines
-              instead of a long one and an orphan. */}
-          <h1 className="mt-7 text-balance text-[28px] font-bold leading-[1.12] tracking-[-0.03em] text-neutral-900 sm:text-[34px] lg:text-[42px]">
+              instead of a long one and an orphan.
+
+              THE FIVE PERCENT COMES OFF HERE, and off the tile row below, and
+              off the panel's own padding — three places rather than one. The
+              panel is ~586px at 1400px wide, so five percent is about 29
+              pixels; taking all of it from `py` would have meant 41px of air
+              above a 42px headline, which is a panel with its contents pushed
+              against the edges rather than a shorter panel. 20px off the
+              padding, 4 here, 4 at the tiles. Nothing that carries meaning —
+              the gap between the button and the tiles is the one that separates
+              "what to do" from "what you get", and it is untouched. */}
+          <h1 className="mt-6 text-balance text-[28px] font-bold leading-[1.12] tracking-[-0.03em] text-neutral-900 sm:text-[34px] lg:text-[42px]">
             {c.title}
           </h1>
           <p className="mt-4 max-w-[44ch] text-[15px] font-medium leading-relaxed text-neutral-600 lg:text-[16.5px]">
@@ -310,7 +357,7 @@ export function SignedOutHero() {
           {/* `items-stretch` is the grid default and `h-full` is what makes it
               reach the tallest tile — without it a shorter tile is a shorter
               box, which is the raggedness this row had. */}
-          <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {c.tiles.map((tile) => {
               const Icon = tile.icon
               /**
@@ -459,8 +506,13 @@ export function SignedOutHero() {
                   alt=""
                   fill
                   /* The real rendered widths, so the optimizer picks the smallest
-                     rung that covers them rather than the largest it has. */
-                  sizes="(min-width: 1024px) 620px, (min-width: 768px) 90vw, 100vw"
+                     rung that covers them rather than the largest it has. 55%
+                     of a 1400px measure less the panel's padding and gap is
+                     ~655px, up from ~596 — the column grew, so this grew with
+                     it. A `sizes` left behind by a layout change is the quiet
+                     kind of wrong: the picture still fits, it is just being
+                     upscaled from a rung too small for it. */
+                  sizes="(min-width: 1024px) 680px, (min-width: 768px) 90vw, 100vw"
                   priority
                   /* 75 is the top of the list next.config permits, and it is the
                      right end of that list for this: a composite with flat colour
