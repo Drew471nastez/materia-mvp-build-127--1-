@@ -229,12 +229,20 @@ check(
     // its contents (~285px), so the row was 285 tall, the photograph was 240,
     // and a band of page-white ran under it for the full width. That is the
     // cut edge people were seeing.
+    //
+    // FROM md UP. Below it the slide stacks — two columns at 375px gives the
+    // copy half 172px for a 22px headline and a 44px button, and nothing about
+    // that fits — so the row is `h-auto` and the picture states a ratio
+    // instead. Same invariant either way: neither half decides its own height
+    // independently of the other, so there is nothing for a band of white to
+    // appear in.
     return (
-      /grid h-\[320px\] w-full shrink-0 grid-cols-/.test(hero) &&
+      /md:h-\[320px\] md:grid-cols-/.test(hero) &&
+      /grid h-auto w-full shrink-0 grid-rows-\[auto_auto\]/.test(hero) &&
       /lg:h-\[340px\]/.test(hero) &&
-      // Both halves fill the row rather than stating their own height.
-      /<div className="relative h-full">/.test(hero) &&
-      /flex h-full items-center justify-center gap-3/.test(hero) &&
+      // Both halves fill the row from md up, and share one ratio below it.
+      /aspect-\[16\/10\] h-auto md:order-none md:aspect-auto md:h-full/.test(hero) &&
+      /flex aspect-\[16\/10\] h-auto items-center justify-center gap-3 px-5 md:aspect-auto md:h-full/.test(hero) &&
       // The old fixed heights are gone from the CODE; the note explaining why
       // still quotes them.
       !/className="relative h-\[240px\]/.test(hero)
@@ -266,8 +274,16 @@ check(
       /side === "left" \? "left-4 lg:left-5" : "right-4 lg:right-5"/.test(hero) &&
       // The gutter, on the copy half AND under the dots, so all three share one
       // left margin.
-      /pl-\[72px\] pr-6 lg:pl-\[88px\]/.test(hero) &&
-      /absolute bottom-5 left-\[72px\][\s\S]{0,80}lg:left-\[88px\]/.test(hero)
+      /md:pl-\[72px\] md:pr-6 lg:pl-\[88px\]/.test(hero) &&
+      /md:left-\[72px\] lg:left-\[88px\]/.test(hero) &&
+      // AND THE SEAT EXISTS ONLY WHERE THE ARROW DOES. Below md the arrows are
+      // not drawn — a 36px disc pinned over a 375px slide sits on the picture
+      // it is there to change, and the track is already swipeable — so
+      // reserving 72px there would be an inch of empty ground beside every
+      // headline on the screen with the least to spare. The dots then take the
+      // copy's own 20px edge, so the two still share one margin at that width.
+      /<div className="hidden md:contents">/.test(hero) &&
+      /absolute bottom-4 left-5 [\s\S]{0,120}md:left-\[72px\]/.test(hero)
     )
   })(),
 )
@@ -463,7 +479,11 @@ check(
 
 check(
   "and the sections have more air between them",
-  /<section className="mt-14">/.test(row) && /mt-20 border-t border-neutral-100 pt-14/.test(tiles),
+  // Two values, because a phone has less of it to give: 40px between sections
+  // there and 56 from sm up, and the categories block keeps its rule and its
+  // larger gap only where the page is wide enough for one.
+  /<section className="mt-10 sm:mt-14">/.test(row) &&
+    /mt-12 border-t border-neutral-100 px-4 pt-10 sm:px-0 lg:mt-20 lg:pt-14/.test(tiles),
 )
 
 console.log("\nIt knows what this person was looking at")
@@ -1370,15 +1390,24 @@ check(
     // already decided what they want.
     const feed = code("components/explore/mobile-feed.tsx")
     return (
-      /import \{ SignedOutHero \} from "\.\/home\/signed-out-hero"/.test(feed) &&
-      /\{!signedIn && !searchQuery && \(/.test(feed) &&
-      /<SignedOutHero className="mx-3 mb-0" \/>/.test(feed) &&
+      // THE WHOLE HOME PAGE, not just the hero — the proposition, the
+      // editorial, the queries and the five departments were all desktop-only.
+      // Same component and same order, with `variant="phone"` dropping only the
+      // `hidden md:block` wrapper, which inside this `md:hidden` shell would
+      // hide the page at every width.
+      /import \{ DesktopHome \} from "\.\/home\/desktop-home"/.test(feed) &&
+      /const guestHome = !signedIn && !searchQuery/.test(feed) &&
+      /<DesktopHome products=\{initialProducts\} signedIn=\{false\} variant="phone" \/>/.test(feed) &&
+      /const shell = variant === "phone" \? "" : "hidden md:block"/.test(home) &&
       // On grey. The panel's edge is a hairline ring and a one-pixel contact
-      // shadow, weights chosen against the desktop page's #f5f5f5; this feed is
+      // shadow, weights chosen against the desktop page's #f5f5f5; the feed is
       // white, and a near-white gradient panel on white is a card with no
       // visible edges. The strip also makes the promotion its own zone rather
       // than the first thing in the grid.
-      /<div className="bg-\[#f5f5f5\] pb-3 pt-3">\s*\n\s*<SignedOutHero/.test(feed) &&
+      /<div className="bg-\[#f5f5f5\] px-3 py-3">\s*\n\s*<SignedOutHero className="mb-0" \/>/.test(home) &&
+      // And the category rail is not drawn over it: it is a filter for a grid
+      // that is not there, and the departments are one of the sections under it.
+      /const showCats = tab === "for-you" && !guestHome/.test(feed) &&
       // Server-resolved, not fetched here: a screen that renders one shape and
       // changes to the other a moment later is worse than either shape.
       /signedIn\?: boolean/.test(feed) &&
@@ -1441,6 +1470,68 @@ check(
     )
   })(),
   "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "and on a phone the artwork runs past both edges of the panel it is on",
+  (() => {
+    // The panel has 20px of side padding, so the largest thing on it was drawn
+    // in a 335px box on a 375px screen, with a strip of gradient either side
+    // saying nothing. `-mx-5` is that padding given back — edge to edge, about
+    // a twelfth larger — and `scale-[1.07]` is the rest of the twenty percent,
+    // which takes it a little PAST both edges. Past is the point: a composition
+    // stopping exactly at the edge reads as a picture in a frame, one running
+    // off it reads as a window.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /<div className="-mx-5 scale-\[1\.07\] sm:mx-0 sm:scale-100">/.test(hero2) &&
+      // TWO ELEMENTS, and that is not tidiness: `hero-art-drift` animates
+      // `transform`, and a running animation beats a class setting the same
+      // property — put the scale on the drifting box and the drift overwrites
+      // it on its first keyframe. Scale on the parent, drift on the child.
+      /<div className="hero-art-drift relative w-full"/.test(hero2) &&
+      // Centred on a phone, left-aligned from lg. The toggle and the button are
+      // both `inline-flex`, so both inline-level and both obeying text-align —
+      // they were sitting hard against the left edge under a headline that
+      // wrapped short of it.
+      /<div className="min-w-0 text-center lg:text-left">/.test(hero2) &&
+      // Except the tiles, which are a different object: centred text in a card
+      // is a card with no reading edge.
+      /scroll-px-5 px-5 text-left/.test(hero2) &&
+      // And the buy CTA is two words. "Vezi ce e de vânzare" was five, on a
+      // button that is the widest thing in a centred column.
+      /cta: "Vezi anunțurile"/.test(hero2) &&
+      !/Vezi ce e de vânzare/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "the shelves scroll sideways on a phone and the last section stays a grid",
+  (() => {
+    // `grid-cols-3` is three cards across 375px minus gutters — about 105px
+    // each, for an object whose entire job is a photograph of a jumper. And
+    // fifteen at three across is five rows deep: a "row" that is a third of the
+    // screen and pushes everything under it out of reach.
+    //
+    // The rows are shelves — one idea, as many examples as you care to look at
+    // — so the horizontal axis is the one that should be long. "Mai multe
+    // anunțuri" is not: it has no idea in it and no end, and the marketplace on
+    // a phone is the two-column grid the feed already draws.
+    const row = code("components/explore/home/listing-row.tsx")
+    const more = code("components/explore/home/more-listings.tsx")
+    return (
+      /-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4/.test(row) &&
+      /sm:grid sm:grid-cols-3[\s\S]{0,80}lg:grid-cols-4 xl:grid-cols-5/.test(row) &&
+      /w-\[43%\] shrink-0 snap-start sm:w-auto sm:shrink/.test(row) &&
+      /grid grid-cols-2 gap-x-3 gap-y-6 px-4 sm:grid-cols-3/.test(more) &&
+      // Nothing left at three across on a phone in either file.
+      !/"grid grid-cols-3/.test(row) &&
+      !/"grid grid-cols-3/.test(more)
+    )
+  })(),
+  "        components/explore/home/listing-row.tsx, components/explore/home/more-listings.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

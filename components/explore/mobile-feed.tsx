@@ -7,7 +7,7 @@ import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, Ch
 import { useLocale } from "@/components/locale-provider"
 import { CategoryPillRail, SearchTrigger } from "@/components/marketplace/search-row"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
-import { SignedOutHero } from "./home/signed-out-hero"
+import { DesktopHome } from "./home/desktop-home"
 import { WishlistToast } from "./wishlist-toast"
 import { ReelsPager } from "./reels-pager"
 import { ProductCard } from "./product-card"
@@ -234,9 +234,42 @@ export function MobileFeed({
   const [reelsHeight, setReelsHeight] = useState(0)
 
   const reelsActive = view === "reels" && tab === "for-you"
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A GUEST GETS THE HOME PAGE, NOT THE FEED
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Signed in, this screen is the marketplace: three tabs, a category rail and
+   * an endless grid, all of which assume somebody who knows what this is and
+   * came back for the new listings.
+   *
+   * Signed out it was the same screen with the tabs taken off — a rail of
+   * departments and a wall of photographs, and nothing anywhere saying what
+   * the site is or what it costs to sell on it. The desktop has answered that
+   * for a year, in a specific order: the proposition, then what you were
+   * looking at, then the editorial, then queries, then departments, then
+   * everything else. The phone got none of it, which is where most first
+   * visits land.
+   *
+   * So a guest gets that page, in that order, from the same component the
+   * desktop uses — see components/explore/home/desktop-home.tsx. One order,
+   * one set of sections, and no second copy to keep in step.
+   *
+   * A SEARCH IS STILL THE FEED. A query is somebody who has already decided
+   * what they want; answering it with the home page would be the screen not
+   * listening.
+   */
+  const guestHome = !signedIn && !searchQuery
+
   // Categories filter the For You feed and nothing else — on Saved and Following
   // they were dead controls sitting above the results.
-  const showCats = tab === "for-you"
+  //
+  // And not over the home page at all. The rail is a filter for the grid it
+  // sits on; above a hero, an editorial and five departments' worth of tiles it
+  // is a control for something that is not there — and the departments are one
+  // of the sections underneath it, so it is also the same list twice.
+  const showCats = tab === "for-you" && !guestHome
   const catBarH = showCats ? CATBAR_H : 0
 
   // The curtain covers ONE case only: opening the app, where there is no
@@ -1353,44 +1386,41 @@ export function MobileFeed({
             <div aria-hidden className="shrink-0" style={{ height: catBarH }} />
 
             {/* ═══════════════════════════════════════════════════════════════
-                WHAT THIS PLACE IS, ON THE SCREEN MOST PEOPLE MEET IT ON
+                THE HOME PAGE, ON THE SCREEN MOST PEOPLE MEET THIS PLACE ON
                 ═══════════════════════════════════════════════════════════
 
-                The proposition existed only on the desktop home page, which is
-                `hidden md:block` — so the panel explaining what Storelib is,
-                what it costs to sell and that paying is protected was shown to
-                nobody arriving on a phone. That is most first visits, and this
-                feed is a full-screen overlay, so there was not even a page
-                underneath it carrying the same words.
+                It existed only on the desktop route, which is `hidden md:block`
+                — so the proposition, the editorial, the queries and the five
+                departments were shown to nobody arriving on a phone. That is
+                most first visits, and this feed is a full-screen overlay, so
+                there was not even a page underneath it carrying the same words.
 
-                INSIDE THE SCROLLER, above the grid, rather than pinned above
-                it: it is a promotion and it has to scroll away. Somebody who
-                came back for the listings gets one flick of hero and then the
-                marketplace, which is the same bargain the desktop page makes.
+                SAME COMPONENT, SAME ORDER. `variant="phone"` only drops the
+                `hidden md:block` wrapper, which inside this `md:hidden` shell
+                would hide the page at every width. The sections are responsive
+                in their own right — rails on a phone, grids from sm up — so
+                there is one home page rather than two that have to be kept
+                saying the same thing.
 
-                NOT UNDER A SEARCH. A query is somebody who has already decided
-                what they want; answering it with a panel about what the site
-                is, above their results, is the page not listening. And not on
-                the reels screen at all — that is a full-bleed photograph, and
-                this is a white card.
+                THE HERO SITS ON GREY, and the rest of the page on white. The
+                panel's edge is a hairline ring and a one-pixel contact shadow,
+                weights chosen against the desktop page's #f5f5f5; this feed is
+                white, and a near-white gradient panel on white is a card whose
+                edges you cannot see. The strip gives it the ground it was drawn
+                for and makes the promotion its own zone, so the white below it
+                starts where the marketplace starts.
 
-                `mb-4 mx-3` replaces the desktop `mb-8` through tailwind-merge
-                — the gutters here are the feed's, not the page's.
+                A SEARCH IS STILL THE FEED — see `guestHome`.
 
-                AND IT SITS ON GREY. The panel's edge is a hairline ring and a
-                one-pixel contact shadow, weights chosen against the desktop
-                page's #f5f5f5; this feed is white, and a near-white gradient
-                panel on white is a card you cannot see the edges of. The strip
-                gives it back the ground it was drawn for, and it does a second
-                job while it is there: it makes the promotion its own zone
-                rather than the first thing in the grid, so the white below it
-                starts where the marketplace starts. */}
-            {!signedIn && !searchQuery && (
-              <div className="bg-[#f5f5f5] pb-3 pt-3">
-                <SignedOutHero className="mx-3 mb-0" />
-              </div>
-            )}
-
+                `initialProducts`, not `products`: the second is this screen's
+                own pool, shuffled by the seed and cut by the category rail —
+                which is not drawn here. The home page cuts the page's listings
+                seven ways itself, and it has to be cutting the same array the
+                desktop one is or the two pages disagree about what is new. */}
+            {guestHome ? (
+              <DesktopHome products={initialProducts} signedIn={false} variant="phone" />
+            ) : (
+            <>
             {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
                 listings. The For You grid fades only when the CATEGORY changes. */}
             {tab === "following" ? (
@@ -1401,6 +1431,8 @@ export function MobileFeed({
               <div key={cat} className={catFade ? "animate-in fade-in-0 duration-300 ease-out" : undefined}>
                 {forYouGrid}
               </div>
+            )}
+            </>
             )}
           </div>
         </div>

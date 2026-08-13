@@ -131,9 +131,16 @@ export function YouMightBeInto({
   if (pills.length < MIN) return null
 
   return (
-    <section className="mt-14">
-      <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">S-ar putea să te intereseze</h2>
-      <div className="flex flex-wrap gap-2.5">
+    <section className="mt-10 px-4 sm:mt-14 sm:px-0">
+      <h2 className="mb-4 text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[22px]">
+        S-ar putea să te intereseze
+      </h2>
+      {/* Still wrapping on a phone rather than scrolling: these are eight short
+          words, not eight photographs, and four rows of pills is a block you
+          read at a glance. A rail would hide half of them behind a gesture for
+          no gain in height. h-10 is the one concession — 44 is a target size for
+          something you aim at, and these are read first and pressed second. */}
+      <div className="flex flex-wrap gap-2 sm:gap-2.5">
         {pills.map((p) => (
           <SmartLink
             key={p.label}
@@ -141,7 +148,7 @@ export function YouMightBeInto({
             // Outlined rather than filled: eight solid pills in a row is eight
             // buttons competing with the listings above and below them, and
             // these are an offer rather than an instruction.
-            className="inline-flex h-11 items-center rounded-lg border border-neutral-200 bg-white px-4 text-[14.5px] font-medium text-neutral-800 transition-colors duration-200 ease-out hover:border-neutral-300 hover:bg-neutral-50"
+            className="inline-flex h-10 items-center rounded-lg border border-neutral-200 bg-white px-3.5 text-[14px] font-medium text-neutral-800 transition-colors duration-200 ease-out hover:border-neutral-300 hover:bg-neutral-50 sm:h-11 sm:px-4 sm:text-[14.5px]"
           >
             {p.label}
           </SmartLink>

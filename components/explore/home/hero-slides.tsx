@@ -458,7 +458,25 @@ export function HeroSlides({
             /* 0.46/0.54 below 1024, 0.42/0.58 above. At 768px the copy half was
                322px carrying a 32px headline and a button, which is where the
                "Sneakers sub" wrapping came from. */
-            className="grid h-[320px] w-full shrink-0 grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
+            /* ═══════════════════════════════════════════════════════════
+               STACKED ON A PHONE, SIDE BY SIDE FROM md UP
+               ═══════════════════════════════════════════════════════════
+
+               Two columns at 375px gives the copy half about 172px, and what
+               is in it is a 22px headline, two lines of body and a 44px
+               button. Nothing about that fits: the headline breaks after every
+               second word and the button wraps. A slide is one picture and one
+               sentence, and on a narrow screen those go one above the other —
+               which is also the only arrangement where the picture gets the
+               full width it was composed for.
+
+               `h-auto` with the picture at a stated ratio, so the row is as
+               tall as its contents rather than being cut to 320. Every slide
+               is the same height regardless, because every slide's picture is
+               the same ratio and every slide's copy is clamped to the same
+               number of lines — which is what keeps the track from jumping as
+               it moves. */
+            className="grid h-auto w-full shrink-0 grid-rows-[auto_auto] md:h-[320px] md:grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] md:grid-rows-none lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
             aria-hidden={i !== index}
           >
             {/* The words, on a ground that cannot be argued with.
@@ -473,7 +491,21 @@ export function HeroSlides({
                 the space and the collision is impossible by construction,
                 rather than avoided by hoping the headline stays short. */}
             <div
-              className="flex flex-col justify-center py-8 pl-[72px] pr-6 lg:pl-[88px] lg:pr-12"
+              /* THE LEFT PADDING IS THE ARROW'S SEAT, and only where the
+                 arrow is. Below md the arrows are not drawn — the track is
+                 swipeable and a 36px disc over a 375px slide is a control in
+                 the way of the thing it controls — so reserving 72px there is
+                 an inch of empty ground beside every headline on a screen with
+                 none to spare. `order-2` puts the words UNDER the picture in
+                 the stack: the photograph is what stops the scroll, and the
+                 sentence is what you read once it has.
+
+                 `pb-11` is the dots' strip. They are absolutely positioned to
+                 the bottom of the SECTION, and in the stack the bottom of the
+                 section is the bottom of this half — so without it they land on
+                 the button. Reserved rather than avoided, because the button is
+                 the one thing on a slide anybody presses. */
+              className="order-2 flex flex-col justify-center px-5 pb-11 pt-6 md:order-none md:px-0 md:py-8 md:pl-[72px] md:pr-6 lg:pl-[88px] lg:pr-12"
               style={{ backgroundColor: s.ground }}
             >
               {s.eyebrow && (
@@ -523,7 +555,7 @@ export function HeroSlides({
                 real listings each in its own box. Never one portrait photograph
                 stretched across a landscape slot — see the note above pickShelf. */}
             {s.kind === "art" ? (
-              <div className="relative h-full">
+              <div className="relative order-1 aspect-[16/10] h-auto md:order-none md:aspect-auto md:h-full">
                 <Image
                   src={s.image}
                   alt={s.alt}
@@ -537,7 +569,7 @@ export function HeroSlides({
               </div>
             ) : (
               <div
-                className="flex h-full items-center justify-center gap-3 px-5 lg:gap-4 lg:px-8"
+                className="flex aspect-[16/10] h-auto items-center justify-center gap-3 px-5 md:aspect-auto md:h-full lg:gap-4 lg:px-8"
                 style={{ backgroundColor: s.ground }}
               >
                 {s.items.map((it, n) => (
@@ -581,8 +613,14 @@ export function HeroSlides({
           share one left margin instead of three. */}
       {count > 1 && (
         <>
-          <HeroArrow side="left" tone={slides[index]?.tone} onClick={() => go(index - 1)} />
-          <HeroArrow side="right" tone="light" onClick={() => go(index + 1)} />
+          {/* md UP ONLY. A 36px disc pinned over a 375px slide sits on top of
+              the picture it is there to change, and the track is already
+              swipeable — the gesture a phone reaches for first. The dots stay
+              at every width: they are the clock, not the control. */}
+          <div className="hidden md:contents">
+            <HeroArrow side="left" tone={slides[index]?.tone} onClick={() => go(index - 1)} />
+            <HeroArrow side="right" tone="light" onClick={() => go(index + 1)} />
+          </div>
         </>
       )}
 
@@ -609,8 +647,11 @@ export function HeroSlides({
 
           They keep the bottom left, on the ground whose colour we chose, and
           take that slide's ink. */}
+      {/* 72/88 is the arrow's gutter, which only exists from md up — below it
+          the dots go where the copy goes, which is 20px in, so the three share
+          one left edge at every width rather than at two of them. */}
       {count > 1 && (
-        <div className="absolute bottom-5 left-[72px] flex items-center gap-2 lg:left-[88px]">
+        <div className="absolute bottom-4 left-5 flex items-center gap-2 md:bottom-5 md:left-[72px] lg:left-[88px]">
           {slides.map((s, i) => {
             const onPale = slides[index]?.tone === "dark"
             const active = i === index

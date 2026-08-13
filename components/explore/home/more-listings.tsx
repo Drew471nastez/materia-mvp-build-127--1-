@@ -60,10 +60,18 @@ export function MoreListings({ items }: { items: any[] }) {
   if (items.length === 0) return null
 
   return (
-    <section className="mt-14 pb-20">
-      <h2 className="mb-4 text-[22px] font-bold tracking-[-0.02em] text-neutral-900">Mai multe anunțuri</h2>
+    <section className="mt-10 pb-14 sm:mt-14 sm:pb-20">
+      <h2 className="mb-4 px-4 text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:px-0 sm:text-[22px]">
+        Mai multe anunțuri
+      </h2>
 
-      <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
+      {/* TWO ACROSS ON A PHONE, and this is the one section that stays a grid.
+          The rows above are shelves — one idea, as many examples as you want —
+          so they scroll sideways. This is "everything else", which has no idea
+          in it and no end: it is the marketplace itself, and the marketplace on
+          a phone is the two-column grid the feed already draws. Three across at
+          375px would be 105px a card. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-6 px-4 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 sm:px-0 lg:grid-cols-4 xl:grid-cols-5">
         {items.slice(0, shown).map((product) => (
           <ProductCard key={product.id} product={product} origin="feed" />
         ))}
