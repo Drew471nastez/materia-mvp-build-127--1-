@@ -1467,25 +1467,90 @@ check(
     // particular replacements — a better record than Disc3 is a change this
     // guard should not have an opinion about, while reaching back for Sparkles
     // is the mistake it exists to catch.
+    //
+    // AND THERE IS ONE MAP NOW, NOT ONE PER SURFACE. The desktop header defined
+    // these privately, which was fine while it was the only place that offered
+    // departments — the phone's menu, its rail and the search tiles were still
+    // drawing the OLD taxonomy with the OLD icons. Two navigation taxonomies is
+    // how one of them ends up pointing at an empty feed.
+    const nav = code("lib/marketplace/department-nav.ts")
     const hdr = code("components/platform/platform-header-client.tsx")
-    const map = hdr.slice(hdr.indexOf("const DEPARTMENT_ICONS"), hdr.indexOf("const LOGO_URL"))
+    const map = nav.slice(nav.indexOf("const DEPARTMENT_ICONS"), nav.indexOf("export type DepartmentNavItem"))
     return (
       /women: Dress/.test(map) &&
       /men: Shirt/.test(map) &&
       !/Sparkles|ShoppingBag|Gift|Lightbulb/.test(map) &&
+      // Derived from the SELL FORM's taxonomy, so a department added there
+      // appears everywhere without anybody remembering to come here.
+      /DEPARTMENT_NAV: DepartmentNavItem\[\] = DEPARTMENTS\.map/.test(nav) &&
+      /const DEFAULT_CATEGORIES = DEPARTMENT_RAIL/.test(hdr) &&
+      /const CATEGORIES_WITH_SUBS = DEPARTMENT_NAV/.test(hdr) &&
       // lucide ships exactly one garment, so the other apparel department had
       // to be drawn — to lucide's own spec, because half a set in one drawing
       // language and half in another is worse than any single icon in it.
       /viewBox="0 0 24 24"/.test(code("components/marketplace/department-icons.tsx")) &&
       /stroke="currentColor"/.test(code("components/marketplace/department-icons.tsx")) &&
-      // And the lists were retyped, because `typeof LayoutGrid` is lucide's own
+      // And the type is ours, because `typeof LayoutGrid` is lucide's own
       // forwardRef type: a type that says "an icon" and means "an icon from
       // that one package".
-      /type DeptIcon = React\.ComponentType/.test(hdr) &&
+      /type DeptIcon = React\.ComponentType/.test(nav) &&
       !/icon: typeof LayoutGrid/.test(hdr)
     )
   })(),
   "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "every surface offers the departments a listing can actually be filed under",
+  (() => {
+    // TWO TAXONOMIES, AND ONLY ONE OF THEM WAS REAL.
+    //
+    // lib/marketplace/categories.ts carries Womenswear / Menswear / Sneakers /
+    // Bags & Accessories / Jewellery / Beauty / Books / Home / Vintage, and it
+    // is what the phone's menu, its category rail and the search tiles all read
+    // from. lib/marketplace/listing-taxonomy.ts carries Femei / Bărbați / Copii
+    // / Divertisment / Hobbyuri și colecții — and it is what the SELL FORM makes
+    // people choose from, so it is the only one any listing has ever been filed
+    // under.
+    //
+    // The consequence was worse than a mismatch of words. `?category=sneakers`
+    // validated and then matched nothing, because no listing carries
+    // `sneakers`: it carries `women-footwear`. Ten doors on the phone's menu,
+    // every one of them opening onto an empty room — which a shopper cannot
+    // tell apart from a marketplace with nothing in it.
+    const drawer = code("components/marketing/mobile-web-header.tsx")
+    const rail = code("components/marketplace/search-row.tsx")
+    const feed = code("components/explore/mobile-feed.tsx")
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    const legacy = /from "@\/lib\/marketplace\/categories"/
+    return (
+      // Not one of the four still reads the legacy list. `product-card` and
+      // `checkout` still import CONDITIONS from it, which is a different thing
+      // in the same file and is not navigation.
+      ![drawer, rail, feed, overlay].some((f) => legacy.test(f)) &&
+      /DEPARTMENT_NAV/.test(drawer) &&
+      /DEPARTMENT_RAIL/.test(rail) &&
+      /DEPARTMENT_RAIL/.test(feed) &&
+      /DEPARTMENT_RAIL/.test(overlay) &&
+      // AND THE FILTER TESTS THE RIGHT THING. `normalizeCategoryToId` maps the
+      // OLD taxonomy's display names onto the OLD taxonomy's ids: handed
+      // `women-footwear` it recognises nothing, answers "all", and every pill
+      // matches everything — a filter that looks like it works while doing
+      // nothing at all.
+      /listingInDepartment\(p\?\.category, cat\)/.test(feed) &&
+      !/normalizeCategoryToId/.test(feed) &&
+      // The drawer drills into the groups, because a department is not a
+      // destination and Femei · Pantofi is. `?sub=` is a group id, which is
+      // exactly what a listing's category column holds.
+      /drawerDept\.subcategories\.map/.test(drawer) &&
+      /className="sub-push"/.test(drawer) &&
+      /drawerPopped \? "sub-pop" : undefined/.test(drawer) &&
+      // And reopening the menu starts at the top rather than wherever it was
+      // left — a drawer that opens on Femei because you pressed Femei once.
+      /setDrawerDept\(null\)\s*\n\s*setDrawerPopped\(false\)/.test(drawer)
+    )
+  })(),
+  "        lib/marketplace/department-nav.ts",
 )
 
 check(

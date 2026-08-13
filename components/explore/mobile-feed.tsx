@@ -19,7 +19,7 @@ import {
   type FollowedPerson,
 } from "./following-people-list"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
-import { CATEGORIES, normalizeCategoryToId } from "@/lib/marketplace/categories"
+import { DEPARTMENT_RAIL, listingInDepartment } from "@/lib/marketplace/department-nav"
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
 import {
   invalidateSavedItems,
@@ -798,7 +798,13 @@ export function MobileFeed({
 
   const products = useMemo(() => {
     let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
-    if (cat !== "all") list = list.filter((p) => normalizeCategoryToId(p?.category || "") === cat)
+    // A listing's `category` is a GROUP id from the sell form's taxonomy, and a
+    // group belongs to exactly one department. `normalizeCategoryToId` mapped
+    // the OLD taxonomy's names onto the OLD taxonomy's ids: handed
+    // `women-footwear` it recognised nothing, answered "all", and every pill
+    // matched everything — a filter that looked like it worked while doing
+    // nothing. See lib/marketplace/department-nav.
+    if (cat !== "all") list = list.filter((p) => listingInDepartment(p?.category, cat))
     if (seed > 0 && list.length > 0) {
       const off = seed % list.length
       list = [...list.slice(off), ...list.slice(0, off)]
@@ -1192,7 +1198,7 @@ export function MobileFeed({
               className="pointer-events-auto mt-2.5 flex gap-2 overflow-x-auto scrollbar-hide px-3 pb-2.5"
               style={{ scrollbarWidth: "none" }}
             >
-              {CATEGORIES.map((c) => (
+              {DEPARTMENT_RAIL.map((c) => (
                 <button
                   key={c.id}
                   type="button"
@@ -1202,7 +1208,7 @@ export function MobileFeed({
                     cat === c.id ? "bg-white text-neutral-900 shadow-sm" : "bg-black/30 text-white",
                   )}
                 >
-                  {t(`category.${c.id}`)}
+                  {c.label}
                 </button>
               ))}
             </div>

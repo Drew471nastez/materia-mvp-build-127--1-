@@ -3,7 +3,7 @@
 import { Search } from "lucide-react"
 import { AnimatedSearchPlaceholder } from "@/components/explore/animated-search-placeholder"
 import { useLocale } from "@/components/locale-provider"
-import { CATEGORIES } from "@/lib/marketplace/categories"
+import { DEPARTMENT_RAIL } from "@/lib/marketplace/department-nav"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
@@ -73,7 +73,12 @@ export function CategoryPillRail({
   const { t } = useLocale()
   return (
     <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 pt-3 pb-3" style={{ scrollbarWidth: "none" }}>
-      {CATEGORIES.map((c) => (
+      {/* The five departments the sell form files listings under, plus Toate.
+          It was the legacy ten — Damă, Sneakers, Bijuterii, Vintage — none of
+          which is a value any listing carries, so every pill filtered on a
+          string the catalogue has never contained. See
+          lib/marketplace/department-nav. */}
+      {DEPARTMENT_RAIL.map((c) => (
         <button
           key={c.id}
           type="button"
@@ -85,7 +90,7 @@ export function CategoryPillRail({
               : "bg-neutral-100 text-neutral-700 active:bg-neutral-200",
           )}
         >
-          {t(`category.${c.id}`)}
+          {c.label}
         </button>
       ))}
     </div>
