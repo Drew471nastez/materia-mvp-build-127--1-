@@ -503,13 +503,17 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
             either side of it that says nothing.
 
             `-mx-5` is the padding given back: edge to edge, and about a
-            twelfth larger. The rest is `scale-[1.14]`, which takes it well
-            PAST both edges — and past is the point, because a composition that
-            stops exactly at the edge reads as a picture in a frame while one
-            that runs off it reads as a window. The section clips it, the
-            artwork's own transparent margin is wider than the twenty-six
-            pixels a side this spends, and the panel's 28px row gap absorbs the
-            fourteen percent it also grows vertically.
+            twelfth larger. `scale-[1.06]` is the rest — enough to carry it PAST
+            both edges rather than up to them, because a composition that stops
+            exactly at the edge reads as a picture in a frame while one that
+            runs off it reads as a window.
+
+            SIX PERCENT, NOT FOURTEEN. Fourteen was tried and it was too much:
+            the artwork became the panel rather than the largest thing on it,
+            and the six percent it also grew vertically was enough to close the
+            gap under the tiles. The number is doing one job — proving the frame
+            is not the edge of the picture — and a few pixels of overshoot prove
+            that as well as forty do.
 
             All of it stops at sm, where the box is wide enough already and the
             padding is doing a job.
@@ -520,7 +524,7 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
             simply overwrites it on its first keyframe. The scale is the
             parent's; the drift is the child's; neither can take the other's
             property away. */}
-        <div className="-mx-5 scale-[1.14] sm:mx-0 sm:scale-100">
+        <div className="-mx-5 scale-[1.06] sm:mx-0 sm:scale-100">
         <div className="hero-art-drift relative w-full" style={{ aspectRatio: HERO_RATIO }}>
           {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
               
