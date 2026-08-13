@@ -20,6 +20,17 @@ import {
 } from "./following-people-list"
 import { useFeedPullRefresh } from "@/hooks/use-feed-pull-refresh"
 import { DEPARTMENT_RAIL, listingInDepartment } from "@/lib/marketplace/department-nav"
+import {
+  EMPTY_FILTERS,
+  applyFeedFilters,
+  countActiveFilters,
+  facetsFrom,
+  sortFeed,
+  type FeedFilters,
+  type FeedSort,
+} from "@/lib/marketplace/feed-filters"
+import { MobileFilterSheet, MobileSortSheet } from "./mobile-filter-sheet"
+import { ResultsHeader } from "./results-header"
 import { getListingUrl, type ListingOrigin } from "@/lib/marketplace/listing-url"
 import {
   invalidateSavedItems,
@@ -98,11 +109,25 @@ export function MobileFeed({
   searchQuery = "",
   initialView = "grid",
   signedIn = false,
+  urlCategory = "all",
+  urlSub = "",
 }: {
   initialProducts: any[]
   searchQuery?: string
   /** Resolved server-side from the cookie so the right view renders with no flash. */
   initialView?: "grid" | "reels"
+  /**
+   * The department (and group) the URL asked for, already validated and already
+   * applied to `initialProducts` by the server.
+   *
+   * It is passed for ONE reason: a guest with no query gets the home page here
+   * instead of the feed, and `?category=women&sub=women-shoes` is not "no
+   * query" — it is somebody who has just pressed Încălțăminte in the menu.
+   * Without this they pressed a category and arrived at the proposition panel,
+   * which is the menu appearing not to work at all.
+   */
+  urlCategory?: string
+  urlSub?: string
   /**
    * Resolved server-side, because both things it decides are visible on the
    * first painted frame and neither may change afterwards.
@@ -128,6 +153,10 @@ export function MobileFeed({
   const [cat, setCat] = useState("all")
   const [seed, setSeed] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [sortOpen, setSortOpen] = useState(false)
+  const [filters, setFilters] = useState<FeedFilters>(EMPTY_FILTERS)
+  const [sort, setSort] = useState<FeedSort>("new")
   // Browsing style for the For You feed. Seeded server-side from the cookie
   // (`initialView`) so the correct view renders on first paint with NO grid flash.
   // Remembered across navigations / app restarts (until the user switches back).
@@ -256,11 +285,14 @@ export function MobileFeed({
    * desktop uses — see components/explore/home/desktop-home.tsx. One order,
    * one set of sections, and no second copy to keep in step.
    *
-   * A SEARCH IS STILL THE FEED. A query is somebody who has already decided
-   * what they want; answering it with the home page would be the screen not
-   * listening.
+   * A SEARCH IS STILL THE FEED, and so is a CATEGORY. Both are somebody who
+   * has already decided what they want; answering either with the home page is
+   * the screen not listening — and in the category's case it is worse, because
+   * the thing they pressed to get here was a menu row, so the menu is what
+   * appears to be broken.
    */
-  const guestHome = !signedIn && !searchQuery
+  const filteredByUrl = (urlCategory !== "" && urlCategory !== "all") || urlSub !== ""
+  const guestHome = !signedIn && !searchQuery && !filteredByUrl
 
   // Categories filter the For You feed and nothing else — on Saved and Following
   // they were dead controls sitting above the results.
@@ -796,21 +828,44 @@ export function MobileFeed({
     return () => el.removeEventListener("scroll", onScroll)
   }, [reelsActive, tab, cat])
 
-  const products = useMemo(() => {
-    let list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE POOL, THEN THE FILTERS, THEN THE SORT — IN THAT ORDER AND NOT ANOTHER
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `pool` is what the server sent narrowed only by the category rail. It is
+   * what the FACETS are counted from, and it deliberately does not include the
+   * sheet's own filters: counting the options from the filtered set means
+   * pressing "Negru" leaves Brand offering the three brands that make black
+   * things, which reads as the marketplace shrinking under your hands.
+   *
+   * `products` is that pool filtered and then sorted. Sorting last matters —
+   * sort the hundred and then cut to twelve and the twelve are the right
+   * twelve in the right order either way, but doing it the other way round
+   * costs a sort of everything the filters were about to throw away.
+   */
+  const pool = useMemo(() => {
+    const list = (Array.isArray(initialProducts) ? initialProducts : []).filter(Boolean)
     // A listing's `category` is a GROUP id from the sell form's taxonomy, and a
     // group belongs to exactly one department. `normalizeCategoryToId` mapped
     // the OLD taxonomy's names onto the OLD taxonomy's ids: handed
     // `women-footwear` it recognised nothing, answered "all", and every pill
     // matched everything — a filter that looked like it worked while doing
     // nothing. See lib/marketplace/department-nav.
-    if (cat !== "all") list = list.filter((p) => listingInDepartment(p?.category, cat))
+    return cat === "all" ? list : list.filter((p) => listingInDepartment(p?.category, cat))
+  }, [initialProducts, cat])
+
+  const facets = useMemo(() => facetsFrom(pool, urlCategory), [pool, urlCategory])
+  const activeFilters = countActiveFilters(filters)
+
+  const products = useMemo(() => {
+    let list = sortFeed(applyFeedFilters(pool, filters), sort)
     if (seed > 0 && list.length > 0) {
       const off = seed % list.length
       list = [...list.slice(off), ...list.slice(0, off)]
     }
     return list
-  }, [initialProducts, cat, seed])
+  }, [pool, filters, sort, seed])
 
   /**
    * ── THE REASON BACK ALWAYS LANDED AT THE TOP ───────────────────────────────
@@ -1238,8 +1293,24 @@ export function MobileFeed({
               <X className="h-[18px] w-[18px]" />
             </button>
           ) : (
-            <button type="button" aria-label={t("mfeed.filters")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95">
+            /* IT DOES SOMETHING NOW. This had no `onClick` at all — a painted
+               control beside the search field, which is worse than no button:
+               somebody who presses it and gets nothing concludes the
+               marketplace is broken rather than that the feature is missing.
+               The dot is the count of active filters, because a filter you have
+               forgotten is the reason a page looks empty. */
+            <button
+              type="button"
+              aria-label={t("mfeed.filters")}
+              onClick={() => setFiltersOpen(true)}
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95"
+            >
               <SlidersHorizontal className="h-[18px] w-[18px]" />
+              {activeFilters > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[10.5px] font-bold text-white">
+                  {activeFilters}
+                </span>
+              )}
             </button>
           )}
 
@@ -1450,6 +1521,35 @@ export function MobileFeed({
               <DesktopHome products={initialProducts} signedIn={false} variant="phone" />
             ) : (
             <>
+              {/* ONLY WHEN THERE IS SOMETHING TO SAY. On the plain For You feed
+                  there is no trail, no title worth printing and no filter yet —
+                  the whole marketplace is not a "result", and a header saying
+                  "1284 rezultate" over it is chrome for its own sake. It
+                  appears the moment a department, a query or a filter narrows
+                  the thing, which is exactly when somebody needs to be told
+                  what they are looking at and given a way back out. */}
+              {tab === "for-you" && (urlCategory !== "all" || !!searchQuery || activeFilters > 0) && (
+                <ResultsHeader
+                  departmentId={urlCategory !== "all" ? urlCategory : null}
+                  groupId={filters.group ?? urlSub ?? null}
+                  query={searchQuery || undefined}
+                  count={products.length}
+                  brands={facets.brands}
+                  activeBrands={filters.brands}
+                  onToggleBrand={(b) =>
+                    setFilters((f) => ({
+                      ...f,
+                      brands: f.brands.some((x) => x.toLowerCase() === b.toLowerCase())
+                        ? f.brands.filter((x) => x.toLowerCase() !== b.toLowerCase())
+                        : [...f.brands, b],
+                    }))
+                  }
+                  filterCount={activeFilters}
+                  onOpenFilters={() => setFiltersOpen(true)}
+                  onOpenSort={() => setSortOpen(true)}
+                />
+              )}
+
             {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
                 listings. The For You grid fades only when the CATEGORY changes. */}
             {tab === "following" ? (
@@ -1488,6 +1588,29 @@ export function MobileFeed({
       {/* Reels puts it at the top (the bottom is the caption and action rail);
           the grid keeps it at the bottom, clear of the search row. */}
       <WishlistToast placement={reelsActive ? "top" : "bottom"} />
+
+      {/* THE SHEETS LIVE OUTSIDE THE SCROLLER, at the end of the shell. Both are
+          `fixed` full-screen layers, and a fixed element inside a transformed
+          ancestor positions against that ancestor rather than the viewport —
+          the pull-to-refresh transform on the feed's content is exactly such an
+          ancestor, so a sheet rendered in there would be pinned to a box that
+          moves when you drag the page. */}
+      <MobileFilterSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        pool={pool}
+        departmentId={urlCategory !== "all" ? urlCategory : null}
+        value={filters}
+        onApply={(next) => {
+          setFilters(next)
+          // Back to the top: the grid under the sheet is a different grid now,
+          // and keeping the old offset lands you in the middle of results you
+          // have not seen the start of.
+          if (scrollRef.current) scrollRef.current.scrollTop = 0
+        }}
+      />
+
+      <MobileSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onPick={setSort} />
 
       <MobileSearchOverlay
         open={searchOpen}

@@ -1554,6 +1554,78 @@ check(
 )
 
 check(
+  "the filter button does something, and what it opens can count",
+  (() => {
+    // It had no `onClick` at all — a painted control beside the search field for
+    // as long as this screen has existed. That is worse than no button: somebody
+    // who presses it and gets nothing concludes the marketplace is broken rather
+    // than that the feature is missing.
+    const feed = code("components/explore/mobile-feed.tsx")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    const engine = code("lib/marketplace/feed-filters.ts")
+    return (
+      /onClick=\{\(\) => setFiltersOpen\(true\)\}/.test(feed) &&
+      /<MobileFilterSheet/.test(feed) &&
+      /<MobileSortSheet/.test(feed) &&
+      // THE COUNT IS EXACT, because the listings are already on the client — so
+      // the footer is a promise the next screen keeps rather than a number the
+      // sheet discovers after you apply it.
+      /const resultCount = useMemo\(\(\) => applyFeedFilters\(pool, draft\)\.length/.test(sheet) &&
+      // NOTHING IS APPLIED UNTIL YOU SAY SO. Live-applying under an open sheet
+      // destroys the pool the facets were counted from: press "Negru" and Brand
+      // offers three brands instead of forty, because the options are now being
+      // counted from the black things.
+      /const \[draft, setDraft\] = useState<FeedFilters>\(value\)/.test(sheet) &&
+      /onApply\(draft\)/.test(sheet) &&
+      // And the facets are counted from the POOL, not from the filtered set.
+      /const facets = useMemo\(\(\) => facetsFrom\(pool, urlCategory\), \[pool, urlCategory\]\)/.test(feed) &&
+      /const pool = useMemo/.test(feed) &&
+      // Every option is a value some listing actually carries, ordered by how
+      // many carry it — an option that returns nothing is the same empty room
+      // the old category menu was full of.
+      /counts\.set\(v, \(counts\.get\(v\) \?\? 0\) \+ 1\)/.test(engine) &&
+      /\.sort\(\(a, b\) => b\.count - a\.count/.test(engine) &&
+      // A price RANGE is one filter however many of its two ends are set: a
+      // badge reading 2 for "between 50 and 200" is counting inputs.
+      /\(f\.minPrice != null \|\| f\.maxPrice != null \? 1 : 0\)/.test(engine) &&
+      // Levels, not accordions — the same push/pop as the sell form.
+      /className="sub-push pb-6"/.test(sheet) &&
+      /popped && "sub-pop"/.test(sheet)
+    )
+  })(),
+  "        components/explore/mobile-filter-sheet.tsx, lib/marketplace/feed-filters.ts",
+)
+
+check(
+  "pressing a category lands on that category rather than on the marketing hero",
+  (() => {
+    // A guest with no query gets the home page on this screen, and
+    // `?category=women&sub=women-shoes` was counted as "no query" — so pressing
+    // Încălțăminte in the menu arrived at the proposition panel. The menu is
+    // what appears broken, not the feed.
+    //
+    // And the department is passed SEPARATELY from `category`: that one is
+    // validated against the legacy VALID_CATEGORY_IDS, so `?category=women`
+    // fails the test and arrives as "all" even though the query filtered by it
+    // correctly.
+    const feed = code("components/explore/mobile-feed.tsx")
+    const page = code("app/(marketing)/_explore-feed.tsx")
+    return (
+      /const filteredByUrl = \(urlCategory !== "" && urlCategory !== "all"\) \|\| urlSub !== ""/.test(feed) &&
+      /const guestHome = !signedIn && !searchQuery && !filteredByUrl/.test(feed) &&
+      /const departmentId = DEPARTMENTS\.some\(\(d\) => d\.id === rawCategory\) \? rawCategory : null/.test(page) &&
+      /initialDepartment=\{departmentId \?\? ""\}/.test(page) &&
+      /initialSub=\{subGroup \?\? ""\}/.test(page) &&
+      // And the results header tells you where you are, with a way back UP that
+      // is not the back button.
+      /<ResultsHeader/.test(feed) &&
+      /aria-label="Breadcrumb"/.test(code("components/explore/results-header.tsx"))
+    )
+  })(),
+  "        components/explore/mobile-feed.tsx, app/(marketing)/_explore-feed.tsx",
+)
+
+check(
   "the phone's Sign up button is a button rather than a line of text",
   (() => {
     // PILL_FILLED sets the colour, the radius and the press. It does not set a

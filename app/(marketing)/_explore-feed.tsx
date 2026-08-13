@@ -81,9 +81,8 @@ export async function ExploreFeed({
    * cannot reach the query.
    */
   const rawSub = (params?.sub || "").toLowerCase()
-  const departmentGroups = DEPARTMENTS.some((d) => d.id === rawCategory)
-    ? groupsForDepartment(rawCategory).map((g) => g.id)
-    : null
+  const departmentId = DEPARTMENTS.some((d) => d.id === rawCategory) ? rawCategory : null
+  const departmentGroups = departmentId ? groupsForDepartment(departmentId).map((g) => g.id) : null
   const subGroup = departmentGroups?.includes(rawSub) ? rawSub : null
 
   // Initialize data
@@ -279,9 +278,18 @@ export async function ExploreFeed({
         <h1 className="sr-only">{t("feed.seo_h1")}</h1>
 
         {/* Main content */}
+        {/* `initialDepartment` is the DEPARTMENT, and it is separate from
+            `initialCategory` on purpose. `category` is validated against
+            VALID_CATEGORY_IDS — the legacy list — so `?category=women` fails
+            that test and arrives as "all", even though the query above filtered
+            by it correctly. Handing the client "all" tells it there is no filter
+            on a page that is entirely filtered, which is how a menu press ends
+            up on the marketing hero. */}
         <ExplorePageClient
           initialProducts={filteredProducts}
           initialCategory={category}
+          initialDepartment={departmentId ?? ""}
+          initialSub={subGroup ?? ""}
           searchQuery={searchQuery}
           initialView={initialView}
           signedIn={signedIn}
