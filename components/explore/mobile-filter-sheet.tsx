@@ -56,6 +56,7 @@ export function MobileFilterSheet({
   open,
   onClose,
   pool,
+  facets: givenFacets,
   departmentId,
   value,
   onApply,
@@ -64,6 +65,22 @@ export function MobileFilterSheet({
   onClose: () => void
   /** The listings as they arrive, before the draft is applied — see the note. */
   pool: any[]
+  /**
+   * Facets computed elsewhere, for the results page.
+   *
+   * The feed counts them from the hundred listings it already holds; the results
+   * page counts them in SQL across the whole category, because the brands on
+   * page one are not the brands in the category. Same sheet either way — what
+   * differs is who did the counting, and a second sheet for a second source
+   * would be two sheets to keep saying the same thing.
+   */
+  facets?: {
+    groups: Facet[]
+    brands: Facet[]
+    sizes: Facet[]
+    colours: Facet[]
+    conditions: Facet[]
+  }
   departmentId?: string | null
   value: FeedFilters
   onApply: (next: FeedFilters) => void
@@ -84,8 +101,21 @@ export function MobileFilterSheet({
     }
   }
 
-  const facets = useMemo(() => facetsFrom(pool, departmentId), [pool, departmentId])
-  const resultCount = useMemo(() => applyFeedFilters(pool, draft).length, [pool, draft])
+  const derived = useMemo(() => facetsFrom(pool, departmentId), [pool, departmentId])
+  const facets = givenFacets ?? derived
+  /**
+   * The count is only shown where it can be TRUE.
+   *
+   * On the feed the listings are on the client, so every tap moves an exact
+   * number and "Vezi 12 articole" is a promise the next screen keeps. On the
+   * results page the answer is a SQL count, and re-running it per keystroke to
+   * put a number on a button is a request a second for a number nobody asked
+   * for. A missing count is honest; a stale one is not.
+   */
+  const resultCount = useMemo(
+    () => (pool.length > 0 ? applyFeedFilters(pool, draft).length : null),
+    [pool, draft],
+  )
   const active = countActiveFilters(draft)
 
   if (!open) return null
@@ -250,9 +280,11 @@ export function MobileFilterSheet({
         className="shrink-0 border-t border-neutral-100 px-4 pt-3"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
       >
-        <p className="pb-3 text-center text-[13.5px] font-medium text-neutral-500">
-          {resultCount === 1 ? "1 articol" : `${resultCount} articole`}
-        </p>
+        {resultCount != null && (
+          <p className="pb-3 text-center text-[13.5px] font-medium text-neutral-500">
+            {resultCount === 1 ? "1 articol" : `${resultCount} articole`}
+          </p>
+        )}
         <div className="flex gap-3">
           <button
             type="button"

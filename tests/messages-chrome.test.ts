@@ -1570,7 +1570,12 @@ check(
       // THE COUNT IS EXACT, because the listings are already on the client — so
       // the footer is a promise the next screen keeps rather than a number the
       // sheet discovers after you apply it.
-      /const resultCount = useMemo\(\(\) => applyFeedFilters\(pool, draft\)\.length/.test(sheet) &&
+      /applyFeedFilters\(pool, draft\)\.length/.test(sheet) &&
+      // …and it is only SHOWN where it can be true. On the results page the
+      // answer is a SQL count, and re-running it per keystroke to put a number
+      // on a button is a request a second for a number nobody asked for. A
+      // missing count is honest; a stale one is not.
+      /pool\.length > 0 \? applyFeedFilters\(pool, draft\)\.length : null/.test(sheet) &&
       // NOTHING IS APPLIED UNTIL YOU SAY SO. Live-applying under an open sheet
       // destroys the pool the facets were counted from: press "Negru" and Brand
       // offers three brands instead of forty, because the options are now being
