@@ -1538,13 +1538,18 @@ check(
     // The panel has 20px of side padding, so the largest thing on it was drawn
     // in a 335px box on a 375px screen, with a strip of gradient either side
     // saying nothing. `-mx-5` is that padding given back — edge to edge, about
-    // a twelfth larger — and `scale-[1.07]` is the rest of the twenty percent,
-    // which takes it a little PAST both edges. Past is the point: a composition
-    // stopping exactly at the edge reads as a picture in a frame, one running
-    // off it reads as a window.
+    // a twelfth larger — and the scale carries it PAST both edges rather than
+    // up to them. Past is the point: a composition stopping exactly at the edge
+    // reads as a picture in a frame, one running off it reads as a window.
+    //
+    // The exact factor is not pinned, because it has been tuned twice and will
+    // be again; what is pinned is that it is a single-digit percent. Fourteen
+    // was tried and the artwork became the panel rather than the largest thing
+    // on it. A few pixels of overshoot prove the frame is not the edge of the
+    // picture as well as forty do.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      /<div className="-mx-5 scale-\[1\.14\] sm:mx-0 sm:scale-100">/.test(hero2) &&
+      /<div className="-mx-5 scale-\[1\.0[0-9]\] sm:mx-0 sm:scale-100">/.test(hero2) &&
       // TWO ELEMENTS, and that is not tidiness: `hero-art-drift` animates
       // `transform`, and a running animation beats a class setting the same
       // property — put the scale on the drifting box and the drift overwrites
