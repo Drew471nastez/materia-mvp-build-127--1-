@@ -4,11 +4,11 @@ import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Heart, Menu, MessageCircle, Search, ShoppingBag } from "lucide-react"
+import { ChevronLeft, ChevronRight, Heart, Menu, MessageCircle, Search, ShoppingBag } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { SearchTrigger } from "@/components/marketplace/search-row"
-import { CATEGORIES } from "@/lib/marketplace/categories"
+import { DEPARTMENT_NAV, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { useLocale } from "@/components/locale-provider"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -145,6 +145,10 @@ export function MobileWebHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  /** The department the menu is a level inside, and whether the top level is
+   *  arriving from a BACK press — see the note on the list itself. */
+  const [drawerDept, setDrawerDept] = useState<DepartmentNavItem | null>(null)
+  const [drawerPopped, setDrawerPopped] = useState(false)
 
   // Seeded synchronously from the persisted snapshot so the header draws the
   // RIGHT header on its first paint. Waiting on the network here is what used to
@@ -269,7 +273,14 @@ export function MobileWebHeader() {
     [router],
   )
 
-  const closeMenu = useCallback(() => setMenuOpen(false), [])
+  // Back to the top level on the way out. Without this, reopening the menu
+  // lands wherever you left it — a drawer that opens on "Femei · Pantofi"
+  // because you pressed Femei once, yesterday.
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false)
+    setDrawerDept(null)
+    setDrawerPopped(false)
+  }, [])
   const closeAccount = useCallback(() => setAccountOpen(false), [])
 
   const wordmark = (
@@ -562,20 +573,84 @@ export function MobileWebHeader() {
           </div>
         )}
 
-        <DrawerSectionTitle>Categorii</DrawerSectionTitle>
+        {/* ═══════════════════════════════════════════════════════════════
+            THE DEPARTMENTS THE MARKETPLACE ACTUALLY SELLS
+            ═══════════════════════════════════════════════════════════
+
+            This drew Toate / Damă / Bărbați / Sneakers / Genți & Accesorii /
+            Bijuterii / Frumusețe / Cărți / Casă / Vintage, from
+            lib/marketplace/categories.ts. Not one of those is a value any
+            listing carries: the sell form files everything under the five
+            departments in lib/marketplace/listing-taxonomy, so `?category=
+            sneakers` validated and then matched nothing. Ten doors, every one
+            of them opening onto an empty room.
+
+            DEPARTMENT_NAV is the sell form's own taxonomy shaped for
+            navigation — the same list the desktop header's Browse menu draws,
+            from the same module, so the two cannot disagree about what this
+            marketplace sells.
+
+            AND IT DRILLS DOWN, because the departments are five and their
+            groups are what people are actually looking for. Femei is not a
+            destination; Femei · Pantofi is. Every row here always had a
+            chevron promising a level that was not there — that promise is kept
+            now, on the same push/pop the sell form and the desktop menu use.
+            `?sub=` is a GROUP id, which is what a listing's category column
+            holds, so a submenu row lands on listings rather than on a filter
+            nothing satisfies. */}
+        <DrawerSectionTitle>{drawerDept ? drawerDept.label : "Categorii"}</DrawerSectionTitle>
         <div className="pb-2">
-          {CATEGORIES.map((category) => {
-            const Icon = category.icon
-            return (
+          {drawerDept ? (
+            <div className="sub-push">
+              <button
+                type="button"
+                onClick={() => {
+                  setDrawerPopped(true)
+                  setDrawerDept(null)
+                }}
+                className="flex w-full items-center gap-2 px-5 py-3 text-[14px] font-medium text-neutral-500 active:bg-neutral-100"
+              >
+                <ChevronLeft className="h-[17px] w-[17px]" />
+                Toate categoriile
+              </button>
               <DrawerRow
-                key={category.id}
-                href={categoryHref(category.id)}
-                label={t(`category.${category.id}`)}
-                icon={<Icon className="h-[18px] w-[18px]" />}
+                href={drawerDept.href}
+                label={`Vezi tot din ${drawerDept.label}`}
                 onNavigate={closeMenu}
               />
-            )
-          })}
+              {drawerDept.subcategories.map((sub) => (
+                <DrawerRow key={sub.id} href={sub.href} label={sub.label} onNavigate={closeMenu} />
+              ))}
+            </div>
+          ) : (
+            <div className={drawerPopped ? "sub-pop" : undefined}>
+              {DEPARTMENT_NAV.map((dept) => {
+                const Icon = dept.icon
+                return (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    onClick={() => {
+                      setDrawerPopped(false)
+                      setDrawerDept(dept)
+                    }}
+                    /* A TINT, NOT A SCALE — the rule this whole header states at the
+                       top. Three percent of a 44px row is a pixel and a third:
+                       too small to read as deliberate, too large to be nothing,
+                       and driven by `:active`, which flickers under a finger
+                       that is scrolling rather than pressing. */
+                    className={`flex w-full items-center gap-3 px-5 py-3.5 text-left text-[15px] font-medium text-neutral-900 ${PRESS} active:bg-neutral-100`}
+                  >
+                    <span className="shrink-0 text-neutral-400">
+                      <Icon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{dept.label}</span>
+                    <ChevronRight className="h-[18px] w-[18px] shrink-0 text-neutral-300" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {auth.signedIn && (

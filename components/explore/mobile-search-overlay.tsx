@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Search, Clock, ArrowUpLeft, X, Store } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
-import { CATEGORIES } from "@/lib/marketplace/categories"
+import { DEPARTMENT_RAIL } from "@/lib/marketplace/department-nav"
 import { DEPARTMENTS } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
 import { SellerScore } from "@/components/marketplace/seller-score"
@@ -1052,10 +1052,14 @@ function CategoriesTab({ onPick, t }: { onPick: (id: string) => void; t: (k: str
   return (
     <div className="px-4 py-4">
       <p className="pb-3 text-[13px] font-semibold text-neutral-500">{t("mfeed.browse_categories")}</p>
+      {/* Every tile wore CATEGORIES[0].icon — the legacy list's `Layers` glyph,
+          six times, because the departments had no icons of their own here. Six
+          identical marks beside six different words is worse than none: it says
+          the pictures carry no information and trains the eye to skip them.
+          DEPARTMENT_RAIL brings each department's own. */}
       <div className="grid grid-cols-2 gap-2.5">
-        <CategoryTile id="all" label={t("category.all")} Icon={CATEGORIES[0].icon} onPick={onPick} />
-        {DEPARTMENTS.map((d) => (
-          <CategoryTile key={d.id} id={d.id} label={d.label} Icon={CATEGORIES[0].icon} onPick={onPick} />
+        {DEPARTMENT_RAIL.map((d) => (
+          <CategoryTile key={d.id} id={d.id} label={d.label} Icon={d.icon} onPick={onPick} />
         ))}
       </div>
     </div>
