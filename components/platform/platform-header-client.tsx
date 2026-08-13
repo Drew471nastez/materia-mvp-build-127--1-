@@ -28,7 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
-import { DEPARTMENT_NAV, DEPARTMENT_RAIL, type DeptIcon } from "@/lib/marketplace/department-nav"
+import { DEPARTMENT_NAV, DEPARTMENT_RAIL, categoryPath, type DeptIcon } from "@/lib/marketplace/department-nav"
 import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
@@ -903,8 +903,23 @@ export function PlatformHeaderClient() {
    * them is the marketplace itself — the same URL the category tiles at the
    * bottom of the home page have always used.
    */
+  /**
+   * THE BAR GOES TO THE RESULTS PAGE, like every other way of picking a
+   * department does.
+   *
+   * It pushed `/?category=women`, which is the home page carrying a filter: no
+   * title, no count, no trail, no page number and no filter bar. So the same
+   * word — Bărbați — did one thing in the Browse menu, another in the phone's
+   * drawer, and a third here, and only the third had nothing to show for it.
+   *
+   * `categoryPath` rather than a string, so this cannot drift from the menus
+   * that already use it. "Toate" is the absence of a department rather than one
+   * of them, and it goes home: /shop with no path is a results page for the
+   * whole catalogue, which is a heading and a count over the feed somebody was
+   * already looking at.
+   */
   const onCategoryClick = (cat: string) => {
-    navigateToExploreCategory(cat === "all" ? "/" : `/?category=${encodeURIComponent(cat)}`)
+    navigateToExploreCategory(cat === "all" ? "/" : categoryPath(cat))
   }
 
   // "/" is the marketplace, so it gets the category bar. It was excluded here

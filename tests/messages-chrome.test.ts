@@ -1529,6 +1529,19 @@ check(
       // in the same file and is not navigation.
       ![drawer, rail, feed, overlay].some((f) => legacy.test(f)) &&
       /DEPARTMENT_NAV/.test(drawer) &&
+      // AND EVERY WAY OF PICKING ONE GOES TO THE SAME PLACE. The sticky bar
+      // pushed `/?category=women` — the home page carrying a filter, with no
+      // title, no count, no trail and no filter bar — so the same word did one
+      // thing in the Browse menu, another in the phone's drawer and a third in
+      // the bar, and only the third had nothing to show for it. `categoryPath`
+      // rather than a hand-written string, so they cannot drift again.
+      /navigateToExploreCategory\(cat === "all" \? "\/" : categoryPath\(cat\)\)/.test(
+        code("components/platform/platform-header-client.tsx"),
+      ) &&
+      /router\.push\(id === "all" \? "\/" : categoryPath\(id\)\)/.test(drawer) &&
+      /router\.push\(id === "all" \? "\/" : categoryPath\(id\)\)/.test(feed) &&
+      // Nothing anywhere still pushes the old shape.
+      ![drawer, rail, feed, overlay].some((f) => /\?category=\$\{/.test(f)) &&
       /DEPARTMENT_RAIL/.test(rail) &&
       /DEPARTMENT_RAIL/.test(feed) &&
       /DEPARTMENT_RAIL/.test(overlay) &&
