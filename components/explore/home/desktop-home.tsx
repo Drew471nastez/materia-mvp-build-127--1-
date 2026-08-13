@@ -369,7 +369,7 @@ export function DesktopHome({
         {/* The button first and the observer after — see more-listings.tsx.
             Pure infinite scroll takes the footer away and loads pages nobody
             asked for; a pure button asks for a press every twelve cards. */}
-        <MoreListings items={sections.rest.length > 0 ? sections.rest : products} />
+        <MoreListings items={sections.rest.length > 0 ? sections.rest : products} manual={variant === "phone"} />
       </div>
     )
   }
@@ -472,7 +472,7 @@ export function DesktopHome({
 
       <ShopByCategory catalogue={products} />
 
-      <MoreListings items={sections.rest.length > 0 ? sections.rest : products} />
+      <MoreListings items={sections.rest.length > 0 ? sections.rest : products} manual={variant === "phone"} />
     </div>
   )
 }

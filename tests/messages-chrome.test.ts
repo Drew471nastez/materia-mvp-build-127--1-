@@ -1597,6 +1597,25 @@ check(
 )
 
 check(
+  "and the page it closes onto has stopped moving before the panel goes",
+  (() => {
+    // `overflow: hidden` on the body makes the DOCUMENT non-scrollable, and a
+    // `position: sticky` element in a document that cannot scroll has nothing to
+    // stick to — it falls back to its place in the flow. So the header moves
+    // when the lock goes on and moves back when it comes off. Behind an opaque
+    // panel neither is visible; keyed on `mounted`, the lock came off at 360ms —
+    // a good forty milliseconds after the panel had finished fading out. That is
+    // the header jumping on its own, with nothing on screen to explain it.
+    const ov = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /if \(!mounted \|\| anchored \|\| !open\) return\s*\n\s*return lockScroll\(\)/.test(ov) &&
+      /\}, \[mounted, anchored, open\]\)/.test(ov)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
   "and the phone's category sheet drills down the way the sell form does",
   (() => {
     // It was `slide-in-from-right-4 fade-in` going in and

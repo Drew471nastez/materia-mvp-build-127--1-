@@ -29,9 +29,23 @@ const PER_ROW = 5
 const ROWS_PER_PAGE = 2
 const PAGE = PER_ROW * ROWS_PER_PAGE
 
-export function MoreListings({ items }: { items: any[] }) {
+export function MoreListings({ items, manual = false }: { items: any[]; manual?: boolean }) {
   const [shown, setShown] = useState(PAGE)
-  /** Auto-loading only begins once somebody has asked for more once. */
+  /**
+   * Auto-loading only begins once somebody has asked for more once — and on a
+   * phone it never begins at all.
+   *
+   * The trade the observer makes is worth it on a desktop page you scroll with
+   * a wheel through a section that is one of eight. On a phone this section IS
+   * the rest of the screen: ten cards is five rows, five rows is most of the
+   * height you have, and an observer that fires 600px early means the page has
+   * no end — the footer is unreachable, the scrollbar never settles, and every
+   * flick loads twelve more photographs on whatever connection you are on.
+   *
+   * A button is also the honest control there. It is the one place on this page
+   * that says how much more there is, and pressing it is cheaper than the
+   * scroll it replaces.
+   */
   const [auto, setAuto] = useState(false)
   const sentinel = useRef<HTMLDivElement>(null)
 
@@ -42,7 +56,7 @@ export function MoreListings({ items }: { items: any[] }) {
   }, [items.length])
 
   useEffect(() => {
-    if (!auto || !hasMore) return
+    if (manual || !auto || !hasMore) return
     const el = sentinel.current
     if (!el || typeof IntersectionObserver === "undefined") return
     const io = new IntersectionObserver(
@@ -55,7 +69,7 @@ export function MoreListings({ items }: { items: any[] }) {
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [auto, hasMore, more])
+  }, [manual, auto, hasMore, more])
 
   if (items.length === 0) return null
 
@@ -79,7 +93,7 @@ export function MoreListings({ items }: { items: any[] }) {
 
       {hasMore && (
         <div className="mt-10 flex flex-col items-center gap-3">
-          {!auto ? (
+          {manual || !auto ? (
             <button
               type="button"
               onClick={() => {

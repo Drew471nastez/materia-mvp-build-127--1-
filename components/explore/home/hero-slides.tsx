@@ -475,16 +475,19 @@ export function HeroSlides({
                that the flex track is also stretching is two rules arguing over
                one number: the row grows to match the tallest slide and the
                picture grows with it, so the ratio it was given stops being
-               true. 228px is fixed, which is also what the shelf slides need —
-               a ShelfCard is a 3:4 photograph plus its caption, and anything
-               shorter clips the price off the bottom.
+               true. 264px is fixed, and the number comes from the shelf slides:
+               two cards at 46% of a 375px screen are 154px wide, so a 3:4
+               photograph is 205px and its caption is another 44. Anything
+               shorter and the price is clipped off the bottom; anything taller
+               and the cards float in a band of ground with nothing in it, which
+               is what 228 left them doing.
 
                The copy row is `auto`, so it takes what it needs; the flex
                track stretches every slide to the tallest of them, and the
                extra lands in that row where `justify-center` absorbs it. No
                slide is ever a different height from its neighbours, which is
                what would make the track jump as it moves. */
-            className="grid h-auto w-full shrink-0 grid-rows-[228px_auto] md:h-[320px] md:grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] md:grid-rows-none lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
+            className="grid h-auto w-full shrink-0 grid-rows-[264px_auto] md:h-[320px] md:grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] md:grid-rows-none lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
             aria-hidden={i !== index}
           >
             {/* The words, on a ground that cannot be argued with.
@@ -740,7 +743,13 @@ function ShelfCard({
       href={`/products/${item.slug}`}
       tabIndex={tabbable ? 0 : -1}
       className={cn(
-        "group/card w-[132px] flex-col lg:w-[152px]",
+        /* IT FILLS THE ROW ON A PHONE. 132px is a card measured for a
+           half-slide on a desktop; two of them on a 375px screen use 276 of the
+           335 available and leave the rest as ground, so the slide reads as two
+           small pictures floating in a coloured box rather than as a shelf.
+           46% is the same two cards at the width they are actually given, and
+           the cap stops them ballooning on a large phone in landscape. */
+        "group/card w-[46%] max-w-[170px] flex-col sm:w-[132px] lg:w-[152px]",
         // The whole card lifts, not just the photograph — a picture that moves
         // inside a caption that does not is two objects, and this is one.
         "transition-transform duration-[380ms] ease-out hover:-translate-y-1",

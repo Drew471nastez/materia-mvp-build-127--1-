@@ -216,7 +216,15 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
        * section.
        */
       className={cn(
-        "relative mb-8 overflow-hidden rounded-2xl ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.04),0_18px_40px_-24px_rgba(15,15,15,0.12)]",
+        /* THE ARTWORK LEAVES THE PANEL ON A PHONE, WHICH IS THE POINT OF IT.
+           `overflow-hidden` cut the scaled composition off exactly at the
+           panel's edge, so the thing meant to run past the frame stopped at it
+           — a picture cropped to a rectangle rather than one spilling out of
+           one. Visible below sm and clipped from sm up, where the artwork sits
+           inside its column and there is nothing to let out. The gradient is
+           still clipped by the radius either way: `border-radius` bounds the
+           background whether or not overflow is hidden. */
+        "relative mb-8 overflow-visible rounded-2xl ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.04),0_18px_40px_-24px_rgba(15,15,15,0.12)] sm:overflow-hidden",
         className,
       )}
       /**
@@ -289,9 +297,17 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
           measurements, which it should not have been. 24px of side padding on a
           375px screen is 13% of the width gone before the headline starts, and
           a 40px gap between the copy and the picture is a gap you scroll past.
-          20/28 and a 28px gap: the same composition, measured for the screen it
-          is actually on. Everything above sm is untouched. */}
-      <div className="grid items-center gap-7 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:gap-12 lg:px-12 lg:py-[46px]">
+          20/28 and a 36px row gap: the same composition, measured for the
+          screen it is actually on.
+
+          THE ROW GAP IS NOT THE COLUMN GAP any more, and the extra eight pixels
+          are doing a specific job. The artwork below is scaled past the panel's
+          edges, which grows it vertically as well — fourteen percent of a 197px
+          box is about fourteen pixels off the top — so a 28px gap between the
+          tiles and the picture was really fourteen once the picture had claimed
+          its half of it. 36 puts the visible gap back where it was and leaves a
+          little more besides. Everything above sm is untouched. */}
+      <div className="grid items-center gap-x-7 gap-y-9 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:gap-12 lg:px-12 lg:py-[46px]">
         {/* CENTRED ON A PHONE, LEFT-ALIGNED FROM lg UP.
 
             One column is a poster and two columns is a spread, and they want

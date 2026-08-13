@@ -440,10 +440,26 @@ export function MobileSearchOverlay({
    * replace: two overlapping overlays each restoring what they captured is how
    * a page ends up locked with nothing on screen to unlock it.
    */
+  /**
+   * AND IT IS RELEASED WHEN THE CLOSE STARTS, NOT WHEN THE PANEL UNMOUNTS.
+   *
+   * `overflow: hidden` on the body makes the DOCUMENT non-scrollable, and a
+   * `position: sticky` element in a document that cannot scroll has nothing to
+   * stick to — it falls back to its place in the flow. So the header above
+   * moves when the lock goes on and moves back when it comes off. Behind an
+   * opaque panel neither is visible; at `mounted`, the lock came off at 360ms,
+   * a good forty milliseconds AFTER the panel had finished fading out. That is
+   * the header jumping on its own, with nothing on screen to explain it.
+   *
+   * `open` rather than `mounted`, so the page settles under a panel that is
+   * still at full opacity and the fade plays over a page that has already
+   * stopped moving. The panel is `pointer-events: none` from the same frame, so
+   * releasing early does not hand it a scroll it would swallow.
+   */
   useEffect(() => {
-    if (!mounted || anchored) return
+    if (!mounted || anchored || !open) return
     return lockScroll()
-  }, [mounted, anchored])
+  }, [mounted, anchored, open])
 
   // Keep the sheet FULL-SCREEN (no displacement/gaps) and instead pad the results
   // list by the keyboard height, so the last items always scroll clear of the

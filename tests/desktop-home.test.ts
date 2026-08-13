@@ -108,8 +108,24 @@ check(
   "load more is a button first and an observer after",
   (() => {
     // Pure infinite scroll takes the footer away and loads pages nobody asked
-    // for; a pure button asks for a press every twelve cards.
-    return /const \[auto, setAuto\] = useState\(false\)/.test(more) && /if \(!auto \|\| !hasMore\) return/.test(more)
+    // for; a pure button asks for a press every twelve cards. So the first press
+    // is deliberate and the sentinel takes over after it.
+    //
+    // AND ON A PHONE THERE IS NO "AFTER". That trade is worth it on a desktop
+    // page you scroll with a wheel through a section that is one of eight; on a
+    // phone this section IS the rest of the screen, and an observer firing 600px
+    // early means the page has no end — the footer is unreachable and every
+    // flick loads twelve more photographs on whatever connection you are on.
+    return (
+      /const \[auto, setAuto\] = useState\(false\)/.test(more) &&
+      /if \(manual \|\| !auto \|\| !hasMore\) return/.test(more) &&
+      /\{manual \|\| !auto \? \(/.test(more) &&
+      // Ten at a time, which on a phone's two columns is the five rows the
+      // button then extends.
+      /const PER_ROW = 5/.test(more) &&
+      /const ROWS_PER_PAGE = 2/.test(more) &&
+      /manual=\{variant === "phone"\}/.test(home)
+    )
   })(),
 )
 
@@ -244,7 +260,7 @@ check(
       // tallest slide and the picture grows with it, so the ratio stops being
       // true. 228px is also what the shelf slides need: a ShelfCard is a 3:4
       // photograph plus a caption, and anything shorter clips the price off.
-      /grid h-auto w-full shrink-0 grid-rows-\[228px_auto\]/.test(hero) &&
+      /grid h-auto w-full shrink-0 grid-rows-\[264px_auto\]/.test(hero) &&
       /lg:h-\[340px\]/.test(hero) &&
       // Both halves fill their row, at every width.
       /<div className="relative order-1 h-full md:order-none">/.test(hero) &&
@@ -931,7 +947,7 @@ check(
       // header, which made the listings under it look inset rather than making
       // the hero look wide.
       /\{!signedIn && <SignedOutHero \/>\}/.test(home) &&
-      /mb-8 overflow-hidden rounded-2xl ring-1/.test(hero2) &&
+      /mb-8 overflow-visible rounded-2xl ring-1[\s\S]{0,140}?sm:overflow-hidden/.test(hero2) &&
       /signedIn=\{signedIn\}/.test(feed) &&
       /auth\.getUser\(\)/.test(feed) &&
       // No invented metrics. The reference carries "49M+ items for sale"; a
@@ -1497,7 +1513,7 @@ check(
     // hero has to stay short enough to leave listings visible.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      /gap-7 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9/.test(hero2) &&
+      /gap-x-7 gap-y-9 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9/.test(hero2) &&
       // A snapping rail below sm: all three tiles at the height of one, and the
       // next one peeking at the edge says so without a chevron or a row of dots.
       /snap-x snap-mandatory/.test(hero2) &&
@@ -1614,6 +1630,48 @@ check(
     )
   })(),
   "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "the artwork is allowed out of the panel on a phone, and the gap allows for it",
+  (() => {
+    // `overflow-hidden` cut the scaled composition off exactly at the panel's
+    // edge, so the thing meant to run PAST the frame stopped at it — a picture
+    // cropped to a rectangle rather than one spilling out of one. Visible below
+    // sm, clipped from sm up where the artwork sits inside its column and there
+    // is nothing to let out. The gradient is clipped by the radius either way:
+    // `border-radius` bounds the background whether or not overflow is hidden,
+    // so letting content out does not let the ground out with it.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /overflow-visible rounded-2xl[\s\S]{0,140}?sm:overflow-hidden/.test(hero2) &&
+      // And the row gap is no longer the column gap. Scaling the artwork past
+      // the edges grows it vertically too — fourteen percent of a 197px box is
+      // about fourteen pixels off the top — so 28px between the tiles and the
+      // picture was really fourteen once the picture had claimed its half.
+      /gap-x-7 gap-y-9 px-5 py-7/.test(hero2) &&
+      // The phone shell still clips sideways, so "out of the panel" never means
+      // "out of the document" — see the shell guard above.
+      /overflow-x-clip/.test(code("components/explore/home/desktop-home.tsx"))
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
+)
+
+check(
+  "and a shelf slide's cards fill it rather than floating in it",
+  (() => {
+    // 132px is a card measured for a half-slide on a desktop. Two of them on a
+    // 375px screen use 276 of the 335 available and leave the rest as ground, in
+    // a row that was 228 tall for cards about 216 — so the slide read as two
+    // small pictures floating in a coloured box rather than as a shelf.
+    const hero = code("components/explore/home/hero-slides.tsx")
+    return (
+      /"group\/card w-\[46%\] max-w-\[170px\] flex-col sm:w-\[132px\] lg:w-\[152px\]"/.test(hero) &&
+      /grid-rows-\[264px_auto\]/.test(hero)
+    )
+  })(),
+  "        components/explore/home/hero-slides.tsx",
 )
 
 check(
