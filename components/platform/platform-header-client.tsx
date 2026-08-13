@@ -611,6 +611,10 @@ export function PlatformHeaderClient() {
   /** True while the top level is arriving from a BACK press, so it plays the
    *  pop rather than the push. Reset on the way in. */
   const [poppedSub, setPoppedSub] = useState(false)
+  /** The same flag for the phone sheet, which is a separate surface with its
+   *  own level state — sharing one would make a back press in the dropdown
+   *  decide how the sheet animates the next time it opens. */
+  const [sheetPopped, setSheetPopped] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
 
@@ -2154,10 +2158,41 @@ export function PlatformHeaderClient() {
 
           {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
           {!isMarketingNavRoute && expandedCategory ? (
-            <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
+            /* ═══════════════════════════════════════════════════════════════
+               THE SAME DRILL-DOWN AS THE SELL FORM AND THE BROWSE DROPDOWN
+               ═══════════════════════════════════════════════════════════
+
+               It was `slide-in-from-right-4 fade-in` going in and
+               `slide-in-from-left-4 fade-in` coming back: a 16px nudge and a
+               fade, which is not a level arriving — it is a panel appearing
+               near where the last one was. And the row beneath it staggered
+               its own children on top of that, so one transition played as two
+               overlapping animations of different lengths.
+
+               `sub-push` / `sub-pop` are the movement components/sell/
+               picker-page.tsx uses, at the same 360ms and the same curve: the
+               arriving level comes the full width from the right, and the one
+               you go BACK to steps in from -25% at 0.62 opacity, which is the
+               parallax that says it was underneath the whole time. Transform
+               and opacity only, so a list of twelve rows costs the compositor
+               a layer and the main thread nothing.
+
+               Three surfaces, one gesture. A drill-down in the sell form, in
+               the header's dropdown and in this sheet are now recognisably the
+               same movement rather than three animations that happen to live
+               in one app. */
+            <div className="sub-push">
               <button
                 type="button"
-                onClick={() => setExpandedCategory(null)}
+                onClick={() => {
+                  // Mark the RETURN, so the level underneath plays the pop
+                  // rather than the push. Without it the list you are going
+                  // BACK to slides in from the right as though you had gone
+                  // deeper — and it would also play on the first open, which
+                  // is a sheet that greets you with a back animation.
+                  setSheetPopped(true)
+                  setExpandedCategory(null)
+                }}
                 className="flex items-center gap-2 px-2 py-2.5 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-all duration-200 cursor-pointer rounded-lg hover:bg-gray-100 active:scale-[0.98]"
               >
                 <ChevronLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
@@ -2195,8 +2230,12 @@ export function PlatformHeaderClient() {
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
-                          className="block w-full text-left px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2"
-                          style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
+                          /* NO STAGGER. Twelve rows each fading in on their own
+                             30ms offset, inside a panel that is itself sliding
+                             in, is two animations of different lengths over one
+                             gesture — the panel lands and the contents are still
+                             arriving. The level moves as one object now. */
+                          className="block w-full text-left px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation"
                         >
                           {sub.label}
                         </button>
@@ -2207,8 +2246,13 @@ export function PlatformHeaderClient() {
               })()}
             </div>
           ) : !isMarketingNavRoute ? (
-            /* Main Categories List - Only show on non-homepage pages */
-            <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
+            /* Main Categories List - Only show on non-homepage pages.
+
+               `sheetPopped &&`, so this plays ONLY when you have come back from
+               a department. Unconditional, it ran every time the sheet opened —
+               so the first thing the menu did was animate as though you had
+               just pressed Back out of somewhere you had never been. */
+            <div className={cn(sheetPopped && "sub-pop")}>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
               <div className="space-y-0.5">
                 {CATEGORIES_WITH_SUBS.map((cat) => {
@@ -2217,6 +2261,9 @@ export function PlatformHeaderClient() {
 
                   const handleCategoryClick = () => {
                     if (hasSubcats) {
+                      // Cleared on the way in, so the pop is spent. A flag left
+                      // set replays the back animation on the next open.
+                      setSheetPopped(false)
                       setExpandedCategory(cat.label)
                     } else {
                       navigateToExploreCategory(cat.href + '&scroll=recommended')

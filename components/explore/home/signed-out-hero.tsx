@@ -83,7 +83,7 @@ const COPY: Record<
      */
     title: "Cumpără second-hand. Fă-l al tău.",
     body: "Haine, sneakers, cărți, muzică, și obiecte de colecție, vândute de oameni din toată țara.",
-    cta: "Vezi ce e de vânzare",
+    cta: "Vezi anunțurile",
     href: "/?q=",
     tiles: [
       { icon: Fingerprint, title: "Lucruri diferite", body: "Găsești ceva nou de fiecare dată." },
@@ -292,7 +292,22 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
           20/28 and a 28px gap: the same composition, measured for the screen it
           is actually on. Everything above sm is untouched. */}
       <div className="grid items-center gap-7 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:gap-12 lg:px-12 lg:py-[46px]">
-        <div className="min-w-0">
+        {/* CENTRED ON A PHONE, LEFT-ALIGNED FROM lg UP.
+
+            One column is a poster and two columns is a spread, and they want
+            opposite things. Ragged-right copy in a narrow single column leaves
+            a different amount of white beside every line, and the toggle and
+            the button — both `inline-flex`, so both inline-level and both
+            obeying `text-align` — were sitting hard against the left edge under
+            a headline that wrapped short of it. Centred, the four objects share
+            one axis and the panel reads as composed rather than as the desktop
+            layout with one column removed.
+
+            It goes back at lg, where the copy is one half of a spread and its
+            left edge is the same edge as the artwork's. `text-left` on the tile
+            rail below opts the cards out: those are a different object, and
+            centred text in a card is a card with no reading edge. */}
+        <div className="min-w-0 text-center lg:text-left">
           {/* THE TOGGLE. A track with a sliding thumb rather than two buttons
               that swap colour: the thumb moving is what says these are two
               sides of one thing, and it is one transform on one element. */}
@@ -357,7 +372,7 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
           <h1 className="mt-6 text-balance text-[28px] font-bold leading-[1.12] tracking-[-0.03em] text-neutral-900 sm:text-[34px] lg:text-[42px]">
             {c.title}
           </h1>
-          <p className="mt-4 max-w-[44ch] text-[15px] font-medium leading-relaxed text-neutral-600 lg:text-[16.5px]">
+          <p className="mx-auto mt-4 max-w-[44ch] text-[15px] font-medium leading-relaxed text-neutral-600 lg:mx-0 lg:text-[16.5px]">
             {c.body}
           </p>
 
@@ -404,7 +419,7 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
               into view rather than stopping short by the panel's inset.
               `sm:mx-0 sm:px-0` hands it all back to the grid above sm, where
               none of this applies. */}
-          <div className="-mx-5 mt-8 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-5 px-5 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
+          <div className="-mx-5 mt-8 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-5 px-5 text-left scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
             {c.tiles.map((tile) => {
               const Icon = tile.icon
               /**
@@ -462,6 +477,34 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
             present in the artwork. On the parent there is nothing to keep in
             step: the pictures cannot drift relative to each other because they
             are not being animated at all. */}
+        {/* ═══════════════════════════════════════════════════════════════
+            AND ON A PHONE IT RUNS TO BOTH EDGES, AND THEN A LITTLE PAST
+            ═══════════════════════════════════════════════════════════
+
+            The panel has 20px of side padding, so the artwork was drawn in a
+            335px box on a 375px screen — the largest thing on the panel,
+            rendered smaller than the panel it is on, with a strip of gradient
+            either side of it that says nothing.
+
+            `-mx-5` is the padding given back: edge to edge, and about a
+            twelfth larger. The remaining eight percent is `scale-[1.07]`,
+            which takes it a little PAST both edges — and past is the point,
+            because a composition that stops exactly at the edge reads as a
+            picture in a frame while one that runs off it reads as a window.
+            The section clips it, the artwork's own transparent margin is
+            wider than the thirteen pixels a side this spends, and the panel's
+            28px row gap absorbs the seven percent it also grows vertically.
+
+            All of it stops at sm, where the box is wide enough already and the
+            padding is doing a job.
+
+            TWO ELEMENTS, AND THAT IS NOT TIDINESS. `hero-art-drift` animates
+            `transform`, and a running animation beats a class that sets the
+            same property — put the scale on the drifting box and the drift
+            simply overwrites it on its first keyframe. The scale is the
+            parent's; the drift is the child's; neither can take the other's
+            property away. */}
+        <div className="-mx-5 scale-[1.07] sm:mx-0 sm:scale-100">
         <div className="hero-art-drift relative w-full" style={{ aspectRatio: HERO_RATIO }}>
           {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
               
@@ -577,6 +620,7 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
               </div>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </section>

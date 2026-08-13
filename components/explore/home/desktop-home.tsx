@@ -84,7 +84,33 @@ const ROW = 5
  */
 const MIN_HISTORY = 5
 
-export function DesktopHome({ products, signedIn = false }: { products: any[]; signedIn?: boolean }) {
+export function DesktopHome({
+  products,
+  signedIn = false,
+  variant = "page",
+}: {
+  products: any[]
+  signedIn?: boolean
+  /**
+   * WHERE THIS IS BEING DRAWN, WHICH IS ONLY EVER ABOUT ONE CLASS.
+   *
+   * "page" is the marketing route, which renders this beside a phone feed that
+   * covers the screen below md — so the wrapper is `hidden md:block` and the
+   * phone never sees it.
+   *
+   * "phone" is inside that feed's scroller, which is itself `md:hidden`, so
+   * the same wrapper there would hide this at every width: `hidden md:block`
+   * inside `md:hidden` is a section that never renders anywhere. It is the same
+   * component and the same order either way; what changes is which of the two
+   * shells it is inside, and neither should be repeating the other's gate.
+   *
+   * The SECTIONS below are responsive in their own right — see the rails in
+   * listing-row.tsx and the stacked slide in hero-slides.tsx. This prop does not
+   * pick a layout; it only says which shell is already handling the breakpoint.
+   */
+  variant?: "page" | "phone"
+}) {
+  const shell = variant === "phone" ? "" : "hidden md:block"
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
    *
@@ -251,8 +277,25 @@ export function DesktopHome({ products, signedIn = false }: { products: any[]; s
 
   if (!signedIn) {
     return (
-      <div className="hidden md:block">
-        <SignedOutHero />
+      <div className={shell}>
+        {/* ON A PHONE THE HERO SITS ON GREY, and nothing else does.
+
+            Its edge is a hairline ring and a one-pixel contact shadow, weights
+            chosen against this page's #f5f5f5 ground. The phone feed is white,
+            and a near-white gradient panel on white is a card whose edges you
+            cannot see. The strip gives it back the ground it was drawn for, and
+            does a second job while it is there: it makes the promotion its own
+            zone, so the white underneath starts where the marketplace starts.
+
+            `mb-0` because the strip's own padding is the gap now — tailwind-
+            merge replaces the panel's `mb-8` rather than stacking with it. */}
+        {variant === "phone" ? (
+          <div className="bg-[#f5f5f5] px-3 py-3">
+            <SignedOutHero className="mb-0" />
+          </div>
+        ) : (
+          <SignedOutHero />
+        )}
 
         {personal ? (
           <ListingRow title="Vizualizate recent" items={sections.recentlyViewed} rows={1} minItems={ROW} />
@@ -313,7 +356,7 @@ export function DesktopHome({ products, signedIn = false }: { products: any[]; s
      * grows after it is rasterised is how the footer ended up painted across
      * the middle of the listings. The shell is the right shape now, so there is
      * nothing left for a fade to hide. See app/globals.css. */
-    <div className="hidden md:block">
+    <div className={shell}>
       {/* WHAT THIS PLACE IS, FOR SOMEBODY WHO HAS NEVER BEEN.
 
           Signed out only. Somebody with an account already knows what Storelib

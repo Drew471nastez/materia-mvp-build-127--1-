@@ -82,19 +82,19 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
      * exactly the list that was cut down to five departments. The layout is the
      * part that was worth keeping; the categories in it are the real ones.
      */
-    <section className="mt-20 border-t border-neutral-100 pt-14">
-      <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+    <section className="mt-12 border-t border-neutral-100 px-4 pt-10 sm:px-0 lg:mt-20 lg:pt-14">
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-12 lg:gap-10">
         {/* The left column: the invitation, and one thing to press. */}
         <div className="flex flex-col justify-center lg:col-span-3">
-          <h2 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-neutral-900 lg:text-[34px]">
+          <h2 className="text-[21px] font-bold leading-[1.15] tracking-[-0.02em] text-neutral-900 sm:text-[26px] lg:text-[34px]">
             Cumpără second-hand pe categorii
           </h2>
-          <p className="mt-3 text-[14.5px] font-medium leading-relaxed text-neutral-500">
+          <p className="mt-2.5 text-[14px] font-medium leading-relaxed text-neutral-500 sm:mt-3 sm:text-[14.5px]">
             Fiecare articol are un singur exemplar și un vânzător real în spate.
           </p>
           <SmartLink
             href="/?q="
-            className="mt-6 inline-flex h-11 w-fit items-center gap-2 rounded-full bg-neutral-900 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 ease-out hover:bg-neutral-800"
+            className="mt-5 inline-flex h-11 w-fit items-center gap-2 rounded-full bg-neutral-900 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 ease-out hover:bg-neutral-800 sm:mt-6"
           >
             Vezi toate anunțurile
             <ArrowRight className="h-4 w-4" strokeWidth={2.4} />
@@ -104,7 +104,7 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
         {/* The tiles. Three across, then the remaining two at half the width
             each — which is what five things in a magazine grid look like, and
             the reason this is not a row of five identical rectangles. */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-6 lg:col-span-9">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-6 sm:gap-4 lg:col-span-9">
           {tiles.map((t, i) => (
           <SmartLink
             key={t.id}

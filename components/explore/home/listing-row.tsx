@@ -72,9 +72,9 @@ export function ListingRow({
   if (shown.length < minItems) return null
 
   return (
-    <section className="mt-14">
-      <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 className="text-[22px] font-bold tracking-[-0.02em] text-neutral-900">{title}</h2>
+    <section className="mt-10 sm:mt-14">
+      <div className="mb-4 flex items-baseline justify-between gap-4 px-4 sm:px-0">
+        <h2 className="text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[22px]">{title}</h2>
         {href && (
           <SmartLink
             href={href}
@@ -90,16 +90,39 @@ export function ListingRow({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-x-4 gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
+      {/* ═══════════════════════════════════════════════════════════════════
+          A RAIL ON A PHONE, A GRID FROM sm UP
+          ═══════════════════════════════════════════════════════════════════
+
+          `grid-cols-3` is three cards across 375px minus the gutters: about
+          105px each, for an object whose entire job is a photograph of a
+          jumper. And a row of fifteen at three across is five rows deep — a
+          "row" that is a third of the screen's height and pushes everything
+          under it out of reach.
+
+          Sideways is what a phone already does with a shelf, and it is the
+          correct shape for this section specifically: these are rows BY
+          definition — one idea, as many examples as you care to look at — so
+          the horizontal axis is the one that should be long. `basis-[43%]`
+          puts two and a bit on screen, and the bit is what says there is more.
+
+          `-mx-4 px-4 scroll-px-4` bleeds the rail past the shell's gutters and
+          moves them inside the scroller, so the first card lines up with the
+          heading and the last one can still reach the middle of the screen
+          instead of stopping a gutter short.
+
+          Everything from sm up is exactly what it was. */}
+      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 sm:overflow-visible sm:px-0 lg:grid-cols-4 xl:grid-cols-5">
         {shown.map((product, i) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            origin={origin}
-            // Only the first row of the first section is above the fold; asking
-            // for priority on eighteen images is asking for none.
-            priority={rows === 1 && i < 3}
-          />
+          <div key={product.id} className="w-[43%] shrink-0 snap-start sm:w-auto sm:shrink">
+            <ProductCard
+              product={product}
+              origin={origin}
+              // Only the first row of the first section is above the fold; asking
+              // for priority on eighteen images is asking for none.
+              priority={rows === 1 && i < 3}
+            />
+          </div>
         ))}
       </div>
     </section>

@@ -1572,6 +1572,49 @@ check(
   "        components/explore/mobile-search-overlay.tsx",
 )
 
+check(
+  "and the phone's category sheet drills down the way the sell form does",
+  (() => {
+    // It was `slide-in-from-right-4 fade-in` going in and
+    // `slide-in-from-left-4 fade-in` coming back: a 16px nudge and a fade,
+    // which is not a level arriving — it is a panel appearing near where the
+    // last one was. The rows underneath then staggered themselves at 30ms
+    // apart on top of that, so one gesture played as two overlapping
+    // animations of different lengths and the panel landed while its contents
+    // were still arriving.
+    //
+    // `sub-push` / `sub-pop` are the movement components/sell/picker-page.tsx
+    // uses, at the same duration and curve: the arriving level comes the full
+    // width from the right, and the one you go BACK to steps in from -25% at
+    // 0.62 opacity — the parallax that says it was underneath all along.
+    // Three surfaces, one gesture.
+    const hdr = code("components/platform/platform-header-client.tsx")
+    const css = read("app/globals.css")
+    return (
+      (hdr.match(/className="sub-push"/g) ?? []).length === 1 &&
+      /className=\{cn\(sheetPopped && "sub-pop"\)\}/.test(hdr) &&
+      // The pop is a RETURN, and it is spent on the way back in — a flag left
+      // set replays the back animation the next time the sheet opens, and an
+      // unconditional one greeted you with it on the very first open.
+      /setSheetPopped\(true\)\s*\n\s*setExpandedCategory\(null\)/.test(hdr) &&
+      /setSheetPopped\(false\)\s*\n\s*setExpandedCategory\(cat\.label\)/.test(hdr) &&
+      // Its own flag, not the dropdown's: two surfaces with their own level
+      // state, and sharing one would let a back press in the dropdown decide
+      // how the sheet animates next time.
+      /const \[sheetPopped, setSheetPopped\] = useState\(false\)/.test(hdr) &&
+      /const \[poppedSub, setPoppedSub\] = useState\(false\)/.test(hdr) &&
+      // No stagger left anywhere in the sheet's rows.
+      !/animationDelay: `\$\{index \* 30\}ms`/.test(hdr) &&
+      !/slide-in-from-right-4|slide-in-from-left-4/.test(hdr) &&
+      // Transform and opacity only, so twelve rows cost the compositor a layer
+      // and the main thread nothing.
+      /@keyframes sub-pop \{[\s\S]{0,160}?translate3d\(-25%, 0, 0\)/.test(css) &&
+      /animation: sub-push 360ms cubic-bezier\(0\.32, 0\.72, 0, 1\) both/.test(css)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx, app/globals.css",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")
