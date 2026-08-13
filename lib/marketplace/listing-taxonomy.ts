@@ -86,7 +86,7 @@ export const LISTING_CATEGORIES: (CategoryGroup & { department: string })[] = [
     item("underwear", "Lenjerie"),
     item("sleepwear", "Pijamale și haine de casă"),
   ]),
-  group("women-shoes", "Femei · Pantofi", "women", [
+  group("women-shoes", "Femei · Încălțăminte", "women", [
     item("sneakers", "Sneakers"),
     item("boots", "Ghete și cizme"),
     item("heels", "Pantofi cu toc"),
@@ -140,7 +140,7 @@ export const LISTING_CATEGORIES: (CategoryGroup & { department: string })[] = [
     item("underwear", "Lenjerie"),
     item("sleepwear", "Pijamale și haine de casă"),
   ]),
-  group("men-shoes", "Bărbați · Pantofi", "men", [
+  group("men-shoes", "Bărbați · Încălțăminte", "men", [
     item("sneakers", "Sneakers"),
     item("boots", "Ghete și bocanci"),
     item("formal", "Pantofi eleganți"),
@@ -549,13 +549,13 @@ const LEGACY_GROUP_LABELS: Record<string, string> = {
   "women-outerwear": "Femei · Haine",
   "women-dresses": "Femei · Haine",
   "women-knitwear": "Femei · Haine",
-  "women-footwear": "Femei · Pantofi",
+  "women-footwear": "Femei · Încălțăminte",
   "men-tops": "Bărbați · Haine",
   "men-bottoms": "Bărbați · Haine",
   "men-outerwear": "Bărbați · Haine",
   "men-knitwear": "Bărbați · Haine",
   "men-suits": "Bărbați · Haine",
-  "men-footwear": "Bărbați · Pantofi",
+  "men-footwear": "Bărbați · Încălțăminte",
   accessories: "Accesorii",
   bags: "Genți",
   activewear: "Îmbrăcăminte sport",

@@ -846,6 +846,9 @@ function smoothScrollToBrowseSection(ref: React.RefObject<HTMLElement | null>) {
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
+  /** The department and group ids from the URL, already validated server-side. */
+  initialDepartment?: string
+  initialSub?: string
   searchQuery: string
   initialView?: "grid" | "reels"
   /**
@@ -863,6 +866,8 @@ interface ExplorePageClientProps {
 export function ExplorePageClient({
   initialProducts,
   initialCategory,
+  initialDepartment = "",
+  initialSub = "",
   searchQuery: urlSearchQuery,
   initialView = "grid",
   signedIn = false,
@@ -1329,7 +1334,14 @@ export function ExplorePageClient({
     // One batched wishlist fetch for every card on the page instead of one per card
     <WishlistProvider>
     {/* Mobile: Depop/TikTok-style full-screen feed. Desktop keeps the grid below. */}
-    <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} initialView={initialView} signedIn={signedIn} />
+    <MobileFeed
+      initialProducts={initialProducts}
+      searchQuery={urlSearchQuery}
+      initialView={initialView}
+      signedIn={signedIn}
+      urlCategory={initialDepartment}
+      urlSub={initialSub}
+    />
     {/* ═══════════════════════════════════════════════════════════════════════
         ONLY WHEN THERE IS A SEARCH.
         ═══════════════════════════════════════════════════════════════════════
