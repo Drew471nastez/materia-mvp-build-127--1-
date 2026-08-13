@@ -848,6 +848,16 @@ interface ExplorePageClientProps {
   initialCategory: string
   searchQuery: string
   initialView?: "grid" | "reels"
+  /**
+   * Resolved server-side, and passed straight through to the phone feed.
+   *
+   * Two things on that screen are only true for somebody with an account —
+   * the Urmărești and Salvate tabs — and one is only for somebody without —
+   * the marketing hero. The feed cannot work this out for itself without
+   * asking the client for a session, and a screen that renders one shape and
+   * then changes to the other a moment later is worse than either shape.
+   */
+  signedIn?: boolean
 }
 
 export function ExplorePageClient({
@@ -855,6 +865,7 @@ export function ExplorePageClient({
   initialCategory,
   searchQuery: urlSearchQuery,
   initialView = "grid",
+  signedIn = false,
 }: ExplorePageClientProps) {
   const { t } = useLocale()
   const router = useRouter()
@@ -1318,7 +1329,7 @@ export function ExplorePageClient({
     // One batched wishlist fetch for every card on the page instead of one per card
     <WishlistProvider>
     {/* Mobile: Depop/TikTok-style full-screen feed. Desktop keeps the grid below. */}
-    <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} initialView={initialView} />
+    <MobileFeed initialProducts={initialProducts} searchQuery={urlSearchQuery} initialView={initialView} signedIn={signedIn} />
     {/* ═══════════════════════════════════════════════════════════════════════
         ONLY WHEN THERE IS A SEARCH.
         ═══════════════════════════════════════════════════════════════════════

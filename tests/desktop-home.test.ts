@@ -789,10 +789,19 @@ check(
     // boxes that are the same object had three different heights and their
     // icons and titles all started at different places. A grid can equalise the
     // BOXES; only the copy can make them look like a set.
+    //
+    // Equal heights are now asked for twice, because there are two layouts. The
+    // grid does it above sm; below it these are a snapping rail, where the flex
+    // default (`items-stretch`) does the same job — so what is pinned here is
+    // that neither layout lets a tile size itself: `sm:h-full` for the grid,
+    // and no `items-start` / `self-` anywhere to opt one row out of the stretch.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     const titles = [...hero2.matchAll(/title: "([^"]+)", body:/g)].map((m) => m[1])
+    const tiles = hero2.slice(hero2.indexOf("bg-white/75"), hero2.indexOf("bg-white/75") + 260)
     return (
-      /flex h-full flex-col rounded-xl/.test(hero2) &&
+      /sm:h-full/.test(tiles) &&
+      /flex-col rounded-xl/.test(hero2) &&
+      !/items-start/.test(tiles) &&
       titles.length === 6 &&
       titles.every((t) => t.split(" ").length <= 3)
     )
@@ -1343,6 +1352,95 @@ check(
       /document\.head\.appendChild\(bf\)/.test(head)
     )
   })(),
+)
+
+console.log("\nThe phone gets the proposition too, and the chrome an account earns")
+
+check(
+  "a stranger on a phone is told what this place is",
+  (() => {
+    // The hero lived only on the desktop home, which is `hidden md:block`. So
+    // the panel explaining what Storelib is, what it costs to sell and that
+    // paying is protected was shown to nobody arriving on a phone — most first
+    // visits — and the phone feed is a full-screen overlay, so there was not
+    // even a page underneath it carrying the same words.
+    //
+    // Inside the scroller, above the grid: it is a promotion and it has to
+    // scroll away. Not under a search, because a query is somebody who has
+    // already decided what they want.
+    const feed = code("components/explore/mobile-feed.tsx")
+    return (
+      /import \{ SignedOutHero \} from "\.\/home\/signed-out-hero"/.test(feed) &&
+      /\{!signedIn && !searchQuery && \(/.test(feed) &&
+      /<SignedOutHero className="mx-3 mb-0" \/>/.test(feed) &&
+      // On grey. The panel's edge is a hairline ring and a one-pixel contact
+      // shadow, weights chosen against the desktop page's #f5f5f5; this feed is
+      // white, and a near-white gradient panel on white is a card with no
+      // visible edges. The strip also makes the promotion its own zone rather
+      // than the first thing in the grid.
+      /<div className="bg-\[#f5f5f5\] pb-3 pt-3">\s*\n\s*<SignedOutHero/.test(feed) &&
+      // Server-resolved, not fetched here: a screen that renders one shape and
+      // changes to the other a moment later is worse than either shape.
+      /signedIn\?: boolean/.test(feed) &&
+      /signedIn=\{signedIn\}/.test(code("components/explore/explore-page-client.tsx")) &&
+      /signedIn=\{signedIn\}/.test(code("app/(marketing)/_explore-feed.tsx"))
+    )
+  })(),
+  "        components/explore/mobile-feed.tsx",
+)
+
+check(
+  "and the two tabs about an account are not offered to somebody without one",
+  (() => {
+    // Urmărești lists the people you follow and Salvate lists what you saved.
+    // To a visitor with neither they are two words leading to two empty rooms —
+    // a screen telling a first-time visitor what they do not have.
+    //
+    // The ROW goes, not the two tabs in it: dropping just those leaves Pentru
+    // tine alone under an underline, which is not a tab any more but a heading
+    // dressed as a choice. Both copies of the row — the white one over the grid
+    // and the white-on-photo one over the reels — and the rule under it.
+    const feed = code("components/explore/mobile-feed.tsx")
+    return (
+      (feed.match(/\{signedIn && TABS\.map|\{signedIn \? |signedIn && \(\n/g) ?? []).length >= 1 &&
+      /\{signedIn && TABS\.map\(\(\[id, key\]\) => \{/.test(feed) &&
+      /\{signedIn && <div className="shrink-0 mt-1 h-px"/.test(feed) &&
+      // And `tab` is CORRECTED rather than guarded at every read — signing out
+      // with Salvate open otherwise leaves a wishlist with no way back to the
+      // feed, because the control that would switch it has just gone.
+      /if \(!signedIn\) setTab\("for-you"\)/.test(feed)
+    )
+  })(),
+  "        components/explore/mobile-feed.tsx",
+)
+
+check(
+  "the hero is measured for a phone rather than shrunk onto one",
+  (() => {
+    // One column was always right below lg; desktop measurements on it were
+    // not. 24px of side padding on a 375px screen is 13% of the width gone
+    // before the headline starts, and `grid-cols-1` turned the three tiles into
+    // ~300px of supporting detail under a button — on the one screen where the
+    // hero has to stay short enough to leave listings visible.
+    const hero2 = code("components/explore/home/signed-out-hero.tsx")
+    return (
+      /gap-7 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9/.test(hero2) &&
+      // A snapping rail below sm: all three tiles at the height of one, and the
+      // next one peeking at the edge says so without a chevron or a row of dots.
+      /snap-x snap-mandatory/.test(hero2) &&
+      /snap-start/.test(hero2) &&
+      // Bled to the panel's edges with the padding moved inside the scroller,
+      // so the first tile lines up with the headline and the last one can still
+      // scroll fully into view.
+      /-mx-5[\s\S]{0,80}?scroll-px-5 px-5/.test(hero2) &&
+      /sm:mx-0[\s\S]{0,60}?sm:grid sm:grid-cols-3/.test(hero2) &&
+      // The caller owns the outer spacing — the page wants mb-8 on a 1400px
+      // measure, the feed wants its own gutters, and a baked-in margin means one
+      // of them is undoing it.
+      /export function SignedOutHero\(\{ className \}/.test(hero2)
+    )
+  })(),
+  "        components/explore/home/signed-out-hero.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

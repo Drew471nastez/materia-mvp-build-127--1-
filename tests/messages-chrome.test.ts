@@ -1450,6 +1450,128 @@ check(
   "        components/sell/new-listing-form.tsx, app/globals.css",
 )
 
+console.log("\nThe chrome a phone browser gets")
+
+check(
+  "the departments are pictures of what is in them",
+  (() => {
+    // Sparkles / ShoppingBag / Gift / Music / Lightbulb against Femei, Bărbați,
+    // Copii, Divertisment and Hobbyuri — a wand, a carrier bag, a present, a
+    // quaver and a bulb. Four of those five are what a template reaches for
+    // when nobody has decided what the row means: a sparkle stands for
+    // "special", a gift for "nice", a bulb for "idea". None of them is a thing
+    // anybody can buy here, so the menu was five words with five decorations
+    // beside them and the decorations were being skipped.
+    //
+    // What is pinned is the ABSENCE of those five, not the presence of the
+    // particular replacements — a better record than Disc3 is a change this
+    // guard should not have an opinion about, while reaching back for Sparkles
+    // is the mistake it exists to catch.
+    const hdr = code("components/platform/platform-header-client.tsx")
+    const map = hdr.slice(hdr.indexOf("const DEPARTMENT_ICONS"), hdr.indexOf("const LOGO_URL"))
+    return (
+      /women: Dress/.test(map) &&
+      /men: Shirt/.test(map) &&
+      !/Sparkles|ShoppingBag|Gift|Lightbulb/.test(map) &&
+      // lucide ships exactly one garment, so the other apparel department had
+      // to be drawn — to lucide's own spec, because half a set in one drawing
+      // language and half in another is worse than any single icon in it.
+      /viewBox="0 0 24 24"/.test(code("components/marketplace/department-icons.tsx")) &&
+      /stroke="currentColor"/.test(code("components/marketplace/department-icons.tsx")) &&
+      // And the lists were retyped, because `typeof LayoutGrid` is lucide's own
+      // forwardRef type: a type that says "an icon" and means "an icon from
+      // that one package".
+      /type DeptIcon = React\.ComponentType/.test(hdr) &&
+      !/icon: typeof LayoutGrid/.test(hdr)
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "the phone's Sign up button is a button rather than a line of text",
+  (() => {
+    // PILL_FILLED sets the colour, the radius and the press. It does not set a
+    // size — the drawer uses it at h-12 — and nothing set one here, so this was
+    // as tall as 13.5px of text and nothing else: about 20px, in a row of 44px
+    // icon buttons, and under Apple's 44px target on its short axis.
+    const hdr = code("components/marketing/mobile-web-header.tsx")
+    return /className=\{`ml-1 h-9 px-4 text-\[14px\] \$\{PILL_FILLED\}`\}/.test(hdr)
+  })(),
+  "        components/marketing/mobile-web-header.tsx",
+)
+
+check(
+  "the app is offered from inside the header, not above it",
+  (() => {
+    // The feed is `position: fixed` under `--web-header-h`, and that number is
+    // measured off the header's own root. A band rendered ABOVE the header is a
+    // band the feed knows nothing about, so the top of the marketplace would sit
+    // underneath it. As a CHILD it is inside the box the ResizeObserver already
+    // watches: it appears, the height republishes on the same frame, everything
+    // below moves down, and none of that needed coordinating.
+    const hdr = read("components/marketing/mobile-web-header.tsx")
+    const banner = code("components/marketing/install-app-banner.tsx")
+    const headerStart = hdr.indexOf("<header")
+    return (
+      hdr.indexOf("<InstallAppBanner />") > headerStart &&
+      /const observer = new ResizeObserver\(publishHeaderHeight\)/.test(hdr) &&
+      // iOS only, because the App Store is the only store link this app has and
+      // sending an Android user there is a button that lands them somewhere
+      // they cannot install from. A map, not a string, so a Play Store URL is
+      // one line when there is one.
+      /const STORE_URL: Record<"ios", string>/.test(banner) &&
+      /apps\.apple\.com\/us\/app\/storelib\/id6760252232/.test(banner) &&
+      /iPad\|iPhone\|iPod/.test(banner) &&
+      // Never inside the app, and never to somebody who installed it to their
+      // home screen — "install the app" inside the app is the worst thing this
+      // could do.
+      /StorelibApp\|Capacitor/.test(banner) &&
+      /display-mode: standalone/.test(banner) &&
+      // Dismissal survives a reload, under a versioned key so a future campaign
+      // re-offers it by bumping the version rather than by ignoring a no.
+      /const DISMISS_KEY = "storelib_install_banner_v1"/.test(banner) &&
+      /localStorage\.setItem\(DISMISS_KEY/.test(banner) &&
+      // And nothing is drawn until the answer is known: an optimistic band that
+      // vanishes is a layout shift on every load for everybody who said no.
+      /if \(!ready \|\| !show\) return null/.test(banner)
+    )
+  })(),
+  "        components/marketing/install-app-banner.tsx, components/marketing/mobile-web-header.tsx",
+)
+
+check(
+  "and closing search takes the keyboard with it instead of after it",
+  (() => {
+    // The fade was never the problem — 300ms of opacity and 8px of travel is one
+    // composited property and a transform. What made Închide look broken was
+    // everything else moving during it:
+    //
+    //   Nothing blurred the field, so iOS dismissed the keyboard only when the
+    //   input was torn down at 360ms — after the panel had gone. The sheet faded
+    //   out over a keyboard still up, then the keyboard slid away over the feed
+    //   underneath: two animations for one gesture.
+    //
+    //   And this padding tracks the keyboard's height, so a dismissing keyboard
+    //   walked it from ~300px to 0 across half a dozen visualViewport events —
+    //   every one a reflow of the results list, on the frames where it is still
+    //   half visible.
+    const ov = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      // Frozen for the close: `open`, not `mounted`, and the difference between
+      // them is exactly the third of a second this must hold still for.
+      /if \(!mounted \|\| !open\) return\s*\n\s*const vv = window\.visualViewport/.test(ov) &&
+      /\}, \[mounted, open\]\)/.test(ov) &&
+      // The keyboard goes on the frame the panel starts leaving.
+      /if \(open \|\| !mounted\) return\s*\n\s*inputRef\.current\?\.blur\(\)/.test(ov) &&
+      // activeElement as well as the ref, because focus may have moved to a
+      // result row on the way out and blurring the field would then do nothing.
+      /el instanceof HTMLElement && \(el\.tagName === "INPUT" \|\| el\.tagName === "TEXTAREA"\)/.test(ov)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failed:")

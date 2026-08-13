@@ -449,8 +449,35 @@ export function MobileSearchOverlay({
   // list by the keyboard height, so the last items always scroll clear of the
   // keyboard while the container itself never resizes.
   const [kbHeight, setKbHeight] = useState(0)
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE CLOSE, AND THE TWO THINGS THAT WERE HAPPENING DURING IT
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * The fade itself was never the problem — 300ms of opacity and 8px of travel
+   * is one composited property and a transform. What made pressing Închide
+   * look broken was everything ELSE that moved while it played.
+   *
+   *   THE KEYBOARD LEFT ON ITS OWN SCHEDULE. Nothing blurred the field, so iOS
+   *   dismissed the keyboard only when the input was torn down at 360ms —
+   *   after the panel had gone. So the sheet faded out over a keyboard that
+   *   was still up, and then the keyboard slid away over the feed underneath,
+   *   which reads as two separate animations for one gesture. Blurring at the
+   *   start of the close puts them on the same frame.
+   *
+   *   AND THE LIST RESIZED WHILE IT FADED. This padding tracks the keyboard's
+   *   height, so a dismissing keyboard walks it from ~300px to 0 in half a
+   *   dozen visualViewport events — every one of them a reflow of the results
+   *   list, mid-fade, on the frames where it is still half visible. That is
+   *   the content jumping under a panel that is supposedly leaving.
+   *
+   * `open`, not `mounted`: the difference between the two is exactly the third
+   * of a second this is meant to hold still for. The last value stays on the
+   * node, so the list keeps the shape it had when you pressed the button and
+   * fades out in it.
+   */
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !open) return
     const vv = window.visualViewport
     if (!vv) return
     const update = () => {
@@ -464,7 +491,18 @@ export function MobileSearchOverlay({
       vv.removeEventListener("resize", update)
       vv.removeEventListener("scroll", update)
     }
-  }, [mounted])
+  }, [mounted, open])
+
+  // The keyboard goes on the frame the panel starts leaving, not on the frame
+  // the input is unmounted. `activeElement` rather than the ref alone, because
+  // the focus may have moved to a result row on the way out and blurring the
+  // field would then do nothing at all.
+  useEffect(() => {
+    if (open || !mounted) return
+    inputRef.current?.blur()
+    const el = document.activeElement
+    if (el instanceof HTMLElement && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) el.blur()
+  }, [open, mounted])
 
   // Focus the field (and seed / reset state) each time it opens.
   useEffect(() => {

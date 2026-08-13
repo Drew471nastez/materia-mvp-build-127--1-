@@ -27,17 +27,49 @@ import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/au
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
+import { Heart, Library, Search, MessageCircle, Plus, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Shirt, Baby, Disc3, Dices } from "lucide-react"
+import { Dress } from "@/components/marketplace/department-icons"
 import { useLocale } from "@/components/locale-provider"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
-/** One glyph per department, so the Browse menu is not five identical rows. */
-const DEPARTMENT_ICONS: Record<string, typeof LayoutGrid> = {
-  women: Sparkles,
-  men: ShoppingBag,
-  kids: Gift,
-  entertainment: Music,
-  hobby: Lightbulb,
+/**
+ * Anything that draws like one of these: a lucide glyph, or one of ours. The
+ * lists below used `typeof LayoutGrid`, which is lucide's own forwardRef type
+ * and therefore excludes any icon this codebase draws for itself — a type that
+ * says "an icon" but means "an icon from that one package".
+ */
+type DeptIcon = React.ComponentType<{ className?: string; strokeWidth?: number }>
+
+/**
+ * ONE GLYPH PER DEPARTMENT, AND EACH ONE A PICTURE OF WHAT IS IN IT.
+ *
+ * It was Sparkles / ShoppingBag / Gift / Music / Lightbulb against Femei,
+ * Bărbați, Copii, Divertisment and Hobbyuri — a wand, a carrier bag, a
+ * present, a quaver and a bulb. Four of those five are what a template reaches
+ * for when nobody has decided what the row means: a sparkle stands for
+ * "special", a gift for "nice", a bulb for "idea". None of them is a thing
+ * anybody can buy here, so the menu was five words with five decorations
+ * beside them and the decorations were being skipped.
+ *
+ * These are the departments' own contents instead. `Shirt` and `Dress` are the
+ * garments that separate the two apparel departments — the only pair here that
+ * needs separating, since both sell Haine and Pantofi and the picture is doing
+ * the work the label already does twice. `Baby` for a department that is
+ * mostly cărucioare, îmbăiere, alăptare and dormit. `Disc3` for Cărți /
+ * Reviste / Muzică / Video, because a record is the one object that reads as
+ * "media somebody already owned". `Dices` for a department of trading cards,
+ * board games, puzzles and miniatures.
+ *
+ * `Dress` is drawn rather than imported because lucide ships exactly one
+ * garment — see components/marketplace/department-icons.tsx for why it is
+ * drawn to lucide's spec rather than to its own.
+ */
+const DEPARTMENT_ICONS: Record<string, DeptIcon> = {
+  women: Dress,
+  men: Shirt,
+  kids: Baby,
+  entertainment: Disc3,
+  hobby: Dices,
 }
 
 const LOGO_URL =
@@ -67,7 +99,7 @@ const LOGO_URL =
  */
 
 /** The bar under the header: "Toate" and the five departments. */
-const DEFAULT_CATEGORIES: Array<{ id: string; label: string; icon: typeof LayoutGrid }> = [
+const DEFAULT_CATEGORIES: Array<{ id: string; label: string; icon: DeptIcon }> = [
   { id: "all", label: "Toate", icon: LayoutGrid },
   ...DEPARTMENTS.map((d) => ({ id: d.id, label: d.label, icon: LayoutGrid })),
 ]
@@ -89,7 +121,7 @@ const CATEGORIES_WITH_SUBS: Array<{
   id: string
   label: string
   href: string
-  icon: typeof LayoutGrid
+  icon: DeptIcon
   subcategories: Array<{ label: string; href: string }>
 }> = DEPARTMENTS.map((d) => ({
   id: d.id,

@@ -7,6 +7,7 @@ import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, Ch
 import { useLocale } from "@/components/locale-provider"
 import { CategoryPillRail, SearchTrigger } from "@/components/marketplace/search-row"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
+import { SignedOutHero } from "./home/signed-out-hero"
 import { WishlistToast } from "./wishlist-toast"
 import { ReelsPager } from "./reels-pager"
 import { ProductCard } from "./product-card"
@@ -96,11 +97,29 @@ export function MobileFeed({
   initialProducts,
   searchQuery = "",
   initialView = "grid",
+  signedIn = false,
 }: {
   initialProducts: any[]
   searchQuery?: string
   /** Resolved server-side from the cookie so the right view renders with no flash. */
   initialView?: "grid" | "reels"
+  /**
+   * Resolved server-side, because both things it decides are visible on the
+   * first painted frame and neither may change afterwards.
+   *
+   * TWO OF THE THREE TABS ARE ABOUT AN ACCOUNT. Urmărești lists the people you
+   * follow and Salvate lists what you saved, and to a visitor with neither
+   * those are two words that lead to two empty rooms — a screen advertising
+   * that you have nothing, on a marketplace you have never used. The whole row
+   * goes when there is nobody to have followed anybody: one tab with an
+   * underline under it is not a tab, it is a heading pretending to be a
+   * choice.
+   *
+   * AND THE HERO IS THE OTHER WAY ROUND. It is the proposition — what this
+   * place is, for somebody who has never been — which is exactly the thing
+   * somebody with an account does not need told to them on every visit.
+   */
+  signedIn?: boolean
 }) {
   const { t } = useLocale()
   const router = useRouter()
@@ -512,6 +531,24 @@ export function MobileFeed({
     },
     [],
   )
+
+  /**
+   * A GUEST IS ALWAYS ON FOR YOU, whatever put them somewhere else.
+   *
+   * The row that switches these is not drawn when there is no account, so
+   * nothing on screen can move off For You — but `tab` is state, and state
+   * outlives the reason it was set. Somebody signed in on Salvate who signs
+   * out, or a session that expires while the screen is open, leaves this
+   * component holding a tab whose control has just disappeared: a wishlist
+   * with no way back to the feed and no visible explanation.
+   *
+   * Written as a correction rather than as a condition at every read, because
+   * `tab` is read in five places and four of them would have gone on being
+   * right by accident.
+   */
+  useEffect(() => {
+    if (!signedIn) setTab("for-you")
+  }, [signedIn])
 
   // Own the native safe-area (status-bar) strip while the feed is up, in the
   // feed's own colour — white as a grid, black behind a full-bleed reel.
@@ -1052,8 +1089,12 @@ export function MobileFeed({
                 <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.5} />
                 <LayoutGrid className="h-[16px] w-[16px]" />
               </button>
+              {/* The same row over the reels, and signed-in only for the same
+                  reason — it is the same three tabs, drawn white on the photo
+                  instead of black on white. `flex-1` either way so the search
+                  button stays at the right-hand edge with the row empty. */}
               <div className="flex flex-1 items-stretch">
-                {TABS.map(([id, key]) => {
+                {signedIn && TABS.map(([id, key]) => {
                   const active = tab === id
                   return (
                     <button
@@ -1199,7 +1240,20 @@ export function MobileFeed({
         </div>
       </div>
 
-      {/* ---- Tabs (full-width buttons; slim underline hugs the word) ---- */}
+      {/* ---- Tabs (full-width buttons; slim underline hugs the word) ----
+
+           SIGNED IN ONLY, and the row goes rather than the two tabs in it.
+           Urmărești is the people you follow and Salvate is what you saved;
+           to somebody with no account they are two words leading to two empty
+           rooms — a screen telling a first-time visitor what they do not have,
+           on a marketplace they have never used. Dropping just those two
+           leaves Pentru tine alone with an underline under it, which is not a
+           tab any more: it is a heading dressed as a choice. The divider below
+           goes with it, because a rule under nothing is a rule under nothing.
+
+           `tab` cannot be anything but "for-you" here — see the effect that
+           holds it there — so the grid underneath needs no second condition. */}
+      {signedIn && (
       <div className="shrink-0 flex items-stretch px-3 pt-3.5">
         {TABS.map(([id, key]) => {
           const active = tab === id
@@ -1219,9 +1273,10 @@ export function MobileFeed({
           )
         })}
       </div>
+      )}
 
       {/* Subtle divider sits BETWEEN the tabs and the category pills. */}
-      <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />
+      {signedIn && <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />}
 
       {/* ---- Feed area: 2-col grid, with the category bar as a transform
              overlay (sticky-on-scroll-up) ---- */}
@@ -1296,6 +1351,46 @@ export function MobileFeed({
             {/* Spacer that reserves the category-bar overlay's height so the
                 grid starts below it (the overlay is absolutely positioned). */}
             <div aria-hidden className="shrink-0" style={{ height: catBarH }} />
+
+            {/* ═══════════════════════════════════════════════════════════════
+                WHAT THIS PLACE IS, ON THE SCREEN MOST PEOPLE MEET IT ON
+                ═══════════════════════════════════════════════════════════
+
+                The proposition existed only on the desktop home page, which is
+                `hidden md:block` — so the panel explaining what Storelib is,
+                what it costs to sell and that paying is protected was shown to
+                nobody arriving on a phone. That is most first visits, and this
+                feed is a full-screen overlay, so there was not even a page
+                underneath it carrying the same words.
+
+                INSIDE THE SCROLLER, above the grid, rather than pinned above
+                it: it is a promotion and it has to scroll away. Somebody who
+                came back for the listings gets one flick of hero and then the
+                marketplace, which is the same bargain the desktop page makes.
+
+                NOT UNDER A SEARCH. A query is somebody who has already decided
+                what they want; answering it with a panel about what the site
+                is, above their results, is the page not listening. And not on
+                the reels screen at all — that is a full-bleed photograph, and
+                this is a white card.
+
+                `mb-4 mx-3` replaces the desktop `mb-8` through tailwind-merge
+                — the gutters here are the feed's, not the page's.
+
+                AND IT SITS ON GREY. The panel's edge is a hairline ring and a
+                one-pixel contact shadow, weights chosen against the desktop
+                page's #f5f5f5; this feed is white, and a near-white gradient
+                panel on white is a card you cannot see the edges of. The strip
+                gives it back the ground it was drawn for, and it does a second
+                job while it is there: it makes the promotion its own zone
+                rather than the first thing in the grid, so the white below it
+                starts where the marketplace starts. */}
+            {!signedIn && !searchQuery && (
+              <div className="bg-[#f5f5f5] pb-3 pt-3">
+                <SignedOutHero className="mx-3 mb-0" />
+              </div>
+            )}
+
             {/* No wrapper key on `tab` → returning to For You does NOT re-fade the
                 listings. The For You grid fades only when the CATEGORY changes. */}
             {tab === "following" ? (
