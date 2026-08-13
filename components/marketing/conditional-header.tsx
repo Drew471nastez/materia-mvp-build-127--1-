@@ -33,6 +33,10 @@ function isKnownPlatformPath(p: string): boolean {
     p.startsWith("/c/") ||
     p.startsWith("/w/") ||
     p.startsWith("/explore") ||
+    // The results page. Without this the header is not drawn on it at all —
+    // and the results page is reached FROM the header's own category menu and
+    // its own search field, so arriving there would take both of them away.
+    p.startsWith("/shop") ||
     p.startsWith("/features") ||
     p.startsWith("/creators") ||
     p.startsWith("/wishlist") ||

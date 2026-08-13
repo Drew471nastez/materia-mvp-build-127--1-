@@ -201,3 +201,87 @@ export function sortFeed(products: any[], sort: FeedSort): any[] {
       )
   }
 }
+
+/**
+ * ===========================================================================
+ *  THE FILTERS AS A QUERY STRING
+ * ===========================================================================
+ *
+ * The results page is a PAGE, so its state has to survive a reload, a share and
+ * the back button. Holding it in React state alone means a shopper who has
+ * picked three brands, a size and a price band cannot send that to anybody and
+ * loses all of it by tapping a listing and coming back.
+ *
+ * Lists are comma-joined rather than repeated keys: `?brand=Nike,Adidas` is
+ * shorter than `?brand=Nike&brand=Adidas`, and `URLSearchParams` round-trips
+ * either — but only one of them is readable in an address bar, and this is a URL
+ * people are meant to send each other.
+ *
+ * A brand containing a comma would split wrongly. That is accepted rather than
+ * escaped: brands are free text a seller typed, the option list is derived from
+ * what they typed, and a comma in one costs that one filter rather than the
+ * page. Escaping would make every URL in the product unreadable to fix a case
+ * that has not happened.
+ */
+const LIST_KEYS = ["brand", "size", "colour", "condition"] as const
+
+export function filtersFromParams(params: URLSearchParams, validGroups: string[]): FeedFilters {
+  const list = (k: string) =>
+    (params.get(k) || "")
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean)
+  const num = (k: string) => {
+    const n = Number(params.get(k))
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+  const group = params.get("group")
+  return {
+    // Validated against the department in play, so a hand-typed group from
+    // another department cannot silently empty the page.
+    group: group && validGroups.includes(group) ? group : null,
+    brands: list("brand"),
+    sizes: list("size"),
+    colours: list("colour"),
+    conditions: list("condition"),
+    minPrice: num("min"),
+    maxPrice: num("max"),
+    onSale: params.get("sale") === "1",
+  }
+}
+
+/** Only what is set. An empty key in a shared URL is noise that survives copy
+ *  and paste forever. */
+export function paramsFromFilters(f: FeedFilters, extra?: { sort?: FeedSort; page?: number; q?: string }): URLSearchParams {
+  const p = new URLSearchParams()
+  if (extra?.q) p.set("q", extra.q)
+  if (f.group) p.set("group", f.group)
+  const lists: Record<(typeof LIST_KEYS)[number], string[]> = {
+    brand: f.brands,
+    size: f.sizes,
+    colour: f.colours,
+    condition: f.conditions,
+  }
+  for (const k of LIST_KEYS) if (lists[k].length > 0) p.set(k, lists[k].join(","))
+  if (f.minPrice != null) p.set("min", String(f.minPrice))
+  if (f.maxPrice != null) p.set("max", String(f.maxPrice))
+  if (f.onSale) p.set("sale", "1")
+  if (extra?.sort && extra.sort !== "new") p.set("sort", extra.sort)
+  if (extra?.page && extra.page > 1) p.set("page", String(extra.page))
+  return p
+}
+
+export function sortFromParam(v: string | null): FeedSort {
+  return SORTS.some((s) => s.id === v) ? (v as FeedSort) : "new"
+}
+
+/**
+ * FIVE ACROSS AND EIGHTEEN DEEP.
+ *
+ * Ninety is a deliberate number rather than a round one: the grid is five wide
+ * at its widest, so a page size that is not a multiple of five ends on a ragged
+ * row, and a ragged last row on every page reads as the data running out rather
+ * than as the page ending. Eighteen rows is about six screens on a laptop —
+ * enough that paginating is rare, few enough that the last row is reachable.
+ */
+export const PAGE_SIZE = 90

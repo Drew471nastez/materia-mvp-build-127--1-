@@ -658,7 +658,11 @@ export function MobileSearchOverlay({
       onClose() // begin the smooth close blend
       // Navigate once the blend is under way, so results reveal behind the fade
       // instead of snapping in the instant you tap.
-      window.setTimeout(() => router.push(`/?q=${encodeURIComponent(v)}`), 170)
+      // `/shop`, not `/?q=`. A query is a RESULT — it wants a title, a total, a
+      // filter bar and a page number, and the home feed has none of those. Same
+      // destination as the desktop field's Enter, so one search box is not a
+      // different feature from the other.
+      window.setTimeout(() => router.push(`/shop?q=${encodeURIComponent(v)}`), 170)
     },
     [addSearch, onSearchSubmit, onClose, router],
   )

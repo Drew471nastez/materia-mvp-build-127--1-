@@ -1537,6 +1537,20 @@ export function PlatformHeaderClient() {
               onClick={() => setSearchModalOpen(true)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setSearchModalOpen(false)
+                // ENTER SEARCHES, which it did not do at all.
+                //
+                // The field opened a suggestions panel and nothing else, so the
+                // only way to run a query was to pick one of ITS answers —
+                // anything the panel had no suggestion for could be typed in
+                // full, pressed Enter on, and simply sat there. On a desktop
+                // Enter in a search box is not a convenience, it is the control.
+                if (e.key === "Enter") {
+                  const v = query.trim()
+                  if (!v) return
+                  e.preventDefault()
+                  setSearchModalOpen(false)
+                  router.push(`/shop?q=${encodeURIComponent(v)}`)
+                }
               }}
               /**
                * NO NATIVE PLACEHOLDER — the animated one below stands in for it.

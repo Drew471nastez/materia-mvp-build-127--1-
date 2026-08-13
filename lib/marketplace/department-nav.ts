@@ -83,19 +83,20 @@ export type DepartmentNavItem = {
  * submenu under a heading that already says Femei reads "Haine" rather than
  * "Femei · Haine".
  *
- * `?sub=` is a GROUP id, which is what a listing's `category` column actually
- * holds. That is what makes these links resolve to listings rather than to an
- * empty feed — see the validation in app/(marketing)/_explore-feed.tsx.
+ * THEY POINT AT `/shop`, which is a page rather than the home page wearing a
+ * filter: a trail, a title, a count, a filter bar and a page number. See
+ * app/(marketing)/shop/[[...path]]/page.tsx, and `categoryPath` below for why a
+ * path rather than a query string.
  */
 export const DEPARTMENT_NAV: DepartmentNavItem[] = DEPARTMENTS.map((d) => ({
   id: d.id,
   label: d.label,
-  href: `/?category=${d.id}`,
+  href: `/shop/${d.id}`,
   icon: DEPARTMENT_ICONS[d.id] ?? LayoutGrid,
   subcategories: groupsForDepartment(d.id).map((g) => ({
     id: g.id,
     label: categoryShortLabel(g),
-    href: `/?category=${d.id}&sub=${g.id}`,
+    href: `/shop/${d.id}/${groupSlug(g.id)}`,
   })),
 }))
 
@@ -129,4 +130,65 @@ export const DEPARTMENT_RAIL: { id: string; label: string; icon: DeptIcon }[] = 
 export function listingInDepartment(category: string | null | undefined, departmentId: string): boolean {
   if (departmentId === "all") return true
   return departmentForGroup(category) === departmentId
+}
+
+/**
+ * ===========================================================================
+ *  THE URLS THE RESULTS PAGE LIVES AT
+ * ===========================================================================
+ *
+ * `/shop/women/shoes` rather than `/?category=women&sub=women-shoes`.
+ *
+ * `/shop` rather than the shorter `/c`, because `/c/[slug]` is already a
+ * creator shortlink that redirects to `/u/<username>` — and in the App Router a
+ * `[slug]` segment beats a `[[...path]]` one at the same level, so every
+ * department would have been looked up as a seller and 404ed. A prefix that is
+ * already somebody else's is not a prefix.
+ *
+ * A query string is right for a state the page can be in; a PATH is right for
+ * a place. Femei · Încălțăminte is a place: it has a title, a trail, its own
+ * results and its own page number, it is worth linking to, and search engines
+ * should be able to tell it apart from the home page carrying a filter. The
+ * query string stays for what genuinely is state — the brand, the size, the
+ * sort, the page.
+ *
+ * THE SLUG IS THE GROUP ID WITH ITS PREFIX REMOVED, and the prefix is taken off
+ * by position rather than by name. Group ids are `women-shoes`, `men-grooming`,
+ * `ent-books` — and that last one is why: the prefix of a group in the
+ * `entertainment` department is `ent`, so stripping "the department id and a
+ * dash" would silently leave `ent-books` alone and produce
+ * `/c/entertainment/ent-books` for four of the thirty-seven. Everything before
+ * the FIRST dash is the prefix, whatever it happens to be.
+ *
+ * The slugs are unique within their department — checked across all five — so a
+ * path resolves to exactly one group or to nothing at all.
+ */
+export function groupSlug(groupId: string): string {
+  const dash = groupId.indexOf("-")
+  return dash === -1 ? groupId : groupId.slice(dash + 1)
+}
+
+export function categoryPath(departmentId?: string | null, groupId?: string | null): string {
+  if (!departmentId) return "/shop"
+  if (!groupId) return `/shop/${departmentId}`
+  return `/shop/${departmentId}/${groupSlug(groupId)}`
+}
+
+/**
+ * A path back into ids, validated rather than trusted.
+ *
+ * Anything unrecognised resolves to nulls instead of throwing, so a hand-typed
+ * or stale URL lands on the unfiltered results page rather than on a 404 — a
+ * marketplace whose old links 404 loses the visitor, while one that widens the
+ * filter keeps them.
+ */
+export function resolveCategoryPath(segments: string[] | undefined): {
+  department: string | null
+  group: string | null
+} {
+  const [rawDept, rawGroup] = (segments ?? []).map((s) => (s || "").toLowerCase())
+  const department = DEPARTMENTS.some((d) => d.id === rawDept) ? rawDept : null
+  if (!department || !rawGroup) return { department, group: null }
+  const group = groupsForDepartment(department).find((g) => groupSlug(g.id) === rawGroup)
+  return { department, group: group?.id ?? null }
 }

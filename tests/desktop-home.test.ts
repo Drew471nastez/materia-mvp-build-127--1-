@@ -1701,6 +1701,75 @@ check(
   "        components/explore/home/shop-by-category.tsx",
 )
 
+console.log("\nA narrowed catalogue is a page, not the feed wearing a filter")
+
+check(
+  "the results page has a URL worth sending, and a count that comes from the database",
+  (() => {
+    // The home feed answers "what is new": an endless column with no count, no
+    // page number and nothing that survives being sent to anybody. Somebody who
+    // has narrowed to women's shoes under 200 lei in size 38 is looking at a
+    // RESULT, which needs a title, a total, a way back up, and a URL that still
+    // means the same thing tomorrow.
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    const ui = code("components/explore/category-results.tsx")
+    const nav = code("lib/marketplace/department-nav.ts")
+    return (
+      // A PATH for the place and a QUERY STRING for the state. Femei ·
+      // Încălțăminte has a title, a trail and its own results; the brand, the
+      // size and the page are things that page can be in.
+      /export function categoryPath/.test(nav) &&
+      /return `\/shop\/\$\{departmentId\}\/\$\{groupSlug\(groupId\)\}`/.test(nav) &&
+      // The slug strips everything before the FIRST dash, not "the department id
+      // and a dash" — the groups in `entertainment` are prefixed `ent-`, so the
+      // by-name version would have left four of the thirty-seven alone.
+      /const dash = groupId\.indexOf\("-"\)/.test(nav) &&
+      // Unrecognised paths widen rather than 404: a marketplace whose old links
+      // 404 loses the visitor, one that widens the filter keeps them.
+      /export function resolveCategoryPath/.test(nav) &&
+      // The count is SQL, not the length of what happened to be fetched, and the
+      // page is a range rather than a slice of something already downloaded.
+      /count: "exact"/.test(page) &&
+      /\.range\(from, from \+ PAGE_SIZE - 1\)/.test(page) &&
+      // Five across at its widest, and a page size that is a multiple of it — a
+      // ragged last row on every page reads as the data running out.
+      /xl:grid-cols-5/.test(ui) &&
+      /export const PAGE_SIZE = 90/.test(code("lib/marketplace/feed-filters.ts")) &&
+      // Every control writes the URL and nothing else, so the back button, a
+      // reload and a shared link all behave the way somebody expects.
+      /router\.push\(qs \? `\$\{path\}\?\$\{qs\}` : path/.test(ui) &&
+      // And a filter change goes back to page 1: keeping page 7 while narrowing
+      // is how somebody lands on an empty screen that has results.
+      /Only the pager itself keeps the page/.test(read("components/explore/category-results.tsx"))
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx, components/explore/category-results.tsx",
+)
+
+check(
+  "and Enter in the search field runs the search",
+  (() => {
+    // The desktop field opened a suggestions panel and nothing else, so the only
+    // way to run a query was to pick one of ITS answers — anything it had no
+    // suggestion for could be typed in full, pressed Enter on, and simply sat
+    // there. On a desktop, Enter in a search box is not a convenience, it is the
+    // control.
+    const hdr = code("components/platform/platform-header-client.tsx")
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /if \(e\.key === "Enter"\)/.test(hdr) &&
+      /router\.push\(`\/shop\?q=\$\{encodeURIComponent\(v\)\}`\)/.test(hdr) &&
+      // Same destination from the phone, so one search box is not a different
+      // feature from the other.
+      /`\/shop\?q=\$\{encodeURIComponent\(v\)\}`/.test(overlay) &&
+      // And the header is drawn there at all — the page is reached FROM the
+      // header's own menu and its own field.
+      /p\.startsWith\("\/shop"\)/.test(code("components/marketing/conditional-header.tsx"))
+    )
+  })(),
+  "        components/platform/platform-header-client.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))
