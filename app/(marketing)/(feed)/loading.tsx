@@ -33,9 +33,17 @@ import { SlidersHorizontal, GalleryVerticalEnd, Search } from "lucide-react"
 export default function FeedLoading() {
   return (
     <>
-      {/* `mobile-feed-shell` is what makes this an overlay in the app and a
-          plain block under the site header on mobile web — the same class the
-          real feed uses, so the two occupy the same box in both.
+      {/* THE APP'S SHELL. `feed-shell-app` is `display: none` outside the
+          native shell — see app/globals.css. This is an exact tracing of
+          components/explore/mobile-feed.tsx, which is what a placeholder in the
+          app has to be: it is the answer to TAPPING A TAB, it is on screen for
+          the length of the wait, and anything in it that is not the shape of
+          the screen arriving is a jump at the swap. It is also undelayed for
+          the same reason — 400ms of nothing after a tap is the report this was
+          built to fix.
+
+          `mobile-feed-shell` is what makes this an overlay in the app — the
+          same class the real feed uses, so the two occupy the same box.
 
           The height comes from that class too, and it used to be inline here.
           An inline declaration outranks the stylesheet, so on a phone browser
@@ -43,7 +51,7 @@ export default function FeedLoading() {
           matching `height: calc(100dvh - var(--web-header-h))` — a full viewport
           starting below the header and therefore hanging off the bottom of the
           screen by the header's height. See app/globals.css. */}
-      <div className="mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white">
+      <div className="feed-shell-app mobile-feed-shell md:hidden fixed inset-0 z-[60] flex flex-col bg-white">
         {/* Search + filter + view switcher. Drawn rather than skeletonised: the
             row is three constants, and three grey pills where three controls
             are about to be is more of a change than the controls themselves. */}
@@ -136,6 +144,43 @@ export default function FeedLoading() {
           className="shrink-0"
           style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }}
         />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          THE PHONE BROWSER'S SHELL: LATE, PLAIN, AND NOT THE APP'S
+          ═══════════════════════════════════════════════════════════════════
+
+          The shell above was the only mobile placeholder, and on the web it was
+          drawing a screen that does not arrive: the header already carries the
+          search, so that row appeared and was removed; a signed-out visitor
+          gets the home page, so the tabs and the category rail belong to
+          something that is not coming; and what does arrive is a hero and a set
+          of shelves rather than a grid. A placeholder has exactly one job —
+          hold the space its content will take — and that one held the wrong
+          space and then handed over to a different page, which is a jump with a
+          rehearsal in front of it.
+
+          LATE, so most loads never show it. `.feed-shell-late` holds it at
+          opacity 0 for 400ms and then fades in: a page that resolves in 150ms
+          — most of them — draws nothing at all, and a skeleton that flashes for
+          two frames is not reassurance, it is a flicker. The app's shell keeps
+          its immediacy because a tap has to answer instantly; a browser
+          navigation already has a header on screen and does not.
+
+          PLAIN, because by the time anybody sees this they are waiting, and
+          what a person waiting needs is a calm signal that the page is coming
+          rather than an intricate forgery of it. Three shapes: the hero's
+          block, a heading, and the first four cards. Not a scroller and not an
+          overlay — a block under the header, which is where the page it stands
+          in for begins. */}
+      <div className="feed-shell-web feed-shell-late px-4 pb-8 pt-4 md:hidden">
+        <div className="h-[210px] w-full rounded-2xl bg-neutral-200/50" />
+        <div className="mt-8 h-5 w-40 rounded bg-neutral-200/50" />
+        <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-5">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="aspect-[3/4] w-full rounded-xl bg-neutral-200/50" />
+          ))}
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════

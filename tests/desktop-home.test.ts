@@ -695,6 +695,44 @@ check(
 )
 
 check(
+  "the phone browser gets its own shell, and it is late and plain",
+  (() => {
+    // There was ONE mobile placeholder, and it is an exact tracing of the feed
+    // inside the app: a search row, three tabs, a hairline, a rail of category
+    // pills and a two-column grid. That is right for the app — a loading.tsx
+    // there answers a TAB PRESS, it is on screen for the whole wait, and
+    // anything in it that is not the shape of the arriving screen is a jump.
+    //
+    // On a phone browser none of it is true. The header already carries the
+    // search, so that row appeared and was removed; a signed-out visitor gets
+    // the home page, so the tabs and the rail belong to a screen that is not
+    // coming; and what arrives is a hero and a set of shelves, not a grid. A
+    // placeholder has one job — hold the space its content will take — and that
+    // one held the wrong space and then handed over to a different page.
+    //
+    // Two shells, and the class on <html> picks one: the same signal, set
+    // before the first paint, that already chooses between the two headers.
+    const css = read("app/globals.css")
+    const web = loading.slice(loading.indexOf('"feed-shell-web'))
+    return (
+      /className="feed-shell-app mobile-feed-shell/.test(loading) &&
+      /className="feed-shell-web feed-shell-late px-4/.test(loading) &&
+      /html\.capacitor \.feed-shell-web \{\s*\n\s*display: none;/.test(css) &&
+      /html:not\(\.capacitor\) \.feed-shell-app \{\s*\n\s*display: none;/.test(css) &&
+      // LATE on the web, so a load that resolves in 150ms draws nothing at all
+      // — and NOT late in the app, where a tap has to answer instantly.
+      !/feed-shell-app[^"]*feed-shell-late/.test(loading) &&
+      // PLAIN: three shapes and no pulse, because anybody who sees this is
+      // already waiting and wants a calm signal rather than a forgery.
+      !/animate-pulse/.test(web) &&
+      // And none of the app's chrome, which is the whole reason it is separate.
+      !/Pentru tine|feed-own-search|rounded-full/.test(web)
+    )
+  })(),
+  "        app/(marketing)/(feed)/loading.tsx, app/globals.css",
+)
+
+check(
   "and nothing in it pulses",
   (() => {
     // A 1400px block flashing grey is the most distracting thing a loading

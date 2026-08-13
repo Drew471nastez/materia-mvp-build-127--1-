@@ -5082,6 +5082,33 @@ html:not(.capacitor):has(.web-only-header) .native-only-topbar {
   }
 }
 
+/* ── THE LOADING SHELL IS TWO SHELLS, AND ONLY ONE OF THEM IS EVER RIGHT ─────
+ *
+ * `app/(marketing)/(feed)/loading.tsx` drew ONE mobile placeholder: a search
+ * row, three tabs, a hairline, a rail of category pills and a two-column grid.
+ * That is an exact tracing of the feed inside the app, and it is what the app
+ * should keep — a `loading.tsx` there is the answer to tapping a tab, and it
+ * has to be the shape of the screen arriving or the swap is a jump.
+ *
+ * On a phone BROWSER none of it is true any more. The header above already
+ * carries the search, so the row was drawn and then removed; a signed-out
+ * visitor gets the home page, so the tabs and the rail belong to a screen that
+ * is not coming; and what does arrive is a hero and a set of shelves, not a
+ * grid. The placeholder was holding space for the wrong page and then handing
+ * over to a different one, which is a jump with a rehearsal in front of it.
+ *
+ * So the file draws both and the class on <html> picks one — the same signal,
+ * set before the first paint, that already chooses between the two headers.
+ * Neither shell has to know the other exists, and neither is a compromise
+ * between two screens that look nothing alike.
+ */
+html.capacitor .feed-shell-web {
+  display: none;
+}
+html:not(.capacitor) .feed-shell-app {
+  display: none;
+}
+
 /* ── One surface, one colour ─────────────────────────────────────────────────
    `html.capacitor body` is painted #f5f5f5 above as an anti-flash colour for
    route swaps. On any screen that draws no background of its own — the profile,
