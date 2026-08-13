@@ -61,7 +61,7 @@ export function MoreListings({ items }: { items: any[] }) {
 
   return (
     <section className="mt-10 pb-14 sm:mt-14 sm:pb-20">
-      <h2 className="mb-4 px-4 text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:px-0 sm:text-[22px]">
+      <h2 className="mb-4 text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[22px]">
         Mai multe anunțuri
       </h2>
 
@@ -71,7 +71,7 @@ export function MoreListings({ items }: { items: any[] }) {
           in it and no end: it is the marketplace itself, and the marketplace on
           a phone is the two-column grid the feed already draws. Three across at
           375px would be 105px a card. */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-6 px-4 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 sm:px-0 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
         {items.slice(0, shown).map((product) => (
           <ProductCard key={product.id} product={product} origin="feed" />
         ))}

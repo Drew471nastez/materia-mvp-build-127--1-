@@ -487,13 +487,13 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
             either side of it that says nothing.
 
             `-mx-5` is the padding given back: edge to edge, and about a
-            twelfth larger. The remaining eight percent is `scale-[1.07]`,
-            which takes it a little PAST both edges — and past is the point,
-            because a composition that stops exactly at the edge reads as a
-            picture in a frame while one that runs off it reads as a window.
-            The section clips it, the artwork's own transparent margin is
-            wider than the thirteen pixels a side this spends, and the panel's
-            28px row gap absorbs the seven percent it also grows vertically.
+            twelfth larger. The rest is `scale-[1.14]`, which takes it well
+            PAST both edges — and past is the point, because a composition that
+            stops exactly at the edge reads as a picture in a frame while one
+            that runs off it reads as a window. The section clips it, the
+            artwork's own transparent margin is wider than the twenty-six
+            pixels a side this spends, and the panel's 28px row gap absorbs the
+            fourteen percent it also grows vertically.
 
             All of it stops at sm, where the box is wide enough already and the
             padding is doing a job.
@@ -504,7 +504,7 @@ export function SignedOutHero({ className }: { className?: string } = {}) {
             simply overwrites it on its first keyframe. The scale is the
             parent's; the drift is the child's; neither can take the other's
             property away. */}
-        <div className="-mx-5 scale-[1.07] sm:mx-0 sm:scale-100">
+        <div className="-mx-5 scale-[1.14] sm:mx-0 sm:scale-100">
         <div className="hero-art-drift relative w-full" style={{ aspectRatio: HERO_RATIO }}>
           {/* NOT DRAGGABLE, NOT SELECTABLE, NOT RIGHT-CLICKABLE.
               

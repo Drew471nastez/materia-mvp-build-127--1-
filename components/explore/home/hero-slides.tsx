@@ -470,13 +470,21 @@ export function HeroSlides({
                which is also the only arrangement where the picture gets the
                full width it was composed for.
 
-               `h-auto` with the picture at a stated ratio, so the row is as
-               tall as its contents rather than being cut to 320. Every slide
-               is the same height regardless, because every slide's picture is
-               the same ratio and every slide's copy is clamped to the same
-               number of lines — which is what keeps the track from jumping as
-               it moves. */
-            className="grid h-auto w-full shrink-0 grid-rows-[auto_auto] md:h-[320px] md:grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] md:grid-rows-none lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
+               A DEFINITE PICTURE ROW AND A CONTENT-SIZED COPY ROW, rather
+               than a ratio on each half. `aspect-ratio` inside a grid track
+               that the flex track is also stretching is two rules arguing over
+               one number: the row grows to match the tallest slide and the
+               picture grows with it, so the ratio it was given stops being
+               true. 228px is fixed, which is also what the shelf slides need —
+               a ShelfCard is a 3:4 photograph plus its caption, and anything
+               shorter clips the price off the bottom.
+
+               The copy row is `auto`, so it takes what it needs; the flex
+               track stretches every slide to the tallest of them, and the
+               extra lands in that row where `justify-center` absorbs it. No
+               slide is ever a different height from its neighbours, which is
+               what would make the track jump as it moves. */
+            className="grid h-auto w-full shrink-0 grid-rows-[228px_auto] md:h-[320px] md:grid-cols-[minmax(0,0.46fr)_minmax(0,0.54fr)] md:grid-rows-none lg:h-[340px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]"
             aria-hidden={i !== index}
           >
             {/* The words, on a ground that cannot be argued with.
@@ -555,7 +563,7 @@ export function HeroSlides({
                 real listings each in its own box. Never one portrait photograph
                 stretched across a landscape slot — see the note above pickShelf. */}
             {s.kind === "art" ? (
-              <div className="relative order-1 aspect-[16/10] h-auto md:order-none md:aspect-auto md:h-full">
+              <div className="relative order-1 h-full md:order-none">
                 <Image
                   src={s.image}
                   alt={s.alt}
@@ -569,7 +577,7 @@ export function HeroSlides({
               </div>
             ) : (
               <div
-                className="flex aspect-[16/10] h-auto items-center justify-center gap-3 px-5 md:aspect-auto md:h-full lg:gap-4 lg:px-8"
+                className="order-1 flex h-full items-center justify-center gap-3 px-5 md:order-none lg:gap-4 lg:px-8"
                 style={{ backgroundColor: s.ground }}
               >
                 {s.items.map((it, n) => (

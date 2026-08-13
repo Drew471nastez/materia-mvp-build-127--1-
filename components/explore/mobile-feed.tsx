@@ -640,12 +640,35 @@ export function MobileFeed({
 
   // Imperative iOS-grade pull-to-refresh — re-attaches whenever the grid mounts
   // (enabled flips), so it never silently stops after a grid↔reels switch.
+  /**
+   * PULL TO REFRESH IS AN APP GESTURE, AND THIS IS AN APP GESTURE ONLY.
+   *
+   * In the shell it is the right control: there is no address bar, no reload,
+   * and the feed is the home screen — dragging it down is how everybody expects
+   * to ask for new listings.
+   *
+   * In a browser it is a second, worse copy of something the browser already
+   * does, and it fights it. Chrome and Safari own the downward drag at the top
+   * of a document; this scroller intercepts it, opens its own gap and spins its
+   * own spinner, so the same gesture means two things and which one you get
+   * depends on which element your thumb landed on. That is most of what reads
+   * as the page being loose.
+   *
+   * The `capacitor` class is on <html> before the first paint — the same signal
+   * the CSS uses to choose between the two headers — so this is decided in the
+   * lazy initialiser rather than in an effect: an effect would leave the gesture
+   * live for the first frames on the web.
+   */
+  const [nativeShell] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("capacitor"),
+  )
+
   useFeedPullRefresh({
     scrollRef,
     contentRef: feedContentRef,
     spinnerRef: feedSpinnerRef,
     onRefresh,
-    enabled: !reelsActive,
+    enabled: nativeShell && !reelsActive,
     offsetTop: catBarH,
   })
 

@@ -1573,6 +1573,30 @@ check(
 )
 
 check(
+  "pull to refresh is an app gesture and only the app has it",
+  (() => {
+    // In the shell it is the right control: no address bar, no reload, and the
+    // feed is the home screen. In a browser it is a second, worse copy of
+    // something the browser already does — and it fights it. Chrome and Safari
+    // own the downward drag at the top of a document; this scroller intercepted
+    // it, opened its own gap and spun its own spinner, so one gesture meant two
+    // things depending on which element the thumb landed on.
+    //
+    // Decided in the lazy initialiser, not an effect: `capacitor` is on <html>
+    // before the first paint — the same signal the CSS uses to pick between the
+    // two headers — and an effect would leave the gesture live for the first
+    // frames on the web.
+    const feed = code("components/explore/mobile-feed.tsx")
+    return (
+      /const \[nativeShell\] = useState\(\s*\n?\s*\(\) => typeof document !== "undefined" && document\.documentElement\.classList\.contains\("capacitor"\),/.test(
+        feed,
+      ) && /enabled: nativeShell && !reelsActive/.test(feed)
+    )
+  })(),
+  "        components/explore/mobile-feed.tsx",
+)
+
+check(
   "and the phone's category sheet drills down the way the sell form does",
   (() => {
     // It was `slide-in-from-right-4 fade-in` going in and

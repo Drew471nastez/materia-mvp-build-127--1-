@@ -82,7 +82,7 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
      * exactly the list that was cut down to five departments. The layout is the
      * part that was worth keeping; the categories in it are the real ones.
      */
-    <section className="mt-12 border-t border-neutral-100 px-4 pt-10 sm:px-0 lg:mt-20 lg:pt-14">
+    <section className="mt-12 border-t border-neutral-100 pt-10 lg:mt-20 lg:pt-14">
       <div className="grid gap-6 sm:gap-8 lg:grid-cols-12 lg:gap-10">
         {/* The left column: the invitation, and one thing to press. */}
         <div className="flex flex-col justify-center lg:col-span-3">
@@ -104,6 +104,21 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
         {/* The tiles. Three across, then the remaining two at half the width
             each — which is what five things in a magazine grid look like, and
             the reason this is not a row of five identical rectangles. */}
+        {/* ═══════════════════════════════════════════════════════════════
+            FIVE TILES IN TWO COLUMNS, WITHOUT TWO OF THEM STRETCHING
+            ═══════════════════════════════════════════════════════════
+
+            The magazine grid is three at 4:5 and two at 16:10, which is five
+            things arranged as five things — at six columns. Dropped into two,
+            the ratios land on the wrong rows: a 16:10 tile shares a row with a
+            4:5 one, the grid stretches it to match, and the photograph inside
+            it letterboxes into a slab of flat ground. That is the two tall dark
+            blocks with a word floating in them.
+
+            On a phone every tile is 4:5 and the fifth spans the row at 16:9 —
+            which is the same magazine idea (a wide one closing the block) read
+            for two columns instead of six, and no tile is ever asked to be a
+            ratio it was not given. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-6 sm:gap-4 lg:col-span-9">
           {tiles.map((t, i) => (
           <SmartLink
@@ -112,10 +127,21 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
             className={cn(
               "group relative block overflow-hidden rounded-2xl",
               i < 3 ? "sm:col-span-2" : "sm:col-span-3",
+              // The last one closes the block rather than sitting alone beside
+              // a hole, which is what an odd number in two columns otherwise is.
+              i === 4 && "col-span-2 sm:col-span-3",
             )}
             style={{ backgroundColor: t.ground }}
           >
-            <div className={cn("relative", i < 3 ? "aspect-[4/5]" : "aspect-[16/10]")}>
+            <div
+              className={cn(
+                "relative",
+                // One ratio a row on a phone: 4:5 for the four that pair up,
+                // 16:9 for the fifth across the full width.
+                i === 4 ? "aspect-[16/9]" : "aspect-[4/5]",
+                i < 3 ? "sm:aspect-[4/5]" : "sm:aspect-[16/10]",
+              )}
+            >
               {t.image && (
                 <Image
                   src={t.image}
