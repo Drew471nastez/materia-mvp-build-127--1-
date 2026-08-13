@@ -168,7 +168,17 @@ const HERO_RATIO = "1356 / 798"
  * has to reason about later for no reason.
  */
 
-export function SignedOutHero() {
+/**
+ * @param className Outer spacing, owned by the caller.
+ *
+ * The desktop page wants it inset on a 1400px measure with `mb-8` under it;
+ * the phone feed wants it inside a scroller that already has its own gutters
+ * and a grid of listings directly below. Baking either one in means the other
+ * caller is undoing it, and `mb-8` undone by `mb-0` is two margins arguing in
+ * a class string. `cn` is tailwind-merge, so a margin passed here REPLACES the
+ * default rather than landing beside it.
+ */
+export function SignedOutHero({ className }: { className?: string } = {}) {
   const [side, setSide] = useState<Side>("buy")
   const c = COPY[side]
 
@@ -205,7 +215,10 @@ export function SignedOutHero() {
        * enough that the edge exists, not enough to make a card out of a
        * section.
        */
-      className="relative mb-8 overflow-hidden rounded-2xl ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.04),0_18px_40px_-24px_rgba(15,15,15,0.12)]"
+      className={cn(
+        "relative mb-8 overflow-hidden rounded-2xl ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.04),0_18px_40px_-24px_rgba(15,15,15,0.12)]",
+        className,
+      )}
       /**
        * VERY LIGHT, AND BARELY PURPLE.
        *
@@ -272,7 +285,13 @@ export function SignedOutHero() {
           more than twenty characters. Anything past 55 starts reflowing the
           left-hand side, and reflowing the left-hand side makes the panel
           TALLER — the opposite of the other half of this. */}
-      <div className="grid items-center gap-10 px-6 py-9 sm:px-8 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:gap-12 lg:px-12 lg:py-[46px]">
+      {/* AND ON A PHONE IT IS ONE COLUMN, WHICH IT ALWAYS WAS — but at desktop
+          measurements, which it should not have been. 24px of side padding on a
+          375px screen is 13% of the width gone before the headline starts, and
+          a 40px gap between the copy and the picture is a gap you scroll past.
+          20/28 and a 28px gap: the same composition, measured for the screen it
+          is actually on. Everything above sm is untouched. */}
+      <div className="grid items-center gap-7 px-5 py-7 sm:gap-10 sm:px-8 sm:py-9 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)] lg:gap-12 lg:px-12 lg:py-[46px]">
         <div className="min-w-0">
           {/* THE TOGGLE. A track with a sliding thumb rather than two buttons
               that swap colour: the thumb moving is what says these are two
@@ -356,8 +375,36 @@ export function SignedOutHero() {
 
           {/* `items-stretch` is the grid default and `h-full` is what makes it
               reach the tallest tile — without it a shorter tile is a shorter
-              box, which is the raggedness this row had. */}
-          <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              box, which is the raggedness this row had.
+
+              ═══════════════════════════════════════════════════════════════
+              ON A PHONE IT IS A RAIL, BECAUSE ONE COLUMN OF THREE IS 300px
+              ═══════════════════════════════════════════════════════════════
+
+              `grid-cols-1` below sm stacked these, which is the honest
+              responsive answer for a page and the wrong one for this panel:
+              three boxes at ~95px each plus their gaps is 300px of supporting
+              detail under a button, on a screen where the whole hero has to
+              stay short enough that the listings under it are still on the
+              first screenful.
+
+              A snapping rail keeps all three at the height of one. It is also
+              the pattern a phone already teaches — anything wider than the
+              screen scrolls sideways — so there is nothing to learn, and the
+              second tile peeking at the right edge is what says so without a
+              chevron or a row of dots.
+
+              `basis-[78%]` rather than a fixed width: it scales with the
+              screen, and it is deliberately not a round fraction, because a
+              tile that ends exactly at the edge looks like the last one.
+
+              `-mx-5 px-5` bleeds the rail to the panel's edges and puts the
+              padding inside the scroller instead, so the first tile still
+              lines up with the headline while the last one can scroll fully
+              into view rather than stopping short by the panel's inset.
+              `sm:mx-0 sm:px-0` hands it all back to the grid above sm, where
+              none of this applies. */}
+          <div className="-mx-5 mt-8 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-5 px-5 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0">
             {c.tiles.map((tile) => {
               const Icon = tile.icon
               /**
@@ -378,7 +425,7 @@ export function SignedOutHero() {
                   // The same treatment one step quieter: these sit ON the panel
                   // that now sits on the page, and two objects at the same
                   // elevation stacked on each other is what flattens both.
-                  className="flex h-full flex-col rounded-xl bg-white/75 px-4 py-4 ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.035)] backdrop-blur-[2px]"
+                  className="flex h-auto min-w-0 shrink-0 basis-[78%] snap-start flex-col rounded-xl bg-white/75 px-4 py-4 ring-1 ring-black/[0.055] shadow-[0_1px_2px_rgba(15,15,15,0.035)] backdrop-blur-[2px] sm:h-full sm:basis-auto"
                 >
                   <Icon className="h-[19px] w-[19px] shrink-0 text-neutral-400" strokeWidth={1.8} />
                   <p className="mt-3 text-[14px] font-bold leading-tight tracking-[-0.01em] text-neutral-900">

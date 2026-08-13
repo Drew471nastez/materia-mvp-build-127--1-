@@ -284,6 +284,7 @@ export async function ExploreFeed({
           initialCategory={category}
           searchQuery={searchQuery}
           initialView={initialView}
+          signedIn={signedIn}
         />
 
         {/* ═══════════════════════════════════════════════════════════════════

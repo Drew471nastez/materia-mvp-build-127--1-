@@ -14,6 +14,7 @@ import { useLocale } from "@/components/locale-provider"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
+import { InstallAppBanner } from "./install-app-banner"
 import { AccountDrawer } from "./account-drawer"
 import { DrawerRow, DrawerSectionTitle, SideDrawer } from "./side-drawer"
 
@@ -399,6 +400,20 @@ export function MobileWebHeader() {
             status bar on an installed/standalone browser instead of leaving a
             strip of page showing above it. */}
         <div style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+          {/* THE APP OFFER IS INSIDE THE HEADER, NOT ABOVE IT.
+
+              The feed is `position: fixed` under `--web-header-h`, and that
+              number is measured off `headerRef` by the observer above. A band
+              rendered above this element is a band the feed knows nothing
+              about, so the top of the marketplace would sit underneath it. As
+              a child it is inside the box already being watched: it appears,
+              the height republishes on the same frame, everything below moves
+              down, and none of that needed a line of coordination.
+
+              It draws nothing at all on Android, on desktop, inside the app or
+              for anybody who has dismissed it — see the component. */}
+          <InstallAppBanner />
+
           <div className="flex h-14 items-center gap-1 px-3">
             <button
               type="button"
@@ -475,9 +490,24 @@ export function MobileWebHeader() {
                   >
                     <ShoppingBag className="h-[22px] w-[22px]" />
                   </Link>
+                  {/* A HEIGHT, WHICH IT NEVER HAD.
+
+                      `PILL_FILLED` sets the colour, the radius and the press;
+                      it does not set a size, because the drawer below uses it
+                      at h-12 and the row here needs something smaller. Nothing
+                      set one, so this button was as tall as 13.5px of text and
+                      nothing else — about 20px, in a row of 44px icon buttons,
+                      which is why it read as shrunken rather than small. It is
+                      also under Apple's 44px target on its short axis.
+
+                      36px and 14px type: the largest this can be without
+                      competing with the wordmark two elements to its left, and
+                      the same height the account avatar takes on the signed-in
+                      version of this row, so the bar does not change shape when
+                      somebody logs in. */}
                   <Link
                     href="/signup"
-                    className={`ml-1 px-4 text-[13.5px] ${PILL_FILLED}`}
+                    className={`ml-1 h-9 px-4 text-[14px] ${PILL_FILLED}`}
                   >
                     Sign up
                   </Link>
