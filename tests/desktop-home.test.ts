@@ -1747,6 +1747,75 @@ check(
 )
 
 check(
+  "the filters cannot show a page twice, offer a dead end, or miscount a sale",
+  (() => {
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    const engine = code("lib/marketplace/feed-filters.ts")
+    const sql = read("supabase/sql/RUN_SHOP_INDEXES.sql")
+    const ui = code("components/explore/category-results.tsx")
+    return (
+      // A TOTAL ORDER, OR PAGES OVERLAP. `ORDER BY price_cents` is not one — a
+      // catalogue full of listings at 50 lei has hundreds of rows the database
+      // may return in any order, and it is free to choose a different one for
+      // rows 0-89 and for rows 90-179. A row that crosses that boundary is shown
+      // twice or not at all, and nothing on the page says so.
+      (page.match(/\.order\("id", \{ ascending: true \}\)/g) ?? []).length === 4 &&
+      // ON SALE IS A COLUMN. It is a comparison between two columns, which
+      // PostgREST cannot express — so it was applied AFTER the fetch, and the
+      // total was the real count minus only what the current page dropped. The
+      // pager then offered ninety pages of almost-empty results.
+      /GENERATED ALWAYS AS \(compare_at_cents IS NOT NULL AND compare_at_cents > price_cents\) STORED/.test(sql) &&
+      /if \(effective\.onSale && withSale\) s = s\.eq\("is_on_sale", true\)/.test(page) &&
+      // With a fallback for a deploy that lands before the SQL is run — and the
+      // page refuses to print a total it cannot stand behind.
+      /saleIsExact = false/.test(page) &&
+      /exactTotal\?: boolean/.test(ui) &&
+      // EVERY FACET IS COUNTED WITH THE OTHERS APPLIED AND NOT ITSELF. Without
+      // the cross-filter, picking Nike left the Size list offering every size in
+      // the department — including the ones no Nike listing has, each a tap that
+      // empties the page under a count that was the reason somebody trusted it.
+      // Its own is excluded deliberately: a Brand list counted with the brand
+      // filter applied offers only the brand already picked, which makes
+      // multi-select impossible.
+      /export function facetsWithCounts/.test(engine) &&
+      /const others = \(except: keyof FeedFilters\)/.test(engine) &&
+      /facets = facetsWithCounts\(attrRows, department, effective\)/.test(page) &&
+      // And it is ONE query, not five: the non-facet filters go into SQL and the
+      // cross-filtering happens over the rows.
+      (page.match(/\.select\(ATTR_COLS\)/g) ?? []).length === 1
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx, lib/marketplace/feed-filters.ts",
+)
+
+check(
+  "and a filter change says it is thinking instead of ignoring the tap",
+  (() => {
+    // Every control here navigates, and a navigation to a server component is a
+    // round trip with no feedback of its own: the pill closes, then nothing
+    // happens for as long as the query takes. On a slow connection that reads as
+    // a page that ignored the tap — so the tap comes again, and the second one
+    // lands on a page that is about to be replaced.
+    //
+    // The old results DIM rather than being replaced by a skeleton: what you are
+    // reading is the closest thing there is to what you are about to get, and
+    // grey boxes throw that away to show a placeholder.
+    const ui = code("components/explore/category-results.tsx")
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    return (
+      /const \[pending, startTransition\] = useTransition\(\)/.test(ui) &&
+      /startTransition\(\(\) => router\.push\(/.test(ui) &&
+      /pending && "pointer-events-none opacity-50"/.test(ui) &&
+      // A stale bookmark to page 7 of a category that has since sold down to
+      // three is not an error; the pager is told the last page that exists.
+      /const lastPage = Math\.max\(1, Math\.ceil\(total \/ PAGE_SIZE\)\)/.test(page) &&
+      /page=\{Math\.min\(page, lastPage\)\}/.test(page)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
   "and Enter in the search field runs the search",
   (() => {
     // The desktop field opened a suggestions panel and nothing else, so the only

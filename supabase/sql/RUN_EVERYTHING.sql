@@ -3012,13 +3012,38 @@ where p.id is null;
 --  · Size, condition, colour. Already indexed by the two earlier migrations —
 --    idx_products_size, idx_products_condition_created, idx_products_colour.
 --
---  · "La reducere". It is `compare_at_cents > price_cents`, a comparison
---    between two columns that PostgREST cannot express as a filter, so the
---    application applies it after the page is fetched. An index on it would
---    never be reached from this page. If that filter ever moves into SQL it
---    wants a partial index on the predicate itself, and the honest place to
---    write that is the migration that moves it.
+--  · Brand's `lower(brand)` index, for the reason above.
 -- ###########################################################################
+
+-- ── "LA REDUCERE" IS A COLUMN, BECAUSE IT COULD NOT BE A FILTER ─────────────
+--
+-- A sale is `compare_at_cents > price_cents` — a comparison between two
+-- columns, which PostgREST has no syntax for. So the application used to fetch
+-- a page and filter it afterwards, and that quietly broke pagination: page 1
+-- fetched ninety rows and kept twelve, page 2 fetched the next ninety and kept
+-- nine, and the total was the real count minus only what the current page had
+-- dropped. The pager offered ninety pages of almost-empty results and no two of
+-- them agreed about how many there were.
+--
+-- GENERATED ... STORED, not a trigger and not a view. It is computed by
+-- Postgres on write from two columns in the same row, so it cannot drift from
+-- them, cannot be set wrong by an application that forgets, and costs one
+-- boolean per row. `IS NOT NULL AND >` rather than `> COALESCE(...)`: a null
+-- compare-at is "no sale price", and a compare-at BELOW the asking price is bad
+-- data rather than a discount — neither is a sale, and both answer false.
+--
+-- Adding a stored generated column rewrites the table. On a marketplace-sized
+-- products table that is seconds, but it does take an ACCESS EXCLUSIVE lock for
+-- the duration, so run it when nobody is publishing rather than at peak.
+ALTER TABLE public.products
+  ADD COLUMN IF NOT EXISTS is_on_sale boolean
+  GENERATED ALWAYS AS (compare_at_cents IS NOT NULL AND compare_at_cents > price_cents) STORED;
+
+-- Partial on the value the filter actually asks for, so the index holds only
+-- the discounted rows rather than a boolean for the whole catalogue.
+CREATE INDEX IF NOT EXISTS idx_products_published_on_sale
+  ON public.products (category, created_at DESC)
+  WHERE status = 'published' AND is_on_sale;
 
 -- ── SORT BY PRICE, INSIDE A CATEGORY ────────────────────────────────────────
 -- The common case: a department or a group in the path, then Preț crescător /
@@ -3061,7 +3086,7 @@ CREATE INDEX IF NOT EXISTS idx_products_published_sales
 -- widen the tree.
 CREATE INDEX IF NOT EXISTS idx_products_published_facets
   ON public.products (category)
-  INCLUDE (brand, size, colour, condition, price_cents, compare_at_cents)
+  INCLUDE (brand, size, colour, condition, price_cents, compare_at_cents, is_on_sale)
   WHERE status = 'published';
 
 -- ── A ROW AN OPERATOR CAN READ ──────────────────────────────────────────────
@@ -3071,7 +3096,8 @@ SELECT
   count(*) FILTER (WHERE indexname = 'idx_products_published_price') AS price,
   count(*) FILTER (WHERE indexname = 'idx_products_published_category_sales') AS category_sales,
   count(*) FILTER (WHERE indexname = 'idx_products_published_sales') AS sales,
-  count(*) FILTER (WHERE indexname = 'idx_products_published_facets') AS facets
+  count(*) FILTER (WHERE indexname = 'idx_products_published_facets') AS facets,
+  count(*) FILTER (WHERE indexname = 'idx_products_published_on_sale') AS on_sale
 FROM pg_indexes
 WHERE schemaname = 'public' AND tablename = 'products';
 

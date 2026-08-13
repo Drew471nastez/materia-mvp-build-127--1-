@@ -1,8 +1,8 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { WishlistProvider } from "@/components/explore/wishlist-context"
@@ -66,6 +66,7 @@ export function CategoryResults({
   query,
   products,
   total,
+  exactTotal = true,
   page,
   sort,
   filters,
@@ -77,6 +78,9 @@ export function CategoryResults({
   query: string
   products: any[]
   total: number
+  /** False when the on-sale filter had to be applied after the fetch — see the
+   *  fallback in the page. A number that is only nearly right is not printed. */
+  exactTotal?: boolean
   page: number
   sort: FeedSort
   filters: FeedFilters
@@ -84,6 +88,26 @@ export function CategoryResults({
   basePath: string
 }) {
   const router = useRouter()
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE PAGE TELLS YOU IT IS THINKING
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Every control here navigates, and a navigation to a server component is a
+   * round trip with no feedback of its own: the pill closes, and then nothing
+   * happens for as long as the query takes. On a slow connection that is a page
+   * that looks like it ignored the tap — so the tap comes again, and the second
+   * one lands on a page that is about to be replaced.
+   *
+   * `useTransition` is what makes the wait visible without blocking it. The old
+   * results stay on screen and dim rather than being replaced by a skeleton:
+   * the grid you were reading is still the closest thing to the grid you are
+   * about to get, and a skeleton throws away information to show a placeholder.
+   * `pointer-events-none` for the same reason the search panel has it — a
+   * surface that is leaving must not swallow the taps meant for the one
+   * arriving.
+   */
+  const [pending, startTransition] = useTransition()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sortOpen, setSortOpen] = useState(false)
   const [openPill, setOpenPill] = useState<string | null>(null)
@@ -116,10 +140,10 @@ export function CategoryResults({
         q: query || undefined,
       })
       const qs = params.toString()
-      router.push(qs ? `${path}?${qs}` : path, { scroll: true })
+      startTransition(() => router.push(qs ? `${path}?${qs}` : path, { scroll: true }))
       setOpenPill(null)
     },
-    [basePath, departmentId, groupId, query, router, sort],
+    [basePath, departmentId, groupId, query, router, sort, startTransition],
   )
 
   const toggle = useCallback(
@@ -161,8 +185,18 @@ export function CategoryResults({
         )}
 
         <h1 className="text-[26px] font-bold tracking-[-0.025em] text-neutral-900 sm:text-[32px]">{title}</h1>
-        <p className="mt-1 text-[14px] font-medium text-neutral-500">
-          {total === 1 ? "1 rezultat" : `${total.toLocaleString("ro-RO")} rezultate`}
+        <p className="mt-1 flex items-center gap-2 text-[14px] font-medium text-neutral-500">
+          {/* `exactTotal` is false only on a database that has not run the
+              is_on_sale migration, where the filter is applied to the page
+              rather than to the query. A number that is only nearly right is
+              worse than none: it is the one thing on this page somebody would
+              quote back. */}
+          {exactTotal
+            ? total === 1
+              ? "1 rezultat"
+              : `${total.toLocaleString("ro-RO")} rezultate`
+            : `${products.length} pe această pagină`}
+          {pending && <Loader2 className="h-[15px] w-[15px] animate-spin text-neutral-400" />}
         </p>
 
         {/* ── Popular brands. On a resale marketplace the brand IS the query most
@@ -328,6 +362,11 @@ export function CategoryResults({
 
         {/* ── THE GRID. Five across at its widest, which is the width the card was
                drawn for — see the note in components/explore/home/listing-row. */}
+        {/* The grid dims and stops taking taps while the next one is on its way.
+            Not a skeleton: what you are reading is the closest thing there is to
+            what you are about to get, and replacing it with grey boxes throws
+            that away to show a placeholder. */}
+        <div className={cn("transition-opacity duration-200", pending && "pointer-events-none opacity-50")}>
         {products.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-[17px] font-semibold text-neutral-900">Niciun rezultat</p>
@@ -351,6 +390,8 @@ export function CategoryResults({
             ))}
           </div>
         )}
+
+        </div>
 
         {pages > 1 && <Pager page={page} pages={pages} onGo={(n) => go(filters, { page: n })} />}
       </div>
