@@ -76,6 +76,11 @@ const SECTIONS = [
   ["supabase/sql/RUN_RESERVATIONS.sql", "One buyer at a time"],
   ["supabase/sql/RUN_SHIPPING.sql", "Shipping and AWB"],
   ["supabase/sql/RUN_BACKFILL_PROFILES.sql", "A profiles row for every account"],
+  // Last, and it only builds indexes. It names columns every section above it
+  // adds — category, price_cents, brand, size, colour, condition — so it cannot
+  // run before them; and nothing after it depends on an index existing, so it
+  // has nowhere earlier to go.
+  ["supabase/sql/RUN_SHOP_INDEXES.sql", "Indexes for the results page"],
 ]
 
 const HEADER = `-- ###########################################################################

@@ -1588,7 +1588,22 @@ check(
       // Every option is a value some listing actually carries, ordered by how
       // many carry it — an option that returns nothing is the same empty room
       // the old category menu was full of.
-      /counts\.set\(v, \(counts\.get\(v\) \?\? 0\) \+ 1\)/.test(engine) &&
+      /counts\.set\(key, \(counts\.get\(key\) \?\? 0\) \+ 1\)/.test(engine) &&
+      // BRANDS ARE FOLDED BY CASE, and only brands. `condition` and `colour` are
+      // ids from a fixed list and `size` comes from a size system, so those are
+      // one spelling each already. `brand` is free text somebody typed, so a
+      // catalogue reliably holds Nike, nike and NIKE — unfolded, the list offers
+      // all three at a third of the real count each, and picking one silently
+      // excludes the listings that spelled it differently.
+      /brands: tally\(products, \(p\) => p\?\.brand, \(v\) => v, true\)/.test(engine) &&
+      // The spelling shown is the commonest, decided AFTER counting — deciding
+      // as you go keeps whichever arrived first, which is the order the database
+      // happened to return rows in.
+      /if \(n > best \|\| \(n === best && spelling < value\)\)/.test(engine) &&
+      // And the server agrees with it. `.in\(\)` is case-SENSITIVE, so an
+      // `.in\("brand", \["Nike"\]\)` behind a count that folded case is a page
+      // disagreeing with the number printed on its own filter.
+      /brand\.ilike\.\$\{JSON\.stringify\(b\)\}/.test(read("app/(marketing)/shop/[[...path]]/page.tsx")) &&
       /\.sort\(\(a, b\) => b\.count - a\.count/.test(engine) &&
       // A price RANGE is one filter however many of its two ends are set: a
       // badge reading 2 for "between 50 and 200" is counting inputs.

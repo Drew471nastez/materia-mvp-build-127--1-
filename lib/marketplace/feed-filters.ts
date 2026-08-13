@@ -107,16 +107,57 @@ export function colourHex(id: string): string | null {
   return colourHexes.get(id) ?? null
 }
 
-function tally(products: any[], read: (p: any) => string | null | undefined, label: (v: string) => string): Facet[] {
+/**
+ * @param fold Group values that differ only by case, and keep the commonest
+ *             spelling as the one shown.
+ *
+ * ONLY BRANDS NEED THIS, and they need it badly. `condition` and `colour` are
+ * ids from a fixed list and `size` comes from a size system, so those are
+ * already one spelling each. `brand` is free text somebody typed into the sell
+ * form, so a catalogue reliably contains Nike, nike and NIKE — and without
+ * folding, the Brand list offers all three, each with a third of the real
+ * count, and picking one silently excludes the listings that spelled it
+ * differently.
+ *
+ * The commonest spelling wins rather than the first seen or a title-cased
+ * guess: "H&M" and "adidas" are how those brands write themselves, and a
+ * marketplace that renames them is wrong in a way a shopper notices.
+ */
+function tally(
+  products: any[],
+  read: (p: any) => string | null | undefined,
+  label: (v: string) => string,
+  fold = false,
+): Facet[] {
   const counts = new Map<string, number>()
+  /** key → every exact spelling seen under it, and how many rows used each. */
+  const spellings = new Map<string, Map<string, number>>()
   for (const p of products) {
     const raw = read(p)
     const v = typeof raw === "string" ? raw.trim() : ""
     if (!v) continue
-    counts.set(v, (counts.get(v) ?? 0) + 1)
+    const key = fold ? v.toLowerCase() : v
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+    let seen = spellings.get(key)
+    if (!seen) spellings.set(key, (seen = new Map()))
+    seen.set(v, (seen.get(v) ?? 0) + 1)
   }
   return [...counts.entries()]
-    .map(([value, count]) => ({ value, label: label(value), count }))
+    .map(([key, count]) => {
+      // The winner is decided AFTER everything has been counted. Deciding as
+      // you go keeps whichever spelling arrived first, which is the order the
+      // database happened to return rows in.
+      const seen = spellings.get(key)
+      let value = key
+      let best = -1
+      for (const [spelling, n] of seen ?? []) {
+        if (n > best || (n === best && spelling < value)) {
+          best = n
+          value = spelling
+        }
+      }
+      return { value, label: label(value), count }
+    })
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
 }
 
@@ -141,7 +182,7 @@ export function facetsFrom(products: any[], departmentId?: string | null) {
 
   return {
     groups,
-    brands: tally(products, (p) => p?.brand, (v) => v),
+    brands: tally(products, (p) => p?.brand, (v) => v, true),
     sizes: tally(products, (p) => p?.size, (v) => v),
     colours: tally(products, (p) => p?.colour, (v) => colourLabels.get(v) ?? v),
     conditions: tally(products, (p) => p?.condition, (v) => conditionLabels.get(v) ?? v),

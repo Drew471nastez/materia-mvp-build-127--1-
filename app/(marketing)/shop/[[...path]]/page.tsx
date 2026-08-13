@@ -128,7 +128,23 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       if (group) s = s.eq("category", group)
       else if (deptGroups.length > 0) s = s.in("category", deptGroups)
       if (q) s = s.or(`title.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%`)
-      if (effective.brands.length > 0) s = s.in("brand", effective.brands)
+      /**
+       * BRANDS MATCH CASE-INSENSITIVELY, and `.in()` does not.
+       *
+       * `brand` is free text somebody typed into the sell form, so a catalogue
+       * reliably holds Nike, nike and NIKE. The facet list folds those into one
+       * option showing the commonest spelling — so an `.in("brand", ["Nike"])`
+       * would return the count's worth of rows minus every listing that spelled
+       * it differently, and the page would disagree with the number printed on
+       * its own filter. `ilike` with no wildcard is an exact case-insensitive
+       * match, which is the same test `applyFeedFilters` runs on the client.
+       *
+       * `JSON.stringify` is the quoting: PostgREST's `or=()` is comma-separated,
+       * and "New Balance" needs its space and any comma inside double quotes.
+       */
+      if (effective.brands.length > 0) {
+        s = s.or(effective.brands.map((b) => `brand.ilike.${JSON.stringify(b)}`).join(","))
+      }
       if (effective.sizes.length > 0) s = s.in("size", effective.sizes)
       if (effective.colours.length > 0) s = s.in("colour", effective.colours)
       if (effective.conditions.length > 0) s = s.in("condition", effective.conditions)
