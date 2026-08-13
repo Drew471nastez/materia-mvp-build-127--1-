@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Heart, Menu, MessageCircle, Search, Shopping
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MobileSearchOverlay } from "@/components/explore/mobile-search-overlay"
 import { SearchTrigger } from "@/components/marketplace/search-row"
-import { DEPARTMENT_NAV, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
+import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { savedShelfHref } from "@/lib/marketplace/saved-items"
 import { useLocale } from "@/components/locale-provider"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -49,13 +49,6 @@ type HeaderAuth = {
 }
 
 const SIGNED_OUT: HeaderAuth = { signedIn: false, avatarUrl: null, displayName: null, username: null }
-
-// Categories always resolve on the feed — that is where results live. "all" is
-// the unfiltered feed itself, so it goes to the bare route rather than carrying
-// a filter that means "no filter".
-function categoryHref(id: string): string {
-  return id === "all" ? "/" : `/?category=${id}`
-}
 
 /**
  * Routes that are not a place you browse, so the search row collapses to an
@@ -266,9 +259,12 @@ export function MobileWebHeader() {
     router.refresh()
   }, [router])
 
+  // A department picked in the search panel goes to the results page, the same
+  // as one picked in the menu beside it. It used to push `/?category=…` — the
+  // home page carrying a filter, with no title, no count and no filter bar.
   const onSelectCategory = useCallback(
     (id: string) => {
-      router.push(categoryHref(id))
+      router.push(id === "all" ? "/" : categoryPath(id))
     },
     [router],
   )
