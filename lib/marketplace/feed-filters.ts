@@ -326,3 +326,48 @@ export function sortFromParam(v: string | null): FeedSort {
  * enough that paginating is rare, few enough that the last row is reachable.
  */
 export const PAGE_SIZE = 90
+
+/**
+ * ===========================================================================
+ *  FACET COUNTS THAT SURVIVE THE OTHER FILTERS
+ * ===========================================================================
+ *
+ * `facetsFrom` counts every option across the whole scope, which is right while
+ * nothing is applied and wrong the moment something is. Pick Nike, and the Size
+ * list still offers every size in the department — including the eleven sizes
+ * no Nike listing has. Each of those is a tap that empties the page, and the
+ * count printed beside it was the reason somebody trusted it.
+ *
+ * The platform-standard answer is that every facet is counted with all the
+ * OTHER filters applied but not its own. Its own is excluded deliberately: a
+ * Brand list counted with the brand filter applied offers exactly the brand you
+ * already picked, which is a dead end you have to undo to escape — and it makes
+ * multi-select impossible, because the second brand is never offered.
+ *
+ * Five facets could be five queries. It is one: the caller fetches the
+ * attribute rows once with the NON-facet filters already applied in SQL (the
+ * scope, the search, the price band, on-sale), and the cross-filtering between
+ * facets is done here, over an array. Five passes over a thousand rows is
+ * nothing; five round trips is a page that takes five times as long to draw.
+ */
+export function facetsWithCounts(rows: any[], departmentId: string | null | undefined, f: FeedFilters) {
+  /** Everything except `except`, so a facet never filters itself out. */
+  const others = (except: keyof FeedFilters): any[] => {
+    const applied: FeedFilters = { ...f, group: except === "group" ? null : f.group }
+    for (const k of ["brands", "sizes", "colours", "conditions"] as const) {
+      if (k === except) applied[k] = []
+    }
+    // Price and on-sale are already applied in SQL by the caller, and applying
+    // them twice is harmless but pointless — they are cleared here so this pass
+    // is only ever doing the work the query could not.
+    return applyFeedFilters(rows, { ...applied, minPrice: null, maxPrice: null, onSale: false })
+  }
+
+  return {
+    groups: facetsFrom(others("group"), departmentId).groups,
+    brands: facetsFrom(others("brands"), departmentId).brands,
+    sizes: facetsFrom(others("sizes"), departmentId).sizes,
+    colours: facetsFrom(others("colours"), departmentId).colours,
+    conditions: facetsFrom(others("conditions"), departmentId).conditions,
+  }
+}

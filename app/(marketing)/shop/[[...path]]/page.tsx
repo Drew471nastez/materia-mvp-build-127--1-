@@ -6,6 +6,7 @@ import { DEPARTMENT_NAV, groupSlug, resolveCategoryPath } from "@/lib/marketplac
 import {
   PAGE_SIZE,
   facetsFrom,
+  facetsWithCounts,
   filtersFromParams,
   sortFromParam,
   type FeedSort,
@@ -59,6 +60,8 @@ import { categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listi
 export const dynamic = "force-dynamic"
 
 const ATTR_COLS = "brand, size, colour, condition, category, price_cents, compare_at_cents"
+// `is_on_sale` is not selected: it is a filter, never a displayed value, and
+// selecting a column that may not exist yet would break the fallback below.
 
 const BASE_COLS =
   "id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
@@ -118,6 +121,9 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   let rows: any[] = []
   let total = 0
   let facets = facetsFrom([], department)
+  /** Whether `is_on_sale` exists — see the note where it is used. */
+  let withSale = true
+  let saleIsExact = true
 
   try {
     const supabase = await createClient()
@@ -150,37 +156,109 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       if (effective.conditions.length > 0) s = s.in("condition", effective.conditions)
       if (effective.minPrice != null) s = s.gte("price_cents", effective.minPrice * 100)
       if (effective.maxPrice != null) s = s.lte("price_cents", effective.maxPrice * 100)
+      /**
+       * ON SALE IS A COLUMN NOW, AND IT HAD TO BECOME ONE.
+       *
+       * It is `compare_at_cents > price_cents` — a comparison between two
+       * columns, which PostgREST cannot express — so it used to be applied to
+       * the rows AFTER they came back. That quietly broke pagination: page 1
+       * fetched ninety rows and filtered them to twelve, page 2 fetched the next
+       * ninety and filtered those, and the total was the real count minus only
+       * what this page happened to drop. The pager then offered ninety pages of
+       * almost-empty results, and no two of them agreed about how many there
+       * were.
+       *
+       * `is_on_sale` is a STORED generated column (see
+       * supabase/sql/RUN_SHOP_INDEXES.sql), so the filter is one indexed
+       * equality and the count is exact again.
+       *
+       * `withSale` is false only on the retry below, which runs when the column
+       * is not there yet — the same additive-migration pattern the feed uses for
+       * its resale columns, so a deploy that lands before the SQL is run is a
+       * marketplace with one filter degraded rather than a page that 500s.
+       */
+      if (effective.onSale && withSale) s = s.eq("is_on_sale", true)
       return s
     }
 
+    /**
+     * EVERY SORT ENDS ON `id`, AND THAT IS NOT TIDINESS.
+     *
+     * `ORDER BY price_cents` is not a total order — a catalogue full of listings
+     * at 50 lei has hundreds of rows the database may return in any order it
+     * likes, and it is free to choose a DIFFERENT one for the query that fetches
+     * rows 0-89 and the query that fetches rows 90-179. A row that moves across
+     * that boundary is shown twice or not at all, and nothing on the page says
+     * so: it looks like the catalogue has a duplicate in it.
+     *
+     * The same is true of `created_at` (bulk imports share a timestamp) and of
+     * `sales_count` (0 for most of a young catalogue). `id` is unique, so
+     * appending it makes every one of these a total order and pagination
+     * correct by construction rather than by luck.
+     */
     const ordered = (s: any) => {
       switch (sort) {
         case "price-asc":
-          return s.order("price_cents", { ascending: true })
+          return s.order("price_cents", { ascending: true }).order("id", { ascending: true })
         case "price-desc":
-          return s.order("price_cents", { ascending: false })
+          return s.order("price_cents", { ascending: false }).order("id", { ascending: true })
         case "popular":
-          return s.order("sales_count", { ascending: false }).order("reviews_count", { ascending: false })
+          return s
+            .order("sales_count", { ascending: false })
+            .order("reviews_count", { ascending: false })
+            .order("id", { ascending: true })
         default:
-          return s.order("created_at", { ascending: false })
+          return s.order("created_at", { ascending: false }).order("id", { ascending: true })
       }
     }
 
     const from = (page - 1) * PAGE_SIZE
-    const { data, count, error } = await ordered(scoped(FULL_COLS, { count: "exact" })).range(from, from + PAGE_SIZE - 1)
-    if (error) throw error
-    rows = (data as any[]) ?? []
-    total = count ?? rows.length
+    let res = await ordered(scoped(FULL_COLS, { count: "exact" })).range(from, from + PAGE_SIZE - 1)
+    if (res.error && effective.onSale && withSale) {
+      // The column is not there yet. Drop it from the query and fall back to
+      // filtering the page — worse, and honest about being worse: `saleIsExact`
+      // is what tells the page not to print a count it cannot stand behind.
+      withSale = false
+      saleIsExact = false
+      res = await ordered(scoped(FULL_COLS, { count: "exact" })).range(from, from + PAGE_SIZE - 1)
+    }
+    if (res.error) throw res.error
+    rows = (res.data as any[]) ?? []
+    total = res.count ?? rows.length
+    if (effective.onSale && !withSale) {
+      rows = rows.filter((r) => Number(r?.compare_at_cents ?? 0) > Number(r?.price_cents ?? 0))
+    }
 
-    // The facet query drops every filter it is itself offering, so the options
-    // do not collapse to the ones already chosen — a Brand list that only offers
-    // the brand you picked is a dead end you have to undo to escape.
+    /**
+     * THE FACET QUERY APPLIES THE FILTERS THAT ARE NOT FACETS, and no others.
+     *
+     * The scope, the search, the price band and on-sale go into SQL: none of
+     * them is a list this page offers, so applying them can never hide an option
+     * from its own list. The four facet lists — brand, size, colour, condition —
+     * are deliberately NOT applied here, because each of them has to be counted
+     * with the other three applied but not itself. That cross-filtering is done
+     * over the rows in `facetsWithCounts`: five passes over a thousand rows
+     * rather than five round trips.
+     *
+     * Counting them without any cross-filter, which is what this did, meant that
+     * after picking Nike the Size list still offered every size in the
+     * department — including the eleven no Nike listing has. Each of those was a
+     * tap that emptied the page, under a count that was the reason somebody
+     * trusted it.
+     */
     let fq = supabase.from("products").select(ATTR_COLS).eq("status", "published")
     if (group) fq = fq.eq("category", group)
     else if (deptGroups.length > 0) fq = fq.in("category", deptGroups)
     if (q) fq = fq.or(`title.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%`)
+    if (effective.minPrice != null) fq = fq.gte("price_cents", effective.minPrice * 100)
+    if (effective.maxPrice != null) fq = fq.lte("price_cents", effective.maxPrice * 100)
+    if (effective.onSale && withSale) fq = fq.eq("is_on_sale", true)
     const { data: attrs } = await fq.limit(1000)
-    facets = facetsFrom((attrs as any[]) ?? [], department)
+    let attrRows = (attrs as any[]) ?? []
+    if (effective.onSale && !withSale) {
+      attrRows = attrRows.filter((r) => Number(r?.compare_at_cents ?? 0) > Number(r?.price_cents ?? 0))
+    }
+    facets = facetsWithCounts(attrRows, department, effective)
 
     // ON SALE is applied here rather than in SQL. It is a comparison between two
     // columns — `compare_at_cents > price_cents` — which PostgREST cannot express
@@ -217,6 +295,14 @@ export default async function CategoryPage({ params, searchParams }: { params: P
     console.error("[CategoryPage]", e)
   }
 
+  /**
+   * A PAGE NUMBER PAST THE END IS NOT AN ERROR, it is a stale link — somebody
+   * bookmarked page 7 of a category that has since sold down to three pages.
+   * The pager is told the real page count, so it highlights the last page that
+   * exists rather than printing a 7 nothing can reach.
+   */
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
   return (
     <main className="min-h-screen bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <CategoryResults
@@ -225,7 +311,8 @@ export default async function CategoryPage({ params, searchParams }: { params: P
         query={q}
         products={rows}
         total={total}
-        page={page}
+        exactTotal={saleIsExact}
+        page={Math.min(page, lastPage)}
         sort={sort}
         filters={effective}
         facets={facets}
