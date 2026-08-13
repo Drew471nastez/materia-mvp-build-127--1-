@@ -238,11 +238,17 @@ check(
     // appear in.
     return (
       /md:h-\[320px\] md:grid-cols-/.test(hero) &&
-      /grid h-auto w-full shrink-0 grid-rows-\[auto_auto\]/.test(hero) &&
+      // A DEFINITE PICTURE ROW below md, not a ratio on each half. An
+      // `aspect-ratio` inside a grid track that the flex track is also
+      // stretching is two rules arguing over one number — the row grows to the
+      // tallest slide and the picture grows with it, so the ratio stops being
+      // true. 228px is also what the shelf slides need: a ShelfCard is a 3:4
+      // photograph plus a caption, and anything shorter clips the price off.
+      /grid h-auto w-full shrink-0 grid-rows-\[228px_auto\]/.test(hero) &&
       /lg:h-\[340px\]/.test(hero) &&
-      // Both halves fill the row from md up, and share one ratio below it.
-      /aspect-\[16\/10\] h-auto md:order-none md:aspect-auto md:h-full/.test(hero) &&
-      /flex aspect-\[16\/10\] h-auto items-center justify-center gap-3 px-5 md:aspect-auto md:h-full/.test(hero) &&
+      // Both halves fill their row, at every width.
+      /<div className="relative order-1 h-full md:order-none">/.test(hero) &&
+      /order-1 flex h-full items-center justify-center gap-3 px-5 md:order-none/.test(hero) &&
       // The old fixed heights are gone from the CODE; the note explaining why
       // still quotes them.
       !/className="relative h-\[240px\]/.test(hero)
@@ -483,7 +489,7 @@ check(
   // there and 56 from sm up, and the categories block keeps its rule and its
   // larger gap only where the page is wide enough for one.
   /<section className="mt-10 sm:mt-14">/.test(row) &&
-    /mt-12 border-t border-neutral-100 px-4 pt-10 sm:px-0 lg:mt-20 lg:pt-14/.test(tiles),
+    /mt-12 border-t border-neutral-100 pt-10 lg:mt-20 lg:pt-14/.test(tiles),
 )
 
 console.log("\nIt knows what this person was looking at")
@@ -1398,13 +1404,13 @@ check(
       /import \{ DesktopHome \} from "\.\/home\/desktop-home"/.test(feed) &&
       /const guestHome = !signedIn && !searchQuery/.test(feed) &&
       /<DesktopHome products=\{initialProducts\} signedIn=\{false\} variant="phone" \/>/.test(feed) &&
-      /const shell = variant === "phone" \? "" : "hidden md:block"/.test(home) &&
+      /const shell = variant === "phone" \? "px-4 overflow-x-clip" : "hidden md:block"/.test(home) &&
       // On grey. The panel's edge is a hairline ring and a one-pixel contact
       // shadow, weights chosen against the desktop page's #f5f5f5; the feed is
       // white, and a near-white gradient panel on white is a card with no
       // visible edges. The strip also makes the promotion its own zone rather
       // than the first thing in the grid.
-      /<div className="bg-\[#f5f5f5\] px-3 py-3">\s*\n\s*<SignedOutHero className="mb-0" \/>/.test(home) &&
+      /<div className="-mx-4 bg-\[#f5f5f5\] px-4 py-3">\s*\n\s*<SignedOutHero className="mb-0" \/>/.test(home) &&
       // And the category rail is not drawn over it: it is a filter for a grid
       // that is not there, and the departments are one of the sections under it.
       /const showCats = tab === "for-you" && !guestHome/.test(feed) &&
@@ -1484,7 +1490,7 @@ check(
     // off it reads as a window.
     const hero2 = code("components/explore/home/signed-out-hero.tsx")
     return (
-      /<div className="-mx-5 scale-\[1\.07\] sm:mx-0 sm:scale-100">/.test(hero2) &&
+      /<div className="-mx-5 scale-\[1\.14\] sm:mx-0 sm:scale-100">/.test(hero2) &&
       // TWO ELEMENTS, and that is not tidiness: `hero-art-drift` animates
       // `transform`, and a running animation beats a class setting the same
       // property — put the scale on the drifting box and the drift overwrites
@@ -1525,13 +1531,73 @@ check(
       /-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4/.test(row) &&
       /sm:grid sm:grid-cols-3[\s\S]{0,80}lg:grid-cols-4 xl:grid-cols-5/.test(row) &&
       /w-\[43%\] shrink-0 snap-start sm:w-auto sm:shrink/.test(row) &&
-      /grid grid-cols-2 gap-x-3 gap-y-6 px-4 sm:grid-cols-3/.test(more) &&
+      /grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3/.test(more) &&
       // Nothing left at three across on a phone in either file.
       !/"grid grid-cols-3/.test(row) &&
       !/"grid grid-cols-3/.test(more)
     )
   })(),
   "        components/explore/home/listing-row.tsx, components/explore/home/more-listings.tsx",
+)
+
+check(
+  "and the page cannot be dragged sideways, because the bleeds have padding behind them",
+  (() => {
+    // The rails pull `-mx-4` so their first card lines up with the heading and
+    // their last can still reach the middle of the screen. On the desktop page
+    // that lands inside `px-4 sm:px-6 lg:px-8` on the container above. The phone
+    // feed's scroller has no padding at all, so those bleeds had nothing to
+    // cancel: every rail came out 32px wider than the screen, the document
+    // gained horizontal overflow, and the whole page could be dragged left.
+    //
+    // The gutter belongs on the shell rather than on each section, because the
+    // sections are shared with the desktop page — putting it there would be a
+    // second gutter inside the first. And `overflow-x-clip` is the guarantee
+    // behind it: `clip` rather than `hidden`, because `hidden` on one axis
+    // forces the other to `auto` and would make a scroll container inside the
+    // feed's scroller.
+    const home = code("components/explore/home/desktop-home.tsx")
+    const row = code("components/explore/home/listing-row.tsx")
+    const more = code("components/explore/home/more-listings.tsx")
+    const you = code("components/explore/home/you-might-be-into.tsx")
+    const tiles = code("components/explore/home/shop-by-category.tsx")
+    return (
+      /const shell = variant === "phone" \? "px-4 overflow-x-clip" : "hidden md:block"/.test(home) &&
+      // The grey strip under the hero bleeds back out to the screen's edges,
+      // which is the one place the gutter is deliberately cancelled.
+      /<div className="-mx-4 bg-\[#f5f5f5\] px-4 py-3">/.test(home) &&
+      // And no section carries a phone gutter of its own, which would sit
+      // inside the shell's and take another 16px off a 375px screen. The rail's
+      // own `px-4`/`sm:px-0` pair is not that — it is the inside of a scroller
+      // whose `-mx-4` cancels it, and the two are separated in the class string
+      // by everything else the rail needs, which is why the pattern is the
+      // contiguous one a section heading would have written.
+      ![row, more, you, tiles].some((f) => /px-4 sm:px-0/.test(f))
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "the five category tiles are not two of them stretched into slabs",
+  (() => {
+    // The magazine grid is three at 4:5 and two at 16:10 — five things arranged
+    // as five things, at SIX columns. Dropped into two, the ratios land on the
+    // wrong rows: a 16:10 tile shares a row with a 4:5 one, the grid stretches
+    // it to match, and the photograph inside letterboxes into a slab of flat
+    // ground. That is the two tall dark blocks with a word floating in them.
+    const tiles = code("components/explore/home/shop-by-category.tsx")
+    return (
+      // One ratio a row on a phone, and the fifth closes the block across the
+      // full width rather than sitting alone beside a hole.
+      /i === 4 \? "aspect-\[16\/9\]" : "aspect-\[4\/5\]"/.test(tiles) &&
+      /i === 4 && "col-span-2 sm:col-span-3"/.test(tiles) &&
+      // The six-column arrangement is untouched from sm up.
+      /i < 3 \? "sm:aspect-\[4\/5\]" : "sm:aspect-\[16\/10\]"/.test(tiles) &&
+      /i < 3 \? "sm:col-span-2" : "sm:col-span-3"/.test(tiles)
+    )
+  })(),
+  "        components/explore/home/shop-by-category.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -131,7 +131,7 @@ export function YouMightBeInto({
   if (pills.length < MIN) return null
 
   return (
-    <section className="mt-10 px-4 sm:mt-14 sm:px-0">
+    <section className="mt-10 sm:mt-14">
       <h2 className="mb-4 text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[22px]">
         S-ar putea să te intereseze
       </h2>

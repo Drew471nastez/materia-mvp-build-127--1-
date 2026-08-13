@@ -73,7 +73,7 @@ export function ListingRow({
 
   return (
     <section className="mt-10 sm:mt-14">
-      <div className="mb-4 flex items-baseline justify-between gap-4 px-4 sm:px-0">
+      <div className="mb-4 flex items-baseline justify-between gap-4">
         <h2 className="text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[22px]">{title}</h2>
         {href && (
           <SmartLink

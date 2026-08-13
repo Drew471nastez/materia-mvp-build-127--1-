@@ -110,7 +110,34 @@ export function DesktopHome({
    */
   variant?: "page" | "phone"
 }) {
-  const shell = variant === "phone" ? "" : "hidden md:block"
+  /**
+   * THE GUTTERS ARE THE SHELL'S, AND ON A PHONE NOBODY WAS PROVIDING THEM.
+   *
+   * On the page this sits inside `mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8`,
+   * so every section below is written against a container that already has side
+   * padding — which is what the rails' `-mx-4 … px-4` bleeds pull back INTO.
+   *
+   * The phone feed's scroller has none. So those bleeds had nothing to cancel:
+   * each rail came out 32px wider than the screen, the document gained
+   * horizontal overflow, and the whole page could be dragged sideways. That is
+   * the "I can drag the page to the left" — not a stray element, but a negative
+   * margin with no padding behind it.
+   *
+   * `px-4` here is that padding. It belongs on the shell rather than on each
+   * section, because the sections are shared with the desktop page and adding
+   * it there would have been a second gutter inside the first.
+   *
+   * `overflow-x-clip` is the guarantee behind it. With the padding restored
+   * nothing SHOULD reach past this box — but "should" is what was true of the
+   * page before as well, and the failure is invisible until somebody drags
+   * sideways and finds the whole document has come loose. `clip` rather than
+   * `hidden`, because `hidden` on one axis forces the other to `auto` and would
+   * turn this into a scroll container inside the feed's scroller; `clip` bounds
+   * the painting and nothing else. The rails inside are their own scrollers and
+   * their bleed lands exactly on this box's edges, so there is nothing here for
+   * it to cut off.
+   */
+  const shell = variant === "phone" ? "px-4 overflow-x-clip" : "hidden md:block"
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
    *
@@ -290,7 +317,7 @@ export function DesktopHome({
             `mb-0` because the strip's own padding is the gap now — tailwind-
             merge replaces the panel's `mb-8` rather than stacking with it. */}
         {variant === "phone" ? (
-          <div className="bg-[#f5f5f5] px-3 py-3">
+          <div className="-mx-4 bg-[#f5f5f5] px-4 py-3">
             <SignedOutHero className="mb-0" />
           </div>
         ) : (
