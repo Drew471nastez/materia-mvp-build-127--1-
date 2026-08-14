@@ -746,7 +746,9 @@ check(
       /createPortal\(layer, document\.body\)/.test(overlay) &&
       /getBoundingClientRect\(\)/.test(overlay) &&
       // …and draws no field of its own when it does.
-      /\{!anchored && \(/.test(overlay)
+      // Drawn only at the browse's ROOT: past it the panel is the category's
+      // own page, and the field is somebody else's chrome.
+      /\{!anchored && browseLevel === 0 && \(/.test(overlay)
     )
   })(),
   "        components/platform/platform-header-client.tsx",
@@ -1132,7 +1134,7 @@ check(
       // pressing Bărbați slides the ENTIRE panel — recents included. Animating
       // only the lower half while the recents cut is the version that looks
       // broken.
-      /<BrowseLevels above=\{recents\}/.test(overlay) &&
+      /<BrowseLevels\s*\n\s*above=\{recents\}/.test(overlay) &&
       /\{tab === "categories" && \(\s*\n\s*<BrowseLevels onClose=\{onClose\} t=\{t\} \/>/.test(overlay) &&
       // Three levels from one stack; every leaf is a real page carrying ?sub=.
       /const level = dept \? \(group \? 2 : 1\) : 0/.test(browse) &&
@@ -1155,7 +1157,14 @@ check(
       /if \(browse\) return/.test(overlay) &&
       /"fixed inset-x-0 top-0 z-\[70\] flex flex-col bg-white"/.test(overlay) &&
       /bottom: "calc\(env\(safe-area-inset-bottom, 0px\) \+ 63px\)"/.test(overlay) &&
-      /onClick=\{onSearchTap\}/.test(browse) &&
+      // The glyph travels to the ROOT first — the field lives there — and the
+      // caller focuses it on the frame it remounts.
+      /onClick=\{searchTap\}/.test(browse) &&
+      /const searchTap = \(\) => \{/.test(browse) &&
+      /onLevelChange\?\.\(level\)/.test(browse) &&
+      // Unmounting IS returning to the root; a stale depth would keep the
+      // panel's chrome hidden with nothing on screen to explain why.
+      /return \(\) => onLevelChange\?\.\(0\)/.test(browse) &&
       // And the recents carry what the search was wearing — the Vinted line —
       // with a light hover, because this panel is also the desktop's.
       /sub=\{r\.sum \?\? "Niciun filtru"\}/.test(overlay) &&
