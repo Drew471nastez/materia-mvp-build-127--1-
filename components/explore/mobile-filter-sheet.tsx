@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import {
@@ -60,6 +60,8 @@ export function MobileFilterSheet({
   departmentId,
   value,
   onApply,
+  sort,
+  onSortChange,
 }: {
   open: boolean
   onClose: () => void
@@ -84,10 +86,32 @@ export function MobileFilterSheet({
   departmentId?: string | null
   value: FeedFilters
   onApply: (next: FeedFilters) => void
+  /** Present only where sort belongs in the sheet — see the first row. */
+  sort?: FeedSort
+  onSortChange?: (s: FeedSort) => void
 }) {
   const [draft, setDraft] = useState<FeedFilters>(value)
-  const [facet, setFacet] = useState<null | "group" | "brands" | "sizes" | "colours" | "conditions" | "price">(null)
+  const [draftSort, setDraftSort] = useState<FeedSort>(sort ?? "new")
+  const [facet, setFacet] = useState<null | "sort" | "group" | "brands" | "sizes" | "colours" | "conditions" | "price">(null)
   const [popped, setPopped] = useState(false)
+
+  /** True while the panel is on screen and travelling — see `leaving`. */
+  const [shown, setShown] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    if (open) {
+      setLeaving(true)
+      // Two frames, so the browser paints the closed position once before the
+      // class that opens it lands. One frame is not reliably enough: React can
+      // commit inside the same frame it was scheduled in, and a transition whose
+      // start and end are set in one paint simply does not run.
+      const a = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
+      return () => cancelAnimationFrame(a)
+    }
+    setShown(false)
+    const t = setTimeout(() => setLeaving(false), 320)
+    return () => clearTimeout(t)
+  }, [open])
 
   // Reset to whatever is actually applied each time it opens, so an abandoned
   // edit is abandoned rather than waiting there the next time.
@@ -96,6 +120,7 @@ export function MobileFilterSheet({
     setWasOpen(open)
     if (open) {
       setDraft(value)
+      setDraftSort(sort ?? "new")
       setFacet(null)
       setPopped(false)
     }
@@ -118,7 +143,16 @@ export function MobileFilterSheet({
   )
   const active = countActiveFilters(draft)
 
-  if (!open) return null
+  /**
+   * IT SLIDES UP, AND IT STAYS MOUNTED WHILE IT SLIDES BACK DOWN.
+   *
+   * `if (!open) return null` on its own is a sheet that appears and vanishes:
+   * there is nothing on screen to animate out of, so the close is a cut. The
+   * mount is kept for the length of the travel and only then dropped, which is
+   * the same two-state pattern the search overlay uses — see
+   * components/explore/mobile-search-overlay.tsx.
+   */
+  if (!open && !leaving) return null
 
   const toggle = (key: "brands" | "sizes" | "colours" | "conditions", v: string) =>
     setDraft((d) => ({
@@ -136,6 +170,11 @@ export function MobileFilterSheet({
   }
 
   const rows: { id: Exclude<typeof facet, null>; label: string; value: string }[] = [
+    // SORT IS THE FIRST ROW, not a separate button somewhere else on the page.
+    // It is the same question as the filters — "which of these, and in what
+    // order" — and splitting it into a second sheet means two trips for one
+    // decision. It is `sortValue`, so it is never blank: there is always a sort.
+    ...(onSortChange ? [{ id: "sort" as const, label: "Sortare după", value: SORTS.find((x) => x.id === draftSort)?.label ?? "" }] : []),
     ...(facets.groups.length > 0
       ? [
           {
@@ -153,37 +192,67 @@ export function MobileFilterSheet({
   ]
 
   return (
-    <div className="fixed inset-0 z-[95] flex flex-col bg-white" style={{ height: "100dvh" }}>
+    <div
+      className="fixed inset-0 z-[95] flex flex-col bg-white"
+      style={{
+        height: "100dvh",
+        transform: shown ? "translateY(0)" : "translateY(100%)",
+        transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+        willChange: "transform",
+      }}
+    >
+      {/* THREE THINGS IN THE HEADER, and the two words are the two ways out.
+          A bare × asks somebody to work out whether it discards or applies;
+          "Închide" says which, and "Șterge tot" sits where the other destructive
+          word would be, far from it. The title is centred between them so the
+          row reads left-to-right as leave / where you are / start again. */}
       <div
-        className="flex shrink-0 items-center justify-between px-4 pb-3"
+        className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-neutral-100 px-4 pb-3"
         style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}
       >
-        <h2 className="text-[20px] font-bold tracking-[-0.02em] text-neutral-900">
-          {facet ? rows.find((r) => r.id === facet)?.label ?? "Filtre" : "Filtre"}
+        <button
+          type="button"
+          onClick={facet ? back : onClose}
+          className="justify-self-start text-[15px] font-medium text-neutral-600 active:opacity-60"
+        >
+          {facet ? "Înapoi" : "Închide"}
+        </button>
+        <h2 className="text-[16px] font-bold tracking-[-0.01em] text-neutral-900">
+          {facet ? rows.find((r) => r.id === facet)?.label ?? "Filtru" : "Filtru"}
         </h2>
         <button
           type="button"
-          onClick={onClose}
-          aria-label="Închide"
-          className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-neutral-900 active:bg-neutral-100"
+          onClick={() => setDraft(EMPTY_FILTERS)}
+          disabled={active === 0}
+          className="justify-self-end text-[15px] font-medium text-[#7c3aed] transition-opacity active:opacity-60 disabled:opacity-30"
         >
-          <X className="h-[22px] w-[22px]" />
+          Șterge tot
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {facet ? (
           <div className="sub-push pb-6">
-            <button
-              type="button"
-              onClick={back}
-              className="flex w-full items-center gap-2 px-4 py-3 text-[14px] font-medium text-neutral-500 active:bg-neutral-100"
-            >
-              <ChevronLeft className="h-[17px] w-[17px]" />
-              Toate filtrele
-            </button>
-
-            {facet === "price" ? (
+            {/* No second back button. The header's left word IS the back — one
+                way out of a level, not two of them a scroll apart. */}
+            {facet === "sort" ? (
+              <div>
+                {SORTS.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => {
+                      setDraftSort(o.id)
+                      back()
+                    }}
+                    className="flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3.5 text-left active:bg-neutral-50"
+                  >
+                    <span className="flex-1 text-[15px] font-medium text-neutral-800">{o.label}</span>
+                    {o.id === draftSort && <Check className="h-[18px] w-[18px] text-neutral-900" strokeWidth={2.6} />}
+                  </button>
+                ))}
+              </div>
+            ) : facet === "price" ? (
               <PriceLevel draft={draft} setDraft={setDraft} />
             ) : (
               <OptionLevel
@@ -285,26 +354,21 @@ export function MobileFilterSheet({
             {resultCount === 1 ? "1 articol" : `${resultCount} articole`}
           </p>
         )}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setDraft(EMPTY_FILTERS)}
-            disabled={active === 0}
-            className="h-12 flex-1 rounded-xl border border-neutral-300 text-[15px] font-semibold text-neutral-900 transition-opacity active:bg-neutral-50 disabled:opacity-40"
-          >
-            Șterge tot
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onApply(draft)
-              onClose()
-            }}
-            className="h-12 flex-1 rounded-xl bg-neutral-900 text-[15px] font-semibold text-white active:bg-neutral-800"
-          >
-            Vezi articolele
-          </button>
-        </div>
+        {/* ONE BUTTON, FULL WIDTH. "Șterge tot" moved to the header, where a
+            destructive action belongs — beside it, at the same weight as the
+            thing you actually came to press, it was a fifty-fifty choice
+            between applying your work and throwing it away. */}
+        <button
+          type="button"
+          onClick={() => {
+            onApply(draft)
+            onSortChange?.(draftSort)
+            onClose()
+          }}
+          className="h-12 w-full rounded-xl bg-neutral-900 text-[15.5px] font-semibold text-white active:bg-neutral-800"
+        >
+          Afișare rezultate
+        </button>
       </div>
     </div>
   )
@@ -466,21 +530,95 @@ export function MobileSortSheet({
   value: FeedSort
   onPick: (s: FeedSort) => void
 }) {
-  if (!open) return null
+  const [shown, setShown] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  /** Live drag offset in px, written to state because it drives one transform
+   *  on one element — cheap enough, and it keeps the close in React's hands. */
+  const [drag, setDrag] = useState(0)
+  const startY = useRef(0)
+  const dragging = useRef(false)
+
+  useEffect(() => {
+    if (open) {
+      setLeaving(true)
+      setDrag(0)
+      const a = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
+      return () => cancelAnimationFrame(a)
+    }
+    setShown(false)
+    const t = setTimeout(() => setLeaving(false), 300)
+    return () => clearTimeout(t)
+  }, [open])
+
+  if (!open && !leaving) return null
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  IT DRAGS, AND IT ONLY DRAGS DOWN
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * A bottom sheet you can only dismiss with a button is a bottom sheet in
+   * shape only — the gesture is what everybody reaches for first, and its
+   * absence is the single loudest way a sheet reads as a web page.
+   *
+   * `Math.max(0, …)` is the whole of "only down". Letting it go up means a
+   * sheet that lifts off the bottom of the screen and shows the page beneath
+   * it, which is travel past the frame for no reason.
+   *
+   * A THIRD OF ITS HEIGHT, or a flick. Distance alone punishes a fast flick
+   * that did not travel far; velocity alone dismisses a slow, deliberate nudge.
+   * Either one closes it, which is what a sheet on iOS does.
+   */
+  const onDown = (y: number) => {
+    dragging.current = true
+    startY.current = y
+  }
+  const onMove = (y: number) => {
+    if (!dragging.current) return
+    setDrag(Math.max(0, y - startY.current))
+  }
+  const onUp = (h: number) => {
+    if (!dragging.current) return
+    dragging.current = false
+    if (drag > Math.max(80, h * 0.33)) onClose()
+    else setDrag(0)
+  }
+
   return (
+    /* z-[95] is ABOVE the tab bar, which is z-40. A sheet that stops short of it
+       leaves a strip of navigation lit over the thing it is covering, and the
+       scrim ends in a hard line across the bottom of the screen. */
     <div className="fixed inset-0 z-[95]" style={{ height: "100dvh" }}>
       <button
         type="button"
         aria-label="Închide"
         onClick={onClose}
-        className="absolute inset-0 bg-black/30 opacity-0 animate-in fade-in-0 duration-200 [animation-fill-mode:forwards]"
-        style={{ opacity: 1 }}
+        className="absolute inset-0 bg-black/40"
+        style={{
+          // The scrim fades with the sheet and thins as it is dragged away, so
+          // the page behind is already coming back before you let go.
+          opacity: shown ? Math.max(0, 1 - drag / 260) : 0,
+          transition: dragging.current ? "none" : "opacity 300ms ease-out",
+        }}
       />
       <div
-        className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pt-2 animate-in slide-in-from-bottom duration-300"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)" }}
+        className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-white pt-2"
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.5rem)",
+          transform: shown ? `translateY(${drag}px)` : "translateY(100%)",
+          transition: dragging.current ? "none" : "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+          willChange: "transform",
+        }}
+        onTouchStart={(e) => onDown(e.touches[0].clientY)}
+        onTouchMove={(e) => onMove(e.touches[0].clientY)}
+        onTouchEnd={(e) => onUp(e.currentTarget.getBoundingClientRect().height)}
       >
-        <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-neutral-200" />
+        {/* The handle is a target as well as a sign: 24px of padding around a
+            4px bar, because the thing you grab must be bigger than the thing
+            you see. */}
+        <div className="flex justify-center py-1.5">
+          <div aria-hidden className="h-1 w-10 rounded-full bg-neutral-300" />
+        </div>
         <h2 className="px-4 pb-2 pt-1 text-[17px] font-bold tracking-[-0.02em] text-neutral-900">Sortează</h2>
         {SORTS.map((s) => (
           <button

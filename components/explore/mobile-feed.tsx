@@ -292,7 +292,47 @@ export function MobileFeed({
    * appears to be broken.
    */
   const filteredByUrl = (urlCategory !== "" && urlCategory !== "all") || urlSub !== ""
-  const guestHome = !signedIn && !searchQuery && !filteredByUrl
+  /**
+   * ARE WE INSIDE THE APP? The `capacitor` class is on <html> before the first
+   * paint — the same signal the CSS uses to choose between the two headers — so
+   * this is decided in the lazy initialiser rather than in an effect, which
+   * would leave a frame of the wrong answer on every load. It decides two
+   * things: which screen "/" is, and whether pull-to-refresh exists.
+   *
+   * PULL TO REFRESH IS AN APP GESTURE. In the shell it is the right control:
+   * no address bar, no reload, and the feed is the home screen. In a browser it
+   * is a second, worse copy of something the browser already does, and it
+   * fights it — Safari and Chrome own the downward drag at the top of a
+   * document, this scroller intercepted it, and the same gesture meant two
+   * things depending on where the thumb landed.
+   */
+  const [nativeShell] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("capacitor"),
+  )
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  WHO GETS THE HOME PAGE AND WHO GETS THE FEED
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * The home page — proposition, recently viewed, the editorial, queries,
+   * departments, everything else — is what a BROWSER should show at "/", signed
+   * in or out. It is the same page the desktop draws, in the same order, from
+   * the same component, and a phone browser is the same visit on a smaller
+   * screen rather than a different product.
+   *
+   * The APP is the exception, and only for somebody signed in. There "/" is the
+   * Acasă tab: a tab bar under your thumb, three tabs across the top, a category
+   * rail and an endless grid you flick. That screen is the reason the app is
+   * worth installing, and replacing it with a marketing page would be the app
+   * behaving like a website in a box.
+   *
+   * Signed out, the app gets the home page too — somebody who has not made an
+   * account has not earned a personalised feed and has never been told what
+   * this place is.
+   */
+  const homePage = !searchQuery && !filteredByUrl && (!signedIn || !nativeShell)
+  const guestHome = homePage
 
   // Categories filter the For You feed and nothing else — on Saved and Following
   // they were dead controls sitting above the results.
@@ -301,7 +341,7 @@ export function MobileFeed({
   // sits on; above a hero, an editorial and five departments' worth of tiles it
   // is a control for something that is not there — and the departments are one
   // of the sections underneath it, so it is also the same list twice.
-  const showCats = tab === "for-you" && !guestHome
+  const showCats = tab === "for-you" && !homePage
   const catBarH = showCats ? CATBAR_H : 0
 
   // The curtain covers ONE case only: opening the app, where there is no
@@ -672,29 +712,6 @@ export function MobileFeed({
 
   // Imperative iOS-grade pull-to-refresh — re-attaches whenever the grid mounts
   // (enabled flips), so it never silently stops after a grid↔reels switch.
-  /**
-   * PULL TO REFRESH IS AN APP GESTURE, AND THIS IS AN APP GESTURE ONLY.
-   *
-   * In the shell it is the right control: there is no address bar, no reload,
-   * and the feed is the home screen — dragging it down is how everybody expects
-   * to ask for new listings.
-   *
-   * In a browser it is a second, worse copy of something the browser already
-   * does, and it fights it. Chrome and Safari own the downward drag at the top
-   * of a document; this scroller intercepts it, opens its own gap and spins its
-   * own spinner, so the same gesture means two things and which one you get
-   * depends on which element your thumb landed on. That is most of what reads
-   * as the page being loose.
-   *
-   * The `capacitor` class is on <html> before the first paint — the same signal
-   * the CSS uses to choose between the two headers — so this is decided in the
-   * lazy initialiser rather than in an effect: an effect would leave the gesture
-   * live for the first frames on the web.
-   */
-  const [nativeShell] = useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("capacitor"),
-  )
-
   useFeedPullRefresh({
     scrollRef,
     contentRef: feedContentRef,
@@ -1386,7 +1403,7 @@ export function MobileFeed({
 
            `tab` cannot be anything but "for-you" here — see the effect that
            holds it there — so the grid underneath needs no second condition. */}
-      {signedIn && (
+      {signedIn && !homePage && (
       <div className="shrink-0 flex items-stretch px-3 pt-3.5">
         {TABS.map(([id, key]) => {
           const active = tab === id
@@ -1409,7 +1426,7 @@ export function MobileFeed({
       )}
 
       {/* Subtle divider sits BETWEEN the tabs and the category pills. */}
-      {signedIn && <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />}
+      {signedIn && !homePage && <div className="shrink-0 mt-1 h-px" style={{ backgroundColor: "rgba(0, 0, 0, 0.07)" }} />}
 
       {/* ---- Feed area: 2-col grid, with the category bar as a transform
              overlay (sticky-on-scroll-up) ---- */}
@@ -1518,7 +1535,7 @@ export function MobileFeed({
                 seven ways itself, and it has to be cutting the same array the
                 desktop one is or the two pages disagree about what is new. */}
             {guestHome ? (
-              <DesktopHome products={initialProducts} signedIn={false} variant="phone" />
+              <DesktopHome products={initialProducts} signedIn={signedIn} variant="phone" />
             ) : (
             <>
               {/* ONLY WHEN THERE IS SOMETHING TO SAY. On the plain For You feed
@@ -1528,9 +1545,16 @@ export function MobileFeed({
                   appears the moment a department, a query or a filter narrows
                   the thing, which is exactly when somebody needs to be told
                   what they are looking at and given a way back out. */}
-              {tab === "for-you" && (urlCategory !== "all" || !!searchQuery || activeFilters > 0) && (
+              {/* `filteredByUrl`, not `urlCategory !== "all"`. The prop defaults
+                  to the EMPTY STRING when there is no department, and "" is not
+                  "all" — so this was true on the plain home feed and the app
+                  opened on "Toate anunțurile · 19 rezultate" with a brand rail
+                  and a filter bar over the marketplace itself. One test for
+                  "is this narrowed", used in both places, so they cannot answer
+                  differently again. */}
+              {tab === "for-you" && (filteredByUrl || !!searchQuery || activeFilters > 0) && (
                 <ResultsHeader
-                  departmentId={urlCategory !== "all" ? urlCategory : null}
+                  departmentId={filteredByUrl ? urlCategory : null}
                   groupId={filters.group ?? urlSub ?? null}
                   query={searchQuery || undefined}
                   count={products.length}
@@ -1601,6 +1625,8 @@ export function MobileFeed({
         pool={pool}
         departmentId={urlCategory !== "all" ? urlCategory : null}
         value={filters}
+        sort={sort}
+        onSortChange={setSort}
         onApply={(next) => {
           setFilters(next)
           // Back to the top: the grid under the sheet is a different grid now,

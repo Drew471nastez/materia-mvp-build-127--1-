@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation"
+
 import { NewListingForm } from "@/components/sell/new-listing-form"
 import { InterceptedOnly } from "@/components/sell/intercepted-only"
+import { createClient } from "@/lib/supabase/server"
 
 /**
  * The sell sheet, OVER the screen you were on.
@@ -60,6 +63,27 @@ export default async function InterceptedNewListing({
   // navigation — see components/sell/intercepted-only. Without this the slot
   // goes on drawing whatever it last matched, which is how opening "add a
   // listing" could show the edit form for another product.
+  /**
+   * THE SAME GUARD AS THE FULL-PAGE ROUTE, and it has to be here too.
+   *
+   * An interception catches the CLIENT navigation — the + in the tab bar, Vinde
+   * in the header — which is how almost everybody reaches this form. Guarding
+   * only products/new/page.tsx would leave the sheet opening over the feed for
+   * a signed-out visitor and failing at Publică, which is the ten minutes of
+   * work this guard exists to protect.
+   */
+  let signedIn = false
+  try {
+    const { data } = await (await createClient()).auth.getUser()
+    signedIn = !!data.user
+  } catch {
+    /* An unreadable session is not a session — see the note on the page. */
+  }
+  if (!signedIn) {
+    const back = draft ? `/products/new?draft=${encodeURIComponent(draft)}` : "/products/new"
+    redirect(`/login?redirect=${encodeURIComponent(back)}`)
+  }
+
   return (
     <InterceptedOnly path="/products/new">
       <NewListingForm draftId={draft ?? null} overlay />

@@ -9,6 +9,7 @@ import { ShopByCategory } from "./shop-by-category"
 import { SignedOutHero } from "./signed-out-hero"
 import { YouMightBeInto } from "./you-might-be-into"
 import { getRecentViews, signalsFrom, subscribeRecentViews, type RecentView } from "@/lib/marketplace/recent-views"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -339,7 +340,7 @@ export function DesktopHome({
         {/* The same conditional gap as the member layout: a row above it means
             the hero needs the page's rhythm, and nothing above it means it does
             not. */}
-        <HeroSlides listings={products} className="mt-14" />
+        <HeroSlides listings={products} className="mb-11 mt-11" />
 
         <YouMightBeInto views={views} catalogue={products} />
 
@@ -414,13 +415,10 @@ export function DesktopHome({
           has not earned the row yet. */}
       {personal && (
         <ListingRow
-          title="Bazat pe vizualizările tale recente"
-          items={sections.basedOnViews}
+          title="Vizualizate recent"
+          items={sections.recentlyViewed}
           rows={1}
-          // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
           minItems={ROW}
-          href="/?q="
-          seeMoreLabel="Vezi mai multe"
         />
       )}
 
@@ -430,7 +428,13 @@ export function DesktopHome({
           butted straight against the slideshow, which is the "no space at all,
           looks horrible" in the screenshot. At the top of the page there is
           nothing above it to be separated from. */}
-      <HeroSlides listings={products} className={personal ? "mt-14" : undefined} />
+      {/* mt-11 rather than mt-14 UNDER a row, and mb-11 always.
+          Fifty-six pixels between the slideshow and the listings under it was a
+          band of white wide enough to read as the end of the page — the
+          slideshow is a full-bleed picture, so the gap after it is measured
+          against a hard edge rather than against a row of cards with their own
+          air. Forty-four is the same rhythm, one step quieter. */}
+      <HeroSlides listings={products} className={cn("mb-11", personal && "mt-11")} />
 
       {/* What you were actually looking at, under the promotion.
 
@@ -445,10 +449,13 @@ export function DesktopHome({
           minItems in listing-row.tsx. */}
       {personal && (
         <ListingRow
-          title="Vizualizate recent"
-          items={sections.recentlyViewed}
+          title="Bazat pe vizualizările tale recente"
+          items={sections.basedOnViews}
           rows={1}
+          // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
           minItems={ROW}
+          href="/?q="
+          seeMoreLabel="Vezi mai multe"
         />
       )}
 

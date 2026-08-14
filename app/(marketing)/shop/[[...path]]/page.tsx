@@ -82,7 +82,8 @@ function searchParamsOf(raw: Record<string, string | string[] | undefined>): URL
 export async function generateMetadata({ params, searchParams }: { params: Params; searchParams: Query }): Promise<Metadata> {
   const { path } = await params
   const { department, group } = resolveCategoryPath(path)
-  const q = searchParamsOf(await searchParams).get("q") || ""
+  const sp = searchParamsOf(await searchParams)
+  const q = sp.get("q") || ""
   const dept = department ? DEPARTMENT_NAV.find((d) => d.id === department) : null
   const groupLabel = group && department ? groupsForDepartment(department).find((g) => g.id === group) : null
   const title = q
@@ -92,13 +93,45 @@ export async function generateMetadata({ params, searchParams }: { params: Param
       : dept
         ? `${dept.label} second-hand — Storelib`
         : "Toate anunțurile — Storelib"
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE THIRTY-SEVEN PAGES WORTH INDEXING, AND NOT ONE MORE
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * `/shop/women` and `/shop/women/shoes` are real pages about real things —
+   * five departments and thirty-seven groups, each with its own title,
+   * description and canonical URL. Those are what a search engine should have.
+   *
+   * EVERYTHING ELSE IS THE SAME CATALOGUE IN A DIFFERENT ORDER. A filter, a
+   * sort, a page number or a query produces a page whose content is a subset of
+   * one already indexed — and five multi-select facets times four sorts times
+   * the pages is a combinatorial number of near-duplicates, which is how a
+   * marketplace ends up with its own pages competing with each other.
+   *
+   * `follow: true` on all of them, because the LISTINGS behind a filter are
+   * worth reaching even when the filtered view is not: a crawler that follows a
+   * noindex page still walks its links.
+   *
+   * And a canonical on every one of them pointing at the clean path, so the
+   * signal is not only "do not index this" but "the page this is a view of is
+   * over there".
+   */
+  // `sp` from above, not a second await: `params` is already the route's own
+  // prop name and shadowing it here is how this stopped compiling.
+  const narrowed = q.length > 0 || [...sp.keys()].length > 0
+  const canonical = `https://storelib.com${
+    department ? (groupLabel ? `/shop/${department}/${groupSlug(groupLabel.id)}` : `/shop/${department}`) : "/shop"
+  }`
+
   return {
     title,
-    // A filtered or paged view is the same catalogue in a different order, and
-    // indexing every combination of five filters is how a marketplace gets
-    // thousands of near-duplicate pages in an index. The unfiltered department
-    // and group pages are the ones worth having.
-    robots: q || [...searchParamsOf(await searchParams).keys()].some((k) => k !== "q") ? { index: false, follow: true } : undefined,
+    description: groupLabel
+      ? `${categoryShortLabel(groupLabel)} second-hand de la vânzători reali. Cumpără și vinde ${dept?.label?.toLowerCase()} pe Storelib.`
+      : dept
+        ? `${dept.label} second-hand pe Storelib — mii de articole de la oameni din toată țara.`
+        : "Toate anunțurile de pe Storelib: modă, sneakers, cărți, muzică și obiecte de colecție second-hand.",
+    alternates: { canonical },
+    robots: narrowed ? { index: false, follow: true } : undefined,
   }
 }
 
