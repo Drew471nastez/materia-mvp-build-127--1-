@@ -1,6 +1,5 @@
-import { Baby, Dices, Disc3, LayoutGrid, Shirt } from "lucide-react"
+import { Baby, Clapperboard, Gem, LayoutGrid, Puzzle, Shirt } from "lucide-react"
 
-import { Dress } from "@/components/marketplace/department-icons"
 import {
   DEPARTMENTS,
   categoryShortLabel,
@@ -45,13 +44,35 @@ import {
  * They are what a template reaches for when nobody has decided what a row
  * means, and a shopper reads the words and skips the pictures.
  *
- * These are the departments' own contents. `Shirt` and `Dress` separate the two
- * apparel departments, which is the only pair that needs separating since both
- * sell Haine and Pantofi. `Baby` for a department that is mostly cărucioare,
- * îmbăiere and dormit. `Disc3` for Cărți / Reviste / Muzică / Video, because a
- * record is the object that reads as "media somebody already owned". `Dices`
- * for trading cards, board games, puzzles and miniatures. `Dress` is drawn
- * rather than imported — see components/marketplace/department-icons.tsx.
+ * ---------------------------------------------------------------------------
+ * FIVE DIFFERENT SILHOUETTES, WHICH IS THE ONLY THING THAT MATTERS AT 18px
+ * ---------------------------------------------------------------------------
+ * The set before this was Dress / Shirt / Baby / Disc3 / Dices, and its problem
+ * was not meaning — it was SHAPE. At the size these are drawn, `Dress` was a
+ * small bell, `Baby` a circle with two dots and `Disc3` a circle with one, so
+ * three of five departments were a round outline with something in the middle.
+ * A grid of tiles whose pictures all look alike is a grid whose pictures carry
+ * no information: the eye stops using them and reads the words, and then the
+ * icons are just noise taking up the left third of every tile.
+ *
+ * So these are chosen for CONTRAST first and meaning second — a pointed
+ * diamond, a wide t-shirt with sleeves, a round head, an angular rectangle with
+ * a diagonal across it, and an organic jigsaw knob. Five outlines you could
+ * tell apart as thumbnails with the labels covered:
+ *
+ *   Gem           Femei — Genți, Accesorii, Frumusețe are what distinguishes
+ *                 this department from Bărbați; both sell Haine and Pantofi.
+ *   Shirt         Bărbați — the garment, and the only pair that needed
+ *                 separating.
+ *   Baby          Copii — mostly cărucioare, îmbăiere, dormit and hrănire.
+ *   Clapperboard  Divertisment — Cărți / Reviste / Muzică / Video. The
+ *                 strongest "entertainment" mark that is not another circle.
+ *   Puzzle        Hobbyuri — trading cards, board games, puzzles, miniatures.
+ *
+ * All five are lucide's, so they share a stroke weight, a grid and an optical
+ * size with every other icon in the app. Nothing here is hand-drawn any more:
+ * the one that was, `Dress`, was the weakest of the five at tile size and was
+ * the reason the set needed a bespoke component at all.
  */
 
 /** A lucide glyph or one of ours. `typeof LayoutGrid` is lucide's own
@@ -59,11 +80,11 @@ import {
 export type DeptIcon = React.ComponentType<{ className?: string; strokeWidth?: number }>
 
 export const DEPARTMENT_ICONS: Record<string, DeptIcon> = {
-  women: Dress,
+  women: Gem,
   men: Shirt,
   kids: Baby,
-  entertainment: Disc3,
-  hobby: Dices,
+  entertainment: Clapperboard,
+  hobby: Puzzle,
 }
 
 export type DepartmentNavItem = {

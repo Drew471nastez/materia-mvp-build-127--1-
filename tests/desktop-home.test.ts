@@ -2295,6 +2295,44 @@ check(
 )
 
 check(
+  "Șterge tot clears the filters — it does not move you to another page",
+  (() => {
+    // IT WAS `go(EMPTY_FILTERS)`, AND `EMPTY_FILTERS.group` IS NULL. So pressing
+    // it on /shop/women/clothing walked you UP to /shop/women and took the leaf
+    // with it: somebody looking at dresses who unticks two brands ends up a
+    // level out with three hundred listings, and the only clue is the heading
+    // changing under them.
+    //
+    // The scope is not a filter. The department, the group and the leaf are in
+    // the path, the trail and the h1 — they are WHERE YOU ARE — and `buildChips`
+    // never emits a chip for the group, so nothing beside this button ever
+    // suggested it would navigate.
+    //
+    // Both surfaces, because the phone had the same bug through the sheet.
+    const results = code("components/explore/category-results.tsx")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    return (
+      /const clearFilters = useCallback\(\(\) => go\(\{ \.\.\.EMPTY_FILTERS, group: filters\.group \}\)/.test(results) &&
+      // Nothing calls the scope-losing version any more.
+      !/go\(EMPTY_FILTERS\)/.test(results) &&
+      (results.match(/onClick=\{clearFilters\}/g) ?? []).length === 2 &&
+      // The sheet is shared with the FEED, where the group really is one filter
+      // among several over an array — so this is a prop the results page sets,
+      // not a behaviour change imposed on both callers.
+      /setDraft\(\(d\) => \(\{ \.\.\.EMPTY_FILTERS, group: lockedGroup \?\? d\.group \}\)\)/.test(sheet) &&
+      /lockedGroup = null/.test(sheet) &&
+      /lockedGroup=\{groupId\}/.test(results) &&
+      // AND AN EMPTY LEAF OFFERS THE LEVEL ABOVE IT. `dropSuggestions` only ever
+      // names brands, sizes, colours, condition and price, so an empty
+      // Femei › Haine › Salopete with nothing else applied got a sentence on a
+      // page whose one useful action is one level up.
+      /go\(filters, \{ sub: null \}\)/.test(results)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
   "three recent searches, not four",
   (() => {
     // A recent-searches list is a shortcut, not a history: past about three the
