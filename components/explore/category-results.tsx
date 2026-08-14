@@ -11,6 +11,7 @@ import { SmartLink } from "@/components/smart-link"
 import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { departmentForGroup, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import { annotateRecentSearch } from "@/lib/hooks/use-recent-searches"
+import { getRecentViews, signalsFrom } from "@/lib/marketplace/recent-views"
 import {
   EMPTY_FILTERS,
   FACET_SEARCH_MIN,
@@ -187,6 +188,18 @@ export function CategoryResults({
   useEffect(() => {
     setDraft(null)
   }, [filters, sub, sort])
+  /**
+   * AND IT HEALS ON FAILURE, NOT ONLY ON SUCCESS. The clear above fires when
+   * the server's answer lands — but a navigation that never lands (offline, a
+   * dropped connection) leaves `pending` false and the props untouched, and
+   * the effect above never runs: the page would keep drawing a filter the
+   * server never applied, forever. `pending` settling is the one signal both
+   * outcomes share — on success the props have already changed by the time it
+   * goes false, so this second clear is a no-op there.
+   */
+  useEffect(() => {
+    if (!pending) setDraft(null)
+  }, [pending])
 
   /**
    * THE RECENT-SEARCH ENTRY LEARNS WHAT ITS SEARCH IS WEARING.
@@ -331,6 +344,39 @@ export function CategoryResults({
   )
 
   const chips = useMemo(() => buildChips(view, facets), [view, facets])
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE SHELF IS RANKED BY WHAT THIS ACCOUNT ACTUALLY LOOKS AT
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * The server sends fresh stock — it has to, because the viewing history lives
+   * on the DEVICE (lib/marketplace/recent-views, the same store the home page's
+   * "Bazat pe vizualizările tale" reads) and a server component cannot see it.
+   * So the ranking happens here: each shelf item scores by how much this
+   * person's recent views share its brand, its category and its subcategory,
+   * and the shelf reorders toward what they demonstrably open.
+   *
+   * Signed out, private mode, first visit — no signals, every score is zero,
+   * and the sort is STABLE: the server's freshness order survives untouched.
+   * Personalisation is a reordering of good content, never a gate on it.
+   */
+  const rankedFallback = useMemo(() => {
+    if (fallback.length < 2) return fallback
+    const views = getRecentViews()
+    if (views.length === 0) return fallback
+    const byBrand = new Map(signalsFrom(views, "brand").map((x) => [x.value.toLowerCase(), x.weight]))
+    const byCat = new Map(signalsFrom(views, "category").map((x) => [x.value, x.weight]))
+    const bySub = new Map(signalsFrom(views, "subcategory").map((x) => [x.value, x.weight]))
+    const score = (p: any) =>
+      (byBrand.get((p?.brand || "").trim().toLowerCase()) ?? 0) * 2 +
+      (byCat.get(p?.category || "") ?? 0) +
+      (bySub.get(p?.subcategory || "") ?? 0) * 1.5
+    return [...fallback]
+      .map((p, i) => ({ p, i, s: score(p) }))
+      .sort((a, b) => b.s - a.s || a.i - b.i)
+      .map((x) => x.p)
+  }, [fallback])
 
   /**
    * The rungs after Acasă. The last one has no href — it is where you are, and
@@ -794,7 +840,7 @@ export function CategoryResults({
                   S-ar putea să-ți placă
                 </h2>
                 <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
-                  {fallback.map((p) => (
+                  {rankedFallback.map((p) => (
                     <ProductCard key={p.id} product={p} origin="search" />
                   ))}
                 </div>
