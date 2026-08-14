@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react"
 
@@ -149,10 +149,64 @@ export function CategoryResults({
     return () => document.removeEventListener("keydown", onKey)
   }, [openPill])
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE TICK APPEARS WHEN YOU PRESS IT, NOT WHEN THE SERVER AGREES
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Every control here writes the URL and the server answers, which is what
+   * makes the back button, a reload and a shared link all mean the same thing —
+   * and it also meant NOTHING happened for the length of a round trip. Press
+   * "Nike": the box stays empty, the pill still says Brand, the chip does not
+   * appear. On anything but a fast connection that is a control that ignored
+   * you, so it gets pressed again, and the second press is a toggle back off.
+   *
+   * So the filters the UI DRAWS are the ones just asked for, and the server's
+   * answer replaces them when it lands. The URL is still the only source of
+   * truth — this is a photograph of the request in flight, cleared the moment
+   * real props arrive, so a failed or abandoned navigation self-heals rather
+   * than leaving the page lying.
+   *
+   * It also makes rapid multi-select CORRECT rather than merely fast: three
+   * brands ticked in a second used to build all three URLs from the same stale
+   * props, so the third navigation dropped the first two. Each one now starts
+   * from what the one before it asked for.
+   *
+   * `filters` is a fresh object per SERVER render — a client re-render keeps the
+   * same reference — so this effect fires exactly once per navigation.
+   */
+  const [draft, setDraft] = useState<{ f: FeedFilters; sub: string | null; sort: FeedSort } | null>(null)
+  useEffect(() => {
+    setDraft(null)
+  }, [filters, sub, sort])
+  const view = draft?.f ?? filters
+  const viewSub = draft ? draft.sub : sub
+  const viewSort = draft?.sort ?? sort
+
   const dept = departmentId ? DEPARTMENT_NAV.find((d) => d.id === departmentId) ?? null : null
   const group = dept && groupId ? dept.subcategories.find((s) => s.id === groupId) ?? null : null
-  const active = countActiveFilters({ ...filters, group: null })
+  const active = countActiveFilters({ ...view, group: null })
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  /**
+   * THE GRID ONLY DIMS IF THE WAIT IS LONG ENOUGH TO NOTICE.
+   *
+   * `pending` is true from the frame the transition starts, so a filter the
+   * server answers in 80ms flashed the entire grid to half opacity and back —
+   * a blink on every single press, which reads as the page glitching rather
+   * than as the page working. Below this threshold nothing moves at all except
+   * the tick you just pressed, which is exactly what "instant" should look
+   * like; past it the dim is honest about a real wait.
+   */
+  const [waiting, setWaiting] = useState(false)
+  useEffect(() => {
+    if (!pending) {
+      setWaiting(false)
+      return
+    }
+    const t = setTimeout(() => setWaiting(true), 140)
+    return () => clearTimeout(t)
+  }, [pending])
 
   /**
    * The next URL, and always from page 1.
@@ -176,14 +230,17 @@ export function CategoryResults({
       // carrying `?sub=dresses` onto Încălțăminte would be a page scoped to a
       // category that group does not have — which is an empty page with a chip
       // on it saying why.
-      const nextSub = opts && "sub" in opts ? opts.sub : next.group !== groupId ? null : sub
+      const nextSub: string | null = opts && "sub" in opts ? opts.sub ?? null : next.group !== groupId ? null : sub
+      const nextSort = opts?.sort ?? sort
       const params = paramsFromFilters({ ...next, group: null }, {
-        sort: opts?.sort ?? sort,
+        sort: nextSort,
         page: opts?.page,
         q: query || undefined,
         sub: nextSub,
       })
       const qs = params.toString()
+      // Drawn as done before it IS done — see the note on `draft`.
+      setDraft({ f: next, sub: nextSub, sort: nextSort })
       startTransition(() => router.push(qs ? `${path}?${qs}` : path, { scroll: true }))
       setOpenPill(null)
     },
@@ -210,17 +267,17 @@ export function CategoryResults({
    * Keeping `group` also keeps `sub`, because `go` only drops the leaf when the
    * group changes underneath it.
    */
-  const clearFilters = useCallback(() => go({ ...EMPTY_FILTERS, group: filters.group }), [go, filters.group])
+  const clearFilters = useCallback(() => go({ ...EMPTY_FILTERS, group: view.group }), [go, view.group])
 
   const toggle = useCallback(
     (key: "brands" | "sizes" | "colours" | "conditions", v: string) =>
       go({
-        ...filters,
+        ...view,
         [key]: filters[key].some((x) => x.toLowerCase() === v.toLowerCase())
           ? filters[key].filter((x) => x.toLowerCase() !== v.toLowerCase())
           : [...filters[key], v],
       }),
-    [filters, go],
+    [view, go],
   )
 
   const title = query ? `„${query}”` : subLabel ?? group?.label ?? dept?.label ?? "Toate anunțurile"
@@ -234,7 +291,7 @@ export function CategoryResults({
     [departmentId, groupId],
   )
 
-  const chips = useMemo(() => buildChips(filters, facets), [filters, facets])
+  const chips = useMemo(() => buildChips(view, facets), [view, facets])
 
   return (
     <WishlistProvider>
@@ -291,7 +348,7 @@ export function CategoryResults({
               ? "1 rezultat"
               : `${total.toLocaleString("ro-RO")} rezultate`
             : `${products.length} pe această pagină`}
-          {pending && <Loader2 className="h-[15px] w-[15px] animate-spin text-neutral-400" />}
+          {waiting && <Loader2 className="h-[15px] w-[15px] animate-spin text-neutral-400" />}
         </p>
 
         {/* ── WHEN THE SEARCH WAS WIDENED, THE PAGE SAYS SO.
@@ -329,10 +386,10 @@ export function CategoryResults({
           <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:px-0">
             <button
               type="button"
-              onClick={() => go(filters, { sub: null })}
-              aria-pressed={!sub}
+              onClick={() => go(view, { sub: null })}
+              aria-pressed={!viewSub}
               className={cn(
-                "shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200",
+                "shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.96]",
                 !sub
                   ? "border-neutral-900 bg-neutral-900 text-white"
                   : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400",
@@ -341,15 +398,15 @@ export function CategoryResults({
               Toate
             </button>
             {leaves.map((leaf) => {
-              const on = leaf.id === sub
+              const on = leaf.id === viewSub
               return (
                 <button
                   key={leaf.id}
                   type="button"
-                  onClick={() => go(filters, { sub: on ? null : leaf.id })}
+                  onClick={() => go(view, { sub: on ? null : leaf.id })}
                   aria-pressed={on}
                   className={cn(
-                    "shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200",
+                    "shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.96]",
                     on
                       ? "border-neutral-900 bg-neutral-900 text-white"
                       : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400",
@@ -371,7 +428,7 @@ export function CategoryResults({
             <span className="hidden shrink-0 text-[14px] font-semibold text-neutral-900 sm:block">Branduri populare</span>
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:px-0">
               {facets.brands.slice(0, 6).map((b) => {
-                const on = filters.brands.some((x) => x.toLowerCase() === b.value.toLowerCase())
+                const on = view.brands.some((x) => x.toLowerCase() === b.value.toLowerCase())
                 return (
                   <button
                     key={b.value}
@@ -379,7 +436,7 @@ export function CategoryResults({
                     onClick={() => toggle("brands", b.value)}
                     aria-pressed={on}
                     className={cn(
-                      "shrink-0 rounded-full border px-4 py-2 text-[13.5px] font-medium transition-colors",
+                      "shrink-0 rounded-full border px-4 py-2 text-[13.5px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.96]",
                       on
                         ? "border-neutral-900 bg-neutral-900 text-white"
                         : "border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400",
@@ -425,7 +482,7 @@ export function CategoryResults({
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold text-neutral-900"
+              className="flex flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold text-neutral-900 transition-transform duration-150 ease-out active:scale-[0.97]"
             >
               <SlidersHorizontal className="h-[18px] w-[18px]" />
               Filtre
@@ -439,7 +496,7 @@ export function CategoryResults({
             <button
               type="button"
               onClick={() => setSortOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold text-neutral-900"
+              className="flex flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold text-neutral-900 transition-transform duration-150 ease-out active:scale-[0.97]"
             >
               <ArrowUpDown className="h-[17px] w-[17px]" />
               Sortează
@@ -461,7 +518,7 @@ export function CategoryResults({
                       key={g.value}
                       href={categoryPath(dept.id, g.value)}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-[14px] hover:bg-neutral-50",
+                        "flex items-center gap-2 px-3 py-2 text-[14px] transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100",
                         g.value === groupId ? "font-semibold text-neutral-900" : "text-neutral-700",
                       )}
                     >
@@ -473,52 +530,52 @@ export function CategoryResults({
               </Pill>
             )}
 
-            <FacetPill id="brands" label="Brand" options={facets.brands} selected={filters.brands} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("brands", v)} />
+            <FacetPill id="brands" label="Brand" options={facets.brands} selected={view.brands} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("brands", v)} />
             <PricePill
-              key={`${filters.minPrice ?? ""}-${filters.maxPrice ?? ""}`}
-              filters={filters}
+              key={`${view.minPrice ?? ""}-${view.maxPrice ?? ""}`}
+              filters={view}
               openPill={openPill}
               setOpenPill={setOpenPill}
-              onApply={(min, max) => go({ ...filters, minPrice: min, maxPrice: max })}
+              onApply={(min, max) => go({ ...view, minPrice: min, maxPrice: max })}
             />
-            <FacetPill id="sizes" label="Mărime" options={facets.sizes} selected={filters.sizes} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("sizes", v)} />
-            <FacetPill id="colours" label="Culoare" options={facets.colours} selected={filters.colours} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("colours", v)} swatches />
-            <FacetPill id="conditions" label="Stare" options={facets.conditions} selected={filters.conditions} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("conditions", v)} />
+            <FacetPill id="sizes" label="Mărime" options={facets.sizes} selected={view.sizes} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("sizes", v)} />
+            <FacetPill id="colours" label="Culoare" options={facets.colours} selected={view.colours} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("colours", v)} swatches />
+            <FacetPill id="conditions" label="Stare" options={facets.conditions} selected={view.conditions} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("conditions", v)} />
 
             <button
               type="button"
-              onClick={() => go({ ...filters, onSale: !filters.onSale })}
-              aria-pressed={filters.onSale}
+              onClick={() => go({ ...view, onSale: !view.onSale })}
+              aria-pressed={view.onSale}
               className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-lg border px-3.5 text-[14px] font-medium transition-colors",
-                filters.onSale ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-900 hover:border-neutral-400",
+                "inline-flex h-10 items-center gap-2 rounded-lg border px-3.5 text-[14px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.97]",
+                view.onSale ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 text-neutral-900 hover:border-neutral-400",
               )}
             >
               <span
                 className={cn(
-                  "flex h-[17px] w-[17px] items-center justify-center rounded-[4px] border",
-                  filters.onSale ? "border-white bg-white text-neutral-900" : "border-neutral-400",
+                  "flex h-[17px] w-[17px] items-center justify-center rounded-[4px] border transition-colors duration-150",
+                  view.onSale ? "border-white bg-white text-neutral-900" : "border-neutral-400",
                 )}
               >
-                {filters.onSale && <Check className="h-[12px] w-[12px]" strokeWidth={3.4} />}
+                {view.onSale && <Check className="h-[12px] w-[12px]" strokeWidth={3.4} />}
               </span>
               La reducere
             </button>
 
-            <Pill id="sort" label="Sortează" value={SORTS.find((s) => s.id === sort)?.label ?? ""} open={openPill === "sort"} onOpen={setOpenPill} className="ml-auto">
+            <Pill id="sort" label="Sortează" value={SORTS.find((s) => s.id === viewSort)?.label ?? ""} open={openPill === "sort"} onOpen={setOpenPill} className="ml-auto">
               <div className="py-1">
                 {SORTS.map((s) => (
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => go(filters, { sort: s.id })}
+                    onClick={() => go(view, { sort: s.id })}
                     className={cn(
-                      "flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] hover:bg-neutral-50",
-                      s.id === sort ? "font-semibold text-neutral-900" : "text-neutral-700",
+                      "flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100",
+                      s.id === viewSort ? "font-semibold text-neutral-900" : "text-neutral-700",
                     )}
                   >
                     <span className="flex-1">{s.label}</span>
-                    {s.id === sort && <Check className="h-[15px] w-[15px]" strokeWidth={2.6} />}
+                    {s.id === viewSort && <Check className="h-[15px] w-[15px]" strokeWidth={2.6} />}
                   </button>
                 ))}
               </div>
@@ -535,7 +592,7 @@ export function CategoryResults({
                   key={c.key}
                   type="button"
                   onClick={() => go(c.remove(filters))}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 py-1.5 pl-3.5 pr-2.5 text-[13.5px] font-medium text-neutral-800 hover:bg-neutral-200"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 py-1.5 pl-3.5 pr-2.5 text-[13.5px] font-medium text-neutral-800 transition-[background-color,transform] duration-150 ease-out hover:bg-neutral-200 active:scale-[0.96]"
                 >
                   {c.label}
                   <X className="h-[14px] w-[14px] text-neutral-500" />
@@ -562,7 +619,7 @@ export function CategoryResults({
             Not a skeleton: what you are reading is the closest thing there is to
             what you are about to get, and replacing it with grey boxes throws
             that away to show a placeholder. */}
-        <div className={cn("transition-opacity duration-200", pending && "pointer-events-none opacity-50")}>
+        <div className={cn("transition-opacity duration-200", waiting && "pointer-events-none opacity-[0.55]")}>
         {products.length === 0 ? (
           <div className="py-24 text-center">
             <p className="text-[17px] font-semibold text-neutral-900">Niciun rezultat</p>
@@ -584,7 +641,7 @@ export function CategoryResults({
                     <button
                       key={e.key}
                       type="button"
-                      onClick={() => go(withoutFilter(filters, e.key))}
+                      onClick={() => go(withoutFilter(view, e.key))}
                       className="inline-flex h-11 items-center gap-2 rounded-lg border border-neutral-300 px-4 text-[14.5px] font-medium text-neutral-900 hover:border-neutral-400"
                     >
                       Fără {e.label}
@@ -593,7 +650,7 @@ export function CategoryResults({
                   ))}
                 </div>
               </>
-            ) : sub ? (
+            ) : viewSub ? (
               /* THE LEAF IS THE MOST LIKELY REASON, AND IT IS NOT A FILTER.
                  `dropSuggestions` only ever offers brands, sizes, colours,
                  condition and price, so an empty Femei › Haine › Salopete with
@@ -607,7 +664,7 @@ export function CategoryResults({
                 </p>
                 <button
                   type="button"
-                  onClick={() => go(filters, { sub: null })}
+                  onClick={() => go(view, { sub: null })}
                   className="mt-5 inline-flex h-11 items-center rounded-lg bg-neutral-900 px-6 text-[15px] font-semibold text-white"
                 >
                   Vezi tot din {group?.label ?? dept?.label ?? "categorie"}
@@ -639,7 +696,7 @@ export function CategoryResults({
 
         </div>
 
-        {pages > 1 && <Pager page={page} pages={pages} onGo={(n) => go(filters, { page: n })} />}
+        {pages > 1 && <Pager page={page} pages={pages} onGo={(n) => go(view, { page: n })} />}
       </div>
 
       <MobileFilterSheet
@@ -651,15 +708,15 @@ export function CategoryResults({
         // The group is the PATH here, so "Șterge tot" clears the filters rather
         // than walking you up a level — see the note on the prop.
         lockedGroup={groupId}
-        value={filters}
+        value={view}
         onApply={(next) => go(next)}
         // Sort lives inside the sheet on a phone — one trip for one decision.
         // The separate bottom sheet stays for the Sortează button beside Filtre,
         // which is the shortcut for somebody who only wants that.
-        sort={sort}
-        onSortChange={(s) => go(filters, { sort: s })}
+        sort={viewSort}
+        onSortChange={(s) => go(view, { sort: s })}
       />
-      <MobileSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onPick={(s) => go(filters, { sort: s })} />
+      <MobileSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={viewSort} onPick={(s) => go(view, { sort: s })} />
     </WishlistProvider>
   )
 }
@@ -675,12 +732,48 @@ function Crumb({ href, label }: { href: string; label: string }) {
   )
 }
 
+/** Wide enough for the longest option list, and the number the flip below
+ *  measures against. `min-w-[240px]` plus the border. */
+const PANEL_W = 244
+
 /**
- * A dropdown pill.
+ * ===========================================================================
+ *  A DROPDOWN PILL
+ * ===========================================================================
  *
  * ONE OPEN AT A TIME, held by the parent rather than by each pill: seven pills
  * each owning a boolean is seven panels that can all be open at once, stacked
  * over the first row of listings.
+ *
+ * ---------------------------------------------------------------------------
+ * IT MOVES, AND BEFORE THIS IT DID NOT
+ * ---------------------------------------------------------------------------
+ * `{open && <panel/>}` is a panel that EXISTS or does not. There is no state
+ * between the two, so a filter menu appeared as a hard rectangle and vanished
+ * the same way — the one control on this page you press most often was the only
+ * surface in the app that cut rather than moved. Everything else here already
+ * travels: the sheet slides, the search panel fades, the drill-downs push.
+ *
+ * So the mount is HELD for the length of the close, the same two-state pattern
+ * the search overlay and the filter sheet use, and the panel fades and rises
+ * 6px on the way in. 170/200ms — a menu that takes 300ms to answer a click on
+ * the thing under your cursor reads as slow, and the pair being a fraction
+ * apart is what stops it arriving as a flat sheet.
+ *
+ * `transform-origin` is the corner it is anchored to, so it grows OUT OF the
+ * pill rather than floating up beside it, and `pointer-events: none` from the
+ * frame the close starts means a leaving panel never swallows the click meant
+ * for what is behind it.
+ *
+ * ---------------------------------------------------------------------------
+ * AND IT FLIPS RATHER THAN LEAVING THE WINDOW
+ * ---------------------------------------------------------------------------
+ * `left-0` on a 244px panel hanging off a pill that is itself against the right
+ * edge — Sortează is `ml-auto`, so it always is — puts a third of the menu past
+ * the viewport, with the page's horizontal scrollbar as the only clue. Measured
+ * on open rather than hard-coded per pill: the row WRAPS at narrow widths, so
+ * which pill ends up against the edge is a function of the window, not of the
+ * markup.
  */
 function Pill({
   id,
@@ -699,31 +792,77 @@ function Pill({
   children: React.ReactNode
   className?: string
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [align, setAlign] = useState<"left" | "right">("left")
+
+  /** Kept mounted while it closes; `shown` is the class that opens it. */
+  const [mounted, setMounted] = useState(open)
+  const [shown, setShown] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const el = wrapRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    setAlign(r.left + PANEL_W + 16 > window.innerWidth ? "right" : "left")
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      // TWO FRAMES. React can commit inside the frame it was scheduled in, and a
+      // transition whose start and end land in one paint simply does not run —
+      // the same reason the filter sheet takes two.
+      const a = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)))
+      return () => cancelAnimationFrame(a)
+    }
+    setShown(false)
+    const t = setTimeout(() => setMounted(false), 210)
+    return () => clearTimeout(t)
+  }, [open])
+
   return (
-    <div className={cn("relative", className)}>
+    <div ref={wrapRef} className={cn("relative", className)}>
       <button
         type="button"
         onClick={() => onOpen(open ? null : id)}
         aria-expanded={open}
         className={cn(
-          "inline-flex h-10 items-center gap-1.5 rounded-lg border px-3.5 text-[14px] font-medium transition-colors",
-          value || open ? "border-neutral-900 text-neutral-900" : "border-neutral-300 text-neutral-900 hover:border-neutral-400",
+          // `active:scale-[0.97]` is the whole of "snappy" on a control that
+          // otherwise gives nothing back until a round trip finishes.
+          "inline-flex h-10 items-center gap-1.5 rounded-lg border px-3.5 text-[14px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.97]",
+          value || open
+            ? "border-neutral-900 text-neutral-900"
+            : "border-neutral-300 text-neutral-900 hover:border-neutral-400",
         )}
       >
         {label}
         {value && <span className="max-w-[140px] truncate text-neutral-500">· {value}</span>}
-        <ChevronDown className={cn("h-4 w-4 text-neutral-400 transition-transform", open && "rotate-180")} />
+        <ChevronDown className={cn("h-4 w-4 text-neutral-400 transition-transform duration-200 ease-out", open && "rotate-180")} />
       </button>
+      {/* Clicking anywhere else closes it. A pill that only closes on its own
+          button is one you have to go back to, which is why the page ends up
+          with a panel over it while you scroll. Only while it is OPEN — a scrim
+          that outlived the close would eat the first click after it. */}
       {open && (
-        <>
-          {/* Clicking anywhere else closes it. A pill that only closes on its own
-              button is one you have to go back to, which is why the page ends up
-              with a panel over it while you scroll. */}
-          <button aria-hidden tabIndex={-1} className="fixed inset-0 z-30 cursor-default" onClick={() => onOpen(null)} />
-          <div className="absolute left-0 top-[calc(100%+6px)] z-40 min-w-[240px] rounded-xl border border-neutral-200 bg-white py-1 shadow-[0_16px_40px_-12px_rgba(15,15,15,0.24)]">
-            {children}
-          </div>
-        </>
+        <button aria-hidden tabIndex={-1} className="fixed inset-0 z-30 cursor-default" onClick={() => onOpen(null)} />
+      )}
+      {mounted && (
+        <div
+          className={cn(
+            "absolute top-[calc(100%+6px)] z-40 min-w-[240px] rounded-xl border border-neutral-200 bg-white py-1 shadow-[0_16px_40px_-12px_rgba(15,15,15,0.24)]",
+            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left",
+          )}
+          style={{
+            opacity: shown ? 1 : 0,
+            transform: shown ? "translateY(0) scale(1)" : "translateY(-6px) scale(0.97)",
+            transition: "opacity 170ms cubic-bezier(0.16,1,0.3,1), transform 200ms cubic-bezier(0.16,1,0.3,1)",
+            pointerEvents: shown ? "auto" : "none",
+            willChange: "opacity, transform",
+          }}
+        >
+          {children}
+        </div>
       )}
     </div>
   )
@@ -763,11 +902,11 @@ function FacetPill({
               key={o.value}
               type="button"
               onClick={() => onPick(o.value)}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-neutral-700 hover:bg-neutral-50"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100"
             >
               <span
                 className={cn(
-                  "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border",
+                  "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border transition-colors duration-150",
                   on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300",
                 )}
               >
@@ -861,7 +1000,8 @@ function Pager({ page, pages, onGo }: { page: number; pages: number; onGo: (n: n
   if (page + 1 < pages - 1) slots.push("gap")
   push(pages)
 
-  const btn = "flex h-10 min-w-[40px] items-center justify-center rounded-lg px-3 text-[14.5px] font-medium transition-colors"
+  const btn =
+    "flex h-10 min-w-[40px] items-center justify-center rounded-lg px-3 text-[14.5px] font-medium transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.94]"
   return (
     <nav aria-label="Paginare" className="mt-12 flex items-center justify-center gap-1">
       <button

@@ -1993,7 +1993,7 @@ check(
       // listings nobody is struggling to find is work for nothing.
       /if \(rows\.length === 0\) escapes = dropSuggestions\(attrRows, effective, facets\)/.test(page) &&
       /Fără \{e\.label\}/.test(ui) &&
-      /go\(withoutFilter\(filters, e\.key\)\)/.test(ui)
+      /go\(withoutFilter\(view, e\.key\)\)/.test(ui)
     )
   })(),
   "        lib/marketplace/feed-filters.ts, components/explore/category-results.tsx",
@@ -2072,7 +2072,21 @@ check(
     return (
       /const \[pending, startTransition\] = useTransition\(\)/.test(ui) &&
       /startTransition\(\(\) => router\.push\(/.test(ui) &&
-      /pending && "pointer-events-none opacity-50"/.test(ui) &&
+      // BUT ONLY IF THE WAIT IS LONG ENOUGH TO NOTICE. `pending` is true from
+      // the frame the transition starts, so a filter the server answers in 80ms
+      // flashed the whole grid to half opacity and back — a blink on every
+      // press, which reads as the page glitching rather than as it working.
+      /const t = setTimeout\(\(\) => setWaiting\(true\), 140\)/.test(ui) &&
+      /waiting && "pointer-events-none opacity-\[0\.55\]"/.test(ui) &&
+      // AND THE CONTROL ITSELF ANSWERS ON THE FRAME IT IS PRESSED. Without
+      // this, pressing "Nike" left the box empty and the pill unchanged for a
+      // whole round trip, so it got pressed again — and the second press is a
+      // toggle back off.
+      /setDraft\(\{ f: next, sub: nextSub, sort: nextSort \}\)/.test(ui) &&
+      /const view = draft\?\.f \?\? filters/.test(ui) &&
+      // Cleared the moment real props land, so an abandoned navigation heals
+      // rather than leaving the page lying about what is applied.
+      /\}, \[filters, sub, sort\]\)/.test(ui) &&
       // A stale bookmark to page 7 of a category that has since sold down to
       // three is not an error; the pager is told the last page that exists.
       /const lastPage = Math\.max\(1, Math\.ceil\(total \/ PAGE_SIZE\)\)/.test(page) &&
@@ -2312,7 +2326,7 @@ check(
     const results = code("components/explore/category-results.tsx")
     const sheet = code("components/explore/mobile-filter-sheet.tsx")
     return (
-      /const clearFilters = useCallback\(\(\) => go\(\{ \.\.\.EMPTY_FILTERS, group: filters\.group \}\)/.test(results) &&
+      /const clearFilters = useCallback\(\(\) => go\(\{ \.\.\.EMPTY_FILTERS, group: view\.group \}\)/.test(results) &&
       // Nothing calls the scope-losing version any more.
       !/go\(EMPTY_FILTERS\)/.test(results) &&
       (results.match(/onClick=\{clearFilters\}/g) ?? []).length === 2 &&
@@ -2326,7 +2340,47 @@ check(
       // names brands, sizes, colours, condition and price, so an empty
       // Femei › Haine › Salopete with nothing else applied got a sentence on a
       // page whose one useful action is one level up.
-      /go\(filters, \{ sub: null \}\)/.test(results)
+      /go\(view, \{ sub: null \}\)/.test(results)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
+  "the filter dropdown moves, and it never opens off the side of the window",
+  (() => {
+    // `{open && <panel/>}` is a panel that EXISTS or does not — there is no
+    // state between the two. So the control on this page you press most often
+    // was the only surface in the app that CUT rather than moved, while the
+    // sheet slides, the search panel fades and every drill-down pushes.
+    //
+    // The mount is held for the length of the close, the same two-state pattern
+    // the search overlay and the filter sheet use, and the panel fades and rises
+    // 6px out of the corner it is anchored to. `pointer-events: none` from the
+    // frame the close starts, or a leaving panel eats the click meant for what
+    // is behind it.
+    //
+    // AND IT FLIPS. `left-0` on a 244px panel hanging off a pill against the
+    // right edge — Sortează is `ml-auto`, so it always is — puts a third of the
+    // menu past the viewport. Measured rather than hard-coded per pill, because
+    // the row WRAPS: which pill ends up against the edge is a function of the
+    // window, not of the markup.
+    const ui = code("components/explore/category-results.tsx")
+    const pill = ui.slice(ui.indexOf("function Pill("), ui.indexOf("function FacetPill("))
+    return (
+      /const \[mounted, setMounted\] = useState\(open\)/.test(pill) &&
+      /const t = setTimeout\(\(\) => setMounted\(false\), 210\)/.test(pill) &&
+      // Two frames: React can commit inside the frame it was scheduled in, and
+      // a transition whose start and end land in one paint does not run.
+      /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => setShown\(true\)\)\)/.test(pill) &&
+      /transform: shown \? "translateY\(0\) scale\(1\)" : "translateY\(-6px\) scale\(0\.97\)"/.test(pill) &&
+      /pointerEvents: shown \? "auto" : "none"/.test(pill) &&
+      // It grows OUT OF the pill rather than floating up beside it.
+      /align === "right" \? "right-0 origin-top-right" : "left-0 origin-top-left"/.test(pill) &&
+      /r\.left \+ PANEL_W \+ 16 > window\.innerWidth \? "right" : "left"/.test(pill) &&
+      // The scrim lives and dies with `open`, not with the mount — one that
+      // outlived the close would swallow the first click after it.
+      /\{open && \(\s*\n\s*<button aria-hidden/.test(pill)
     )
   })(),
   "        components/explore/category-results.tsx",
