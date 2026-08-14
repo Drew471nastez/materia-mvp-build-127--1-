@@ -2124,21 +2124,63 @@ check(
       // "every word, anywhere, in any order" is expressible at all: one group
       // per token for "all", one group total for the wider two.
       /if \(mode === "all"\) return tokens\.map\(groupFor\)/.test(terms) &&
-      /return \[tokens\.map\(groupFor\)\.join\(","\)\]/.test(terms) &&
+      /return \[words\.map\(groupFor\)\.join\(","\)\]/.test(terms) &&
       // Diacritic-blind, using LIKE's own single-character wildcard: "barbati"
       // becomes `b_rb_t_` and finds "bărbați". Symmetric — typing the diacritics
       // finds the listings that lack them.
       /const FOLDABLE = \/\[aăâAĂÂiîIÎsșşSȘŞtțţTȚŢ\]\/g/.test(terms) &&
-      // AND A PATTERN THAT IS MOSTLY WILDCARDS MATCHES MOSTLY EVERYTHING. Three
-      // guards, or "sase" becomes `____`.
+      // AND A PATTERN THAT IS MOSTLY WILDCARDS MATCHES MOSTLY EVERYTHING. "sase"
+      // would be `____`; `b_rb_t_` is safe because `b?rb` is a consonant
+      // skeleton almost nothing else in a clothing catalogue has, and THREE
+      // anchor characters is what makes it a skeleton rather than a coincidence.
       /if \(folded \/ token\.length > 0\.6\) return null/.test(terms) &&
-      /if \(token\.length - folded < 2\) return null/.test(terms) &&
+      /if \(token\.length - folded < 3\) return null/.test(terms) &&
       // The stem tier is a prefix, not an edit distance: one pattern the trigram
       // index can serve rather than a function call per row.
       /if \(token\.length < 5\) return null/.test(terms) &&
       // Tiers that would be the previous query again are not run.
-      /if \(tokens\.length > 1\) modes\.push\("any"\)/.test(terms) &&
-      /if \(tokens\.some\(\(t\) => relaxToken\(t\) !== null\)\) modes\.push\("fuzzy"\)/.test(terms)
+      /if \(tokens\.length > 1 && words\.length > 0\) modes\.push\("any"\)/.test(terms) &&
+      /if \(words\.some\(\(t\) => relaxToken\(t\) !== null\)\) modes\.push\("fuzzy"\)/.test(terms)
+    )
+  })(),
+  "        lib/marketplace/search-terms.ts",
+)
+
+check(
+  "a widened tier may only widen on a WORD — it never invents an answer for noise",
+  (() => {
+    // THE TIERS EXIST TO RESCUE A NEAR-MISS, AND A NEAR-MISS IS A WORD THAT WAS
+    // NEARLY SPELLED RIGHT. `424i2` is not a word that was nearly anything —
+    // and treating it as one is how a search starts inventing: it stems to
+    // `424`, and `%424%` matches the listing that mentions 42.4 cm, the one that
+    // costs 424 lei, and the one with 424 in a serial. Three confident,
+    // unrelated results for keyboard noise, which is worse than the empty page
+    // it was avoiding — an empty page is TRUE.
+    //
+    // Digits are IDENTIFIERS here (Jordan 4, Air Max 90, size 43, 501s). A
+    // prefix of a number is not a blurrier version of that number, it is a
+    // different number. The token is still searched for exactly, in the strict
+    // tier; it is barred only from the tiers whose job is to be approximate.
+    const terms = code("lib/marketplace/search-terms.ts")
+    return (
+      /export function isWordToken\(token: string\): boolean \{\s*\n\s*if \(\/\\d\/\.test\(token\)\) return false/.test(terms) &&
+      // BOTH doors. `424i2` folded its `i` into `424_2` — a wildcard inside
+      // keyboard noise, arriving at the same invention through the fold rather
+      // than through the stem. There are no diacritics in a serial number.
+      (terms.match(/if \(!isWordToken\(token\)\) return null/g) ?? []).length === 2 &&
+      // "jrdn" has no stem worth recovering: cutting it down only makes a
+      // shorter random string, which collides by accident more often, not less.
+      /if \(!VOWEL\.test\(token\)\) return null/.test(terms) &&
+      // Three characters is where a substring stops being a word and starts
+      // being a coincidence — `%art%` is in cardigan, quart, Martens and start.
+      /const keep = Math\.max\(4, Math\.ceil\(token\.length \* 0\.6\)\)/.test(terms) &&
+      // AND THE FALLBACK IS THE STRICT READING, NEVER NO FILTER AT ALL. An empty
+      // group list is the ENTIRE CATALOGUE returned under somebody's search
+      // term — the loosest thing this can return has to be tier one.
+      /if \(words\.length === 0\) return tokens\.map\(\(t\) => patternsFor\(t, "all"\)/.test(terms) &&
+      // The full-text pass is gated on the same judgement, so the two halves of
+      // the search cannot disagree about what is worth widening.
+      /modes\.includes\("any"\) \? buildTsQuery\(words, "\|"\) : ""/.test(code("app/api/v2/search/route.ts"))
     )
   })(),
   "        lib/marketplace/search-terms.ts",
