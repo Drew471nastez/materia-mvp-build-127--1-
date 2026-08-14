@@ -139,6 +139,8 @@ export function DesktopHome({
    * it to cut off.
    */
   const shell = variant === "phone" ? "px-4 overflow-x-clip" : "hidden md:block"
+  /** True where the screen is one column — see the note beside the hero. */
+  const phoneFirst = variant === "phone"
   /**
    * SERVER AND FIRST CLIENT RENDER SEE NO HISTORY, deliberately.
    *
@@ -413,28 +415,65 @@ export function DesktopHome({
           This is the same `personal` gate as the sections below, so an early
           visit still opens on the hero and nothing has moved for the person who
           has not earned the row yet. */}
-      {personal && (
-        <ListingRow
-          title="Vizualizate recent"
-          items={sections.recentlyViewed}
-          rows={1}
-          minItems={ROW}
-        />
-      )}
-
       {/* THE GAP IS CONDITIONAL, because the hero is sometimes the first thing
           on this page and sometimes the second. With a row above it, it needs
           the same `mt-14` every other section has — without one the row's cards
           butted straight against the slideshow, which is the "no space at all,
           looks horrible" in the screenshot. At the top of the page there is
           nothing above it to be separated from. */}
-      {/* mt-11 rather than mt-14 UNDER a row, and mb-11 always.
-          Fifty-six pixels between the slideshow and the listings under it was a
-          band of white wide enough to read as the end of the page — the
-          slideshow is a full-bleed picture, so the gap after it is measured
-          against a hard edge rather than against a row of cards with their own
-          air. Forty-four is the same rhythm, one step quieter. */}
-      <HeroSlides listings={products} className={cn("mb-11", personal && "mt-11")} />
+      {/* ═══════════════════════════════════════════════════════════════════
+          WHICH SIDE OF THE HERO "VIZUALIZATE RECENT" SITS ON
+          ═══════════════════════════════════════════════════════════════════
+
+          A PHONE PUTS IT ABOVE. There is one column and about six hundred
+          pixels of it: the slideshow alone is a picture and a headline and a
+          button, so anything under it is a scroll away rather than a glance
+          away. A returning shopper opening the app to carry on should not have
+          to travel past a campaign to reach the row that remembers what they
+          were doing.
+
+          A DESKTOP PUTS IT BELOW. The slideshow is a 1400px band and the row
+          under it is five cards — both are on screen at once, so "below" costs
+          nothing and the page keeps the shape it has always had: the house's
+          proposition first, then yours. Above the fold on a monitor is a
+          different amount of page from above the fold on a phone, and this is
+          the one section where that difference decides the order.
+
+          Written as a flag rather than as two copies of the JSX, so the two
+          layouts cannot drift in anything except this one decision.
+
+          mt-11 UNDER a row and mb-11 always: fifty-six pixels between the
+          slideshow and the listings under it was a band of white wide enough to
+          read as the end of the page. The slideshow is a full-bleed picture, so
+          the gap after it is measured against a hard edge rather than against a
+          row of cards with their own air. */}
+      {personal && phoneFirst && (
+        <ListingRow
+          title="Vizualizate recent"
+          items={sections.recentlyViewed}
+          rows={1}
+          minItems={ROW}
+          // mt-4, not the section rhythm's mt-10. Forty pixels is the gap
+          // BETWEEN two sections; this one is the first thing on the page and
+          // the only thing above it is the search row, which has padding of its
+          // own. Sixteen is enough to separate them and not a hole.
+          className="mt-4"
+        />
+      )}
+
+      <HeroSlides listings={products} className={cn("mb-11", personal && phoneFirst && "mt-11")} />
+
+      {personal && !phoneFirst && (
+        <ListingRow
+          title="Vizualizate recent"
+          items={sections.recentlyViewed}
+          rows={1}
+          minItems={ROW}
+          // The hero already carries the gap under itself (`mb-11`), so a second
+          // one here would be two margins for one join.
+          className="mt-0"
+        />
+      )}
 
       {/* What you were actually looking at, under the promotion.
 

@@ -2,6 +2,7 @@
 
 import { ProductCard } from "@/components/explore/product-card"
 import { SmartLink } from "@/components/smart-link"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -28,6 +29,7 @@ export function ListingRow({
   seeMoreLabel = "Vezi mai multe",
   origin = "feed",
   minItems = 3,
+  className,
 }: {
   title: string
   items: any[]
@@ -49,6 +51,13 @@ export function ListingRow({
    * single most obviously unfinished thing a home page can show.
    */
   minItems?: number
+  /**
+   * Overrides the section's own top margin. `mt-10 sm:mt-14` is the gap BETWEEN
+   * sections, and the first row on a page has nothing above it to be separated
+   * from — so the caller that puts one there passes `mt-0`, which tailwind-merge
+   * replaces rather than stacks with.
+   */
+  className?: string
 }) {
   // FIVE. Six cards across 1400px leaves each one about 215px wide, and a
   // second-hand listing is sold by its photograph — at that width a jumper on a
@@ -72,7 +81,7 @@ export function ListingRow({
   if (shown.length < minItems) return null
 
   return (
-    <section className="mt-10 sm:mt-14">
+    <section className={cn("mt-10 sm:mt-14", className)}>
       <div className="mb-4 flex items-baseline justify-between gap-4">
         <h2 className="text-[19px] font-bold tracking-[-0.02em] text-neutral-900 sm:text-[22px]">{title}</h2>
         {href && (
