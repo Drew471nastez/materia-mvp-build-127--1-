@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   buildTsQuery,
+  isWordToken,
   matchModesFor,
   safeTerm,
   searchTokens,
@@ -288,7 +289,12 @@ export async function GET(request: Request) {
       return (res.data as unknown as ProductRow[] | null) || []
     }
 
-    const ftsAttempts = [buildTsQuery(tokens, "&"), tokens.length > 1 ? buildTsQuery(tokens, "|") : ""]
+    // The OR-prefix pass is offered on the same test the ILIKE tiers use, and
+    // over the same WORDS — `jrdn4 | 424i2` is a widening that can only match by
+    // coincidence, and `matchModesFor` is where that judgement lives.
+    const modes = matchModesFor(tokens)
+    const words = tokens.filter(isWordToken)
+    const ftsAttempts = [buildTsQuery(tokens, "&"), modes.includes("any") ? buildTsQuery(words, "|") : ""]
     for (const tsQuery of ftsAttempts) {
       if (!tsQuery || rows.length > 0) continue
       rows = await run((sel) => filtered(sel).textSearch("search_vector", tsQuery, { config: "english" }))
@@ -301,7 +307,7 @@ export async function GET(request: Request) {
     // `matchModesFor` drops the tiers that would be the previous query again —
     // "any" is "all" on a one-word query, and "fuzzy" is both when no word is
     // long enough to have a stem.
-    for (const mode of matchModesFor(tokens)) {
+    for (const mode of modes) {
       if (rows.length > 0) continue
       const groups = textFilterGroups(SEARCH_COLS, tokens, mode)
       if (groups.length === 0) continue

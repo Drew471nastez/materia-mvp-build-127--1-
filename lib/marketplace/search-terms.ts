@@ -135,14 +135,27 @@ const FOLDABLE = /[aăâAĂÂiîIÎsșşSȘŞtțţTȚŢ]/g
  * way (see idx_products_title_trgm) and `_` inside it is no worse — and it buys
  * the single most common near-miss on a Romanian marketplace.
  *
- * Three guards, because a pattern that is mostly wildcards matches mostly
- * everything: nothing shorter than three characters, at most 60% of the word
- * turned into wildcards, and at least two real letters left to anchor it. "sase"
- * would be `____` and is refused. And a word with nothing foldable in it needs
- * no second pattern at all — it already matches itself.
+ * A PATTERN THAT IS MOSTLY WILDCARDS MATCHES MOSTLY EVERYTHING, so four guards:
+ *
+ *   A WORD. `424i2` folded its `i` into `424_2`, which is a wildcard inside
+ *   keyboard noise — the same invention `relaxToken` refuses, arriving through
+ *   a different door. There are no diacritics in a serial number.
+ *
+ *   FOUR CHARACTERS. "tee" would be `_ee`, which is see, bee and tee.
+ *
+ *   AT MOST 60% OF THE WORD WILDCARDED. "sase" would be `____`.
+ *
+ *   AND AT LEAST THREE REAL LETTERS LEFT TO ANCHOR IT. This is the guard that
+ *   does the work: `b_rb_t_` is safe not because it is 43% literal but because
+ *   `b?rb` is a consonant skeleton almost nothing else in a clothing catalogue
+ *   has. Two anchors is not a skeleton, it is a coincidence waiting to happen.
+ *
+ * And a word with nothing foldable in it needs no second pattern at all — it
+ * already matches itself.
  */
 export function foldPattern(token: string): string | null {
-  if (token.length < 3) return null
+  if (!isWordToken(token)) return null
+  if (token.length < 4) return null
   let folded = 0
   const out = token.replace(FOLDABLE, () => {
     folded++
@@ -150,9 +163,46 @@ export function foldPattern(token: string): string | null {
   })
   if (folded === 0) return null
   if (folded / token.length > 0.6) return null
-  if (token.length - folded < 2) return null
+  if (token.length - folded < 3) return null
   return out
 }
+
+/**
+ * ===========================================================================
+ *  A WIDENED TIER MAY ONLY WIDEN ON A *WORD*
+ * ===========================================================================
+ *
+ * The tiers below exist to rescue a near-miss, and a near-miss is a word that
+ * was nearly spelled right. `424i2` is not a word that was nearly anything —
+ * and treating it as one is how a search starts inventing:
+ *
+ *   `424i2` stems to `424`, and `%424%` matches the listing that mentions 42.4
+ *   cm in its description, and the one that costs 424 lei, and the one with 424
+ *   in a serial number. Three confident, unrelated results for keyboard noise.
+ *
+ * That is worse than the empty page it was trying to avoid, because an empty
+ * page is TRUE. Somebody who typed rubbish learns they typed rubbish; somebody
+ * shown three unrelated coats learns the search does not work.
+ *
+ * So a digit disqualifies a token from ever being widened. Digits on this
+ * marketplace are IDENTIFIERS — Jordan 4, Air Max 90, size 43, 501s — and a
+ * prefix of a number is not a blurrier version of that number, it is a
+ * different number. `4` is not "nearly 424", it is every listing on the site.
+ *
+ * The token is still searched for EXACTLY, in the strict tier, where it belongs:
+ * "jordan 4" finds Jordan 4s. It is only barred from the tiers whose whole job
+ * is to be approximate.
+ *
+ * Two letters minimum for the same reason — a single letter is in every row.
+ */
+export function isWordToken(token: string): boolean {
+  if (/\d/.test(token)) return false
+  return (token.match(/\p{L}/gu)?.length ?? 0) >= 2
+}
+
+/** The vowels of both spellings. A token without one is a keyboard mash or an
+ *  abbreviation, and neither has a stem worth searching for. */
+const VOWEL = /[aeiouăâîáàäéèëíìïóòöúùü]/i
 
 /**
  * The stem of a token, for the tier that runs when nothing else matched.
@@ -163,13 +213,27 @@ export function foldPattern(token: string): string | null {
  * a word, where the fingers run out — and it is honest about what it cannot do,
  * which is a transposition in the middle.
  *
- * Nothing under five characters is relaxed. Cutting "nike" to "nik" changes
- * which listings match by almost nothing, and cutting "y2k" to "y2" changes it
- * to everything.
+ * FOUR CONDITIONS, and each of them is a way this used to invent an answer:
+ *
+ *   A WORD, not a code. See `isWordToken` — this is where `424i2` → `424` was
+ *   coming from.
+ *
+ *   WITH A VOWEL IN IT. "jrdn" is not a misspelling of anything the stem could
+ *   recover; cutting it down only makes a shorter random string, which is a
+ *   string MORE likely to collide with something by accident.
+ *
+ *   AT LEAST FIVE CHARACTERS, so there is something to cut.
+ *
+ *   AND THE STEM ITSELF IS AT LEAST FOUR. Three characters is the length at
+ *   which a substring stops being a word and starts being a coincidence — `%art%`
+ *   is in cardigan, quart, Martens and start. Four is where a prefix still
+ *   means the thing it came from.
  */
 export function relaxToken(token: string): string | null {
+  if (!isWordToken(token)) return null
+  if (!VOWEL.test(token)) return null
   if (token.length < 5) return null
-  const keep = Math.max(3, Math.ceil(token.length * 0.6))
+  const keep = Math.max(4, Math.ceil(token.length * 0.6))
   if (keep >= token.length) return null
   return token.slice(0, keep)
 }
@@ -206,7 +270,25 @@ export function textFilterGroups(columns: string[], tokens: string[], mode: Matc
   if (tokens.length === 0) return []
   const groupFor = (t: string) => patternsFor(t, mode).flatMap((p) => arms(columns, p)).join(",")
   if (mode === "all") return tokens.map(groupFor)
-  return [tokens.map(groupFor).join(",")]
+
+  /**
+   * THE WIDENED TIERS SEE ONLY THE WORDS. See `isWordToken`.
+   *
+   * "nike 42" widened to `%nike%` is a useful answer — every Nike, because
+   * there is no Nike in a 42. Widened to `%nike%` OR `%42%` it is every listing
+   * on the site that mentions 42 anywhere, which is a page of things that have
+   * nothing to do with what was asked.
+   *
+   * AND IT FALLS BACK TO THE STRICT READING, NEVER TO NOTHING. An empty group
+   * list is no text filter at all, which is not "a wider search" — it is the
+   * ENTIRE CATALOGUE returned under somebody's search term. `matchModesFor`
+   * already declines to offer a tier that has no words to widen on, so this is
+   * the second lock on the same door: the loosest thing this function can ever
+   * return is tier one.
+   */
+  const words = tokens.filter(isWordToken)
+  if (words.length === 0) return tokens.map((t) => patternsFor(t, "all").flatMap((p) => arms(columns, p)).join(","))
+  return [words.map(groupFor).join(",")]
 }
 
 /**
@@ -217,12 +299,19 @@ export function textFilterGroups(columns: string[], tokens: string[], mode: Matc
  * round trip nobody should pay for. And "fuzzy" is only offered when at least
  * one token is long enough to have a stem; on "nike" there is nothing to relax
  * and the tier would be a third identical query.
+ *
+ * A QUERY WITH NO WORDS IN IT GETS NO WIDENING AT ALL. "jrdn4 424i2" is asked
+ * for exactly once, exactly as typed, and if the catalogue has nothing it says
+ * so — rather than going looking for a query it made up on the typist's behalf.
+ * The zero-results screen already offers the honest way forward: the filters
+ * worth dropping, and the categories worth browsing instead.
  */
 export function matchModesFor(tokens: string[]): MatchMode[] {
   if (tokens.length === 0) return []
+  const words = tokens.filter(isWordToken)
   const modes: MatchMode[] = ["all"]
-  if (tokens.length > 1) modes.push("any")
-  if (tokens.some((t) => relaxToken(t) !== null)) modes.push("fuzzy")
+  if (tokens.length > 1 && words.length > 0) modes.push("any")
+  if (words.some((t) => relaxToken(t) !== null)) modes.push("fuzzy")
   return modes
 }
 
@@ -232,8 +321,13 @@ export function matchModesFor(tokens: string[]): MatchMode[] {
  * "jordn" → "jor…", and the results page prints it.
  */
 export function relaxedTermFor(tokens: string[], mode: MatchMode): string {
-  if (mode !== "fuzzy") return tokens.join(" ")
-  return tokens.map((t) => (relaxToken(t) ? `${relaxToken(t)}…` : t)).join(" ")
+  // The words, because the words are what the widened tiers actually searched
+  // for — printing "424i2" in a line explaining what was searched for would be
+  // the page describing a query it deliberately did not run.
+  const words = tokens.filter(isWordToken)
+  const used = words.length > 0 ? words : tokens
+  if (mode !== "fuzzy") return used.join(" ")
+  return used.map((t) => (relaxToken(t) ? `${relaxToken(t)}…` : t)).join(" ")
 }
 
 /**
