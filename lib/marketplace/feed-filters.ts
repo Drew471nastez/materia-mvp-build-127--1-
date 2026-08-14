@@ -45,11 +45,24 @@ import { COLOURS, CONDITIONS, categoryShortLabel, groupsForDepartment } from "@/
 
 export type FeedSort = "new" | "price-asc" | "price-desc" | "popular"
 
+/**
+ * THE ORDER THE TWO MARKETPLACES THIS IS MODELLED ON USE.
+ *
+ * Depop: Newest, Price low to high, Price high to low. Vinted: the same three
+ * with Relevance in front on a search. Ours had Populare second, between Newest
+ * and the two prices — which splits the pair that people actually compare and
+ * puts the least-used option in the most prominent slot after the default.
+ *
+ * Populare stays, at the end. It is a real ordering on this catalogue
+ * (sales_count, and there is an index for it) and dropping a working sort to
+ * match a competitor's list exactly would be copying the menu rather than the
+ * thinking.
+ */
 export const SORTS: { id: FeedSort; label: string }[] = [
   { id: "new", label: "Cele mai noi" },
-  { id: "popular", label: "Populare" },
   { id: "price-asc", label: "Preț crescător" },
   { id: "price-desc", label: "Preț descrescător" },
+  { id: "popular", label: "Populare" },
 ]
 
 export type FeedFilters = {
@@ -355,6 +368,48 @@ export function paramsFromFilters(
   if (extra?.page && extra.page > 1) p.set("page", String(extra.page))
   return p
 }
+
+/**
+ * ===========================================================================
+ *  A LIST YOU CAN FIND SOMETHING IN
+ * ===========================================================================
+ *
+ * A brand facet on a real catalogue is forty to two hundred entries in a box
+ * three hundred pixels tall, sorted by how many listings each has. Looking for
+ * Carhartt in that is scrolling, and scrolling a list sorted by frequency is
+ * scrolling with no idea how far you are from the answer — which is why Vinted
+ * and Depop both put a field at the top of theirs and why this is not a nicety.
+ *
+ * TWO RULES, and the second one is the subtle one:
+ *
+ *   MATCHES, on the label AND the raw value. A brand's label is its commonest
+ *   spelling — see `tally` — so somebody typing the spelling that lost still
+ *   finds it.
+ *
+ *   AND WHAT YOU HAVE ALREADY TICKED COMES FIRST. Pick three brands out of two
+ *   hundred, scroll, and the three you picked are somewhere behind you: the list
+ *   stops telling you what you have chosen, which is the one thing it is for.
+ *
+ * `pinned` rather than `selected` is what decides the order, and the caller is
+ * expected to capture it when the list OPENS rather than passing the live
+ * selection. Pinning live means the row you just ticked leaps to the top from
+ * under the cursor, and the second tick lands on whatever slid into its place.
+ */
+export function orderFacetOptions(options: Facet[], pinned: string[], term: string): Facet[] {
+  const q = term.trim().toLowerCase()
+  const on = new Set(pinned.map((s) => s.trim().toLowerCase()))
+  const matched = q
+    ? options.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q))
+    : options
+  const first: Facet[] = []
+  const rest: Facet[] = []
+  for (const o of matched) (on.has(o.value.trim().toLowerCase()) ? first : rest).push(o)
+  return [...first, ...rest]
+}
+
+/** Past this many rows a list stops being scannable and needs a field. Eight is
+ *  about what fits in a dropdown without scrolling. */
+export const FACET_SEARCH_MIN = 8
 
 export function sortFromParam(v: string | null): FeedSort {
   return SORTS.some((s) => s.id === v) ? (v as FeedSort) : "new"

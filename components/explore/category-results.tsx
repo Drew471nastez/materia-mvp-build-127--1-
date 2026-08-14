@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, SlidersHorizontal, X } from "lucide-react"
 
 import { ProductCard } from "@/components/explore/product-card"
 import { WishlistProvider } from "@/components/explore/wishlist-context"
@@ -17,10 +17,12 @@ import {
 import { departmentForGroup, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import {
   EMPTY_FILTERS,
+  FACET_SEARCH_MIN,
   PAGE_SIZE,
   SORTS,
   colourHex,
   countActiveFilters,
+  orderFacetOptions,
   paramsFromFilters,
   type DropSuggestion,
   type Facet,
@@ -591,7 +593,7 @@ export function CategoryResults({
             </button>
           </div>
 
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
+          <div className="hidden flex-wrap items-center gap-3 md:flex">
             {/* ── CATEGORY IS ALWAYS HERE, AND IT GOES ALL THE WAY DOWN.
                    It only appeared once you were already inside a department,
                    and then it listed that department's groups and nothing else.
@@ -1196,33 +1198,86 @@ function FacetPill({
   const value = selected.length === 0 ? "" : selected.length === 1 ? (options.find((o) => o.value === selected[0])?.label ?? selected[0]) : `${selected.length}`
   return (
     <Pill id={id} label={label} value={value} open={openPill === id} onOpen={setOpenPill}>
-      <div className="max-h-[320px] min-w-[240px] overflow-y-auto py-1">
-        {options.map((o) => {
-          const on = selected.some((x) => x.toLowerCase() === o.value.toLowerCase())
-          const hex = swatches ? colourHex(o.value) : null
-          return (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => onPick(o.value)}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100"
-            >
-              <span
-                className={cn(
-                  "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border transition-colors duration-150",
-                  on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300",
-                )}
-              >
-                {on && <Check className="h-[12px] w-[12px]" strokeWidth={3.4} />}
-              </span>
-              {hex && <span aria-hidden className="h-[16px] w-[16px] shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: hex }} />}
-              <span className="min-w-0 flex-1 truncate">{o.label}</span>
-              <span className="shrink-0 text-[12.5px] text-neutral-400">{o.count}</span>
-            </button>
-          )
-        })}
-      </div>
+      {/* Mounted with the panel, which is what lets it capture the selection at
+          OPEN time — see FacetList. */}
+      <FacetList options={options} selected={selected} onPick={onPick} swatches={swatches} label={label} />
     </Pill>
+  )
+}
+
+/**
+ * The body of a facet dropdown: a field when the list is long enough to need
+ * one, then the options with whatever was already ticked at the top.
+ *
+ * A COMPONENT RATHER THAN MARKUP INSIDE FacetPill, because it has to MOUNT with
+ * the panel. `pinned` is captured once, on mount, so ticking a row does not make
+ * it leap to the top from under the cursor — and the panel is only rendered
+ * while it is open, so "on mount" and "when it opened" are the same moment.
+ */
+function FacetList({
+  options,
+  selected,
+  onPick,
+  swatches,
+  label,
+}: {
+  options: Facet[]
+  selected: string[]
+  onPick: (value: string) => void
+  swatches?: boolean
+  label: string
+}) {
+  const [term, setTerm] = useState("")
+  const [pinned] = useState(selected)
+  const searchable = options.length >= FACET_SEARCH_MIN
+  const shown = useMemo(() => orderFacetOptions(options, pinned, term), [options, pinned, term])
+
+  return (
+    <div className="min-w-[240px]">
+      {searchable && (
+        <div className="border-b border-neutral-100 p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-neutral-400" />
+            <input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder={`Caută ${label.toLowerCase()}`}
+              className="h-9 w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-8 pr-2.5 text-[13.5px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white"
+            />
+          </div>
+        </div>
+      )}
+      <div className="max-h-[300px] overflow-y-auto py-1">
+        {shown.length === 0 ? (
+          <p className="px-3 py-6 text-center text-[13px] text-neutral-400">Niciun rezultat</p>
+        ) : (
+          shown.map((o) => {
+            const on = selected.some((x) => x.toLowerCase() === o.value.toLowerCase())
+            const hex = swatches ? colourHex(o.value) : null
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => onPick(o.value)}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100"
+              >
+                <span
+                  className={cn(
+                    "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border transition-colors duration-150",
+                    on ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300",
+                  )}
+                >
+                  {on && <Check className="h-[12px] w-[12px]" strokeWidth={3.4} />}
+                </span>
+                {hex && <span aria-hidden className="h-[16px] w-[16px] shrink-0 rounded-full ring-1 ring-black/10" style={{ backgroundColor: hex }} />}
+                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                <span className="shrink-0 text-[12.5px] text-neutral-400">{o.count}</span>
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
   )
 }
 

@@ -2508,6 +2508,107 @@ check(
 )
 
 check(
+  "the filters are the same seven, in the same order, on both surfaces",
+  (() => {
+    // Category, Brand, Price, Size, Colour, Condition, On sale — the order Depop
+    // puts them in, and the one this marketplace is modelled on. It is not
+    // arbitrary: Category is the widest cut and comes first, Brand is what
+    // people actually search resale by, Price is the second-widest, and the
+    // three garment attributes follow in the order somebody thinks of them. On
+    // sale is a toggle rather than a list, so it closes the row.
+    //
+    // LOCKED, because a row of seven controls is exactly the kind of thing that
+    // drifts one edit at a time: somebody adds Material next to Brand because
+    // that is where the code happens to be, and the phone and the desktop stop
+    // agreeing about what order these come in.
+    const ui = code("components/explore/category-results.tsx")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+
+    const bar = ui.slice(ui.indexOf('className="hidden flex-wrap items-center gap-3 md:flex"'), ui.indexOf('id="sort"'))
+    const desktop = [
+      /id="group"[\s\S]*label="Categorie"/,
+      /id="brands" label="Brand"/,
+      /<PricePill/,
+      /id="sizes" label="Mărime"/,
+      /id="colours" label="Culoare"/,
+      /id="conditions" label="Stare"/,
+      /La reducere/,
+    ]
+    let at = -1
+    const inOrder = desktop.every((re) => {
+      const m = bar.slice(at + 1).search(re)
+      if (m < 0) return false
+      at = at + 1 + m
+      return true
+    })
+
+    const rows = sheet.slice(sheet.indexOf("const rows:"), sheet.indexOf("return (\n    <div\n      className=\"fixed inset-0 z-[95]"))
+    const sheetOrder = ["Sortare după", "Categorie", "Brand", "Preț", "Mărime", "Culoare", "Stare"]
+    let rat = -1
+    const sheetInOrder = sheetOrder.every((label) => {
+      const m = rows.indexOf(`"${label}"`, rat + 1)
+      if (m < 0) return false
+      rat = m
+      return true
+    })
+
+    return (
+      inOrder &&
+      sheetInOrder &&
+      // Sort is last on the desktop — pushed to the far end of the row by
+      // `ml-auto`, because it is not a filter and standing it beside six of them
+      // is what made people read it as one.
+      ui.indexOf('id="sort"') > ui.indexOf('id="conditions"') &&
+      /className="ml-auto"/.test(ui) &&
+      // And the sort options are Depop's three, in Depop's order, with ours
+      // last. Populare used to sit second, splitting the price pair that people
+      // actually compare and taking the most prominent slot after the default.
+      /\{ id: "new".*\n.*\{ id: "price-asc".*\n.*\{ id: "price-desc".*\n.*\{ id: "popular"/.test(
+        read("lib/marketplace/feed-filters.ts"),
+      )
+    )
+  })(),
+  "        components/explore/category-results.tsx, components/explore/mobile-filter-sheet.tsx",
+)
+
+check(
+  "a long facet list can be searched, and keeps your selection in sight",
+  (() => {
+    // A brand facet on a real catalogue is forty to two hundred entries in a box
+    // three hundred pixels tall, sorted by frequency. Finding Carhartt in that is
+    // scrolling with no idea how far you are from the answer — which is why
+    // Vinted and Depop both put a field at the top of theirs.
+    //
+    // AND THE SELECTION IS PINNED. Pick three brands out of two hundred, scroll,
+    // and otherwise the three you picked are somewhere behind you: the list stops
+    // telling you what you have chosen, which is the one thing it is for.
+    //
+    // Pinned from what was selected when the list OPENED, not live — pinning
+    // live makes the row you just ticked leap to the top from under the cursor,
+    // and the second tick lands on whatever slid into its place.
+    const engine = code("lib/marketplace/feed-filters.ts")
+    const ui = code("components/explore/category-results.tsx")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    return (
+      /export function orderFacetOptions\(options: Facet\[\], pinned: string\[\], term: string\)/.test(engine) &&
+      // Matches the label AND the raw value: a brand's label is its commonest
+      // spelling, so somebody typing the one that lost still finds it.
+      /o\.label\.toLowerCase\(\)\.includes\(q\) \|\| o\.value\.toLowerCase\(\)\.includes\(q\)/.test(engine) &&
+      // Both surfaces, one implementation.
+      (ui.match(/orderFacetOptions\(options, pinned, term\)/g) ?? []).length === 1 &&
+      (sheet.match(/orderFacetOptions\(options, pinned, term\)/g) ?? []).length === 1 &&
+      (ui.match(/const \[pinned\] = useState\(selected\)/g) ?? []).length === 1 &&
+      (sheet.match(/const \[pinned\] = useState\(selected\)/g) ?? []).length === 1 &&
+      // Only where it is needed: a list you can see all of does not need a field.
+      /export const FACET_SEARCH_MIN = 8/.test(engine) &&
+      /options\.length >= FACET_SEARCH_MIN/.test(sheet) &&
+      /const searchable = options\.length >= FACET_SEARCH_MIN/.test(ui)
+    )
+  })(),
+  "        lib/marketplace/feed-filters.ts",
+)
+
+check(
   "three recent searches, not four",
   (() => {
     // A recent-searches list is a shortcut, not a history: past about three the
