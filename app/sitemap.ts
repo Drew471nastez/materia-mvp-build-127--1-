@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { VALID_CATEGORY_IDS } from "@/lib/marketplace/categories"
+import { DEPARTMENT_NAV, categoryPath } from "@/lib/marketplace/department-nav"
 
 export const dynamic = "force-dynamic"
 
@@ -28,13 +29,56 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
   ]
 
-  // Explore category pages
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE FORTY-TWO PAGES THIS MARKETPLACE ACTUALLY HAS
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Five departments and thirty-seven groups, each a real page with its own
+   * title, description and canonical — see app/(marketing)/shop. They were
+   * indexable and unlisted, which is the worst of both: a crawler could index
+   * them but had to find them first, and the only links in were a menu behind a
+   * button and a bar rendered by a client component.
+   *
+   * A GROUP OUTRANKS ITS DEPARTMENT here, 0.8 against 0.7, and that is
+   * deliberate rather than tidy. "Femei" is a category listing; "Femei ·
+   * Încălțăminte" is what somebody actually searches for, and it is the page
+   * that can answer them. The department is the way in, not the destination.
+   *
+   * Derived from the taxonomy the sell form uses, so a department added there
+   * appears in the sitemap without anybody remembering to come here — the same
+   * rule the menus follow. See lib/marketplace/department-nav.
+   */
+  for (const dept of DEPARTMENT_NAV) {
+    routes.push({
+      url: `${BASE}${categoryPath(dept.id)}`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.7,
+    })
+    for (const group of dept.subcategories) {
+      routes.push({
+        url: `${BASE}${categoryPath(dept.id, group.id)}`,
+        lastModified: new Date(),
+        changeFrequency: "daily",
+        priority: 0.8,
+      })
+    }
+  }
+
+  /**
+   * The legacy /explore/<id> pages, still listed because they still resolve and
+   * still carry whatever authority they have accumulated. They are the OLD
+   * taxonomy — sneakers, jewellery, vintage — and no listing has ever been filed
+   * under one, so they are the lower priority of the two sets and are the ones
+   * to retire once /shop has been crawled.
+   */
   for (const category of EXPLORE_CATEGORIES) {
     routes.push({
       url: `${BASE}/explore/${category}`,
       lastModified: new Date(),
       changeFrequency: "daily",
-      priority: 0.8,
+      priority: 0.5,
     })
   }
 

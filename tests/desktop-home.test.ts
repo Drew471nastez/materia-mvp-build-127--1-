@@ -1890,6 +1890,79 @@ check(
 )
 
 check(
+  "nothing from the address bar reaches the filter as syntax",
+  (() => {
+    // `or=(title.ilike.%x%,…)` is a STRING PostgREST parses, and `q` came out of
+    // the address bar. Four characters change the meaning of that string rather
+    // than the value inside it: `,` appends a condition of the caller's
+    // choosing, `)` closes the group early and 500s, and `%`/`_` are LIKE
+    // wildcards — so `?q=%` is "match every row", a full scan of the catalogue
+    // on a public URL that costs nothing to request.
+    //
+    // It could not leak an unpublished listing: `status = 'published'` is a
+    // separate filter ANDed with the whole group, and RLS is under that again.
+    // But "it cannot read what it should not" is the floor, not the goal.
+    //
+    // Two defences, because either alone is thin: the value is QUOTED, which is
+    // what PostgREST's own documentation prescribes for reserved characters,
+    // and the four that quoting cannot help with are removed.
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    const engine = code("lib/marketplace/feed-filters.ts")
+    return (
+      page.includes('return raw.replace(/[%_"\\\\]/g, " ")') &&
+      /\$\{c\}\.ilike\."%\$\{term\}%"/.test(page) &&
+      /\$\{column\}\.ilike\."\$\{safeTerm\(raw\)\}"/.test(page) &&
+      // Nothing builds the pattern by hand any more.
+      !/title\.ilike\.%\$\{q\}%/.test(page) &&
+      !/JSON\.stringify\(b\)/.test(page) &&
+      // An all-punctuation query sanitises to nothing and is treated as NO
+      // search, rather than as a search for "" — which is `ilike "%%"`.
+      /const q = safeTerm\(sp\.get\("q"\) \|\| ""\)/.test(page) &&
+      // AND THE NUMBERS ARE BOUNDED. `page` becomes an OFFSET: `?page=99999999`
+      // is a query Postgres will try, reading and discarding nine billion rows.
+      // A list becomes one condition each, so `?brand=` with two thousand
+      // entries is a two-thousand-condition filter from one free request.
+      /const page = Math\.min\(500, Math\.max\(1, Number\(sp\.get\("page"\)\) \|\| 1\)\)/.test(page) &&
+      /const MAX_LIST = 20/.test(engine) &&
+      /\.slice\(0, MAX_LIST\)/.test(engine) &&
+      /Math\.min\(n, MAX_PRICE\)/.test(engine) &&
+      // A band the wrong way round is a band, not an empty page: somebody typed
+      // the two boxes in the order they read them.
+      /const minPrice = lo != null && hi != null \? Math\.min\(lo, hi\) : lo/.test(engine)
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx, lib/marketplace/feed-filters.ts",
+)
+
+check(
+  "the sort matches the index it was given, and the pages are in the sitemap",
+  (() => {
+    // "Populare" ordered by sales_count then REVIEWS_COUNT, while
+    // idx_products_published_category_sales is (category, sales_count DESC,
+    // created_at DESC) — a query whose second key is a different column cannot
+    // use the index past the first. The index was written for this sort; the
+    // sort had drifted off it.
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    const sql = read("supabase/sql/RUN_SHOP_INDEXES.sql")
+    const map = read("app/sitemap.ts")
+    return (
+      /\.order\("sales_count", \{ ascending: false \}\)\s*\n\s*\.order\("created_at", \{ ascending: false \}\)/.test(page) &&
+      /\(category, sales_count DESC, created_at DESC\)/.test(sql) &&
+      // Forty-two real pages that were indexable and unlisted — the worst of
+      // both, since a crawler could index them but had to find them first, and
+      // the only links in were a menu behind a button and a bar rendered by a
+      // client component.
+      /for \(const dept of DEPARTMENT_NAV\)/.test(map) &&
+      /\$\{BASE\}\$\{categoryPath\(dept\.id, group\.id\)\}/.test(map) &&
+      // A group outranks its department: "Femei" is a listing, "Femei ·
+      // Încălțăminte" is what somebody searches for.
+      /priority: 0\.8,\s*\n\s*\}\)\s*\n\s*\}\s*\n\s*\}/.test(map)
+    )
+  })(),
+  "        app/sitemap.ts",
+)
+
+check(
   "and a filter change says it is thinking instead of ignoring the tap",
   (() => {
     // Every control here navigates, and a navigation to a server component is a

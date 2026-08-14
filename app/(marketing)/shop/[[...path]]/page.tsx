@@ -59,6 +59,55 @@ import { categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listi
 
 export const dynamic = "force-dynamic"
 
+/**
+ * ===========================================================================
+ *  USER INPUT GOING INTO A PostgREST FILTER
+ * ===========================================================================
+ *
+ * `or=(title.ilike.%x%,description.ilike.%x%,brand.ilike.%x%)` is a STRING that
+ * PostgREST parses, and `q` came out of the address bar. Four characters in it
+ * change the meaning of that string rather than the value inside it:
+ *
+ *   `,`  separates the conditions, so `?q=a,creator_id.eq.<uuid>` appends a
+ *        condition of the attacker's choosing to the OR group;
+ *   `)`  closes the group early, which is a malformed filter and a 500;
+ *   `%`  and `_` are LIKE wildcards, so `?q=%` is "match every row" — a full
+ *        scan of the catalogue on a public URL that costs nothing to request.
+ *
+ * It could not leak an unpublished listing — `status = 'published'` is a
+ * separate filter, ANDed with the whole group, and RLS is under that again. But
+ * "it cannot read what it should not" is the floor, not the goal: a filter
+ * somebody else can write conditions into is a bug whether or not today's
+ * schema makes it exploitable.
+ *
+ * TWO DEFENCES, because either alone is thin. The value is QUOTED, which makes
+ * commas, parentheses and dots literal to PostgREST's parser — that is what its
+ * own documentation prescribes for values containing reserved characters. And
+ * the four characters quoting cannot help with are removed: `"` and `\` would
+ * end the quoting, and `%`/`_` are wildcards to Postgres itself rather than to
+ * PostgREST, so no amount of quoting makes them literal.
+ *
+ * Removed rather than escaped, and replaced by a SPACE rather than by nothing:
+ * this is a search term, so "levi%s" becoming "levi s" still finds the jeans,
+ * while "levis" would silently search for something the person did not type.
+ */
+function safeTerm(raw: string): string {
+  return raw.replace(/[%_"\\]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+/** A quoted ilike pattern, ready to sit inside an `or=(...)` group. */
+function likeAny(columns: string[], raw: string): string {
+  const term = safeTerm(raw)
+  return columns.map((c) => `${c}.ilike."%${term}%"`).join(",")
+}
+
+/** A quoted exact-but-case-insensitive match, for values chosen from a facet
+ *  list — which still arrive through the URL and are still not to be trusted. */
+function ilikeExact(column: string, raw: string): string {
+  return `${column}.ilike."${safeTerm(raw)}"`
+}
+
+
 const ATTR_COLS = "brand, size, colour, condition, category, price_cents, compare_at_cents"
 // `is_on_sale` is not selected: it is a filter, never a displayed value, and
 // selecting a column that may not exist yet would break the fallback below.
@@ -140,9 +189,24 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   const { department, group: pathGroup } = resolveCategoryPath(path)
   const sp = searchParamsOf(await searchParams)
 
-  const q = (sp.get("q") || "").trim()
+  // `safeTerm` here as well as at the filter, so an all-punctuation query —
+  // `?q=%` sanitises to nothing — is treated as NO search rather than as a
+  // search for the empty string, which is `ilike "%%"` and matches the whole
+  // catalogue. The title and the count then say "Toate anunțurile" honestly.
+  const q = safeTerm(sp.get("q") || "")
   const sort: FeedSort = sortFromParam(sp.get("sort"))
-  const page = Math.max(1, Number(sp.get("page")) || 1)
+  /**
+   * A CEILING ON THE PAGE NUMBER, because `page` becomes an OFFSET.
+   *
+   * `?page=99999999` is `range(8999999910, …)` — a query Postgres will happily
+   * try, reading and discarding nine billion rows to return none. It is one
+   * URL, it needs no account, and it can be requested in a loop.
+   *
+   * 500 is far past anything a person reaches: forty-five thousand listings
+   * deep, at ninety a page. Past that it is a crawler or a script, and both are
+   * better served by the last real page than by a timeout.
+   */
+  const page = Math.min(500, Math.max(1, Number(sp.get("page")) || 1))
 
   const deptGroups = department ? groupsForDepartment(department).map((g) => g.id) : []
   const filters = filtersFromParams(sp, deptGroups)
@@ -166,7 +230,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       let s = supabase.from("products").select(select, opts as any).eq("status", "published")
       if (group) s = s.eq("category", group)
       else if (deptGroups.length > 0) s = s.in("category", deptGroups)
-      if (q) s = s.or(`title.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%`)
+      if (q) s = s.or(likeAny(["title", "description", "brand"], q))
       /**
        * BRANDS MATCH CASE-INSENSITIVELY, and `.in()` does not.
        *
@@ -178,11 +242,13 @@ export default async function CategoryPage({ params, searchParams }: { params: P
        * its own filter. `ilike` with no wildcard is an exact case-insensitive
        * match, which is the same test `applyFeedFilters` runs on the client.
        *
-       * `JSON.stringify` is the quoting: PostgREST's `or=()` is comma-separated,
-       * and "New Balance" needs its space and any comma inside double quotes.
+       * `ilikeExact` does the quoting AND the stripping — see `safeTerm`.
+       * `JSON.stringify` was doing half of it: it quotes, but it escapes an
+       * embedded quote as `\"`, which PostgREST does not read as an escape —
+       * so a brand with a quote in it ended the quoting early.
        */
       if (effective.brands.length > 0) {
-        s = s.or(effective.brands.map((b) => `brand.ilike.${JSON.stringify(b)}`).join(","))
+        s = s.or(effective.brands.map((b) => ilikeExact("brand", b)).join(","))
       }
       if (effective.sizes.length > 0) s = s.in("size", effective.sizes)
       if (effective.colours.length > 0) s = s.in("colour", effective.colours)
@@ -236,9 +302,16 @@ export default async function CategoryPage({ params, searchParams }: { params: P
         case "price-desc":
           return s.order("price_cents", { ascending: false }).order("id", { ascending: true })
         case "popular":
+          // `created_at`, not `reviews_count`, as the second key — because
+          // idx_products_published_category_sales is (category, sales_count
+          // DESC, created_at DESC) and a query whose second key is a different
+          // column cannot use it past the first. The index was written for this
+          // sort; the sort had drifted off it. Reviews are a ranking signal on
+          // the home page, where they are weighed against a count; here they
+          // were a tie-break worth less than the index they cost.
           return s
             .order("sales_count", { ascending: false })
-            .order("reviews_count", { ascending: false })
+            .order("created_at", { ascending: false })
             .order("id", { ascending: true })
         default:
           return s.order("created_at", { ascending: false }).order("id", { ascending: true })
@@ -282,7 +355,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
     let fq = supabase.from("products").select(ATTR_COLS).eq("status", "published")
     if (group) fq = fq.eq("category", group)
     else if (deptGroups.length > 0) fq = fq.in("category", deptGroups)
-    if (q) fq = fq.or(`title.ilike.%${q}%,description.ilike.%${q}%,brand.ilike.%${q}%`)
+    if (q) fq = fq.or(likeAny(["title", "description", "brand"], q))
     if (effective.minPrice != null) fq = fq.gte("price_cents", effective.minPrice * 100)
     if (effective.maxPrice != null) fq = fq.lte("price_cents", effective.maxPrice * 100)
     if (effective.onSale && withSale) fq = fq.eq("is_on_sale", true)

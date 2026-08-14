@@ -266,17 +266,50 @@ export function sortFeed(products: any[], sort: FeedSort): any[] {
  */
 const LIST_KEYS = ["brand", "size", "colour", "condition"] as const
 
+/**
+ * A CEILING ON EVERY LIST, because the URL is not ours.
+ *
+ * `?brand=a,b,c,…` with two thousand entries becomes a two-thousand-condition
+ * `or=()` — a query string past what proxies accept and a filter Postgres plans
+ * badly, from one URL that costs nothing to request. Twenty is far past any
+ * real use: the Brand list is sorted by frequency and nobody ticks twenty of
+ * them.
+ *
+ * Truncated rather than rejected. A URL somebody edited by hand still returns
+ * results for the first twenty, which is closer to what they meant than an
+ * error page.
+ */
+const MAX_LIST = 20
+
+/** Prices are in whole RON. A hundred million is past any listing that will
+ *  ever exist here and short of anything that overflows when multiplied by 100
+ *  into cents. */
+const MAX_PRICE = 100_000_000
+
 export function filtersFromParams(params: URLSearchParams, validGroups: string[]): FeedFilters {
   const list = (k: string) =>
     (params.get(k) || "")
       .split(",")
       .map((v) => v.trim())
       .filter(Boolean)
+      .slice(0, MAX_LIST)
   const num = (k: string) => {
     const n = Number(params.get(k))
-    return Number.isFinite(n) && n > 0 ? n : null
+    return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_PRICE) : null
   }
   const group = params.get("group")
+  /**
+   * A BAND THE WRONG WAY ROUND IS A BAND, not an empty page.
+   *
+   * `?min=300&max=50` is somebody who typed the two boxes in the order they
+   * read them, and answering it with "no results" is technically right and
+   * useless. Swapping is what they meant and what every price filter that has
+   * thought about it does.
+   */
+  const lo = num("min")
+  const hi = num("max")
+  const minPrice = lo != null && hi != null ? Math.min(lo, hi) : lo
+  const maxPrice = lo != null && hi != null ? Math.max(lo, hi) : hi
   return {
     // Validated against the department in play, so a hand-typed group from
     // another department cannot silently empty the page.
@@ -285,8 +318,8 @@ export function filtersFromParams(params: URLSearchParams, validGroups: string[]
     sizes: list("size"),
     colours: list("colour"),
     conditions: list("condition"),
-    minPrice: num("min"),
-    maxPrice: num("max"),
+    minPrice,
+    maxPrice,
     onSale: params.get("sale") === "1",
   }
 }
