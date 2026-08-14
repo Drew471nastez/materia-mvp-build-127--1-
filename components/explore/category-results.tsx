@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, SlidersHorizontal, X } from "lucide-react"
 
@@ -111,6 +111,24 @@ export function CategoryResults({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sortOpen, setSortOpen] = useState(false)
   const [openPill, setOpenPill] = useState<string | null>(null)
+
+  /**
+   * ESCAPE CLOSES THE OPEN ONE.
+   *
+   * A panel that can only be dismissed by clicking away from it is a panel
+   * somebody using a keyboard cannot dismiss at all — and Escape is what every
+   * hand reaches for first, mouse or not. One listener for all seven pills,
+   * because only one is ever open: seven listeners would be seven handlers
+   * racing to close the same thing.
+   */
+  useEffect(() => {
+    if (!openPill) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenPill(null)
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [openPill])
 
   const dept = departmentId ? DEPARTMENT_NAV.find((d) => d.id === departmentId) ?? null : null
   const group = dept && groupId ? dept.subcategories.find((s) => s.id === groupId) ?? null : null
@@ -288,7 +306,13 @@ export function CategoryResults({
             )}
 
             <FacetPill id="brands" label="Brand" options={facets.brands} selected={filters.brands} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("brands", v)} />
-            <PricePill filters={filters} openPill={openPill} setOpenPill={setOpenPill} onApply={(min, max) => go({ ...filters, minPrice: min, maxPrice: max })} />
+            <PricePill
+              key={`${filters.minPrice ?? ""}-${filters.maxPrice ?? ""}`}
+              filters={filters}
+              openPill={openPill}
+              setOpenPill={setOpenPill}
+              onApply={(min, max) => go({ ...filters, minPrice: min, maxPrice: max })}
+            />
             <FacetPill id="sizes" label="Mărime" options={facets.sizes} selected={filters.sizes} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("sizes", v)} />
             <FacetPill id="colours" label="Culoare" options={facets.colours} selected={filters.colours} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("colours", v)} swatches />
             <FacetPill id="conditions" label="Stare" options={facets.conditions} selected={filters.conditions} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("conditions", v)} />
@@ -546,6 +570,19 @@ function PricePill({
   setOpenPill: (v: string | null) => void
   onApply: (min: number | null, max: number | null) => void
 }) {
+  /**
+   * KEYED ON WHAT IS APPLIED, so "Șterge tot" empties these boxes.
+   *
+   * `useState(initial)` reads its argument once, ever. Press Șterge tot and the
+   * page returns with no price filter, the chip is gone, the results are
+   * unfiltered — and these two inputs still hold 50 and 300, because nothing
+   * told them. The next person to open the pill sees a range that is not
+   * applied and presses Aplică on it, which is the filter coming back from the
+   * dead.
+   *
+   * A `key` on the component is the React way to say "this is a different
+   * instance now" without an effect that syncs two copies of one value.
+   */
   const [min, setMin] = useState(filters.minPrice != null ? String(filters.minPrice) : "")
   const [max, setMax] = useState(filters.maxPrice != null ? String(filters.maxPrice) : "")
   const read = (v: string) => {

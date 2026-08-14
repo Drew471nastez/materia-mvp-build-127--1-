@@ -1613,10 +1613,13 @@ check(
       // as you go keeps whichever arrived first, which is the order the database
       // happened to return rows in.
       /if \(n > best \|\| \(n === best && spelling < value\)\)/.test(engine) &&
-      // And the server agrees with it. `.in\(\)` is case-SENSITIVE, so an
-      // `.in\("brand", \["Nike"\]\)` behind a count that folded case is a page
-      // disagreeing with the number printed on its own filter.
-      /brand\.ilike\.\$\{JSON\.stringify\(b\)\}/.test(read("app/(marketing)/shop/[[...path]]/page.tsx")) &&
+      // And the server agrees with it. `.in()` is case-SENSITIVE, so an
+      // `.in("brand", ["Nike"])` behind a count that folded case is a page
+      // disagreeing with the number printed on its own filter. `ilikeExact`
+      // does the quoting AND the stripping — see safeTerm on that page.
+      /effective\.brands\.map\(\(b\) => ilikeExact\("brand", b\)\)/.test(
+        read("app/(marketing)/shop/[[...path]]/page.tsx"),
+      ) &&
       /\.sort\(\(a, b\) => b\.count - a\.count/.test(engine) &&
       // A price RANGE is one filter however many of its two ends are set: a
       // badge reading 2 for "between 50 and 200" is counting inputs.
