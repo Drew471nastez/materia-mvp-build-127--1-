@@ -450,7 +450,15 @@ export function facetsWithVocabulary(
   return {
     groups: counted.groups,
     brands: has("brand") ? counted.brands : [],
-    sizes: has("size") ? merge(sizesFor(groupId), counted.sizes) : [],
+    // The " · încălțăminte" suffix off the shoe labels: it exists to
+    // disambiguate inside the sell form's ONE mixed list, and a Mărime facet
+    // that already says Mărime does not need every row repeating the word.
+    sizes: has("size")
+      ? merge(
+          sizesFor(groupId).map((o) => ({ id: o.id, label: o.label.replace(/ · încălțăminte$/, "") })),
+          counted.sizes,
+        )
+      : [],
     colours: has("colour") ? merge(COLOURS, counted.colours) : [],
     conditions: merge(conditionsFor(groupId), counted.conditions),
   }

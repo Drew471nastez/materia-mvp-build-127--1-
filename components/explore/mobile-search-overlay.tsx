@@ -921,7 +921,14 @@ export function MobileSearchOverlay({
         )}
         style={{
           scrollbarWidth: "none",
-          paddingBottom: anchored ? 10 : `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)`,
+          // Page mode's container already stops above the tab bar, which is
+          // itself above the safe area — adding the inset again double-counts
+          // ~30px of dead space at the end of the category list.
+          paddingBottom: anchored
+            ? 10
+            : browse
+              ? `calc(16px + ${kbHeight}px)`
+              : `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)`,
         }}
       >
         <div key={`${tab}-${trimmed ? "q" : "e"}`} className="animate-in fade-in-0 duration-200 ease-out">

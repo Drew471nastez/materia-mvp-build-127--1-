@@ -2471,7 +2471,10 @@ check(
     const sheet = code("components/explore/mobile-filter-sheet.tsx")
     return (
       /export function facetsWithVocabulary/.test(engine) &&
-      /sizes: has\("size"\) \? merge\(sizesFor\(groupId\), counted\.sizes\) : \[\]/.test(engine) &&
+      // The shoe labels drop their " · încălțăminte" suffix here: it exists to
+      // disambiguate inside the sell form's one mixed list, and a Mărime facet
+      // does not need every row repeating the word.
+      /sizes: has\("size"\)\s*\n\s*\? merge\(\s*\n\s*sizesFor\(groupId\)\.map\(\(o\) => \(\{ id: o\.id, label: o\.label\.replace\(\/ · încălțăminte\$\/, ""\) \}\)\)/.test(engine) &&
       /colours: has\("colour"\) \? merge\(COLOURS, counted\.colours\) : \[\]/.test(engine) &&
       /conditions: merge\(conditionsFor\(groupId\), counted\.conditions\)/.test(engine) &&
       // Brand is NOT given a vocabulary — there is none to give.
@@ -2775,7 +2778,18 @@ check(
       /const scopes: \{ g\?: string \| null; d\?: string \| null \}\[\] = \[/.test(page) &&
       /if \(fallback\.length > 0\) break/.test(page) &&
       /S-ar putea să-ți placă/.test(ui) &&
-      /fallback\.map\(\(p\) => \(/.test(ui) &&
+      /rankedFallback\.map\(\(p\) => \(/.test(ui) &&
+      // RANKED BY THE ACCOUNT'S OWN VIEWING, on the device where that history
+      // lives: brand, category and subcategory signals from recent-views, with
+      // a STABLE sort so no signals means the server's freshness order — the
+      // personalisation reorders good content, it never gates it.
+      /const views = getRecentViews\(\)/.test(ui) &&
+      /if \(views\.length === 0\) return fallback/.test(ui) &&
+      /\.sort\(\(a, b\) => b\.s - a\.s \|\| a\.i - b\.i\)/.test(ui) &&
+      // And an optimistic filter draft that outlives a FAILED navigation is
+      // cleared when the transition settles — offline, the page must snap back
+      // to the truth rather than draw a filter the server never applied.
+      /if \(!pending\) setDraft\(null\)/.test(ui) &&
       // The sheet locks the page under it — a drag that runs out of list must
       // not scroll the grid behind a full-screen sheet.
       /if \(!open\) return\s*\n\s*return lockScroll\(\)/.test(sheet) &&
