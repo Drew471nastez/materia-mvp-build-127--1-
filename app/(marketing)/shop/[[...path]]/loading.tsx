@@ -20,7 +20,7 @@
  * ---------------------------------------------------------------------------
  * Every measurement here is taken from components/explore/category-results.tsx:
  * the same `max-w-[1400px] px-4 sm:px-6 lg:px-8` shell, the trail's height, the
- * 26/32px heading, the count line, the brand rail, the refine bar's border and
+ * 26/32px heading, the count line, the refine bar's border and
  * padding, and a grid at `grid-cols-2 sm:grid-cols-3 lg:grid-cols-4
  * xl:grid-cols-5` with the card's own 3:4 image box. A skeleton whose grid is a
  * different width from the real one moves every listing on arrival, which is
@@ -50,16 +50,13 @@ export default function ShopLoading() {
         <div aria-hidden className="h-[32px] w-56 animate-pulse rounded-lg bg-neutral-100 sm:h-[38px] sm:w-72" />
         <div aria-hidden className="mt-2 h-[14px] w-28 animate-pulse rounded bg-neutral-100" />
 
-        {/* The popular-brand rail. */}
-        <div aria-hidden className="mt-4 flex gap-2">
-          {[64, 78, 56, 88, 70].map((w, i) => (
-            <div
-              key={i}
-              className="h-[36px] shrink-0 animate-pulse rounded-full bg-neutral-100"
-              style={{ width: w }}
-            />
-          ))}
-        </div>
+        {/* NO BRAND RAIL — the page stopped drawing one when the Brand pill
+            became searchable, and a skeleton is only ever a promise about the
+            page behind it: a row of pills that pulses here and then vanishes at
+            the swap is the shell lying about the shape it stands in for. The
+            leaf rail is not sketched either, because it exists only inside a
+            group and this shell serves every /shop view — a row that appears
+            for some arrivals must not be pre-drawn for all of them. */}
 
         {/* The refine bar, carrying its own top border so the rule does not
             appear out of nowhere when the real one lands. */}

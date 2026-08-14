@@ -9,6 +9,8 @@ import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
 import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { AllSquares, IconChip, groupIcon } from "@/components/marketplace/department-icons"
 import { addRecentPerson, removeRecentPerson, useRecentPeople } from "@/lib/hooks/use-recent-people"
+import { searchTokens, textFilterGroups } from "@/lib/marketplace/search-terms"
+import { createClient } from "@/lib/supabase/client"
 import { groupsForDepartment, type Option } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
 import { SellerScore } from "@/components/marketplace/seller-score"
@@ -227,6 +229,46 @@ function buildKeywordSuggestions(raw: string, realTitles: string[]): string[] {
 const SEARCH_CACHE_MAX = 40
 const searchCache = new Map<string, { titles: string[]; people: Person[] }>()
 
+/**
+ * ===========================================================================
+ *  "+N" — WHAT ARRIVED SINCE YOU LAST LOOKED
+ * ===========================================================================
+ *
+ * Vinted's saved-search rows lead with a teal "+5", and the number is most of
+ * why people reopen them. Ours is device-local, which is the same honesty the
+ * recents themselves already have: the results page stores the exact count it
+ * printed (`seen`, in the entry), the panel counts the query again on open, and
+ * the badge is the difference. No backend table, no account sync — and no lie,
+ * because both ends of the subtraction are counts this device actually saw.
+ *
+ * COUNTED, NOT FETCHED: a `head: true, count: "exact"` query over the same
+ * strict-tier token filter the results page runs — zero rows travel, three
+ * requests at most (the recents cap), and a two-minute cache so reopening the
+ * panel to check a spelling does not re-ask. Strict tier only, deliberately:
+ * the badge must never exceed what pressing the row would show.
+ */
+const COUNT_TTL_MS = 120_000
+const countCache = new Map<string, { n: number; at: number }>()
+
+async function countForQuery(q: string): Promise<number | null> {
+  const key = q.trim().toLowerCase()
+  const hit = countCache.get(key)
+  if (hit && Date.now() - hit.at < COUNT_TTL_MS) return hit.n
+  try {
+    const tokens = searchTokens(q)
+    if (tokens.length === 0) return null
+    const supabase = createClient()
+    let s = supabase.from("products").select("id", { count: "exact", head: true }).eq("status", "published")
+    for (const g of textFilterGroups(["title", "description", "brand"], tokens, "all")) s = s.or(g)
+    const { count, error } = await s
+    if (error || count == null) return null
+    countCache.set(key, { n: count, at: Date.now() })
+    return count
+  } catch {
+    return null
+  }
+}
+
 function rememberSearch(key: string, titles: string[], people: Person[]): void {
   // Delete before set, so re-answering an old query moves it to the back of the
   // eviction queue instead of leaving it at the front.
@@ -376,6 +418,32 @@ export function MobileSearchOverlay({
   const [titles, setTitles] = useState<string[]>([])
   const [people, setPeople] = useState<Person[]>([])
   const [peopleLoading, setPeopleLoading] = useState(false)
+  /** Current result counts for the recents, keyed by normalised query. */
+  const [freshCounts, setFreshCounts] = useState<Record<string, number>>({})
+
+  /**
+   * The "+N" measurements — see countForQuery. Only entries WITH a baseline are
+   * counted: without `seen` there is nothing to subtract from, and a request
+   * whose answer cannot be shown is a request for nothing. Cancelled rather
+   * than raced when the panel closes mid-flight.
+   */
+  useEffect(() => {
+    if (!open) return
+    const targets = searches.slice(0, 3).filter((r) => r.seen != null)
+    if (targets.length === 0) return
+    let cancelled = false
+    void Promise.all(
+      targets.map(async (r) => [r.q.toLowerCase(), await countForQuery(r.q)] as const),
+    ).then((pairs) => {
+      if (cancelled) return
+      const next: Record<string, number> = {}
+      for (const [k, n] of pairs) if (n != null) next[k] = n
+      if (Object.keys(next).length > 0) setFreshCounts((prev) => ({ ...prev, ...next }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open, searches])
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -944,6 +1012,7 @@ export function MobileSearchOverlay({
               withBrowse={!anchored}
               browse={browse}
               onFocusField={() => inputRef.current?.focus()}
+              freshCounts={freshCounts}
               t={t}
             />
           )}
@@ -1033,10 +1102,11 @@ function ItemsTab({
   withBrowse,
   browse,
   onFocusField,
+  freshCounts = {},
   t,
 }: {
   trimmed: string
-  recent: { q: string; sum?: string }[]
+  recent: { q: string; sum?: string; seen?: number }[]
   suggestions: string[]
   onRun: (q: string) => void
   onRemoveRecent: (q: string) => void
@@ -1045,6 +1115,8 @@ function ItemsTab({
   withBrowse: boolean
   browse: boolean
   onFocusField?: () => void
+  /** Live totals for the "+N" badges, keyed by lowercased query. */
+  freshCounts?: Record<string, number>
   t: (k: string) => string
 }) {
   if (trimmed) {
@@ -1078,11 +1150,19 @@ function ItemsTab({
             {t("mfeed.clear_all")}
           </button>
         </div>
-        {recent.map((r) => (
+        {recent.map((r) => {
+          const now = freshCounts[r.q.toLowerCase()]
+          const delta = r.seen != null && now != null ? now - r.seen : 0
+          return (
           <Row
             key={r.q}
             icon={<Clock className="h-[18px] w-[18px] text-neutral-400" />}
             label={r.q}
+            /* "+5" IN FRONT OF THE QUERY, the way the reference rows lead with
+               it — the number is most of why a saved search gets reopened. In
+               the brand violet rather than a new colour, and only ever
+               positive: a search that SHRANK is not news anybody acts on. */
+            lead={delta > 0 ? <span className="mr-1.5 font-semibold text-[#6d28d9]">+{delta}</span> : null}
             /* WHAT PRESSING THIS BRINGS BACK. The results page writes the
                filter summary onto the entry as filters change under the query
                (see annotateRecentSearch), so a recent search reads the way
@@ -1104,7 +1184,8 @@ function ItemsTab({
               <X className="h-4 w-4" />
             </button>
           </Row>
-        ))}
+          )
+        })}
       </>
     ) : null
 
@@ -1300,6 +1381,7 @@ function Row({
   icon,
   label,
   sub,
+  lead,
   query,
   onClick,
   children,
@@ -1308,6 +1390,8 @@ function Row({
   label: string
   /** Second line — what the search was wearing. See the recents in ItemsTab. */
   sub?: string
+  /** Drawn before the label — the recents' "+N" badge. */
+  lead?: React.ReactNode
   query?: string
   onClick: () => void
   children?: React.ReactNode
@@ -1332,6 +1416,7 @@ function Row({
       <span className="shrink-0">{icon}</span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[15px] text-neutral-800">
+          {lead}
           {head ? (
             <>
               <span className="text-neutral-500">{head}</span>

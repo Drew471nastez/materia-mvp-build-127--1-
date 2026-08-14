@@ -10,7 +10,7 @@ import { MobileFilterSheet, MobileSortSheet } from "@/components/explore/mobile-
 import { SmartLink } from "@/components/smart-link"
 import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { departmentForGroup, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
-import { annotateRecentSearch } from "@/lib/hooks/use-recent-searches"
+import { annotateRecentSearch, markRecentSearchSeen } from "@/lib/hooks/use-recent-searches"
 import { getRecentViews, signalsFrom } from "@/lib/marketplace/recent-views"
 import {
   EMPTY_FILTERS,
@@ -223,6 +223,17 @@ export function CategoryResults({
     if (picks > 0) parts.push(picks === 1 ? "1 filtru" : `${picks} filtre`)
     annotateRecentSearch(query, parts.length > 0 ? parts.join(" · ") : null)
   }, [query, filters])
+
+  /**
+   * AND IT RECORDS WHAT WAS SEEN. `total` here is the `{ count: "exact" }`
+   * number the page printed — the honest baseline for the panel's "+N" badge,
+   * and writing it is also what clears the badge: seen equals current until
+   * something new is listed. Only when the count is exact; the on-sale
+   * fallback's approximation is not a number to measure differences against.
+   */
+  useEffect(() => {
+    if (query && exactTotal) markRecentSearchSeen(query, total)
+  }, [query, total, exactTotal])
   const view = draft?.f ?? filters
   const viewSub = draft ? draft.sub : sub
   const viewSort = draft?.sort ?? sort
