@@ -83,7 +83,14 @@ check(
       // "Bazat pe vizualizările tale recente" is a good second row and a strange
       // first one: it opens the page on a guess about you rather than on your
       // own last move.
-      "Vizualizate recent",
+      //
+      // WHICH SIDE OF THE HERO IT SITS ON DEPENDS ON THE SCREEN — see the note
+      // beside `phoneFirst`. A phone puts it above (one column, and the
+      // slideshow alone is a whole screenful); a desktop puts it below (both are
+      // visible at once, so "below" costs nothing). Both branches are in this
+      // file, so the ORDER checked here is the one common to both: the hero
+      // comes before the ranking derived from your views, and the pills and
+      // categories come after everything personal.
       "<HeroSlides",
       "Bazat pe vizualizările tale recente",
       "Sugestii pentru tine",
@@ -469,9 +476,13 @@ check(
       /const personal = views\.length >= MIN_HISTORY/.test(home) &&
       // TWO gates now, not one block — the rows sit either side of the hero, so
       // they cannot share a fragment. Each must carry its own.
-      (memberView.match(/\{personal && \(/g) ?? []).length === 2 &&
-      memberView.indexOf("{personal && (") < memberView.indexOf("Vizualizate recent") &&
-      memberView.lastIndexOf("{personal && (") < memberView.indexOf("Bazat pe vizualizările tale recente") &&
+      // THREE gates now, not two: "Vizualizate recent" is written on both sides
+      // of the hero and only one of them is drawn, so the file carries three
+      // `personal &&` blocks for two rows on screen.
+      (memberView.match(/\{personal && /g) ?? []).length === 3 &&
+      /\{personal && phoneFirst && \(/.test(memberView) &&
+      /\{personal && !phoneFirst && \(/.test(memberView) &&
+      /const phoneFirst = variant === "phone"/.test(home) &&
       // The pills are OUTSIDE both — that section is the one that carries an
       // early visit and must never be gated on history it does not have.
       memberView.indexOf("<YouMightBeInto") > memberView.lastIndexOf("{personal && (")
@@ -495,7 +506,9 @@ check(
     // fifty candidates for the row above.
     return (
       /minItems = 3/.test(row) &&
-      (memberView.match(/minItems=\{ROW\}/g) ?? []).length === 2 &&
+      // Three, because "Vizualizate recent" is written twice — once either side
+      // of the hero, one of which is drawn. Both copies carry the gate.
+      (memberView.match(/minItems=\{ROW\}/g) ?? []).length === 3 &&
       // The signed-out page's own recently-viewed row asks for the same full
       // row, for the same reason.
       (signedOutView.match(/minItems=\{ROW\}/g) ?? []).length === 1 &&
@@ -509,7 +522,11 @@ check(
   // Two values, because a phone has less of it to give: 40px between sections
   // there and 56 from sm up, and the categories block keeps its rule and its
   // larger gap only where the page is wide enough for one.
-  /<section className="mt-10 sm:mt-14">/.test(row) &&
+  //
+  // Merged with a caller override rather than stated bare: 40px is the gap
+  // BETWEEN sections, and the row that is FIRST on a page has nothing above it
+  // to be separated from — see the `className` prop.
+  /<section className=\{cn\("mt-10 sm:mt-14", className\)\}>/.test(row) &&
     /mt-12 border-t border-neutral-100 pt-10 lg:mt-20 lg:pt-14/.test(tiles),
 )
 
@@ -1213,12 +1230,20 @@ check(
       // The section merges a caller className rather than stating its own.
       /className=\{cn\(\s*\n\s*"group\/hero relative overflow-hidden rounded-2xl/.test(slides) &&
       /className\?: string/.test(slides) &&
-      // Member: a top margin only when the personal row above it was drawn, and
-      // a bottom one always — 56px between a full-bleed picture and the listings
-      // under it was a band of white wide enough to read as the end of the page.
-      // The gap after a photograph is measured against a hard edge rather than
-      // against a row of cards with their own air, so it is one step quieter.
-      /<HeroSlides listings=\{products\} className=\{cn\("mb-11", personal && "mt-11"\)\} \/>/.test(homeAll) &&
+      // Member: a top margin only when a row was drawn ABOVE it — which on a
+      // desktop is never, because there the row goes below. And a bottom margin
+      // always: 56px between a full-bleed picture and the listings under it was
+      // a band of white wide enough to read as the end of the page, so the gap
+      // after a photograph is one step quieter than the gap after a row of cards
+      // with their own air.
+      /<HeroSlides listings=\{products\} className=\{cn\("mb-11", personal && phoneFirst && "mt-11"\)\} \/>/.test(homeAll) &&
+      // AND NEITHER COPY OF THE ROW CARRIES THE BETWEEN-SECTIONS GAP. Above the
+      // hero it is the FIRST thing on the page and the only thing over it is the
+      // search row, which has padding of its own — 40px there is a hole. Below
+      // the hero the slideshow's own `mb-11` is already the join, and a second
+      // margin would be two gaps for one seam.
+      /className="mt-4"/.test(homeAll) &&
+      /className="mt-0"/.test(homeAll) &&
       // Signed out: always, because something is always above it there.
       /<HeroSlides listings=\{products\} className="mb-11 mt-11" \/>/.test(homeAll)
     )
