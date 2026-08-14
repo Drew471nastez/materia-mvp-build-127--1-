@@ -1113,27 +1113,36 @@ check(
 )
 
 check(
-  "the search panel is Articole and Persoane — Categorii is out, not deleted",
+  "Categorii is a three-level browse, not five tiles of what is already on screen",
   (() => {
-    // A tab earns its place by answering a question the others cannot. Articole
-    // and Persoane do. Categorii did not: the rail sits directly under this
-    // panel, the department menu is one press away, and every card carries its
-    // own — so a third of the width of a search panel went on a list you can see
-    // behind it.
+    // The tab was dropped when it drew five department tiles — the same five in
+    // the rail behind the panel and in the header menu one press away. It is
+    // back because it draws the part of the taxonomy nothing else could reach:
+    // the groups under a department and the actual kinds of thing under a group,
+    // Bărbați › Haine › Tricouri.
     //
-    // TEMPORARY, and the code says so: CategoriesTab and the "categories" member
-    // of SearchTab both stay, so putting the row back is one line rather than a
-    // rebuild.
+    // Every level ends at a real page, and the leaf carries `?sub=` — which the
+    // results page validates against the group it arrived with.
     const overlay = code("components/explore/mobile-search-overlay.tsx")
     const tabs = overlay.slice(overlay.indexOf("const TABS"), overlay.indexOf("const POPULAR_EXPANSIONS"))
+    const tab = overlay.slice(overlay.indexOf("function CategoriesTab"), overlay.indexOf("function BrowseRow"))
     return (
-      (tabs.match(/mfeed\.tab_/g) ?? []).length === 2 &&
-      /mfeed\.tab_items/.test(tabs) &&
-      /mfeed\.tab_people/.test(tabs) &&
-      !/mfeed\.tab_categories/.test(tabs) &&
-      // Kept, so this is a decision rather than a demolition.
-      /function CategoriesTab/.test(overlay) &&
-      /type SearchTab = "items" \| "categories" \| "people"/.test(overlay)
+      (tabs.match(/mfeed\.tab_/g) ?? []).length === 3 &&
+      /mfeed\.tab_categories/.test(tabs) &&
+      /type SearchTab = "items" \| "categories" \| "people"/.test(overlay) &&
+      // Three levels, derived from one stack rather than three components.
+      /const level = dept \? \(group \? 2 : 1\) : 0/.test(tab) &&
+      /groupsForDepartment\(dept\.id\)\.find\(\(g\) => g\.id === group\.id\)\?\.items/.test(tab) &&
+      /\?sub=\$\{encodeURIComponent\(leaf\.id\)\}/.test(tab) &&
+      // "Toate" first at every level: one decision, not two.
+      (tab.match(/label=\{`Toate · /g) ?? []).length === 2 &&
+      // AND IT MOVES THE WAY EVERY OTHER DRILL-DOWN IN THIS APP MOVES. The same
+      // sub-push / sub-pop the sell form's picker, the Browse menu and the
+      // filter sheet use — a list replaced in one frame says nothing about which
+      // direction you travelled.
+      /const anim = dir === "push" \? "sub-push" : "sub-pop"/.test(tab) &&
+      // Keyed, or React reuses the nodes and the animation plays exactly once.
+      /key=\{`\$\{dept\?\.id \?\? "root"\}-\$\{group\?\.id \?\? ""\}`\}/.test(tab)
     )
   })(),
   "        components/explore/mobile-search-overlay.tsx",
@@ -1544,7 +1553,11 @@ check(
       ![drawer, rail, feed, overlay].some((f) => /\?category=\$\{/.test(f)) &&
       /DEPARTMENT_RAIL/.test(rail) &&
       /DEPARTMENT_RAIL/.test(feed) &&
-      /DEPARTMENT_RAIL/.test(overlay) &&
+      // The overlay reads DEPARTMENT_NAV rather than the rail: its Categorii tab
+      // browses INTO the departments now — groups, then the leaves — and the
+      // rail is the flat five with "Toate" in front, which has no levels under
+      // it. Same module, so neither can drift from the sell form's taxonomy.
+      /DEPARTMENT_NAV/.test(overlay) &&
       // AND THE FILTER TESTS THE RIGHT THING. `normalizeCategoryToId` maps the
       // OLD taxonomy's display names onto the OLD taxonomy's ids: handed
       // `women-footwear` it recognises nothing, answers "all", and every pill

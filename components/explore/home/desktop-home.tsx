@@ -334,7 +334,7 @@ export function DesktopHome({
             title="Sugestii pentru tine"
             items={suggestedTop}
             rows={SIGNED_OUT_TOP_ROWS}
-            href="/?q="
+            href="/shop"
             seeMoreLabel="Vezi mai multe"
           />
         )}
@@ -355,7 +355,7 @@ export function DesktopHome({
           title="Sugestii pentru tine"
           items={suggestedMid}
           rows={SIGNED_OUT_MID_ROWS}
-          href="/?q="
+          href="/shop"
           seeMoreLabel="Vezi mai multe"
         />
 
@@ -365,7 +365,7 @@ export function DesktopHome({
           title="Sugestii pentru tine"
           items={suggestedRest}
           rows={3}
-          href="/?q="
+          href="/shop"
           seeMoreLabel="Vezi mai multe"
         />
 
@@ -493,7 +493,7 @@ export function DesktopHome({
           rows={1}
           // A FULL ROW OR NOTHING — see minItems in listing-row.tsx.
           minItems={ROW}
-          href="/?q="
+          href="/shop"
           seeMoreLabel="Vezi mai multe"
         />
       )}
@@ -502,7 +502,7 @@ export function DesktopHome({
         title="Sugestii pentru tine"
         items={sections.suggested}
         rows={3}
-        href="/?q="
+        href="/shop"
         seeMoreLabel="Vezi mai multe"
       />
 

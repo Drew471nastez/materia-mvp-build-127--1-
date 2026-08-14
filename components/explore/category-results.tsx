@@ -9,6 +9,7 @@ import { WishlistProvider } from "@/components/explore/wishlist-context"
 import { MobileFilterSheet, MobileSortSheet } from "@/components/explore/mobile-filter-sheet"
 import { SmartLink } from "@/components/smart-link"
 import { DEPARTMENT_NAV, categoryPath } from "@/lib/marketplace/department-nav"
+import { groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import {
   EMPTY_FILTERS,
   PAGE_SIZE,
@@ -64,6 +65,9 @@ type Facets = {
 export function CategoryResults({
   departmentId,
   groupId,
+  sub = null,
+  subLabel = null,
+  relaxed = null,
   query,
   products,
   total,
@@ -77,6 +81,17 @@ export function CategoryResults({
 }: {
   departmentId: string | null
   groupId: string | null
+  /** The taxonomy's third level, when the URL names one — see the note on the
+   *  page. Part of the scope rather than of `filters`. */
+  sub?: string | null
+  subLabel?: string | null
+  /**
+   * Set when the strict reading of the query matched nothing and a wider one
+   * did. The page says so out loud — "results for jor…" over a grid of Jordans
+   * is information; the same grid with no explanation is a search engine that
+   * ignored what was typed.
+   */
+  relaxed?: { mode: "any" | "fuzzy"; term: string } | null
   query: string
   products: any[]
   total: number
@@ -147,7 +162,7 @@ export function CategoryResults({
    * reach that far. Only the pager itself keeps the page.
    */
   const go = useCallback(
-    (next: FeedFilters, opts?: { sort?: FeedSort; page?: number }) => {
+    (next: FeedFilters, opts?: { sort?: FeedSort; page?: number; sub?: string | null }) => {
       // THE GROUP IS THE PATH, not a parameter. The sheet edits it as a filter
       // like any other, so a change to it has to become a different URL rather
       // than a `?group=` alongside a path that says something else. Everything
@@ -156,16 +171,23 @@ export function CategoryResults({
         departmentId && next.group !== groupId
           ? categoryPath(departmentId, next.group)
           : basePath
+      // THE LEAF SURVIVES EVERY OTHER CONTROL, and is dropped by the one thing
+      // that invalidates it: changing the group. Rochii is a kind of Haine, so
+      // carrying `?sub=dresses` onto Încălțăminte would be a page scoped to a
+      // category that group does not have — which is an empty page with a chip
+      // on it saying why.
+      const nextSub = opts && "sub" in opts ? opts.sub : next.group !== groupId ? null : sub
       const params = paramsFromFilters({ ...next, group: null }, {
         sort: opts?.sort ?? sort,
         page: opts?.page,
         q: query || undefined,
+        sub: nextSub,
       })
       const qs = params.toString()
       startTransition(() => router.push(qs ? `${path}?${qs}` : path, { scroll: true }))
       setOpenPill(null)
     },
-    [basePath, departmentId, groupId, query, router, sort, startTransition],
+    [basePath, departmentId, groupId, query, router, sort, startTransition, sub],
   )
 
   const toggle = useCallback(
@@ -179,7 +201,16 @@ export function CategoryResults({
     [filters, go],
   )
 
-  const title = query ? `„${query}”` : group?.label ?? dept?.label ?? "Toate anunțurile"
+  const title = query ? `„${query}”` : subLabel ?? group?.label ?? dept?.label ?? "Toate anunțurile"
+
+  /** The taxonomy's leaves under this group, for the rail below the trail. */
+  const leaves = useMemo(
+    () =>
+      departmentId && groupId
+        ? groupsForDepartment(departmentId).find((g) => g.id === groupId)?.items ?? []
+        : [],
+    [departmentId, groupId],
+  )
 
   const chips = useMemo(() => buildChips(filters, facets), [filters, facets])
 
@@ -198,7 +229,17 @@ export function CategoryResults({
               <>
                 <Crumb href={categoryPath(dept.id)} label={dept.label} />
                 <ChevronRight className="h-[14px] w-[14px] shrink-0 text-neutral-300" />
-                <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">{group.label}</span>
+                {subLabel ? (
+                  <>
+                    <Crumb href={categoryPath(dept.id, group.id)} label={group.label} />
+                    <ChevronRight className="h-[14px] w-[14px] shrink-0 text-neutral-300" />
+                    <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">
+                      {subLabel}
+                    </span>
+                  </>
+                ) : (
+                  <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">{group.label}</span>
+                )}
               </>
             ) : (
               <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">{dept.label}</span>
@@ -230,6 +271,74 @@ export function CategoryResults({
             : `${products.length} pe această pagină`}
           {pending && <Loader2 className="h-[15px] w-[15px] animate-spin text-neutral-400" />}
         </p>
+
+        {/* ── WHEN THE SEARCH WAS WIDENED, THE PAGE SAYS SO.
+               A grid of Jordans under the word "jordn" is either a very good
+               search or a broken one, and the only difference is whether the
+               page admits which of the two it is doing. Depop, Vinted, eBay and
+               Google all print this line; it is what turns "it ignored me" into
+               "it understood me". */}
+        {relaxed && (
+          <p className="mt-2 rounded-xl bg-neutral-50 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-neutral-600">
+            Niciun rezultat exact pentru <span className="font-semibold text-neutral-900">„{query}”</span>.{" "}
+            {relaxed.mode === "fuzzy" ? (
+              <>
+                Afișăm rezultate apropiate pentru{" "}
+                <span className="font-semibold text-neutral-900">„{relaxed.term}”</span>.
+              </>
+            ) : (
+              <>Afișăm articolele care conțin cel puțin unul dintre cuvintele căutate.</>
+            )}
+          </p>
+        )}
+
+        {/* ── THE THIRD LEVEL, AS A RAIL RATHER THAN AS ANOTHER DROPDOWN.
+               "Femei · Haine" is three hundred listings of which four are the
+               dresses somebody came for, and until now the taxonomy's leaves —
+               which every listing carries and the sell form insists on — were
+               reachable from nowhere at all.
+
+               A rail, because these are SIBLINGS you flick through rather than
+               a list you open, decide in and close; and because on a phone it is
+               the same gesture as the department rail directly above it. Toate
+               is first and is the way back out, so the rail is never a state you
+               can enter and not leave. */}
+        {leaves.length > 1 && (
+          <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:px-0">
+            <button
+              type="button"
+              onClick={() => go(filters, { sub: null })}
+              aria-pressed={!sub}
+              className={cn(
+                "shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200",
+                !sub
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400",
+              )}
+            >
+              Toate
+            </button>
+            {leaves.map((leaf) => {
+              const on = leaf.id === sub
+              return (
+                <button
+                  key={leaf.id}
+                  type="button"
+                  onClick={() => go(filters, { sub: on ? null : leaf.id })}
+                  aria-pressed={on}
+                  className={cn(
+                    "shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200",
+                    on
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400",
+                  )}
+                >
+                  {leaf.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* ── Popular brands. On a resale marketplace the brand IS the query most
                of the time, and these are one tap instead of Filtre → Brand →
