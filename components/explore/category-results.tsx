@@ -10,6 +10,7 @@ import { MobileFilterSheet, MobileSortSheet } from "@/components/explore/mobile-
 import { SmartLink } from "@/components/smart-link"
 import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { departmentForGroup, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
+import { annotateRecentSearch } from "@/lib/hooks/use-recent-searches"
 import {
   EMPTY_FILTERS,
   FACET_SEARCH_MIN,
@@ -72,6 +73,7 @@ export function CategoryResults({
   sub = null,
   subLabel = null,
   relaxed = null,
+  fallback = [],
   query,
   products,
   total,
@@ -96,6 +98,8 @@ export function CategoryResults({
    * ignored what was typed.
    */
   relaxed?: { mode: "any" | "fuzzy"; term: string } | null
+  /** Listings for the shelf an empty page shows — see the page's fallback. */
+  fallback?: any[]
   query: string
   products: any[]
   total: number
@@ -183,6 +187,29 @@ export function CategoryResults({
   useEffect(() => {
     setDraft(null)
   }, [filters, sub, sort])
+
+  /**
+   * THE RECENT-SEARCH ENTRY LEARNS WHAT ITS SEARCH IS WEARING.
+   *
+   * Vinted's saved searches read "carti 5 lei / Până la 15 RON", and that line
+   * is why the list works: a query with a price band on it and the same query
+   * bare are two different errands. The panel that draws the recents cannot
+   * know the filters — they live in this page's URL — so this page writes the
+   * summary onto the stored entry as they change. `annotateRecentSearch`
+   * updates in place WITHOUT bumping the row: editing a checkbox is not a new
+   * search, and a list that reorders because you touched a filter is haunted.
+   */
+  useEffect(() => {
+    if (!query) return
+    const parts: string[] = []
+    if (filters.minPrice != null && filters.maxPrice != null) parts.push(`${filters.minPrice}–${filters.maxPrice} RON`)
+    else if (filters.minPrice != null) parts.push(`De la ${filters.minPrice} RON`)
+    else if (filters.maxPrice != null) parts.push(`Până la ${filters.maxPrice} RON`)
+    if (filters.onSale) parts.push("La reducere")
+    const picks = filters.brands.length + filters.sizes.length + filters.colours.length + filters.conditions.length
+    if (picks > 0) parts.push(picks === 1 ? "1 filtru" : `${picks} filtre`)
+    annotateRecentSearch(query, parts.length > 0 ? parts.join(" · ") : null)
+  }, [query, filters])
   const view = draft?.f ?? filters
   const viewSub = draft ? draft.sub : sub
   const viewSort = draft?.sort ?? sort
@@ -517,12 +544,12 @@ export function CategoryResults({
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold text-neutral-900 transition-transform duration-150 ease-out active:scale-[0.97]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-[15px] font-semibold text-neutral-900 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:bg-neutral-100 active:duration-0"
             >
               <SlidersHorizontal className="h-[18px] w-[18px]" />
               Filtre
               {active > 0 && (
-                <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-neutral-900 px-1.5 text-[11.5px] font-bold text-white">
+                <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-neutral-900 px-1.5 text-[11.5px] font-bold leading-none text-white">
                   {active}
                 </span>
               )}
@@ -531,7 +558,7 @@ export function CategoryResults({
             <button
               type="button"
               onClick={() => setSortOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 py-2 text-[15px] font-semibold text-neutral-900 transition-transform duration-150 ease-out active:scale-[0.97]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-[15px] font-semibold text-neutral-900 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 ease-out active:bg-neutral-100 active:duration-0"
             >
               <ArrowUpDown className="h-[17px] w-[17px]" />
               Sortează
@@ -750,6 +777,27 @@ export function CategoryResults({
                     Șterge filtrele
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════
+                THE SHELF, so an empty answer is not an empty page. Fresh
+                stock from one honest level up — the group unfiltered, the
+                department, the catalogue — under a heading that says what it
+                is. A person who came to shop keeps a shop in front of them,
+                which is what every marketplace does with this screen.
+                Left-aligned grid under a centred apology, deliberately: the
+                apology is a message, the shelf is the page resuming. */}
+            {fallback.length > 0 && (
+              <div className="mt-12 text-left">
+                <h2 className="text-[19px] font-bold tracking-[-0.02em] text-neutral-900">
+                  S-ar putea să-ți placă
+                </h2>
+                <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 lg:grid-cols-4 xl:grid-cols-5">
+                  {fallback.map((p) => (
+                    <ProductCard key={p.id} product={p} origin="search" />
+                  ))}
+                </div>
               </div>
             )}
           </div>

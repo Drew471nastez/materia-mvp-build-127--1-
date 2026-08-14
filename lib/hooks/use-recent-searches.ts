@@ -40,6 +40,14 @@ export interface RecentSearch {
   ts: number
   /** Category id the search was scoped to, when it wasn't "all". */
   category?: string
+  /**
+   * What the search was WEARING when it last ran — "Până la 15 RON",
+   * "10–50 RON · 2 filtre". The results page writes it as filters change, so a
+   * recent-search row can say what pressing it brings back, the way Vinted's
+   * saved searches do. Absent means the search ran bare; the row then says
+   * "Niciun filtru", which is information, not filler.
+   */
+  sum?: string
 }
 
 const EMPTY: readonly RecentSearch[] = Object.freeze([])
@@ -132,19 +140,50 @@ function onStorageEvent(event: StorageEvent) {
  * entry is moved to the top rather than duplicated), capped at MAX_ENTRIES.
  * Safe to call from anywhere, including outside React. No-op on the server.
  */
-export function addRecentSearch(query: string, category?: string) {
+export function addRecentSearch(query: string, category?: string, sum?: string) {
   if (typeof window === "undefined") return
 
   const q = query.trim().replace(/\s+/g, " ").slice(0, MAX_QUERY_LENGTH)
   if (!q) return
 
   const key = normalise(q)
+  // A re-run without a summary KEEPS the one it had: running "nike" from the
+  // recents list must not strip the filters the row was just describing.
+  const prior = getSnapshot().find((entry) => normalise(entry.q) === key)
+  const keptSum = sum !== undefined ? sum : prior?.sum
   const next: RecentSearch[] = [
-    { q, ts: Date.now(), ...(category && category !== "all" ? { category } : {}) },
+    {
+      q,
+      ts: Date.now(),
+      ...(category && category !== "all" ? { category } : {}),
+      ...(keptSum ? { sum: keptSum.slice(0, 60) } : {}),
+    },
     ...getSnapshot().filter((entry) => normalise(entry.q) !== key),
   ]
 
   write(next.slice(0, MAX_ENTRIES))
+}
+
+/**
+ * Update the stored summary of an existing entry WITHOUT bumping it to the top.
+ * The results page calls this as filters change under an active query; a filter
+ * edit is not a new search, and reordering the list under somebody's eyes
+ * because they touched a checkbox would make the recents feel haunted.
+ */
+export function annotateRecentSearch(query: string, sum: string | null) {
+  if (typeof window === "undefined") return
+  const key = normalise(query)
+  const current = getSnapshot()
+  let changed = false
+  const next = current.map((entry) => {
+    if (normalise(entry.q) !== key) return entry
+    const wants = sum ? sum.slice(0, 60) : undefined
+    if (entry.sum === wants) return entry
+    changed = true
+    const { sum: _old, ...rest } = entry
+    return wants ? { ...rest, sum: wants } : rest
+  })
+  if (changed) write(next)
 }
 
 /** Remove a single entry. Matches case-insensitively, like the de-dupe does. */

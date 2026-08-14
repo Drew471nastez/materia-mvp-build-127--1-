@@ -18,6 +18,7 @@ import {
   type FeedSort,
 } from "@/lib/marketplace/feed-filters"
 import { DEPARTMENT_NAV } from "@/lib/marketplace/department-nav"
+import { lockScroll } from "@/lib/scroll-lock"
 import { cn } from "@/lib/utils"
 
 /**
@@ -116,6 +117,22 @@ export function MobileFilterSheet({
   /** True while the panel is on screen and travelling — see `leaving`. */
   const [shown, setShown] = useState(false)
   const [leaving, setLeaving] = useState(false)
+
+  /**
+   * THE PAGE UNDER THE SHEET HOLDS STILL.
+   *
+   * Without the lock, a drag that starts on the sheet's list and runs out of
+   * list keeps going into the DOCUMENT — the grid behind scrolls while a
+   * full-screen sheet is covering it, and closing the sheet reveals a page
+   * somewhere else. That is most of what "the filter modal feels buggy" is on
+   * a phone. `lockScroll()` is the counted shared lock every other overlay
+   * uses; released on `open` rather than on unmount so the page settles while
+   * the sheet is still opaque (the same reasoning as the search overlay's).
+   */
+  useEffect(() => {
+    if (!open) return
+    return lockScroll()
+  }, [open])
   useEffect(() => {
     if (open) {
       setLeaving(true)

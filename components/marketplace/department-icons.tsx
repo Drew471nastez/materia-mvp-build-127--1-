@@ -1,125 +1,160 @@
-import type { SVGProps } from "react"
+"use client"
+
+import {
+  Archive,
+  Armchair,
+  BabyCarriage,
+  Backpack,
+  Bathtub,
+  BookOpenText,
+  Cards,
+  CastleTurret,
+  Coins,
+  DiceFive,
+  Dress as PhDress,
+  Envelope,
+  FilmSlate,
+  FirstAid,
+  GameController,
+  Handbag,
+  HighHeel,
+  MoonStars,
+  Newspaper,
+  PaintBrush,
+  PianoKeys,
+  PuzzlePiece,
+  Scissors,
+  ShieldCheck,
+  Sneaker,
+  Sparkle,
+  SprayBottle,
+  SquaresFour,
+  Stamp,
+  TShirt,
+  VinylRecord,
+  Watch,
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react"
 
 /**
  * ===========================================================================
- *  THE FIVE DEPARTMENTS, DRAWN
+ *  THE MARKETPLACE'S CATEGORY ICONOGRAPHY, IN ONE PLACE
  * ===========================================================================
  *
- * lucide ships exactly ONE garment — `Shirt` — and this is a second-hand
- * clothing marketplace whose two largest departments are both clothing. So the
- * set was being made out of whatever else was in the box: a diamond for Femei, a
- * clapperboard for Divertisment, a jigsaw knob for Hobbyuri. Every one of those
- * is a real, well-drawn icon and not one of them is a picture of what is in the
- * department — they are the marks a template reaches for when the right object
- * does not exist, which is exactly what makes a row of tiles read as generic.
+ * Phosphor, at DUOTONE weight, and both halves of that are the decision.
  *
- * These are the objects. A dress, a t-shirt, a teddy, a book, a pair of dice —
- * five things you could actually buy on this site, and five outlines you could
- * tell apart with the labels covered.
+ * PHOSPHOR, because it is the one icon set that actually drew the objects this
+ * marketplace sells. lucide ships exactly one garment; three rounds of
+ * assembling department marks out of its box produced a diamond for Femei and a
+ * clapperboard for Divertisment — well-drawn icons that are pictures of nothing
+ * in the department. Phosphor has the dress, the sneaker, the high heel, the
+ * handbag, the pram, the vinyl record, the trading cards: every tile and row
+ * below is the thing itself.
  *
- * ---------------------------------------------------------------------------
- * TO LUCIDE'S OWN SPEC, BECAUSE THEY SIT NEXT TO LUCIDE'S ICONS
- * ---------------------------------------------------------------------------
- * 24×24 viewBox, `currentColor`, no fill, 2px stroke with round caps and joins,
- * and every shape drawn inside the same 2px margin lucide keeps. Half a set in
- * one drawing language and half in another is worse than any single icon in it:
- * the departments appear beside `Search`, `ChevronRight` and `SlidersHorizontal`
- * on every surface that uses them, and a stroke weight that is a fraction off is
- * the kind of wrong nobody can name and everybody sees.
+ * DUOTONE, because a filled second layer at 20% is what separates "an icon" from
+ * "the system font's idea of an icon". Every outline set at 18px converges on
+ * the same thin grey line-drawing — that is the "plain, no branding" complaint,
+ * and it is a property of the weight, not of the glyphs. The duotone fill gives
+ * each mark a body, and because the fill is drawn from currentColor, the violet
+ * the chips set below becomes a soft violet wash inside every icon: the brand
+ * colour is IN the drawing, not around it.
  *
- * `strokeWidth` is a prop for the same reason lucide's is: these are drawn at
- * 15px in a pill and 18px in a tile, and a hairline that is right at 24 is heavy
- * at 15.
+ * One wrapper rather than `weight="duotone"` at forty call sites, so the weight
+ * cannot drift per surface — the whole point of an icon system is that it is
+ * one decision.
  */
 
-type GlyphProps = SVGProps<SVGSVGElement> & { strokeWidth?: number }
+export type DeptIconProps = { className?: string; strokeWidth?: number }
 
-function Glyph({ strokeWidth = 2, children, ...props }: GlyphProps) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      {children}
-    </svg>
-  )
+function branded(Icon: PhosphorIcon) {
+  // `strokeWidth` is swallowed, deliberately: it is lucide's dial, the callers
+  // still pass it, and Phosphor draws filled paths where it would land as a
+  // meaningless SVG attribute.
+  return function BrandedIcon({ className, strokeWidth: _sw, ...rest }: DeptIconProps) {
+    return <Icon weight="duotone" className={className} {...rest} />
+  }
+}
+
+/* ── The five departments, plus Toate ────────────────────────────────────── */
+
+export const Dress = branded(PhDress)
+export const Tee = branded(TShirt)
+export const Pram = branded(BabyCarriage)
+export const OpenBook = branded(BookOpenText)
+export const Dice = branded(DiceFive)
+export const AllSquares = branded(SquaresFour)
+
+/* ── Every group, as the object it sells ─────────────────────────────────── */
+
+export const GROUP_ICONS: Record<string, React.ComponentType<DeptIconProps>> = {
+  "women-clothing": Dress,
+  "women-shoes": branded(HighHeel),
+  "women-bags": branded(Handbag),
+  "women-accessories": branded(Watch),
+  "women-beauty": branded(SprayBottle),
+  "men-clothing": Tee,
+  "men-shoes": branded(Sneaker),
+  "men-accessories": branded(Watch),
+  "men-grooming": branded(Scissors),
+  "kids-girls": Dress,
+  "kids-boys": Tee,
+  "kids-toys": branded(GameController),
+  "kids-transport": Pram,
+  "kids-furniture": branded(Armchair),
+  "kids-bath": branded(Bathtub),
+  "kids-safety": branded(ShieldCheck),
+  "kids-health": branded(FirstAid),
+  "kids-feeding": branded(Sparkle),
+  "kids-sleep": branded(MoonStars),
+  "kids-school": branded(Backpack),
+  "kids-other": AllSquares,
+  "ent-books": OpenBook,
+  "ent-magazines": branded(Newspaper),
+  "ent-music": branded(VinylRecord),
+  "ent-video": branded(FilmSlate),
+  "hobby-cards": branded(Cards),
+  "hobby-boardgames": Dice,
+  "hobby-puzzles": branded(PuzzlePiece),
+  "hobby-miniatures": branded(CastleTurret),
+  "hobby-memorabilia": branded(Sparkle),
+  "hobby-coins": branded(Coins),
+  "hobby-stamps": branded(Stamp),
+  "hobby-postcards": branded(Envelope),
+  "hobby-instruments": branded(PianoKeys),
+  "hobby-crafts": branded(PaintBrush),
+  "hobby-storage": branded(Archive),
+  "hobby-gaming": branded(GameController),
+}
+
+/** The group's own object, or the department's grid as the honest fallback. */
+export function groupIcon(groupId: string): React.ComponentType<DeptIconProps> {
+  return GROUP_ICONS[groupId] ?? AllSquares
 }
 
 /**
- * FEMEI — an A-line dress.
+ * ===========================================================================
+ *  THE CHIP THE ICON SITS IN
+ * ===========================================================================
  *
- * Two paths that share their endpoints: the V of the neckline, and the
- * silhouette from shoulder to waist to hem. Drawn as two rather than one so the
- * neckline keeps its own round join at the point of the V, which is the detail
- * that stops it reading as a bell.
+ * One circle, violet-tinted, everywhere a category wears a picture. The tint is
+ * violet-50 under violet-700, which is the sell button's own family — so the
+ * category surfaces carry the brand's colour without shouting it, and a row of
+ * chips reads as one designed system rather than five grey circles. Drawn as a
+ * component so the tile, the row and the drawer cannot each pick their own
+ * shade of "almost the brand".
  */
-export function Dress(props: GlyphProps) {
+export function IconChip({
+  icon: Icon,
+  size = "md",
+}: {
+  icon: React.ComponentType<DeptIconProps>
+  size?: "sm" | "md"
+}) {
+  const box = size === "sm" ? "h-8 w-8" : "h-10 w-10"
+  const glyph = size === "sm" ? "h-[17px] w-[17px]" : "h-[21px] w-[21px]"
   return (
-    <Glyph {...props}>
-      <path d="M9.5 3 12 6.2 14.5 3" />
-      <path d="M9.5 3 10.3 9 5.6 19.6a1 1 0 0 0 .9 1.4h11a1 1 0 0 0 .9-1.4L13.7 9 14.5 3" />
-    </Glyph>
-  )
-}
-
-/** BĂRBAȚI — a t-shirt: sleeves, body, and the collar as its own arc. */
-export function Tee(props: GlyphProps) {
-  return (
-    <Glyph {...props}>
-      <path d="M8.6 3 4.4 5.6a1 1 0 0 0-.35 1.35l1.6 2.7a1 1 0 0 0 1.4.35l.85-.5V20a1 1 0 0 0 1 1h5.4a1 1 0 0 0 1-1V9.5l.85.5a1 1 0 0 0 1.4-.35l1.6-2.7A1 1 0 0 0 19.6 5.6L15.4 3" />
-      <path d="M8.6 3a3.4 3.4 0 0 0 6.8 0" />
-    </Glyph>
-  )
-}
-
-/**
- * COPII — a teddy.
- *
- * Circles, deliberately: this is the one department whose contents have no
- * single shape — cărucioare, îmbăiere, rechizite, jucării — so it is the one
- * that has to be named by an association rather than by an object. The pair of
- * ears is what keeps it from being another round face at 15px.
- */
-export function Teddy(props: GlyphProps) {
-  return (
-    <Glyph {...props}>
-      <circle cx="6.6" cy="6.8" r="2.6" />
-      <circle cx="17.4" cy="6.8" r="2.6" />
-      <circle cx="12" cy="13.8" r="6.4" />
-      <path d="M9.8 12.6h.01" />
-      <path d="M14.2 12.6h.01" />
-      <circle cx="12" cy="15.6" r="2.1" />
-    </Glyph>
-  )
-}
-
-/** DIVERTISMENT — an open book. Cărți and Reviste are half the department, and
- *  a book is the object that reads as "something somebody already owned". */
-export function OpenBook(props: GlyphProps) {
-  return (
-    <Glyph {...props}>
-      <path d="M12 6.6C10 5 7.2 4.4 4.3 4.85A1 1 0 0 0 3.5 5.85v11.3a1 1 0 0 0 1.15 1c2.6-.35 5.2.15 7.35 1.55 2.15-1.4 4.75-1.9 7.35-1.55a1 1 0 0 0 1.15-1V5.85a1 1 0 0 0-.8-1C16.8 4.4 14 5 12 6.6Z" />
-      <path d="M12 6.6v13.1" />
-    </Glyph>
-  )
-}
-
-/** HOBBYURI — two dice. Carduri, jocuri de societate, puzzle-uri, miniaturi. */
-export function Dice(props: GlyphProps) {
-  return (
-    <Glyph {...props}>
-      <rect x="3" y="9" width="12" height="12" rx="2.6" />
-      <path d="M6.8 12.8h.01" />
-      <path d="M11.2 17.2h.01" />
-      <path d="M9 9V5.6A2.6 2.6 0 0 1 11.6 3h6.8A2.6 2.6 0 0 1 21 5.6v6.8a2.6 2.6 0 0 1-2.6 2.6H15" />
-      <path d="M17.6 7.4h.01" />
-    </Glyph>
+    <span className={`flex ${box} shrink-0 items-center justify-center rounded-full bg-[#f5f3ff] text-[#6d28d9] ring-1 ring-[#7c3aed]/10`}>
+      <Icon className={glyph} />
+    </span>
   )
 }
