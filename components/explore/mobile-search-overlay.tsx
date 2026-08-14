@@ -366,14 +366,13 @@ export function MobileSearchOverlay({
   /** Controlled query. Passed with `anchored`, where the caller draws the
    *  field; omitted on a phone, where this component draws it. */
   /**
-   * PAGE MODE, for the tab bar's own Search tab.
-   *
-   * Pressed there, this is not a modal somebody summoned over their work — it
-   * is a DESTINATION, one of the five places the bar goes. So it behaves like a
-   * page: the field is not focused and no keyboard jumps at you (recents and
-   * the category browse are the content, typing is opt-in), and the panel stops
-   * ABOVE the tab bar instead of covering it — the bar is how you leave a page,
-   * and a page that swallows it can only be escaped through its own chrome.
+   * Opened from the tab bar's own Search tab, where this is a DESTINATION —
+   * one of the five places the bar goes — so the field is not focused and no
+   * keyboard jumps at you: recents and the browse are the content, typing is
+   * opt-in. This is the ONLY thing the prop governs now: the geometry (a page
+   * above the tab bar) and the drill-down chrome are identical from every
+   * entry, because the search bar and the search tab open the same surface
+   * and behaving differently between them was a bug, not a mode.
    */
   browse?: boolean
   query?: string
@@ -410,6 +409,15 @@ export function MobileSearchOverlay({
   const [shown, setShown] = useState(false)
   const [tab, setTab] = useState<SearchTab>("items")
   const tabs = anchored ? ANCHORED_TABS : PHONE_TABS
+  /**
+   * HOW DEEP THE BROWSE IS, reported up by BrowseLevels, because at any depth
+   * past the root the panel stops being "search with a list in it" and becomes
+   * THE CATEGORY'S OWN PAGE: the field and the Articole/Persoane tabs are not
+   * this page's chrome, and leaving them above the drill-down was two headers
+   * stacked on one screen. They come back the moment the browse is at its
+   * root — including via the page header's own search glyph.
+   */
+  const [browseLevel, setBrowseLevel] = useState(0)
   const [ownQuery, setOwnQuery] = useState("")
   // Controlled when the caller draws the field, uncontrolled when this does.
   // One `query` either way, so nothing below has to know which case it is in.
@@ -647,6 +655,7 @@ export function MobileSearchOverlay({
   useEffect(() => {
     if (!open) return
     setTab("items")
+    setBrowseLevel(0)
     // Only when this component owns the field. Anchored, the caller's input is
     // already focused and already holds what was typed into it — re-seeding it
     // from `initialQuery` would erase the first character somebody typed,
@@ -816,23 +825,19 @@ export function MobileSearchOverlay({
       className={cn(
         anchored
           ? "fixed z-[95]"
-          : browse
-            ? // PAGE MODE STOPS ABOVE THE TAB BAR. `bottom` is the bar's own
-              // arithmetic (63px + the safe area — the same numbers
-              // global-mobile-nav's spacer uses), and z-[70] sits UNDER the
-              // bar's z-[80]: the bar stays lit and stays pressable, because it
-              // is how you leave a page and this is a page.
-              "fixed inset-x-0 top-0 z-[70] flex flex-col bg-white"
-            : "fixed inset-0 z-[90] flex flex-col bg-white",
+          : // EVERY PHONE OVERLAY IS A PAGE ABOVE THE TAB BAR — the search-bar
+            // entry and the tab-bar entry included, because they are the same
+            // surface and behaving differently between them was the bug, not a
+            // mode. `bottom` is the bar's own arithmetic (63px + the safe area
+            // — the same numbers global-mobile-nav's spacer uses), and z-[70]
+            // sits UNDER the bar's z-[80]: the bar stays lit and stays
+            // pressable, because it is how you leave a page and this is a page.
+            "fixed inset-x-0 top-0 z-[70] flex flex-col bg-white",
       )}
       style={{
-        // Full-screen — never resizes, so no bottom gap/displacement. Anchored,
-        // the geometry comes from the measured field. Page mode: everything
-        // above the tab bar.
-        height: anchored ? undefined : browse ? undefined : "100dvh",
-        ...(browse && !anchored
-          ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 63px)" }
-          : null),
+        // Anchored, the geometry comes from the measured field; on a phone the
+        // top/bottom insets ARE the height, so the panel never resizes.
+        ...(!anchored ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 63px)" } : null),
         ...(anchored && box ? { top: box.top, left: box.left, width: box.width } : null),
         opacity: shown ? 1 : 0,
         // Pure fade + a whisper of a slide — NO scale (which warps text).
@@ -886,7 +891,7 @@ export function MobileSearchOverlay({
       {/* Header: search field + close. NOT DRAWN WHEN ANCHORED — the caller's
           field is the one and only search input, which is the whole point of
           anchoring. See the note on the `anchored` prop. */}
-      {!anchored && (
+      {!anchored && browseLevel === 0 && (
       <div className="shrink-0 px-4" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.85rem)" }}>
         <div className="flex items-center gap-2">
           <form
@@ -945,6 +950,7 @@ export function MobileSearchOverlay({
           rule hanging off either end, and `self-center` keeps it to the height
           of the label rather than the height of the button, which would put a
           line through the active tab's purple underline. */}
+      {(anchored || browseLevel === 0) && (
       <div className={cn("shrink-0 flex items-stretch border-b border-neutral-100 px-2", anchored ? "pt-1.5" : "mt-2")}>
         {tabs.map(([id, key], i) => {
           const active = tab === id
@@ -973,6 +979,7 @@ export function MobileSearchOverlay({
           )
         })}
       </div>
+      )}
 
       {/* Content — padded by the keyboard height so results never hide under it */}
       <div
@@ -989,14 +996,10 @@ export function MobileSearchOverlay({
         )}
         style={{
           scrollbarWidth: "none",
-          // Page mode's container already stops above the tab bar, which is
-          // itself above the safe area — adding the inset again double-counts
-          // ~30px of dead space at the end of the category list.
-          paddingBottom: anchored
-            ? 10
-            : browse
-              ? `calc(16px + ${kbHeight}px)`
-              : `calc(env(safe-area-inset-bottom, 0px) + 16px + ${kbHeight}px)`,
+          // The phone container already stops above the tab bar, which is
+          // itself above the safe area — adding the inset again would
+          // double-count ~30px of dead space at the end of the list.
+          paddingBottom: anchored ? 10 : `calc(16px + ${kbHeight}px)`,
         }}
       >
         <div key={`${tab}-${trimmed ? "q" : "e"}`} className="animate-in fade-in-0 duration-200 ease-out">
@@ -1010,8 +1013,11 @@ export function MobileSearchOverlay({
               onClearRecent={clearSearches}
               onClose={onClose}
               withBrowse={!anchored}
-              browse={browse}
-              onFocusField={() => inputRef.current?.focus()}
+              // The field REMOUNTS when the browse returns to its root (it is
+              // hidden while drilled), so focusing must wait for the frame the
+              // input exists in — an immediate call would focus null.
+              onFocusField={() => requestAnimationFrame(() => inputRef.current?.focus())}
+              onLevelChange={setBrowseLevel}
               freshCounts={freshCounts}
               t={t}
             />
@@ -1100,8 +1106,8 @@ function ItemsTab({
   onClearRecent,
   onClose,
   withBrowse,
-  browse,
   onFocusField,
+  onLevelChange,
   freshCounts = {},
   t,
 }: {
@@ -1113,8 +1119,8 @@ function ItemsTab({
   onClearRecent: () => void
   onClose: () => void
   withBrowse: boolean
-  browse: boolean
   onFocusField?: () => void
+  onLevelChange?: (level: number) => void
   /** Live totals for the "+N" badges, keyed by lowercased query. */
   freshCounts?: Record<string, number>
   t: (k: string) => string
@@ -1200,7 +1206,18 @@ function ItemsTab({
     )
   }
 
-  return <BrowseLevels above={recents} onClose={onClose} browse={browse} onSearchTap={onFocusField} t={t} />
+  return (
+    <BrowseLevels
+      above={recents}
+      onClose={onClose}
+      // Page chrome from EVERY entry — the search bar and the search tab open
+      // the same surface, and the drill-down is a page either way.
+      browse
+      onSearchTap={onFocusField}
+      onLevelChange={onLevelChange}
+      t={t}
+    />
+  )
 }
 
 /* ---------------- The taxonomy browse ---------------- */
@@ -1231,6 +1248,7 @@ function BrowseLevels({
   onClose,
   browse,
   onSearchTap,
+  onLevelChange,
   t,
 }: {
   above?: React.ReactNode
@@ -1238,6 +1256,9 @@ function BrowseLevels({
   browse?: boolean
   /** Focus the search field — the page header's right-hand glyph. */
   onSearchTap?: () => void
+  /** Reported so the panel can swap its chrome: past the root, this IS the
+   *  category's page, and the field + tabs above it are somebody else's. */
+  onLevelChange?: (level: number) => void
   t: (k: string) => string
 }) {
   const [dept, setDept] = useState<DepartmentNavItem | null>(null)
@@ -1249,10 +1270,27 @@ function BrowseLevels({
     dept && group ? groupsForDepartment(dept.id).find((g) => g.id === group.id)?.items ?? [] : []
   const level = dept ? (group ? 2 : 1) : 0
 
+  useEffect(() => {
+    onLevelChange?.(level)
+    // Unmounting IS returning to the root — typing does it, closing does it —
+    // and a stale depth left behind would keep the panel's chrome hidden with
+    // nothing on screen to explain why.
+    return () => onLevelChange?.(0)
+  }, [level, onLevelChange])
+
   const back = () => {
     setDir("pop")
     if (group) setGroup(null)
     else setDept(null)
+  }
+
+  /** The page header's search glyph: the FIELD lives at the root, so the tap
+   *  travels there first and the caller focuses it on the frame it remounts. */
+  const searchTap = () => {
+    setDir("pop")
+    setDept(null)
+    setGroup(null)
+    onSearchTap?.()
   }
 
   return (
@@ -1263,9 +1301,17 @@ function BrowseLevels({
       {level > 0 && (
         <div
           className={cn(
-            "flex items-center border-b border-neutral-100",
-            browse ? "gap-2 px-2 py-2.5" : "gap-1.5 px-2 py-2",
+            "flex items-center border-b border-neutral-100 bg-white",
+            browse ? "sticky top-0 z-10 gap-2 px-2 pb-2.5" : "gap-1.5 px-2 py-2",
           )}
+          style={
+            browse
+              ? // With the field row hidden, this header is the top of the
+                // screen and inherits its safe area — the back arrow must not
+                // sit under the clock.
+                { paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.65rem)" }
+              : undefined
+          }
         >
           <button
             type="button"
@@ -1281,7 +1327,7 @@ function BrowseLevels({
           {browse ? (
             <button
               type="button"
-              onClick={onSearchTap}
+              onClick={searchTap}
               aria-label={t("mfeed.search")}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-800 transition-colors active:bg-neutral-100"
             >

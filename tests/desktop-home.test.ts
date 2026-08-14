@@ -2493,7 +2493,17 @@ check(
       // a vocabulary, hiding is a lie of omission: it makes a category with
       // twelve sizes look like one with three.
       (ui.match(/disabled=\{o\.count === 0 && !on\}/g) ?? []).length === 1 &&
-      (sheet.match(/disabled=\{o\.count === 0 && !on\}/g) ?? []).length === 1 &&
+      // The sheet knows the difference between "counted zero" and "NOT
+      // COUNTED". The Categorie fallback outside a department writes count: 0
+      // meaning "unmeasured", and the plain zero-is-inert rule read it as
+      // "none exist" — which disabled EVERY category row on the home feed's
+      // sheet: the one level whose job is to take you somewhere was the one
+      // level nothing on could be pressed. Uncounted lists disable nothing and
+      // print no numbers, because both would be claims about a measurement
+      // that never happened.
+      (sheet.match(/disabled=\{!uncounted && o\.count === 0 && !on\}/g) ?? []).length === 1 &&
+      /uncounted=\{facet === "group" && facets\.groups\.length === 0\}/.test(sheet) &&
+      /\{!uncounted && <span className="shrink-0 text-\[13px\] text-neutral-400">\{o\.count\}<\/span>\}/.test(sheet) &&
       // A TICKED option stays live whatever its count, or a filter could be
       // applied and then be impossible to undo from the list that set it.
       /o\.count === 0 && !on\s*$/m.test(ui) &&

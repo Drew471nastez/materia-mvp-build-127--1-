@@ -357,6 +357,7 @@ export function MobileFilterSheet({
                           : facets.conditions
                 }
                 swatches={facet === "colours"}
+                uncounted={facet === "group" && facets.groups.length === 0}
                 selected={
                   facet === "group"
                     ? draft.group
@@ -468,11 +469,23 @@ function OptionLevel({
   selected,
   onPick,
   swatches = false,
+  uncounted = false,
 }: {
   options: Facet[]
   selected: string[]
   onPick: (value: string) => void
   swatches?: boolean
+  /**
+   * TRUE WHEN THE COUNTS ARE NOT MEASUREMENTS — the taxonomy fallback the
+   * Categorie level uses outside a department writes `count: 0` meaning "we
+   * did not count this", and the zero-is-inert rule below read it as "there
+   * are none of these". The collision disabled EVERY category row on the home
+   * feed's sheet: the one level whose whole job is to take you somewhere was
+   * the one level nothing on could be pressed. Uncounted lists disable
+   * nothing and print no numbers, because both would be claims about a
+   * measurement that never happened.
+   */
+  uncounted?: boolean
 }) {
   /**
    * A FIELD, AND WHAT YOU HAVE ALREADY TICKED AT THE TOP.
@@ -524,10 +537,10 @@ function OptionLevel({
             // Drawn, greyed and inert — see `facetsWithVocabulary`. A ticked
             // option stays live whatever its count, or a filter could be applied
             // and then impossible to undo from the level that set it.
-            disabled={o.count === 0 && !on}
+            disabled={!uncounted && o.count === 0 && !on}
             className={cn(
               "flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3.5 text-left",
-              o.count === 0 && !on ? "cursor-not-allowed opacity-40" : "active:bg-neutral-50",
+              !uncounted && o.count === 0 && !on ? "cursor-not-allowed opacity-40" : "active:bg-neutral-50",
             )}
           >
             {hex && (
@@ -540,7 +553,7 @@ function OptionLevel({
             <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-neutral-800">{o.label}</span>
             {/* The count is the whole reason these are derived from the pool: it
                 says what pressing this will cost you before you press it. */}
-            <span className="shrink-0 text-[13px] text-neutral-400">{o.count}</span>
+            {!uncounted && <span className="shrink-0 text-[13px] text-neutral-400">{o.count}</span>}
             <span
               className={cn(
                 "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[6px] border",
