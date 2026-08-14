@@ -1,15 +1,17 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Search, X } from "lucide-react"
 
 import {
   EMPTY_FILTERS,
+  FACET_SEARCH_MIN,
   SORTS,
   applyFeedFilters,
   colourHex,
   countActiveFilters,
   facetsWithCounts,
+  orderFacetOptions,
   type Facet,
   type FeedFilters,
   type FeedSort,
@@ -445,12 +447,46 @@ function OptionLevel({
   onPick: (value: string) => void
   swatches?: boolean
 }) {
+  /**
+   * A FIELD, AND WHAT YOU HAVE ALREADY TICKED AT THE TOP.
+   *
+   * A brand list on a real catalogue is forty to two hundred rows sorted by
+   * frequency, and finding Carhartt in that is scrolling with no idea how far
+   * you are from the answer. Vinted and Depop both put a field at the top of
+   * theirs, and both keep the selection where you can see it — pick three out of
+   * two hundred, scroll, and otherwise the three you picked are behind you.
+   *
+   * `pinned` is captured on MOUNT, which is when this level opened, so ticking a
+   * row does not make it leap to the top from under the thumb and send the next
+   * tap to whatever slid into its place. See `orderFacetOptions`.
+   */
+  const [term, setTerm] = useState("")
+  const [pinned] = useState(selected)
+  const shown = useMemo(() => orderFacetOptions(options, pinned, term), [options, pinned, term])
+
   if (options.length === 0) {
     return <p className="px-4 py-8 text-center text-[14px] text-neutral-400">Nimic de filtrat aici.</p>
   }
   return (
     <div>
-      {options.map((o) => {
+      {options.length >= FACET_SEARCH_MIN && (
+        <div className="border-b border-neutral-100 p-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-neutral-400" />
+            <input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              inputMode="search"
+              placeholder="Caută"
+              className="h-11 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-400 focus:bg-white"
+            />
+          </div>
+        </div>
+      )}
+      {shown.length === 0 && (
+        <p className="px-4 py-8 text-center text-[14px] text-neutral-400">Niciun rezultat</p>
+      )}
+      {shown.map((o) => {
         const on = selected.includes(o.value)
         const hex = swatches ? colourHex(o.value) : null
         return (
