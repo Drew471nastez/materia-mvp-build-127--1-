@@ -8,12 +8,7 @@ import { ProductCard } from "@/components/explore/product-card"
 import { WishlistProvider } from "@/components/explore/wishlist-context"
 import { MobileFilterSheet, MobileSortSheet } from "@/components/explore/mobile-filter-sheet"
 import { SmartLink } from "@/components/smart-link"
-import {
-  DEPARTMENT_NAV,
-  DEPARTMENT_RAIL,
-  categoryPath,
-  type DepartmentNavItem,
-} from "@/lib/marketplace/department-nav"
+import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
 import { departmentForGroup, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import {
   EMPTY_FILTERS,
@@ -36,8 +31,10 @@ import { cn } from "@/lib/utils"
  *  THE RESULTS PAGE'S CHROME
  * ===========================================================================
  *
- * A trail, a title, a count, the brands actually present, a row of filters, the
- * filters you have applied, the grid, and a page number.
+ * A trail, a title, a count, the subcategories of wherever you are, a row of
+ * filters, the filters you have applied, the grid, and a page number — which is
+ * Depop's order and Vinted's, and is what it settled into after two rails above
+ * the title were removed for saying what the filter row already says.
  *
  * ---------------------------------------------------------------------------
  * EVERY CONTROL WRITES THE URL, AND NOTHING ELSE
@@ -372,49 +369,18 @@ export function CategoryResults({
           ))}
         </nav>
 
-        {/* ═══════════════════════════════════════════════════════════════
-            THE DEPARTMENTS, ON THE PAGE THEY ALL LEAD TO
-            ═══════════════════════════════════════════════════════════════
-
-            Every way of picking a department — the header's bar, the phone's
-            drawer, the search panel's browse — lands here. And until this, the
-            moment you arrived the row you pressed it in was gone: the site's
-            category bar is not drawn on /shop, so moving from Femei to Bărbați
-            meant going back first. A rail whose destination does not show the
-            rail is a rail you can use exactly once.
-
-            NOT the site's bar borrowed onto this page. That one is `sticky` at
-            `--platform-header-h` and z-35, and the refine bar below is sticky at
-            the same offset and z-30 — so it would paint over the filters every
-            time somebody scrolled UP, which is the gesture people make in order
-            to reach the filters. This is in the page's own flow: it scrolls away
-            with the heading, which is right for something you use on arrival.
-
-            Toate is first and goes to /shop with no path, which is the whole
-            catalogue with this page's own apparatus over it rather than the home
-            feed — same as the bar's own Toate. */}
-        <nav aria-label="Departamente" className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:px-0">
-          {DEPARTMENT_RAIL.map((d) => {
-            const on = d.id === "all" ? !departmentId : d.id === departmentId
-            const Icon = d.icon
-            return (
-              <SmartLink
-                key={d.id}
-                href={categoryPath(d.id === "all" ? null : d.id)}
-                aria-current={on ? "page" : undefined}
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13.5px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.96]",
-                  on
-                    ? "border-neutral-900 bg-neutral-900 text-white"
-                    : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400",
-                )}
-              >
-                <Icon className="h-[15px] w-[15px]" strokeWidth={1.9} />
-                {d.label}
-              </SmartLink>
-            )
-          })}
-        </nav>
+        {/* NO DEPARTMENT RAIL HERE, AND THERE WAS ONE.
+               It was added to answer a real problem — the site's category bar is
+               not drawn on /shop, so arriving from it meant losing the row you
+               pressed — and then the Categorie pill in the refine bar below grew
+               into the whole taxonomy and answered the same problem properly:
+               every department, its groups AND its leaves, from one control that
+               is always there.
+               Six pills above the title that reach a strict subset of what a
+               pill below the title reaches is the same navigation twice, and the
+               copy of it that costs a full row is the one to lose. Depop does not
+               carry one either. What Depop DOES have under the title is the
+               subcategory row, which is the `leaves` rail further down. */}
 
         <h1 className="text-[26px] font-bold tracking-[-0.025em] text-neutral-900 sm:text-[32px]">{title}</h1>
         {/* `aria-live="polite"` is what makes a faceted search usable without
@@ -508,37 +474,16 @@ export function CategoryResults({
             })}
           </div>
         )}
-
-        {/* ── Popular brands. On a resale marketplace the brand IS the query most
-               of the time, and these are one tap instead of Filtre → Brand →
-               scroll. Six, not sixty: a rail long enough to scroll is the filter
-               list escaping into the page. */}
-        {facets.brands.length > 1 && (
-          <div className="mt-4 flex items-center gap-3">
-            <span className="hidden shrink-0 text-[14px] font-semibold text-neutral-900 sm:block">Branduri populare</span>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-hide sm:mx-0 sm:px-0">
-              {facets.brands.slice(0, 6).map((b) => {
-                const on = view.brands.some((x) => x.toLowerCase() === b.value.toLowerCase())
-                return (
-                  <button
-                    key={b.value}
-                    type="button"
-                    onClick={() => toggle("brands", b.value)}
-                    aria-pressed={on}
-                    className={cn(
-                      "shrink-0 rounded-full border px-4 py-2 text-[13.5px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.96]",
-                      on
-                        ? "border-neutral-900 bg-neutral-900 text-white"
-                        : "border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400",
-                    )}
-                  >
-                    {b.value}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        {/* AND NO POPULAR-BRANDS RAIL EITHER, for the same reason.
+               Six brands as a shortcut past Filtre → Brand → scroll was a fair
+               trade while that list was an unsearchable forty-row scroller. It
+               is a searchable list now with what you have already picked at the
+               top, so the rail is a second, worse copy of the Brand pill sitting
+               a row above it — and it was the last of three stacked rows of
+               chrome between the count and the first listing.
+               Neither Depop nor Vinted puts one here. Both go straight from the
+               count to the filter bar to the grid, which is what this page does
+               now. */}
 
         {/* ═══════════════════════════════════════════════════════════════
             THE REFINE BAR FOLLOWS YOU DOWN THE PAGE
