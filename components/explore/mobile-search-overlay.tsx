@@ -16,27 +16,27 @@ import { cn } from "@/lib/utils"
 import { claimSurface } from "@/lib/surface-bg"
 import { lockScroll } from "@/lib/scroll-lock"
 
-type SearchTab = "items" | "categories" | "people"
+type SearchTab = "items" | "people"
 
 /**
- * THREE TABS, AND CATEGORII IS BACK BECAUSE IT IS A DIFFERENT THING NOW.
+ * TWO TABS. THE CATEGORIES ARE NOT ONE OF THEM — THEY ARE IN THE SEARCH.
  *
- * A tab earns its place by answering a question the other tabs cannot. It was
- * dropped because it did not: it drew five department tiles, which is the same
- * five that sit in the rail directly behind the panel and in the header menu one
- * press away. Five doors you can already see is not a third of a search panel's
- * worth of anything.
+ * A tab says "this is a different KIND of answer, go and look over there". That
+ * is true of Persoane: a person is not a narrower article, and neither is
+ * reachable from the other. It is NOT true of the categories. Somebody who
+ * opens a search box and does not type is browsing, and browsing is the same
+ * intent as searching with the field still empty — so the whole taxonomy lives
+ * in Articole, under the last three things they searched for, where it is the
+ * first thing they see instead of a word they have to notice and press.
  *
- * What it draws now is the part of the taxonomy that was reachable from
- * NOWHERE: the groups under each department, and the actual kinds of thing under
- * each group — Bărbați › Haine › Tricouri. Every listing carries that leaf, the
- * sell form insists on it, and until this there was no way to browse to one.
- * Three levels deep is a question neither Articole nor Persoane can answer, and
- * it is the reason to spend the width.
+ * Which also gives the panel something to say when it is opened cold. It used
+ * to draw a magnifying glass and "caută articole" — the surface explaining what
+ * a search box is, in the space where five departments would have been.
+ *
+ * See `ItemsTab`.
  */
 const TABS: ReadonlyArray<readonly [SearchTab, string]> = [
   ["items", "mfeed.tab_items"],
-  ["categories", "mfeed.tab_categories"],
   ["people", "mfeed.tab_people"],
 ]
 
@@ -248,7 +248,7 @@ export function MobileSearchOverlay({
   open: boolean
   onClose: () => void
   /** Kept for the feed's own rail; the Categorii tab NAVIGATES now rather than
-   *  filtering the feed in place — see CategoriesTab. */
+   *  filtering the feed in place — see ItemsTab. */
   onSelectCategory?: (id: string) => void
   /** Fired right when a search is run, so the feed can jump to the results tab. */
   onSearchSubmit?: () => void
@@ -877,10 +877,10 @@ export function MobileSearchOverlay({
               onRun={runSearch}
               onRemoveRecent={removeSearch}
               onClearRecent={clearSearches}
+              onClose={onClose}
               t={t}
             />
           )}
-          {tab === "categories" && <CategoriesTab onClose={onClose} t={t} />}
           {tab === "people" && (
             <PeopleTab trimmed={trimmed} people={people} loading={peopleLoading} onClose={onClose} t={t} />
           )}
@@ -938,6 +938,36 @@ export function MobileSearchOverlay({
 
 /* ---------------- Items tab ---------------- */
 
+/**
+ * ===========================================================================
+ *  ONE TAB THAT ANSWERS "WHAT AM I LOOKING FOR", IN THE ORDER IT IS ASKED
+ * ===========================================================================
+ *
+ * Recent searches, then the whole taxonomy — three levels of it — and the
+ * suggestions replace both the moment anything is typed.
+ *
+ * THE CATEGORIES ARE NOT A TAB. They were, briefly, and a tab is the wrong
+ * container for them: a tab says "this is a different KIND of answer, go and
+ * look over there", which is true of Persoane and false of categories.
+ * Somebody who opens a search box and does not type is browsing, and browsing
+ * is the same intent as searching with the query still empty — so it belongs in
+ * the same column, under the last three things they searched for, not behind a
+ * word they have to notice and press first.
+ *
+ * ---------------------------------------------------------------------------
+ * THE WHOLE COLUMN IS ONE STACK, AND THAT IS WHY THE MOVEMENT READS
+ * ---------------------------------------------------------------------------
+ * Level 0 is recents + the department grid; level 1 is a department's groups;
+ * level 2 is a group's leaves. All three are rendered inside ONE keyed,
+ * animated container, so pressing Bărbați slides the entire panel — recents
+ * included — and Back slides the entire panel back. Animating only the lower
+ * half while the recents vanished in the same frame is the version that looks
+ * broken: half the surface travels and half of it cuts.
+ *
+ * `sub-push` / `sub-pop`, which is the sell form's picker, the Browse menu and
+ * the filter sheet — the app has one grammar for going a level deeper and this
+ * is it.
+ */
 function ItemsTab({
   trimmed,
   recent,
@@ -945,6 +975,7 @@ function ItemsTab({
   onRun,
   onRemoveRecent,
   onClearRecent,
+  onClose,
   t,
 }: {
   trimmed: string
@@ -953,155 +984,50 @@ function ItemsTab({
   onRun: (q: string) => void
   onRemoveRecent: (q: string) => void
   onClearRecent: () => void
+  onClose: () => void
   t: (k: string) => string
 }) {
-  if (!trimmed) {
-    if (recent.length === 0) {
-      return (
-        <div className="search-empty flex flex-col items-center justify-center px-8 text-center">
-          <Search className="mb-3 h-7 w-7 text-neutral-300" />
-          <p className="text-[13px] text-neutral-500">{t("mfeed.search_placeholder")}</p>
-        </div>
-      )
-    }
+  const [dept, setDept] = useState<DepartmentNavItem | null>(null)
+  const [group, setGroup] = useState<{ id: string; label: string } | null>(null)
+  /** Which animation the NEXT level plays. Set by whatever changed the stack. */
+  const [dir, setDir] = useState<"push" | "pop">("push")
+
+  /**
+   * TYPING RETURNS YOU TO THE TOP.
+   *
+   * The browse is hidden while there is a query, so a stack left two levels
+   * deep is a level nobody can see and nobody can leave: clear the field and
+   * you are back inside Bărbați › Haine with no memory of having gone there,
+   * and the Back arrow is the only way out of a place you did not travel to.
+   */
+  useEffect(() => {
+    if (!trimmed) return
+    setDept(null)
+    setGroup(null)
+    setDir("push")
+  }, [trimmed])
+
+  if (trimmed) {
     return (
       <div className="px-1 py-2">
-        <div className="flex items-center justify-between px-4 pb-1 pt-2">
-          <span className="text-[13px] font-semibold text-neutral-500">{t("mfeed.recent_searches")}</span>
-          <button type="button" onClick={onClearRecent} className="text-[12px] font-medium text-neutral-400 active:opacity-60">
-            {t("mfeed.clear_all")}
-          </button>
-        </div>
-        {recent.map((r) => (
-          <Row key={r.q} icon={<Clock className="h-[18px] w-[18px] text-neutral-400" />} label={r.q} onClick={() => onRun(r.q)}>
-            <button
-              type="button"
-              aria-label={t("mfeed.clear_all")}
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemoveRecent(r.q)
-              }}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-300 active:scale-90"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        {suggestions.map((s) => (
+          <Row
+            key={s}
+            icon={<Search className="h-[18px] w-[18px] text-neutral-400" />}
+            label={s}
+            query={trimmed}
+            onClick={() => onRun(s)}
+          >
+            <ArrowUpLeft className="h-[18px] w-[18px] text-neutral-300" />
           </Row>
         ))}
       </div>
     )
   }
 
-  return (
-    <div className="px-1 py-2">
-      {suggestions.map((s) => (
-        <Row
-          key={s}
-          icon={<Search className="h-[18px] w-[18px] text-neutral-400" />}
-          label={s}
-          query={trimmed}
-          onClick={() => onRun(s)}
-        >
-          <ArrowUpLeft className="h-[18px] w-[18px] text-neutral-300" />
-        </Row>
-      ))}
-    </div>
-  )
-}
-
-/** A suggestion / recent row. Bolds the part of the label past the typed query. */
-function Row({
-  icon,
-  label,
-  query,
-  onClick,
-  children,
-}: {
-  icon: React.ReactNode
-  label: string
-  query?: string
-  onClick: () => void
-  children?: React.ReactNode
-}) {
-  let head = ""
-  let tail = label
-  if (query) {
-    const idx = label.toLowerCase().indexOf(query.toLowerCase())
-    if (idx === 0) {
-      head = label.slice(0, query.length)
-      tail = label.slice(query.length)
-    }
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-neutral-50"
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="flex-1 truncate text-[15px] text-neutral-800">
-        {head ? (
-          <>
-            <span className="text-neutral-500">{head}</span>
-            <span className="font-semibold text-neutral-900">{tail}</span>
-          </>
-        ) : (
-          label
-        )}
-      </span>
-      {children}
-    </button>
-  )
-}
-
-/* ---------------- Categories tab ---------------- */
-
-/**
- * ===========================================================================
- *  THE WHOLE TAXONOMY, THREE LEVELS DEEP, IN THE PANEL
- * ===========================================================================
- *
- * Bărbați → Toate / Haine / Încălțăminte / Accesorii / Îngrijire → Tricouri,
- * Hanorace, Blugi… Each level replaces the one before it IN PLACE, and every
- * level ends at a real page: `/shop/men`, `/shop/men/clothing`,
- * `/shop/men/clothing?sub=t-shirts`.
- *
- * This tab used to be five department tiles and nothing under them, which is the
- * same five doors the rail behind the panel already draws. The groups and the
- * leaves are the part nothing else on this site could reach — they are what the
- * sell form files a listing under, and browsing to one was impossible.
- *
- * ---------------------------------------------------------------------------
- * ONE STACK, NOT THREE COMPONENTS
- * ---------------------------------------------------------------------------
- * `dept` and `group` are the whole of the state; which of the three levels is on
- * screen is derived from them. Back is popping one field rather than a route, so
- * there is no history to get out of step with the panel — and closing the panel
- * and reopening it starts at the top, which is correct: nobody returns to a
- * search box to resume a menu.
- *
- * ---------------------------------------------------------------------------
- * IT MOVES THE WAY EVERY OTHER DRILL-DOWN IN THIS APP MOVES
- * ---------------------------------------------------------------------------
- * `sub-push` going deeper and `sub-pop` coming back — the same 360ms on
- * cubic-bezier(0.32, 0.72, 0, 1) as the sell form's category picker, the Browse
- * menu and the filter sheet. A list that is replaced in one frame says nothing
- * about which direction you travelled; the Back button ends up being the only
- * evidence you are a level deep.
- *
- * The `key` is what replays it: React reuses the same nodes for two lists of
- * rows, so without a changing key the animation runs once and never again.
- */
-function CategoriesTab({ onClose, t }: { onClose: () => void; t: (k: string) => string }) {
-  const [dept, setDept] = useState<DepartmentNavItem | null>(null)
-  const [group, setGroup] = useState<{ id: string; label: string } | null>(null)
-  /** Which animation the NEXT level plays. Set by whatever changed the stack. */
-  const [dir, setDir] = useState<"push" | "pop">("push")
-
   const leaves: Option[] =
     dept && group ? groupsForDepartment(dept.id).find((g) => g.id === group.id)?.items ?? [] : []
-
   const level = dept ? (group ? 2 : 1) : 0
-  const anim = dir === "push" ? "sub-push" : "sub-pop"
 
   const back = () => {
     setDir("pop")
@@ -1110,17 +1036,17 @@ function CategoriesTab({ onClose, t }: { onClose: () => void; t: (k: string) => 
   }
 
   return (
-    // `overflow-hidden` because the arriving level enters from 100% to the right
-    // — without it the panel gains a scrollbar for the length of the animation
-    // and the page under it twitches.
+    // `overflow-hidden` because the arriving level enters from 100% to the
+    // right — without it the panel gains a scrollbar for the length of the
+    // animation and the page under it twitches.
     <div className="overflow-hidden">
       {level > 0 && (
         <div className="flex items-center gap-1.5 border-b border-neutral-100 px-2 py-2">
           <button
             type="button"
             onClick={back}
+            aria-label={t("mfeed.back")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-700 transition-colors active:bg-neutral-100"
-            aria-label={t("mfeed.close")}
           >
             <ChevronLeft className="h-[19px] w-[19px]" />
           </button>
@@ -1130,16 +1056,57 @@ function CategoriesTab({ onClose, t }: { onClose: () => void; t: (k: string) => 
         </div>
       )}
 
-      <div key={`${dept?.id ?? "root"}-${group?.id ?? ""}`} className={cn(anim, "px-1 py-2")}>
+      <div
+        key={`${dept?.id ?? "root"}-${group?.id ?? ""}`}
+        className={cn(dir === "push" ? "sub-push" : "sub-pop", "px-1 py-2")}
+      >
         {level === 0 && (
           <>
-            <p className="px-3 pb-2 pt-1 text-[13px] font-semibold text-neutral-500">
+            {recent.length > 0 && (
+              <>
+                <div className="flex items-center justify-between px-4 pb-1 pt-2">
+                  <span className="text-[13px] font-semibold text-neutral-500">{t("mfeed.recent_searches")}</span>
+                  <button
+                    type="button"
+                    onClick={onClearRecent}
+                    className="text-[12px] font-medium text-neutral-400 active:opacity-60"
+                  >
+                    {t("mfeed.clear_all")}
+                  </button>
+                </div>
+                {recent.map((r) => (
+                  <Row
+                    key={r.q}
+                    icon={<Clock className="h-[18px] w-[18px] text-neutral-400" />}
+                    label={r.q}
+                    onClick={() => onRun(r.q)}
+                  >
+                    <button
+                      type="button"
+                      aria-label={t("mfeed.clear_all")}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveRecent(r.q)
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-300 active:scale-90"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </Row>
+                ))}
+                {/* A rule, not a gap. Two unlabelled blocks a margin apart read
+                    as one list that changed its mind halfway down. */}
+                <div aria-hidden className="mx-4 my-2 h-px bg-neutral-100" />
+              </>
+            )}
+
+            <p className="px-4 pb-2 pt-1 text-[13px] font-semibold text-neutral-500">
               {t("mfeed.browse_categories")}
             </p>
-            {/* Tiles rather than rows at the top level only. Five departments
-                are a choice you make by looking; thirty-seven groups are a list
-                you read, and a grid of thirty-seven tiles is a wall. */}
-            <div className="grid grid-cols-2 gap-2.5 px-3 pb-2">
+            {/* Tiles at the top level only. Five departments are a choice you
+                make by looking; thirty-seven groups are a list you read, and a
+                grid of thirty-seven tiles is a wall. */}
+            <div className="grid grid-cols-2 gap-2.5 px-3 pb-1">
               {DEPARTMENT_NAV.map((d) => (
                 <button
                   key={d.id}
@@ -1148,7 +1115,7 @@ function CategoriesTab({ onClose, t }: { onClose: () => void; t: (k: string) => 
                     setDir("push")
                     setDept(d)
                   }}
-                  className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-neutral-50 px-4 py-3.5 text-left transition-all duration-200 active:scale-[0.97] active:bg-neutral-100"
+                  className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-neutral-50 px-3.5 py-3 text-left transition-all duration-200 active:scale-[0.97] active:bg-neutral-100"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.04]">
                     <d.icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
@@ -1200,6 +1167,51 @@ function CategoriesTab({ onClose, t }: { onClose: () => void; t: (k: string) => 
         )}
       </div>
     </div>
+  )
+}
+
+/** A suggestion / recent row. Bolds the part of the label past the typed query. */
+function Row({
+  icon,
+  label,
+  query,
+  onClick,
+  children,
+}: {
+  icon: React.ReactNode
+  label: string
+  query?: string
+  onClick: () => void
+  children?: React.ReactNode
+}) {
+  let head = ""
+  let tail = label
+  if (query) {
+    const idx = label.toLowerCase().indexOf(query.toLowerCase())
+    if (idx === 0) {
+      head = label.slice(0, query.length)
+      tail = label.slice(query.length)
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-neutral-50"
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 truncate text-[15px] text-neutral-800">
+        {head ? (
+          <>
+            <span className="text-neutral-500">{head}</span>
+            <span className="font-semibold text-neutral-900">{tail}</span>
+          </>
+        ) : (
+          label
+        )}
+      </span>
+      {children}
+    </button>
   )
 }
 

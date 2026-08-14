@@ -1113,36 +1113,44 @@ check(
 )
 
 check(
-  "Categorii is a three-level browse, not five tiles of what is already on screen",
+  "the categories are IN the search, three levels deep — not a tab beside it",
   (() => {
-    // The tab was dropped when it drew five department tiles — the same five in
-    // the rail behind the panel and in the header menu one press away. It is
-    // back because it draws the part of the taxonomy nothing else could reach:
-    // the groups under a department and the actual kinds of thing under a group,
-    // Bărbați › Haine › Tricouri.
+    // A TAB SAYS "THIS IS A DIFFERENT KIND OF ANSWER, GO AND LOOK OVER THERE".
+    // That is true of Persoane — a person is not a narrower article, and neither
+    // is reachable from the other. It is not true of the categories: somebody
+    // who opens a search box and does not type is browsing, and browsing is the
+    // same intent as searching with the field still empty. So the taxonomy lives
+    // in Articole, under the last three things they searched for, where it is
+    // the first thing they see rather than a word they have to notice and press.
     //
-    // Every level ends at a real page, and the leaf carries `?sub=` — which the
-    // results page validates against the group it arrived with.
+    // Which also gives the panel something to say when opened cold. It drew a
+    // magnifying glass and "caută articole" — the surface explaining what a
+    // search box is, in the space where five departments would have been.
     const overlay = code("components/explore/mobile-search-overlay.tsx")
     const tabs = overlay.slice(overlay.indexOf("const TABS"), overlay.indexOf("const POPULAR_EXPANSIONS"))
-    const tab = overlay.slice(overlay.indexOf("function CategoriesTab"), overlay.indexOf("function BrowseRow"))
+    const tab = overlay.slice(overlay.indexOf("function ItemsTab"), overlay.indexOf("function Row"))
     return (
-      (tabs.match(/mfeed\.tab_/g) ?? []).length === 3 &&
-      /mfeed\.tab_categories/.test(tabs) &&
-      /type SearchTab = "items" \| "categories" \| "people"/.test(overlay) &&
+      (tabs.match(/mfeed\.tab_/g) ?? []).length === 2 &&
+      !/mfeed\.tab_categories/.test(tabs) &&
+      /type SearchTab = "items" \| "people"/.test(overlay) &&
+      !/function CategoriesTab/.test(overlay) &&
+      // The recents come first and the browse is under them, in ONE column.
+      tab.indexOf("mfeed.recent_searches") < tab.indexOf("mfeed.browse_categories") &&
       // Three levels, derived from one stack rather than three components.
       /const level = dept \? \(group \? 2 : 1\) : 0/.test(tab) &&
       /groupsForDepartment\(dept\.id\)\.find\(\(g\) => g\.id === group\.id\)\?\.items/.test(tab) &&
       /\?sub=\$\{encodeURIComponent\(leaf\.id\)\}/.test(tab) &&
       // "Toate" first at every level: one decision, not two.
       (tab.match(/label=\{`Toate · /g) ?? []).length === 2 &&
-      // AND IT MOVES THE WAY EVERY OTHER DRILL-DOWN IN THIS APP MOVES. The same
-      // sub-push / sub-pop the sell form's picker, the Browse menu and the
-      // filter sheet use — a list replaced in one frame says nothing about which
-      // direction you travelled.
-      /const anim = dir === "push" \? "sub-push" : "sub-pop"/.test(tab) &&
+      // AND THE WHOLE COLUMN IS THE STACK. Pressing Bărbați slides the entire
+      // panel, recents included; animating only the lower half while the
+      // recents vanish in the same frame is the version that looks broken.
+      /dir === "push" \? "sub-push" : "sub-pop"/.test(tab) &&
       // Keyed, or React reuses the nodes and the animation plays exactly once.
-      /key=\{`\$\{dept\?\.id \?\? "root"\}-\$\{group\?\.id \?\? ""\}`\}/.test(tab)
+      /key=\{`\$\{dept\?\.id \?\? "root"\}-\$\{group\?\.id \?\? ""\}`\}/.test(tab) &&
+      // Typing returns you to the top — a stack left two levels deep is a level
+      // nobody can see and nobody can leave.
+      /if \(!trimmed\) return\s*\n\s*setDept\(null\)/.test(tab)
     )
   })(),
   "        components/explore/mobile-search-overlay.tsx",
@@ -1486,19 +1494,39 @@ check(
     const hdr = code("components/platform/platform-header-client.tsx")
     const map = nav.slice(nav.indexOf("const DEPARTMENT_ICONS"), nav.indexOf("export type DepartmentNavItem"))
     return (
-      /women: Dress/.test(map) &&
+      // FIVE DIFFERENT SILHOUETTES, which is the only thing that matters at
+      // 18px. The set before this was Dress / Shirt / Baby / Disc3 / Dices, and
+      // its problem was not meaning but SHAPE: at tile size `Dress` was a small
+      // bell, `Baby` a circle with two dots and `Disc3` a circle with one, so
+      // three of five departments were a round outline with something in the
+      // middle. Pictures that all look alike carry no information — the eye
+      // stops using them and reads the words, and then they are noise taking up
+      // the left third of every tile.
+      //
+      // A pointed diamond, a wide t-shirt, a round head, an angular rectangle
+      // and an organic jigsaw knob: five outlines you could tell apart as
+      // thumbnails with the labels covered.
+      /women: Gem/.test(map) &&
       /men: Shirt/.test(map) &&
+      /kids: Baby/.test(map) &&
+      /entertainment: Clapperboard/.test(map) &&
+      /hobby: Puzzle/.test(map) &&
       !/Sparkles|ShoppingBag|Gift|Lightbulb/.test(map) &&
+      // No two of them are the same glyph, which is the failure this whole
+      // block exists to catch — six tiles once wore CATEGORIES[0].icon.
+      new Set(
+        (map.match(/^\s*\w+: (\w+),$/gm) ?? []).map((l) => l.split(":")[1].trim()),
+      ).size === 5 &&
       // Derived from the SELL FORM's taxonomy, so a department added there
       // appears everywhere without anybody remembering to come here.
       /DEPARTMENT_NAV: DepartmentNavItem\[\] = DEPARTMENTS\.map/.test(nav) &&
       /const DEFAULT_CATEGORIES = DEPARTMENT_RAIL/.test(hdr) &&
       /const CATEGORIES_WITH_SUBS = DEPARTMENT_NAV/.test(hdr) &&
-      // lucide ships exactly one garment, so the other apparel department had
-      // to be drawn — to lucide's own spec, because half a set in one drawing
-      // language and half in another is worse than any single icon in it.
-      /viewBox="0 0 24 24"/.test(code("components/marketplace/department-icons.tsx")) &&
-      /stroke="currentColor"/.test(code("components/marketplace/department-icons.tsx")) &&
+      // ALL FIVE ARE LUCIDE'S NOW. Half a set in one drawing language and half
+      // in another is worse than any single icon in it, and the hand-drawn one
+      // was also the weakest of the five at tile size — which is what made a
+      // bespoke component necessary in the first place. Nothing imports it.
+      !/department-icons/.test(nav) &&
       // And the type is ours, because `typeof LayoutGrid` is lucide's own
       // forwardRef type: a type that says "an icon" and means "an icon from
       // that one package".

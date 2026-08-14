@@ -190,6 +190,28 @@ export function CategoryResults({
     [basePath, departmentId, groupId, query, router, sort, startTransition, sub],
   )
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  "ȘTERGE TOT" CLEARS THE FILTERS. IT DOES NOT MOVE YOU TO ANOTHER PAGE.
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * It was `go(EMPTY_FILTERS)`, and `EMPTY_FILTERS.group` is null — so pressing
+   * it on /shop/women/clothing walked you UP to /shop/women and dropped the leaf
+   * with it. Somebody who is looking at dresses and unticks two brands has not
+   * asked to stop looking at dresses; they end up a level out, with three
+   * hundred listings, and the only clue is the heading changing.
+   *
+   * THE SCOPE IS NOT A FILTER. The department, the group and the leaf are in the
+   * path and the trail and the h1 — they are WHERE YOU ARE. The chips this
+   * button sits beside are brands, sizes, colours, condition and price, and
+   * `buildChips` never emits one for the group, so the button has never had
+   * anything on screen suggesting it would navigate.
+   *
+   * Keeping `group` also keeps `sub`, because `go` only drops the leaf when the
+   * group changes underneath it.
+   */
+  const clearFilters = useCallback(() => go({ ...EMPTY_FILTERS, group: filters.group }), [go, filters.group])
+
   const toggle = useCallback(
     (key: "brands" | "sizes" | "colours" | "conditions", v: string) =>
       go({
@@ -521,7 +543,7 @@ export function CategoryResults({
               ))}
               <button
                 type="button"
-                onClick={() => go(EMPTY_FILTERS)}
+                onClick={clearFilters}
                 className="px-2 text-[13.5px] font-semibold text-neutral-600 underline decoration-neutral-300 underline-offset-4 hover:text-neutral-900"
               >
                 Șterge tot
@@ -571,6 +593,26 @@ export function CategoryResults({
                   ))}
                 </div>
               </>
+            ) : sub ? (
+              /* THE LEAF IS THE MOST LIKELY REASON, AND IT IS NOT A FILTER.
+                 `dropSuggestions` only ever offers brands, sizes, colours,
+                 condition and price, so an empty Femei › Haine › Salopete with
+                 nothing else applied got "try another term or category" — a
+                 sentence, on a page whose one useful action is one level up.
+                 The rail above has Toate highlighted, but the rail is six
+                 screens away by the time you have read this. */
+              <>
+                <p className="mt-1.5 text-[14.5px] text-neutral-500">
+                  Nu există anunțuri în {subLabel?.toLowerCase()} deocamdată.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => go(filters, { sub: null })}
+                  className="mt-5 inline-flex h-11 items-center rounded-lg bg-neutral-900 px-6 text-[15px] font-semibold text-white"
+                >
+                  Vezi tot din {group?.label ?? dept?.label ?? "categorie"}
+                </button>
+              </>
             ) : (
               <p className="mt-1.5 text-[14.5px] text-neutral-500">
                 {active > 0 ? "Încearcă să elimini câteva filtre." : "Încearcă alt termen sau altă categorie."}
@@ -580,7 +622,7 @@ export function CategoryResults({
             {active > 0 && (
               <button
                 type="button"
-                onClick={() => go(EMPTY_FILTERS)}
+                onClick={clearFilters}
                 className="mt-5 inline-flex h-11 items-center rounded-lg bg-neutral-900 px-6 text-[15px] font-semibold text-white"
               >
                 Șterge filtrele
@@ -606,6 +648,9 @@ export function CategoryResults({
         pool={[]}
         facets={facets}
         departmentId={departmentId}
+        // The group is the PATH here, so "Șterge tot" clears the filters rather
+        // than walking you up a level — see the note on the prop.
+        lockedGroup={groupId}
         value={filters}
         onApply={(next) => go(next)}
         // Sort lives inside the sheet on a phone — one trip for one decision.

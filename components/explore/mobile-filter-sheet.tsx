@@ -58,6 +58,7 @@ export function MobileFilterSheet({
   pool,
   facets: givenFacets,
   departmentId,
+  lockedGroup = null,
   value,
   onApply,
   sort,
@@ -84,6 +85,19 @@ export function MobileFilterSheet({
     conditions: Facet[]
   }
   departmentId?: string | null
+  /**
+   * THE GROUP THIS SURFACE IS *ABOUT*, when it is a place rather than a filter.
+   *
+   * On the results page the group is the PATH — /shop/women/clothing — and it is
+   * in the trail, the h1 and the URL somebody shared. "Șterge tot" clearing it
+   * meant unticking two brands walked you up a level to a different page, with
+   * only the heading to tell you. The feed passes nothing, because there the
+   * group really is one filter among several over an array it already holds.
+   *
+   * The Categorie row still edits it either way — explicitly changing where you
+   * are is exactly what that row is for. This governs the "clear" shortcut only.
+   */
+  lockedGroup?: string | null
   value: FeedFilters
   onApply: (next: FeedFilters) => void
   /** Present only where sort belongs in the sheet — see the first row. */
@@ -222,7 +236,7 @@ export function MobileFilterSheet({
         </h2>
         <button
           type="button"
-          onClick={() => setDraft(EMPTY_FILTERS)}
+          onClick={() => setDraft((d) => ({ ...EMPTY_FILTERS, group: lockedGroup ?? d.group }))}
           disabled={active === 0}
           className="justify-self-end text-[15px] font-medium text-[#7c3aed] transition-opacity active:opacity-60 disabled:opacity-30"
         >
