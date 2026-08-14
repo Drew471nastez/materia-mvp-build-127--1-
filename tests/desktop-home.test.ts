@@ -1816,10 +1816,14 @@ check(
       // multi-select impossible.
       /export function facetsWithCounts/.test(engine) &&
       /const others = \(except: keyof FeedFilters\)/.test(engine) &&
-      /facets = facetsWithCounts\(attrRows, department, effective\)/.test(page) &&
-      // And it is ONE query, not five: the non-facet filters go into SQL and the
-      // cross-filtering happens over the rows.
-      (page.match(/\.select\(ATTR_COLS\)/g) ?? []).length === 1
+      /facets = facetsWithVocabulary\(facetsWithCounts\(attrRows, department, effective\), group\)/.test(page) &&
+      // And the cross-filtering is ONE query's worth of rows, not five queries:
+      // the non-facet filters go into SQL and the five passes happen over the
+      // array. The second `.select(ATTR_COLS)` is the escape query, which runs
+      // only on an empty page and only because the price cannot suggest dropping
+      // itself from rows it has already emptied.
+      (page.match(/\.select\(ATTR_COLS\)/g) ?? []).length === 2 &&
+      /if \(rows\.length === 0\) \{/.test(page)
     )
   })(),
   "        app/(marketing)/shop/[[...path]]/page.tsx, lib/marketplace/feed-filters.ts",
@@ -1991,7 +1995,20 @@ check(
       /\.sort\(\(a, b\) => b\.count - a\.count\)/.test(engine) &&
       // Computed only on an empty page: five array passes behind ninety
       // listings nobody is struggling to find is work for nothing.
-      /if \(rows\.length === 0\) escapes = dropSuggestions\(attrRows, effective, facets\)/.test(page) &&
+      //
+      // AND OVER ROWS THE PRICE HAS NOT ALREADY REMOVED. It ran over `attrRows`,
+      // which comes from a query with the price band and on-sale already applied
+      // in SQL — so "how many if I drop the price" was asked of rows the price
+      // had already emptied, the answer was always zero, and the filter most
+      // likely to be the problem was the one this could never name. A page
+      // reading "0 rezultate" under a 4–6 RON chip offered nothing but "clear
+      // everything".
+      /if \(rows\.length === 0\) \{/.test(page) &&
+      /const \{ data: escapeRows \} = await eq\.limit\(1000\)/.test(page) &&
+      /escapes = dropSuggestions\(\(escapeRows as any\[\]\) \?\? \[\], effective, facets\)/.test(page) &&
+      // The scope and the search still apply — it is the same page, minus the
+      // two filters whose own suggestions were being computed.
+      !/eq\.gte\("price_cents"/.test(page) &&
       /Fără \{e\.label\}/.test(ui) &&
       /go\(withoutFilter\(view, e\.key\)\)/.test(ui)
     )
@@ -2429,31 +2446,60 @@ check(
 )
 
 check(
-  "a facet never offers an option that leads to nothing",
+  "the filters are the category's vocabulary, and a dead option is inert not absent",
   (() => {
-    // The sheet counted every facet over the WHOLE pool, ignoring the draft — so
-    // on the feed, after picking Nike, the Stare level still listed all five
-    // conditions including the four no Nike listing has. Each of those is a tap
-    // that empties the screen, offered by the control whose job is to narrow it.
+    // EVERY FACET WAS DERIVED FROM WHAT HAPPENED TO BE LISTED, which looks like
+    // the feature working and is the feature missing: a category with nothing in
+    // it has NO FILTERS AT ALL. Femei › Încălțăminte › Pantofi cu toc on a young
+    // catalogue offered Categorie, Preț and a checkbox — no Mărime, no Culoare,
+    // no Stare — because there was nothing to derive them from. They vanish
+    // exactly when somebody most needs to see what this category narrows by.
     //
-    // `facetsWithCounts` is the cross-filter the results page has always had:
-    // each list counted with the OTHER filters applied but NOT its own. The
-    // exception is what stops a facet list eating itself — without it, picking
-    // "Negru" leaves Culoare offering only Negru and no way back to the others.
+    // Three of the five are closed vocabularies the sell form already owns, and
+    // they come in THEIR order: sorting sizes by popularity puts 42 before 36.
+    // Brand stays derived, because it is free text and there is no list to
+    // offer.
+    //
+    // AND THE CATEGORY DECIDES WHICH FILTERS EXIST. `fieldsFor` is the same
+    // table the sell form asks — a bag has no size, a lipstick has neither size
+    // nor era — so Divertisment does not offer a Mărime pill no listing in it
+    // could answer.
     const engine = code("lib/marketplace/feed-filters.ts")
+    const ui = code("components/explore/category-results.tsx")
     const sheet = code("components/explore/mobile-filter-sheet.tsx")
     return (
-      /const derived = useMemo\(\(\) => facetsWithCounts\(pool, departmentId, draft\), \[pool, departmentId, draft\]\)/.test(sheet) &&
-      !/facetsFrom\(pool/.test(sheet) &&
-      // `tally` can only ever emit a value it counted, and the taxonomy-sourced
-      // group list is filtered to what is actually present. Neither can produce
-      // a zero-count option.
-      /\.filter\(\(g\) => g\.count > 0\)/.test(engine) &&
+      /export function facetsWithVocabulary/.test(engine) &&
+      /sizes: has\("size"\) \? merge\(sizesFor\(groupId\), counted\.sizes\) : \[\]/.test(engine) &&
+      /colours: has\("colour"\) \? merge\(COLOURS, counted\.colours\) : \[\]/.test(engine) &&
+      /conditions: merge\(conditionsFor\(groupId\), counted\.conditions\)/.test(engine) &&
+      // Brand is NOT given a vocabulary — there is none to give.
+      /brands: has\("brand"\) \? counted\.brands : \[\]/.test(engine) &&
+      // A value the data has and the vocabulary does not is kept: a listing
+      // carrying it must stay reachable, and a filter that cannot reach a
+      // published listing is worse than an untidy list.
+      /for \(const m of measured\) if \(!known\.has\(m\.value\.trim\(\)\.toLowerCase\(\)\)\) out\.push\(m\)/.test(engine) &&
+      // Both surfaces go through it.
+      /facetsWithVocabulary\(facetsWithCounts\(pool, departmentId, draft\), draft\.group\)/.test(sheet) &&
+      /facetsWithVocabulary\(facetsWithCounts\(attrRows, department, effective\), group\)/.test(
+        read("app/(marketing)/shop/[[...path]]/page.tsx"),
+      ) &&
+      // A ZERO IS DRAWN AND CANNOT BE PRESSED. Hiding it was right while the
+      // list was derived — a missing option then meant "nobody has one". Against
+      // a vocabulary, hiding is a lie of omission: it makes a category with
+      // twelve sizes look like one with three.
+      (ui.match(/disabled=\{o\.count === 0 && !on\}/g) ?? []).length === 1 &&
+      (sheet.match(/disabled=\{o\.count === 0 && !on\}/g) ?? []).length === 1 &&
+      // A TICKED option stays live whatever its count, or a filter could be
+      // applied and then be impossible to undo from the list that set it.
+      /o\.count === 0 && !on\s*$/m.test(ui) &&
+      // The cross-filter that decides those counts is unchanged: each list
+      // counted with the OTHER filters applied but not its own, which is what
+      // stops a facet list eating itself.
       /const applied: FeedFilters = \{ \.\.\.f, group: except === "group" \? null : f\.group \}/.test(engine) &&
       /if \(k === except\) applied\[k\] = \[\]/.test(engine)
     )
   })(),
-  "        components/explore/mobile-filter-sheet.tsx, lib/marketplace/feed-filters.ts",
+  "        lib/marketplace/feed-filters.ts",
 )
 
 check(
@@ -2656,6 +2702,30 @@ check(
       // And the subcategory row that DOES belong there is the taxonomy's leaves,
       // which is the row Depop draws under its own title.
       /const leaves = useMemo\(/.test(ui)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
+  "the two ways out of an empty page are one row apart, and only one is primary",
+  (() => {
+    // They were two siblings each carrying its own `mt-5` and nothing between
+    // them, so on the one page that draws both — an empty leaf that also has
+    // filters on it — they met edge to edge and read as a single black slab
+    // split by a hairline.
+    //
+    // And two black buttons side by side is two primary actions, which is none.
+    // Widening to the whole group is the likelier intent, so it keeps the fill
+    // and the other becomes the quiet one — but only while both are drawn. On
+    // its own, "Șterge filtrele" is still the primary thing.
+    const ui = code("components/explore/category-results.tsx")
+    return (
+      /\{\(viewSub \|\| active > 0\) && \(/.test(ui) &&
+      /className="mt-5 flex flex-wrap items-center justify-center gap-2\.5"/.test(ui) &&
+      /viewSub\s*\n\s*\? "border border-neutral-300 bg-white text-neutral-900 hover:border-neutral-400"\s*\n\s*: "bg-neutral-900 text-white"/.test(ui) &&
+      // Neither carries its own top margin any more — the row owns the spacing.
+      !/mt-5 inline-flex h-11 items-center rounded-lg bg-neutral-900/.test(ui)
     )
   })(),
   "        components/explore/category-results.tsx",

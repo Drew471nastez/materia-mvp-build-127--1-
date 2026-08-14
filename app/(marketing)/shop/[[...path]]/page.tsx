@@ -8,6 +8,7 @@ import {
   dropSuggestions,
   facetsFrom,
   facetsWithCounts,
+  facetsWithVocabulary,
   filtersFromParams,
   sortFromParam,
   type DropSuggestion,
@@ -232,7 +233,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
 
   let rows: any[] = []
   let total = 0
-  let facets = facetsFrom([], department)
+  let facets = facetsWithVocabulary(facetsFrom([], department), null)
   /** Whether `is_on_sale` exists — see the note where it is used. */
   let withSale = true
   let saleIsExact = true
@@ -429,13 +430,36 @@ export default async function CategoryPage({ params, searchParams }: { params: P
     if (effective.onSale && !withSale) {
       attrRows = attrRows.filter((r) => Number(r?.compare_at_cents ?? 0) > Number(r?.price_cents ?? 0))
     }
-    facets = facetsWithCounts(attrRows, department, effective)
+    facets = facetsWithVocabulary(facetsWithCounts(attrRows, department, effective), group)
 
-    // Only when there is nothing to show: the arithmetic is cheap but the
-    // ANSWER is only interesting on an empty page, and computing it on every
-    // page would put five array passes behind ninety listings nobody is
-    // struggling to find.
-    if (rows.length === 0) escapes = dropSuggestions(attrRows, effective, facets)
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  THE ESCAPES NEED ROWS THE PRICE HAS NOT ALREADY REMOVED
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * This ran over `attrRows`, and `attrRows` comes from a query with the price
+     * band and on-sale ALREADY APPLIED. So "how many if I drop the price" was
+     * being asked of rows from which the price had removed everything — the
+     * answer was always zero, the suggestion was never offered, and the one
+     * filter most likely to be the problem was the one this feature could not
+     * name. A page reading "0 rezultate" under a 4–6 RON chip offered nothing
+     * but "Șterge filtrele".
+     *
+     * A SECOND QUERY RATHER THAN WIDENING THE FIRST. The facet counts are better
+     * for having the price applied in SQL — the thousand-row cap then covers a
+     * thousand rows that are actually in the band — and this runs only when the
+     * page is empty, which is the one moment a third round trip is cheaper than
+     * the visit it saves.
+     */
+    if (rows.length === 0) {
+      let eq = supabase.from("products").select(ATTR_COLS).eq("status", "published")
+      if (group) eq = eq.eq("category", group)
+      else if (deptGroups.length > 0) eq = eq.in("category", deptGroups)
+      if (sub) eq = eq.eq("subcategory", sub)
+      for (const g of textFilterGroups(SEARCH_COLS, tokens, matchMode)) eq = eq.or(g)
+      const { data: escapeRows } = await eq.limit(1000)
+      escapes = dropSuggestions((escapeRows as any[]) ?? [], effective, facets)
+    }
 
     // ON SALE is applied here rather than in SQL. It is a comparison between two
     // columns — `compare_at_cents > price_cents` — which PostgREST cannot express
