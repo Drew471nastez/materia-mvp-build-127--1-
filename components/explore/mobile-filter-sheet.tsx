@@ -9,11 +9,12 @@ import {
   applyFeedFilters,
   colourHex,
   countActiveFilters,
-  facetsFrom,
+  facetsWithCounts,
   type Facet,
   type FeedFilters,
   type FeedSort,
 } from "@/lib/marketplace/feed-filters"
+import { DEPARTMENT_NAV } from "@/lib/marketplace/department-nav"
 import { cn } from "@/lib/utils"
 
 /**
@@ -140,7 +141,28 @@ export function MobileFilterSheet({
     }
   }
 
-  const derived = useMemo(() => facetsFrom(pool, departmentId), [pool, departmentId])
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  AN OPTION THAT LEADS TO NOTHING IS NOT AN OPTION
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * This counted every facet over the WHOLE pool, ignoring the draft — so on the
+   * feed, after picking Nike, the Stare level still listed all five conditions
+   * including the four no Nike listing has. Every one of those is a tap that
+   * empties the screen, offered by the control that is supposed to be narrowing
+   * it. The results page never had this: it is handed facets that were counted
+   * in SQL with the other filters applied.
+   *
+   * `facetsWithCounts` is that same cross-filter, and the rule it implements is
+   * the one thing that stops a facet list eating itself: each list is counted
+   * with the OTHER filters applied but NOT its own. Without the exception,
+   * picking "Negru" would leave Culoare offering only Negru, and there would be
+   * no way back to the other colours except undoing it.
+   *
+   * Counted from the pool as it ARRIVES, not from the filtered result, for the
+   * same reason — see the note at the top of this file.
+   */
+  const derived = useMemo(() => facetsWithCounts(pool, departmentId, draft), [pool, departmentId, draft])
   const facets = givenFacets ?? derived
   /**
    * The count is only shown where it can be TRUE.
@@ -156,6 +178,25 @@ export function MobileFilterSheet({
     [pool, draft],
   )
   const active = countActiveFilters(draft)
+
+  /**
+   * THE CATEGORIES THIS SHEET CAN OFFER.
+   *
+   * Inside a department, the counted list the facets produced — those are real
+   * numbers over the rows in scope, and a group with none of them is not shown.
+   *
+   * Outside one — a search, or the whole catalogue — there is nothing to count
+   * against, so the TAXONOMY is offered instead, every group under its
+   * department's name so thirty-seven rows read as five lists rather than one.
+   * Uncounted rather than counted as zero: "we did not count this" and "there
+   * are none of these" are different statements and only one of them is true.
+   */
+  const groupOptions = useMemo<Facet[]>(() => {
+    if (facets.groups.length > 0) return facets.groups
+    return DEPARTMENT_NAV.flatMap((d) =>
+      d.subcategories.map((g) => ({ value: g.id, label: `${d.label} · ${g.label}`, count: 0 })),
+    )
+  }, [facets.groups])
 
   /**
    * IT SLIDES UP, AND IT STAYS MOUNTED WHILE IT SLIDES BACK DOWN.
@@ -189,15 +230,20 @@ export function MobileFilterSheet({
     // order" — and splitting it into a second sheet means two trips for one
     // decision. It is `sortValue`, so it is never blank: there is always a sort.
     ...(onSortChange ? [{ id: "sort" as const, label: "Sortare după", value: SORTS.find((x) => x.id === draftSort)?.label ?? "" }] : []),
-    ...(facets.groups.length > 0
-      ? [
-          {
-            id: "group" as const,
-            label: "Categorie",
-            value: draft.group ? facets.groups.find((g) => g.value === draft.group)?.label ?? "" : "",
-          },
-        ]
-      : []),
+    /**
+     * CATEGORIE IS ALWAYS OFFERED.
+     *
+     * It appeared only when `facets.groups` had something in it, and that list
+     * is empty unless the surface is already inside a department — so the one
+     * thing you could not narrow by category was a SEARCH, which is the first
+     * filter anybody reaches for. `groupOptions` falls back to the whole
+     * taxonomy, so /shop?q=nike can be taken into Bărbați · Haine from here.
+     */
+    {
+      id: "group" as const,
+      label: "Categorie",
+      value: draft.group ? groupOptions.find((g) => g.value === draft.group)?.label ?? "" : "",
+    },
     { id: "brands", label: "Brand", value: summarise(draft.brands, facets.brands) },
     { id: "price", label: "Preț", value: priceSummary(draft) },
     { id: "sizes", label: "Mărime", value: summarise(draft.sizes, facets.sizes) },
@@ -272,7 +318,7 @@ export function MobileFilterSheet({
               <OptionLevel
                 options={
                   facet === "group"
-                    ? facets.groups
+                    ? groupOptions
                     : facet === "brands"
                       ? facets.brands
                       : facet === "sizes"
@@ -493,7 +539,7 @@ function priceSummary(f: FeedFilters): string {
 
 type Chip = { key: string; label: string; remove: (d: FeedFilters) => FeedFilters }
 
-function chipsFor(f: FeedFilters, facets: ReturnType<typeof facetsFrom>): Chip[] {
+function chipsFor(f: FeedFilters, facets: ReturnType<typeof facetsWithCounts>): Chip[] {
   const out: Chip[] = []
   const label = (opts: Facet[], v: string) => opts.find((o) => o.value === v)?.label ?? v
   if (f.group) {

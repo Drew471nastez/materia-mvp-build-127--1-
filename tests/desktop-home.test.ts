@@ -2387,6 +2387,127 @@ check(
 )
 
 check(
+  "a search can be narrowed by category, three levels down, from either surface",
+  (() => {
+    // THE ONE THING YOU COULD NOT NARROW BY CATEGORY WAS A SEARCH. The Categorie
+    // pill appeared only once you were already inside a department, and then it
+    // listed that department's groups and nothing else — so `/shop?q=nike` had
+    // no department, therefore no pill, therefore "nike in Bărbați" was not a
+    // thing this site could express. It is the first filter anybody reaches for
+    // on Depop or Vinted.
+    //
+    // Now: departments → groups → leaves, in place, always offered, on the same
+    // push/pop as every other drill-down in the app.
+    const ui = code("components/explore/category-results.tsx")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    const menu = ui.slice(ui.indexOf("function CategoryMenu"), ui.indexOf("function MenuRow"))
+    return (
+      /<CategoryMenu/.test(ui) &&
+      /const level = dept \? \(grp \? 2 : 1\) : 0/.test(menu) &&
+      // It opens WHERE YOU ARE, because the reason to open it on
+      // /shop/women/clothing is to go sideways to Pantofi — walking down from
+      // the top to do that is two presses of ceremony before the real one.
+      /useState<DepartmentNavItem \| null>\(\s*\n?\s*\(\) => DEPARTMENT_NAV\.find\(\(d\) => d\.id === departmentId\) \?\? null,?\s*\n?\s*\)/.test(menu) &&
+      // The links CARRY THE SEARCH and drop the attribute filters: a size 38
+      // chosen inside Femei · Încălțăminte means nothing in Divertisment, and
+      // carrying it across is how somebody lands on an empty page wearing three
+      // chips they never applied to this category.
+      /if \(query\) p\.set\("q", query\)/.test(menu) &&
+      /dir === "push" \? "sub-push" : "sub-pop"/.test(menu) &&
+      // THE PHONE GETS THE SAME REACH. The sheet's Categorie row was gated on
+      // `facets.groups.length > 0`, which is empty outside a department.
+      /const groupOptions = useMemo<Facet\[\]>/.test(sheet) &&
+      /if \(facets\.groups\.length > 0\) return facets\.groups/.test(sheet) &&
+      /return DEPARTMENT_NAV\.flatMap/.test(sheet) &&
+      // AND THE DEPARTMENT IS DERIVED FROM THE GROUP. Picking "Bărbați · Haine"
+      // from /shop?q=nike used to build `categoryPath(null, "men-clothing")`,
+      // which is "/shop" — the filter silently did nothing.
+      /const nextDept = next\.group \? departmentForGroup\(next\.group\) \?\? departmentId : departmentId/.test(ui)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
+  "a facet never offers an option that leads to nothing",
+  (() => {
+    // The sheet counted every facet over the WHOLE pool, ignoring the draft — so
+    // on the feed, after picking Nike, the Stare level still listed all five
+    // conditions including the four no Nike listing has. Each of those is a tap
+    // that empties the screen, offered by the control whose job is to narrow it.
+    //
+    // `facetsWithCounts` is the cross-filter the results page has always had:
+    // each list counted with the OTHER filters applied but NOT its own. The
+    // exception is what stops a facet list eating itself — without it, picking
+    // "Negru" leaves Culoare offering only Negru and no way back to the others.
+    const engine = code("lib/marketplace/feed-filters.ts")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    return (
+      /const derived = useMemo\(\(\) => facetsWithCounts\(pool, departmentId, draft\), \[pool, departmentId, draft\]\)/.test(sheet) &&
+      !/facetsFrom\(pool/.test(sheet) &&
+      // `tally` can only ever emit a value it counted, and the taxonomy-sourced
+      // group list is filtered to what is actually present. Neither can produce
+      // a zero-count option.
+      /\.filter\(\(g\) => g\.count > 0\)/.test(engine) &&
+      /const applied: FeedFilters = \{ \.\.\.f, group: except === "group" \? null : f\.group \}/.test(engine) &&
+      /if \(k === except\) applied\[k\] = \[\]/.test(engine)
+    )
+  })(),
+  "        components/explore/mobile-filter-sheet.tsx, lib/marketplace/feed-filters.ts",
+)
+
+check(
+  "the trail is on every view, and the app never draws one",
+  (() => {
+    // It was drawn only inside a department, so /shop and every search began
+    // with a bare heading and no way up that was not the browser's own Back —
+    // a chevron in a bar that may be hidden on a phone browser, and off in the
+    // corner of the window on a desktop.
+    //
+    // A SEARCH GETS ONE TOO. The old note said "Acasă › „nike”" pretends a
+    // search is a place in a hierarchy; it was right about the shape and wrong
+    // about the fix. The rung says "Rezultate" — the kind of page this is — and
+    // the query stays in the h1 as the subject rather than as a rung.
+    //
+    // And `web-only`, because inside the app there is a back gesture, a back
+    // arrow and a tab bar: a second, textual way back is a row of small grey
+    // type nobody presses. CSS rather than a check in the component, because
+    // the class is on <html> before the first pixel and an effect would paint
+    // the trail and then take it away.
+    const ui = code("components/explore/category-results.tsx")
+    const css = read("app/globals.css")
+    return (
+      /className="web-only flex items-center gap-1\.5/.test(ui) &&
+      /out\.push\(\{ label: "Rezultate" \}\)/.test(ui) &&
+      /out\.push\(\{ label: "Toate anunțurile" \}\)/.test(ui) &&
+      css.includes("html.capacitor .web-only {") &&
+      // The last rung has no href: a link to the page you are on does nothing.
+      /\{c\.href \? \(/.test(ui)
+    )
+  })(),
+  "        components/explore/category-results.tsx, app/globals.css",
+)
+
+check(
+  "the sort pill is not dressed as an applied filter",
+  (() => {
+    // Sort always has a value — there is always an order — so it drew itself
+    // with the black outline every other pill uses to mean "you have narrowed by
+    // this", on every page, forever. A permanent emphasis is not emphasis: it
+    // made the one control nobody had touched the loudest thing in the row, and
+    // it made the row's own language a lie about the other six.
+    const ui = code("components/explore/category-results.tsx")
+    return (
+      /active\?: boolean/.test(ui) &&
+      /\(active \?\? !!value\) \|\| open/.test(ui) &&
+      /active=\{viewSort !== "new"\}/.test(ui) &&
+      /icon=\{<ArrowUpDown/.test(ui)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
   "three recent searches, not four",
   (() => {
     // A recent-searches list is a shortcut, not a history: past about three the

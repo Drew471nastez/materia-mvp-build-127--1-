@@ -5007,6 +5007,27 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 html.capacitor .web-only-header {
   display: none !important;
 }
+
+/* ── A TRAIL IS WEB NAVIGATION ───────────────────────────────────────────────
+ *
+ * "Acasă › Femei › Haine" is how somebody on a browser knows where they are and
+ * gets one level out without the browser's own Back — which on a phone browser
+ * is a chevron in a bar that may be hidden, and on a desktop is off in the
+ * corner of the window rather than on the page.
+ *
+ * Inside the app it is chrome the platform already provides better: there is a
+ * back gesture, a back arrow and a tab bar, so a second, textual way back is a
+ * row of small grey type above every results page that nobody presses and
+ * everybody scrolls past. Native apps do not draw breadcrumbs, and the reason
+ * is not fashion.
+ *
+ * Same mechanism as `.web-only-header` directly above: the `capacitor` class is
+ * on <html> before the first pixel, so this is decided on frame one rather than
+ * after hydration — a `useEffect` here would paint the trail and then remove it,
+ * which is the one thing worse than showing it. */
+html.capacitor .web-only {
+  display: none !important;
+}
 /* Conditioned on the web header actually being on the page, not merely on being
    a browser. Seller storefronts (/u/, /p/, /l/) deliberately get no platform
    header at all, and there the strip is still the only search and the only way

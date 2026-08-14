@@ -8,8 +8,13 @@ import { ProductCard } from "@/components/explore/product-card"
 import { WishlistProvider } from "@/components/explore/wishlist-context"
 import { MobileFilterSheet, MobileSortSheet } from "@/components/explore/mobile-filter-sheet"
 import { SmartLink } from "@/components/smart-link"
-import { DEPARTMENT_NAV, DEPARTMENT_RAIL, categoryPath } from "@/lib/marketplace/department-nav"
-import { groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
+import {
+  DEPARTMENT_NAV,
+  DEPARTMENT_RAIL,
+  categoryPath,
+  type DepartmentNavItem,
+} from "@/lib/marketplace/department-nav"
+import { departmentForGroup, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
 import {
   EMPTY_FILTERS,
   PAGE_SIZE,
@@ -221,9 +226,17 @@ export function CategoryResults({
       // like any other, so a change to it has to become a different URL rather
       // than a `?group=` alongside a path that says something else. Everything
       // else rides the query string.
+      // AND THE DEPARTMENT IS DERIVED FROM THE GROUP, not assumed to be the one
+      // the page is already in. The sheet can now offer every group in the
+      // taxonomy — that is what makes a SEARCH narrowable by category — so
+      // picking "Bărbați · Haine" from /shop?q=nike used to build
+      // `categoryPath(null, "men-clothing")`, which is "/shop": the filter
+      // silently did nothing. A group belongs to exactly one department, so
+      // there is nothing to guess.
+      const nextDept = next.group ? departmentForGroup(next.group) ?? departmentId : departmentId
       const path =
-        departmentId && next.group !== groupId
-          ? categoryPath(departmentId, next.group)
+        next.group !== groupId || nextDept !== departmentId
+          ? categoryPath(nextDept, next.group)
           : basePath
       // THE LEAF SURVIVES EVERY OTHER CONTROL, and is dropped by the one thing
       // that invalidates it: changing the group. Rochii is a kind of Haine, so
@@ -293,38 +306,69 @@ export function CategoryResults({
 
   const chips = useMemo(() => buildChips(view, facets), [view, facets])
 
+  /**
+   * The rungs after Acasă. The last one has no href — it is where you are, and
+   * a link to the page you are on is a link that does nothing.
+   */
+  const trail = useMemo(() => {
+    const out: { label: string; href?: string }[] = []
+    if (query) {
+      out.push({ label: "Rezultate" })
+      return out
+    }
+    if (!dept) {
+      out.push({ label: "Toate anunțurile" })
+      return out
+    }
+    out.push({ label: dept.label, href: group ? categoryPath(dept.id) : undefined })
+    if (group) out.push({ label: group.label, href: subLabel ? categoryPath(dept.id, group.id) : undefined })
+    if (subLabel) out.push({ label: subLabel })
+    return out
+  }, [query, dept, group, subLabel])
+
   return (
     <WishlistProvider>
       <div className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-        {/* ── The trail. A filtered page needs a way OUT that is not the back
-               button: widening by one level is one tap rather than a return
-               trip through the menu. Not drawn for a bare query, because
-               "Acasă › „nike”" pretends a search is a place in a hierarchy. */}
-        {dept && (
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
-            <Crumb href="/" label="Acasă" />
-            <ChevronRight className="h-[14px] w-[14px] shrink-0 text-neutral-300" />
-            {group ? (
-              <>
-                <Crumb href={categoryPath(dept.id)} label={dept.label} />
-                <ChevronRight className="h-[14px] w-[14px] shrink-0 text-neutral-300" />
-                {subLabel ? (
-                  <>
-                    <Crumb href={categoryPath(dept.id, group.id)} label={group.label} />
-                    <ChevronRight className="h-[14px] w-[14px] shrink-0 text-neutral-300" />
-                    <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">
-                      {subLabel}
-                    </span>
-                  </>
-                ) : (
-                  <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">{group.label}</span>
-                )}
-              </>
-            ) : (
-              <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">{dept.label}</span>
-            )}
-          </nav>
-        )}
+        {/* ═══════════════════════════════════════════════════════════════
+            THE TRAIL — ON EVERY VIEW, AND ON THE WEB ONLY
+            ═══════════════════════════════════════════════════════════════
+
+            It was drawn only inside a department, so `/shop` and every search
+            began with a bare heading and no way up that was not the browser's
+            own Back — which on a phone browser is a chevron in a bar that may be
+            hidden, and on a desktop is off in the corner of the window rather
+            than on the page. Every marketplace puts one here for that reason.
+
+            A SEARCH GETS ONE TOO. The old note said "Acasă › „nike”" pretends a
+            search is a place in a hierarchy, and it was right about the shape
+            and wrong about the fix: the trail says "Rezultate" — the kind of
+            page this is — and the query stays in the h1 underneath, where it is
+            the subject rather than a rung.
+
+            `web-only`, so the app never draws it. Inside the shell there is a
+            back gesture, a back arrow and a tab bar; a second, textual way back
+            is a row of small grey type above every results page that nobody
+            presses. See the rule in app/globals.css — it is CSS rather than a
+            check here because the class is on <html> before the first pixel, and
+            an effect would paint the trail and then take it away. */}
+        <nav
+          aria-label="Breadcrumb"
+          className="web-only flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-hide"
+        >
+          <Crumb href="/" label="Acasă" />
+          {trail.map((c, i) => (
+            <span key={`${c.label}-${i}`} className="flex shrink-0 items-center gap-1.5">
+              <ChevronRight className="h-[14px] w-[14px] shrink-0 text-neutral-300" />
+              {c.href ? (
+                <Crumb href={c.href} label={c.label} />
+              ) : (
+                <span className="shrink-0 whitespace-nowrap text-[13.5px] font-semibold text-neutral-900">
+                  {c.label}
+                </span>
+              )}
+            </span>
+          ))}
+        </nav>
 
         {/* ═══════════════════════════════════════════════════════════════
             THE DEPARTMENTS, ON THE PAGE THEY ALL LEAD TO
@@ -548,31 +592,32 @@ export function CategoryResults({
           </div>
 
           <div className="hidden flex-wrap items-center gap-2 md:flex">
-            {dept && facets.groups.length > 0 && (
-              <Pill
-                id="group"
-                label="Categorie"
-                value={group?.label ?? ""}
-                open={openPill === "group"}
-                onOpen={setOpenPill}
-              >
-                <div className="max-h-[320px] overflow-y-auto py-1">
-                  {facets.groups.map((g) => (
-                    <SmartLink
-                      key={g.value}
-                      href={categoryPath(dept.id, g.value)}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-[14px] transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100",
-                        g.value === groupId ? "font-semibold text-neutral-900" : "text-neutral-700",
-                      )}
-                    >
-                      <span className="flex-1 truncate">{g.label}</span>
-                      <span className="text-[12.5px] text-neutral-400">{g.count}</span>
-                    </SmartLink>
-                  ))}
-                </div>
-              </Pill>
-            )}
+            {/* ── CATEGORY IS ALWAYS HERE, AND IT GOES ALL THE WAY DOWN.
+                   It only appeared once you were already inside a department,
+                   and then it listed that department's groups and nothing else.
+                   So the one thing you could not narrow by category was a
+                   SEARCH — `/shop?q=nike` had no department, so no pill, so
+                   "nike in Bărbați" was not a thing this site could express,
+                   which is the first filter anybody reaches for on Depop or
+                   Vinted.
+                   Three levels, in place, on the same push/pop as everywhere
+                   else. See CategoryMenu. */}
+            <Pill
+              id="group"
+              label="Categorie"
+              value={subLabel ?? group?.label ?? dept?.label ?? ""}
+              open={openPill === "group"}
+              onOpen={setOpenPill}
+            >
+              <CategoryMenu
+                departmentId={departmentId}
+                groupId={groupId}
+                sub={viewSub}
+                query={query}
+                sort={viewSort}
+                counts={facets.groups}
+              />
+            </Pill>
 
             <FacetPill id="brands" label="Brand" options={facets.brands} selected={view.brands} openPill={openPill} setOpenPill={setOpenPill} onPick={(v) => toggle("brands", v)} />
             <PricePill
@@ -606,7 +651,17 @@ export function CategoryResults({
               La reducere
             </button>
 
-            <Pill id="sort" label="Sortează" value={SORTS.find((s) => s.id === viewSort)?.label ?? ""} open={openPill === "sort"} onOpen={setOpenPill} className="ml-auto">
+            <Pill
+              id="sort"
+              label="Sortează"
+              icon={<ArrowUpDown className="h-4 w-4 text-neutral-500" />}
+              value={SORTS.find((s) => s.id === viewSort)?.label ?? ""}
+              // Lit only once you have CHOSEN an order, not because there is one.
+              active={viewSort !== "new"}
+              open={openPill === "sort"}
+              onOpen={setOpenPill}
+              className="ml-auto"
+            >
               <div className="py-1">
                 {SORTS.map((s) => (
                   <button
@@ -827,6 +882,8 @@ function Pill({
   onOpen,
   children,
   className,
+  active,
+  icon,
 }: {
   id: string
   label: string
@@ -835,6 +892,18 @@ function Pill({
   onOpen: (id: string | null) => void
   children: React.ReactNode
   className?: string
+  /**
+   * WHETHER THIS PILL IS *APPLIED*, which is not the same question as whether
+   * it has a value to show.
+   *
+   * Sort always has one — there is always an order — so it drew itself with the
+   * black outline every other pill uses to mean "you have narrowed by this", on
+   * every page, forever. A permanent emphasis is not emphasis: it made the one
+   * control nobody had touched the loudest thing in the row, and it made the
+   * row's own language a lie about the other six.
+   */
+  active?: boolean
+  icon?: React.ReactNode
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [align, setAlign] = useState<"left" | "right">("left")
@@ -875,11 +944,12 @@ function Pill({
           // `active:scale-[0.97]` is the whole of "snappy" on a control that
           // otherwise gives nothing back until a round trip finishes.
           "inline-flex h-10 items-center gap-1.5 rounded-lg border px-3.5 text-[14px] font-medium transition-[color,border-color,background-color,transform] duration-150 ease-out active:scale-[0.97]",
-          value || open
+          (active ?? !!value) || open
             ? "border-neutral-900 text-neutral-900"
             : "border-neutral-300 text-neutral-900 hover:border-neutral-400",
         )}
       >
+        {icon}
         {label}
         {value && <span className="max-w-[140px] truncate text-neutral-500">· {value}</span>}
         <ChevronDown className={cn("h-4 w-4 text-neutral-400 transition-transform duration-200 ease-out", open && "rotate-180")} />
@@ -909,6 +979,195 @@ function Pill({
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE WHOLE TAXONOMY, INSIDE ONE PILL
+ * ===========================================================================
+ *
+ * Departments → their groups → their leaves, replacing each other in place with
+ * a back row at the top, which is the same object the search panel's browse and
+ * the sell form's picker are — and the same `sub-push` / `sub-pop` movement, so
+ * the app has one grammar for going a level deeper rather than three.
+ *
+ * ---------------------------------------------------------------------------
+ * IT OPENS WHERE YOU ARE, NOT AT THE TOP
+ * ---------------------------------------------------------------------------
+ * On /shop/women/clothing it opens on Femei's groups with Haine marked, because
+ * the reason somebody opens this pill on that page is to go SIDEWAYS — to
+ * Pantofi, to Genți — and making them walk down from the top to do it is two
+ * presses of ceremony before the one that means something.
+ *
+ * ---------------------------------------------------------------------------
+ * LINKS, AND THEY CARRY THE SEARCH
+ * ---------------------------------------------------------------------------
+ * `go()` cannot express this: it builds a path from the department the page is
+ * ALREADY in, so it can move you between groups and never between departments.
+ * These are real hrefs — middle-clickable, copyable — and they keep `q` and the
+ * sort while dropping the attribute filters, which is correct rather than lazy:
+ * a size 38 and a brand chosen inside Femei · Încălțăminte mean nothing in
+ * Divertisment, and carrying them across is how somebody lands on an empty page
+ * with three chips they never applied to this category.
+ */
+function CategoryMenu({
+  departmentId,
+  groupId,
+  sub,
+  query,
+  sort,
+  counts,
+}: {
+  departmentId: string | null
+  groupId: string | null
+  sub: string | null
+  query: string
+  sort: FeedSort
+  /** Real counts, but only for the groups of the department the page is in —
+   *  the facet query is scoped to it. Shown where known, omitted where not,
+   *  rather than printing a 0 that means "not counted". */
+  counts: Facet[]
+}) {
+  const [dept, setDept] = useState<DepartmentNavItem | null>(
+    () => DEPARTMENT_NAV.find((d) => d.id === departmentId) ?? null,
+  )
+  const [grp, setGrp] = useState<{ id: string; label: string } | null>(() => {
+    const d = DEPARTMENT_NAV.find((x) => x.id === departmentId)
+    const g = d?.subcategories.find((s) => s.id === groupId)
+    return g ? { id: g.id, label: g.label } : null
+  })
+  const [dir, setDir] = useState<"push" | "pop">("push")
+
+  const href = (d: string | null, g: string | null, s: string | null) => {
+    const p = new URLSearchParams()
+    if (query) p.set("q", query)
+    if (s) p.set("sub", s)
+    if (sort !== "new") p.set("sort", sort)
+    const qs = p.toString()
+    return `${categoryPath(d, g)}${qs ? `?${qs}` : ""}`
+  }
+
+  const leaves = dept && grp ? groupsForDepartment(dept.id).find((g: { id: string }) => g.id === grp.id)?.items ?? [] : []
+  const level = dept ? (grp ? 2 : 1) : 0
+  const countOf = (id: string) => counts.find((c) => c.value === id)?.count
+
+  return (
+    <div className="max-h-[340px] overflow-y-auto overflow-x-hidden">
+      {level > 0 && (
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-neutral-100 bg-white px-1.5 py-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setDir("pop")
+              if (grp) setGrp(null)
+              else setDept(null)
+            }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-700 transition-colors hover:bg-neutral-100"
+            aria-label="Înapoi"
+          >
+            <ChevronLeft className="h-[17px] w-[17px]" />
+          </button>
+          <span className="truncate text-[13.5px] font-semibold text-neutral-900">
+            {level === 2 ? grp?.label : dept?.label}
+          </span>
+        </div>
+      )}
+
+      <div key={`${dept?.id ?? "root"}-${grp?.id ?? ""}`} className={cn(dir === "push" ? "sub-push" : "sub-pop", "py-1")}>
+        {level === 0 && (
+          <>
+            <MenuLink href={href(null, null, null)} label="Toate categoriile" strong={!departmentId} />
+            {DEPARTMENT_NAV.map((d) => (
+              <MenuRow
+                key={d.id}
+                label={d.label}
+                on={d.id === departmentId}
+                onClick={() => {
+                  setDir("push")
+                  setDept(d)
+                }}
+              />
+            ))}
+          </>
+        )}
+
+        {level === 1 && dept && (
+          <>
+            <MenuLink href={href(dept.id, null, null)} label={`Toate · ${dept.label}`} strong={!groupId} />
+            {dept.subcategories.map((g) => (
+              <MenuRow
+                key={g.id}
+                label={g.label}
+                count={countOf(g.id)}
+                on={g.id === groupId}
+                onClick={() => {
+                  setDir("push")
+                  setGrp({ id: g.id, label: g.label })
+                }}
+              />
+            ))}
+          </>
+        )}
+
+        {level === 2 && dept && grp && (
+          <>
+            <MenuLink href={href(dept.id, grp.id, null)} label={`Toate · ${grp.label}`} strong={!sub} />
+            {leaves.map((leaf) => (
+              <MenuLink
+                key={leaf.id}
+                href={href(dept.id, grp.id, leaf.id)}
+                label={leaf.label}
+                strong={leaf.id === sub}
+              />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** A level that goes deeper. */
+function MenuRow({
+  label,
+  count,
+  on,
+  onClick,
+}: {
+  label: string
+  count?: number
+  on?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100",
+        on ? "font-semibold text-neutral-900" : "text-neutral-700",
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count != null && <span className="shrink-0 text-[12.5px] text-neutral-400">{count}</span>}
+      <ChevronRight className="h-[16px] w-[16px] shrink-0 text-neutral-300" />
+    </button>
+  )
+}
+
+/** A level that IS a page. */
+function MenuLink({ href, label, strong }: { href: string; label: string; strong?: boolean }) {
+  return (
+    <SmartLink
+      href={href}
+      className={cn(
+        "flex w-full items-center gap-2 px-3 py-2 text-[14px] transition-colors duration-150 hover:bg-neutral-50 active:bg-neutral-100",
+        strong ? "font-semibold text-neutral-900" : "text-neutral-700",
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+    </SmartLink>
   )
 }
 

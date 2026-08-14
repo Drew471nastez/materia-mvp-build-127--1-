@@ -1494,23 +1494,23 @@ check(
     const hdr = code("components/platform/platform-header-client.tsx")
     const map = nav.slice(nav.indexOf("const DEPARTMENT_ICONS"), nav.indexOf("export type DepartmentNavItem"))
     return (
-      // FIVE DIFFERENT SILHOUETTES, which is the only thing that matters at
-      // 18px. The set before this was Dress / Shirt / Baby / Disc3 / Dices, and
-      // its problem was not meaning but SHAPE: at tile size `Dress` was a small
-      // bell, `Baby` a circle with two dots and `Disc3` a circle with one, so
-      // three of five departments were a round outline with something in the
-      // middle. Pictures that all look alike carry no information — the eye
-      // stops using them and reads the words, and then they are noise taking up
-      // the left third of every tile.
+      // FIVE OBJECTS, DRAWN, RATHER THAN FIVE MARKS BORROWED. lucide ships
+      // exactly ONE garment and the two largest departments here are both
+      // clothing, so the set kept being assembled out of whatever else was in
+      // the box: Dress/Shirt/Baby/Disc3/Dices was three round outlines in a row
+      // at tile size, and Gem/Shirt/Baby/Clapperboard/Puzzle fixed the shapes
+      // and lost the meaning. A diamond standing for Femei is the sort of
+      // stand-in that makes a row of tiles read as generic no matter how well
+      // each mark is drawn.
       //
-      // A pointed diamond, a wide t-shirt, a round head, an angular rectangle
-      // and an organic jigsaw knob: five outlines you could tell apart as
-      // thumbnails with the labels covered.
-      /women: Gem/.test(map) &&
-      /men: Shirt/.test(map) &&
-      /kids: Baby/.test(map) &&
-      /entertainment: Clapperboard/.test(map) &&
-      /hobby: Puzzle/.test(map) &&
+      // A dress, a t-shirt, a teddy, a book and a pair of dice — five things you
+      // could buy here, and five outlines you can tell apart with the labels
+      // covered.
+      /women: Dress/.test(map) &&
+      /men: Tee/.test(map) &&
+      /kids: Teddy/.test(map) &&
+      /entertainment: OpenBook/.test(map) &&
+      /hobby: Dice/.test(map) &&
       !/Sparkles|ShoppingBag|Gift|Lightbulb/.test(map) &&
       // No two of them are the same glyph, which is the failure this whole
       // block exists to catch — six tiles once wore CATEGORIES[0].icon.
@@ -1522,11 +1522,15 @@ check(
       /DEPARTMENT_NAV: DepartmentNavItem\[\] = DEPARTMENTS\.map/.test(nav) &&
       /const DEFAULT_CATEGORIES = DEPARTMENT_RAIL/.test(hdr) &&
       /const CATEGORIES_WITH_SUBS = DEPARTMENT_NAV/.test(hdr) &&
-      // ALL FIVE ARE LUCIDE'S NOW. Half a set in one drawing language and half
-      // in another is worse than any single icon in it, and the hand-drawn one
-      // was also the weakest of the five at tile size — which is what made a
-      // bespoke component necessary in the first place. Nothing imports it.
-      !/department-icons/.test(nav) &&
+      // TO LUCIDE'S OWN SPEC, because they sit beside lucide's icons on every
+      // surface that draws a department. Half a set in one drawing language and
+      // half in another is worse than any single icon in it.
+      /viewBox="0 0 24 24"/.test(code("components/marketplace/department-icons.tsx")) &&
+      /stroke="currentColor"/.test(code("components/marketplace/department-icons.tsx")) &&
+      /strokeLinecap="round"/.test(code("components/marketplace/department-icons.tsx")) &&
+      // And nothing in the set is borrowed any more: LayoutGrid is "Toate",
+      // which is the absence of a department rather than one of them.
+      /^import \{ LayoutGrid \} from "lucide-react"$/m.test(nav) &&
       // And the type is ours, because `typeof LayoutGrid` is lucide's own
       // forwardRef type: a type that says "an icon" and means "an icon from
       // that one package".
