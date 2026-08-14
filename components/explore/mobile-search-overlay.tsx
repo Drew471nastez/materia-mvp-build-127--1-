@@ -237,7 +237,6 @@ interface Person {
 export function MobileSearchOverlay({
   open,
   onClose,
-  onSelectCategory: _onSelectCategory,
   onSearchSubmit,
   initialQuery = "",
   anchored = false,
@@ -247,9 +246,14 @@ export function MobileSearchOverlay({
 }: {
   open: boolean
   onClose: () => void
-  /** Kept for the feed's own rail; the Categorii tab NAVIGATES now rather than
-   *  filtering the feed in place — see ItemsTab. */
-  onSelectCategory?: (id: string) => void
+  /**
+   * GONE, and this note is the whole reason it can be. The panel used to hand a
+   * department id BACK to whoever opened it, so five different callers each had
+   * their own idea of what pressing Femei meant — one pushed `/?category=women`,
+   * one filtered the feed in place, one navigated. The browse inside the panel
+   * links to `/shop/<department>` itself now (see ItemsTab), which is one
+   * destination decided in one place.
+   */
   /** Fired right when a search is run, so the feed can jump to the results tab. */
   onSearchSubmit?: () => void
   /** Pre-fills the field when opened (e.g. an active search on the feed). */

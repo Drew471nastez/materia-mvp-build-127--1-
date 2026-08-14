@@ -198,7 +198,6 @@ export function GlobalMobileTopBar() {
       <MobileSearchOverlay
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onSelectCategory={onCategory}
         initialQuery=""
       />
     </>

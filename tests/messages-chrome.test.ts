@@ -1572,11 +1572,35 @@ check(
       // thing in the Browse menu, another in the phone's drawer and a third in
       // the bar, and only the third had nothing to show for it. `categoryPath`
       // rather than a hand-written string, so they cannot drift again.
-      /navigateToExploreCategory\(cat === "all" \? "\/" : categoryPath\(cat\)\)/.test(
+      // AND "TOATE" GOES TO THE RESULTS PAGE TOO. It was the one pill in the row
+      // that left it: five of the six took you somewhere with a heading, a
+      // count, a trail and seven filters, and the sixth dropped you on the home
+      // feed — an endless column with no count and nothing to filter by. "Toate"
+      // is the absence of a DEPARTMENT, not of the page, and `categoryPath(null)`
+      // is already "/shop", so there is no second spelling of it.
+      /navigateToExploreCategory\(categoryPath\(cat === "all" \? null : cat\)\)/.test(
         code("components/platform/platform-header-client.tsx"),
       ) &&
-      /router\.push\(id === "all" \? "\/" : categoryPath\(id\)\)/.test(drawer) &&
-      /router\.push\(id === "all" \? "\/" : categoryPath\(id\)\)/.test(feed) &&
+      // AND THE DESTINATION CARRIES A RAIL OF ITS OWN. A rail whose destination
+      // does not show the rail is one you can use exactly once — press Femei and
+      // the row you pressed it in is gone, so Bărbați means going back first.
+      //
+      // The page draws its own rather than the site's bar being shown on /shop:
+      // that bar is sticky at `--platform-header-h` and z-35, and the results
+      // page's refine bar is sticky at the same offset and z-30, so it would
+      // paint over the filters every time somebody scrolled UP — which is the
+      // gesture people make in order to reach the filters.
+      /DEPARTMENT_RAIL\.map\(\(d\) => \{/.test(code("components/explore/category-results.tsx")) &&
+      /href=\{categoryPath\(d\.id === "all" \? null : d\.id\)\}/.test(
+        code("components/explore/category-results.tsx"),
+      ) &&
+      !/pathname\.startsWith\("\/shop"\)/.test(code("components/platform/platform-header-client.tsx")) &&
+      // The panel no longer hands a department id back to whoever opened it —
+      // five callers each had their own idea of what pressing Femei meant. It
+      // links to /shop/<department> itself.
+      !/onSelectCategory/.test(overlay) &&
+      !/onSelectCategory/.test(drawer) &&
+      !/onSelectCategory/.test(feed) &&
       // Nothing anywhere still pushes the old shape.
       ![drawer, rail, feed, overlay].some((f) => /\?category=\$\{/.test(f)) &&
       /DEPARTMENT_RAIL/.test(rail) &&

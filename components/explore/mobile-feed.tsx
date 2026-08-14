@@ -1641,15 +1641,6 @@ export function MobileFeed({
       <MobileSearchOverlay
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        /* A DEPARTMENT IS A DESTINATION, not a pill on this screen. It used to
-           set the rail's filter and drop you back on the feed, which is the one
-           place a department picked from a SEARCH panel should not land: you
-           went looking for Bărbați and got the same endless column with a pill
-           lit. The results page has the title, the count and the filters. */
-        onSelectCategory={(id) => {
-          setSearchOpen(false)
-          router.push(id === "all" ? "/" : categoryPath(id))
-        }}
         onSearchSubmit={() => {
           tabScroll.current["for-you"] = 0
           setTab("for-you")
