@@ -2,13 +2,15 @@ import type { Metadata } from "next"
 
 import { createClient } from "@/lib/supabase/server"
 import { CategoryResults } from "@/components/explore/category-results"
-import { DEPARTMENT_NAV, groupSlug, resolveCategoryPath } from "@/lib/marketplace/department-nav"
+import { DEPARTMENT_NAV, categoryPath, groupSlug, resolveCategoryPath } from "@/lib/marketplace/department-nav"
 import {
   PAGE_SIZE,
+  dropSuggestions,
   facetsFrom,
   facetsWithCounts,
   filtersFromParams,
   sortFromParam,
+  type DropSuggestion,
   type FeedSort,
 } from "@/lib/marketplace/feed-filters"
 import { categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
@@ -221,6 +223,8 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   /** Whether `is_on_sale` exists — see the note where it is used. */
   let withSale = true
   let saleIsExact = true
+  /** Which single filter to drop when nothing matched — see dropSuggestions. */
+  let escapes: DropSuggestion[] = []
 
   try {
     const supabase = await createClient()
@@ -366,6 +370,12 @@ export default async function CategoryPage({ params, searchParams }: { params: P
     }
     facets = facetsWithCounts(attrRows, department, effective)
 
+    // Only when there is nothing to show: the arithmetic is cheap but the
+    // ANSWER is only interesting on an empty page, and computing it on every
+    // page would put five array passes behind ninety listings nobody is
+    // struggling to find.
+    if (rows.length === 0) escapes = dropSuggestions(attrRows, effective, facets)
+
     // ON SALE is applied here rather than in SQL. It is a comparison between two
     // columns — `compare_at_cents > price_cents` — which PostgREST cannot express
     // in a filter, and a stored generated column for it would be a migration for
@@ -409,8 +419,89 @@ export default async function CategoryPage({ params, searchParams }: { params: P
    */
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  // The same test generateMetadata uses to decide `robots`, so the markup and
+  // the meta tag can never disagree about whether this page is for a crawler.
+  const indexable = !q && [...sp.keys()].length === 0
+  const deptNav = department ? DEPARTMENT_NAV.find((d) => d.id === department) ?? null : null
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE TWO THINGS A SEARCH ENGINE WANTS FROM A CATEGORY PAGE
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * BreadcrumbList is what turns a result into "storelib.com › Femei ›
+   * Încălțăminte" instead of a bare URL — it is the difference between a link
+   * that says where it goes and one that says where it lives, and every
+   * marketplace that ranks for category terms emits it.
+   *
+   * ItemList is the page's own contents, in the page's own order, with prices
+   * and availability on each. It is what lets a listing appear as a product
+   * rather than as a line of text, and it is the reason the numbers on the page
+   * and the numbers in the markup have to be the SAME numbers — so both are
+   * built from `rows`, which is what was rendered, rather than from a second
+   * query that could disagree with it.
+   *
+   * Only on the pages that are indexed. A filtered or paged view is `noindex`
+   * (see generateMetadata), and structured data on a page asking not to be
+   * indexed is markup nobody will ever read.
+   */
+  const trail = [
+    { name: "Acasă", url: "https://storelib.com/" },
+    ...(deptNav ? [{ name: deptNav.label, url: `https://storelib.com${categoryPath(deptNav.id)}` }] : []),
+    ...(deptNav && group
+      ? [
+          {
+            name: deptNav.subcategories.find((x) => x.id === group)?.label ?? "",
+            url: `https://storelib.com${categoryPath(deptNav.id, group)}`,
+          },
+        ]
+      : []),
+  ]
+
+  const jsonLd = indexable
+    ? {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: trail.map((t, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: t.name,
+              item: t.url,
+            })),
+          },
+          {
+            "@type": "ItemList",
+            numberOfItems: total,
+            itemListElement: rows.slice(0, 30).map((r, i) => ({
+              "@type": "ListItem",
+              position: (page - 1) * PAGE_SIZE + i + 1,
+              item: {
+                "@type": "Product",
+                name: r.title,
+                url: `https://storelib.com/products/${r.slug}`,
+                ...(r.thumbnail_url ? { image: r.thumbnail_url } : null),
+                ...(r.brand ? { brand: { "@type": "Brand", name: r.brand } } : null),
+                offers: {
+                  "@type": "Offer",
+                  price: (Number(r.price_cents ?? 0) / 100).toFixed(2),
+                  priceCurrency: "RON",
+                  availability: "https://schema.org/InStock",
+                  itemCondition: "https://schema.org/UsedCondition",
+                },
+              },
+            })),
+          },
+        ],
+      }
+    : null
+
   return (
     <main className="min-h-screen bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      {jsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      )}
       <CategoryResults
         departmentId={department}
         groupId={group}
@@ -418,6 +509,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
         products={rows}
         total={total}
         exactTotal={saleIsExact}
+        escapes={escapes}
         page={Math.min(page, lastPage)}
         sort={sort}
         filters={effective}

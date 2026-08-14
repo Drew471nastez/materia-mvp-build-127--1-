@@ -1963,6 +1963,91 @@ check(
 )
 
 check(
+  "an empty page says which one filter to drop, and what it gives back",
+  (() => {
+    // "Try removing some filters" offers to undo everything, when the person has
+    // usually got four things right and one thing wrong. Every marketplace that
+    // has thought about this answers an empty page with arithmetic instead:
+    // WHICH filter is costing you the results, and how many you get back.
+    //
+    // It costs nothing. The facet query already fetched the attribute rows for
+    // this scope, so "how many without the size" is that array filtered with the
+    // size cleared — and a filter whose removal still leaves zero is not offered
+    // at all, because that is a second dead end.
+    const engine = code("lib/marketplace/feed-filters.ts")
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    const ui = code("components/explore/category-results.tsx")
+    return (
+      /export function dropSuggestions/.test(engine) &&
+      /if \(count > 0\) out\.push/.test(engine) &&
+      /\.sort\(\(a, b\) => b\.count - a\.count\)/.test(engine) &&
+      // Computed only on an empty page: five array passes behind ninety
+      // listings nobody is struggling to find is work for nothing.
+      /if \(rows\.length === 0\) escapes = dropSuggestions\(attrRows, effective, facets\)/.test(page) &&
+      /Fără \{e\.label\}/.test(ui) &&
+      /go\(withoutFilter\(filters, e\.key\)\)/.test(ui)
+    )
+  })(),
+  "        lib/marketplace/feed-filters.ts, components/explore/category-results.tsx",
+)
+
+check(
+  "the refine bar follows you down the page, and the count is announced",
+  (() => {
+    // Ninety listings is about six screenfuls. With the controls at the top,
+    // deciding at listing sixty that these are all too expensive means scrolling
+    // six screens back — so the cheap move is to give up rather than to refine,
+    // which is the opposite of what a filter is for.
+    //
+    // Pinned under whatever header the platform is showing: `--web-header-h` and
+    // `--platform-header-h` are mutually exclusive, each zero while the other's
+    // header is on screen, so their SUM is right everywhere without anybody
+    // coordinating. z-30 is UNDER the header's z-40 — it slides beneath the
+    // chrome rather than over it, the rule every sticky surface here follows.
+    const ui = code("components/explore/category-results.tsx")
+    return (
+      /className="sticky z-30 -mx-4 mt-4 border-t border-neutral-200 bg-white/.test(ui) &&
+      /top: "calc\(var\(--web-header-h, 0px\) \+ var\(--platform-header-h, 0px\)\)"/.test(ui) &&
+      // AND THE COUNT IS SPOKEN. Everything on this page changes the results and
+      // the only thing reporting that is a number in the corner — press three
+      // filters with a screen reader and nothing at all is announced, so there
+      // is no way to tell a filter that narrowed the page from one that did
+      // nothing. Polite, so it waits for the current sentence rather than
+      // interrupting it.
+      /aria-live="polite"/.test(ui)
+    )
+  })(),
+  "        components/explore/category-results.tsx",
+)
+
+check(
+  "and the indexed pages carry the two things a search engine wants",
+  (() => {
+    // BreadcrumbList is what turns a result into "storelib.com › Femei ›
+    // Încălțăminte" rather than a bare URL. ItemList is the page's own contents
+    // in the page's own order, with prices and condition on each, which is what
+    // lets a listing appear as a product rather than as a line of text.
+    //
+    // Built from `rows` — what was actually rendered — rather than from a second
+    // query that could disagree with the numbers on the page. And only on the
+    // pages that are indexed: structured data on a `noindex` page is markup
+    // nobody will ever read.
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    return (
+      /"@type": "BreadcrumbList"/.test(page) &&
+      /"@type": "ItemList"/.test(page) &&
+      /itemCondition: "https:\/\/schema\.org\/UsedCondition"/.test(page) &&
+      /rows\.slice\(0, 30\)\.map/.test(page) &&
+      // One test for "is this for a crawler", shared with `robots`, so the
+      // markup and the meta tag cannot disagree.
+      /const indexable = !q && \[\.\.\.sp\.keys\(\)\]\.length === 0/.test(page) &&
+      /const jsonLd = indexable/.test(page)
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx",
+)
+
+check(
   "and a filter change says it is thinking instead of ignoring the tap",
   (() => {
     // Every control here navigates, and a navigation to a server component is a
