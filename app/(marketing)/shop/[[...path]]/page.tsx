@@ -14,6 +14,14 @@ import {
   type FeedSort,
 } from "@/lib/marketplace/feed-filters"
 import { categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
+import {
+  matchModesFor,
+  relaxedTermFor,
+  safeTerm,
+  searchTokens,
+  textFilterGroups,
+  type MatchMode,
+} from "@/lib/marketplace/search-terms"
 
 /**
  * ===========================================================================
@@ -62,52 +70,21 @@ import { categoryShortLabel, groupsForDepartment } from "@/lib/marketplace/listi
 export const dynamic = "force-dynamic"
 
 /**
- * ===========================================================================
- *  USER INPUT GOING INTO A PostgREST FILTER
- * ===========================================================================
- *
- * `or=(title.ilike.%x%,description.ilike.%x%,brand.ilike.%x%)` is a STRING that
- * PostgREST parses, and `q` came out of the address bar. Four characters in it
- * change the meaning of that string rather than the value inside it:
- *
- *   `,`  separates the conditions, so `?q=a,creator_id.eq.<uuid>` appends a
- *        condition of the attacker's choosing to the OR group;
- *   `)`  closes the group early, which is a malformed filter and a 500;
- *   `%`  and `_` are LIKE wildcards, so `?q=%` is "match every row" — a full
- *        scan of the catalogue on a public URL that costs nothing to request.
- *
- * It could not leak an unpublished listing — `status = 'published'` is a
- * separate filter, ANDed with the whole group, and RLS is under that again. But
- * "it cannot read what it should not" is the floor, not the goal: a filter
- * somebody else can write conditions into is a bug whether or not today's
- * schema makes it exploitable.
- *
- * TWO DEFENCES, because either alone is thin. The value is QUOTED, which makes
- * commas, parentheses and dots literal to PostgREST's parser — that is what its
- * own documentation prescribes for values containing reserved characters. And
- * the four characters quoting cannot help with are removed: `"` and `\` would
- * end the quoting, and `%`/`_` are wildcards to Postgres itself rather than to
- * PostgREST, so no amount of quoting makes them literal.
- *
- * Removed rather than escaped, and replaced by a SPACE rather than by nothing:
- * this is a search term, so "levi%s" becoming "levi s" still finds the jeans,
- * while "levis" would silently search for something the person did not type.
+ * The search term itself is tokenised and widened in
+ * lib/marketplace/search-terms.ts — read the header there for what `q` becomes
+ * and for why every value that reaches a PostgREST filter is quoted AND
+ * stripped first. `safeTerm` is imported from it and used on this page for the
+ * same reason: `?q=%` must be no search rather than a full catalogue scan.
  */
-function safeTerm(raw: string): string {
-  return raw.replace(/[%_"\\]/g, " ").replace(/\s+/g, " ").trim()
-}
-
-/** A quoted ilike pattern, ready to sit inside an `or=(...)` group. */
-function likeAny(columns: string[], raw: string): string {
-  const term = safeTerm(raw)
-  return columns.map((c) => `${c}.ilike."%${term}%"`).join(",")
-}
 
 /** A quoted exact-but-case-insensitive match, for values chosen from a facet
  *  list — which still arrive through the URL and are still not to be trusted. */
 function ilikeExact(column: string, raw: string): string {
   return `${column}.ilike."${safeTerm(raw)}"`
 }
+
+/** The three text columns a query is matched against, in weight order. */
+const SEARCH_COLS = ["title", "description", "brand"]
 
 
 const ATTR_COLS = "brand, size, colour, condition, category, price_cents, compare_at_cents"
@@ -137,9 +114,14 @@ export async function generateMetadata({ params, searchParams }: { params: Param
   const q = sp.get("q") || ""
   const dept = department ? DEPARTMENT_NAV.find((d) => d.id === department) : null
   const groupLabel = group && department ? groupsForDepartment(department).find((g) => g.id === group) : null
+  // The leaf, when the URL names one — "Rochii · Femei" reads better as a tab
+  // and as a shared link than "Haine · Femei" does for a page of dresses.
+  const subLabel = groupLabel?.items.find((i) => i.id === safeTerm(sp.get("sub") || ""))?.label ?? null
   const title = q
     ? `„${q}” — Storelib`
-    : groupLabel
+    : subLabel && groupLabel
+      ? `${subLabel} · ${dept?.label} second-hand — Storelib`
+      : groupLabel
       ? `${categoryShortLabel(groupLabel)} · ${dept?.label} second-hand — Storelib`
       : dept
         ? `${dept.label} second-hand — Storelib`
@@ -217,6 +199,37 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   const group = pathGroup ?? filters.group
   const effective = { ...filters, group }
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  THE THIRD LEVEL — Femei › Haine › Rochii
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * The taxonomy has always had it: every group holds the actual kinds of thing
+   * (`women-clothing` → Tricouri, Rochii, Blugi…), it is what the sell form asks
+   * for, and it is stored on every listing as `subcategory`. Nothing browsed it,
+   * so the finest thing anybody could reach was "Femei · Haine" — three hundred
+   * listings of which four are the dresses they came for.
+   *
+   * A QUERY PARAMETER RATHER THAN A FOURTH PATH SEGMENT, deliberately. The
+   * thirty-seven group pages are the ones worth indexing (see generateMetadata);
+   * three hundred leaf pages are three hundred near-duplicates of them competing
+   * for the same terms. `?sub=` is `noindex, follow` like every other narrowing,
+   * and it is exactly as linkable.
+   *
+   * VALIDATED AGAINST THE GROUP IT ARRIVED WITH, not merely sanitised. `?sub=`
+   * of something that is not one of this group's items resolves to nothing at
+   * all, so a stale or hand-typed URL widens to the group rather than showing an
+   * empty page under a heading naming a category that does not exist.
+   */
+  const rawSub = safeTerm(sp.get("sub") || "")
+  const subItem =
+    group && department
+      ? groupsForDepartment(department)
+          .find((g) => g.id === group)
+          ?.items.find((i) => i.id === rawSub) ?? null
+      : null
+  const sub = subItem?.id ?? null
+
   let rows: any[] = []
   let total = 0
   let facets = facetsFrom([], department)
@@ -226,15 +239,39 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   /** Which single filter to drop when nothing matched — see dropSuggestions. */
   let escapes: DropSuggestion[] = []
 
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A QUERY THAT MATCHED NOTHING IS NOT AN ANSWER, IT IS A DEAD END
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * The words are asked for strictly first and then more loosely, one tier at a
+   * time, and the page stops at the first tier that has anything in it — so a
+   * good query keeps its precise answer and a misspelt or over-specified one
+   * still lands somewhere. See lib/marketplace/search-terms.ts for the tiers.
+   *
+   * WIDENED ON THE COUNT, NOT ON THE PAGE. `rows.length === 0` is also true of
+   * page 9 of an 8-page result, and relaxing the filter there would answer a
+   * stale bookmark by silently searching for something else.
+   */
+  const tokens = searchTokens(q)
+  const modes = q ? matchModesFor(tokens) : []
+  let matchMode: MatchMode = modes[0] ?? "all"
+  /** Set only when a WIDER tier than the first was the one that answered. */
+  let relaxed: { mode: "any" | "fuzzy"; term: string } | null = null
+
   try {
     const supabase = await createClient()
 
     /** Everything both queries share: the scope, before the page. */
-    const scoped = (select: string, opts?: { count: "exact" }) => {
+    const scoped = (select: string, mode: MatchMode, opts?: { count: "exact" }) => {
       let s = supabase.from("products").select(select, opts as any).eq("status", "published")
       if (group) s = s.eq("category", group)
       else if (deptGroups.length > 0) s = s.in("category", deptGroups)
-      if (q) s = s.or(likeAny(["title", "description", "brand"], q))
+      if (sub) s = s.eq("subcategory", sub)
+      // One `.or()` per group, and PostgREST ANDs them — which is what makes
+      // "every word appears, in any order" expressible at all. See
+      // textFilterGroups.
+      for (const g of textFilterGroups(SEARCH_COLS, tokens, mode)) s = s.or(g)
       /**
        * BRANDS MATCH CASE-INSENSITIVELY, and `.in()` does not.
        *
@@ -323,16 +360,37 @@ export default async function CategoryPage({ params, searchParams }: { params: P
     }
 
     const from = (page - 1) * PAGE_SIZE
-    let res = await ordered(scoped(FULL_COLS, { count: "exact" })).range(from, from + PAGE_SIZE - 1)
+    const runPage = (mode: MatchMode) =>
+      ordered(scoped(FULL_COLS, mode, { count: "exact" })).range(from, from + PAGE_SIZE - 1)
+
+    let res = await runPage(matchMode)
     if (res.error && effective.onSale && withSale) {
       // The column is not there yet. Drop it from the query and fall back to
       // filtering the page — worse, and honest about being worse: `saleIsExact`
       // is what tells the page not to print a count it cannot stand behind.
       withSale = false
       saleIsExact = false
-      res = await ordered(scoped(FULL_COLS, { count: "exact" })).range(from, from + PAGE_SIZE - 1)
+      res = await runPage(matchMode)
     }
     if (res.error) throw res.error
+
+    // Widen, one tier at a time, only while the catalogue's answer is nothing
+    // at all. At most two extra round trips, and only on a query that was about
+    // to show an empty page — which is the one case where a second query is
+    // cheaper than the visit it saves.
+    for (let i = 1; i < modes.length && (res.count ?? 0) === 0; i++) {
+      const next = await runPage(modes[i])
+      if (next.error) break
+      res = next
+      matchMode = modes[i]
+      if (matchMode !== modes[0] && (matchMode === "any" || matchMode === "fuzzy")) {
+        relaxed = { mode: matchMode, term: relaxedTermFor(tokens, matchMode) }
+      }
+    }
+    // A widening that found nothing either is not worth mentioning: the page
+    // would say "showing results for X" above no results.
+    if ((res.count ?? 0) === 0) relaxed = null
+
     rows = (res.data as any[]) ?? []
     total = res.count ?? rows.length
     if (effective.onSale && !withSale) {
@@ -359,7 +417,10 @@ export default async function CategoryPage({ params, searchParams }: { params: P
     let fq = supabase.from("products").select(ATTR_COLS).eq("status", "published")
     if (group) fq = fq.eq("category", group)
     else if (deptGroups.length > 0) fq = fq.in("category", deptGroups)
-    if (q) fq = fq.or(likeAny(["title", "description", "brand"], q))
+    if (sub) fq = fq.eq("subcategory", sub)
+    // The SAME tier the grid was answered with, so the facet counts describe
+    // the rows on the page rather than a stricter set that returned nothing.
+    for (const g of textFilterGroups(SEARCH_COLS, tokens, matchMode)) fq = fq.or(g)
     if (effective.minPrice != null) fq = fq.gte("price_cents", effective.minPrice * 100)
     if (effective.maxPrice != null) fq = fq.lte("price_cents", effective.maxPrice * 100)
     if (effective.onSale && withSale) fq = fq.eq("is_on_sale", true)
@@ -505,6 +566,9 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       <CategoryResults
         departmentId={department}
         groupId={group}
+        sub={sub}
+        subLabel={subItem?.label ?? null}
+        relaxed={relaxed}
         query={q}
         products={rows}
         total={total}

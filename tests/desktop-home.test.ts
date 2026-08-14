@@ -1908,10 +1908,18 @@ check(
     // and the four that quoting cannot help with are removed.
     const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
     const engine = code("lib/marketplace/feed-filters.ts")
+    // The quoting and the stripping live in one module now, because the API
+    // route builds the same filters against the same columns — two copies of
+    // this is how one of them ends up a version behind.
+    const terms = read("lib/marketplace/search-terms.ts")
     return (
-      page.includes('return raw.replace(/[%_"\\\\]/g, " ")') &&
-      /\$\{c\}\.ilike\."%\$\{term\}%"/.test(page) &&
+      terms.includes('.replace(/[%_"\\\\]/g, " ")') &&
+      /\$\{c\}\.ilike\."%\$\{pattern\}%"/.test(terms) &&
       /\$\{column\}\.ilike\."\$\{safeTerm\(raw\)\}"/.test(page) &&
+      // And BOTH callers go through it. A hand-built pattern anywhere is the
+      // whole guard gone.
+      !/\.ilike\.%/.test(page) &&
+      !/\.ilike\.\$\{/.test(read("app/api/v2/search/route.ts")) &&
       // Nothing builds the pattern by hand any more.
       !/title\.ilike\.%\$\{q\}%/.test(page) &&
       !/JSON\.stringify\(b\)/.test(page) &&
@@ -2096,6 +2104,166 @@ check(
     )
   })(),
   "        components/platform/platform-header-client.tsx",
+)
+
+check(
+  "a query is words, not one substring — and the words are asked for in widening tiers",
+  (() => {
+    // ONE `ilike '%<the whole thing>%'` WAS THE ENTIRE SEARCH, and it fails in
+    // three ordinary ways that all look identical from the outside — an empty
+    // page. Two words in the wrong order ("Nike geaca de piele" does not contain
+    // "geaca nike"); diacritics, on a marketplace where half the keyboards have
+    // no ș on them; and one mistyped letter.
+    //
+    // So the query is tokenised and asked for strictly first, then loosely, and
+    // the page stops at the first tier that has anything in it — a good query
+    // keeps its precise answer and pays for exactly one round trip.
+    const terms = code("lib/marketplace/search-terms.ts")
+    return (
+      // CHAINED `.or()` CALLS ARE ANDed BY PostgREST, which is the only reason
+      // "every word, anywhere, in any order" is expressible at all: one group
+      // per token for "all", one group total for the wider two.
+      /if \(mode === "all"\) return tokens\.map\(groupFor\)/.test(terms) &&
+      /return \[tokens\.map\(groupFor\)\.join\(","\)\]/.test(terms) &&
+      // Diacritic-blind, using LIKE's own single-character wildcard: "barbati"
+      // becomes `b_rb_t_` and finds "bărbați". Symmetric — typing the diacritics
+      // finds the listings that lack them.
+      /const FOLDABLE = \/\[aăâAĂÂiîIÎsșşSȘŞtțţTȚŢ\]\/g/.test(terms) &&
+      // AND A PATTERN THAT IS MOSTLY WILDCARDS MATCHES MOSTLY EVERYTHING. Three
+      // guards, or "sase" becomes `____`.
+      /if \(folded \/ token\.length > 0\.6\) return null/.test(terms) &&
+      /if \(token\.length - folded < 2\) return null/.test(terms) &&
+      // The stem tier is a prefix, not an edit distance: one pattern the trigram
+      // index can serve rather than a function call per row.
+      /if \(token\.length < 5\) return null/.test(terms) &&
+      // Tiers that would be the previous query again are not run.
+      /if \(tokens\.length > 1\) modes\.push\("any"\)/.test(terms) &&
+      /if \(tokens\.some\(\(t\) => relaxToken\(t\) !== null\)\) modes\.push\("fuzzy"\)/.test(terms)
+    )
+  })(),
+  "        lib/marketplace/search-terms.ts",
+)
+
+check(
+  "the results page widens on the COUNT, and says so when it did",
+  (() => {
+    // `rows.length === 0` is ALSO true of page 9 of an 8-page result. Widening
+    // there answers a stale bookmark by silently searching for something else —
+    // so the trigger is the total, which is zero only when the query really
+    // matched nothing.
+    const page = code("app/(marketing)/shop/[[...path]]/page.tsx")
+    const results = code("components/explore/category-results.tsx")
+    return (
+      /for \(let i = 1; i < modes\.length && \(res\.count \?\? 0\) === 0; i\+\+\)/.test(page) &&
+      // A widening that found nothing either is not worth mentioning: the page
+      // would say "showing results for X" above no results.
+      /if \(\(res\.count \?\? 0\) === 0\) relaxed = null/.test(page) &&
+      // The facets are counted with the SAME tier the grid was answered with, or
+      // the filter list describes a stricter set that returned nothing.
+      /for \(const g of textFilterGroups\(SEARCH_COLS, tokens, matchMode\)\) fq = fq\.or\(g\)/.test(page) &&
+      // AND THE PAGE ADMITS IT. A grid of Jordans under the word "jordn" is
+      // either a very good search or a broken one, and the only difference is
+      // whether the page says which.
+      /Niciun rezultat exact pentru/.test(results) &&
+      /relaxed\.mode === "fuzzy"/.test(results)
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx",
+)
+
+check(
+  "the taxonomy's third level is reachable, and validated against the group it arrived with",
+  (() => {
+    // Every listing carries a `subcategory` and the sell form insists on one, so
+    // "Femei · Haine" is three hundred listings of which four are the dresses
+    // somebody came for. Until this, no surface could browse to a leaf.
+    //
+    // A QUERY PARAMETER RATHER THAN A FOURTH PATH SEGMENT: the thirty-seven
+    // group pages are the ones worth indexing, and three hundred leaf pages are
+    // three hundred near-duplicates competing with them.
+    const page = code("app/(marketing)/shop/[[...path]]/page.tsx")
+    const results = code("components/explore/category-results.tsx")
+    return (
+      /\?\.items\.find\(\(i\) => i\.id === rawSub\) \?\? null/.test(page) &&
+      /if \(sub\) s = s\.eq\("subcategory", sub\)/.test(page) &&
+      /if \(sub\) fq = fq\.eq\("subcategory", sub\)/.test(page) &&
+      // A leaf that is not one of this group's items resolves to nothing, so a
+      // stale URL widens to the group rather than showing an empty page under a
+      // heading naming a category that does not exist.
+      /const sub = subItem\?\.id \?\? null/.test(page) &&
+      // IT SURVIVES EVERY OTHER CONTROL and is dropped by the one thing that
+      // invalidates it — Rochii is a kind of Haine, so carrying it onto
+      // Încălțăminte is an empty page with a chip explaining why.
+      /next\.group !== groupId \? null : sub/.test(results) &&
+      /if \(extra\?\.sub\) p\.set\("sub", extra\.sub\)/.test(code("lib/marketplace/feed-filters.ts"))
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx",
+)
+
+check(
+  "every way out of a home row lands on the results page, not the feed with a query string",
+  (() => {
+    // "Vezi mai multe" under Sugestii pentru tine pushed `/?q=` — the home page
+    // with an empty search on it, which is the home page. Four rows offering a
+    // way out, and every one of them a reload of the page you are on.
+    const home = code("components/explore/home/desktop-home.tsx")
+    const tiles = code("components/explore/home/shop-by-category.tsx")
+    return (
+      !/href="\/\?q="/.test(home) &&
+      !/href="\/\?q="/.test(tiles) &&
+      (home.match(/href="\/shop"/g) ?? []).length === 5 &&
+      /href="\/shop"/.test(tiles) &&
+      // And a department tile is a PLACE — `categoryPath`, the same helper the
+      // header menu and the drawer use, rather than a hand-written query string
+      // the results page has never read.
+      /href=\{categoryPath\(t\.id\)\}/.test(tiles) &&
+      !/\?category=/.test(tiles)
+    )
+  })(),
+  "        components/explore/home/desktop-home.tsx",
+)
+
+check(
+  "/shop has a loading boundary, and it is the shape of the page it stands in for",
+  (() => {
+    // A `force-dynamic` route with no loading boundary CANNOT BE USEFULLY
+    // PREFETCHED — there is no static shell to cache, so `prefetch` on every
+    // link into it fetched nothing and each press waited out three database
+    // round trips before one pixel changed. That is what "browsing between
+    // categories is not smooth" is: the menu closes and the page you left sits
+    // there, which reads as the press not landing.
+    //
+    // And a shell whose grid is a different width from the real one turns one
+    // wait into one wait AND a jump, so the columns, the gaps and the card's
+    // 3:4 image box are copied from category-results.tsx rather than guessed.
+    const shell = code("app/(marketing)/shop/[[...path]]/loading.tsx")
+    const results = code("components/explore/category-results.tsx")
+    const grid = /grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-8 lg:grid-cols-4 xl:grid-cols-5/
+    return (
+      grid.test(shell) &&
+      grid.test(results) &&
+      /max-w-\[1400px\] px-4 pb-16 pt-4 sm:px-6 lg:px-8/.test(shell) &&
+      /aspect-\[3\/4\]/.test(shell) &&
+      // Two rows, not ninety pulsing rectangles that are about to be thrown away.
+      /Array\.from\(\{ length: 10 \}\)/.test(shell)
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/loading.tsx",
+)
+
+check(
+  "three recent searches, not four",
+  (() => {
+    // A recent-searches list is a shortcut, not a history: past about three the
+    // eye stops recognising rows and starts reading them, which costs more than
+    // retyping the word. On the phone panel the fourth row pushes the
+    // suggestions under the keyboard — the list nobody asked for hiding the one
+    // they did.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return /const recent = searches\.slice\(0, 3\)/.test(overlay)
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

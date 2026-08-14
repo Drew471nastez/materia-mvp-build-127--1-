@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react"
 
 import { SmartLink } from "@/components/smart-link"
 import { DEPARTMENTS, groupsForDepartment } from "@/lib/marketplace/listing-taxonomy"
+import { categoryPath } from "@/lib/marketplace/department-nav"
 import { cardImage, readVariants } from "@/lib/images/variants"
 import { cn } from "@/lib/utils"
 
@@ -93,7 +94,7 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
             Fiecare articol are un singur exemplar și un vânzător real în spate.
           </p>
           <SmartLink
-            href="/?q="
+            href="/shop"
             className="mt-5 inline-flex h-11 w-fit items-center gap-2 rounded-full bg-neutral-900 px-5 text-[14.5px] font-semibold text-white transition-colors duration-200 ease-out hover:bg-neutral-800 sm:mt-6"
           >
             Vezi toate anunțurile
@@ -123,7 +124,12 @@ export function ShopByCategory({ catalogue }: { catalogue: any[] }) {
           {tiles.map((t, i) => (
           <SmartLink
             key={t.id}
-            href={`/?category=${encodeURIComponent(t.id)}`}
+            // `/shop/women`, not `/?category=women`. A department is a PLACE —
+            // it has a trail, a title, a count, its own filters and its own page
+            // number — and the home feed wearing a query string has none of
+            // those. Same destination as the header's department menu, so one
+            // way in is not a different feature from the other.
+            href={categoryPath(t.id)}
             className={cn(
               "group relative block overflow-hidden rounded-2xl",
               i < 3 ? "sm:col-span-2" : "sm:col-span-3",

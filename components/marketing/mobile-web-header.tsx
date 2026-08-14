@@ -591,8 +591,8 @@ export function MobileWebHeader() {
             destination; Femei · Pantofi is. Every row here always had a
             chevron promising a level that was not there — that promise is kept
             now, on the same push/pop the sell form and the desktop menu use.
-            `?sub=` is a GROUP id, which is what a listing's category column
-            holds, so a submenu row lands on listings rather than on a filter
+            A submenu row lands on `/shop/<department>/<group>` — a real page
+            with a trail, a count and a filter bar — rather than on a filter
             nothing satisfies. */}
         <DrawerSectionTitle>{drawerDept ? drawerDept.label : "Categorii"}</DrawerSectionTitle>
         <div className="pb-2">

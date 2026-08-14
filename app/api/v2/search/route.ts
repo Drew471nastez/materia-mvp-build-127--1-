@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import {
+  buildTsQuery,
+  matchModesFor,
+  safeTerm,
+  searchTokens,
+  textFilterGroups,
+} from "@/lib/marketplace/search-terms"
 
 /**
  * GET /api/v2/search?q=term&category=sneakers&sort=relevance&limit=30&offset=0
@@ -56,12 +63,6 @@ const MAX_POOL = 200
 /** Extra candidates fetched beyond the requested page so ranking has room to reorder. */
 const RANK_BUFFER = 60
 
-/** Longer than this is a paste, not a search. */
-const MAX_QUERY_LENGTH = 100
-
-/** More tokens than this and the tsquery is noise. */
-const MAX_TOKENS = 6
-
 const RICH_SELECT =
   "*, creator:creators(id, slug, display_name, avatar_url, profile:profiles!creators_user_id_fkey(display_name, avatar_url, username))"
 
@@ -89,41 +90,10 @@ interface ProductRow {
 }
 
 /**
- * Strip characters that are grammar in a PostgREST filter (`,` `.` `(` `)` `:`
- * `"` `*`) or wildcards in a LIKE pattern (`%`, and the `\` escape). Replaced
- * with a space rather than removed so "st. john" still matches "St. John".
- * Values are URL-encoded by supabase-js and parameterised by PostgREST — this
- * guards the filter grammar, not SQL.
+ * The three text columns a query is matched against. Weighted A/A/B in the
+ * tsvector; here they are the OR group the ILIKE tiers are built over.
  */
-function sanitizeTerm(raw: string): string {
-  return raw
-    .slice(0, MAX_QUERY_LENGTH)
-    .replace(/[%\\]/g, " ")
-    .replace(/[,().:"*]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-/**
- * Build a prefix tsquery: `jordan:* & 4:*`.
- *
- * Restricted to word characters and Latin-1/Latin-Extended accents so no
- * to_tsquery operator (`&` `|` `!` `<->` `(` `)` `:`) can survive into the
- * query string — a malformed tsquery raises a Postgres error, which here would
- * cost a wasted round-trip before the ILIKE fallback.
- *
- * Prefix matching is what makes short queries work: "y2k" tokenises to `y2k:*`
- * and matches "Y2K baby tee", and a half-typed "jord" still matches "Jordan".
- */
-function buildTsQuery(term: string): string {
-  return term
-    .replace(/[^\w\sÀ-ɏ]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, MAX_TOKENS)
-    .map((token) => `${token}:*`)
-    .join(" & ")
-}
+const SEARCH_COLS = ["title", "description", "brand"]
 
 /** gallery_urls is jsonb and can arrive as a non-array — same guard product-card.tsx uses. */
 function galleryCount(gallery: unknown): number {
@@ -225,10 +195,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing search query" }, { status: 400 })
     }
 
-    const term = sanitizeTerm(query)
+    const term = safeTerm(query)
+    const tokens = searchTokens(query)
 
     // Everything the user typed was punctuation — nothing to match on.
-    if (!term) {
+    if (!term || tokens.length === 0) {
       return NextResponse.json({ results: [], total: 0, query, category, sort })
     }
 
@@ -274,45 +245,67 @@ export async function GET(request: Request) {
         .range(start, start + fetchLimit - 1)
     }
 
-    // ── Attempt 1: full-text search on the tsvector ──────────────────────────
-    const tsQuery = buildTsQuery(term)
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  FIVE READINGS OF THE QUERY, STRICTEST FIRST
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * It was two: full-text with every word required, then one `ILIKE` for the
+     * WHOLE PHRASE as a single substring. So "geaca nike" found "Geaca Nike"
+     * and missed "Nike geaca de piele" — the same two words, in the order
+     * somebody actually types them — and one mistyped letter found nothing at
+     * all.
+     *
+     *   1  FTS, every word     the index doing what it is for
+     *   2  FTS, any word       for a query with more words than the catalogue
+     *                          has in any one listing
+     *   3  ILIKE, every word   substrings, so "nik" inside "Nike" counts, and
+     *                          diacritic-blind — "barbati" finds "bărbați"
+     *   4  ILIKE, any word
+     *   5  ILIKE, stems        "jordn" → "jor%"
+     *
+     * Each runs ONLY when everything above it returned nothing, so a good query
+     * costs exactly one round trip and pays nothing for the tail. And the
+     * ranking below is unchanged: it scores by how many of the typed words a
+     * row actually contains, which is what keeps a widened tier from putting
+     * the loosest match first.
+     */
     let select = RICH_SELECT
     let rows: ProductRow[] = []
 
-    if (tsQuery) {
-      let fts = await paginate(filtered(select).textSearch("search_vector", tsQuery, { config: "english" }))
-
-      // The profile embed is the only part of RICH_SELECT that could be missing;
-      // drop back to the plain creator embed rather than losing the whole search.
-      if (fts.error) {
+    /** Runs a built query, dropping the profile embed if this database has no
+     *  such relationship rather than losing the whole search. */
+    const run = async (build: (sel: string) => any): Promise<ProductRow[]> => {
+      let res = await paginate(build(select))
+      if (res.error && select === RICH_SELECT) {
         select = BASE_SELECT
-        fts = await paginate(filtered(select).textSearch("search_vector", tsQuery, { config: "english" }))
+        res = await paginate(build(select))
       }
-
-      if (!fts.error) rows = (fts.data as unknown as ProductRow[] | null) || []
+      if (res.error) {
+        console.error("[v2/search] attempt failed:", res.error.message)
+        return []
+      }
+      return (res.data as unknown as ProductRow[] | null) || []
     }
 
-    // ── Attempt 2: trigram ILIKE ─────────────────────────────────────────────
-    // Reached when FTS found nothing (typo, stopword-only query, or no
-    // search_vector on this database). Trigram indexes need 3 characters to be
-    // useful, which "y2k" and anything longer satisfies.
-    if (rows.length === 0) {
-      const pattern = `%${term}%`
-      const withBrand = `title.ilike.${pattern},brand.ilike.${pattern},description.ilike.${pattern}`
-      const withoutBrand = `title.ilike.${pattern},description.ilike.${pattern}`
+    const ftsAttempts = [buildTsQuery(tokens, "&"), tokens.length > 1 ? buildTsQuery(tokens, "|") : ""]
+    for (const tsQuery of ftsAttempts) {
+      if (!tsQuery || rows.length > 0) continue
+      rows = await run((sel) => filtered(sel).textSearch("search_vector", tsQuery, { config: "english" }))
+    }
 
-      let fallback = await paginate(filtered(select).or(withBrand))
-
-      // products.brand only exists after 20260730_marketplace_physical_attributes.sql.
-      if (fallback.error) {
-        fallback = await paginate(filtered(select).or(withoutBrand))
-      }
-
-      if (fallback.error) {
-        console.error("[v2/search] Fallback failed:", fallback.error.message)
-      } else {
-        rows = (fallback.data as unknown as ProductRow[] | null) || []
-      }
+    // Trigram ILIKE. Chained `.or()` calls are ANDed by PostgREST, which is what
+    // makes "every word, anywhere, in any order" expressible — see
+    // textFilterGroups. Trigram indexes need 3 characters to be useful, which
+    // "y2k" and anything longer satisfies.
+    // `matchModesFor` drops the tiers that would be the previous query again —
+    // "any" is "all" on a one-word query, and "fuzzy" is both when no word is
+    // long enough to have a stem.
+    for (const mode of matchModesFor(tokens)) {
+      if (rows.length > 0) continue
+      const groups = textFilterGroups(SEARCH_COLS, tokens, mode)
+      if (groups.length === 0) continue
+      rows = await run((sel) => groups.reduce((q: any, g) => q.or(g), filtered(sel)))
     }
 
     // ── Rank ─────────────────────────────────────────────────────────────────
@@ -320,7 +313,6 @@ export async function GET(request: Request) {
 
     if (isRelevance && rows.length > 0) {
       const needle = term.toLowerCase()
-      const tokens = needle.split(" ").filter(Boolean).slice(0, MAX_TOKENS)
 
       results = rows
         .map((product) => ({ product, score: textScore(product, needle, tokens) * 2.0 + qualityScore(product) }))

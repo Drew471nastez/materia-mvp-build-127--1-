@@ -326,9 +326,20 @@ export function filtersFromParams(params: URLSearchParams, validGroups: string[]
 
 /** Only what is set. An empty key in a shared URL is noise that survives copy
  *  and paste forever. */
-export function paramsFromFilters(f: FeedFilters, extra?: { sort?: FeedSort; page?: number; q?: string }): URLSearchParams {
+export function paramsFromFilters(
+  f: FeedFilters,
+  /**
+   * `sub` is the taxonomy's third level (Femei › Haine › Rochii). It is NOT a
+   * FeedFilters key: it is part of the SCOPE, like the department and the group
+   * — the page is about dresses, and the facets below describe the dresses. It
+   * rides here so every URL this file builds carries it forward, rather than
+   * being silently dropped the first time somebody presses a brand.
+   */
+  extra?: { sort?: FeedSort; page?: number; q?: string; sub?: string | null },
+): URLSearchParams {
   const p = new URLSearchParams()
   if (extra?.q) p.set("q", extra.q)
+  if (extra?.sub) p.set("sub", extra.sub)
   if (f.group) p.set("group", f.group)
   const lists: Record<(typeof LIST_KEYS)[number], string[]> = {
     brand: f.brands,

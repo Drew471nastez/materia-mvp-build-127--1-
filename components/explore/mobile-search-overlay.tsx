@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { Search, Clock, ArrowUpLeft, X, Store } from "lucide-react"
+import { Search, Clock, ArrowUpLeft, ChevronLeft, ChevronRight, X, Store } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { useRecentSearches } from "@/lib/hooks/use-recent-searches"
-import { DEPARTMENT_RAIL } from "@/lib/marketplace/department-nav"
-import { DEPARTMENTS } from "@/lib/marketplace/listing-taxonomy"
+import { DEPARTMENT_NAV, categoryPath, type DepartmentNavItem } from "@/lib/marketplace/department-nav"
+import { groupsForDepartment, type Option } from "@/lib/marketplace/listing-taxonomy"
 import { SmartLink } from "@/components/smart-link"
 import { SellerScore } from "@/components/marketplace/seller-score"
 import { AvatarPhoto } from "@/components/ui/initial-avatar"
@@ -19,24 +19,24 @@ import { lockScroll } from "@/lib/scroll-lock"
 type SearchTab = "items" | "categories" | "people"
 
 /**
- * TWO TABS, NOT THREE — Categorii IS TEMPORARILY OUT.
+ * THREE TABS, AND CATEGORII IS BACK BECAUSE IT IS A DIFFERENT THING NOW.
  *
- * A tab earns its place by answering a question the other tabs cannot. Articole
- * and Persoane do: "what is for sale" and "who is selling", and neither is
- * reachable from the other. Categorii did not, and the reason is that the
- * categories are already everywhere else on this surface — the rail sits
- * directly under this panel on the desktop header, the department menu is one
- * press away, and every listing card carries its own. A third of the width of
- * a search panel spent on a list you can see behind it is a third of the width
- * spent on nothing.
+ * A tab earns its place by answering a question the other tabs cannot. It was
+ * dropped because it did not: it drew five department tiles, which is the same
+ * five that sit in the rail directly behind the panel and in the header menu one
+ * press away. Five doors you can already see is not a third of a search panel's
+ * worth of anything.
  *
- * TEMPORARILY, and written that way on purpose. `CategoriesTab` below is left
- * intact and `SearchTab` still names it, so putting the row back is one line
- * here rather than a rebuild — this is a decision about whether the tab is
- * pulling its weight today, not a deletion of the feature.
+ * What it draws now is the part of the taxonomy that was reachable from
+ * NOWHERE: the groups under each department, and the actual kinds of thing under
+ * each group — Bărbați › Haine › Tricouri. Every listing carries that leaf, the
+ * sell form insists on it, and until this there was no way to browse to one.
+ * Three levels deep is a question neither Articole nor Persoane can answer, and
+ * it is the reason to spend the width.
  */
 const TABS: ReadonlyArray<readonly [SearchTab, string]> = [
   ["items", "mfeed.tab_items"],
+  ["categories", "mfeed.tab_categories"],
   ["people", "mfeed.tab_people"],
 ]
 
@@ -153,13 +153,26 @@ function buildKeywordSuggestions(raw: string, realTitles: string[]): string[] {
   for (const s of scored) push(s.v)
 
   // 2. Real listing titles that match — reflects actual on-platform inventory.
+  //
+  //    ANY TOKEN, not the whole query as one substring. The endpoint behind
+  //    these titles now matches word by word (see lib/marketplace/search-terms.ts),
+  //    so "geaca nike" comes back with "Nike geaca de piele" — and testing the
+  //    title against the whole phrase threw away every row the search had just
+  //    worked to find. The panel would show none of what the results page is
+  //    about to show.
   for (const title of realTitles) {
     if (out.length >= 9) break
-    if (title && title.toLowerCase().includes(query)) push(title)
+    const lt = (title || "").toLowerCase()
+    if (lt && (lt.includes(query) || tokens.some((tk) => tk.length > 1 && lt.includes(tk)))) push(title)
   }
 
-  // 3. Fallback so short/unknown queries still feel rich.
-  if (out.length < 4) {
+  // 3. Fallback so short/unknown queries still feel rich — and ONLY when this
+  //    marketplace has something to say about the query. "awdadawdaw12" is not
+  //    a word, and offering "awdadawdaw12 vintage", "awdadawdaw12 black",
+  //    "awdadawdaw12 hoodie" is the panel confidently proposing three searches
+  //    it knows return nothing. Silence is a better answer than invention; the
+  //    exact term stays at the top either way, so the search is still one press.
+  if (out.length < 4 && (scored.length > 0 || realTitles.length > 0)) {
     for (const m of GENERIC_MODIFIERS) {
       push(`${raw.trim()} ${m}`)
       if (out.length >= 6) break
@@ -224,7 +237,7 @@ interface Person {
 export function MobileSearchOverlay({
   open,
   onClose,
-  onSelectCategory,
+  onSelectCategory: _onSelectCategory,
   onSearchSubmit,
   initialQuery = "",
   anchored = false,
@@ -234,7 +247,9 @@ export function MobileSearchOverlay({
 }: {
   open: boolean
   onClose: () => void
-  onSelectCategory: (id: string) => void
+  /** Kept for the feed's own rail; the Categorii tab NAVIGATES now rather than
+   *  filtering the feed in place — see CategoriesTab. */
+  onSelectCategory?: (id: string) => void
   /** Fired right when a search is run, so the feed can jump to the results tab. */
   onSearchSubmit?: () => void
   /** Pre-fills the field when opened (e.g. an active search on the feed). */
@@ -667,20 +682,21 @@ export function MobileSearchOverlay({
     [addSearch, onSearchSubmit, onClose, router],
   )
 
-  const pickCategory = useCallback(
-    (id: string) => {
-      onSelectCategory(id)
-      onClose()
-    },
-    [onSelectCategory, onClose],
-  )
-
   if (!mounted) return null
   // Anchored, nothing is drawn until the field has been measured — one frame,
   // in a layout effect, so there is no flash of a panel in the wrong place.
   if (anchored && !box) return null
 
-  const recent = searches.slice(0, 4)
+  /**
+   * THREE.
+   *
+   * A recent-searches list is a shortcut, not a history. Past about three the
+   * eye stops recognising rows and starts READING them, which costs more than
+   * retyping the word — and on the phone panel four rows plus the header push
+   * the suggestions below the keyboard, so the list you did not ask for hides
+   * the list you did.
+   */
+  const recent = searches.slice(0, 3)
 
   const body = (
     <div
@@ -864,10 +880,7 @@ export function MobileSearchOverlay({
               t={t}
             />
           )}
-          {/* Not reachable while Categorii is out of TABS, and kept rather than
-              removed so putting the tab back is one line. `tab` is only ever
-              set from that array. */}
-          {tab === "categories" && <CategoriesTab onPick={pickCategory} t={t} />}
+          {tab === "categories" && <CategoriesTab onClose={onClose} t={t} />}
           {tab === "people" && (
             <PeopleTab trimmed={trimmed} people={people} loading={peopleLoading} onClose={onClose} t={t} />
           )}
@@ -1043,55 +1056,197 @@ function Row({
 /* ---------------- Categories tab ---------------- */
 
 /**
- * THE DEPARTMENTS THIS MARKETPLACE ACTUALLY HAS.
+ * ===========================================================================
+ *  THE WHOLE TAXONOMY, THREE LEVELS DEEP, IN THE PANEL
+ * ===========================================================================
  *
- * This tab listed the nine legacy digital-goods categories — Design,
- * Development, Marketing, AI — none of which anybody can list on Storelib. So
- * the search panel's middle tab offered nine ways to reach an empty page.
+ * Bărbați → Toate / Haine / Încălțăminte / Accesorii / Îngrijire → Tricouri,
+ * Hanorace, Blugi… Each level replaces the one before it IN PLACE, and every
+ * level ends at a real page: `/shop/men`, `/shop/men/clothing`,
+ * `/shop/men/clothing?sub=t-shirts`.
  *
- * `DEPARTMENTS` is the same list the sell form's category picker reads, so what
- * you can browse for here is exactly what somebody could have listed.
+ * This tab used to be five department tiles and nothing under them, which is the
+ * same five doors the rail behind the panel already draws. The groups and the
+ * leaves are the part nothing else on this site could reach — they are what the
+ * sell form files a listing under, and browsing to one was impossible.
+ *
+ * ---------------------------------------------------------------------------
+ * ONE STACK, NOT THREE COMPONENTS
+ * ---------------------------------------------------------------------------
+ * `dept` and `group` are the whole of the state; which of the three levels is on
+ * screen is derived from them. Back is popping one field rather than a route, so
+ * there is no history to get out of step with the panel — and closing the panel
+ * and reopening it starts at the top, which is correct: nobody returns to a
+ * search box to resume a menu.
+ *
+ * ---------------------------------------------------------------------------
+ * IT MOVES THE WAY EVERY OTHER DRILL-DOWN IN THIS APP MOVES
+ * ---------------------------------------------------------------------------
+ * `sub-push` going deeper and `sub-pop` coming back — the same 360ms on
+ * cubic-bezier(0.32, 0.72, 0, 1) as the sell form's category picker, the Browse
+ * menu and the filter sheet. A list that is replaced in one frame says nothing
+ * about which direction you travelled; the Back button ends up being the only
+ * evidence you are a level deep.
+ *
+ * The `key` is what replays it: React reuses the same nodes for two lists of
+ * rows, so without a changing key the animation runs once and never again.
  */
-function CategoriesTab({ onPick, t }: { onPick: (id: string) => void; t: (k: string) => string }) {
+function CategoriesTab({ onClose, t }: { onClose: () => void; t: (k: string) => string }) {
+  const [dept, setDept] = useState<DepartmentNavItem | null>(null)
+  const [group, setGroup] = useState<{ id: string; label: string } | null>(null)
+  /** Which animation the NEXT level plays. Set by whatever changed the stack. */
+  const [dir, setDir] = useState<"push" | "pop">("push")
+
+  const leaves: Option[] =
+    dept && group ? groupsForDepartment(dept.id).find((g) => g.id === group.id)?.items ?? [] : []
+
+  const level = dept ? (group ? 2 : 1) : 0
+  const anim = dir === "push" ? "sub-push" : "sub-pop"
+
+  const back = () => {
+    setDir("pop")
+    if (group) setGroup(null)
+    else setDept(null)
+  }
+
   return (
-    <div className="px-4 py-4">
-      <p className="pb-3 text-[13px] font-semibold text-neutral-500">{t("mfeed.browse_categories")}</p>
-      {/* Every tile wore CATEGORIES[0].icon — the legacy list's `Layers` glyph,
-          six times, because the departments had no icons of their own here. Six
-          identical marks beside six different words is worse than none: it says
-          the pictures carry no information and trains the eye to skip them.
-          DEPARTMENT_RAIL brings each department's own. */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {DEPARTMENT_RAIL.map((d) => (
-          <CategoryTile key={d.id} id={d.id} label={d.label} Icon={d.icon} onPick={onPick} />
-        ))}
+    // `overflow-hidden` because the arriving level enters from 100% to the right
+    // — without it the panel gains a scrollbar for the length of the animation
+    // and the page under it twitches.
+    <div className="overflow-hidden">
+      {level > 0 && (
+        <div className="flex items-center gap-1.5 border-b border-neutral-100 px-2 py-2">
+          <button
+            type="button"
+            onClick={back}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-700 transition-colors active:bg-neutral-100"
+            aria-label={t("mfeed.close")}
+          >
+            <ChevronLeft className="h-[19px] w-[19px]" />
+          </button>
+          <span className="truncate text-[15px] font-semibold text-neutral-900">
+            {level === 2 ? group?.label : dept?.label}
+          </span>
+        </div>
+      )}
+
+      <div key={`${dept?.id ?? "root"}-${group?.id ?? ""}`} className={cn(anim, "px-1 py-2")}>
+        {level === 0 && (
+          <>
+            <p className="px-3 pb-2 pt-1 text-[13px] font-semibold text-neutral-500">
+              {t("mfeed.browse_categories")}
+            </p>
+            {/* Tiles rather than rows at the top level only. Five departments
+                are a choice you make by looking; thirty-seven groups are a list
+                you read, and a grid of thirty-seven tiles is a wall. */}
+            <div className="grid grid-cols-2 gap-2.5 px-3 pb-2">
+              {DEPARTMENT_NAV.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => {
+                    setDir("push")
+                    setDept(d)
+                  }}
+                  className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-neutral-50 px-4 py-3.5 text-left transition-all duration-200 active:scale-[0.97] active:bg-neutral-100"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.04]">
+                    <d.icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                  </span>
+                  <span className="truncate text-[14px] font-medium text-neutral-800">{d.label}</span>
+                </button>
+              ))}
+            </div>
+            <BrowseLink href="/shop" label="Toate anunțurile" onClose={onClose} />
+          </>
+        )}
+
+        {level === 1 && dept && (
+          <>
+            {/* "Toate" FIRST, and it is not a formality. Somebody who pressed
+                Bărbați meant Bărbați; making them find a group before anything
+                happens turns one decision into two. */}
+            <BrowseLink href={categoryPath(dept.id)} label={`Toate · ${dept.label}`} onClose={onClose} strong />
+            {dept.subcategories.map((g) => (
+              <BrowseRow
+                key={g.id}
+                label={g.label}
+                onClick={() => {
+                  setDir("push")
+                  setGroup({ id: g.id, label: g.label })
+                }}
+              />
+            ))}
+          </>
+        )}
+
+        {level === 2 && dept && group && (
+          <>
+            <BrowseLink
+              href={categoryPath(dept.id, group.id)}
+              label={`Toate · ${group.label}`}
+              onClose={onClose}
+              strong
+            />
+            {leaves.map((leaf) => (
+              <BrowseLink
+                key={leaf.id}
+                href={`${categoryPath(dept.id, group.id)}?sub=${encodeURIComponent(leaf.id)}`}
+                label={leaf.label}
+                onClose={onClose}
+              />
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function CategoryTile({
-  id,
-  label,
-  Icon,
-  onPick,
-}: {
-  id: string
-  label: string
-  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>
-  onPick: (id: string) => void
-}) {
+/** A level that goes deeper. A button, because nothing navigates yet. */
+function BrowseRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={() => onPick(id)}
-      className="flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-neutral-50 px-4 py-3.5 text-left transition-all duration-200 active:scale-[0.97] active:bg-neutral-100"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-neutral-50"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.04]">
-        <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
-      </span>
-      <span className="truncate text-[14px] font-medium text-neutral-800">{label}</span>
+      <span className="flex-1 truncate text-[15px] text-neutral-800">{label}</span>
+      <ChevronRight className="h-[18px] w-[18px] shrink-0 text-neutral-300" />
     </button>
+  )
+}
+
+/**
+ * A level that IS a page. A real anchor rather than a button that pushes a
+ * route: it is a link to a place, so it should be middle-clickable, copyable and
+ * crawlable — and `useClientNav` keeps the transition the soft one the rest of
+ * the app uses rather than a document load.
+ */
+function BrowseLink({
+  href,
+  label,
+  onClose,
+  strong = false,
+}: {
+  href: string
+  label: string
+  onClose: () => void
+  strong?: boolean
+}) {
+  return (
+    <SmartLink
+      href={href}
+      useClientNav
+      onClick={onClose}
+      className={cn(
+        "flex w-full items-center gap-3 px-4 py-3 transition-colors active:bg-neutral-50",
+        strong ? "text-[15px] font-semibold text-neutral-900" : "text-[15px] text-neutral-800",
+      )}
+    >
+      <span className="flex-1 truncate">{label}</span>
+      <ChevronRight className="h-[18px] w-[18px] shrink-0 text-neutral-300" />
+    </SmartLink>
   )
 }
 
