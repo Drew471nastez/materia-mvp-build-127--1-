@@ -1,6 +1,4 @@
-import { LayoutGrid } from "lucide-react"
-
-import { Dice, Dress, OpenBook, Teddy, Tee } from "@/components/marketplace/department-icons"
+import { AllSquares, Dice, Dress, OpenBook, Pram, Tee } from "@/components/marketplace/department-icons"
 
 import {
   DEPARTMENTS,
@@ -47,37 +45,38 @@ import {
  * means, and a shopper reads the words and skips the pictures.
  *
  * ---------------------------------------------------------------------------
- * FIVE OBJECTS, DRAWN, RATHER THAN FIVE MARKS BORROWED
+ * FIVE OBJECTS, FROM THE ONE SET THAT DREW THEM
  * ---------------------------------------------------------------------------
  * lucide ships exactly ONE garment, and the two largest departments here are
  * both clothing — so the set kept being assembled out of whatever else was in
- * the box. Dress/Shirt/Baby/Disc3/Dices was three round outlines in a row at
- * tile size; Gem/Shirt/Baby/Clapperboard/Puzzle fixed the shapes and lost the
- * meaning, and a diamond standing for Femei is exactly the sort of stand-in
- * that makes a row of tiles read as generic no matter how well each mark is
- * drawn.
+ * the box, and each round traded one fault for another: Dress/Shirt/Baby/
+ * Disc3/Dices was three round outlines in a row at tile size, Gem/Shirt/Baby/
+ * Clapperboard/Puzzle fixed the shapes and lost the meaning, and hand-drawing
+ * produced glyphs with no set behind them.
  *
- * These are the objects themselves — a dress, a t-shirt, a teddy, a book, a
- * pair of dice — drawn to lucide's own spec so they sit correctly beside its
- * icons. See components/marketplace/department-icons.tsx for the geometry and
- * for why they are drawn rather than imported.
+ * Phosphor drew the actual objects — the dress, the pram, the high heel, the
+ * vinyl record — and department-icons.tsx wraps them at duotone weight so the
+ * marks have a body and carry the brand violet inside the drawing. That file is
+ * the whole icon system now: departments here, every GROUP's own object in
+ * GROUP_ICONS, and the chip they sit in.
  *
  *   Dress     Femei
  *   Tee       Bărbați — the pair that has to be separable at a glance
- *   Teddy     Copii — the one department with no single shape, so it is named
- *             by association; the ears keep it from being another round face
+ *   Pram      Copii — the one department with no single shape; cărucioare,
+ *             îmbăiere, dormit is a parenthood department, and the pram is its
+ *             most distinctive silhouette
  *   OpenBook  Divertisment — Cărți and Reviste are half of it
  *   Dice      Hobbyuri — carduri, jocuri de societate, puzzle-uri, miniaturi
  */
 
-/** A lucide glyph or one of ours. `typeof LayoutGrid` is lucide's own
- *  forwardRef type and therefore excludes every icon we draw for ourselves. */
+/** Loose on purpose: lucide's forwardRef type, Phosphor's IconProps and our
+ *  wrappers all satisfy it, and callers only ever pass these two props. */
 export type DeptIcon = React.ComponentType<{ className?: string; strokeWidth?: number }>
 
 export const DEPARTMENT_ICONS: Record<string, DeptIcon> = {
   women: Dress,
   men: Tee,
-  kids: Teddy,
+  kids: Pram,
   entertainment: OpenBook,
   hobby: Dice,
 }
@@ -108,7 +107,7 @@ export const DEPARTMENT_NAV: DepartmentNavItem[] = DEPARTMENTS.map((d) => ({
   id: d.id,
   label: d.label,
   href: `/shop/${d.id}`,
-  icon: DEPARTMENT_ICONS[d.id] ?? LayoutGrid,
+  icon: DEPARTMENT_ICONS[d.id] ?? AllSquares,
   subcategories: groupsForDepartment(d.id).map((g) => ({
     id: g.id,
     label: categoryShortLabel(g),
@@ -122,11 +121,11 @@ export const DEPARTMENT_NAV: DepartmentNavItem[] = DEPARTMENTS.map((d) => ({
  * filter, which is why it is added here rather than living in the taxonomy.
  */
 export const DEPARTMENT_RAIL: { id: string; label: string; icon: DeptIcon }[] = [
-  { id: "all", label: "Toate", icon: LayoutGrid },
+  { id: "all", label: "Toate", icon: AllSquares },
   ...DEPARTMENTS.map((d) => ({
     id: d.id,
     label: d.label,
-    icon: DEPARTMENT_ICONS[d.id] ?? LayoutGrid,
+    icon: DEPARTMENT_ICONS[d.id] ?? AllSquares,
   })),
 ]
 

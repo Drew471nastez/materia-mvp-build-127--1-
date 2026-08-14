@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Search, SlidersHorizontal, Heart, X, LayoutGrid, GalleryVerticalEnd, ChevronLeft } from "lucide-react"
+import { Funnel } from "@phosphor-icons/react"
 import { useLocale } from "@/components/locale-provider"
 import { CategoryPillRail, SearchTrigger } from "@/components/marketplace/search-row"
 import { MobileSearchOverlay } from "./mobile-search-overlay"
@@ -1320,11 +1321,17 @@ export function MobileFeed({
               type="button"
               aria-label={t("mfeed.filters")}
               onClick={() => setFiltersOpen(true)}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-700 transition-transform active:scale-95"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-800 [-webkit-tap-highlight-color:transparent] transition-colors duration-200 active:bg-neutral-200 active:duration-0"
             >
-              <SlidersHorizontal className="h-[18px] w-[18px]" />
+              {/* THE FUNNEL, not the sliders. SlidersHorizontal is three grey
+                  lines that read as "settings" or as decoration; the funnel is
+                  the one glyph the whole industry has taught to mean FILTER,
+                  which is what this button needed to say sitting one icon away
+                  from the search field. Duotone, same as the category system,
+                  so it reads as drawn rather than defaulted. */}
+              <Funnel weight="duotone" className="h-[19px] w-[19px]" />
               {activeFilters > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[10.5px] font-bold text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[10.5px] font-bold leading-none text-white">
                   {activeFilters}
                 </span>
               )}

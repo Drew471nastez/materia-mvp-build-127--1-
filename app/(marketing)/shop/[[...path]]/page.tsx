@@ -239,6 +239,8 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   let saleIsExact = true
   /** Which single filter to drop when nothing matched — see dropSuggestions. */
   let escapes: DropSuggestion[] = []
+  /** The shelf an empty page shows instead of ending the visit. */
+  let fallback: any[] = []
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
@@ -459,6 +461,41 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       for (const g of textFilterGroups(SEARCH_COLS, tokens, matchMode)) eq = eq.or(g)
       const { data: escapeRows } = await eq.limit(1000)
       escapes = dropSuggestions((escapeRows as any[]) ?? [], effective, facets)
+
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       *  AN EMPTY PAGE STILL SHOWS THINGS TO BUY
+       * ═══════════════════════════════════════════════════════════════════
+       *
+       * "Niciun rezultat" and a sentence is the end of a visit. Every
+       * marketplace answers the dead end with a shelf instead — Vinted's empty
+       * search puts "poate îți place" under the apology — because the person
+       * on this page came to SHOP and the search failing is no reason to stop
+       * showing them the shop.
+       *
+       * WIDENED BY ONE HONEST STEP AT A TIME, never sideways: the group
+       * without its filters, then the department, then the catalogue. Fresh
+       * stock first, because with the query unanswerable "what is new here" is
+       * the best claim available. It borrows nothing from the query itself —
+       * matching a failed search loosely is the invention the search tiers
+       * refuse, and the heading says "S-ar putea să-ți placă", not "results".
+       */
+      const scopes: { g?: string | null; d?: string | null }[] = [
+        ...(group ? [{ g: group }] : []),
+        ...(deptGroups.length > 0 ? [{ d: department }] : []),
+        {},
+      ]
+      for (const sc of scopes) {
+        if (fallback.length > 0) break
+        let fb = supabase.from("products").select(FULL_COLS).eq("status", "published")
+        if (sc.g) fb = fb.eq("category", sc.g)
+        else if (sc.d) fb = fb.in("category", deptGroups)
+        const { data: fbRows } = await fb
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+          .limit(10)
+        fallback = (fbRows as any[]) ?? []
+      }
     }
 
     // ON SALE is applied here rather than in SQL. It is a comparison between two
@@ -593,6 +630,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
         sub={sub}
         subLabel={subItem?.label ?? null}
         relaxed={relaxed}
+        fallback={fallback}
         query={q}
         products={rows}
         total={total}

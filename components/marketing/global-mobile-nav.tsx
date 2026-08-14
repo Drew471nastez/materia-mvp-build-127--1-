@@ -221,6 +221,10 @@ export function GlobalMobileNav() {
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         initialQuery=""
+        // The tab bar's Search is a PLACE, not a summons: no keyboard until the
+        // field is tapped, recents and the category browse as the content, and
+        // the panel stops above this very bar — see the prop's note.
+        browse
       />
     </>
   )

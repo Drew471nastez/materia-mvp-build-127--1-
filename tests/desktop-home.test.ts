@@ -1796,7 +1796,9 @@ check(
       // may return in any order, and it is free to choose a different one for
       // rows 0-89 and for rows 90-179. A row that crosses that boundary is shown
       // twice or not at all, and nothing on the page says so.
-      (page.match(/\.order\("id", \{ ascending: true \}\)/g) ?? []).length === 4 &&
+      // Five: the four sorts and the empty page's fallback shelf, which
+      // paginates never but is still a query whose order must be stable.
+      (page.match(/\.order\("id", \{ ascending: true \}\)/g) ?? []).length === 5 &&
       // ON SALE IS A COLUMN. It is a comparison between two columns, which
       // PostgREST cannot express — so it was applied AFTER the fetch, and the
       // total was the real count minus only what the current page dropped. The
@@ -2729,6 +2731,67 @@ check(
     )
   })(),
   "        components/explore/category-results.tsx",
+)
+
+check(
+  "a suggestion shares a word with what was typed, or it is not offered",
+  (() => {
+    // The expansion table was matched by substring containment in either
+    // direction, per token — so "pantofi lux" lit up half the table and the
+    // panel confidently offered Jordans to somebody shopping for smart shoes.
+    // A suggestion that shares no word with the query is the panel talking
+    // over you.
+    //
+    // A key now matches only when the query is SAYING it: as a prefix
+    // mid-type, at a word boundary, or as a whole ≥3-letter token — "tn" and
+    // "y2k" must be typed, not implied.
+    const overlay = code("components/explore/mobile-search-overlay.tsx")
+    return (
+      /const keyMatches = \(key: string\): boolean =>/.test(overlay) &&
+      /tokens\.some\(\(tk\) => tk\.length >= 3 && \(key === tk \|\| key\.startsWith\(tk\)\)\)/.test(overlay) &&
+      !/key\.includes\(tk\) \|\| tk\.includes\(key\)/.test(overlay) &&
+      // And an unknown word gets no invented "X vintage / X black" padding —
+      // silence over invention, the same rule the search tiers follow.
+      /if \(out\.length < 4 && \(scored\.length > 0 \|\| realTitles\.length > 0\)\)/.test(overlay)
+    )
+  })(),
+  "        components/explore/mobile-search-overlay.tsx",
+)
+
+check(
+  "an empty answer still shows a shelf, and the empty page's chrome behaves",
+  (() => {
+    // "Niciun rezultat" and a sentence is the end of a visit. The page now
+    // widens by one HONEST step at a time — the group unfiltered, the
+    // department, the catalogue — and puts fresh stock under "S-ar putea să-ți
+    // placă". It borrows nothing from the failed query: matching it loosely is
+    // the invention the search tiers refuse, and the heading says what the
+    // shelf is.
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    const ui = code("components/explore/category-results.tsx")
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    const feed = code("components/explore/mobile-feed.tsx")
+    return (
+      /const scopes: \{ g\?: string \| null; d\?: string \| null \}\[\] = \[/.test(page) &&
+      /if \(fallback\.length > 0\) break/.test(page) &&
+      /S-ar putea să-ți placă/.test(ui) &&
+      /fallback\.map\(\(p\) => \(/.test(ui) &&
+      // The sheet locks the page under it — a drag that runs out of list must
+      // not scroll the grid behind a full-screen sheet.
+      /if \(!open\) return\s*\n\s*return lockScroll\(\)/.test(sheet) &&
+      // The Filtre/Sortează pair answer with a tint, not a scale: `:active`
+      // flickers when a scroll starts over a button, and a 3% shrink of a
+      // full-width button is the "glitchy bump".
+      !/Filtre[\s\S]{0,400}active:scale/.test(ui.slice(ui.indexOf('id="group"') - 4000, ui.indexOf('id="group"'))) &&
+      /active:bg-neutral-100 active:duration-0/.test(ui) &&
+      // The count badge centres its digit — default line-height floats it high.
+      /font-bold leading-none text-white/.test(ui) &&
+      // And the feed's filter trigger is the FUNNEL, the one glyph the industry
+      // taught to mean filter, not three grey sliders.
+      /<Funnel weight="duotone"/.test(feed)
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx, components/explore/category-results.tsx",
 )
 
 check(

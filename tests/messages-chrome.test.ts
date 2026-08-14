@@ -1113,44 +1113,53 @@ check(
 )
 
 check(
-  "the categories are IN the search, three levels deep — not a tab beside it",
+  "the browse fits its container: inside Articole on a phone, its own tab on the desktop",
   (() => {
-    // A TAB SAYS "THIS IS A DIFFERENT KIND OF ANSWER, GO AND LOOK OVER THERE".
-    // That is true of Persoane — a person is not a narrower article, and neither
-    // is reachable from the other. It is not true of the categories: somebody
-    // who opens a search box and does not type is browsing, and browsing is the
-    // same intent as searching with the field still empty. So the taxonomy lives
-    // in Articole, under the last three things they searched for, where it is
-    // the first thing they see rather than a word they have to notice and press.
-    //
-    // Which also gives the panel something to say when opened cold. It drew a
-    // magnifying glass and "caută articole" — the surface explaining what a
-    // search box is, in the space where five departments would have been.
+    // On a PHONE the taxonomy lives inside Articole, under the recents:
+    // somebody who opens a search box and does not type is browsing, and
+    // browsing is the same intent as searching with the field still empty. The
+    // DESKTOP anchored dropdown is 560px tall at most — recents plus a category
+    // list is two lists fighting for a box that fits one, so there Categorii is
+    // its own tab, drawing the SAME BrowseLevels one tab over. One browse,
+    // two containers; a second implementation is how they drift.
     const overlay = code("components/explore/mobile-search-overlay.tsx")
-    const tabs = overlay.slice(overlay.indexOf("const TABS"), overlay.indexOf("const POPULAR_EXPANSIONS"))
-    const tab = overlay.slice(overlay.indexOf("function ItemsTab"), overlay.indexOf("function Row"))
+    const browse = overlay.slice(overlay.indexOf("function BrowseLevels"), overlay.indexOf("function Row("))
     return (
-      (tabs.match(/mfeed\.tab_/g) ?? []).length === 2 &&
-      !/mfeed\.tab_categories/.test(tabs) &&
-      /type SearchTab = "items" \| "people"/.test(overlay) &&
-      !/function CategoriesTab/.test(overlay) &&
-      // The recents come first and the browse is under them, in ONE column.
-      tab.indexOf("mfeed.recent_searches") < tab.indexOf("mfeed.browse_categories") &&
-      // Three levels, derived from one stack rather than three components.
-      /const level = dept \? \(group \? 2 : 1\) : 0/.test(tab) &&
-      /groupsForDepartment\(dept\.id\)\.find\(\(g\) => g\.id === group\.id\)\?\.items/.test(tab) &&
-      /\?sub=\$\{encodeURIComponent\(leaf\.id\)\}/.test(tab) &&
-      // "Toate" first at every level: one decision, not two.
-      (tab.match(/label=\{`Toate · /g) ?? []).length === 2 &&
-      // AND THE WHOLE COLUMN IS THE STACK. Pressing Bărbați slides the entire
-      // panel, recents included; animating only the lower half while the
-      // recents vanish in the same frame is the version that looks broken.
-      /dir === "push" \? "sub-push" : "sub-pop"/.test(tab) &&
-      // Keyed, or React reuses the nodes and the animation plays exactly once.
-      /key=\{`\$\{dept\?\.id \?\? "root"\}-\$\{group\?\.id \?\? ""\}`\}/.test(tab) &&
-      // Typing returns you to the top — a stack left two levels deep is a level
-      // nobody can see and nobody can leave.
-      /if \(!trimmed\) return\s*\n\s*setDept\(null\)/.test(tab)
+      /const PHONE_TABS[\s\S]*?\["items", "mfeed\.tab_items"\],\s*\n\s*\["people", "mfeed\.tab_people"\],/.test(overlay) &&
+      /const ANCHORED_TABS[\s\S]*?\["categories", "mfeed\.tab_categories"\],/.test(overlay) &&
+      /const tabs = anchored \? ANCHORED_TABS : PHONE_TABS/.test(overlay) &&
+      // The phone's Articole hands its recents to the browse as `above`, so
+      // pressing Bărbați slides the ENTIRE panel — recents included. Animating
+      // only the lower half while the recents cut is the version that looks
+      // broken.
+      /<BrowseLevels above=\{recents\}/.test(overlay) &&
+      /\{tab === "categories" && \(\s*\n\s*<BrowseLevels onClose=\{onClose\} t=\{t\} \/>/.test(overlay) &&
+      // Three levels from one stack; every leaf is a real page carrying ?sub=.
+      /const level = dept \? \(group \? 2 : 1\) : 0/.test(browse) &&
+      /\?sub=\$\{encodeURIComponent\(leaf\.id\)\}/.test(browse) &&
+      (browse.match(/label=\{`Toate · /g) ?? []).length === 2 &&
+      // The same movement as the sell form's picker, keyed so it replays.
+      /dir === "push" \? "sub-push" : "sub-pop"/.test(browse) &&
+      /key=\{`\$\{dept\?\.id \?\? "root"\}-\$\{group\?\.id \?\? ""\}`\}/.test(browse) &&
+      // Typing resets the stack STRUCTURALLY: with a query, ItemsTab returns
+      // the suggestions before BrowseLevels ever mounts, so its state cannot
+      // survive into a level nobody can see.
+      /if \(trimmed\) \{/.test(overlay.slice(overlay.indexOf("function ItemsTab"), overlay.indexOf("function BrowseLevels"))) &&
+      // Every department and group row wears its own object in the brand chip.
+      /<IconChip icon=\{d\.icon\} \/>/.test(browse) &&
+      /icon=\{<IconChip icon=\{groupIcon\(g\.id\)\} size="sm" \/>\}/.test(browse) &&
+      // PAGE MODE: opened from the tab bar the panel is a destination — no
+      // keyboard grab, a page header with back left and search right on the
+      // sub-levels, and the panel stops ABOVE the tab bar (z-70 under its
+      // z-80) instead of covering the way out.
+      /if \(browse\) return/.test(overlay) &&
+      /"fixed inset-x-0 top-0 z-\[70\] flex flex-col bg-white"/.test(overlay) &&
+      /bottom: "calc\(env\(safe-area-inset-bottom, 0px\) \+ 63px\)"/.test(overlay) &&
+      /onClick=\{onSearchTap\}/.test(browse) &&
+      // And the recents carry what the search was wearing — the Vinted line —
+      // with a light hover, because this panel is also the desktop's.
+      /sub=\{r\.sum \?\? "Niciun filtru"\}/.test(overlay) &&
+      /hover:bg-neutral-50 active:bg-neutral-100/.test(overlay)
     )
   })(),
   "        components/explore/mobile-search-overlay.tsx",
@@ -1508,7 +1517,7 @@ check(
       // covered.
       /women: Dress/.test(map) &&
       /men: Tee/.test(map) &&
-      /kids: Teddy/.test(map) &&
+      /kids: Pram/.test(map) &&
       /entertainment: OpenBook/.test(map) &&
       /hobby: Dice/.test(map) &&
       !/Sparkles|ShoppingBag|Gift|Lightbulb/.test(map) &&
@@ -1522,15 +1531,17 @@ check(
       /DEPARTMENT_NAV: DepartmentNavItem\[\] = DEPARTMENTS\.map/.test(nav) &&
       /const DEFAULT_CATEGORIES = DEPARTMENT_RAIL/.test(hdr) &&
       /const CATEGORIES_WITH_SUBS = DEPARTMENT_NAV/.test(hdr) &&
-      // TO LUCIDE'S OWN SPEC, because they sit beside lucide's icons on every
-      // surface that draws a department. Half a set in one drawing language and
-      // half in another is worse than any single icon in it.
-      /viewBox="0 0 24 24"/.test(code("components/marketplace/department-icons.tsx")) &&
-      /stroke="currentColor"/.test(code("components/marketplace/department-icons.tsx")) &&
-      /strokeLinecap="round"/.test(code("components/marketplace/department-icons.tsx")) &&
-      // And nothing in the set is borrowed any more: LayoutGrid is "Toate",
-      // which is the absence of a department rather than one of them.
-      /^import \{ LayoutGrid \} from "lucide-react"$/m.test(nav) &&
+      // FROM THE ONE SET THAT DREW THE OBJECTS, at one weight, through one
+      // wrapper. Phosphor has the dress, the pram, the high heel, the vinyl
+      // record; `branded()` pins duotone so the weight cannot drift per
+      // surface, and every GROUP wears its own object too — GROUP_ICONS is
+      // what stops the drill-down being thirty-seven identical chevrons.
+      /@phosphor-icons\/react/.test(code("components/marketplace/department-icons.tsx")) &&
+      /weight="duotone"/.test(code("components/marketplace/department-icons.tsx")) &&
+      /export const GROUP_ICONS/.test(code("components/marketplace/department-icons.tsx")) &&
+      /export function IconChip/.test(code("components/marketplace/department-icons.tsx")) &&
+      // No department icon is imported from lucide any more.
+      !/from "lucide-react"/.test(nav) &&
       // And the type is ours, because `typeof LayoutGrid` is lucide's own
       // forwardRef type: a type that says "an icon" and means "an icon from
       // that one package".
