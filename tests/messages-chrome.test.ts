@@ -1645,7 +1645,9 @@ check(
     const page = code("app/(marketing)/_explore-feed.tsx")
     return (
       /const filteredByUrl = \(urlCategory !== "" && urlCategory !== "all"\) \|\| urlSub !== ""/.test(feed) &&
-      /const guestHome = !signedIn && !searchQuery && !filteredByUrl/.test(feed) &&
+      // A browser gets the home page signed in or out; the app's Acasă tab is the
+      // exception, and only for somebody signed in.
+      /const homePage = !searchQuery && !filteredByUrl && \(!signedIn \|\| !nativeShell\)/.test(feed) &&
       /const departmentId = DEPARTMENTS\.some\(\(d\) => d\.id === rawCategory\) \? rawCategory : null/.test(page) &&
       /initialDepartment=\{departmentId \?\? ""\}/.test(page) &&
       /initialSub=\{subGroup \?\? ""\}/.test(page) &&

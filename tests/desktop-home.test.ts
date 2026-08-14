@@ -78,9 +78,14 @@ check(
       // carry on, and making them scroll past a campaign to reach the row that
       // remembers what they were doing puts the house's business ahead of
       // theirs. It is gated, so a first visit still opens on the hero.
-      "Bazat pe vizualizările tale recente",
-      "<HeroSlides",
+      //
+      // AND IT IS THE THINGS THEMSELVES, not the ranking derived from them.
+      // "Bazat pe vizualizările tale recente" is a good second row and a strange
+      // first one: it opens the page on a guess about you rather than on your
+      // own last move.
       "Vizualizate recent",
+      "<HeroSlides",
+      "Bazat pe vizualizările tale recente",
       "Sugestii pentru tine",
       "<YouMightBeInto",
       "<ShopByCategory",
@@ -465,8 +470,8 @@ check(
       // TWO gates now, not one block — the rows sit either side of the hero, so
       // they cannot share a fragment. Each must carry its own.
       (memberView.match(/\{personal && \(/g) ?? []).length === 2 &&
-      memberView.indexOf("{personal && (") < memberView.indexOf("Bazat pe vizualizările tale recente") &&
-      memberView.lastIndexOf("{personal && (") < memberView.indexOf("Vizualizate recent") &&
+      memberView.indexOf("{personal && (") < memberView.indexOf("Vizualizate recent") &&
+      memberView.lastIndexOf("{personal && (") < memberView.indexOf("Bazat pe vizualizările tale recente") &&
       // The pills are OUTSIDE both — that section is the one that carries an
       // early visit and must never be gated on history it does not have.
       memberView.indexOf("<YouMightBeInto") > memberView.lastIndexOf("{personal && (")
@@ -1208,10 +1213,14 @@ check(
       // The section merges a caller className rather than stating its own.
       /className=\{cn\(\s*\n\s*"group\/hero relative overflow-hidden rounded-2xl/.test(slides) &&
       /className\?: string/.test(slides) &&
-      // Member: only when the personal row above it was drawn.
-      /<HeroSlides listings=\{products\} className=\{personal \? "mt-14" : undefined\} \/>/.test(homeAll) &&
+      // Member: a top margin only when the personal row above it was drawn, and
+      // a bottom one always — 56px between a full-bleed picture and the listings
+      // under it was a band of white wide enough to read as the end of the page.
+      // The gap after a photograph is measured against a hard edge rather than
+      // against a row of cards with their own air, so it is one step quieter.
+      /<HeroSlides listings=\{products\} className=\{cn\("mb-11", personal && "mt-11"\)\} \/>/.test(homeAll) &&
       // Signed out: always, because something is always above it there.
-      /<HeroSlides listings=\{products\} className="mt-14" \/>/.test(homeAll)
+      /<HeroSlides listings=\{products\} className="mb-11 mt-11" \/>/.test(homeAll)
     )
   })(),
   "        components/explore/home/hero-slides.tsx",
@@ -1456,8 +1465,8 @@ check(
       // `hidden md:block` wrapper, which inside this `md:hidden` shell would
       // hide the page at every width.
       /import \{ DesktopHome \} from "\.\/home\/desktop-home"/.test(feed) &&
-      /const guestHome = !signedIn && !searchQuery/.test(feed) &&
-      /<DesktopHome products=\{initialProducts\} signedIn=\{false\} variant="phone" \/>/.test(feed) &&
+      /const homePage = !searchQuery && !filteredByUrl && \(!signedIn \|\| !nativeShell\)/.test(feed) &&
+      /<DesktopHome products=\{initialProducts\} signedIn=\{signedIn\} variant="phone" \/>/.test(feed) &&
       /const shell = variant === "phone" \? "px-4 overflow-x-clip" : "hidden md:block"/.test(home) &&
       // On grey. The panel's edge is a hairline ring and a one-pixel contact
       // shadow, weights chosen against the desktop page's #f5f5f5; the feed is
@@ -1467,7 +1476,7 @@ check(
       /<div className="-mx-4 bg-\[#f5f5f5\] px-4 py-3">\s*\n\s*<SignedOutHero className="mb-0" \/>/.test(home) &&
       // And the category rail is not drawn over it: it is a filter for a grid
       // that is not there, and the departments are one of the sections under it.
-      /const showCats = tab === "for-you" && !guestHome/.test(feed) &&
+      /const showCats = tab === "for-you" && !homePage/.test(feed) &&
       // Server-resolved, not fetched here: a screen that renders one shape and
       // changes to the other a moment later is worse than either shape.
       /signedIn\?: boolean/.test(feed) &&
@@ -1493,7 +1502,10 @@ check(
     return (
       (feed.match(/\{signedIn && TABS\.map|\{signedIn \? |signedIn && \(\n/g) ?? []).length >= 1 &&
       /\{signedIn && TABS\.map\(\(\[id, key\]\) => \{/.test(feed) &&
-      /\{signedIn && <div className="shrink-0 mt-1 h-px"/.test(feed) &&
+      // And not over the home page either, which a signed-in browser now gets:
+      // three tabs above a marketing hero is chrome for a screen that is not
+      // there.
+      /\{signedIn && !homePage && <div className="shrink-0 mt-1 h-px"/.test(feed) &&
       // And `tab` is CORRECTED rather than guarded at every read — signing out
       // with Salvate open otherwise leaves a wishlist with no way back to the
       // feed, because the control that would switch it has just gone.
@@ -1786,6 +1798,70 @@ check(
     )
   })(),
   "        app/(marketing)/shop/[[...path]]/page.tsx, lib/marketplace/feed-filters.ts",
+)
+
+check(
+  "the department pages are indexable and every view of them is not",
+  (() => {
+    // /shop/women and /shop/women/shoes are real pages about real things — five
+    // departments and thirty-seven groups, each with its own title, description
+    // and canonical. Everything else is the same catalogue in a different order:
+    // five multi-select facets times four sorts times the page numbers is a
+    // combinatorial number of near-duplicates, which is how a marketplace ends
+    // up with its own pages competing with each other.
+    //
+    // `follow: true` on all of them, because the LISTINGS behind a filter are
+    // worth reaching even when the filtered view is not.
+    const page = read("app/(marketing)/shop/[[...path]]/page.tsx")
+    return (
+      /const narrowed = q\.length > 0 \|\| \[\.\.\.sp\.keys\(\)\]\.length > 0/.test(page) &&
+      /robots: narrowed \? \{ index: false, follow: true \} : undefined/.test(page) &&
+      // And a canonical on every one of them, so the signal is not only "do not
+      // index this" but "the page this is a view of is over there".
+      /alternates: \{ canonical \}/.test(page) &&
+      /description: groupLabel/.test(page)
+    )
+  })(),
+  "        app/(marketing)/shop/[[...path]]/page.tsx",
+)
+
+check(
+  "the filter sheet is one trip, and the sort sheet can be thrown away with a thumb",
+  (() => {
+    // SORT IS THE FIRST ROW OF THE FILTER SHEET. It is the same question as the
+    // filters — "which of these, and in what order" — and splitting it into a
+    // second sheet means two trips for one decision.
+    //
+    // "Șterge tot" moved to the HEADER. Beside the apply button at the same
+    // weight it was a fifty-fifty choice between applying your work and throwing
+    // it away; in the corner it is where a destructive action belongs.
+    const sheet = code("components/explore/mobile-filter-sheet.tsx")
+    return (
+      /label: "Sortare după"/.test(sheet) &&
+      /Afișare rezultate/.test(sheet) &&
+      /onSortChange\?\.\(draftSort\)/.test(sheet) &&
+      // It ARRIVES rather than appearing: `if (!open) return null` alone is a
+      // sheet with nothing on screen to animate out of, so the close is a cut.
+      /if \(!open && !leaving\) return null/.test(sheet) &&
+      /transform: shown \? "translateY\(0\)" : "translateY\(100%\)"/.test(sheet) &&
+      // Two frames before the open class lands — React can commit inside the
+      // frame it was scheduled in, and a transition whose start and end are set
+      // in one paint simply does not run.
+      /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => setShown\(true\)\)\)/.test(sheet) &&
+      // THE SORT SHEET DRAGS, and only downward — letting it go up lifts it off
+      // the bottom of the screen and shows the page beneath, which is travel
+      // past the frame for no reason.
+      /setDrag\(Math\.max\(0, y - startY\.current\)\)/.test(sheet) &&
+      // A third of its height OR a flick: distance alone punishes a fast flick
+      // that did not travel far.
+      /if \(drag > Math\.max\(80, h \* 0\.33\)\) onClose\(\)/.test(sheet) &&
+      /onTouchMove=/.test(sheet) &&
+      // z-[95] is ABOVE the tab bar's z-40. A sheet that stops short of it
+      // leaves a strip of navigation lit over the thing it is covering.
+      /className="fixed inset-0 z-\[95\]"/.test(sheet)
+    )
+  })(),
+  "        components/explore/mobile-filter-sheet.tsx",
 )
 
 check(

@@ -3105,6 +3105,44 @@ check(
   "        components/member/member-profile.tsx",
 )
 
+check(
+  "you cannot open the sell form without an account, however you got there",
+  (() => {
+    // Signed out, this drew the whole listing form — eight photographs, a
+    // category picker, a price, a size, a condition — and then failed at
+    // Publică, because a listing needs a creator row and there is nobody to hang
+    // one on. Ten minutes of work thrown away at the last step, which is the
+    // worst place a marketplace can put a login wall.
+    //
+    // ONE GUARD PER ROUTE, NOT PER DOOR. "Vinde" is in the desktop header, the
+    // phone's tab bar, the account drawer, the hero, the empty orders screen,
+    // the drafts list and the profile — seven entry points on five platforms,
+    // and the native shells reach the route through their own navigation too.
+    // Guarding the callers means seven checks that have to agree; guarding the
+    // route means the answer is the same however you arrived, including by
+    // typing the address.
+    //
+    // BOTH ROUTES. The intercepted one catches the CLIENT navigation, which is
+    // how almost everybody arrives — guarding only the full page would leave the
+    // sheet opening over the feed and failing at the end exactly as before.
+    const full = readFileSync("app/(marketing)/products/new/page.tsx", "utf8")
+    const modal = readFileSync("app/(marketing)/@modal/(.)products/new/page.tsx", "utf8")
+    return [full, modal].every(
+      (f) =>
+        // getUser, not getSession: this decides whether a page renders at all,
+        // and a session read from an unverified cookie is not something to make
+        // that decision on.
+        /auth\.getUser\(\)/.test(f) &&
+        /if \(!signedIn\)/.test(f) &&
+        // `?redirect=` is the parameter the login page already honours, so
+        // signing in lands back on the form — with the draft id intact.
+        /redirect\(`\/login\?redirect=\$\{encodeURIComponent\(back\)\}`\)/.test(f) &&
+        /draft \? `\/products\/new\?draft=\$\{encodeURIComponent\(draft\)\}` : "\/products\/new"/.test(f),
+    )
+  })(),
+  "        app/(marketing)/products/new/page.tsx",
+)
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) {
   console.log("Failing:", failures.join(", "))

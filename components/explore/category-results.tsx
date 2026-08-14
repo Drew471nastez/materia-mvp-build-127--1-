@@ -404,6 +404,11 @@ export function CategoryResults({
         departmentId={departmentId}
         value={filters}
         onApply={(next) => go(next)}
+        // Sort lives inside the sheet on a phone — one trip for one decision.
+        // The separate bottom sheet stays for the Sortează button beside Filtre,
+        // which is the shortcut for somebody who only wants that.
+        sort={sort}
+        onSortChange={(s) => go(filters, { sort: s })}
       />
       <MobileSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sort} onPick={(s) => go(filters, { sort: s })} />
     </WishlistProvider>
